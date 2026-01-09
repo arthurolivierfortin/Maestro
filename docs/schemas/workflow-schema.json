@@ -1,0 +1,155 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://maestro.dev/schemas/workflow-schema.json",
+  "title": "Workflow",
+  "description": "A B-One Maestro workflow definition",
+  "type": "object",
+  "required": ["id", "name", "version", "nodes"],
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "Reference to this schema"
+    },
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique identifier for the workflow"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100,
+      "description": "Human-readable workflow name"
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 500,
+      "description": "Detailed workflow description"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$",
+      "description": "Semantic version (e.g., 1.0.0)"
+    },
+    "author": {
+      "type": "string",
+      "description": "Author email or username"
+    },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Creation timestamp (ISO 8601)"
+    },
+    "updatedAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Last update timestamp (ISO 8601)"
+    },
+    "nodes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/definitions/node"
+      },
+      "description": "Array of workflow nodes"
+    },
+    "connections": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/connection"
+      },
+      "description": "Array of connections between nodes"
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "tags": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "estimatedDuration": {
+          "type": "string",
+          "description": "ISO 8601 duration (e.g., PT30M for 30 minutes)"
+        },
+        "requiredTools": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "node": {
+      "type": "object",
+      "required": ["id", "type", "name"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique node identifier within workflow"
+        },
+        "type": {
+          "type": "string",
+          "enum": ["AgentNode", "ToolNode", "DecisionNode", "ValidatorNode", "TriggerNode"],
+          "description": "Node type"
+        },
+        "name": {
+          "type": "string",
+          "description": "Human-readable node name"
+        },
+        "position": {
+          "type": "object",
+          "required": ["x", "y"],
+          "properties": {
+            "x": { "type": "number" },
+            "y": { "type": "number" }
+          },
+          "description": "Node position in visual editor"
+        },
+        "agentType": {
+          "type": "string",
+          "enum": ["Planner", "Coder", "Tester", "Reviewer", "Debugger"],
+          "description": "Agent type (required for AgentNode)"
+        },
+        "toolType": {
+          "type": "string",
+          "enum": ["Bash", "Git", "FileSystem"],
+          "description": "Tool type (required for ToolNode)"
+        },
+        "config": {
+          "type": "object",
+          "description": "Node-specific configuration"
+        }
+      }
+    },
+    "connection": {
+      "type": "object",
+      "required": ["id", "from", "to"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique connection identifier"
+        },
+        "from": {
+          "type": "string",
+          "description": "Source node ID"
+        },
+        "to": {
+          "type": "string",
+          "description": "Target node ID"
+        },
+        "fromOutput": {
+          "type": "string",
+          "description": "Output port name from source node"
+        },
+        "toInput": {
+          "type": "string",
+          "description": "Input port name on target node"
+        },
+        "condition": {
+          "type": "object",
+          "description": "Optional conditional logic for connection"
+        }
+      }
+    }
+  }
+}

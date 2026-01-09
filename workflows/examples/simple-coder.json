@@ -1,0 +1,74 @@
+{
+  "$schema": "../docs/schemas/workflow-schema.json",
+  "id": "a1b2c3d4-e5f6-4789-a012-3456789abcde",
+  "name": "Simple Code Generator",
+  "description": "A basic workflow that uses a Coder agent to generate code based on a task description",
+  "version": "1.0.0",
+  "author": "maestro-team@example.com",
+  "createdAt": "2024-01-09T00:00:00Z",
+  "updatedAt": "2024-01-09T00:00:00Z",
+  "nodes": [
+    {
+      "id": "trigger-1",
+      "type": "TriggerNode",
+      "name": "Manual Trigger",
+      "position": { "x": 100, "y": 200 },
+      "config": {
+        "triggerType": "manual",
+        "inputSchema": {
+          "task": {
+            "type": "string",
+            "description": "Task description for code generation"
+          }
+        }
+      }
+    },
+    {
+      "id": "coder-1",
+      "type": "AgentNode",
+      "agentType": "Coder",
+      "name": "Generate Code",
+      "position": { "x": 300, "y": 200 },
+      "config": {
+        "language": "csharp",
+        "framework": "dotnet",
+        "includeTests": false,
+        "tools": ["filesystem", "bash"]
+      }
+    },
+    {
+      "id": "validator-1",
+      "type": "ValidatorNode",
+      "name": "Validate Output",
+      "position": { "x": 500, "y": 200 },
+      "config": {
+        "validationType": "syntax",
+        "rules": {
+          "requireCompilation": true,
+          "noWarnings": false
+        }
+      }
+    }
+  ],
+  "connections": [
+    {
+      "id": "conn-1",
+      "from": "trigger-1",
+      "to": "coder-1",
+      "fromOutput": "task",
+      "toInput": "requirements"
+    },
+    {
+      "id": "conn-2",
+      "from": "coder-1",
+      "to": "validator-1",
+      "fromOutput": "code",
+      "toInput": "content"
+    }
+  ],
+  "metadata": {
+    "tags": ["beginner", "code-generation", "simple"],
+    "estimatedDuration": "PT5M",
+    "requiredTools": ["dotnet"]
+  }
+}
