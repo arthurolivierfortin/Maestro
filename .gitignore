@@ -5,6 +5,11 @@ Thumbs.db
 *.swo
 *~
 
+# Maestro Runtime
+.maestro/logs/
+.maestro/cache/
+.maestro/temp/
+
 # IDE and Editors
 .vscode/
 .idea/

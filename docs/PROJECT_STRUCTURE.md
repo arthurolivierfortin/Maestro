@@ -31,6 +31,14 @@ Meastro/
 │       ├── architecture-overview.png
 │       └── workflow-example.png
 │
+├── .maestro/                          # Maestro configuration and artifacts
+│   ├── artifacts/                     # Predefined artifact directory
+│   │   ├── scripts/                   # Shell scripts available as tools
+│   │   ├── tools/                     # Custom executables
+│   │   └── templates/                 # Code templates
+│   ├── logs/                          # Execution logs
+│   └── config.json                    # Artifact detection rules
+│
 ├── workflows/                         # User-defined workflows (versioned)
 │   ├── examples/                      # Example workflows
 │   │   ├── simple-coder.json
@@ -96,7 +104,10 @@ Meastro/
 │   │   │   │   ├── ILLMGateway.cs      # Critical abstraction
 │   │   │   │   ├── IGitService.cs
 │   │   │   │   ├── IFileSystemService.cs
-│   │   │   │   └── IToolExecutor.cs
+│   │   │   │   ├── IToolExecutor.cs
+│   │   │   │   ├── IExecutionMonitor.cs   # Monitoring abstraction
+│   │   │   │   ├── IArtifactScanner.cs    # Artifact detection
+│   │   │   │   └── IFileWatcher.cs        # File watching
 │   │   │   ├── Services/
 │   │   │   │   ├── WorkflowOrchestrator.cs
 │   │   │   │   ├── ExecutionEngine.cs
@@ -124,6 +135,16 @@ Meastro/
 │   │   │   │   │   └── ModelConfiguration.cs
 │   │   │   │   └── Configuration/
 │   │   │   │       └── LLMGatewayOptions.cs
+│   │   │   ├── Monitoring/            # Execution monitoring
+│   │   │   │   ├── ExecutionMonitor.cs
+│   │   │   │   ├── TerminalOutputStreamer.cs
+│   │   │   │   ├── ExecutionStateTracker.cs
+│   │   │   │   └── ExecutionLogger.cs
+│   │   │   ├── Artifacts/             # Artifact detection
+│   │   │   │   ├── ArtifactScanner.cs
+│   │   │   │   ├── ArtifactIndexer.cs
+│   │   │   │   ├── FileWatcher.cs
+│   │   │   │   └── ArtifactValidator.cs
 │   │   │   ├── Git/
 │   │   │   │   ├── GitService.cs
 │   │   │   │   ├── GitCommandExecutor.cs
@@ -144,9 +165,11 @@ Meastro/
 │   │   │   │   ├── WorkflowController.cs
 │   │   │   │   ├── ExecutionController.cs
 │   │   │   │   ├── AgentController.cs
-│   │   │   │   └── ToolController.cs
+│   │   │   │   ├── ToolController.cs
+│   │   │   │   └── ArtifactController.cs  # Artifact management
 │   │   │   ├── Hubs/                  # SignalR for real-time
-│   │   │   │   └── ExecutionHub.cs
+│   │   │   │   ├── ExecutionHub.cs    # Execution updates
+│   │   │   │   └── MonitoringHub.cs   # Live monitoring events
 │   │   │   ├── Middleware/
 │   │   │   │   ├── ExceptionHandlingMiddleware.cs
 │   │   │   │   └── RequestLoggingMiddleware.cs
@@ -227,7 +250,14 @@ Meastro/
 │       │   ├── Execution/
 │       │   │   ├── ExecutionPanel.tsx
 │       │   │   ├── ExecutionStatus.tsx
-│       │   │   └── ExecutionLogs.tsx
+│       │   │   ├── ExecutionLogs.tsx
+│       │   │   ├── TerminalOutput.tsx     # Live terminal streaming
+│       │   │   ├── ProgressTracker.tsx    # Step-by-step progress
+│       │   │   └── ExecutionHistory.tsx   # Historical executions
+│       │   ├── Monitoring/                # Monitoring components
+│       │   │   ├── NodeStateIndicator.tsx
+│       │   │   ├── ExecutionTimeline.tsx
+│       │   │   └── LiveMetrics.tsx
 │       │   └── Common/
 │       │       ├── Button.tsx
 │       │       ├── Input.tsx
@@ -276,6 +306,99 @@ Meastro/
     │   ├── node.schema.json
     │   └── agent.schema.json
     └── README.md                      # Shared resources documentation
+```
+
+---
+
+## 📊 Monitoring and Observability
+
+Maestro includes **comprehensive monitoring** as a core feature, not an afterthought.
+
+### Monitoring Components
+
+#### Backend (Infrastructure Layer)
+
+- **ExecutionMonitor**: Publishes real-time events during workflow execution
+- **TerminalOutputStreamer**: Streams live terminal output to frontend via SignalR
+- **ExecutionStateTracker**: Tracks node states (pending, running, completed, failed)
+- **ExecutionLogger**: Persists execution logs to `.maestro/logs/`
+
+#### Frontend (Monitoring Components)
+
+- **TerminalOutput**: Displays live terminal output with color coding and syntax highlighting
+- **ProgressTracker**: Shows step-by-step progress (similar to GitHub Copilot task steps)
+- **NodeStateIndicator**: Visual indicators for each node's current state
+- **ExecutionTimeline**: Timeline view showing duration of each node
+- **LiveMetrics**: Real-time metrics (execution time, nodes completed, etc.)
+
+### Real-Time Communication
+
+- **SignalR Hub**: `ExecutionHub` pushes updates to connected clients
+- **Event Types**: NodeStarted, NodeCompleted, NodeFailed, TerminalOutput, ProgressUpdate
+- **Reconnection**: Automatic reconnection with state recovery on disconnect
+
+### Desktop Application Requirements
+
+The monitoring features **require a desktop application**:
+
+1. **Embedded Terminal**: Native terminal integration for live output streaming
+2. **Process Management**: Direct control over long-running processes
+3. **Performance**: No web latency for real-time updates
+4. **File System Access**: Unrestricted access to logs and execution history
+
+---
+
+## 🗂️ Artifact Detection and Integration
+
+Maestro automatically detects and integrates artifacts from the `.maestro/artifacts/` directory.
+
+### Artifact Directory Structure
+
+```
+.maestro/
+├── artifacts/
+│   ├── scripts/           # Shell scripts (.sh, .ps1, .py)
+│   ├── tools/             # Custom executables
+│   └── templates/         # Code templates
+├── logs/                  # Execution logs (auto-generated)
+└── config.json            # Artifact detection configuration
+```
+
+### Artifact Detection Flow
+
+1. **Scan**: `ArtifactScanner` scans `.maestro/artifacts/` on startup
+2. **Index**: `ArtifactIndexer` creates an index with metadata (type, path, last modified)
+3. **Watch**: `FileWatcher` monitors for changes made by external editors
+4. **Validate**: `ArtifactValidator` validates artifacts before making them available
+5. **Expose**: Artifacts become available as tools in workflow nodes
+
+### External Editor Integration
+
+- **No Built-in Editing**: All code/script editing happens in external editors (VS Code, Visual Studio)
+- **File Watching**: Maestro watches for file changes and auto-refreshes artifacts
+- **Validation on Change**: Modified artifacts are re-validated before being available
+- **Hot Reload**: Changes to artifacts are reflected in running workflows (where safe)
+
+### Configuration Example
+
+`.maestro/config.json`:
+```json
+{
+  "artifacts": {
+    "scanOnStartup": true,
+    "watchForChanges": true,
+    "validationRules": {
+      "scripts": {
+        "allowedExtensions": [".sh", ".ps1", ".py", ".js"],
+        "maxSizeKB": 1024
+      },
+      "tools": {
+        "allowedExtensions": [".exe", ".dll"],
+        "requireSignature": false
+      }
+    }
+  }
+}
 ```
 
 ---

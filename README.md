@@ -19,13 +19,16 @@ B-One Maestro is a desktop application designed to manage and execute autonomous
 - **Agent Orchestration**: Coordinate specialized agents (Planner, Tester, Coder, Reviewer) working together toward common goals
 - **Long-Running Automation**: Support workflows that run for minutes, hours, or potentially days in the background
 - **Developer-Centric**: Embedded terminal, git integration, and filesystem access for real engineering workflows
+- **Desktop Application**: Native desktop app with embedded terminals and execution control
+- **Comprehensive Monitoring**: Real-time observability of workflow execution, including live terminal output, execution state, and step-by-step progress
+- **Artifact Integration**: Automatically detects and integrates files, scripts, and tools from predefined directories
 
 ### What Maestro is NOT
 
 - ❌ **Not an AI model**: Maestro does not implement or train models
 - ❌ **Not model-specific**: Zero direct dependencies on OpenAI, Anthropic, or any specific provider
-- ❌ **Not a code editor**: It orchestrates workflows; it's not an IDE replacement
-- ❌ **Not a monitoring tool**: Focus is on execution, not observability (though it may integrate with such tools)
+- ❌ **Not a code editor or IDE**: Manual coding is done in external tools (e.g., VS Code, Visual Studio); Maestro orchestrates workflows and integrates the results
+- ❌ **Not a web application**: Desktop-first architecture with native terminal integration and execution control
 - ❌ **Not a monolithic agent**: Agents are specialized, composable, and workflow-driven
 
 ---
@@ -190,6 +193,101 @@ An **Execution Context** encapsulates the runtime state of a workflow execution.
 
 ---
 
+## 📊 Monitoring and Observability
+
+Maestro provides **comprehensive real-time monitoring** of workflow execution. Unlike traditional monitoring tools focused on system metrics, Maestro's monitoring is workflow-centric and developer-friendly.
+
+### Core Monitoring Features
+
+#### 1. **Live Terminal Output**
+- Real-time streaming of terminal output from tool executions
+- Embedded terminal view showing bash commands, git operations, and tool results
+- Color-coded output with syntax highlighting
+- Scrollable history with search and filtering
+
+#### 2. **Execution State Tracking**
+- Visual indicators for each node's state (pending, running, completed, failed)
+- Workflow-level progress tracking (e.g., "3 of 8 nodes completed")
+- Step-by-step execution timeline showing duration of each node
+- State persistence across application restarts
+
+#### 3. **Progress Visualization**
+- Real-time progress updates similar to GitHub Copilot task steps
+- Each workflow step shows:
+  - Current status with clear visual indicators
+  - Estimated time remaining (when applicable)
+  - Input/output data preview
+  - Error messages and stack traces (on failure)
+- Animated transitions between node states
+
+#### 4. **Execution History**
+- Complete log of all workflow executions
+- Filterable by workflow, date, status, and duration
+- Detailed execution reports with:
+  - Node-by-node results
+  - Agent decisions and reasoning
+  - Tool invocations and outputs
+  - Performance metrics
+
+### Implementation
+
+- **Frontend**: SignalR hub for real-time updates pushed from backend
+- **Backend**: ExecutionMonitor service publishing events during workflow execution
+- **Storage**: Execution logs stored as JSON files (optionally in database for querying)
+
+### Why Desktop Application
+
+The monitoring and execution control requirements **necessitate a desktop application**:
+
+- **Embedded Terminals**: Native terminal integration for live output streaming
+- **Process Management**: Direct control over long-running processes
+- **File System Access**: Unrestricted access to local files and directories
+- **Performance**: Real-time updates without web latency concerns
+- **Security**: No need to expose execution control over the network
+
+---
+
+## 🗂️ Artifact Detection and Integration
+
+Maestro **automatically detects and integrates artifacts** from predefined directories, enabling seamless workflow composition.
+
+### Artifact Types
+
+1. **Code Files**: `.cs`, `.ts`, `.py`, `.js`, etc. from source directories
+2. **Scripts**: Shell scripts, PowerShell scripts, Python scripts from `scripts/` directory
+3. **Tools**: Custom executables and binaries from `tools/` directory
+4. **Configurations**: YAML, JSON, and XML configuration files
+5. **Documentation**: Markdown files, README files, and inline code documentation
+
+### Artifact Discovery
+
+```
+project-root/
+├── .maestro/
+│   ├── artifacts/              # Predefined artifact directory
+│   │   ├── scripts/           # Shell scripts available as tools
+│   │   ├── tools/             # Custom executables
+│   │   └── templates/         # Code templates
+│   └── config.json            # Artifact detection rules
+```
+
+### Integration Workflow
+
+1. **Scan**: Application scans predefined directories on startup and file system changes
+2. **Index**: Artifacts are indexed with metadata (type, path, last modified)
+3. **Expose**: Artifacts become available as tools in workflow nodes
+4. **Execute**: Agents can invoke artifacts during workflow execution
+5. **Monitor**: Artifact executions are monitored and logged
+
+### External Editor Integration
+
+- **No built-in code editing**: All coding happens in external editors (VS Code, Visual Studio, etc.)
+- **File watcher**: Maestro watches for file changes made by external editors
+- **Auto-refresh**: Artifacts and code files are automatically refreshed when modified externally
+- **Validation**: Modified artifacts are validated before being available in workflows
+
+---
+
 ## 🔧 Backend Architecture
 
 ### Technology Stack
@@ -282,10 +380,11 @@ Workflows are **stored as JSON files** within the Git repository. This provides:
 ### Non-Goals (Out of Scope)
 
 1. **Model Training**: Maestro does not train or fine-tune models
-2. **IDE Features**: Not a replacement for VS Code, Visual Studio, or JetBrains
+2. **Code Editing**: Not a replacement for VS Code, Visual Studio, or JetBrains — manual coding happens in external editors
 3. **Project Management**: No issue tracking, no sprint management
 4. **General-Purpose Automation**: Focus is software engineering, not marketing or business processes
 5. **Multi-User Collaboration**: Initial focus is single-user desktop application
+6. **Web Application**: Desktop-only; web UI would compromise terminal integration and execution control
 
 ### Technical Constraints
 
