@@ -1,0 +1,16 @@
+{
+  "artifacts": {
+    "scanOnStartup": true,
+    "watchForChanges": true,
+    "validationRules": {
+      "scripts": {
+        "allowedExtensions": [".sh", ".ps1", ".py", ".js"],
+        "maxSizeKB": 1024
+      },
+      "tools": {
+        "allowedExtensions": [".exe", ".dll"],
+        "requireSignature": false
+      }
+    }
+  }
+}
