@@ -89,7 +89,127 @@ The AI landscape evolves rapidly. New models emerge, APIs change, and organizati
 
 ---
 
-## 🧩 Core Abstractions
+## � Model Registry & Auto-Optimization
+
+### Model as a First-Class Resource
+
+Maestro treats **AI Models as first-class resources** with rich metadata, enabling intelligent model selection and workflow optimization.
+
+#### Model Definition
+
+Each model in the registry includes:
+
+| Property | Description |
+|----------|-------------|
+| `id` | Unique identifier (e.g., `gpt-4o`, `claude-3-opus`, `llama3-70b`) |
+| `provider` | Provider adapter (OpenAI, Anthropic, Ollama, Azure, etc.) |
+| `displayName` | Human-readable name |
+| `capabilities` | Array of capabilities (`code-generation`, `reasoning`, `vision`, `tool-use`, etc.) |
+| `contextWindow` | Maximum context size in tokens |
+| `costPerInputToken` | Cost per input token (USD) |
+| `costPerOutputToken` | Cost per output token (USD) |
+| `speedRating` | Relative speed (1-10, higher = faster) |
+| `qualityRating` | Relative quality for different tasks |
+| `strengths` | What this model excels at |
+| `weaknesses` | Known limitations |
+| `maxOutputTokens` | Maximum output size |
+| `supportsStreaming` | Whether streaming is supported |
+| `supportsToolCalls` | Whether function/tool calling is supported |
+
+#### Example Model Definition
+
+```json
+{
+  "id": "gpt-4o",
+  "provider": "openai",
+  "displayName": "GPT-4o",
+  "capabilities": ["code-generation", "reasoning", "vision", "tool-use"],
+  "contextWindow": 128000,
+  "costPerInputToken": 0.000005,
+  "costPerOutputToken": 0.000015,
+  "speedRating": 8,
+  "qualityRating": {
+    "code-generation": 9,
+    "reasoning": 9,
+    "summarization": 8,
+    "creative-writing": 7
+  },
+  "strengths": ["Fast responses", "Excellent code generation", "Good tool use"],
+  "weaknesses": ["May be verbose", "Occasional hallucinations on niche topics"],
+  "maxOutputTokens": 16384,
+  "supportsStreaming": true,
+  "supportsToolCalls": true
+}
+```
+
+### Models Panel (UI)
+
+The **Models Panel** provides a centralized interface for:
+
+1. **Model Configuration**: Add, edit, and remove model definitions
+2. **Capability Comparison**: Side-by-side comparison of model capabilities
+3. **Cost Analysis**: Visualize cost per task type
+4. **Performance Metrics**: Track response times and quality scores
+5. **Usage Statistics**: Monitor token usage and costs over time
+
+### Model Assignment
+
+Models are attached to **Agent Blocks** in workflows:
+
+```json
+{
+  "id": "agent-coder-1",
+  "blockType": "agent",
+  "config": {
+    "agentType": "Coder",
+    "modelId": "gpt-4o",
+    "fallbackModelId": "claude-3-sonnet",
+    "maxTokens": 4096
+  }
+}
+```
+
+### Auto-Optimization Vision (Future)
+
+Maestro will enable **self-optimizing workflows** through:
+
+#### 1. Benchmarking Engine
+- Run workflows with different model configurations
+- Measure: quality, speed, cost, token efficiency
+- Compare results across model variants
+
+#### 2. Optimization Strategies
+- **Cost Optimization**: Find the cheapest model that meets quality threshold
+- **Quality Optimization**: Find the best model within budget
+- **Speed Optimization**: Minimize latency for time-critical tasks
+- **Hybrid Optimization**: Balance cost/quality/speed with weights
+
+#### 3. Adaptive Model Selection
+- Learn from execution history which models perform best for specific task types
+- Automatically suggest or apply model changes
+- A/B testing of model configurations
+
+#### 4. Workflow Self-Improvement
+- Run shadow executions with alternative models
+- Track quality metrics over time
+- Propose workflow modifications to reduce cost or improve output
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    Auto-Optimization Loop                    │
+├─────────────────────────────────────────────────────────────┤
+│  1. Execute workflow with current model configuration       │
+│  2. Collect metrics (cost, quality, speed)                  │
+│  3. Run benchmark with alternative models (shadow mode)     │
+│  4. Compare results against optimization goal               │
+│  5. Propose/apply model changes if improvement found        │
+│  6. Track improvements over time                            │
+└─────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## �🧩 Core Abstractions
 
 ### Workflow
 

@@ -1,6 +1,6 @@
 /**
  * Execution Timeline Component (Placeholder)
- * 
+ *
  * In production, this would show step-by-step execution progress
  * similar to GitHub Copilot task steps.
  */

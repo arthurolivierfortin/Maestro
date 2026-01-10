@@ -1,0 +1,79 @@
+/**
+ * Top Bar Styles - Responds to preset-specific spacing and typography
+ */
+
+.top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: auto;
+  min-height: 48px;
+  padding: var(--spacing-sm) var(--spacing-md);
+  background-color: var(--surface);
+  border-bottom: var(--border-width, 1px) var(--border-style, solid) var(--border);
+  box-shadow: var(--shadow-sm);
+  font-family: var(--font-family-base);
+
+  &__left {
+    display: flex;
+    align-items: baseline;
+    gap: var(--spacing-md);
+  }
+
+  &__title {
+    margin: 0;
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-semibold);
+    color: var(--text-primary);
+    line-height: var(--line-height-tight);
+  }
+
+  &__subtitle {
+    font-size: var(--font-size-xs);
+    color: var(--text-tertiary);
+    line-height: var(--line-height-tight);
+  }
+
+  &__right {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+  }
+
+  &__settings-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: calc(var(--button-height, 32px) * 0.9);
+    height: calc(var(--button-height, 32px) * 0.9);
+    padding: 0;
+    background: none;
+    border: none;
+    border-radius: var(--radius-md);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 150ms ease-in-out;
+
+    &:hover {
+      background-color: var(--surface-hover);
+      color: var(--text-primary);
+    }
+
+    &:active {
+      transform: scale(0.95);
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--accent-primary);
+      outline-offset: 2px;
+    }
+  }
+}
+
+@media (max-width: 768px) {
+  .top-bar {
+    &__subtitle {
+      display: none;
+    }
+  }
+}

@@ -1,0 +1,410 @@
+/**
+ * Style Presets - Dramatically Different Visual Identities
+ * 
+ * Three distinct applications built on the same engine:
+ * 1. Minimal Editor: Typography-first, almost invisible UI, writing/code-focused
+ * 2. Workflow Studio: Structured panels, visible boundaries, expressive
+ * 3. Dense IDE: Compact, information-dense, power-user workspace
+ * 
+ * Each preset redefines ALL visual dimensions: typography, spacing, density,
+ * component appearance, and overall mood.
+ */
+
+/* ========================================
+   PRESET 1: MINIMAL EDITOR (Claude-inspired)
+   Typography-first, extremely calm, almost invisible UI chrome
+   ======================================== */
+
+[data-preset='minimal'][data-theme='light'] {
+  /* Typography - Elegant serif/humanist, larger sizes, more breathing room */
+  --font-family-base: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-family-mono: 'Berkeley Mono', 'Fira Code', 'Monaco', monospace;
+  --font-size-base: 15px;
+  --font-size-sm: 13px;
+  --font-size-xs: 11px;
+  --font-size-lg: 17px;
+  --font-weight-normal: 400;
+  --font-weight-medium: 450;
+  --font-weight-semibold: 550;
+  --line-height-normal: 1.6;
+  --line-height-tight: 1.4;
+  
+  /* Spacing - Airy, generous */
+  --spacing-xs: 6px;
+  --spacing-sm: 12px;
+  --spacing-md: 20px;
+  --spacing-lg: 32px;
+  --spacing-xl: 48px;
+  
+  /* Borders - Almost invisible, very thin */
+  --border-width: 0.5px;
+  --border-style: solid;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  
+  /* Shadows - Very subtle, atmospheric */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.02);
+  --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.03);
+  --shadow-lg: 0 4px 16px rgba(0, 0, 0, 0.04);
+  
+  /* Colors - Ultra low contrast, calm */
+  --background: #fefefe;
+  --background-secondary: #fafafa;
+  --background-tertiary: #f5f5f5;
+  --surface: #fefefe;
+  --surface-hover: #fafafa;
+  
+  --text-primary: #2a2a2a;
+  --text-secondary: #737373;
+  --text-tertiary: #a3a3a3;
+  
+  --border: #efefef;
+  --border-hover: #e5e5e5;
+  
+  --sidebar-background: #fafafa;
+  --sidebar-border: rgba(0, 0, 0, 0.04);
+  --sidebar-item-hover: rgba(0, 0, 0, 0.02);
+  --sidebar-item-active: rgba(0, 0, 0, 0.03);
+  
+  --editor-background: #fefefe;
+  --editor-gutter: #fafafa;
+  
+  --accent-primary: #3b7ddd;
+  --accent-hover: #2563eb;
+  
+  /* Component-specific */
+  --button-height: 36px;
+  --input-height: 40px;
+  --sidebar-width: 280px;
+}
+
+[data-preset='minimal'][data-theme='dark'] {
+  /* Typography - Same elegant approach */
+  --font-family-base: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-family-mono: 'Berkeley Mono', 'Fira Code', 'Monaco', monospace;
+  --font-size-base: 15px;
+  --font-size-sm: 13px;
+  --font-size-xs: 11px;
+  --font-size-lg: 17px;
+  --font-weight-normal: 400;
+  --font-weight-medium: 450;
+  --font-weight-semibold: 550;
+  --line-height-normal: 1.6;
+  --line-height-tight: 1.4;
+  
+  /* Spacing - Airy */
+  --spacing-xs: 6px;
+  --spacing-sm: 12px;
+  --spacing-md: 20px;
+  --spacing-lg: 32px;
+  --spacing-xl: 48px;
+  
+  /* Borders - Almost invisible */
+  --border-width: 0.5px;
+  --border-style: solid;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  
+  /* Shadows - Very subtle */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.2);
+  --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 4px 16px rgba(0, 0, 0, 0.4);
+  
+  /* Colors - Deep black, ultra low contrast */
+  --background: #0d0d0d;
+  --background-secondary: #161616;
+  --background-tertiary: #1f1f1f;
+  --surface: #0d0d0d;
+  --surface-hover: #161616;
+  
+  --text-primary: #e8e8e8;
+  --text-secondary: #9a9a9a;
+  --text-tertiary: #6a6a6a;
+  
+  --border: rgba(255, 255, 255, 0.06);
+  --border-hover: rgba(255, 255, 255, 0.1);
+  
+  --sidebar-background: #161616;
+  --sidebar-border: rgba(255, 255, 255, 0.04);
+  --sidebar-item-hover: rgba(255, 255, 255, 0.03);
+  --sidebar-item-active: rgba(255, 255, 255, 0.05);
+  
+  --editor-background: #0d0d0d;
+  --editor-gutter: #161616;
+  
+  --accent-primary: #5b9eff;
+  --accent-hover: #76aaff;
+  
+  /* Component-specific */
+  --button-height: 36px;
+  --input-height: 40px;
+  --sidebar-width: 280px;
+}
+
+/* ========================================
+   PRESET 2: WORKFLOW STUDIO (n8n-inspired)
+   Structured, visible panels, clearer boundaries, more presence
+   ======================================== */
+
+[data-preset='structured'][data-theme='light'] {
+  /* Typography - Clear sans-serif, standard sizes, readable */
+  --font-family-base: 'Open Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-family-mono: 'Roboto Mono', 'Consolas', 'Monaco', monospace;
+  --font-size-base: 14px;
+  --font-size-sm: 12px;
+  --font-size-xs: 11px;
+  --font-size-lg: 16px;
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --line-height-normal: 1.5;
+  --line-height-tight: 1.3;
+  
+  /* Spacing - Comfortable, structured */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 40px;
+  
+  /* Borders - Visible, defined */
+  --border-width: 1px;
+  --border-style: solid;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  
+  /* Shadows - Noticeable, defines layers */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
+  --shadow-md: 0 3px 10px rgba(0, 0, 0, 0.12);
+  --shadow-lg: 0 6px 20px rgba(0, 0, 0, 0.15);
+  
+  /* Colors - Clear separation, warmer tones */
+  --background: #f7f7f7;
+  --background-secondary: #ffffff;
+  --background-tertiary: #ebebeb;
+  --surface: #ffffff;
+  --surface-hover: #f9f9f9;
+  
+  --text-primary: #1f1f1f;
+  --text-secondary: #5f5f5f;
+  --text-tertiary: #8f8f8f;
+  
+  --border: #d4d4d4;
+  --border-hover: #b0b0b0;
+  
+  --sidebar-background: #ffffff;
+  --sidebar-border: #d4d4d4;
+  --sidebar-item-hover: #f5f5f5;
+  --sidebar-item-active: #ebebeb;
+  
+  --editor-background: #fafafa;
+  --editor-gutter: #f0f0f0;
+  
+  --accent-primary: #7c3aed;
+  --accent-hover: #6d28d9;
+  
+  /* Component-specific */
+  --button-height: 32px;
+  --input-height: 36px;
+  --sidebar-width: 260px;
+}
+
+[data-preset='structured'][data-theme='dark'] {
+  /* Typography - Clear sans-serif */
+  --font-family-base: 'Open Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-family-mono: 'Roboto Mono', 'Consolas', 'Monaco', monospace;
+  --font-size-base: 14px;
+  --font-size-sm: 12px;
+  --font-size-xs: 11px;
+  --font-size-lg: 16px;
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --line-height-normal: 1.5;
+  --line-height-tight: 1.3;
+  
+  /* Spacing - Comfortable */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 40px;
+  
+  /* Borders - Visible */
+  --border-width: 1px;
+  --border-style: solid;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  
+  /* Shadows - Noticeable */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 3px 10px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 6px 20px rgba(0, 0, 0, 0.5);
+  
+  /* Colors - Rich darks, clear separation */
+  --background: #1a1a1a;
+  --background-secondary: #262626;
+  --background-tertiary: #1f1f1f;
+  --surface: #262626;
+  --surface-hover: #2d2d2d;
+  
+  --text-primary: #f5f5f5;
+  --text-secondary: #b0b0b0;
+  --text-tertiary: #808080;
+  
+  --border: #404040;
+  --border-hover: #555555;
+  
+  --sidebar-background: #1f1f1f;
+  --sidebar-border: #333333;
+  --sidebar-item-hover: #2a2a2a;
+  --sidebar-item-active: #333333;
+  
+  --editor-background: #1a1a1a;
+  --editor-gutter: #232323;
+  
+  --accent-primary: #9b6dff;
+  --accent-hover: #b08aff;
+  
+  /* Component-specific */
+  --button-height: 32px;
+  --input-height: 36px;
+  --sidebar-width: 260px;
+}
+
+/* ========================================
+   PRESET 3: DENSE IDE (Power-user workspace)
+   Compact, information-dense, professional engineering tool
+   ======================================== */
+
+[data-preset='balanced'][data-theme='light'] {
+  /* Typography - System font, compact, utilitarian */
+  --font-family-base: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --font-family-mono: 'Cascadia Code', 'SF Mono', 'Consolas', monospace;
+  --font-size-base: 13px;
+  --font-size-sm: 11px;
+  --font-size-xs: 10px;
+  --font-size-lg: 14px;
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --line-height-normal: 1.4;
+  --line-height-tight: 1.2;
+  
+  /* Spacing - Compact, efficient */
+  --spacing-xs: 2px;
+  --spacing-sm: 4px;
+  --spacing-md: 8px;
+  --spacing-lg: 16px;
+  --spacing-xl: 24px;
+  
+  /* Borders - Functional, efficient */
+  --border-width: 1px;
+  --border-style: solid;
+  --radius-sm: 2px;
+  --radius-md: 3px;
+  --radius-lg: 4px;
+  
+  /* Shadows - Minimal, functional */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.1);
+  --shadow-md: 0 2px 6px rgba(0, 0, 0, 0.15);
+  --shadow-lg: 0 4px 12px rgba(0, 0, 0, 0.2);
+  
+  /* Colors - Neutral, functional, VS Code light */
+  --background: #f3f3f3;
+  --background-secondary: #ffffff;
+  --background-tertiary: #e8e8e8;
+  --surface: #ffffff;
+  --surface-hover: #f5f5f5;
+  
+  --text-primary: #383838;
+  --text-secondary: #6e6e6e;
+  --text-tertiary: #9e9e9e;
+  
+  --border: #cccccc;
+  --border-hover: #b3b3b3;
+  
+  --sidebar-background: #f3f3f3;
+  --sidebar-border: #d0d0d0;
+  --sidebar-item-hover: #e0e0e0;
+  --sidebar-item-active: #d8d8d8;
+  
+  --editor-background: #ffffff;
+  --editor-gutter: #f3f3f3;
+  
+  --accent-primary: #0078d4;
+  --accent-hover: #005a9e;
+  
+  /* Component-specific */
+  --button-height: 26px;
+  --input-height: 28px;
+  --sidebar-width: 220px;
+}
+
+[data-preset='balanced'][data-theme='dark'] {
+  /* Typography - System font, compact */
+  --font-family-base: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --font-family-mono: 'Cascadia Code', 'SF Mono', 'Consolas', monospace;
+  --font-size-base: 13px;
+  --font-size-sm: 11px;
+  --font-size-xs: 10px;
+  --font-size-lg: 14px;
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --line-height-normal: 1.4;
+  --line-height-tight: 1.2;
+  
+  /* Spacing - Compact */
+  --spacing-xs: 2px;
+  --spacing-sm: 4px;
+  --spacing-md: 8px;
+  --spacing-lg: 16px;
+  --spacing-xl: 24px;
+  
+  /* Borders - Functional */
+  --border-width: 1px;
+  --border-style: solid;
+  --radius-sm: 2px;
+  --radius-md: 3px;
+  --radius-lg: 4px;
+  
+  /* Shadows - Minimal */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 2px 6px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 4px 12px rgba(0, 0, 0, 0.6);
+  
+  /* Colors - VS Code dark */
+  --background: #1e1e1e;
+  --background-secondary: #252526;
+  --background-tertiary: #2d2d30;
+  --surface: #252526;
+  --surface-hover: #2a2d2e;
+  
+  --text-primary: #cccccc;
+  --text-secondary: #8e8e8e;
+  --text-tertiary: #6e6e6e;
+  
+  --border: #3e3e42;
+  --border-hover: #4e4e52;
+  
+  --sidebar-background: #252526;
+  --sidebar-border: #3e3e42;
+  --sidebar-item-hover: #2a2d2e;
+  --sidebar-item-active: #37373d;
+  
+  --editor-background: #1e1e1e;
+  --editor-gutter: #252526;
+  
+  --accent-primary: #0e639c;
+  --accent-hover: #1177bb;
+  
+  /* Component-specific */
+  --button-height: 26px;
+  --input-height: 28px;
+  --sidebar-width: 220px;
+}

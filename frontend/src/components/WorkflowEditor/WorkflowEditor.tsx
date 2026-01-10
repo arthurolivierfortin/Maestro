@@ -1,6 +1,6 @@
 /**
  * Workflow Editor Component (Placeholder)
- * 
+ *
  * In production, this would use React Flow or similar library
  * for visual node-based workflow editing.
  */
