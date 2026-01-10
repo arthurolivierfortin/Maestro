@@ -1,18 +1,19 @@
 /**
- * Sidebar Styles
+ * Sidebar Styles - Responds to preset-specific spacing, typography, and density
  */
 
 .sidebar {
-  width: 250px;
+  width: var(--sidebar-width, 250px);
   background-color: var(--sidebar-background);
-  border-right: 1px solid var(--sidebar-border);
+  border-right: var(--border-width, 1px) var(--border-style, solid) var(--sidebar-border);
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  font-family: var(--font-family-base);
 
   &__header {
     padding: var(--spacing-sm) var(--spacing-md);
-    border-bottom: 1px solid var(--sidebar-border);
+    border-bottom: var(--border-width, 1px) var(--border-style, solid) var(--sidebar-border);
   }
 
   &__title {
@@ -22,6 +23,7 @@
     text-transform: uppercase;
     letter-spacing: 0.05em;
     color: var(--text-tertiary);
+    line-height: var(--line-height-tight);
   }
 
   &__nav {
@@ -48,10 +50,12 @@
   text-align: left;
   font-family: var(--font-family-base);
   font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-normal);
+  line-height: var(--line-height-tight);
   color: var(--text-primary);
   text-decoration: none;
   cursor: pointer;
-  transition: background-color var(--transition-fast);
+  transition: background-color 150ms ease-in-out;
   position: relative;
 
   &:hover {
@@ -84,7 +88,7 @@
     width: 16px;
     height: 16px;
     padding: 0;
-    margin-left: -4px;
+    margin-left: calc(var(--spacing-xs) * -1);
     background: none;
     border: none;
     color: var(--text-tertiary);
@@ -101,7 +105,8 @@
     justify-content: center;
     width: 18px;
     height: 18px;
-    font-size: 14px;
+    font-size: var(--font-size-sm);
+    flex-shrink: 0;
   }
 
   &__label {
@@ -115,7 +120,7 @@
 .expand-icon {
   display: inline-block;
   font-size: 10px;
-  transition: transform var(--transition-fast);
+  transition: transform 150ms ease-in-out;
 
   &--expanded {
     transform: rotate(90deg);

@@ -21,29 +21,29 @@ const navigationItems: SidebarItem[] = [
   {
     id: 'home',
     label: 'Home',
-    icon: '🏠',
+    icon: '⌂',
     path: '/',
   },
   {
     id: 'workflows',
     label: 'Workflows',
-    icon: '🔄',
+    icon: '≋',
     path: '/workflows',
-    children: [{ id: 'new-workflow', label: 'New Workflow', icon: '➕', path: '/workflows/new' }],
+    children: [{ id: 'new-workflow', label: 'New Workflow', icon: '+', path: '/workflows/new' }],
   },
   {
     id: 'executions',
     label: 'Executions',
-    icon: '▶️',
-    children: [{ id: 'execution-history', label: 'History', icon: '📜', path: '/history' }],
+    icon: '▸',
+    children: [{ id: 'execution-history', label: 'History', icon: '⌚', path: '/history' }],
   },
   {
     id: 'monitoring',
     label: 'Monitoring',
-    icon: '📊',
+    icon: '◫',
     children: [
-      { id: 'logs', label: 'Logs', icon: '📝', path: '#' },
-      { id: 'metrics', label: 'Metrics', icon: '📈', path: '#' },
+      { id: 'logs', label: 'Logs', icon: '≡', path: '#' },
+      { id: 'metrics', label: 'Metrics', icon: '□', path: '#' },
     ],
   },
 ];

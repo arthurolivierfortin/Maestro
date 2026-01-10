@@ -15,16 +15,16 @@ interface SettingsModalProps {
 
 const presetDescriptions: Record<StylePreset, { name: string; description: string }> = {
   minimal: {
-    name: 'Minimal',
-    description: 'Calm, low-noise, editor-first aesthetic (Claude-inspired)',
+    name: 'Minimal Editor',
+    description: 'Typography-first, extremely calm, almost invisible UI chrome. Ideal for focused writing and code editing.',
   },
   structured: {
-    name: 'Structured',
-    description: 'Clear panel separation, slightly expressive (n8n-inspired)',
+    name: 'Workflow Studio',
+    description: 'Structured panels, visible boundaries, clear zones. More expressive with defined element presence.',
   },
   balanced: {
-    name: 'Balanced',
-    description: 'Middle ground between minimalism and structure (VS Code-inspired)',
+    name: 'Dense IDE',
+    description: 'Compact, information-dense, professional engineering tool. Maximum efficiency for power users.',
   },
 };
 
@@ -82,35 +82,29 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
             Switch between light and dark color schemes.
           </p>
 
-          <div className="theme-options">
-            <label className="theme-option">
+          <div className="theme-mode-options">
+            <label className="theme-mode-option">
               <input
                 type="radio"
                 name="mode"
                 value="light"
                 checked={mode === 'light'}
                 onChange={() => handleModeChange('light')}
-                className="theme-option__radio"
+                className="theme-mode-option__radio"
               />
-              <div className="theme-option__content">
-                <span className="theme-option__icon">☀️</span>
-                <span className="theme-option__label">Light</span>
-              </div>
+              <span className="theme-mode-option__label">Light</span>
             </label>
 
-            <label className="theme-option">
+            <label className="theme-mode-option">
               <input
                 type="radio"
                 name="mode"
                 value="dark"
                 checked={mode === 'dark'}
                 onChange={() => handleModeChange('dark')}
-                className="theme-option__radio"
+                className="theme-mode-option__radio"
               />
-              <div className="theme-option__content">
-                <span className="theme-option__icon">🌙</span>
-                <span className="theme-option__label">Dark</span>
-              </div>
+              <span className="theme-mode-option__label">Dark</span>
             </label>
           </div>
         </section>

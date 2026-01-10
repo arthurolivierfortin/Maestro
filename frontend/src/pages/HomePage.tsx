@@ -32,23 +32,23 @@ export function HomePage() {
         <h2>Key Features</h2>
         <div className="features__grid">
           <div className="feature-card">
-            <h3>🎯 Workflow-First Architecture</h3>
+            <h3>Workflow-First Architecture</h3>
             <p>
               Build and visualize multi-agent workflows through an intuitive drag-and-drop interface
             </p>
           </div>
           <div className="feature-card">
-            <h3>🤖 Model-Agnostic Platform</h3>
+            <h3>Model-Agnostic Platform</h3>
             <p>
               Complete independence from any specific LLM or AI model through abstraction layers
             </p>
           </div>
           <div className="feature-card">
-            <h3>🔄 Agent Orchestration</h3>
+            <h3>Agent Orchestration</h3>
             <p>Coordinate specialized agents (Planner, Tester, Coder, Reviewer) working together</p>
           </div>
           <div className="feature-card">
-            <h3>📊 Comprehensive Monitoring</h3>
+            <h3>Comprehensive Monitoring</h3>
             <p>Real-time observability of workflow execution with live terminal output</p>
           </div>
         </div>
