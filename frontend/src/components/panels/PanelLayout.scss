@@ -1,0 +1,80 @@
+/**
+ * PanelLayout Styles
+ */
+
+.panel-layout {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.panel-item {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background-color: var(--background);
+  /* Allow flex children to grow/shrink properly and fill available height */
+  min-height: 0;
+  height: 100%;
+}
+
+.panel-divider {
+  position: relative;
+  background-color: var(--border);
+  transition: background-color var(--transition-fast);
+  flex-shrink: 0;
+  
+  &:hover {
+    background-color: var(--color-primary);
+  }
+  
+  &:active {
+    background-color: var(--color-primary-hover);
+  }
+  
+  /* Horizontal divider (for vertical group direction - resizes horizontally) */
+  &[data-separator-direction="horizontal"] {
+    width: 2px;
+    cursor: col-resize;
+    
+    &::after {
+      content: '';
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      width: 8px;
+      height: 40px;
+      background: transparent;
+    }
+  }
+  
+  /* Vertical divider (for horizontal group direction - resizes vertically) */
+  &[data-separator-direction="vertical"] {
+    height: 2px;
+    cursor: row-resize;
+    
+    &::after {
+      content: '';
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      width: 40px;
+      height: 8px;
+      background: transparent;
+    }
+  }
+  
+  /* Focus styles for keyboard accessibility */
+  &:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+}
+
+/* Panel animations */
+.panel-item[data-panel-collapsible="true"] {
+  transition: flex var(--transition-base);
+}

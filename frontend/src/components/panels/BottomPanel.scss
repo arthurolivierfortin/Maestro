@@ -1,0 +1,199 @@
+/**
+ * BottomPanel Styles
+ */
+
+.bottom-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  z-index: 20;
+  background-color: var(--surface);
+  border-top: 1px solid var(--border);
+  overflow: hidden;
+
+  &__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--border);
+    background-color: var(--background);
+  }
+
+  &__tabs {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+  }
+
+  &__tab {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-sm) var(--spacing-md);
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--text-secondary);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+
+    &:hover {
+      color: var(--text-primary);
+      background-color: var(--surface-hover);
+    }
+
+    &--active {
+      color: var(--color-primary);
+      border-bottom-color: var(--color-primary);
+    }
+  }
+
+  &__badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 var(--spacing-xs);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-white);
+    background-color: var(--color-error);
+    border-radius: var(--radius-full);
+  }
+
+  &__close-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--spacing-sm);
+    margin-right: var(--spacing-sm);
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    border-radius: var(--radius-sm);
+    transition: all var(--transition-fast);
+
+    &:hover {
+      background-color: var(--surface-hover);
+      color: var(--text-primary);
+    }
+  }
+
+  &__content {
+    flex: 1;
+    overflow: auto;
+  }
+
+  &__placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: var(--text-secondary);
+    text-align: center;
+    padding: var(--spacing-xl);
+
+    svg {
+      margin-bottom: var(--spacing-md);
+      opacity: 0.5;
+    }
+
+    h3 {
+      margin: 0 0 var(--spacing-xs) 0;
+      font-size: var(--font-size-lg);
+      font-weight: var(--font-weight-semibold);
+      color: var(--text-primary);
+    }
+
+    p {
+      margin: 0;
+      font-size: var(--font-size-sm);
+      color: var(--text-tertiary);
+    }
+  }
+
+  &__problems {
+    height: 100%;
+  }
+
+  &__problems-list {
+    padding: var(--spacing-md);
+  }
+
+  &__problem {
+    padding: var(--spacing-md);
+    margin-bottom: var(--spacing-sm);
+    background-color: var(--background);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--color-error);
+    border-radius: var(--radius-sm);
+
+    &:last-child {
+      margin-bottom: 0;
+    }
+  }
+
+  &__problem-header {
+    margin-bottom: var(--spacing-sm);
+  }
+
+  &__problem-block {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    background: transparent;
+    border: none;
+    color: var(--text-primary);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+    cursor: pointer;
+    border-radius: var(--radius-sm);
+    transition: background-color var(--transition-fast);
+
+    &:hover {
+      background-color: var(--surface-hover);
+    }
+  }
+
+  &__problem-icon {
+    color: var(--color-error);
+  }
+
+  &__problem-block-name {
+    color: var(--text-primary);
+  }
+
+  &__problem-block-type {
+    color: var(--text-tertiary);
+    font-size: var(--font-size-xs);
+  }
+
+  &__problem-errors {
+    margin: 0;
+    padding-left: var(--spacing-lg);
+    list-style: none;
+  }
+
+  &__problem-error {
+    padding: var(--spacing-xs) 0;
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+
+    strong {
+      color: var(--text-primary);
+      font-weight: var(--font-weight-medium);
+    }
+
+    &::before {
+      content: '•';
+      margin-right: var(--spacing-sm);
+      color: var(--color-error);
+    }
+  }
+}
