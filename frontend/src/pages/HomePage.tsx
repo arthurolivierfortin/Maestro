@@ -15,8 +15,13 @@ export function HomePage() {
           Autonomous Multi-Agent Workflow Orchestrator for Software Engineering Tasks
         </p>
         <div className="hero__actions">
-          <Link to="/workflows/new">
+          <Link to="/demo">
             <Button variant="primary" size="lg">
+              🎯 Block System Demo
+            </Button>
+          </Link>
+          <Link to="/workflows/new">
+            <Button variant="secondary" size="lg">
               Create New Workflow
             </Button>
           </Link>
