@@ -9,6 +9,17 @@ import { Handle, Position } from 'reactflow';
 import { MoreVertical } from 'lucide-react';
 import { BlockIcon } from '../icons/BlockIcons';
 import type { Block } from '../../types/block.types';
+import {
+  isAgentConfig,
+  isTaskConfig,
+  isPromptConfig,
+  isDecisionConfig,
+  isToolConfig,
+  isValidatorConfig,
+  isTriggerConfig,
+  isInstructionConfig,
+  isWorkflowConfig,
+} from '../../types/block.types';
 import type { BlockNodeData } from '../BlockCanvas/BlockCanvas';
 import './BaseBlockNode.scss';
 
@@ -106,92 +117,119 @@ BaseBlockNode.displayName = 'BaseBlockNode';
 function renderBlockContent(block: Block) {
   switch (block.blockType) {
     case 'agent':
-      return (
-        <div className="base-block-node__preview">
-          <div className="base-block-node__preview-label">Agent Type:</div>
-          <div className="base-block-node__preview-value">{block.config.agentType || 'Custom'}</div>
-          {block.config.model && (
-            <>
-              <div className="base-block-node__preview-label">Model:</div>
-              <div className="base-block-node__preview-value">{block.config.model}</div>
-            </>
-          )}
-        </div>
-      );
+      if (isAgentConfig(block.config)) {
+        return (
+          <div className="base-block-node__preview">
+            <div className="base-block-node__preview-label">Agent Type:</div>
+            <div className="base-block-node__preview-value">{block.config.agentType || 'Custom'}</div>
+            {block.config.model && (
+              <>
+                <div className="base-block-node__preview-label">Model:</div>
+                <div className="base-block-node__preview-value">{block.config.model}</div>
+              </>
+            )}
+          </div>
+        );
+      }
+      return null;
 
     case 'task':
-      return (
-        <div className="base-block-node__preview">
-          <div className="base-block-node__preview-text">
-            {block.config.description || 'No description'}
+      if (isTaskConfig(block.config)) {
+        return (
+          <div className="base-block-node__preview">
+            <div className="base-block-node__preview-text">
+              {block.config.description || 'No description'}
+            </div>
           </div>
-        </div>
-      );
+        );
+      }
+      return null;
 
     case 'prompt':
-      return (
-        <div className="base-block-node__preview">
-          <div className="base-block-node__preview-text">
-            {block.config.template ? truncate(block.config.template, 50) : 'No template'}
+      if (isPromptConfig(block.config)) {
+        return (
+          <div className="base-block-node__preview">
+            <div className="base-block-node__preview-text">
+              {block.config.template ? truncate(block.config.template, 50) : 'No template'}
+            </div>
           </div>
-        </div>
-      );
+        );
+      }
+      return null;
 
     case 'decision':
-      return (
-        <div className="base-block-node__preview">
-          <div className="base-block-node__preview-label">Condition:</div>
-          <div className="base-block-node__preview-text">
-            {block.config.condition || 'No condition'}
+      if (isDecisionConfig(block.config)) {
+        return (
+          <div className="base-block-node__preview">
+            <div className="base-block-node__preview-label">Condition:</div>
+            <div className="base-block-node__preview-text">
+              {block.config.condition || 'No condition'}
+            </div>
           </div>
-        </div>
-      );
+        );
+      }
+      return null;
 
     case 'tool':
-      return (
-        <div className="base-block-node__preview">
-          <div className="base-block-node__preview-label">Tool Type:</div>
-          <div className="base-block-node__preview-value">{block.config.toolType || 'Custom'}</div>
-        </div>
-      );
+      if (isToolConfig(block.config)) {
+        return (
+          <div className="base-block-node__preview">
+            <div className="base-block-node__preview-label">Tool Type:</div>
+            <div className="base-block-node__preview-value">{block.config.toolType || 'Custom'}</div>
+          </div>
+        );
+      }
+      return null;
 
     case 'validator':
-      return (
-        <div className="base-block-node__preview">
-          <div className="base-block-node__preview-label">Type:</div>
-          <div className="base-block-node__preview-value">
-            {block.config.validationType || 'Schema'}
+      if (isValidatorConfig(block.config)) {
+        return (
+          <div className="base-block-node__preview">
+            <div className="base-block-node__preview-label">Type:</div>
+            <div className="base-block-node__preview-value">
+              {block.config.validationType || 'Schema'}
+            </div>
           </div>
-        </div>
-      );
+        );
+      }
+      return null;
 
     case 'trigger':
-      return (
-        <div className="base-block-node__preview">
-          <div className="base-block-node__preview-label">Trigger Type:</div>
-          <div className="base-block-node__preview-value">
-            {block.config.triggerType || 'Manual'}
+      if (isTriggerConfig(block.config)) {
+        return (
+          <div className="base-block-node__preview">
+            <div className="base-block-node__preview-label">Trigger Type:</div>
+            <div className="base-block-node__preview-value">
+              {block.config.triggerType || 'Manual'}
+            </div>
           </div>
-        </div>
-      );
+        );
+      }
+      return null;
 
     case 'instruction':
-      return (
-        <div className="base-block-node__preview">
-          <div className="base-block-node__preview-text">
-            {block.config.filePath || 'No file selected'}
+      if (isInstructionConfig(block.config)) {
+        return (
+          <div className="base-block-node__preview">
+            <div className="base-block-node__preview-text">
+              {block.config.filePath || 'No file selected'}
+            </div>
           </div>
-        </div>
-      );
+        );
+      }
+      return null;
 
     case 'workflow':
-      return (
-        <div className="base-block-node__preview">
-          <div className="base-block-node__preview-text">
-            {block.config.description || 'Workflow container'}
+      if (isWorkflowConfig(block.config)) {
+        return (
+          <div className="base-block-node__preview">
+            <div className="base-block-node__preview-text">
+              {block.config.description || 'Workflow container'}
+            </div>
           </div>
-        </div>
-      );
+        );
+      }
+      return null;
 
     default:
       return null;
