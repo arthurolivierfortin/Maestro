@@ -6,7 +6,7 @@
 
 import { create } from 'zustand';
 import { devtools, persist } from 'zustand/middleware';
-import type { Block } from '../types/block.types';
+import type { Block, BlockConnection } from '../types/block.types';
 import { BlockTypeRegistry } from '../registry';
 
 /**
@@ -34,6 +34,11 @@ interface BlockState {
   updateBlock: (id: string, updates: Partial<Block>) => void;
   moveBlock: (id: string, newParentId: string | null) => void;
   duplicateBlock: (id: string) => Block | null;
+
+  // Connection operations
+  addConnection: (blockId: string, connection: BlockConnection) => void;
+  removeConnection: (blockId: string, connectionId: string) => void;
+  getBlockConnections: (blockId: string) => BlockConnection[];
 
   // Block tree navigation
   getBlock: (id: string) => Block | undefined;
@@ -368,6 +373,92 @@ export const useBlockStore = create<BlockState>()(
           const state = get();
           if (!state.rootId) return null;
           return state.blocks.get(state.rootId) || null;
+        },
+
+        // Add connection to a composite block
+        addConnection: (blockId: string, connection: BlockConnection) => {
+          const state = get();
+          const blocks = new Map(state.blocks);
+          const block = blocks.get(blockId);
+
+          if (!block) {
+            console.error(`Block ${blockId} not found`);
+            return;
+          }
+
+          // Only composite blocks can have connections
+          if (block.isAtomic) {
+            console.error(`Block ${blockId} is atomic and cannot contain connections`);
+            return;
+          }
+
+          const updatedBlock = {
+            ...block,
+            connections: [...(block.connections || []), connection],
+            metadata: {
+              ...block.metadata,
+              updatedAt: new Date().toISOString(),
+            },
+          };
+
+          blocks.set(blockId, updatedBlock);
+
+          // Update in parent's children
+          if (block.parentId) {
+            const parent = blocks.get(block.parentId);
+            if (parent) {
+              const updatedParent = {
+                ...parent,
+                children: parent.children?.map((c) => (c.id === blockId ? updatedBlock : c)) || [],
+              };
+              blocks.set(block.parentId, updatedParent);
+            }
+          }
+
+          set(saveHistory(state, blocks, state.rootId));
+        },
+
+        // Remove connection from a composite block
+        removeConnection: (blockId: string, connectionId: string) => {
+          const state = get();
+          const blocks = new Map(state.blocks);
+          const block = blocks.get(blockId);
+
+          if (!block) {
+            console.error(`Block ${blockId} not found`);
+            return;
+          }
+
+          const updatedBlock = {
+            ...block,
+            connections: block.connections?.filter((c) => c.id !== connectionId) || [],
+            metadata: {
+              ...block.metadata,
+              updatedAt: new Date().toISOString(),
+            },
+          };
+
+          blocks.set(blockId, updatedBlock);
+
+          // Update in parent's children
+          if (block.parentId) {
+            const parent = blocks.get(block.parentId);
+            if (parent) {
+              const updatedParent = {
+                ...parent,
+                children: parent.children?.map((c) => (c.id === blockId ? updatedBlock : c)) || [],
+              };
+              blocks.set(block.parentId, updatedParent);
+            }
+          }
+
+          set(saveHistory(state, blocks, state.rootId));
+        },
+
+        // Get all connections for a block
+        getBlockConnections: (blockId: string) => {
+          const block = get().blocks.get(blockId);
+          return block?.connections || [];
         },
 
         // Undo

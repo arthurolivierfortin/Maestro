@@ -106,7 +106,9 @@ export function BlockDemoPage() {
             </p>
           </div>
         ) : (
-          <p className="empty-state">No workflow initialized. Click "Initialize Demo Workflow" to start.</p>
+          <p className="empty-state">
+            No workflow initialized. Click "Initialize Demo Workflow" to start.
+          </p>
         )}
       </div>
 

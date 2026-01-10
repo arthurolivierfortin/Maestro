@@ -89,7 +89,7 @@ export const useThemeStore = create<ThemeState>()(
 function applyTheme(preset: StylePreset, theme: ResolvedTheme) {
   document.documentElement.setAttribute('data-preset', preset);
   document.documentElement.setAttribute('data-theme', theme);
-  
+
   // Add smooth transition class
   document.documentElement.classList.add('theme-transition');
   setTimeout(() => {

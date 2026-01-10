@@ -1,0 +1,129 @@
+/**
+ * BlockPalette Styles
+ */
+
+.block-palette {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-secondary);
+  overflow: hidden;
+}
+
+.block-palette__search {
+  padding: 12px;
+  border-bottom: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg-primary);
+
+  svg {
+    color: var(--text-tertiary);
+    flex-shrink: 0;
+  }
+}
+
+.block-palette__search-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  font-size: 14px;
+  outline: none;
+
+  &::placeholder {
+    color: var(--text-tertiary);
+  }
+}
+
+.block-palette__categories {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 0;
+}
+
+.block-palette__category {
+  margin-bottom: 4px;
+}
+
+.block-palette__category-header {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease;
+  text-align: left;
+
+  &:hover {
+    background: var(--bg-hover);
+  }
+
+  svg {
+    flex-shrink: 0;
+    color: var(--text-tertiary);
+  }
+}
+
+.block-palette__category-label {
+  flex: 1;
+}
+
+.block-palette__category-count {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  background: var(--bg-tertiary);
+  padding: 2px 6px;
+  border-radius: 10px;
+}
+
+.block-palette__items {
+  padding: 4px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.block-palette__item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  cursor: grab;
+  transition: all 0.2s ease;
+  user-select: none;
+
+  &:hover {
+    background: var(--bg-hover);
+    border-color: var(--border-default);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  }
+
+  &:active {
+    cursor: grabbing;
+    transform: scale(0.98);
+  }
+
+  svg {
+    flex-shrink: 0;
+  }
+}
+
+.block-palette__item-label {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+}

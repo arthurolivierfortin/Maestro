@@ -133,9 +133,7 @@ export function BottomPanel({ onClose }: BottomPanelProps) {
                         onClick={() => handleErrorClick(error.blockId)}
                       >
                         <AlertCircle size={14} className="bottom-panel__problem-icon" />
-                        <span className="bottom-panel__problem-block-name">
-                          {error.blockName}
-                        </span>
+                        <span className="bottom-panel__problem-block-name">{error.blockName}</span>
                         <span className="bottom-panel__problem-block-type">
                           ({error.blockType})
                         </span>

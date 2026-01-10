@@ -1,0 +1,60 @@
+/**
+ * ConnectionEdge Styles
+ */
+
+.connection-edge__path {
+  stroke-width: 2px;
+  stroke: #94a3b8;
+  fill: none;
+  transition: all 0.2s ease;
+
+  &:hover {
+    stroke-width: 3px;
+    stroke: #64748b;
+  }
+
+  &--selected {
+    stroke: #3b82f6 !important;
+    stroke-width: 3px !important;
+  }
+
+  &--executing {
+    stroke: #10b981;
+    stroke-dasharray: 5;
+    animation: dash 1s linear infinite;
+  }
+
+  &--error {
+    stroke: #ef4444;
+  }
+
+  &--valid {
+    stroke: #10b981;
+    stroke-dasharray: 5;
+  }
+
+  &--invalid {
+    stroke: #ef4444;
+    stroke-dasharray: 5;
+  }
+}
+
+.connection-edge__label {
+  position: absolute;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  pointer-events: all;
+  white-space: nowrap;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+@keyframes dash {
+  to {
+    stroke-dashoffset: -10;
+  }
+}

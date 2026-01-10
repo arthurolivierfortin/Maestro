@@ -39,6 +39,18 @@ export interface Position {
 }
 
 /**
+ * Connection between blocks
+ */
+export interface BlockConnection {
+  id: string;
+  sourceBlockId: string;
+  sourcePortId: string;
+  targetBlockId: string;
+  targetPortId: string;
+  label?: string;
+}
+
+/**
  * Block metadata
  */
 export interface BlockMetadata {
@@ -68,6 +80,9 @@ export interface Block<TConfig = BlockConfig> {
   config: TConfig;
   inputs: Port[];
   outputs: Port[];
+
+  // Connections (for composite blocks containing a canvas)
+  connections?: BlockConnection[];
 
   // Visual
   position: Position;

@@ -1,6 +1,6 @@
 /**
  * Panel Components
- * 
+ *
  * Exports for resizable panel system.
  */
 

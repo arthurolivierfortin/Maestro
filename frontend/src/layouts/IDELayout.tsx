@@ -41,7 +41,9 @@ export function IDELayout() {
     onFocusProperties: () => {
       // Focus first focusable element in properties panel
       const properties = document.querySelector('.properties-panel');
-      const firstFocusable = properties?.querySelector('input, button, [tabindex="0"]') as HTMLElement;
+      const firstFocusable = properties?.querySelector(
+        'input, button, [tabindex="0"]'
+      ) as HTMLElement;
       firstFocusable?.focus();
     },
   });
