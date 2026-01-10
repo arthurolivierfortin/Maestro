@@ -1,7 +1,5 @@
 # B-One Maestro
 
-[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-
 > **An autonomous multi-agent workflow orchestrator for software engineering tasks**
 
 B-One Maestro is a desktop application designed to manage and execute autonomous multi-agent workflows capable of performing end-to-end software engineering tasks including planning, testing, coding, validation, and Pull Request creation.

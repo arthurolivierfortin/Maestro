@@ -1,63 +1,64 @@
-# 🎯 Feature : MAESTRO-000 – Add project scaffolding, docs, prompts, and pin .NET 10 SDK
+📚 Docs : MAESTRO-004 – Add comprehensive roadmap and contribution guides
 
-## 🎯 Purpose
-This PR introduces the initial project scaffolding for the B-One Maestro repository: a Clean Architecture-styled .NET backend, a TypeScript/React frontend scaffold, documentation and ADRs, developer helper scripts, and repository prompts/instructions for PR and commit generation. It also pins the repository to the .NET 10 SDK (`10.0.101`) via `global.json` to ensure consistent builds.
 
-## 📋 Changes Summary
-- Added backend solution and projects (Domain, Application, Infrastructure, Api, Agents) following Clean Architecture patterns.
-- Added frontend scaffolding (Vite + React + TypeScript) with initial components for the Workflow editor and execution monitoring.
-- Added repository-level documentation and guidelines including: README, BUILD.md, CONTRIBUTING.md, and ADRs under `docs/`.
-- Added `.github` prompts and instructions for generating PR descriptions, commit messages, ADRs, and feature templates.
-- Added helper scripts in `scripts/` and `.maestro/` artifacts for contributors.
-- Added `global.json` to pin SDK to `10.0.101` and included an option to install the SDK locally via `dotnet-install.ps1`.
+# 🎯 Purpose
+This PR adds a comprehensive project roadmap and several area-specific developer guides to help contributors and maintainers get up to speed quickly. The documentation clarifies project structure, development areas (agents, backend, frontend, workflow engine), and contribution expectations.
 
-## 🏗️ Technical Details
-- Backend: Introduces a Clean Architecture layout with the following projects:
-  - `Maestro.Domain` — entities (`Workflow`, `Node`), value objects, and domain interfaces
-  - `Maestro.Application` — use-case interfaces, DTOs, and application contracts (`ILLMGateway`, `IExecutionMonitor`)
-  - `Maestro.Infrastructure` — LLM gateway placeholder, monitoring, and JSON persistence repository
-  - `Maestro.Api` — minimal API wiring and `WorkflowsController` skeleton
-  - `Maestro.Agents` — placeholder project for specialized agents
-- Frontend: Vite + React with initial components:
-  - `WorkflowEditor`, `ExecutionTimeline`, `TerminalOutput` and API client in `src/services/api.ts`
-- Tooling & Scripts:
-  - `global.json` pins SDK to `10.0.101` (rollForward: `latestFeature`) so contributors without system-wide .NET 10 can install a local SDK using `dotnet-install.ps1`.
-  - Included `dotnet-install.ps1` for convenience (downloadable from Microsoft) and example scripts in `scripts/` and `.maestro/`.
+# 📋 Changes Summary
+- Added `ROADMAP.md` at repository root describing the project's short- and mid-term roadmap, priorities, and milestone guidance.
+- Added developer guides under `docs/`:
+  - `docs/agents-and-tools-guide.md` — guidance for building agents and tools
+  - `docs/backend-guide.md` — backend architecture and contributor workflow
+  - `docs/frontend-guide.md` — frontend structure, component conventions, and local dev tips
+  - `docs/workflow-engine-guide.md` — workflow engine internals and extension points
+- Minor update to `README.md` to reference the new documentation and roadmap.
 
-## 🧪 Testing
-- No automated tests are included yet. Manual verification performed:
-  - `dotnet restore` and `dotnet build` for `backend/Maestro.sln` succeeded locally after installing SDK 10.0.101.
-  - Frontend scaffold builds but `npm run dev` may require developer environment setup (Node version, local env vars).
+# 🏗️ Technical Details
+- These are documentation-only changes — no source code, configuration, or build artifacts were modified.
+- The new guides follow existing project conventions and ADRs (see `docs/adr/`) and surface rules from the Clean Architecture and code conventions documents.
+- File locations:
+  - `ROADMAP.md` — high-level milestones, release cadence, and area owners
+  - `docs/agents-and-tools-guide.md` — agent design patterns, prompt engineering notes, and recommended adapters
+  - `docs/backend-guide.md` — layer responsibilities, service registration, and typical use-case patterns
+  - `docs/frontend-guide.md` — React/TypeScript conventions, component structure, and testing guidance
+  - `docs/workflow-engine-guide.md` — workflow node types, execution lifecycle, and monitoring hooks
 
-## 📖 Documentation
-- Added multiple guidance files under `.github/prompts/` and `.github/instructions/` describing commit/PR templates, clean architecture rules, code conventions, testing guidelines, and changelog/README modification policies.
-- ADRs added under `docs/adr/` describing model-agnostic LLM gateway and persistence decisions.
+# 🧪 Testing
+- No automated tests are required for documentation changes. Manual checks recommended:
+  - Verify links and relative references in Markdown render correctly.
+  - Spell-check and grammar review.
+  - Open major docs in VS Code Markdown preview or GitHub's preview to validate formatting.
 
-## 🚀 Deployment Notes
-- `global.json` requires an available SDK `10.0.101` to build. Developers can:
-  - Install .NET SDK 10 system-wide via the official installer, or
-  - Use `dotnet-install.ps1` to install a user-local SDK (example script included). This PR includes `global.json` so builds will fail fast if the SDK is not available.
+# 📖 Documentation
+- Files added:
+  - `ROADMAP.md`
+  - `docs/agents-and-tools-guide.md`
+  - `docs/backend-guide.md`
+  - `docs/frontend-guide.md`
+  - `docs/workflow-engine-guide.md`
+- File modified:
+  - `README.md` (minor reference update)
 
-## 🔄 Migration Guide
-- No database or external migration steps in this PR.
+# 🚀 Deployment Notes
+- No deployment or runtime changes. Simply merge to `main` to make documentation available on the default branch and GitHub Pages (if configured).
 
-## 📸 Screenshots/Examples
-- N/A for this initial scaffolding PR.
+# 🔗 Related Issues / PRs
+- Branch: `copilot/create-roadmap-docs`
+- Existing PR: Add comprehensive roadmap and area-specific development guides (may be already opened)
 
-## 🔗 Related Issues
-- None referenced in commits; branch is named `copilot/create-readme-and-structure`.
+# 👥 Review Notes
+- Focus review on:
+  - Accuracy of architecture and process descriptions versus actual code (especially `backend/` and `frontend/` conventions).
+  - Completeness of the roadmap: priorities, milestones, and suggested owners.
+  - Consistency with ADRs in `docs/adr/`.
+  - Broken links or typo fixes.
+- Suggested reviewers: maintainers of `backend/`, `frontend/`, and `agents` areas.
 
-## 👥 Review Notes
-- Focus areas for review:
-  - Architecture: Verify project layout and Clean Architecture boundaries.
-  - `global.json`: Confirm SDK pinning policy is acceptable for the team.
-  - Documentation: Typos, missing sections, or areas needing more detail.
-  - Frontend: Check the initial component API boundaries and TypeScript types.
+# ✅ Checklist for Reviewers
+- [ ] Confirm this is documentation-only (no behavior change).
+- [ ] Validate links and relative references render correctly.
+- [ ] Check that the roadmap milestones are realistic and aligned with current priorities.
+- [ ] Suggest additions or items missing from area guides.
 
----
-
-### Checklist for reviewers
-- [ ] Builds successfully with pinned SDK (or instructions to install local SDK are clear)
-- [ ] Documentation provides enough guidance to onboard new contributors
-- [ ] No domain logic leaked into infrastructure or presentation layers
-- [ ] Frontend scaffold compiles and runs locally
+# Next Steps
+- After approval, merge to `main`. Optionally, enable or update GitHub Pages / docs site to surface the new guides.
