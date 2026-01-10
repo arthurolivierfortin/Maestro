@@ -5,3 +5,7 @@
 export * from './workflowStore';
 export * from './executionStore';
 export * from './themeStore';
+
+// Block stores (Phase 4b)
+export * from './blockStore';
+export * from './navigationStore';

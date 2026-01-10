@@ -1,0 +1,64 @@
+/**
+ * BlockExplorer Styles
+ */
+
+.block-explorer {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--bg-secondary);
+  border-right: 1px solid var(--border-color);
+
+  &__header {
+    padding: 1rem;
+    border-bottom: 1px solid var(--border-color);
+  }
+
+  &__title {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  &__content {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 0.5rem;
+
+    /* Custom scrollbar */
+    &::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    &::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    &::-webkit-scrollbar-thumb {
+      background: var(--scrollbar-thumb);
+      border-radius: 4px;
+
+      &:hover {
+        background: var(--scrollbar-thumb-hover);
+      }
+    }
+  }
+
+  &__empty {
+    padding: 2rem 1rem;
+    text-align: center;
+    color: var(--text-muted);
+
+    p {
+      margin: 0 0 0.5rem;
+      font-size: 0.875rem;
+    }
+
+    &-hint {
+      font-size: 0.75rem;
+      opacity: 0.7;
+    }
+  }
+}
