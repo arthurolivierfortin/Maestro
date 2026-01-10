@@ -6,13 +6,18 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { ChevronRight, Copy, Check } from 'lucide-react';
+import type { ImperativePanelHandle } from 'react-resizable-panels';
 import { useNavigationStore } from '../../store/navigationStore';
 import { useBlockStore } from '../../store/blockStore';
 import { BlockTypeRegistry } from '../../registry';
 import type { Block, BlockConfig } from '../../types/block.types';
 import './PropertiesPanel.scss';
 
-export function PropertiesPanel() {
+interface PropertiesPanelProps {
+  panelRef: React.RefObject<ImperativePanelHandle>;
+}
+
+export function PropertiesPanel({ panelRef }: PropertiesPanelProps) {
   const selectedBlockId = useNavigationStore((state) => state.selectedBlockId);
   const getBlock = useBlockStore((state) => state.getBlock);
   const updateBlock = useBlockStore((state) => state.updateBlock);
@@ -21,6 +26,34 @@ export function PropertiesPanel() {
   const [editedConfig, setEditedConfig] = useState<BlockConfig | null>(null);
   const [copiedId, setCopiedId] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
+
+  // Sync isCollapsed with panel collapse state
+  useEffect(() => {
+    const handlePanelCollapse = () => {
+      const panel = panelRef.current;
+      if (panel) {
+        const collapsed = panel.isCollapsed();
+        setIsCollapsed(collapsed);
+      }
+    };
+
+    // Check initial state and set up listener
+    handlePanelCollapse();
+    const interval = setInterval(handlePanelCollapse, 100);
+
+    return () => clearInterval(interval);
+  }, [panelRef]);
+
+  const handleToggle = useCallback(() => {
+    const panel = panelRef.current;
+    if (!panel) return;
+
+    if (panel.isCollapsed()) {
+      panel.expand();
+    } else {
+      panel.collapse();
+    }
+  }, [panelRef]);
 
   // Load block when selection changes
   useEffect(() => {
@@ -71,128 +104,101 @@ export function PropertiesPanel() {
     [block, updateBlock]
   );
 
-  if (isCollapsed) {
-    return (
-      <div className="properties-panel properties-panel--collapsed">
-        <button
-          className="properties-panel__expand-btn"
-          onClick={() => setIsCollapsed(false)}
-          aria-label="Expand properties panel"
-        >
-          <ChevronRight size={16} />
-        </button>
-      </div>
-    );
-  }
-
-  if (!block) {
-    return (
-      <div className="properties-panel">
-        <div className="properties-panel__header">
-          <h3 className="properties-panel__title">Properties</h3>
-          <button
-            className="properties-panel__collapse-btn"
-            onClick={() => setIsCollapsed(true)}
-            aria-label="Collapse properties panel"
-          >
-            <ChevronRight size={16} />
-          </button>
-        </div>
-        <div className="properties-panel__empty">
-          <p>No block selected</p>
-          <p className="properties-panel__empty-hint">
-            Select a block to view and edit its properties
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  const typeInfo = BlockTypeRegistry.get(block.blockType);
+  const typeInfo = block ? BlockTypeRegistry.get(block.blockType) : undefined;
 
   return (
-    <div className="properties-panel">
+    <div className="properties-panel" data-state={isCollapsed ? 'collapsed' : 'expanded'}>
       <div className="properties-panel__header">
-        <h3 className="properties-panel__title">Properties</h3>
         <button
-          className="properties-panel__collapse-btn"
-          onClick={() => setIsCollapsed(true)}
-          aria-label="Collapse properties panel"
+          className="properties-panel__toggle-btn"
+          onClick={handleToggle}
+          aria-label={isCollapsed ? 'Expand properties panel' : 'Collapse properties panel'}
+          aria-expanded={!isCollapsed}
         >
           <ChevronRight size={16} />
         </button>
+
+        <h3 className="properties-panel__title">Properties</h3>
       </div>
 
-      <div className="properties-panel__content">
-        {/* Block Type */}
-        <div className="properties-panel__section">
-          <div className="properties-panel__block-type">
-            {typeInfo?.icon && <span className="properties-panel__icon">{typeInfo.icon}</span>}
-            <span className="properties-panel__type-label">{typeInfo?.label || block.blockType}</span>
-          </div>
+      {/* Content area: hidden via CSS when collapsed */}
+      {!block ? (
+        <div className="properties-panel__empty">
+          <p>No block selected</p>
+          <p className="properties-panel__empty-hint">Select a block to view and edit its properties</p>
         </div>
+      ) : (
+        <div className="properties-panel__content">
+          {/* Block Type */}
+          <div className="properties-panel__section">
+            <div className="properties-panel__block-type">
+              {typeInfo?.icon && <span className="properties-panel__icon">{typeInfo.icon}</span>}
+              <span className="properties-panel__type-label">{typeInfo?.label || block.blockType}</span>
+            </div>
+          </div>
 
-        {/* Block ID */}
-        <div className="properties-panel__section">
-          <label className="properties-panel__label">Block ID</label>
-          <div className="properties-panel__id-field">
+          {/* Block ID */}
+          <div className="properties-panel__section">
+            <label className="properties-panel__label">Block ID</label>
+            <div className="properties-panel__id-field">
+              <input
+                type="text"
+                value={block.id}
+                readOnly
+                className="properties-panel__input properties-panel__input--readonly"
+              />
+              <button
+                className="properties-panel__copy-btn"
+                onClick={handleCopyId}
+                aria-label="Copy block ID"
+              >
+                {copiedId ? <Check size={14} /> : <Copy size={14} />}
+              </button>
+            </div>
+          </div>
+
+          {/* Name */}
+          <div className="properties-panel__section">
+            <label className="properties-panel__label">Name</label>
             <input
               type="text"
-              value={block.id}
-              readOnly
-              className="properties-panel__input properties-panel__input--readonly"
+              value={block.name}
+              onChange={(e) => handleNameChange(e.target.value)}
+              className="properties-panel__input"
+              placeholder="Enter block name"
             />
-            <button
-              className="properties-panel__copy-btn"
-              onClick={handleCopyId}
-              aria-label="Copy block ID"
-            >
-              {copiedId ? <Check size={14} /> : <Copy size={14} />}
-            </button>
           </div>
-        </div>
 
-        {/* Name */}
-        <div className="properties-panel__section">
-          <label className="properties-panel__label">Name</label>
-          <input
-            type="text"
-            value={block.name}
-            onChange={(e) => handleNameChange(e.target.value)}
-            className="properties-panel__input"
-            placeholder="Enter block name"
-          />
-        </div>
-
-        {/* Metadata */}
-        <div className="properties-panel__section">
-          <label className="properties-panel__label">Metadata</label>
-          <div className="properties-panel__metadata">
-            <div className="properties-panel__metadata-row">
-              <span className="properties-panel__metadata-label">Created:</span>
-              <span className="properties-panel__metadata-value">
-                {new Date(block.metadata.createdAt).toLocaleString()}
-              </span>
-            </div>
-            <div className="properties-panel__metadata-row">
-              <span className="properties-panel__metadata-label">Updated:</span>
-              <span className="properties-panel__metadata-value">
-                {new Date(block.metadata.updatedAt).toLocaleString()}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* Configuration Fields */}
-        {editedConfig && (
+          {/* Metadata */}
           <div className="properties-panel__section">
-            <label className="properties-panel__label">Configuration</label>
-            <div className="properties-panel__config">
-              {renderConfigFields(block.blockType, editedConfig, handleConfigChange)}
+            <label className="properties-panel__label">Metadata</label>
+            <div className="properties-panel__metadata">
+              <div className="properties-panel__metadata-row">
+                <span className="properties-panel__metadata-label">Created:</span>
+                <span className="properties-panel__metadata-value">
+                  {new Date(block.metadata.createdAt).toLocaleString()}
+                </span>
+              </div>
+              <div className="properties-panel__metadata-row">
+                <span className="properties-panel__metadata-label">Updated:</span>
+                <span className="properties-panel__metadata-value">
+                  {new Date(block.metadata.updatedAt).toLocaleString()}
+                </span>
+              </div>
             </div>
           </div>
-        )}
-      </div>
+
+          {/* Configuration Fields */}
+          {editedConfig && (
+            <div className="properties-panel__section">
+              <label className="properties-panel__label">Configuration</label>
+              <div className="properties-panel__config">
+                {renderConfigFields(block.blockType, editedConfig, handleConfigChange)}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
