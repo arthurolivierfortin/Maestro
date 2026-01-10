@@ -56,6 +56,7 @@ Phase 4a: Frontend Foundation                   [██████████]
 Phase 4b: Block Architecture & Types            [░░░░░░░░░░]  0%
 Phase 4c: IDE Layout & Panel System             [░░░░░░░░░░]  0%
 Phase 4d: Canvas Foundation (React Flow)        [░░░░░░░░░░]  0%
+Phase 4e: Models Panel & Registry               [░░░░░░░░░░]  0%
 Phase 5:  Workflow Engine & Execution           [░░░░░░░░░░]  0%
 Phase 6:  Agent Implementations                 [░░░░░░░░░░]  0%
 Phase 7:  Monitoring & Observability            [░░░░░░░░░░]  0%
@@ -64,6 +65,7 @@ Phase 9:  Terminal & CLI Integration            [░░░░░░░░░░]
 Phase 10: End-to-End Integration & Testing      [░░░░░░░░░░]  0%
 Phase 11: Documentation & Examples              [█████░░░░░] 50%
 Phase 12: MVP Release Preparation               [░░░░░░░░░░]  0%
+Phase 13: Auto-Optimization & Benchmarking      [░░░░░░░░░░]  0%
 ```
 
 ---
@@ -632,6 +634,143 @@ Phase 12: MVP Release Preparation               [░░░░░░░░░░]
 
 ---
 
+## 🔷 Phase 4e: Models Panel & Registry
+
+**Goal**: Implement a centralized model management panel where users can configure, compare, and assign AI models to agent blocks with rich metadata for future auto-optimization.
+
+**Duration**: 1-2 weeks  
+**Team**: Frontend (1 developer) + Backend (1 developer)  
+**Dependencies**: Phase 4a complete, Phase 3 (LLM Gateway) in progress
+
+### Tasks
+
+#### 4e.1 Model Types & Interfaces
+- [ ] Create `model.types.ts` with `Model` interface:
+  ```typescript
+  interface Model {
+    id: string;
+    provider: ModelProvider;
+    displayName: string;
+    capabilities: ModelCapability[];
+    contextWindow: number;
+    costPerInputToken: number;
+    costPerOutputToken: number;
+    speedRating: number; // 1-10
+    qualityRatings: Record<TaskType, number>; // per-task quality
+    strengths: string[];
+    weaknesses: string[];
+    maxOutputTokens: number;
+    supportsStreaming: boolean;
+    supportsToolCalls: boolean;
+    supportsVision: boolean;
+    isLocal: boolean;
+    isAvailable: boolean;
+    apiEndpoint?: string;
+  }
+  ```
+- [ ] Define `ModelProvider` enum (OpenAI, Anthropic, Ollama, Azure, Google, etc.)
+- [ ] Define `ModelCapability` enum (code-generation, reasoning, vision, tool-use, etc.)
+- [ ] Define `TaskType` for quality ratings (code-generation, summarization, analysis, etc.)
+- [ ] Add unit tests for type guards and utilities
+
+#### 4e.2 Model Store (Zustand)
+- [ ] Create `useModelStore` with state:
+  - `models: Map<string, Model>`
+  - `selectedModelId: string | null`
+  - `defaultModelId: string`
+- [ ] Implement CRUD actions:
+  - `addModel(model: Model)`
+  - `updateModel(id: string, updates: Partial<Model>)`
+  - `removeModel(id: string)`
+  - `setDefaultModel(id: string)`
+- [ ] Implement query helpers:
+  - `getModelsByProvider(provider: ModelProvider)`
+  - `getModelsByCapability(capability: ModelCapability)`
+  - `getAvailableModels()`
+  - `getBestModelForTask(taskType: TaskType, constraints?: ModelConstraints)`
+- [ ] Persist to localStorage
+- [ ] Add unit tests
+
+#### 4e.3 Models Panel UI
+- [ ] Create `ModelsPanel` component for sidebar/modal
+- [ ] Implement model list view with:
+  - [ ] Provider icon and model name
+  - [ ] Capability badges
+  - [ ] Cost indicator ($ / $$ / $$$)
+  - [ ] Speed/quality rating display
+  - [ ] Availability status indicator
+- [ ] Implement model detail view:
+  - [ ] Full capability list
+  - [ ] Strengths/weaknesses display
+  - [ ] Cost breakdown (input/output tokens)
+  - [ ] Context window size
+  - [ ] Quality ratings per task type (radar chart or bar chart)
+- [ ] Add unit tests
+
+#### 4e.4 Model Configuration Form
+- [ ] Create `ModelConfigForm` component
+- [ ] Form fields for all model properties
+- [ ] Validation rules (required fields, valid ranges)
+- [ ] Test connection button (verify API key works)
+- [ ] Import from provider (auto-detect model capabilities)
+- [ ] Add unit tests
+
+#### 4e.5 Model Comparison View
+- [ ] Create `ModelComparisonView` component
+- [ ] Side-by-side comparison of 2-4 models
+- [ ] Compare: capabilities, cost, speed, quality ratings
+- [ ] Visual diff highlighting (better/worse indicators)
+- [ ] Export comparison as markdown/image
+- [ ] Add unit tests
+
+#### 4e.6 Model Assignment in Agent Blocks
+- [ ] Add `modelId` field to `AgentBlockConfig`
+- [ ] Add `fallbackModelId` for automatic fallback
+- [ ] Create `ModelSelector` dropdown component
+- [ ] Show model info tooltip on hover
+- [ ] Validate model capabilities match agent requirements
+- [ ] Add unit tests
+
+#### 4e.7 Model Presets & Defaults
+- [ ] Create preset model configurations for common providers:
+  - [ ] OpenAI: GPT-4o, GPT-4o-mini, GPT-4-turbo, o1, o1-mini
+  - [ ] Anthropic: Claude 3.5 Sonnet, Claude 3 Opus, Claude 3 Haiku
+  - [ ] Ollama: Llama 3, CodeLlama, Mistral, Mixtral
+  - [ ] Google: Gemini Pro, Gemini Flash
+  - [ ] Azure OpenAI: Mapped GPT models
+- [ ] Import presets on first launch
+- [ ] Allow customization of presets
+- [ ] Add unit tests
+
+#### 4e.8 Backend Model Registry API
+- [ ] Create `ModelRegistryController` (or add to existing controller)
+- [ ] Endpoints:
+  - [ ] `GET /api/models` - list all configured models
+  - [ ] `GET /api/models/{id}` - get model details
+  - [ ] `POST /api/models` - add new model
+  - [ ] `PUT /api/models/{id}` - update model
+  - [ ] `DELETE /api/models/{id}` - remove model
+  - [ ] `POST /api/models/{id}/test` - test model connectivity
+- [ ] Store model configurations in JSON (like workflows)
+- [ ] Validate model configuration on save
+- [ ] Add integration tests
+
+**Outputs**:
+- ✅ Model type system with rich metadata
+- ✅ Model store with CRUD and query capabilities
+- ✅ Models Panel UI for configuration and comparison
+- ✅ Model assignment in agent blocks
+- ✅ Preset configurations for common providers
+- ✅ Backend API for model registry
+
+**Design Decisions**:
+1. **Model as resource**: Models are first-class resources, not just configuration strings
+2. **Rich metadata**: Enables intelligent model selection and future auto-optimization
+3. **Provider abstraction**: UI doesn't care about provider implementation details
+4. **Local-first storage**: Model configs stored locally, synced optionally
+
+---
+
 ## 🔷 Phase 5: Workflow Engine & Execution
 
 **Goal**: Implement the backend execution engine that runs workflows/blocks.
@@ -849,11 +988,139 @@ Phase 12: MVP Release Preparation               [░░░░░░░░░░]
 
 ---
 
-## 🔄 Parallelization Strategy
+## � Phase 13: Auto-Optimization & Benchmarking (Post-MVP)
+
+**Goal**: Enable workflows to self-optimize by benchmarking different model configurations and automatically selecting the best model for each task based on cost, quality, and speed requirements.
+
+**Duration**: 3-4 weeks  
+**Team**: Backend (2 developers) + Frontend (1 developer)  
+**Dependencies**: Phases 4e, 5, 6, 7 complete
+
+### Vision
+
+Maestro will be able to **improve its own workflows** by:
+1. Running benchmarks with different model configurations
+2. Learning which models perform best for specific task types
+3. Automatically suggesting or applying model changes to optimize cost/quality/speed
+4. Tracking improvements over time
+
+### Tasks
+
+#### 13.1 Execution Metrics Collection
+- [ ] Extend execution context to collect detailed metrics:
+  - [ ] Token usage (input/output per node)
+  - [ ] Response time per node
+  - [ ] Cost per node (calculated from model pricing)
+  - [ ] Quality score (when validator provides feedback)
+- [ ] Store metrics in execution history
+- [ ] Create metrics aggregation service
+- [ ] Add unit tests
+
+#### 13.2 Benchmark Engine
+- [ ] Create `IBenchmarkEngine` interface
+- [ ] Implement `BenchmarkRunner` service:
+  - [ ] Run workflow with different model configurations
+  - [ ] Compare results across runs
+  - [ ] Calculate aggregate scores (cost, quality, speed)
+- [ ] Implement benchmark configuration:
+  - [ ] Models to compare
+  - [ ] Number of runs per configuration
+  - [ ] Evaluation criteria weights
+- [ ] Add unit tests
+
+#### 13.3 Shadow Execution Mode
+- [ ] Implement shadow execution for A/B testing:
+  - [ ] Run primary workflow with current configuration
+  - [ ] Simultaneously run with alternative model (shadow)
+  - [ ] Compare outputs without affecting primary workflow
+- [ ] Store shadow results for analysis
+- [ ] Add unit tests
+
+#### 13.4 Optimization Strategies
+- [ ] Implement optimization strategy interfaces:
+  - [ ] `CostOptimizer`: Find cheapest model meeting quality threshold
+  - [ ] `QualityOptimizer`: Find best model within budget
+  - [ ] `SpeedOptimizer`: Minimize latency for time-critical tasks
+  - [ ] `HybridOptimizer`: Balance cost/quality/speed with weights
+- [ ] Create strategy selector based on user preferences
+- [ ] Add unit tests
+
+#### 13.5 Model Recommendation Engine
+- [ ] Analyze execution history to learn model performance patterns
+- [ ] Build task-type to model-performance mapping
+- [ ] Generate recommendations:
+  - [ ] "Switch Agent X from GPT-4 to Claude 3 Sonnet for 40% cost reduction with similar quality"
+  - [ ] "Use GPT-4o-mini for simple tasks, reserve GPT-4o for complex reasoning"
+- [ ] Confidence scores for recommendations
+- [ ] Add unit tests
+
+#### 13.6 Auto-Apply Optimizations
+- [ ] Create optimization proposal system:
+  - [ ] Generate proposals from recommendations
+  - [ ] Show expected impact (cost savings, quality change)
+  - [ ] Allow user to approve/reject/modify
+- [ ] Implement auto-apply mode (with user consent):
+  - [ ] Automatically apply high-confidence optimizations
+  - [ ] Rollback if quality degrades
+- [ ] Add unit tests
+
+#### 13.7 Optimization Dashboard UI
+- [ ] Create `OptimizationDashboard` component:
+  - [ ] Show current workflow cost/performance metrics
+  - [ ] Display optimization opportunities
+  - [ ] Visualize potential savings
+- [ ] Create `BenchmarkResultsView` component:
+  - [ ] Compare model performance side-by-side
+  - [ ] Charts: cost vs quality, speed vs quality
+  - [ ] Recommendation cards with action buttons
+- [ ] Create `OptimizationHistory` component:
+  - [ ] Track applied optimizations over time
+  - [ ] Show cost savings achieved
+  - [ ] Allow rollback of changes
+- [ ] Add unit tests
+
+#### 13.8 Workflow Improvement Suggestions
+- [ ] Analyze workflow structure for optimization opportunities:
+  - [ ] Identify redundant agent calls
+  - [ ] Suggest parallel execution where possible
+  - [ ] Recommend caching for repeated queries
+- [ ] Generate improvement proposals with explanations
+- [ ] Add unit tests
+
+**Outputs**:
+- ✅ Execution metrics collection and storage
+- ✅ Benchmark engine for model comparison
+- ✅ Shadow execution for safe A/B testing
+- ✅ Multiple optimization strategies
+- ✅ AI-powered model recommendation engine
+- ✅ Auto-apply optimizations with approval workflow
+- ✅ Optimization dashboard with actionable insights
+
+**Design Decisions**:
+1. **Opt-in auto-optimization**: Users must explicitly enable auto-apply
+2. **Rollback safety**: All changes can be reverted if quality degrades
+3. **Transparency**: All recommendations include reasoning and confidence scores
+4. **Learning from history**: System improves recommendations over time
+5. **Cost-aware by default**: Always show cost impact of changes
+
+**Example Optimization Flow**:
+```
+1. User runs workflow 10 times with GPT-4o ($2.50 total)
+2. System runs shadow benchmark with Claude 3 Sonnet
+3. Shadow results show similar quality at $0.80 total (68% savings)
+4. System proposes: "Switch Coder Agent to Claude 3 Sonnet"
+5. User approves → workflow updated
+6. System monitors next 5 runs to confirm quality maintained
+7. If quality drops, system alerts and offers rollback
+```
+
+---
+
+## �🔄 Parallelization Strategy
 
 ### Work Streams
 
-To maximize parallel development, the project is divided into **4 primary work streams**:
+To maximize parallel development, the project is divided into **5 primary work streams**:
 
 #### 1️⃣ **Backend Core** (2-3 developers)
 - **Phases**: 1, 2, 3, 5, 6, 8
@@ -861,8 +1128,8 @@ To maximize parallel development, the project is divided into **4 primary work s
 - **Critical path**: Yes (blocks frontend integration)
 
 #### 2️⃣ **Frontend Core** (2-3 developers)
-- **Phases**: 4a, 4b, 4c, 4d, 9
-- **Focus**: Block architecture, canvas editor, terminal integration
+- **Phases**: 4a, 4b, 4c, 4d, 4e, 9
+- **Focus**: Block architecture, canvas editor, models panel, terminal integration
 - **Critical path**: No (can start independently with mocks)
 
 #### 3️⃣ **Monitoring & Real-Time** (1-2 developers)
@@ -875,18 +1142,24 @@ To maximize parallel development, the project is divided into **4 primary work s
 - **Focus**: Documentation, examples, testing
 - **Critical path**: No (continuous throughout development)
 
+#### 5️⃣ **Auto-Optimization** (Post-MVP, 2 developers)
+- **Phases**: 13
+- **Focus**: Benchmarking engine, model recommendations, self-improvement
+- **Critical path**: No (post-MVP enhancement)
+
 ### Parallel Execution Plan
 
 ```
 Week 1-2:   Phase 1 (Backend Core)    ║ Phase 4a (Frontend Foundation) ✓
 Week 3-4:   Phase 2 (Domain/App)      ║ Phase 4b (Block Architecture)
-Week 5-6:   Phase 2 (continued)       ║ Phase 4c (IDE Layout)
+Week 5-6:   Phase 2 (continued)       ║ Phase 4c (IDE Layout) + Phase 4e (Models Panel)
 Week 7-8:   Phase 3 (Infrastructure)  ║ Phase 4d (Canvas Foundation)
 Week 9-12:  Phase 5 (Execution) + Phase 6 (Agents) ║ Phase 4d (continued)
 Week 13-14: Phase 7 (Monitoring)      ║ Phase 8 (Tool Executors)
 Week 15-16: Phase 9 (Terminal & CLI)
 Week 17-19: Phase 10 (Integration & Testing) - Full Team
 Week 20-21: Phase 11 (Documentation)  ║ Phase 12 (Release Prep)
+Week 22+:   Phase 13 (Auto-Optimization) - Post-MVP
 ```
 
 ### Dependencies Matrix
@@ -895,19 +1168,21 @@ Week 20-21: Phase 11 (Documentation)  ║ Phase 12 (Release Prep)
 |-------|------------|--------|
 | 1     | None       | 2, 3   |
 | 2     | 1          | 3, 5, 6 |
-| 3     | 2          | 5, 6, 7, 8 |
-| 4a    | None       | 4b     |
+| 3     | 2          | 4e (backend), 5, 6, 7, 8 |
+| 4a    | None       | 4b, 4e |
 | 4b    | 4a         | 4c, 4d |
 | 4c    | 4b         | 4d, 9  |
 | 4d    | 4b, 4c     | 7, 10  |
-| 5     | 2, 3       | 7, 10  |
-| 6     | 2, 3       | 10     |
-| 7     | 4d, 5      | 10     |
+| 4e    | 4a, 3 (partial) | 6, 13 |
+| 5     | 2, 3       | 7, 10, 13  |
+| 6     | 2, 3, 4e   | 10, 13 |
+| 7     | 4d, 5      | 10, 13 |
 | 8     | 3, 6       | 10     |
 | 9     | 4c, 7      | 10     |
 | 10    | 5-9        | 11, 12 |
 | 11    | 10         | 12     |
 | 12    | 11         | Release |
+| 13    | 4e, 5, 6, 7 | Future |
 
 ### Team Allocation Recommendations
 
