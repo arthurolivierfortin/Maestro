@@ -7,7 +7,7 @@
 import { useMemo } from 'react';
 import { useModelStore } from '../../store/modelStore';
 import { ProviderIcon, getProviderName } from '../icons/ProviderIcons';
-import type { Model } from '../../types/model.types';
+import type { Model, ModelProvider } from '../../types/model.types';
 import './ModelSelector.scss';
 
 export interface ModelSelectorProps {
@@ -31,7 +31,7 @@ export function ModelSelector({
   // Filter and group models by provider
   const modelsByProvider = useMemo(() => {
     let modelList = Array.from(models.values());
-    
+
     if (onlyAvailable) {
       modelList = modelList.filter((m) => m.isAvailable);
     }
@@ -65,7 +65,7 @@ export function ModelSelector({
       >
         <option value="">{placeholder}</option>
         {Array.from(modelsByProvider.entries()).map(([provider, providerModels]) => (
-          <optgroup key={provider} label={getProviderName(provider as any)}>
+          <optgroup key={provider} label={getProviderName(provider as ModelProvider)}>
             {providerModels.map((model) => (
               <option key={model.id} value={model.id}>
                 {model.displayName}

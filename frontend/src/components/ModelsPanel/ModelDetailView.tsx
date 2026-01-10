@@ -78,20 +78,23 @@ export function ModelDetailView({ model }: ModelDetailViewProps) {
           <button className="model-detail__action-btn" onClick={handleEdit}>
             <Edit2 size={16} />
           </button>
-          <button className="model-detail__action-btn model-detail__action-btn--danger" onClick={handleDelete}>
+          <button
+            className="model-detail__action-btn model-detail__action-btn--danger"
+            onClick={handleDelete}
+          >
             <Trash2 size={16} />
           </button>
         </div>
       </div>
 
-      {model.description && (
-        <div className="model-detail__description">{model.description}</div>
-      )}
+      {model.description && <div className="model-detail__description">{model.description}</div>}
 
       <div className="model-detail__section">
         <h4 className="model-detail__section-title">Status</h4>
         <div className="model-detail__badges">
-          <div className={`model-detail__badge model-detail__badge--${model.isAvailable ? 'success' : 'error'}`}>
+          <div
+            className={`model-detail__badge model-detail__badge--${model.isAvailable ? 'success' : 'error'}`}
+          >
             {model.isAvailable ? 'Available' : 'Unavailable'}
           </div>
           {model.isLocal && (
@@ -125,11 +128,15 @@ export function ModelDetailView({ model }: ModelDetailViewProps) {
         <div className="model-detail__specs">
           <div className="model-detail__spec">
             <span className="model-detail__spec-label">Context Window:</span>
-            <span className="model-detail__spec-value">{formatContextWindow(model.contextWindow)}</span>
+            <span className="model-detail__spec-value">
+              {formatContextWindow(model.contextWindow)}
+            </span>
           </div>
           <div className="model-detail__spec">
             <span className="model-detail__spec-label">Max Output:</span>
-            <span className="model-detail__spec-value">{formatContextWindow(model.maxOutputTokens)}</span>
+            <span className="model-detail__spec-value">
+              {formatContextWindow(model.maxOutputTokens)}
+            </span>
           </div>
           <div className="model-detail__spec">
             <span className="model-detail__spec-label">Speed Rating:</span>
@@ -137,11 +144,15 @@ export function ModelDetailView({ model }: ModelDetailViewProps) {
           </div>
           <div className="model-detail__spec">
             <span className="model-detail__spec-label">Streaming:</span>
-            <span className="model-detail__spec-value">{model.supportsStreaming ? 'Yes' : 'No'}</span>
+            <span className="model-detail__spec-value">
+              {model.supportsStreaming ? 'Yes' : 'No'}
+            </span>
           </div>
           <div className="model-detail__spec">
             <span className="model-detail__spec-label">Tool Calls:</span>
-            <span className="model-detail__spec-value">{model.supportsToolCalls ? 'Yes' : 'No'}</span>
+            <span className="model-detail__spec-value">
+              {model.supportsToolCalls ? 'Yes' : 'No'}
+            </span>
           </div>
           <div className="model-detail__spec">
             <span className="model-detail__spec-label">Vision:</span>

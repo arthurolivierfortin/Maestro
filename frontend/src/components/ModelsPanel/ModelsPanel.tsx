@@ -25,12 +25,10 @@ export function ModelsPanel() {
   // Load preset models on first mount if no models exist
   useEffect(() => {
     if (models.size === 0) {
-      setIsLoading(true);
       const existingIds = new Set(Array.from(models.keys()));
       loadPresetModels(addModel, existingIds);
-      setIsLoading(false);
     }
-  }, [models.size, addModel, models]);
+  }, []); // Only run on mount
 
   // Sync selected model
   useEffect(() => {

@@ -379,13 +379,8 @@ export const OLLAMA_MODELS: Model[] = [
     id: 'llama3.2:latest',
     provider: 'ollama',
     displayName: 'Llama 3.2',
-    description: 'Meta\'s latest open-source model',
-    capabilities: [
-      'code-generation',
-      'reasoning',
-      'analysis',
-      'fast-inference',
-    ],
+    description: "Meta's latest open-source model",
+    capabilities: ['code-generation', 'reasoning', 'analysis', 'fast-inference'],
     contextWindow: 128000,
     maxOutputTokens: 4096,
     costPerInputToken: 0,
@@ -416,11 +411,7 @@ export const OLLAMA_MODELS: Model[] = [
     provider: 'ollama',
     displayName: 'CodeLlama',
     description: 'Specialized code generation model',
-    capabilities: [
-      'code-generation',
-      'code-debugging',
-      'fast-inference',
-    ],
+    capabilities: ['code-generation', 'code-debugging', 'fast-inference'],
     contextWindow: 100000,
     maxOutputTokens: 4096,
     costPerInputToken: 0,
@@ -456,13 +447,8 @@ export const GROQ_MODELS: Model[] = [
     id: 'llama-3.1-70b-versatile',
     provider: 'groq',
     displayName: 'Llama 3.1 70B',
-    description: 'Fast inference with Groq\'s LPU',
-    capabilities: [
-      'code-generation',
-      'reasoning',
-      'analysis',
-      'fast-inference',
-    ],
+    description: "Fast inference with Groq's LPU",
+    capabilities: ['code-generation', 'reasoning', 'analysis', 'fast-inference'],
     contextWindow: 131072,
     maxOutputTokens: 32768,
     costPerInputToken: 0.00059 / 1000,
@@ -503,10 +489,7 @@ export const ALL_PRESET_MODELS: Model[] = [
 /**
  * Load preset models into store
  */
-export function loadPresetModels(
-  addModel: (model: Model) => void,
-  existingModelIds: Set<string>
-) {
+export function loadPresetModels(addModel: (model: Model) => void, existingModelIds: Set<string>) {
   ALL_PRESET_MODELS.forEach((model) => {
     // Only add if not already in store
     if (!existingModelIds.has(model.id)) {

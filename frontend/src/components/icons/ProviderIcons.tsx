@@ -4,17 +4,7 @@
  * Displays provider logos/icons for AI models.
  */
 
-import {
-  Bot,
-  Zap,
-  Cloud,
-  Server,
-  Puzzle,
-  Sparkles,
-  Brain,
-  Cpu,
-  Code2,
-} from 'lucide-react';
+import { Bot, Zap, Cloud, Server, Puzzle, Sparkles, Brain, Cpu, Code2 } from 'lucide-react';
 import type { ModelProvider } from '../../types/model.types';
 
 export interface ProviderIconProps {

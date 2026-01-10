@@ -121,7 +121,9 @@ function renderBlockContent(block: Block) {
         return (
           <div className="base-block-node__preview">
             <div className="base-block-node__preview-label">Agent Type:</div>
-            <div className="base-block-node__preview-value">{block.config.agentType || 'Custom'}</div>
+            <div className="base-block-node__preview-value">
+              {block.config.agentType || 'Custom'}
+            </div>
             {block.config.model && (
               <>
                 <div className="base-block-node__preview-label">Model:</div>
@@ -175,7 +177,9 @@ function renderBlockContent(block: Block) {
         return (
           <div className="base-block-node__preview">
             <div className="base-block-node__preview-label">Tool Type:</div>
-            <div className="base-block-node__preview-value">{block.config.toolType || 'Custom'}</div>
+            <div className="base-block-node__preview-value">
+              {block.config.toolType || 'Custom'}
+            </div>
           </div>
         );
       }

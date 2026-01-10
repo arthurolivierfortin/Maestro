@@ -67,7 +67,7 @@ export function useModelSelection(options: UseModelSelectionOptions = {}) {
  */
 export function useBestModel(taskType: TaskType) {
   const getBestModelForTask = useModelStore((state) => state.getBestModelForTask);
-  
+
   const bestModel = useMemo(() => {
     return getBestModelForTask(taskType);
   }, [getBestModelForTask, taskType]);
@@ -82,8 +82,11 @@ export function useModelsByProvider() {
   const models = useModelStore((state) => state.models);
 
   const modelsByProvider = useMemo(() => {
-    const grouped = new Map<ModelProvider, typeof models extends Map<string, infer M> ? M[] : never>();
-    
+    const grouped = new Map<
+      ModelProvider,
+      typeof models extends Map<string, infer M> ? M[] : never
+    >();
+
     models.forEach((model) => {
       const existing = grouped.get(model.provider) || [];
       grouped.set(model.provider, [...existing, model]);

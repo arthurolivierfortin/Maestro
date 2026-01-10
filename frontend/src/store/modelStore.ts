@@ -46,7 +46,7 @@ interface ModelStoreState {
   // Persistence
   loadFromStorage: () => void;
   saveToStorage: () => void;
-  
+
   // Utility
   clear: () => void;
   setModels: (models: Map<string, Model>) => void;
@@ -170,7 +170,7 @@ export const useModelStore = create<ModelStoreState>()(
         addModel: (model: Model) => {
           set((state) => {
             const newModels = new Map(state.models);
-            
+
             // Add timestamps if not present
             const now = new Date().toISOString();
             const modelWithTimestamps: Model = {
@@ -178,12 +178,12 @@ export const useModelStore = create<ModelStoreState>()(
               createdAt: model.createdAt || now,
               updatedAt: model.updatedAt || now,
             };
-            
+
             newModels.set(model.id, modelWithTimestamps);
-            
+
             // Set as default if it's the first model or marked as default in the preset
             const shouldSetDefault = state.models.size === 0 || modelWithTimestamps.id === 'gpt-4o';
-            
+
             return {
               models: newModels,
               defaultModelId: shouldSetDefault ? model.id : state.defaultModelId,
@@ -234,9 +234,7 @@ export const useModelStore = create<ModelStoreState>()(
         },
 
         getModelsByProvider: (provider: ModelProvider) => {
-          return Array.from(get().models.values()).filter(
-            (model) => model.provider === provider
-          );
+          return Array.from(get().models.values()).filter((model) => model.provider === provider);
         },
 
         getModelsByCapability: (capability: ModelCapability) => {
@@ -251,7 +249,7 @@ export const useModelStore = create<ModelStoreState>()(
 
         getBestModelForTask: (taskType: TaskType, constraints?: ModelConstraints) => {
           const models = Array.from(get().models.values());
-          
+
           // Score each model
           const scoredModels = models
             .map((model) => ({

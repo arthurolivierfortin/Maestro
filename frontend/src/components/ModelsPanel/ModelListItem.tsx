@@ -19,7 +19,7 @@ export interface ModelListItemProps {
 
 export function ModelListItem({ model, isSelected, onSelect }: ModelListItemProps) {
   const costTier = getCostTier(model);
-  
+
   const costSymbol = {
     free: 'FREE',
     low: '$',
@@ -40,9 +40,13 @@ export function ModelListItem({ model, isSelected, onSelect }: ModelListItemProp
           <div className="model-list-item__provider">{getProviderName(model.provider)}</div>
         </div>
         <div className="model-list-item__badges">
-          {model.isLocal && <span className="model-list-item__badge model-list-item__badge--local">Local</span>}
+          {model.isLocal && (
+            <span className="model-list-item__badge model-list-item__badge--local">Local</span>
+          )}
           {!model.isAvailable && (
-            <span className="model-list-item__badge model-list-item__badge--unavailable">Offline</span>
+            <span className="model-list-item__badge model-list-item__badge--unavailable">
+              Offline
+            </span>
           )}
         </div>
       </div>
@@ -50,18 +54,26 @@ export function ModelListItem({ model, isSelected, onSelect }: ModelListItemProp
       <div className="model-list-item__meta">
         <div className="model-list-item__capabilities">
           {model.capabilities.slice(0, 4).map((cap) => (
-            <div key={cap} className="model-list-item__capability" title={getCapabilityShortName(cap)}>
+            <div
+              key={cap}
+              className="model-list-item__capability"
+              title={getCapabilityShortName(cap)}
+            >
               <CapabilityIcon capability={cap} size={14} />
             </div>
           ))}
           {model.capabilities.length > 4 && (
-            <span className="model-list-item__capability-more">+{model.capabilities.length - 4}</span>
+            <span className="model-list-item__capability-more">
+              +{model.capabilities.length - 4}
+            </span>
           )}
         </div>
         <div className="model-list-item__cost">{costSymbol}</div>
       </div>
 
-      <div className={`model-list-item__status model-list-item__status--${model.isAvailable ? 'online' : 'offline'}`}>
+      <div
+        className={`model-list-item__status model-list-item__status--${model.isAvailable ? 'online' : 'offline'}`}
+      >
         {model.isAvailable && <Check size={12} />}
       </div>
     </div>
