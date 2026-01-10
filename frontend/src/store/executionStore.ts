@@ -1,13 +1,13 @@
 /**
  * Execution Store (Zustand)
- * 
+ *
  * Global state management for workflow executions.
  */
 
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
-import { WorkflowExecution, ExecutionSummary, ExecutionEvent } from '@types';
-import { executionService } from '@services';
+import type { WorkflowExecution, ExecutionSummary, ExecutionEvent } from '../types';
+import { executionService } from '../services/workflowService';
 
 interface ExecutionState {
   // State

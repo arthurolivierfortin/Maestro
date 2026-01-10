@@ -1,10 +1,10 @@
 /**
  * Execution and monitoring type definitions
- * 
+ *
  * Real-time workflow execution tracking.
  */
 
-export type ExecutionStatus = 
+export type ExecutionStatus =
   | 'Pending'
   | 'Running'
   | 'Paused'
@@ -72,7 +72,7 @@ export interface ExecutionError {
 /**
  * Execution event (SignalR)
  */
-export type ExecutionEvent = 
+export type ExecutionEvent =
   | ExecutionStartedEvent
   | ExecutionCompletedEvent
   | ExecutionFailedEvent

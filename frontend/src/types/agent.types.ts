@@ -1,6 +1,6 @@
 /**
  * Agent type definitions
- * 
+ *
  * Represents AI agents and their capabilities.
  */
 

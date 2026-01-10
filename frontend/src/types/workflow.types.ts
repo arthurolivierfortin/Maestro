@@ -1,6 +1,6 @@
 /**
  * Workflow type definitions
- * 
+ *
  * Core workflow structure matching backend domain model.
  */
 

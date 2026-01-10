@@ -1,6 +1,6 @@
 /**
  * API Client for B-One Maestro Backend
- * 
+ *
  * Provides centralized HTTP communication with the backend API.
  * All business logic stays in backend - this is just communication.
  */
@@ -39,12 +39,12 @@ axiosInstance.interceptors.request.use(
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;
     }
-    
+
     // Log request in development
     if (import.meta.env.DEV) {
       console.log(`[API Request] ${config.method?.toUpperCase()} ${config.url}`);
     }
-    
+
     return config;
   },
   (error) => {
@@ -60,7 +60,10 @@ axiosInstance.interceptors.response.use(
   (response) => {
     // Log response in development
     if (import.meta.env.DEV) {
-      console.log(`[API Response] ${response.config.method?.toUpperCase()} ${response.config.url}`, response.status);
+      console.log(
+        `[API Response] ${response.config.method?.toUpperCase()} ${response.config.url}`,
+        response.status
+      );
     }
     return response;
   },
@@ -70,9 +73,9 @@ axiosInstance.interceptors.response.use(
       // Server responded with error status
       const status = error.response.status;
       const message = error.response.data?.message || error.message;
-      
+
       console.error(`[API Error ${status}]`, message);
-      
+
       // Handle specific status codes
       if (status === 401) {
         // Unauthorized - clear auth and redirect to login
@@ -95,7 +98,7 @@ axiosInstance.interceptors.response.use(
       // Something else happened
       console.error('[API Error]', error.message);
     }
-    
+
     return Promise.reject(error);
   }
 );
@@ -111,7 +114,7 @@ export const apiClient = {
     const response = await axiosInstance.get<T>(url, config);
     return response.data;
   },
-  
+
   /**
    * POST request
    */
@@ -119,7 +122,7 @@ export const apiClient = {
     const response = await axiosInstance.post<T>(url, data, config);
     return response.data;
   },
-  
+
   /**
    * PUT request
    */
@@ -127,7 +130,7 @@ export const apiClient = {
     const response = await axiosInstance.put<T>(url, data, config);
     return response.data;
   },
-  
+
   /**
    * PATCH request
    */
@@ -135,7 +138,7 @@ export const apiClient = {
     const response = await axiosInstance.patch<T>(url, data, config);
     return response.data;
   },
-  
+
   /**
    * DELETE request
    */

@@ -1,0 +1,93 @@
+/**
+ * Application Router Configuration
+ *
+ * Defines all routes and navigation structure.
+ */
+
+import { createBrowserRouter, RouteObject } from 'react-router-dom';
+import { lazy } from 'react';
+
+// Layouts
+import RootLayout from '@/layouts/RootLayout';
+import { LazyPage } from '@/utils/LazyPage';
+
+// Lazy-loaded pages
+const HomePage = lazy(() => import('@/pages/HomePage'));
+const WorkflowsPage = lazy(() => import('@/pages/WorkflowsPage'));
+const WorkflowEditorPage = lazy(() => import('@/pages/WorkflowEditorPage'));
+const ExecutionMonitorPage = lazy(() => import('@/pages/ExecutionMonitorPage'));
+const HistoryPage = lazy(() => import('@/pages/HistoryPage'));
+const NotFoundPage = lazy(() => import('@/pages/NotFoundPage'));
+
+/**
+ * Route definitions
+ */
+const routes: RouteObject[] = [
+  {
+    path: '/',
+    element: <RootLayout />,
+    children: [
+      {
+        index: true,
+        element: (
+          <LazyPage>
+            <HomePage />
+          </LazyPage>
+        ),
+      },
+      {
+        path: 'workflows',
+        element: (
+          <LazyPage>
+            <WorkflowsPage />
+          </LazyPage>
+        ),
+      },
+      {
+        path: 'workflows/:id/edit',
+        element: (
+          <LazyPage>
+            <WorkflowEditorPage />
+          </LazyPage>
+        ),
+      },
+      {
+        path: 'workflows/new',
+        element: (
+          <LazyPage>
+            <WorkflowEditorPage />
+          </LazyPage>
+        ),
+      },
+      {
+        path: 'executions/:id',
+        element: (
+          <LazyPage>
+            <ExecutionMonitorPage />
+          </LazyPage>
+        ),
+      },
+      {
+        path: 'history',
+        element: (
+          <LazyPage>
+            <HistoryPage />
+          </LazyPage>
+        ),
+      },
+      {
+        path: '*',
+        element: (
+          <LazyPage>
+            <NotFoundPage />
+          </LazyPage>
+        ),
+      },
+    ],
+  },
+];
+
+/**
+ * Application router
+ */
+export const router = createBrowserRouter(routes);

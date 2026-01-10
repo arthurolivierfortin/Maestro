@@ -1,11 +1,11 @@
 /**
  * SignalR Service
- * 
+ *
  * Real-time communication with backend for execution monitoring.
  */
 
 import * as signalR from '@microsoft/signalr';
-import { ExecutionEvent } from '@types';
+import type { ExecutionEvent } from '../types/execution.types';
 
 const SIGNALR_HUB_URL =
   import.meta.env.VITE_SIGNALR_HUB_URL || 'https://localhost:5001/hubs/execution';

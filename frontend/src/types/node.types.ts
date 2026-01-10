@@ -1,18 +1,12 @@
 /**
  * Node type definitions
- * 
+ *
  * Represents different types of nodes in a workflow.
  */
 
 export type NodeType = 'Agent' | 'Tool' | 'Decision' | 'Validator' | 'Trigger';
 
-export type NodeStatus = 
-  | 'Pending'
-  | 'Running'
-  | 'Completed'
-  | 'Failed'
-  | 'Skipped'
-  | 'Cancelled';
+export type NodeStatus = 'Pending' | 'Running' | 'Completed' | 'Failed' | 'Skipped' | 'Cancelled';
 
 /**
  * Base node interface
@@ -51,7 +45,7 @@ export interface NodePort {
  */
 export interface AgentNode extends Node {
   type: 'Agent';
-  config: AgentNodeConfig;
+  config: AgentNodeConfig & Record<string, unknown>;
 }
 
 export interface AgentNodeConfig {
@@ -68,7 +62,7 @@ export interface AgentNodeConfig {
  */
 export interface ToolNode extends Node {
   type: 'Tool';
-  config: ToolNodeConfig;
+  config: ToolNodeConfig & Record<string, unknown>;
 }
 
 export interface ToolNodeConfig {
@@ -84,7 +78,7 @@ export interface ToolNodeConfig {
  */
 export interface DecisionNode extends Node {
   type: 'Decision';
-  config: DecisionNodeConfig;
+  config: DecisionNodeConfig & Record<string, unknown>;
 }
 
 export interface DecisionNodeConfig {
@@ -98,7 +92,7 @@ export interface DecisionNodeConfig {
  */
 export interface ValidatorNode extends Node {
   type: 'Validator';
-  config: ValidatorNodeConfig;
+  config: ValidatorNodeConfig & Record<string, unknown>;
 }
 
 export interface ValidatorNodeConfig {
@@ -113,7 +107,7 @@ export interface ValidatorNodeConfig {
  */
 export interface TriggerNode extends Node {
   type: 'Trigger';
-  config: TriggerNodeConfig;
+  config: TriggerNodeConfig & Record<string, unknown>;
 }
 
 export interface TriggerNodeConfig {

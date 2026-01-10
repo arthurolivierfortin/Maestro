@@ -1,11 +1,11 @@
 /**
  * Workflow Service
- * 
+ *
  * Handles all workflow-related API calls.
  */
 
 import { apiClient } from './api';
-import {
+import type {
   Workflow,
   WorkflowSummary,
   WorkflowDto,
@@ -13,7 +13,7 @@ import {
   WorkflowExecution,
   ExecutionSummary,
   ExecutionFilters,
-} from '@types';
+} from '../types';
 
 /**
  * Workflow CRUD operations

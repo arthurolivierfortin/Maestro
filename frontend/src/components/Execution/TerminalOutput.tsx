@@ -1,6 +1,6 @@
 /**
  * Terminal Output Component (Placeholder)
- * 
+ *
  * In production, this would display live terminal output
  * streamed from backend via SignalR.
  */

@@ -1,13 +1,13 @@
 /**
  * Workflow Store (Zustand)
- * 
+ *
  * Global state management for workflows.
  */
 
 import { create } from 'zustand';
 import { devtools, persist } from 'zustand/middleware';
-import { Workflow, WorkflowSummary } from '@types';
-import { workflowService } from '@services';
+import type { Workflow, WorkflowSummary } from '../types';
+import { workflowService } from '../services/workflowService';
 
 interface WorkflowState {
   // State

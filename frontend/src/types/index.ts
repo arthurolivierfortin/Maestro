@@ -1,6 +1,6 @@
 /**
  * Type definitions barrel export
- * 
+ *
  * Central export point for all type definitions.
  */
 
