@@ -6,12 +6,15 @@
 
 import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import { Sun, Moon, Monitor } from 'lucide-react';
 import { SettingsModal } from '../settings/SettingsModal';
+import { useTheme } from '../../store/themeStore';
 import './TopBar.scss';
 
 export function TopBar() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const location = useLocation();
+  const { theme, toggleTheme } = useTheme();
 
   const isActive = (path: string) => {
     if (path === '/') {
@@ -56,6 +59,16 @@ export function TopBar() {
           </Link>
         </nav>
         <div className="top-bar__right">
+          <button
+            className="top-bar__theme-btn"
+            onClick={toggleTheme}
+            aria-label={`Current theme: ${theme}. Click to cycle themes.`}
+            title={`Theme: ${theme}`}
+          >
+            {theme === 'light' && <Sun size={18} />}
+            {theme === 'dark' && <Moon size={18} />}
+            {theme === 'system' && <Monitor size={18} />}
+          </button>
           <button
             className="top-bar__settings-btn"
             onClick={() => setIsSettingsOpen(true)}

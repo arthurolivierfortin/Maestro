@@ -123,3 +123,14 @@ img {
 ::-webkit-scrollbar-thumb:hover {
   background: var(--border-hover);
 }
+
+/* Theme transition */
+html.theme-transition,
+html.theme-transition *,
+html.theme-transition *::before,
+html.theme-transition *::after {
+  transition: background-color var(--transition-base), 
+              color var(--transition-base),
+              border-color var(--transition-base) !important;
+  transition-delay: 0s !important;
+}

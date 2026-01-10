@@ -1,0 +1,222 @@
+/**
+ * PropertiesPanel Styles
+ */
+
+.properties-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background-color: var(--surface);
+  border-left: 1px solid var(--border);
+  overflow: hidden;
+
+  &--collapsed {
+    width: 40px;
+    align-items: center;
+    justify-content: center;
+  }
+
+  &__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--spacing-md);
+    border-bottom: 1px solid var(--border);
+  }
+
+  &__title {
+    margin: 0;
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+    color: var(--text-primary);
+  }
+
+  &__collapse-btn,
+  &__expand-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--spacing-xs);
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    border-radius: var(--radius-sm);
+    transition: all var(--transition-fast);
+
+    &:hover {
+      background-color: var(--surface-hover);
+      color: var(--text-primary);
+    }
+  }
+
+  &__expand-btn {
+    transform: rotate(180deg);
+  }
+
+  &__content {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: var(--spacing-md);
+  }
+
+  &__empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    padding: var(--spacing-xl);
+    text-align: center;
+    color: var(--text-secondary);
+
+    p {
+      margin: var(--spacing-xs) 0;
+    }
+  }
+
+  &__empty-hint {
+    font-size: var(--font-size-sm);
+    color: var(--text-tertiary);
+  }
+
+  &__section {
+    margin-bottom: var(--spacing-lg);
+
+    &:last-child {
+      margin-bottom: 0;
+    }
+  }
+
+  &__block-type {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-sm) var(--spacing-md);
+    background-color: var(--background-secondary);
+    border-radius: var(--radius-md);
+  }
+
+  &__icon {
+    font-size: var(--font-size-lg);
+  }
+
+  &__type-label {
+    font-weight: var(--font-weight-medium);
+    color: var(--text-primary);
+  }
+
+  &__label {
+    display: block;
+    margin-bottom: var(--spacing-xs);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+    color: var(--text-secondary);
+  }
+
+  &__id-field {
+    display: flex;
+    gap: var(--spacing-xs);
+  }
+
+  &__input,
+  &__select,
+  &__textarea {
+    width: 100%;
+    padding: var(--spacing-sm);
+    font-size: var(--font-size-sm);
+    font-family: var(--font-family-base);
+    color: var(--text-primary);
+    background-color: var(--background);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    transition: border-color var(--transition-fast);
+
+    &:focus {
+      outline: none;
+      border-color: var(--color-primary);
+    }
+
+    &--readonly {
+      color: var(--text-secondary);
+      cursor: default;
+    }
+  }
+
+  &__textarea {
+    resize: vertical;
+    font-family: var(--font-family-mono);
+    line-height: var(--line-height-normal);
+  }
+
+  &__copy-btn {
+    flex-shrink: 0;
+    padding: var(--spacing-sm);
+    background-color: var(--background);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+
+    &:hover {
+      background-color: var(--surface-hover);
+      border-color: var(--border-hover);
+      color: var(--text-primary);
+    }
+  }
+
+  &__metadata {
+    padding: var(--spacing-sm);
+    background-color: var(--background-secondary);
+    border-radius: var(--radius-sm);
+    font-size: var(--font-size-sm);
+  }
+
+  &__metadata-row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: var(--spacing-xs);
+
+    &:last-child {
+      margin-bottom: 0;
+    }
+  }
+
+  &__metadata-label {
+    color: var(--text-secondary);
+  }
+
+  &__metadata-value {
+    color: var(--text-primary);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+  }
+
+  &__config {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+  }
+
+  &__field {
+    display: flex;
+    flex-direction: column;
+  }
+
+  &__field-label {
+    margin-bottom: var(--spacing-xs);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-medium);
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  &__no-config {
+    font-size: var(--font-size-sm);
+    color: var(--text-tertiary);
+    font-style: italic;
+  }
+}
