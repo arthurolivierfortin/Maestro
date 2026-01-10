@@ -8,7 +8,7 @@ import { createBrowserRouter, RouteObject } from 'react-router-dom';
 import { lazy } from 'react';
 
 // Layouts
-import RootLayout from '@/layouts/RootLayout';
+import IDELayout from '@/layouts/IDELayout';
 import { LazyPage } from '@/utils/LazyPage';
 
 // Lazy-loaded pages
@@ -25,7 +25,7 @@ const NotFoundPage = lazy(() => import('@/pages/NotFoundPage'));
 const routes: RouteObject[] = [
   {
     path: '/',
-    element: <RootLayout />,
+    element: <IDELayout />,
     children: [
       {
         index: true,

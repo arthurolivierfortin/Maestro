@@ -1,0 +1,217 @@
+/**
+ * Style Presets
+ * 
+ * Multiple visual identities for the application, inspired by:
+ * - Claude Code: Minimal, calm, editor-first
+ * - n8n: Structured, clear panel separation
+ * - VS Code: Balanced IDE workspace
+ * 
+ * Each preset defines colors for light and dark modes.
+ */
+
+/* ========================================
+   PRESET 1: MINIMAL (Claude-inspired)
+   Calm, low-noise, editor-first aesthetic
+   ======================================== */
+
+[data-preset='minimal'][data-theme='light'] {
+  /* Background & Surface */
+  --background: #ffffff;
+  --background-secondary: #f8f8f8;
+  --background-tertiary: #f0f0f0;
+  --surface: #ffffff;
+  --surface-hover: #f8f8f8;
+  
+  /* Text */
+  --text-primary: #1a1a1a;
+  --text-secondary: #666666;
+  --text-tertiary: #999999;
+  
+  /* Borders */
+  --border: #e5e5e5;
+  --border-hover: #d4d4d4;
+  
+  /* Sidebar */
+  --sidebar-background: #f8f8f8;
+  --sidebar-border: #e5e5e5;
+  --sidebar-item-hover: #f0f0f0;
+  --sidebar-item-active: #e8e8e8;
+  
+  /* Editor */
+  --editor-background: #ffffff;
+  --editor-gutter: #f8f8f8;
+  
+  /* Accent (subtle) */
+  --accent-primary: #2563eb;
+  --accent-hover: #1d4ed8;
+}
+
+[data-preset='minimal'][data-theme='dark'] {
+  /* Background & Surface */
+  --background: #1a1a1a;
+  --background-secondary: #242424;
+  --background-tertiary: #2e2e2e;
+  --surface: #1f1f1f;
+  --surface-hover: #2a2a2a;
+  
+  /* Text */
+  --text-primary: #e8e8e8;
+  --text-secondary: #a8a8a8;
+  --text-tertiary: #6e6e6e;
+  
+  /* Borders */
+  --border: #333333;
+  --border-hover: #444444;
+  
+  /* Sidebar */
+  --sidebar-background: #1f1f1f;
+  --sidebar-border: #2a2a2a;
+  --sidebar-item-hover: #2a2a2a;
+  --sidebar-item-active: #333333;
+  
+  /* Editor */
+  --editor-background: #1a1a1a;
+  --editor-gutter: #242424;
+  
+  /* Accent (subtle) */
+  --accent-primary: #3b82f6;
+  --accent-hover: #60a5fa;
+}
+
+/* ========================================
+   PRESET 2: STRUCTURED (n8n-inspired)
+   Clear panel separation, slightly expressive
+   ======================================== */
+
+[data-preset='structured'][data-theme='light'] {
+  /* Background & Surface */
+  --background: #f5f5f5;
+  --background-secondary: #ffffff;
+  --background-tertiary: #e9e9e9;
+  --surface: #ffffff;
+  --surface-hover: #f9f9f9;
+  
+  /* Text */
+  --text-primary: #262626;
+  --text-secondary: #737373;
+  --text-tertiary: #a3a3a3;
+  
+  /* Borders */
+  --border: #d4d4d4;
+  --border-hover: #b8b8b8;
+  
+  /* Sidebar */
+  --sidebar-background: #fafafa;
+  --sidebar-border: #d4d4d4;
+  --sidebar-item-hover: #f0f0f0;
+  --sidebar-item-active: #e5e5e5;
+  
+  /* Editor */
+  --editor-background: #ffffff;
+  --editor-gutter: #fafafa;
+  
+  /* Accent (more visible) */
+  --accent-primary: #7c3aed;
+  --accent-hover: #6d28d9;
+}
+
+[data-preset='structured'][data-theme='dark'] {
+  /* Background & Surface */
+  --background: #171717;
+  --background-secondary: #262626;
+  --background-tertiary: #333333;
+  --surface: #1f1f1f;
+  --surface-hover: #292929;
+  
+  /* Text */
+  --text-primary: #fafafa;
+  --text-secondary: #a3a3a3;
+  --text-tertiary: #737373;
+  
+  /* Borders */
+  --border: #404040;
+  --border-hover: #525252;
+  
+  /* Sidebar */
+  --sidebar-background: #1a1a1a;
+  --sidebar-border: #333333;
+  --sidebar-item-hover: #262626;
+  --sidebar-item-active: #333333;
+  
+  /* Editor */
+  --editor-background: #1f1f1f;
+  --editor-gutter: #262626;
+  
+  /* Accent (more visible) */
+  --accent-primary: #8b5cf6;
+  --accent-hover: #a78bfa;
+}
+
+/* ========================================
+   PRESET 3: BALANCED (VS Code-inspired)
+   Middle ground between minimalism and structure
+   ======================================== */
+
+[data-preset='balanced'][data-theme='light'] {
+  /* Background & Surface */
+  --background: #f3f3f3;
+  --background-secondary: #ffffff;
+  --background-tertiary: #ececec;
+  --surface: #ffffff;
+  --surface-hover: #f7f7f7;
+  
+  /* Text */
+  --text-primary: #1e1e1e;
+  --text-secondary: #6e6e6e;
+  --text-tertiary: #9e9e9e;
+  
+  /* Borders */
+  --border: #d0d0d0;
+  --border-hover: #b0b0b0;
+  
+  /* Sidebar */
+  --sidebar-background: #f3f3f3;
+  --sidebar-border: #d0d0d0;
+  --sidebar-item-hover: #e8e8e8;
+  --sidebar-item-active: #e0e0e0;
+  
+  /* Editor */
+  --editor-background: #ffffff;
+  --editor-gutter: #f3f3f3;
+  
+  /* Accent (balanced) */
+  --accent-primary: #0078d4;
+  --accent-hover: #005a9e;
+}
+
+[data-preset='balanced'][data-theme='dark'] {
+  /* Background & Surface */
+  --background: #1e1e1e;
+  --background-secondary: #252526;
+  --background-tertiary: #2d2d30;
+  --surface: #252526;
+  --surface-hover: #2a2d2e;
+  
+  /* Text */
+  --text-primary: #cccccc;
+  --text-secondary: #8e8e8e;
+  --text-tertiary: #6e6e6e;
+  
+  /* Borders */
+  --border: #3e3e42;
+  --border-hover: #4e4e52;
+  
+  /* Sidebar */
+  --sidebar-background: #252526;
+  --sidebar-border: #3e3e42;
+  --sidebar-item-hover: #2a2d2e;
+  --sidebar-item-active: #37373d;
+  
+  /* Editor */
+  --editor-background: #1e1e1e;
+  --editor-gutter: #252526;
+  
+  /* Accent (balanced) */
+  --accent-primary: #0e639c;
+  --accent-hover: #1177bb;
+}
