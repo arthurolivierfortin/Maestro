@@ -109,14 +109,7 @@ export function useKeyboardShortcuts(config: KeyboardShortcutsConfig) {
           break;
       }
     },
-    [
-      leftPanelRef,
-      rightPanelRef,
-      bottomPanelRef,
-      onFocusSidebar,
-      onFocusMain,
-      onFocusProperties,
-    ]
+    [leftPanelRef, rightPanelRef, bottomPanelRef, onFocusSidebar, onFocusMain, onFocusProperties]
   );
 
   useEffect(() => {

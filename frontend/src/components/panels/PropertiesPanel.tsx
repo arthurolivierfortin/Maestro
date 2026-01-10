@@ -125,7 +125,9 @@ export function PropertiesPanel({ panelRef }: PropertiesPanelProps) {
       {!block ? (
         <div className="properties-panel__empty">
           <p>No block selected</p>
-          <p className="properties-panel__empty-hint">Select a block to view and edit its properties</p>
+          <p className="properties-panel__empty-hint">
+            Select a block to view and edit its properties
+          </p>
         </div>
       ) : (
         <div className="properties-panel__content">
@@ -133,7 +135,9 @@ export function PropertiesPanel({ panelRef }: PropertiesPanelProps) {
           <div className="properties-panel__section">
             <div className="properties-panel__block-type">
               {typeInfo?.icon && <span className="properties-panel__icon">{typeInfo.icon}</span>}
-              <span className="properties-panel__type-label">{typeInfo?.label || block.blockType}</span>
+              <span className="properties-panel__type-label">
+                {typeInfo?.label || block.blockType}
+              </span>
             </div>
           </div>
 
@@ -371,5 +375,9 @@ function renderConfigFields(
       break;
   }
 
-  return fields.length > 0 ? fields : <p className="properties-panel__no-config">No configuration fields available</p>;
+  return fields.length > 0 ? (
+    fields
+  ) : (
+    <p className="properties-panel__no-config">No configuration fields available</p>
+  );
 }

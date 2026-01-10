@@ -55,12 +55,7 @@ export interface PanelDividerProps {
 /**
  * PanelLayout - Resizable panel container
  */
-export function PanelLayout({
-  persistKey,
-  direction,
-  children,
-  className = '',
-}: PanelLayoutProps) {
+export function PanelLayout({ persistKey, direction, children, className = '' }: PanelLayoutProps) {
   const handleLayoutChange = (layout: number[]) => {
     // Persist panel sizes to localStorage with debouncing
     setTimeout(() => {
