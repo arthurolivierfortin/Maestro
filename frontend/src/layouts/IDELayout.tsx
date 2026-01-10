@@ -7,7 +7,7 @@
 
 import { useRef } from 'react';
 import { Outlet } from 'react-router-dom';
-import type { PanelImperativeHandle } from 'react-resizable-panels';
+import type { ImperativePanelHandle } from 'react-resizable-panels';
 import { BlockExplorer } from '../components/BlockExplorer';
 import { Breadcrumb } from '../components/Breadcrumb';
 import { TopBar } from '../components/layout/TopBar';
@@ -18,9 +18,9 @@ import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
 import './IDELayout.scss';
 
 export function IDELayout() {
-  const leftPanelRef = useRef<PanelImperativeHandle>(null);
-  const rightPanelRef = useRef<PanelImperativeHandle>(null);
-  const bottomPanelRef = useRef<PanelImperativeHandle>(null);
+  const leftPanelRef = useRef<ImperativePanelHandle>(null);
+  const rightPanelRef = useRef<ImperativePanelHandle>(null);
+  const bottomPanelRef = useRef<ImperativePanelHandle>(null);
 
   // Setup keyboard shortcuts
   useKeyboardShortcuts({
@@ -94,9 +94,10 @@ export function IDELayout() {
                 minSize={15}
                 maxSize={35}
                 collapsible={true}
+                collapsedSize={5}
                 panelRef={rightPanelRef}
               >
-                <PropertiesPanel />
+                <PropertiesPanel panelRef={rightPanelRef} />
               </PanelItem>
             </PanelLayout>
           </PanelItem>

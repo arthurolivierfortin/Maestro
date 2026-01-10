@@ -7,9 +7,9 @@
 import { ReactNode } from 'react';
 import {
   Panel,
-  Group,
-  Separator,
-  PanelImperativeHandle,
+  PanelGroup,
+  PanelResizeHandle,
+  type ImperativePanelHandle,
 } from 'react-resizable-panels';
 import './PanelLayout.scss';
 
@@ -35,6 +35,8 @@ export interface PanelProps {
   maxSize?: number;
   /** Whether panel can be collapsed */
   collapsible?: boolean;
+  /** Preferred width when collapsed (percentage) */
+  collapsedSize?: number;
   /** Collapse direction */
   collapseDirection?: 'left' | 'right' | 'up' | 'down';
   /** Class name */
@@ -42,7 +44,7 @@ export interface PanelProps {
   /** Children */
   children: ReactNode;
   /** Panel ref for imperative control */
-  panelRef?: React.RefObject<PanelImperativeHandle>;
+  panelRef?: React.RefObject<ImperativePanelHandle>;
 }
 
 export interface PanelDividerProps {
@@ -59,7 +61,7 @@ export function PanelLayout({
   children,
   className = '',
 }: PanelLayoutProps) {
-  const handleLayoutChange = (layout: { [id: string]: number }) => {
+  const handleLayoutChange = (layout: number[]) => {
     // Persist panel sizes to localStorage with debouncing
     setTimeout(() => {
       try {
@@ -71,14 +73,14 @@ export function PanelLayout({
   };
 
   return (
-    <Group
-      orientation={direction}
+    <PanelGroup
+      direction={direction}
       className={`panel-layout ${className}`}
       id={persistKey}
-      onLayoutChange={handleLayoutChange}
+      onLayout={handleLayoutChange}
     >
       {children}
-    </Group>
+    </PanelGroup>
   );
 }
 
@@ -91,6 +93,7 @@ export function PanelItem({
   minSize,
   maxSize,
   collapsible,
+  collapsedSize,
   className = '',
   children,
   panelRef,
@@ -102,8 +105,9 @@ export function PanelItem({
       minSize={minSize}
       maxSize={maxSize}
       collapsible={collapsible}
+      collapsedSize={collapsedSize}
       className={`panel-item ${className}`}
-      panelRef={panelRef}
+      ref={panelRef as any}
     >
       {children}
     </Panel>
@@ -114,5 +118,5 @@ export function PanelItem({
  * PanelDivider - Resize handle between panels
  */
 export function PanelDivider({ className = '' }: PanelDividerProps) {
-  return <Separator className={`panel-divider ${className}`} />;
+  return <PanelResizeHandle className={`panel-divider ${className}`} />;
 }

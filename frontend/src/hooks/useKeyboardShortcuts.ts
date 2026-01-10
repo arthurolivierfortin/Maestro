@@ -5,12 +5,12 @@
  */
 
 import { useEffect, useCallback } from 'react';
-import type { PanelImperativeHandle } from 'react-resizable-panels';
+import type { ImperativePanelHandle } from 'react-resizable-panels';
 
 export interface KeyboardShortcutsConfig {
-  leftPanelRef?: React.RefObject<PanelImperativeHandle>;
-  rightPanelRef?: React.RefObject<PanelImperativeHandle>;
-  bottomPanelRef?: React.RefObject<PanelImperativeHandle>;
+  leftPanelRef?: React.RefObject<ImperativePanelHandle>;
+  rightPanelRef?: React.RefObject<ImperativePanelHandle>;
+  bottomPanelRef?: React.RefObject<ImperativePanelHandle>;
   onFocusSidebar?: () => void;
   onFocusMain?: () => void;
   onFocusProperties?: () => void;

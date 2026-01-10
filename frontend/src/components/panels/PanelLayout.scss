@@ -14,6 +14,9 @@
   flex-direction: column;
   overflow: hidden;
   background-color: var(--background);
+  /* Allow flex children to grow/shrink properly and fill available height */
+  min-height: 0;
+  height: 100%;
 }
 
 .panel-divider {

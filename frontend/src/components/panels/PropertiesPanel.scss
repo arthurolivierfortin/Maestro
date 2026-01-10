@@ -6,22 +6,19 @@
   display: flex;
   flex-direction: column;
   height: 100%;
+  position: relative;
   background-color: var(--surface);
   border-left: 1px solid var(--border);
   overflow: hidden;
 
-  &--collapsed {
-    width: 40px;
-    align-items: center;
-    justify-content: center;
-  }
-
   &__header {
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    justify-content: flex-start;
     padding: var(--spacing-md);
     border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+    gap: var(--spacing-sm);
   }
 
   &__title {
@@ -31,8 +28,7 @@
     color: var(--text-primary);
   }
 
-  &__collapse-btn,
-  &__expand-btn {
+  &__toggle-btn {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -42,7 +38,8 @@
     color: var(--text-secondary);
     cursor: pointer;
     border-radius: var(--radius-sm);
-    transition: all var(--transition-fast);
+    transition: transform var(--transition-fast) ease, color var(--transition-fast) ease, background var(--transition-fast) ease;
+    flex-shrink: 0;
 
     &:hover {
       background-color: var(--surface-hover);
@@ -50,8 +47,21 @@
     }
   }
 
-  &__expand-btn {
+  /* Rotate chevron when collapsed (via data-state attribute) */
+  &[data-state="collapsed"] .properties-panel__toggle-btn svg {
     transform: rotate(180deg);
+  }
+
+  /* When collapsed, hide content and title via CSS */
+  &[data-state="collapsed"] .properties-panel__content,
+  &[data-state="collapsed"] .properties-panel__empty,
+  &[data-state="collapsed"] .properties-panel__title {
+    display: none;
+  }
+
+  /* Center the toggle button when collapsed */
+  &[data-state="collapsed"] .properties-panel__header {
+    justify-content: center;
   }
 
   &__content {
@@ -66,7 +76,7 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    height: 100%;
+    flex: 1;
     padding: var(--spacing-xl);
     text-align: center;
     color: var(--text-secondary);
@@ -219,4 +229,5 @@
     color: var(--text-tertiary);
     font-style: italic;
   }
+
 }

@@ -1,3 +1,65 @@
+🔧 Fix : MAESTRO-XXX – Keep Properties panel toggle visible when collapsed and fix collapse behavior
+
+# 🎯 Purpose
+This PR fixes the Properties panel collapse behavior in the frontend IDE: previously the panel could collapse to zero/hidden width making the toggle chevron unreachable. The change ensures the panel physically collapses to a small visible sliver (so the toggle remains accessible), keeps the header/chevron visible, and uses the Panel API correctly to collapse/expand.
+
+# 📋 Changes Summary
+- **Fix**: Ensure the properties panel leaves the toggle reachable when collapsed (does not fully disappear).
+- **Refactor (small)**: Move collapse control to use the `react-resizable-panels` imperative API and ensure collapsed width flows from layout props.
+- **Files changed**:
+  - **Properties UI**: [frontend/src/components/panels/PropertiesPanel.tsx](frontend/src/components/panels/PropertiesPanel.tsx)
+  - **Properties styles**: [frontend/src/components/panels/PropertiesPanel.scss](frontend/src/components/panels/PropertiesPanel.scss)
+  - **Panel wrapper**: [frontend/src/components/panels/PanelLayout.tsx](frontend/src/components/panels/PanelLayout.tsx)
+  - **IDE layout**: [frontend/src/layouts/IDELayout.tsx](frontend/src/layouts/IDELayout.tsx)
+
+# 🏗️ Technical Details
+- Problem: The panel width is controlled by `PanelItem` (react-resizable-panels). Earlier attempts to hide content purely with CSS or by removing DOM nodes caused the header/toggle to disappear when the parent panel collapsed to 0 width.
+- Solution summary:
+  - Use the panel's imperative handle (`ImperativePanelHandle`) to call `collapse()` / `expand()` so the panel shrinks/expands properly.
+  - Add and pass a `collapsedSize` prop through `PanelLayout` → `PanelItem` → underlying `Panel` so collapsed panels have a small non-zero width by default (`collapsedSize={5}` in IDE layout for Properties panel).
+  - Keep the header and toggle rendered inside the panel; hide only the content region via `data-state` + CSS. This ensures the header stays visible even when content is hidden.
+  - Removed the ad-hoc floating toggle overlay approach in favor of the `collapsedSize` solution to avoid clipping and z-index edge cases.
+
+# 🧪 Testing
+- Type-check and run frontend locally:
+```bash
+cd frontend
+npm run type-check   # tsc --noEmit
+npm run dev          # start Vite dev server
+```
+- Manual test steps in browser:
+  1. Open IDE layout and focus the workspace.
+ 2. Click the Properties panel chevron to collapse it — the panel should shrink to a narrow sliver (about 5% width) and the chevron remains visible.
+ 3. Click the chevron again to expand; the panel should fully expand to its previous width.
+ 4. Verify content is hidden/shown correctly and no layout flicker occurs.
+
+# 📖 Documentation
+- No user-facing docs required beyond this PR note. Internally, the `PanelLayout` now supports `collapsedSize` (preferred collapsed width) — mention in relevant layout docs if present.
+
+# 🚀 Deployment Notes
+- Frontend-only change; no backend or migration required.
+
+# 🔗 Related Files (for reviewers)
+- Properties panel component: [frontend/src/components/panels/PropertiesPanel.tsx](frontend/src/components/panels/PropertiesPanel.tsx)
+- Panel layout wrapper and pass-through props: [frontend/src/components/panels/PanelLayout.tsx](frontend/src/components/panels/PanelLayout.tsx)
+- IDE wiring (where `collapsedSize` is set): [frontend/src/layouts/IDELayout.tsx](frontend/src/layouts/IDELayout.tsx)
+- Styles: [frontend/src/components/panels/PropertiesPanel.scss](frontend/src/components/panels/PropertiesPanel.scss)
+
+# 👥 Review Notes
+- Focus on the following during review:
+  - **Correctness**: Clicking the chevron collapses/expands via panel API; the chevron remains visible when collapsed.
+  - **Behavior**: No overlapping overlays or off-by-one layout flicker on collapse/expand.
+  - **Accessibility**: `aria-expanded` is set on the toggle button and updates when panel state changes.
+  - **API**: `PanelLayout`/`PanelItem` pass `collapsedSize` through to the underlying `Panel` without breaking existing props.
+
+# ✅ Checklist
+- [ ] Type-check passes (`npm run type-check`).
+- [ ] Manual collapse/expand tested in browser.
+- [ ] Review `PanelLayout` changes for regressions.
+
+---
+
+If you want, I can also open a draft PR with this description, or update an existing PR body with this content. Which would you prefer?
 🧱 Feature : MAESTRO-4B – Implement Block Architecture & Recursive Type System
 
 # 🎯 Purpose
