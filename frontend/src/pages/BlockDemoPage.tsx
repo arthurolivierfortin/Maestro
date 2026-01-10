@@ -4,7 +4,6 @@
  * Demonstrates the Phase 4b Block Architecture with a sample workflow.
  */
 
-import { useEffect } from 'react';
 import { useBlockActions } from '../hooks';
 import { Button } from '../components/common';
 import './BlockDemoPage.scss';

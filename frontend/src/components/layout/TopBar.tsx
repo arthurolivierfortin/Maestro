@@ -1,23 +1,60 @@
 /**
  * Top Bar Component
  *
- * Minimal top bar with app title and settings access.
+ * Minimal top bar with app title, main navigation, and settings access.
  */
 
 import { useState } from 'react';
+import { Link, useLocation } from 'react-router-dom';
 import { SettingsModal } from '../settings/SettingsModal';
 import './TopBar.scss';
 
 export function TopBar() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const location = useLocation();
+
+  const isActive = (path: string) => {
+    if (path === '/') {
+      return location.pathname === '/';
+    }
+    return location.pathname.startsWith(path);
+  };
 
   return (
     <>
       <div className="top-bar">
         <div className="top-bar__left">
-          <h1 className="top-bar__title">B-One Maestro</h1>
+          <Link to="/" className="top-bar__brand">
+            <h1 className="top-bar__title">B-One Maestro</h1>
+          </Link>
           <span className="top-bar__subtitle">Autonomous Multi-Agent Orchestrator</span>
         </div>
+        <nav className="top-bar__nav">
+          <Link
+            to="/"
+            className={`top-bar__nav-link ${isActive('/') ? 'top-bar__nav-link--active' : ''}`}
+          >
+            Home
+          </Link>
+          <Link
+            to="/workflows"
+            className={`top-bar__nav-link ${isActive('/workflows') ? 'top-bar__nav-link--active' : ''}`}
+          >
+            Workflows
+          </Link>
+          <Link
+            to="/demo"
+            className={`top-bar__nav-link ${isActive('/demo') ? 'top-bar__nav-link--active' : ''}`}
+          >
+            Demo
+          </Link>
+          <Link
+            to="/history"
+            className={`top-bar__nav-link ${isActive('/history') ? 'top-bar__nav-link--active' : ''}`}
+          >
+            History
+          </Link>
+        </nav>
         <div className="top-bar__right">
           <button
             className="top-bar__settings-btn"

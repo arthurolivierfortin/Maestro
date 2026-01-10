@@ -45,6 +45,7 @@
 
     &:hover {
       background: var(--bg-hover);
+      color: var(--accent-primary, #3b82f6);
     }
 
     &:focus-visible {
@@ -54,10 +55,12 @@
 
     &--active {
       font-weight: 600;
-      cursor: default;
+      // Active segment is still clickable - navigates to home page when at root
+      cursor: pointer;
 
       &:hover {
-        background: transparent;
+        background: var(--bg-hover);
+        color: var(--accent-primary, #3b82f6);
       }
     }
   }

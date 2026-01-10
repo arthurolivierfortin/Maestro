@@ -2,8 +2,10 @@
  * Breadcrumb Component
  *
  * Displays navigation breadcrumb with clickable segments.
+ * Home button navigates to root route when at block root.
  */
 
+import { useNavigate } from 'react-router-dom';
 import { useNavigation } from '../../hooks';
 import { BlockIcon } from '../icons';
 import { Home } from 'lucide-react';
@@ -11,11 +13,22 @@ import './Breadcrumb.scss';
 
 export function Breadcrumb() {
   const { getBreadcrumbs, navigateTo, navigateToRoot, isAtRoot } = useNavigation();
+  const navigate = useNavigate();
   const breadcrumbs = getBreadcrumbs();
+
+  const handleHomeClick = () => {
+    if (isAtRoot()) {
+      // Already at block root, navigate to home page
+      navigate('/');
+    } else {
+      // Navigate to block root
+      navigateToRoot();
+    }
+  };
 
   const handleSegmentClick = (index: number) => {
     if (index === 0) {
-      navigateToRoot();
+      handleHomeClick();
     } else {
       const path = breadcrumbs.slice(1, index + 1).map((b) => b.id);
       navigateTo(path);
@@ -36,9 +49,9 @@ export function Breadcrumb() {
         <li className="breadcrumb__item">
           <button
             className={`breadcrumb__segment ${isAtRoot() ? 'breadcrumb__segment--active' : ''}`}
-            onClick={() => navigateToRoot()}
+            onClick={handleHomeClick}
             onKeyDown={(e) => handleKeyDown(e, 0)}
-            aria-label="Navigate to root"
+            aria-label={isAtRoot() ? 'Navigate to home page' : 'Navigate to block root'}
             aria-current={isAtRoot() ? 'page' : undefined}
           >
             <Home size={16} className="breadcrumb__icon" />
