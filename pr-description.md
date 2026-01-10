@@ -1,64 +1,83 @@
-📚 Docs : MAESTRO-004 – Add comprehensive roadmap and contribution guides
-
+🏛️ Architecture : MAESTRO-4B – Add Block Architecture & update ROADMAP for Frontend Phase 4b
 
 # 🎯 Purpose
-This PR adds a comprehensive project roadmap and several area-specific developer guides to help contributors and maintainers get up to speed quickly. The documentation clarifies project structure, development areas (agents, backend, frontend, workflow engine), and contribution expectations.
+This PR introduces the Phase 4b design and roadmap updates required to move the frontend from a flat `Node`/`Workflow` model to a recursive, composable `Block` architecture. The change is documentation and design-first: it defines the data model, registry, store expectations, navigation patterns, and UI contract so implementation can proceed in a well-scoped, parallelizable way.
+
+These updates align the frontend with the product vision (n8n-style visual canvas, Claude-like integrated terminal, and VS Code-like IDE layout). They remove ambiguity about nesting rules, operation semantics (drill-in, duplicate, undo/redo), and type extension mechanisms.
 
 # 📋 Changes Summary
-- Added `ROADMAP.md` at repository root describing the project's short- and mid-term roadmap, priorities, and milestone guidance.
-- Added developer guides under `docs/`:
-  - `docs/agents-and-tools-guide.md` — guidance for building agents and tools
-  - `docs/backend-guide.md` — backend architecture and contributor workflow
-  - `docs/frontend-guide.md` — frontend structure, component conventions, and local dev tips
-  - `docs/workflow-engine-guide.md` — workflow engine internals and extension points
-- Minor update to `README.md` to reference the new documentation and roadmap.
+- Modified: `ROADMAP.md` — split Phase 4 into 4a–4d, added UI/UX and Block Architecture vision, updated parallelization plan and dependencies.
+- Added: `docs/issues/phase-4b-block-architecture.md` — comprehensive Phase 4b issue/spec including:
+  - TypeScript-first block model (`Block`, `Port`, `Position`, `BlockMetadata`)
+  - Type-specific configs (Agent, Task, Tool, Prompt, Decision, Validator, Trigger)
+  - `BlockTypeRegistry` API and nesting rules
+  - `useBlockStore` and `useNavigationContext` requirements (Zustand-based), undo/redo and persistence
+  - Block Explorer, Breadcrumb, and Sidebar UX notes (fixing chevrons, SVG icons, drag/drop, context menu)
+  - Acceptance criteria, files to create/modify, color/icon tokens, testing guidance and example JSON
+
+No runtime code changes are included in this PR. This is spec/documentation work to enable implementation PRs.
 
 # 🏗️ Technical Details
-- These are documentation-only changes — no source code, configuration, or build artifacts were modified.
-- The new guides follow existing project conventions and ADRs (see `docs/adr/`) and surface rules from the Clean Architecture and code conventions documents.
-- File locations:
-  - `ROADMAP.md` — high-level milestones, release cadence, and area owners
-  - `docs/agents-and-tools-guide.md` — agent design patterns, prompt engineering notes, and recommended adapters
-  - `docs/backend-guide.md` — layer responsibilities, service registration, and typical use-case patterns
-  - `docs/frontend-guide.md` — React/TypeScript conventions, component structure, and testing guidance
-  - `docs/workflow-engine-guide.md` — workflow node types, execution lifecycle, and monitoring hooks
+Motivation
+- Current `Node` and `Workflow` types are insufficient for composing nested agents/tasks and for drill-down UX. Implementing these types later risks rework across canvas, store, and API contracts.
+
+Design highlights
+- Recursive `Block` model: each block may be atomic or composite and holds `children` and `parentId` to support drill-in navigation and reuse.
+- Core block types (hardcoded for MVP): `workflow`, `agent`, `task`, `prompt`, `instruction`, `tool`, `decision`, `validator`, `trigger`. Extension via `BlockTypeRegistry`.
+- `BlockTypeRegistry` provides metadata (`label`, `icon`, `color`, `allowedChildren`, `configSchema`, `defaultConfig`) and runtime helpers (`canContain`, `getDefaultBlock`, `validateConfig`).
+- Store: recommend `Map<string, Block>` for O(1) lookups, Zustand for state management, undo/redo history (50 steps), and localStorage persistence for offline workflows.
+- Navigation: `useNavigationContext` exposes `navigateInto`, `navigateUp`, `navigateTo`, URL sync and `getBlockPath` for breadcrumb generation.
+
+Backward compatibility and migration
+- Keep existing `node.types.ts` and `workflow.types.ts` during Phase 4b as compatibility shims. Migration plan to canonical `Block` shape will be executed during Phase 4c/4d when canvas and API contracts are finalized.
 
 # 🧪 Testing
-- No automated tests are required for documentation changes. Manual checks recommended:
-  - Verify links and relative references in Markdown render correctly.
-  - Spell-check and grammar review.
-  - Open major docs in VS Code Markdown preview or GitHub's preview to validate formatting.
+Unit tests (suggested):
+- Type utilities & guards for `Block` and `BlockConfig` types
+- `BlockTypeRegistry` (registration, `canContain`, `getDefaultBlock`, config validation)
+- `useBlockStore` actions: add, remove, update, move, duplicate, undo/redo
+- `useNavigationContext` actions and URL sync
+- `BlockExplorer` rendering, keyboard navigation, and context menu
+
+Integration tests (suggested):
+- End-to-end: create workflow → add nested task → add agents/prompts → drill into agent → assert breadcrumb and store state
+- Undo/redo flow verification
+- LocalStorage persistence & hydration
+
+Run frontend tests:
+```bash
+cd frontend
+npm run test
+```
 
 # 📖 Documentation
-- Files added:
-  - `ROADMAP.md`
-  - `docs/agents-and-tools-guide.md`
-  - `docs/backend-guide.md`
-  - `docs/frontend-guide.md`
-  - `docs/workflow-engine-guide.md`
-- File modified:
-  - `README.md` (minor reference update)
+- New file: `docs/issues/phase-4b-block-architecture.md` — implementation checklist and spec (use as source of truth for issue creation).
+- Modified file: `ROADMAP.md` — updated phase breakdown and timeline.
 
 # 🚀 Deployment Notes
-- No deployment or runtime changes. Simply merge to `main` to make documentation available on the default branch and GitHub Pages (if configured).
+- No deployments, configuration changes, or DB migrations are required. This PR only updates documentation and planning artifacts.
 
-# 🔗 Related Issues / PRs
-- Branch: `copilot/create-roadmap-docs`
-- Existing PR: Add comprehensive roadmap and area-specific development guides (may be already opened)
+# 🔗 Related Items
+- `docs/issues/phase-4b-block-architecture.md` (spec introduced in this PR)
+- `ROADMAP.md` (updated in this PR)
 
 # 👥 Review Notes
-- Focus review on:
-  - Accuracy of architecture and process descriptions versus actual code (especially `backend/` and `frontend/` conventions).
-  - Completeness of the roadmap: priorities, milestones, and suggested owners.
-  - Consistency with ADRs in `docs/adr/`.
-  - Broken links or typo fixes.
-- Suggested reviewers: maintainers of `backend/`, `frontend/`, and `agents` areas.
+Please review with attention to:
+- Completeness of the acceptance criteria in `docs/issues/phase-4b-block-architecture.md` — do the stores/hooks/UX items cover the needed developer surface?
+- Nesting rules: are the allowed children per parent matching expected UX and security (e.g., preventing unsafe nesting)?
+- File list and locations: suggest any reorganizations to match existing conventions.
+- Colors/icons and accessibility notes — these can be iterated but check for obvious collisions.
 
-# ✅ Checklist for Reviewers
-- [ ] Confirm this is documentation-only (no behavior change).
-- [ ] Validate links and relative references render correctly.
-- [ ] Check that the roadmap milestones are realistic and aligned with current priorities.
-- [ ] Suggest additions or items missing from area guides.
+# ✅ Checklist (for PR merge)
+- [ ] Confirm documentation contents and acceptance criteria
+- [ ] Create GitHub issues or tasks from the file list to kick off implementation
+- [ ] Assign implementers for core artifacts: `block.types.ts`, `BlockTypeRegistry.ts`, `blockStore.ts`
+- [ ] (Optional) Start PR(s) to implement initial type stubs and registry with unit tests
 
-# Next Steps
-- After approval, merge to `main`. Optionally, enable or update GitHub Pages / docs site to surface the new guides.
+---
+
+Would you like me to:
+1. Convert the file list into discrete GitHub issues (I can create issue templates and TODOs), or
+2. Start implementing the first code artifacts (`frontend/src/types/block.types.ts` and `frontend/src/registry/BlockTypeRegistry.ts`) with tests?
+
+Pick one and I will proceed.
