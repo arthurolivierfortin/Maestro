@@ -18,12 +18,18 @@ This document explains how to build and run the B-One Maestro application.
 Meastro/
 ├── backend/                # .NET Backend (Clean Architecture)
 │   ├── Maestro.sln        # Solution file
-│   └── src/
-│       ├── Maestro.Domain/           # Pure domain logic (no dependencies)
-│       ├── Maestro.Application/      # Use cases and interfaces
-│       ├── Maestro.Infrastructure/   # Implementations (LLM, persistence, monitoring)
-│       ├── Maestro.Api/              # REST API + SignalR
-│       └── Maestro.Agents/           # Agent implementations
+│   ├── src/
+│   │   ├── Maestro.Domain/           # Pure domain logic (no dependencies)
+│   │   ├── Maestro.Application/      # Use cases and interfaces
+│   │   ├── Maestro.Infrastructure/   # Implementations (LLM, persistence, monitoring)
+│   │   ├── Maestro.Api/              # REST API + SignalR
+│   │   └── Maestro.Agents/           # Agent implementations
+│   └── tests/
+│       ├── Maestro.Domain.Tests/
+│       ├── Maestro.Application.Tests/
+│       ├── Maestro.Infrastructure.Tests/
+│       ├── Maestro.Api.Tests/
+│       └── Maestro.Agents.Tests/
 │
 ├── frontend/              # TypeScript + React Frontend
 │   ├── src/
@@ -58,6 +64,7 @@ Open `backend/Maestro.sln` and build the solution (Ctrl+Shift+B).
 cd backend
 dotnet build
 # Should output: Build succeeded
+# Note: You may see StyleCop warnings - these are code style suggestions and don't prevent building
 ```
 
 ## Running the Backend
@@ -84,6 +91,84 @@ Expected response:
   "layers": ["Domain", "Application", "Infrastructure", "Presentation"]
 }
 ```
+
+## Running Tests
+
+### Run All Tests
+```bash
+cd backend
+dotnet test
+```
+
+### Run Tests with Coverage
+```bash
+cd backend
+dotnet test --collect:"XPlat Code Coverage" --results-directory ./coverage
+```
+
+### Run Tests for Specific Project
+```bash
+cd backend
+dotnet test tests/Maestro.Domain.Tests
+dotnet test tests/Maestro.Application.Tests
+dotnet test tests/Maestro.Infrastructure.Tests
+```
+
+### View Test Results
+Test results are generated in the `TestResults` folder within each test project.
+
+## Code Quality
+
+### Roslyn Analyzers
+
+The solution includes Roslyn analyzers for code quality:
+- **Microsoft.CodeAnalysis.NetAnalyzers** - .NET code analysis
+- **StyleCop.Analyzers** - C# code style enforcement
+
+These analyzers run automatically during build and provide warnings for:
+- Code style violations
+- Missing documentation
+- Naming conventions
+- Best practices
+
+### Code Coverage
+
+Code coverage is collected using Coverlet:
+```bash
+cd backend
+dotnet test /p:CollectCoverage=true /p:CoverletOutputFormat=cobertura
+```
+
+Coverage reports are generated in each test project's `coverage` folder.
+
+### CI/CD Pipeline
+
+The project includes a GitHub Actions workflow (`.github/workflows/backend-ci.yml`) that automatically:
+1. Builds the solution
+2. Runs all tests
+3. Collects code coverage
+4. Uploads test results
+
+The CI/CD pipeline runs on:
+- Push to `main`, `develop`, or `copilot/**` branches
+- Pull requests to `main` or `develop`
+
+## Development Status
+
+### Phase 1: Foundation (Backend Core) - ✅ COMPLETE
+
+- ✅ Project structure established
+- ✅ Build system configured
+- ✅ Test infrastructure set up
+- ✅ Code quality tools integrated
+- ✅ CI/CD pipeline operational
+
+### Current Build Status
+
+- **Build**: ✅ Passing
+- **Tests**: ✅ All passing (5 test projects)
+- **Warnings**: 173 StyleCop warnings (code style suggestions - expected)
+- **Errors**: 0
 
 ## Building the Frontend
 
