@@ -1,0 +1,131 @@
+/**
+ * Block Demo Page Styles
+ */
+
+.block-demo-page {
+  padding: 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+
+  .demo-header {
+    margin-bottom: 2rem;
+
+    h1 {
+      margin: 0 0 0.5rem 0;
+      color: var(--text-primary);
+    }
+
+    p {
+      margin: 0;
+      color: var(--text-muted);
+      font-size: 1rem;
+    }
+  }
+
+  .demo-controls {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 2rem;
+  }
+
+  .demo-info {
+    margin-bottom: 2rem;
+    padding: 1.5rem;
+    background: var(--bg-secondary);
+    border-radius: 0.5rem;
+    border: 1px solid var(--border-color);
+
+    h2 {
+      margin: 0 0 1rem 0;
+      color: var(--text-primary);
+      font-size: 1.25rem;
+    }
+
+    .state-card {
+      h3 {
+        margin: 0 0 0.5rem 0;
+        color: var(--primary-color);
+      }
+
+      p {
+        margin: 0.25rem 0;
+        color: var(--text-primary);
+
+        strong {
+          color: var(--text-muted);
+          font-weight: 600;
+        }
+      }
+    }
+
+    .empty-state {
+      color: var(--text-muted);
+      font-style: italic;
+      margin: 0;
+    }
+  }
+
+  .demo-features,
+  .demo-instructions {
+    margin-bottom: 2rem;
+
+    h2 {
+      margin: 0 0 1rem 0;
+      color: var(--text-primary);
+      font-size: 1.25rem;
+    }
+
+    ul,
+    ol {
+      margin: 0;
+      padding-left: 1.5rem;
+      color: var(--text-primary);
+
+      li {
+        margin-bottom: 0.75rem;
+        line-height: 1.6;
+
+        strong {
+          color: var(--primary-color);
+          font-weight: 600;
+        }
+      }
+    }
+  }
+
+  .demo-instructions {
+    padding: 1.5rem;
+    background: var(--bg-tertiary);
+    border-radius: 0.5rem;
+    border-left: 4px solid var(--primary-color);
+
+    ol {
+      counter-reset: item;
+      list-style-type: none;
+      padding-left: 0;
+
+      li {
+        counter-increment: item;
+        position: relative;
+        padding-left: 2.5rem;
+
+        &::before {
+          content: counter(item);
+          position: absolute;
+          left: 0;
+          top: 0;
+          width: 1.75rem;
+          height: 1.75rem;
+          background: var(--primary-color);
+          color: white;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-weight: 600;
+          font-size: 0.875rem;
+        }
+      }
+    }
+  }
+}

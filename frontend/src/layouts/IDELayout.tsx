@@ -6,7 +6,8 @@
  */
 
 import { Outlet } from 'react-router-dom';
-import { Sidebar } from '../components/layout/Sidebar';
+import { BlockExplorer } from '../components/BlockExplorer';
+import { Breadcrumb } from '../components/Breadcrumb';
 import { TopBar } from '../components/layout/TopBar';
 import './IDELayout.scss';
 
@@ -15,10 +16,13 @@ export function IDELayout() {
     <div className="ide-layout">
       <TopBar />
       <div className="ide-layout__body">
-        <Sidebar />
-        <main className="ide-layout__workspace">
-          <Outlet />
-        </main>
+        <BlockExplorer />
+        <div className="ide-layout__main-area">
+          <Breadcrumb />
+          <main className="ide-layout__workspace">
+            <Outlet />
+          </main>
+        </div>
       </div>
     </div>
   );

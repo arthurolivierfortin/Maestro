@@ -16,15 +16,18 @@ interface SettingsModalProps {
 const presetDescriptions: Record<StylePreset, { name: string; description: string }> = {
   minimal: {
     name: 'Minimal Editor',
-    description: 'Typography-first, extremely calm, almost invisible UI chrome. Ideal for focused writing and code editing.',
+    description:
+      'Typography-first, extremely calm, almost invisible UI chrome. Ideal for focused writing and code editing.',
   },
   structured: {
     name: 'Workflow Studio',
-    description: 'Structured panels, visible boundaries, clear zones. More expressive with defined element presence.',
+    description:
+      'Structured panels, visible boundaries, clear zones. More expressive with defined element presence.',
   },
   balanced: {
     name: 'Dense IDE',
-    description: 'Compact, information-dense, professional engineering tool. Maximum efficiency for power users.',
+    description:
+      'Compact, information-dense, professional engineering tool. Maximum efficiency for power users.',
   },
 };
 

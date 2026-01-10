@@ -1,82 +1,166 @@
-🎨 Feature : MAESTRO-004 – Frontend Foundation (Vite + React + TypeScript, Routing, Stores, Base UI)
+🧱 Feature : MAESTRO-4B – Implement Block Architecture & Recursive Type System
 
 # 🎯 Purpose
-This PR delivers the Phase 4a frontend foundation: a Vite + React + TypeScript setup with routing, base components, state management and the initial UX scaffolding required for the visual editor and monitoring UX. It establishes conventions (tokens, design system), developer tooling (ESLint, Prettier, Vitest), and a minimal component and page set so frontend work can proceed in parallel with backend efforts.
+This PR implements Phase 4b: the Block Architecture and recursive type system that form the foundation of the visual workflow editor. It defines typed block interfaces, the BlockType registry, the hierarchical block store (Zustand), navigation/drill-down primitives, and the Block Explorer + Breadcrumb UI that lets users inspect and navigate nested workflows.
+
+This change is architectural (core frontend data model and navigation) and is required before the Canvas (Phase 4d) and IDE panel work (Phase 4c) can safely render and edit block graphs.
 
 # 📋 Changes Summary
-- Project scaffolding and dev tooling
-  - Vite + React + TypeScript project configuration
-  - ESLint and Prettier configuration, `vitest` for unit testing
+Major additions and modifications grouped by area:
 
-- Routing & Layout
-  - React Router configured with lazy-loaded routes
-  - `RootLayout` implemented with header, main content area and footer
-  - `Sidebar` and `TopBar` base components created
+- Types & Registry
+  - Add `Block` model interfaces and related types (ports, position, metadata) in `frontend/src/types/block.types.ts` and `block-config.types.ts`.
+  - Implement `BlockTypeRegistry` singleton with metadata, default configs, allowed-children rules, and schema for form generation in `frontend/src/registry/BlockTypeRegistry.ts` and `blockTypeDefinitions.ts`.
 
-- Base components and styles
-  - Design tokens (`frontend/src/styles/tokens.css`) for colors, spacing, typography
-  - Base components: `Button`, `Input`, `Modal`, `LoadingSpinner`
-  - `RootLayout.scss` and `Sidebar.scss` for base layout
+- Store & Navigation
+  - New `useBlockStore` (Zustand) providing Map-backed storage, efficient lookups, undo/redo history, persistence to `localStorage`, and operations: `addBlock`, `removeBlock`, `updateBlock`, `moveBlock`, `duplicateBlock`, and connection helpers. (file: `frontend/src/store/blockStore.ts`)
+  - New `useNavigationStore` / `useNavigation` hook to track drill-down `currentPath`, `selectedBlockId`, and expose `navigateInto`, `navigateUp`, `navigateTo`, and `navigateToRoot`. (file: `frontend/src/store/navigationStore.ts`, `frontend/src/hooks/useNavigation.ts`)
 
-- State & Services
-  - Zustand stores: `workflowStore` (CRUD + persistence) and execution store scaffold
-  - `frontend/src/services` initial API client and `signalRService` for real-time updates
+- Explorer & Breadcrumb UI
+  - `BlockExplorer` sidebar component: recursive tree, expand/collapse, drag-and-drop placeholders, context menu for rename/duplicate/delete; highlights current path. (`frontend/src/components/BlockExplorer/BlockExplorer.tsx`)
+  - `Breadcrumb` component: clickable segments with block icons and keyboard accessibility. (`frontend/src/components/Breadcrumb/Breadcrumb.tsx`)
 
-- Pages
-  - `HomePage`, `WorkflowsPage`, `WorkflowEditorPage` (placeholder), `HistoryPage`, `ExecutionMonitorPage`
+- Hooks & Actions
+  - `useBlockActions` helper for common CRUD flows used by UI components. (`frontend/src/hooks/useBlockActions.ts`)
+
+- Minor fixes & polishing
+  - Update `IDELayout` to show breadcrumb and outlet correctly; improve TopBar navigation integration
+  - Remove unused imports and fix TypeScript linting issues in demo pages
 
 # 🏗️ Technical Details
-Key decisions
-- Use Vite for a fast dev experience and modern build pipeline.
-- TypeScript-first approach; types defined under `frontend/src/types` to match backend DTOs where applicable.
-- Zustand chosen for simple, focused stores with `devtools` and `persist` middleware.
-- React Router for navigation and lazy loading to keep initial bundle small.
 
-Files touched (high level):
-- Added/modified: `frontend/package.json`, `vite.config.ts`, `tsconfig.json`, ESLint/Prettier config
-- Added: `frontend/src/layouts/RootLayout.tsx`, `frontend/src/components/layout/Sidebar.tsx`, `frontend/src/components/common/*`, `frontend/src/pages/*`, `frontend/src/store/*`, `frontend/src/services/*`, `frontend/src/styles/tokens.css`
+Key design choices
+- Block model: `Map<string, Block>` for O(1) access and efficient tree operations. Blocks keep `parentId` and `children` references for traversal.
+- BlockTypeRegistry: central metadata source for icons, colors, allowed nesting and default config. This keeps type rules in one place and simplifies validation and form generation.
+- Navigation decoupled from router: navigation state tracks the current block path (drill-down) while React Router continues to manage top-level routes. Breadcrumb and explorer drive `useNavigationStore` actions.
+- Undo/Redo: action history (capped at 50) implemented at store-level to roll back block state changes.
 
-Compatibility
-- No backend API contract changes required. Frontend types will be mapped to backend DTOs in later phases.
+Representative interfaces (excerpt):
+
+```ts
+interface Block {
+  id: string;
+  name: string;
+  blockType: BlockType;
+  isAtomic: boolean;
+  parentId?: string | null;
+  children?: string[]; // store child ids for Map-based store
+  config: BlockConfig;
+  inputs?: Port[];
+  outputs?: Port[];
+  position?: { x: number; y: number };
+  metadata: { createdAt: string; updatedAt: string; createdBy?: string };
+}
+
+interface BlockTypeInfo { /* label, icon, color, isAtomic, allowedChildren, configSchema, defaultConfig */ }
+```
+
+Performance considerations
+- Memoized selectors for `getBlockPath`, `getBlockChildren` to avoid expensive recomputation.
+- Debounced persistence to `localStorage` to avoid blocking UI on rapid changes.
+
+Backward compatibility
+- Existing flat `Node`/`Workflow` types are preserved during migration and marked for deprecation later; the block store exposes migration utilities to import simple workflows into the new recursive format.
 
 # 🧪 Testing
-Unit tests are set up with `vitest`. Suggested checks:
-- Run unit tests for components and stores:
+
+Unit & integration focus
+- Unit tests for `BlockTypeRegistry` (allowedChildren rules, defaultConfig), block store actions (add/remove/move/duplicate), navigation store operations, and UI components (`BlockExplorer`, `Breadcrumb`).
+
+How to run frontend checks locally:
+
 ```bash
 cd frontend
-npm run test
+npm install
+npm run lint        # ESLint
+npm run test        # Vitest unit tests
+npm run build       # type-check + build
+npm run dev         # run dev server and verify UI
 ```
-- Lint and format checks:
-```bash
-cd frontend
-npm run lint
-npm run format:check
-```
+
+Suggested test cases
+- Add a `workflow` root, add nested `task` → `agent` → `prompt`, verify `getBlockPath` returns correct ancestors.
+- Move a block from one task to another, ensure `parentId` updates and positions persist.
+- Duplicate a composite block: confirm deep clone with new IDs for all descendants.
+- Breadcrumb click should set navigation path to that level and update `selectedBlockId`.
 
 # 📖 Documentation
-- `README.md` updated with frontend development instructions and local dev steps.
-- `docs/frontend-guide.md` (overview) added/updated to document conventions and how to extend base components and stores.
+
+- Add/update docs:
+  - `docs/issues/phase-4b-block-architecture.md` (this PR) — architecture, acceptance criteria and design tokens
+  - `frontend/src/types/README.md` — brief on new block types
+  - Update `docs/frontend-guide.md` to reflect block store API and registry guidelines
 
 # 🚀 Deployment Notes
-- No CI/CD config changes are required for runtime. Ensure CI runs `npm ci` and `npm run build` for frontend checks.
 
-# 🔗 Related Items
-- ROADMAP.md (Phase 4a listed as completed)
-- docs/frontend-guide.md (dev conventions)
+- No backend migrations required for this PR. All changes are frontend-only and persisted to `localStorage` for now.
+- If a backend import/export is added later, the Block JSON schema path will be `schemas/workflow-schema.json` (update planned in later phases).
+
+# 🔄 Migration Guide
+
+If your workspace uses previous flat `workflow`/`node` structures, run the migration helper (provided in `frontend/src/store/blockStore.ts`) to convert existing workflows to the new recursive `Block` format. The helper:
+
+- Preserves IDs where possible
+- Generates parent-child relations
+- Emits a summary report for missing/invalid fields
+
+Usage (dev console):
+
+```js
+import { migrateLegacyWorkflow } from '@/store/blockStore';
+const result = migrateLegacyWorkflow(legacyWorkflowJson);
+console.log(result); // warnings / summary
+```
+
+# 📸 Screenshots / Examples
+
+Example block JSON (root excerpt included in docs/issue):
+
+```json
+{
+  "id": "workflow-1",
+  "name": "Feature Development Pipeline",
+  "blockType": "workflow",
+  "isAtomic": false,
+  "children": ["trigger-1","task-1"],
+  "position": {"x":0,"y":0}
+}
+```
+
+# 🔗 Related Issues
+- `docs/issues/phase-4b-block-architecture.md` (this change)
+- `docs/issues/phase-4c-ide-layout-panel-system.md` (IDE layout follows)
+- `docs/issues/phase-4d-canvas-foundation.md` (Canvas will consume block store)
 
 # 👥 Review Notes
-Please focus review on:
-- Project config: `vite.config.ts`, `tsconfig.json`, and package versions
-- Base components and styles: naming, tokens, and accessibility basics
-- Store API surface in `workflowStore` and error handling patterns
-- Route definitions and lazy loading strategy
 
-# ✅ Checklist (for PR merge)
-- [ ] All added frontend files are linted and formatted
-- [ ] `npm run test` passes for frontend (unit tests)
-- [ ] `README.md` local dev steps are accurate
-- [ ] Visual smoke test: run `npm run dev` and verify pages load
+Focus review on these areas:
+- `frontend/src/registry/BlockTypeRegistry.ts` — confirm nesting rules and default configs
+- `frontend/src/store/blockStore.ts` — ensure mutations are immutable-safe and undo/redo logic is correct
+- `frontend/src/store/navigationStore.ts` and `frontend/src/hooks/useNavigation.ts` — UX for drill-down (edge cases: deep nesting, non-existent ids)
+- `BlockExplorer` & `Breadcrumb` accessibility and keyboard interaction
+
+Potential risks
+- Large trees could impact performance — memoization and virtualization planned but verify on >100 nodes.
+- Migration edge cases from legacy formats — validate with sample workflows before wide adoption.
+
+# ✅ Checklist (PR merge)
+- [ ] `Block` types and registry implemented and documented
+- [ ] `useBlockStore` with core actions and persistence added
+- [ ] Navigation hook implemented and wired to `Breadcrumb` and `BlockExplorer`
+- [ ] Unit tests for registry and store pass locally (`npm run test`)
+- [ ] Demo: create a sample workflow via `BlockDemoPage` and verify drill-down navigation
+- [ ] Docs updated: `docs/issues/phase-4b-block-architecture.md` and `docs/frontend-guide.md`
 
 ---
+
+If you want, I can now:
+
+- Generate a PR body file in the repo (already replaced `pr-description.md`) ready to paste into GitHub
+- Create a short checklist PR template comment to paste in the PR description
+- Generate example unit tests stubs for key store operations
+
+Tell me which of the above you prefer as next steps.
+
 
 
