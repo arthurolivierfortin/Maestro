@@ -66,6 +66,7 @@ describe('Breadcrumb', () => {
       updatedAt: new Date().toISOString(),
       createdBy: 'user',
       tags: [],
+      status: 'active' as const,
     },
   });
 

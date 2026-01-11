@@ -85,7 +85,7 @@ export function ModelsPanel() {
    * Handle test connection
    */
   const handleTestConnection = useCallback(async (dto: CreateModelDto) => {
-    const result = await modelService.testConnection(dto.id, dto.apiEndpoint);
+    const result = await modelService.testConnection(dto.id || '', dto.apiEndpoint);
     return result.success;
   }, []);
 

@@ -1,7 +1,7 @@
 # B-One Maestro Development Roadmap
 
 > **Status**: Active Development  
-> **Last Updated**: 2026-01-10  
+> **Last Updated**: 2026-01-11  
 > **Purpose**: This roadmap provides a detailed, step-by-step execution plan to build B-One Maestro from its current initialized state to a functional MVP and beyond.
 
 ---
@@ -224,7 +224,8 @@ Phase 4b: Block Architecture & Types            [██████████]
 Phase 4c: IDE Layout & Panel System             [██████████]  0%
 Phase 4d: Canvas Foundation (React Flow)        [██████████]  0%
 Phase 4e: Models Panel & Registry               [██████████]  0%
-Phase 4f: Frontend Refactor & Foundry           [░░░░░░░░░░]  0%
+Phase 4f: Frontend Refactor & Foundry           [████░░░░░░] 40%
+Phase 4g: Block Editing, CRUD & UX              [░░░░░░░░░░]  0%
 Phase 5:  Workflow Engine & Execution           [░░░░░░░░░░]  0%
 Phase 6:  Agent Implementations                 [░░░░░░░░░░]  0%
 Phase 7:  Monitoring & Observability            [░░░░░░░░░░]  0%
@@ -951,32 +952,32 @@ Phase 13: Auto-Optimization & Benchmarking      [░░░░░░░░░░]
 ### Tasks
 
 #### 4f.1 Bug Fixes & Technical Debt
-- [ ] Add ROADMAP update instructions to code conventions
-- [ ] Fix expand/collapse arrows in BlockExplorer (use SVG icons)
+- [x] Add ROADMAP update instructions to code conventions
+- [x] Fix expand/collapse arrows in BlockExplorer (use SVG icons)
 - [ ] Consolidate duplicate type definitions across files
 - [ ] Add proper error boundaries to all pages
 - [ ] Implement loading skeletons for async components
 - [ ] Add accessibility audit and fixes (ARIA labels, keyboard nav)
 
 #### 4f.2 Foundry Page Foundation
-- [ ] Create `FoundryPage.tsx` with layout structure
-- [ ] Create `FoundrySidebar.tsx` with category filters
-- [ ] Create `FoundrySearchBar.tsx` with type/capability filters
-- [ ] Create `BlockGrid.tsx` for displaying blocks
-- [ ] Create `BlockCard.tsx` component with hover actions
-- [ ] Implement responsive grid (CSS Grid with auto-fit)
+- [x] Create `FoundryPage.tsx` with layout structure
+- [x] Create `FoundrySidebar.tsx` with category filters
+- [x] Create `FoundrySearchBar.tsx` with type/capability filters
+- [x] Create `BlockGrid.tsx` for displaying blocks
+- [x] Create `BlockCard.tsx` component with hover actions
+- [x] Implement responsive grid (CSS Grid with auto-fit)
 - [ ] Add keyboard navigation (arrow keys, enter to select)
 - [ ] Add unit tests
 
 #### 4f.3 Block Store Enhancements
-- [ ] Add `getAllBlocks()` method to blockStore
-- [ ] Add `getBlocksByType(type: BlockType)` filter
-- [ ] Add `getBlocksByCapability(cap: string)` filter
-- [ ] Add `searchBlocks(query: string)` with fuzzy matching
-- [ ] Add `tags: string[]` field to Block interface
-- [ ] Add `status: 'draft' | 'active' | 'archived'` field
-- [ ] Implement `duplicateBlock(id)` action
-- [ ] Implement `exportBlock(id)` / `importBlock(json)`
+- [x] Add `getAllBlocks()` method to blockStore
+- [x] Add `getBlocksByType(type: BlockType)` filter
+- [x] Add `getBlocksByCapability(cap: string)` filter
+- [x] Add `searchBlocks(query: string)` with fuzzy matching
+- [x] Add `tags: string[]` field to Block interface
+- [x] Add `status: 'draft' | 'active' | 'archived'` field
+- [x] Implement `duplicateBlock(id)` action
+- [x] Implement `exportBlock(id)` / `importBlock(json)`
 - [ ] Add unit tests for all new methods
 
 #### 4f.4 Block Creation Wizard
@@ -1005,7 +1006,7 @@ Phase 13: Auto-Optimization & Benchmarking      [░░░░░░░░░░]
 - [ ] Add unit tests
 
 #### 4f.7 Routing Refactor
-- [ ] Update `router.tsx` with new routes:
+- [x] Update `router.tsx` with new routes:
   - `/foundry` - FoundryPage (all blocks)
   - `/foundry/:blockType` - FoundryPage filtered
   - `/foundry/:blockId/edit` - Block edit
@@ -1043,6 +1044,105 @@ Phase 13: Auto-Optimization & Benchmarking      [░░░░░░░░░░]
 - ✅ Block discovery API for self-improvement
 - ✅ Improved navigation and UX
 - ✅ Comprehensive documentation
+
+---
+
+## 🔷 Phase 4g: Block Editing, CRUD & UX Refinements
+
+**Goal**: Complete the Foundry ecosystem with type-specific block editors, Block Creation Wizard, full CRUD service layer, and critical UX improvements (global search, favorites, keyboard shortcuts).
+
+**Duration**: 2-3 weeks  
+**Team**: Frontend (1-2 developers)  
+**Dependencies**: Phase 4f complete  
+**Issue**: [docs/issues/phase-4g-block-editing-crud.md](docs/issues/phase-4g-block-editing-crud.md)
+
+### Tasks
+
+#### 4g.1 Bug Fixes
+- [ ] Replace emoji icons with `BlockIcon` in FoundrySidebar
+- [ ] Make BlockExplorer conditional (only visible on Canvas/composite edit)
+- [ ] Implement BlockEditPage routing and component
+- [ ] Add unit tests for fixes
+
+#### 4g.2 Block Edit Page & Type-Specific Editors
+- [ ] Create `BlockEditPage.tsx` route handler
+- [ ] Create `BaseBlockEditor.tsx` with shared layout
+- [ ] Create `AgentEditor.tsx` (model selector, prompt, tools, temperature)
+- [ ] Create `ToolEditor.tsx` (script editor, input/output schemas)
+- [ ] Create `PromptEditor.tsx` (template, variables, live preview)
+- [ ] Create `InstructionEditor.tsx` (markdown, scope)
+- [ ] Create `TaskEditor.tsx` (description, inputs/outputs, validation)
+- [ ] Create `TriggerEditor.tsx` (cron, webhook, event config)
+- [ ] Create `ValidatorEditor.tsx` (JSON schema, test button)
+- [ ] Create `DecisionEditor.tsx` (condition, branches)
+- [ ] Create `EditorRegistry.ts` (map BlockType → Editor)
+- [ ] Add form validation and unsaved changes warning
+- [ ] Add unit tests for each editor
+
+#### 4g.3 Block Creation Wizard Modal
+- [ ] Create `CreateBlockWizard.tsx` modal with step navigation
+- [ ] Step 1: Select block type (visual cards)
+- [ ] Step 2: Basic info (name, description, tags, status)
+- [ ] Step 3: Type-specific configuration forms
+- [ ] Step 4: Preview JSON and confirm
+- [ ] Implement wizard state management (useReducer)
+- [ ] Add template presets per block type
+- [ ] Add keyboard navigation and validation
+- [ ] Add unit tests
+
+#### 4g.4 CRUD Service Layer
+- [ ] Define `IBlockService` interface
+- [ ] Implement `mockBlockService.ts` using blockStore
+- [ ] Add `findUsages()` to track block references
+- [ ] Add proper error handling with typed errors
+- [ ] Prepare `apiBlockService.ts` stub for backend
+- [ ] Add unit tests
+
+#### 4g.5 Self-Improvement Discovery API
+- [ ] Define `IBlockDiscoveryService` interface
+- [ ] Implement `mockDiscoveryService` for frontend
+- [ ] Expose discovery methods via stores
+- [ ] Document API for agent prompt templates
+- [ ] Add unit tests
+
+#### 4g.6 Global Search (Cmd+K)
+- [ ] Create `CommandPalette.tsx` modal component
+- [ ] Create `useCommandPalette` hook for keyboard trigger
+- [ ] Implement search across blocks, workflows, models
+- [ ] Add recent items tracking (localStorage)
+- [ ] Add quick action commands
+- [ ] Add keyboard navigation (arrow keys, enter)
+- [ ] Add unit tests
+
+#### 4g.7 Favorites & Keyboard Shortcuts
+- [ ] Add `isFavorite` field to Block interface
+- [ ] Add "Favorites" section in FoundrySidebar
+- [ ] Add star/unstar action on BlockCard
+- [ ] Create `KeyboardShortcutsPanel.tsx` (trigger with `?`)
+- [ ] Implement shortcuts: `Cmd+K`, `Cmd+N`, `Cmd+S`, `F`, `E`, `D`, `Delete`
+- [ ] Add unit tests
+
+#### 4g.8 Unit Tests
+- [ ] Tests for all new editors
+- [ ] Tests for CreateBlockWizard steps
+- [ ] Tests for blockService and discoveryService
+- [ ] Tests for CommandPalette
+- [ ] Coverage target: > 80%
+
+#### 4g.9 Documentation
+- [ ] Update frontend/README.md with block editing workflow
+- [ ] Create `docs/block-editors.md` with detailed specs
+- [ ] Document keyboard shortcuts reference
+- [ ] Update ROADMAP.md to mark Phase 4g complete
+
+**Outputs**:
+- ✅ Type-specific block editors for all block types
+- ✅ Multi-step Block Creation Wizard
+- ✅ CRUD service layer with mock backend
+- ✅ Block discovery API for self-improvement
+- ✅ Global search (Cmd+K) command palette
+- ✅ Favorites and keyboard shortcuts
+- ✅ Comprehensive unit test coverage
 
 ---
 

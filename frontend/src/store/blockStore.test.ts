@@ -27,6 +27,7 @@ describe('useBlockStore', () => {
       updatedAt: new Date().toISOString(),
       createdBy: 'user',
       tags: [],
+      status: 'active' as const,
     },
     ...overrides,
   });
