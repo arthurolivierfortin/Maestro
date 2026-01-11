@@ -562,6 +562,71 @@ Workflows are **stored as JSON files** within the Git repository. This provides:
 
 ---
 
+## ⚙️ Configuration
+
+Maestro uses a central configuration file (`maestro.config.json`) at the project root to control application behavior, including backend switching and environment settings.
+
+### Configuration File
+
+Create or edit `maestro.config.json` at the project root:
+
+```json
+{
+  "$schema": "./docs/schemas/maestro-config.schema.json",
+  "environment": "development",
+  "frontend": {
+    "useMockBackend": true,
+    "apiBaseUrl": "http://localhost:5000",
+    "mockLatency": {
+      "minMs": 100,
+      "maxMs": 300
+    }
+  },
+  "backend": {
+    "llmProvider": "openai",
+    "logLevel": "debug"
+  }
+}
+```
+
+### Mock Backend (for Development)
+
+The frontend can run independently of the .NET backend using mock services:
+
+| Setting | Description | Default |
+|---------|-------------|---------|
+| `useMockBackend` | When `true`, uses in-memory mock services | `true` in dev |
+| `mockLatency.minMs` | Minimum simulated API latency | `100` |
+| `mockLatency.maxMs` | Maximum simulated API latency | `300` |
+
+**Benefits of Mock Backend**:
+- ✅ Develop UI without running .NET backend
+- ✅ Fast, predictable tests
+- ✅ Offline development
+- ✅ Isolated frontend testing
+
+### Switching to Real Backend
+
+1. Start the .NET backend: `dotnet run --project backend/src/Maestro.Api`
+2. Update `maestro.config.json`:
+   ```json
+   {
+     "frontend": {
+       "useMockBackend": false,
+       "apiBaseUrl": "http://localhost:5000"
+     }
+   }
+   ```
+3. Restart the frontend dev server
+
+### Environment-Specific Configs
+
+Create environment-specific config files:
+- `maestro.config.json` - Development defaults
+- `maestro.config.production.json` - Production settings
+
+---
+
 ## 🧪 Development Status
 
 **Current Phase**: Architecture and Foundation

@@ -1,0 +1,101 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://b-one.io/maestro/config.schema.json",
+  "title": "Maestro Configuration",
+  "description": "Configuration schema for B-One Maestro application",
+  "type": "object",
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "JSON Schema reference for IDE support"
+    },
+    "environment": {
+      "type": "string",
+      "enum": ["development", "production", "test"],
+      "default": "development",
+      "description": "Current environment mode"
+    },
+    "frontend": {
+      "type": "object",
+      "description": "Frontend-specific configuration",
+      "properties": {
+        "useMockBackend": {
+          "type": "boolean",
+          "default": true,
+          "description": "When true, uses mock services instead of real backend API"
+        },
+        "apiBaseUrl": {
+          "type": "string",
+          "format": "uri",
+          "default": "https://localhost:5001",
+          "description": "Backend API base URL (used when useMockBackend is false)"
+        },
+        "mockLatency": {
+          "type": "object",
+          "description": "Simulated network latency for mock services",
+          "properties": {
+            "min": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 100,
+              "description": "Minimum latency in milliseconds"
+            },
+            "max": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 300,
+              "description": "Maximum latency in milliseconds"
+            }
+          },
+          "required": ["min", "max"]
+        },
+        "enableDevTools": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable development tools and logging"
+        }
+      },
+      "required": ["useMockBackend", "apiBaseUrl"]
+    },
+    "backend": {
+      "type": "object",
+      "description": "Backend-specific configuration",
+      "properties": {
+        "llmProvider": {
+          "type": "string",
+          "enum": ["openai", "anthropic", "ollama", "azure", "google"],
+          "default": "openai",
+          "description": "Default LLM provider"
+        },
+        "enableSwagger": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable Swagger UI for API documentation"
+        },
+        "persistenceMode": {
+          "type": "string",
+          "enum": ["json", "database"],
+          "default": "json",
+          "description": "Data persistence mode"
+        }
+      }
+    },
+    "models": {
+      "type": "object",
+      "description": "Model registry configuration",
+      "properties": {
+        "loadPresetsOnStart": {
+          "type": "boolean",
+          "default": true,
+          "description": "Load preset models on first launch"
+        },
+        "defaultModelId": {
+          "type": "string",
+          "default": "gpt-4o",
+          "description": "Default model ID for new agents"
+        }
+      }
+    }
+  },
+  "required": ["environment", "frontend"]
+}

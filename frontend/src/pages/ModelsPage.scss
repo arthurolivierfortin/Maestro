@@ -4,7 +4,9 @@
 
 .models-page {
   width: 100%;
-  height: 100%;
   display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0; /* allow children to handle overflow */
   background-color: var(--background);
 }

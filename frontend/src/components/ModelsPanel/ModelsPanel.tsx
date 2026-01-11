@@ -2,15 +2,19 @@
  * ModelsPanel Component
  *
  * Main panel for viewing and managing AI models.
+ * Supports both preset models and custom model configuration.
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Plus, RefreshCw } from 'lucide-react';
 import { useModelStore } from '../../store/modelStore';
 import { loadPresetModels } from '../../data/modelPresets';
 import { ModelListItem } from './ModelListItem';
 import { ModelDetailView } from './ModelDetailView';
+import { ModelConfigForm } from '../ModelConfigForm';
+import { modelService } from '../../services/modelService';
 import type { Model } from '../../types/model.types';
+import type { CreateModelDto } from '../../services/interfaces/IModelService';
 import './ModelsPanel.scss';
 
 export function ModelsPanel() {
@@ -21,6 +25,8 @@ export function ModelsPanel() {
 
   const [selectedModel, setSelectedModelLocal] = useState<Model | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   // Load preset models on first mount if no models exist
   useEffect(() => {
@@ -52,9 +58,44 @@ export function ModelsPanel() {
   };
 
   const handleAddModel = () => {
-    // TODO: Open modal to add custom model
-    console.log('Add model clicked');
+    setShowAddModal(true);
+    setSubmitError(null);
   };
+
+  /**
+   * Handle form submission for adding a new model
+   */
+  const handleSubmitModel = useCallback(
+    async (dto: CreateModelDto) => {
+      try {
+        const newModel = await modelService.create(dto);
+        addModel(newModel);
+        setShowAddModal(false);
+        setSelectedModel(newModel.id);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Failed to add model';
+        setSubmitError(message);
+        throw error; // Re-throw so form shows error
+      }
+    },
+    [addModel, setSelectedModel]
+  );
+
+  /**
+   * Handle test connection
+   */
+  const handleTestConnection = useCallback(async (dto: CreateModelDto) => {
+    const result = await modelService.testConnection(dto.id, dto.apiEndpoint);
+    return result.success;
+  }, []);
+
+  /**
+   * Close the add modal
+   */
+  const handleCloseModal = useCallback(() => {
+    setShowAddModal(false);
+    setSubmitError(null);
+  }, []);
 
   const modelList = Array.from(models.values()).sort((a, b) => {
     // Sort by provider, then by name
@@ -117,6 +158,33 @@ export function ModelsPanel() {
           </div>
         )}
       </div>
+
+      {/* Add Model Modal */}
+      {showAddModal && (
+        <div
+          className="models-panel__modal-overlay"
+          onClick={handleCloseModal}
+          onKeyDown={(e) => e.key === 'Escape' && handleCloseModal()}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Add model dialog"
+          tabIndex={-1}
+        >
+          <div
+            className="models-panel__modal"
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => e.stopPropagation()}
+            role="document"
+          >
+            <ModelConfigForm
+              onSubmit={handleSubmitModel}
+              onCancel={handleCloseModal}
+              onTestConnection={handleTestConnection}
+            />
+            {submitError && <div className="models-panel__modal-error">{submitError}</div>}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
