@@ -650,6 +650,46 @@ if (condition) {
 
 ---
 
+## ROADMAP Task Completion
+
+When completing tasks from `ROADMAP.md`, agents MUST update the file to reflect progress:
+
+### Rules
+
+1. **Mark completed tasks**: Change `- [ ]` to `- [x]` for completed items
+2. **Update progress bars**: Adjust the visual progress indicator (e.g., `[██████░░░░] 60%`)
+3. **Update timestamps**: Modify `Last Updated` date at the top of ROADMAP
+4. **Reference the task**: Use the section/task number in commit messages (e.g., `feat(ui): implement block grid [4f.2]`)
+
+### Example
+
+Before:
+```markdown
+- [ ] Create `FoundryPage.tsx` with layout structure
+- [ ] Create `FoundrySidebar.tsx` with category filters
+```
+
+After completing `FoundryPage.tsx`:
+```markdown
+- [x] Create `FoundryPage.tsx` with layout structure
+- [ ] Create `FoundrySidebar.tsx` with category filters
+```
+
+### Progress Bar Calculation
+
+| Completion | Bar |
+|------------|-----|
+| 0% | `[░░░░░░░░░░]  0%` |
+| 10% | `[█░░░░░░░░░] 10%` |
+| 50% | `[█████░░░░░] 50%` |
+| 100% | `[██████████] 100%` |
+
+### Task Completion Prompt
+
+For standardized task completion, use `.github/prompts/complete-task.prompt.md`.
+
+---
+
 ## Resources
 
 - [C# Coding Conventions](https://docs.microsoft.com/en-us/dotnet/csharp/fundamentals/coding-style/coding-conventions)

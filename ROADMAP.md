@@ -220,10 +220,11 @@ Phase 1:  Foundation (Backend Core)             [█████████░]
 Phase 2:  Domain & Application Layer            [░░░░░░░░░░]  0%
 Phase 3:  Infrastructure Layer                  [░░░░░░░░░░]  0%
 Phase 4a: Frontend Foundation                   [██████████] 100%
-Phase 4b: Block Architecture & Types            [░░░░░░░░░░]  0%
-Phase 4c: IDE Layout & Panel System             [░░░░░░░░░░]  0%
-Phase 4d: Canvas Foundation (React Flow)        [░░░░░░░░░░]  0%
-Phase 4e: Models Panel & Registry               [░░░░░░░░░░]  0%
+Phase 4b: Block Architecture & Types            [██████████]  0%
+Phase 4c: IDE Layout & Panel System             [██████████]  0%
+Phase 4d: Canvas Foundation (React Flow)        [██████████]  0%
+Phase 4e: Models Panel & Registry               [██████████]  0%
+Phase 4f: Frontend Refactor & Foundry           [░░░░░░░░░░]  0%
 Phase 5:  Workflow Engine & Execution           [░░░░░░░░░░]  0%
 Phase 6:  Agent Implementations                 [░░░░░░░░░░]  0%
 Phase 7:  Monitoring & Observability            [░░░░░░░░░░]  0%
@@ -935,6 +936,113 @@ Phase 13: Auto-Optimization & Benchmarking      [░░░░░░░░░░]
 2. **Rich metadata**: Enables intelligent model selection and future auto-optimization
 3. **Provider abstraction**: UI doesn't care about provider implementation details
 4. **Local-first storage**: Model configs stored locally, synced optionally
+
+---
+
+## 🔷 Phase 4f: Frontend Refactor & Foundry Page
+
+**Goal**: Consolidate frontend architecture by introducing the Foundry Page — a unified interface for creating and managing all block types. Fix bugs, complete missing CRUD functionality, and prepare UI for self-improving workflows.
+
+**Duration**: 2-3 weeks  
+**Team**: Frontend (1-2 developers)  
+**Dependencies**: Phase 4e complete  
+**Issue**: [docs/issues/phase-4f-frontend-refactor-foundry.md](docs/issues/phase-4f-frontend-refactor-foundry.md)
+
+### Tasks
+
+#### 4f.1 Bug Fixes & Technical Debt
+- [ ] Add ROADMAP update instructions to code conventions
+- [ ] Fix expand/collapse arrows in BlockExplorer (use SVG icons)
+- [ ] Consolidate duplicate type definitions across files
+- [ ] Add proper error boundaries to all pages
+- [ ] Implement loading skeletons for async components
+- [ ] Add accessibility audit and fixes (ARIA labels, keyboard nav)
+
+#### 4f.2 Foundry Page Foundation
+- [ ] Create `FoundryPage.tsx` with layout structure
+- [ ] Create `FoundrySidebar.tsx` with category filters
+- [ ] Create `FoundrySearchBar.tsx` with type/capability filters
+- [ ] Create `BlockGrid.tsx` for displaying blocks
+- [ ] Create `BlockCard.tsx` component with hover actions
+- [ ] Implement responsive grid (CSS Grid with auto-fit)
+- [ ] Add keyboard navigation (arrow keys, enter to select)
+- [ ] Add unit tests
+
+#### 4f.3 Block Store Enhancements
+- [ ] Add `getAllBlocks()` method to blockStore
+- [ ] Add `getBlocksByType(type: BlockType)` filter
+- [ ] Add `getBlocksByCapability(cap: string)` filter
+- [ ] Add `searchBlocks(query: string)` with fuzzy matching
+- [ ] Add `tags: string[]` field to Block interface
+- [ ] Add `status: 'draft' | 'active' | 'archived'` field
+- [ ] Implement `duplicateBlock(id)` action
+- [ ] Implement `exportBlock(id)` / `importBlock(json)`
+- [ ] Add unit tests for all new methods
+
+#### 4f.4 Block Creation Wizard
+- [ ] Create `CreateBlockWizard.tsx` modal component
+- [ ] Step 1: Select block type (visual cards)
+- [ ] Step 2: Basic info (name, description, tags)
+- [ ] Step 3: Type-specific configuration
+- [ ] Step 4: Preview and confirm
+- [ ] Implement template presets per type
+- [ ] Add validation at each step
+- [ ] Add unit tests
+
+#### 4f.5 Block Detail/Edit Views
+- [ ] Create `BlockDetailView.tsx` for viewing block info
+- [ ] Implement inline editing for atomic blocks
+- [ ] Navigate to Canvas for composite blocks on "Edit Contents"
+- [ ] Show block usage (where is this block referenced?)
+- [ ] Add unit tests
+
+#### 4f.6 Missing CRUD Functionality
+- [ ] **Create**: Via Foundry wizard OR drag template to canvas
+- [ ] **Read**: Block detail view, block card hover info
+- [ ] **Update**: Inline edit for atomics, Canvas for composites
+- [ ] **Delete**: With confirmation, check for usages first
+- [ ] Implement `blockService` interface with mock backend
+- [ ] Add unit tests
+
+#### 4f.7 Routing Refactor
+- [ ] Update `router.tsx` with new routes:
+  - `/foundry` - FoundryPage (all blocks)
+  - `/foundry/:blockType` - FoundryPage filtered
+  - `/foundry/:blockId/edit` - Block edit
+  - `/canvas/:blockId` - Canvas for composite blocks
+- [ ] Add redirects from old routes
+- [ ] Update navigation links in Sidebar
+- [ ] Add breadcrumbs for deep navigation
+- [ ] Add unit tests
+
+#### 4f.8 Self-Improvement Preparation
+- [ ] Create `IBlockDiscoveryService` interface
+- [ ] Create `mockBlockDiscoveryService` for frontend use
+- [ ] Implement block discovery by type/capability
+- [ ] Expose discovery methods in stores
+- [ ] Document API for agent prompt usage
+- [ ] Add unit tests
+
+#### 4f.9 Navigation & UX Improvements
+- [ ] Add global search (Cmd+K / Ctrl+K) for blocks, workflows, models
+- [ ] Add recent items list in sidebar
+- [ ] Add favorites/pinned blocks
+- [ ] Add "Create New" quick action menu in TopBar
+- [ ] Add keyboard shortcuts panel (? key)
+- [ ] Add unit tests
+
+#### 4f.10 Documentation
+- [ ] Update frontend/README.md with Foundry documentation
+- [ ] Add example blocks for each type
+- [ ] Create "Getting Started" workflow example
+- [ ] Document block schema and configuration options
+
+**Outputs**:
+- ✅ Unified Foundry page for all block management
+- ✅ Complete CRUD for blocks
+- ✅ Block discovery API for self-improvement
+- ✅ Improved navigation and UX
+- ✅ Comprehensive documentation
 
 ---
 
