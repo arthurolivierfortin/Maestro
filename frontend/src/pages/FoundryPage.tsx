@@ -21,7 +21,7 @@ export function FoundryPage() {
   const [selectedTypes, setSelectedTypes] = useState<BlockType[]>([]);
   const [selectedCapabilities, setSelectedCapabilities] = useState<string[]>([]);
 
-  const { getAllBlocks, getBlocksByType, searchBlocks } = useBlockStore();
+  const { getAllBlocks, searchBlocks } = useBlockStore();
 
   // Filter blocks based on sidebar selection, search, and filters
   const filteredBlocks = useMemo(() => {

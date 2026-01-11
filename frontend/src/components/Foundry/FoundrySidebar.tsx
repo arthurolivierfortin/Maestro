@@ -56,7 +56,7 @@ export function FoundrySidebar({ selectedCategory, onCategoryChange }: FoundrySi
       </nav>
 
       <div className="sidebar-footer">
-        <Button variant="primary" size="medium" fullWidth>
+        <Button variant="primary" size="sm" fullWidth>
           <span className="button-icon">+</span>
           Create Block
         </Button>
