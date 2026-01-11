@@ -225,7 +225,7 @@ Phase 4c: IDE Layout & Panel System             [██████████]
 Phase 4d: Canvas Foundation (React Flow)        [██████████]  0%
 Phase 4e: Models Panel & Registry               [██████████]  0%
 Phase 4f: Frontend Refactor & Foundry           [████░░░░░░] 40%
-Phase 4g: Block Editing, CRUD & UX              [░░░░░░░░░░]  0%
+Phase 4g: Block Editing, CRUD & UX              [█░░░░░░░░░] 10%
 Phase 5:  Workflow Engine & Execution           [░░░░░░░░░░]  0%
 Phase 6:  Agent Implementations                 [░░░░░░░░░░]  0%
 Phase 7:  Monitoring & Observability            [░░░░░░░░░░]  0%
@@ -1059,10 +1059,10 @@ Phase 13: Auto-Optimization & Benchmarking      [░░░░░░░░░░]
 ### Tasks
 
 #### 4g.1 Bug Fixes
-- [ ] Replace emoji icons with `BlockIcon` in FoundrySidebar
-- [ ] Make BlockExplorer conditional (only visible on Canvas/composite edit)
-- [ ] Implement BlockEditPage routing and component
-- [ ] Add unit tests for fixes
+- [x] Replace emoji icons with `BlockIcon` in FoundrySidebar
+- [x] Make BlockExplorer conditional (only visible on Canvas/composite edit)
+- [x] Implement BlockEditPage routing and component
+- [x] Add unit tests for fixes
 
 #### 4g.2 Block Edit Page & Type-Specific Editors
 - [ ] Create `BlockEditPage.tsx` route handler
