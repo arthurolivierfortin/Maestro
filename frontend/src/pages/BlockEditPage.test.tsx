@@ -22,7 +22,7 @@ vi.mock('react-router-dom', async () => {
 });
 
 // Helper to render component with router context
-function renderWithRouter(path: string, blockId: string) {
+function renderWithRouter(path: string) {
   const wrapper = ({ children }: { children: React.ReactNode }) =>
     createElement(
       MemoryRouter,
@@ -41,7 +41,7 @@ describe('BlockEditPage', () => {
   });
 
   it('should display error when block is not found', () => {
-    renderWithRouter('/foundry/nonexistent/edit', 'nonexistent');
+    renderWithRouter('/foundry/nonexistent/edit');
 
     expect(screen.getByText('Block Not Found')).toBeInTheDocument();
     expect(
@@ -73,7 +73,7 @@ describe('BlockEditPage', () => {
     blocksMap.set('composite-123', compositeBlock);
     useBlockStore.setState({ blocks: blocksMap });
 
-    renderWithRouter('/foundry/composite-123/edit', 'composite-123');
+    renderWithRouter('/foundry/composite-123/edit');
 
     // Should call navigate to canvas
     expect(mockNavigate).toHaveBeenCalledWith('/canvas/composite-123');
@@ -104,7 +104,7 @@ describe('BlockEditPage', () => {
     blocksMap.set('atomic-123', atomicBlock);
     useBlockStore.setState({ blocks: blocksMap });
 
-    renderWithRouter('/foundry/atomic-123/edit', 'atomic-123');
+    renderWithRouter('/foundry/atomic-123/edit');
 
     // Check that block information is displayed
     expect(screen.getByRole('heading', { name: 'Test Prompt' })).toBeInTheDocument();
@@ -137,7 +137,7 @@ describe('BlockEditPage', () => {
     blocksMap.set('atomic-123', atomicBlock);
     useBlockStore.setState({ blocks: blocksMap });
 
-    renderWithRouter('/foundry/atomic-123/edit', 'atomic-123');
+    renderWithRouter('/foundry/atomic-123/edit');
 
     expect(screen.getByRole('button', { name: /cancel/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /save changes/i })).toBeInTheDocument();
@@ -168,7 +168,7 @@ describe('BlockEditPage', () => {
     blocksMap.set('atomic-123', atomicBlock);
     useBlockStore.setState({ blocks: blocksMap });
 
-    renderWithRouter('/foundry/atomic-123/edit', 'atomic-123');
+    renderWithRouter('/foundry/atomic-123/edit');
 
     const cancelButton = screen.getByRole('button', { name: /cancel/i });
     await user.click(cancelButton);
@@ -199,10 +199,10 @@ describe('BlockEditPage', () => {
     blocksMap.set('atomic-123', atomicBlock);
     useBlockStore.setState({ blocks: blocksMap });
 
-    renderWithRouter('/foundry/atomic-123/edit', 'atomic-123');
+    renderWithRouter('/foundry/atomic-123/edit');
 
     expect(
-      screen.getByText((content, element) => {
+      screen.getByText((_content, element) => {
         return (
           element?.textContent === 'Type-specific editor for agent blocks will be implemented in Phase 4g.2.'
         );
