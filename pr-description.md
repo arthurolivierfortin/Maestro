@@ -1,5 +1,5 @@
 
-🎯 Feature : MAESTRO-042 – Add mock-backed model management, config switch, and tests
+🎯 Feature : MAESTRO-04E – Add mock-backed model management, config switch, and tests
 
 # 🎯 Purpose
 This PR implements Phase 4e of the models management flow and introduces frontend/backend isolation so the frontend can be developed and tested without requiring the .NET backend to run.
