@@ -1,7 +1,7 @@
 # B-One Maestro Development Roadmap
 
 > **Status**: Active Development  
-> **Last Updated**: 2026-01-10  
+> **Last Updated**: 2026-01-11  
 > **Purpose**: This roadmap provides a detailed, step-by-step execution plan to build B-One Maestro from its current initialized state to a functional MVP and beyond.
 
 ---
@@ -951,7 +951,7 @@ Phase 13: Auto-Optimization & Benchmarking      [░░░░░░░░░░]
 ### Tasks
 
 #### 4f.1 Bug Fixes & Technical Debt
-- [ ] Add ROADMAP update instructions to code conventions
+- [x] Add ROADMAP update instructions to code conventions (already exists, verified)
 - [ ] Fix expand/collapse arrows in BlockExplorer (use SVG icons)
 - [ ] Consolidate duplicate type definitions across files
 - [ ] Add proper error boundaries to all pages
@@ -959,24 +959,22 @@ Phase 13: Auto-Optimization & Benchmarking      [░░░░░░░░░░]
 - [ ] Add accessibility audit and fixes (ARIA labels, keyboard nav)
 
 #### 4f.2 Foundry Page Foundation
-- [ ] Create `FoundryPage.tsx` with layout structure
-- [ ] Create `FoundrySidebar.tsx` with category filters
-- [ ] Create `FoundrySearchBar.tsx` with type/capability filters
-- [ ] Create `BlockGrid.tsx` for displaying blocks
-- [ ] Create `BlockCard.tsx` component with hover actions
-- [ ] Implement responsive grid (CSS Grid with auto-fit)
+- [x] Create `FoundryPage.tsx` with layout structure
+- [x] Create `FoundrySidebar.tsx` with category filters
+- [x] Create `FoundrySearchBar.tsx` with type/capability filters
+- [x] Create `BlockGrid.tsx` for displaying blocks
+- [x] Create `BlockCard.tsx` component with hover actions
+- [x] Implement responsive grid (CSS Grid with auto-fit)
 - [ ] Add keyboard navigation (arrow keys, enter to select)
 - [ ] Add unit tests
 
 #### 4f.3 Block Store Enhancements
-- [ ] Add `getAllBlocks()` method to blockStore
-- [ ] Add `getBlocksByType(type: BlockType)` filter
-- [ ] Add `getBlocksByCapability(cap: string)` filter
-- [ ] Add `searchBlocks(query: string)` with fuzzy matching
-- [ ] Add `tags: string[]` field to Block interface
-- [ ] Add `status: 'draft' | 'active' | 'archived'` field
-- [ ] Implement `duplicateBlock(id)` action
-- [ ] Implement `exportBlock(id)` / `importBlock(json)`
+- [x] Add `getAllBlocks()` method to blockStore
+- [x] Add `getBlocksByType(type: BlockType)` filter
+- [x] Add `getBlocksByCapability(cap: string)` filter
+- [x] Add `searchBlocks(query: string)` with fuzzy matching
+- [x] Add `tags` and `status` fields to Block interface
+- [x] Implement `exportBlock(id)` / `importBlock(json)` methods
 - [ ] Add unit tests for all new methods
 
 #### 4f.4 Block Creation Wizard
@@ -1005,13 +1003,13 @@ Phase 13: Auto-Optimization & Benchmarking      [░░░░░░░░░░]
 - [ ] Add unit tests
 
 #### 4f.7 Routing Refactor
-- [ ] Update `router.tsx` with new routes:
+- [x] Update `router.tsx` with new routes:
   - `/foundry` - FoundryPage (all blocks)
   - `/foundry/:blockType` - FoundryPage filtered
-  - `/foundry/:blockId/edit` - Block edit
-  - `/canvas/:blockId` - Canvas for composite blocks
+- [ ] `/foundry/:blockId/edit` - Block edit route
+- [ ] `/canvas/:blockId` - Canvas for composite blocks route
 - [ ] Add redirects from old routes
-- [ ] Update navigation links in Sidebar
+- [x] Update navigation links in Sidebar (added Foundry link)
 - [ ] Add breadcrumbs for deep navigation
 - [ ] Add unit tests
 

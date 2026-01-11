@@ -25,6 +25,12 @@ const navigationItems: SidebarItem[] = [
     path: '/',
   },
   {
+    id: 'foundry',
+    label: 'Foundry',
+    icon: '📦',
+    path: '/foundry',
+  },
+  {
     id: 'workflows',
     label: 'Workflows',
     icon: '≋',
@@ -36,6 +42,12 @@ const navigationItems: SidebarItem[] = [
     label: 'Executions',
     icon: '▸',
     children: [{ id: 'execution-history', label: 'History', icon: '⌚', path: '/history' }],
+  },
+  {
+    id: 'models',
+    label: 'Models',
+    icon: '🤖',
+    path: '/models',
   },
   {
     id: 'monitoring',

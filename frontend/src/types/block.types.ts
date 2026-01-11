@@ -51,6 +51,11 @@ export interface BlockConnection {
 }
 
 /**
+ * Block status
+ */
+export type BlockStatus = 'draft' | 'active' | 'archived';
+
+/**
  * Block metadata
  */
 export interface BlockMetadata {
@@ -60,6 +65,7 @@ export interface BlockMetadata {
   description?: string;
   tags?: string[];
   version?: string;
+  status?: BlockStatus;
 }
 
 /**

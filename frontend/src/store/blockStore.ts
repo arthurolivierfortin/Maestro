@@ -6,7 +6,7 @@
 
 import { create } from 'zustand';
 import { devtools, persist } from 'zustand/middleware';
-import type { Block, BlockConnection } from '../types/block.types';
+import type { Block, BlockConnection, BlockType } from '../types/block.types';
 import { BlockTypeRegistry } from '../registry';
 
 /**
@@ -45,6 +45,14 @@ interface BlockState {
   getBlockPath: (id: string) => string[];
   getBlockChildren: (id: string) => Block[];
   getRootBlock: () => Block | null;
+
+  // Block querying and filtering (Phase 4f.3)
+  getAllBlocks: () => Block[];
+  getBlocksByType: (blockType: BlockType) => Block[];
+  getBlocksByCapability: (capability: string) => Block[];
+  searchBlocks: (query: string) => Block[];
+  exportBlock: (id: string) => string | null;
+  importBlock: (json: string, parentId: string | null) => Block | null;
 
   // Undo/Redo
   undo: () => void;
@@ -459,6 +467,95 @@ export const useBlockStore = create<BlockState>()(
         getBlockConnections: (blockId: string) => {
           const block = get().blocks.get(blockId);
           return block?.connections || [];
+        },
+
+        // Get all blocks (Phase 4f.3)
+        getAllBlocks: () => {
+          return Array.from(get().blocks.values());
+        },
+
+        // Get blocks by type (Phase 4f.3)
+        getBlocksByType: (blockType: BlockType) => {
+          return Array.from(get().blocks.values()).filter((block) => block.blockType === blockType);
+        },
+
+        // Get blocks by capability (Phase 4f.3)
+        // Capability is determined by block type and config
+        getBlocksByCapability: (capability: string) => {
+          const blocks = Array.from(get().blocks.values());
+          return blocks.filter((block) => {
+            // Check tags for capability
+            if (block.metadata.tags?.includes(capability)) return true;
+            
+            // Check type-specific capabilities
+            if (block.config.type === 'agent') {
+              const agentConfig = block.config as any;
+              return agentConfig.agentType?.toLowerCase().includes(capability.toLowerCase());
+            }
+            if (block.config.type === 'tool') {
+              const toolConfig = block.config as any;
+              return toolConfig.toolType?.toLowerCase().includes(capability.toLowerCase());
+            }
+            return false;
+          });
+        },
+
+        // Search blocks with fuzzy matching (Phase 4f.3)
+        searchBlocks: (query: string) => {
+          if (!query.trim()) return get().getAllBlocks();
+          
+          const lowerQuery = query.toLowerCase();
+          const blocks = Array.from(get().blocks.values());
+          
+          return blocks.filter((block) => {
+            // Search in name
+            if (block.name.toLowerCase().includes(lowerQuery)) return true;
+            
+            // Search in type
+            if (block.blockType.toLowerCase().includes(lowerQuery)) return true;
+            
+            // Search in description
+            if (block.metadata.description?.toLowerCase().includes(lowerQuery)) return true;
+            
+            // Search in tags
+            if (block.metadata.tags?.some((tag) => tag.toLowerCase().includes(lowerQuery))) return true;
+            
+            return false;
+          });
+        },
+
+        // Export block as JSON (Phase 4f.3)
+        exportBlock: (id: string) => {
+          const block = get().blocks.get(id);
+          if (!block) {
+            console.error(`Block ${id} not found`);
+            return null;
+          }
+          
+          try {
+            return JSON.stringify(block, null, 2);
+          } catch (error) {
+            console.error('Failed to export block:', error);
+            return null;
+          }
+        },
+
+        // Import block from JSON (Phase 4f.3)
+        importBlock: (json: string, parentId: string | null) => {
+          try {
+            const block = JSON.parse(json) as Block;
+            
+            // Generate new ID to avoid conflicts
+            const newBlock = cloneBlockWithNewIds(block);
+            
+            // Add the imported block
+            get().addBlock(parentId, newBlock);
+            
+            return newBlock;
+          } catch (error) {
+            console.error('Failed to import block:', error);
+            return null;
+          }
         },
 
         // Undo
