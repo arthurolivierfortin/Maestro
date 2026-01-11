@@ -1,3 +1,111 @@
+
+🎯 Feature : MAESTRO-042 – Add mock-backed model management, config switch, and tests
+
+# 🎯 Purpose
+This PR implements Phase 4e of the models management flow and introduces frontend/backend isolation so the frontend can be developed and tested without requiring the .NET backend to run.
+
+It adds a complete UI flow for adding and configuring models, a typed service contract (`IModelService`), an in-memory mock backend for offline development and tests, and a real-backend adapter for switching to the API via configuration.
+
+# 📋 Changes Summary
+Key contributions in this PR:
+
+- UI: Add `ModelConfigForm` component and integrate it into `ModelsPanel` as an accessible modal for add/edit flows.
+- Services: Define `IModelService` interface and DTOs; add `mockModelService` (in-memory CRUD with latency simulation and connection testing); add `realModelService` (API wrapper); add `modelService` factory to choose implementation via config.
+- Config: Add `maestro.config.json` plus a TypeScript config loader under `frontend/src/config/` to toggle `frontend.useMockBackend` and configure mock latency.
+- Tests: Add Vitest unit tests for the mock model service: CRUD, validation, connection testing, and reset behavior.
+- Docs: Update `README.md` and `ROADMAP.md` with the frontend-backend isolation guidance and configuration instructions.
+- Styling: Add styles and small UI polish for the modal and form.
+
+Representative changed/added files:
+
+- `frontend/src/components/ModelConfigForm/ModelConfigForm.tsx` (+ SCSS + index)
+- `frontend/src/components/ModelsPanel/ModelsPanel.tsx`, `ModelsPanel.scss`
+- `frontend/src/services/interfaces/IModelService.ts`
+- `frontend/src/services/mock/mockModelService.ts`, `mockData/models.ts`, `mock/utils/*`, `__tests__/mockModelService.test.ts`
+- `frontend/src/services/real/realModelService.ts`
+- `frontend/src/services/modelService.ts`
+- `frontend/src/config/*` and `maestro.config.json`
+- `docs/schemas/maestro-config.schema.json`
+- `README.md`, `ROADMAP.md`
+
+# 🏗️ Technical Details
+
+- Abstraction & Clean Architecture: The frontend calls a typed `IModelService` interface. Two implementations exist:
+  - `mockModelService` (in-memory) for development/testing
+  - `realModelService` (HTTP wrapper) for production-backed usage
+  The `modelService` factory selects the implementation at runtime using `maestro.config.json`.
+
+- Mock Service behavior:
+  - Stores models in a Map seeded from `ALL_PRESET_MODELS`.
+  - Simulates latency (configurable) and realistic error scenarios.
+  - `testConnection(id, apiEndpoint?)` verifies endpoint format and simulates success/failure; updates `isAvailable` state.
+  - Exposes a reset function for test isolation.
+
+- ModelConfigForm & ModelsPanel:
+  - The form includes fields for provider, displayName, name/id, capabilities (multi-select), token limits, cost per 1k tokens, performance/quality sliders, strengths/weaknesses, and API endpoint for local/custom models.
+  - Supports client-side validation, test-connection action, and accessible modal usage.
+
+# 🧪 Testing
+
+- New unit tests: `frontend/src/services/mock/__tests__/mockModelService.test.ts`.
+  - Tests cover: getAll, getById, create (validation + conflict), update, delete, testConnection behaviors, and reset.
+  - Tests mock latency to run fast and deterministically in CI.
+
+Run tests locally:
+
+```bash
+cd frontend
+npm ci
+npm test -- --run --environment node src/services/mock/__tests__/mockModelService.test.ts
+```
+
+# 📖 Documentation
+
+- `README.md`: Added `Configuration` section describing `maestro.config.json` and `frontend.useMockBackend`.
+- `ROADMAP.md`: Added `Frontend-Backend Isolation Architecture` guidance.
+- `docs/schemas/maestro-config.schema.json`: JSON schema for IDE validation of config file.
+
+# 🚀 Deployment Notes
+
+- No server-side deployment changes required. To use the real backend:
+  1. Start the .NET API: `dotnet run --project backend/src/Maestro.Api`
+  2. Update `maestro.config.json` set `frontend.useMockBackend` to `false` and set `frontend.apiBaseUrl`.
+  3. Restart the frontend dev server.
+
+# 🔄 Migration Guide
+
+- No database or schema migrations required. If CI or tooling expects `maestro.config.json`, ensure it's provided or create environment-specific config files (e.g., `maestro.config.production.json`).
+
+# 📸 Screenshots/Examples
+
+- UI changes include modal-based Add/Edit model flows; consider attaching screenshots or a small GIF for reviewers.
+
+# 🔗 Related Commits / Branch
+
+- Branch: `copilot/implement-model-management-panel` (current)
+- Related prior commits: `feat: Add ModelsPanel UI components and routing`, `feat: Add model store, presets, and hooks for Phase 4E`
+
+# 👥 Review Notes
+
+Please focus review on:
+
+- `frontend/src/services/interfaces/IModelService.ts` — ensure DTO shapes and method signatures are sufficient for future features (function-calling, streaming, auth metadata).
+- `frontend/src/services/mock/mockModelService.ts` — check simulation heuristics and reset behavior used by tests.
+- `frontend/src/components/ModelConfigForm/ModelConfigForm.tsx` — UX, validation rules, and test-connection integration.
+- `frontend/src/config/*` — default config values and fallback logic.
+
+Testing note: mock service tests run in `node` environment in CI; if CI uses `jsdom` adjust Vitest settings accordingly.
+
+# Checklist for Merging
+
+- [ ] Confirm reviewers validated the UI flow with the mock backend
+- [ ] Run full frontend test suite
+- [ ] Optional: Add e2e tests to cover Add Model modal
+- [ ] Update release notes if applicable
+
+---
+
+Use this file's contents when creating the Pull Request description; it is ready to copy into GitHub PR composer.
 🎯 Feature : MAESTRO-4D – Implement Visual Block Canvas with React Flow
 
 
