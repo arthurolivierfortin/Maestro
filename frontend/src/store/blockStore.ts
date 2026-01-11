@@ -6,7 +6,7 @@
 
 import { create } from 'zustand';
 import { devtools, persist } from 'zustand/middleware';
-import type { Block, BlockConnection } from '../types/block.types';
+import type { Block, BlockConnection, BlockType } from '../types/block.types';
 import { BlockTypeRegistry } from '../registry';
 
 /**
@@ -45,6 +45,16 @@ interface BlockState {
   getBlockPath: (id: string) => string[];
   getBlockChildren: (id: string) => Block[];
   getRootBlock: () => Block | null;
+
+  // Block querying and filtering (Phase 4f.3)
+  getAllBlocks: () => Block[];
+  getBlocksByType: (type: BlockType) => Block[];
+  getBlocksByCapability: (capability: string) => Block[];
+  searchBlocks: (query: string) => Block[];
+
+  // Import/Export (Phase 4f.3)
+  exportBlock: (id: string) => string | null;
+  importBlock: (json: string) => Block | null;
 
   // Undo/Redo
   undo: () => void;
@@ -92,6 +102,7 @@ function createMetadata(createdBy: string = 'user') {
     updatedAt: now,
     createdBy,
     tags: [],
+    status: 'active' as const,
   };
 }
 
@@ -516,6 +527,95 @@ export const useBlockStore = create<BlockState>()(
         setBlocks: (blocks: Map<string, Block>, rootId: string | null) => {
           const state = get();
           set(saveHistory(state, blocks, rootId));
+        },
+
+        // Get all blocks (Phase 4f.3)
+        getAllBlocks: () => {
+          return Array.from(get().blocks.values());
+        },
+
+        // Get blocks by type (Phase 4f.3)
+        getBlocksByType: (type: BlockType) => {
+          return Array.from(get().blocks.values()).filter((block) => block.blockType === type);
+        },
+
+        // Get blocks by capability (Phase 4f.3)
+        getBlocksByCapability: (capability: string) => {
+          return Array.from(get().blocks.values()).filter(
+            (block) => block.capabilities && block.capabilities.includes(capability)
+          );
+        },
+
+        // Search blocks with fuzzy matching (Phase 4f.3)
+        searchBlocks: (query: string) => {
+          const normalizedQuery = query.toLowerCase().trim();
+          if (!normalizedQuery) {
+            return get().getAllBlocks();
+          }
+
+          return Array.from(get().blocks.values()).filter((block) => {
+            // Search in name
+            if (block.name.toLowerCase().includes(normalizedQuery)) {
+              return true;
+            }
+
+            // Search in description
+            if (block.metadata.description?.toLowerCase().includes(normalizedQuery)) {
+              return true;
+            }
+
+            // Search in tags
+            if (block.metadata.tags.some((tag) => tag.toLowerCase().includes(normalizedQuery))) {
+              return true;
+            }
+
+            // Search in block type
+            if (block.blockType.toLowerCase().includes(normalizedQuery)) {
+              return true;
+            }
+
+            return false;
+          });
+        },
+
+        // Export block as JSON (Phase 4f.3)
+        exportBlock: (id: string) => {
+          const block = get().blocks.get(id);
+          if (!block) {
+            console.error(`Block ${id} not found`);
+            return null;
+          }
+
+          try {
+            return JSON.stringify(block, null, 2);
+          } catch (error) {
+            console.error('Failed to export block:', error);
+            return null;
+          }
+        },
+
+        // Import block from JSON (Phase 4f.3)
+        importBlock: (json: string) => {
+          try {
+            const block = JSON.parse(json) as Block;
+
+            // Validate required fields
+            if (!block.id || !block.name || !block.blockType) {
+              console.error('Invalid block JSON: missing required fields');
+              return null;
+            }
+
+            // Generate new ID to avoid conflicts
+            const importedBlock = cloneBlockWithNewIds(block);
+
+            // Add to store
+            get().addBlock(null, importedBlock);
+
+            return importedBlock;
+          } catch (error) {
+            console.error('Failed to import block:', error);
+            return null;
+          }
         },
       }),
       {

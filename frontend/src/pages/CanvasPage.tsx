@@ -46,6 +46,7 @@ export function CanvasPage() {
         updatedAt: new Date().toISOString(),
         createdBy: 'user',
         tags: [],
+        status: 'active' as const,
       },
     };
 

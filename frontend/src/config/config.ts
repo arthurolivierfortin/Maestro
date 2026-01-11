@@ -25,7 +25,7 @@ async function loadConfig(): Promise<MaestroConfig> {
     // Try to load from project root (Vite will resolve this at build time)
     // In development, we use a dynamic import
     const configModule = await import('../../../maestro.config.json');
-    loadedConfig = { ...DEFAULT_CONFIG, ...configModule.default };
+    loadedConfig = { ...DEFAULT_CONFIG, ...configModule.default } as MaestroConfig;
     
     if (import.meta.env.DEV) {
       console.log('[Config] Loaded maestro.config.json:', loadedConfig);

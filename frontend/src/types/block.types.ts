@@ -51,6 +51,11 @@ export interface BlockConnection {
 }
 
 /**
+ * Block status
+ */
+export type BlockStatus = 'draft' | 'active' | 'archived';
+
+/**
  * Block metadata
  */
 export interface BlockMetadata {
@@ -58,8 +63,9 @@ export interface BlockMetadata {
   updatedAt: string;
   createdBy: string;
   description?: string;
-  tags?: string[];
+  tags: string[];
   version?: string;
+  status: BlockStatus;
 }
 
 /**
@@ -80,6 +86,9 @@ export interface Block<TConfig = BlockConfig> {
   config: TConfig;
   inputs: Port[];
   outputs: Port[];
+
+  // Capabilities (for filtering/discovery)
+  capabilities?: string[]; // e.g., ["code-generation", "file-ops"]
 
   // Connections (for composite blocks containing a canvas)
   connections?: BlockConnection[];
