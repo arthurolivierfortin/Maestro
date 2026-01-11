@@ -18,6 +18,7 @@ const WorkflowEditorPage = lazy(() => import('@/pages/WorkflowEditorPage'));
 const CanvasPage = lazy(() => import('@/pages/CanvasPage'));
 const ExecutionMonitorPage = lazy(() => import('@/pages/ExecutionMonitorPage'));
 const HistoryPage = lazy(() => import('@/pages/HistoryPage'));
+const ModelsPage = lazy(() => import('@/pages/ModelsPage'));
 const BlockDemoPage = lazy(() => import('@/pages/BlockDemoPage'));
 const NotFoundPage = lazy(() => import('@/pages/NotFoundPage'));
 
@@ -82,6 +83,14 @@ const routes: RouteObject[] = [
         element: (
           <LazyPage>
             <HistoryPage />
+          </LazyPage>
+        ),
+      },
+      {
+        path: 'models',
+        element: (
+          <LazyPage>
+            <ModelsPage />
           </LazyPage>
         ),
       },

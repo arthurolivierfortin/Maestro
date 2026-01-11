@@ -128,7 +128,9 @@ export interface WorkflowVariable {
 export interface AgentBlockConfig {
   type: 'agent';
   agentType: 'Planner' | 'Coder' | 'Tester' | 'Reviewer' | 'Debugger' | 'Custom';
-  model?: string;
+  model?: string; // Legacy: Model name string (deprecated, use modelId)
+  modelId?: string; // Primary model ID from model registry
+  fallbackModelId?: string; // Fallback model if primary is unavailable
   temperature?: number;
   maxTokens?: number;
   systemPrompt?: string;

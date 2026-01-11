@@ -46,17 +46,185 @@ Maestro uses a **recursive block system** where:
 
 ---
 
-## 📊 Development Phases Overview
+## � Frontend-Backend Isolation Architecture
+
+> **CRITICAL**: The frontend MUST be fully testable and functional without a running backend.
+
+### Architectural Principles
+
+1. **Complete Decoupling**: Frontend and backend are completely independent applications
+2. **Interface-Based Communication**: All backend calls go through service interfaces
+3. **Mock-First Development**: Frontend development uses mock backends by default
+4. **Clean Architecture Compliance**: Frontend follows the same clean architecture principles as backend
+5. **Seamless Switching**: A single environment variable switches between mock and real backends
+
+### Service Layer Architecture
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    React Components                          │
+│              (UI Layer - No Business Logic)                  │
+└─────────────────────────────────────────────────────────────┘
+                            │
+                            ▼
+┌─────────────────────────────────────────────────────────────┐
+│                    Zustand Stores                            │
+│              (State Management Layer)                        │
+└─────────────────────────────────────────────────────────────┘
+                            │
+                            ▼
+┌─────────────────────────────────────────────────────────────┐
+│                Service Interfaces                            │
+│    (IWorkflowService, IModelService, IExecutionService)      │
+└─────────────────────────────────────────────────────────────┘
+           │                                    │
+           ▼                                    ▼
+┌──────────────────────┐          ┌──────────────────────────┐
+│   Mock Backends      │          │    Real API Backends      │
+│  (Development/Test)  │          │    (Production)           │
+└──────────────────────┘          └──────────────────────────┘
+```
+
+### Environment Configuration
+
+The backend mode is controlled by a `maestro.config.json` file at the **project root** (same level as `backend/` and `frontend/`):
+
+```json
+// maestro.config.json (at project root)
+{
+  "$schema": "./schemas/maestro-config.schema.json",
+  "environment": "development",
+  "frontend": {
+    "useMockBackend": true,
+    "apiBaseUrl": "https://localhost:5001",
+    "mockLatency": {
+      "min": 100,
+      "max": 300
+    }
+  },
+  "backend": {
+    "llmProvider": "openai",
+    "enableSwagger": true
+  }
+}
+```
+
+| Property | Values | Description |
+|----------|--------|-------------|
+| `environment` | `development` / `production` / `test` | Current environment mode |
+| `frontend.useMockBackend` | `true` / `false` | When `true`, uses mock services with simulated data |
+| `frontend.apiBaseUrl` | URL | Backend API URL (used when mock is disabled) |
+| `frontend.mockLatency` | `{min, max}` | Simulated network latency range in ms |
+
+**Benefits of JSON config over .env:**
+- Structured data with nesting support
+- JSON Schema validation for IDE autocompletion
+- Shared between frontend and backend
+- Consistent with .NET's `appsettings.json` pattern
+- Can include comments (JSON5) or use YAML alternative
+
+### Service Interface Pattern
+
+Every API service MUST implement an interface:
+
+```typescript
+// services/interfaces/IModelService.ts
+export interface IModelService {
+  getAll(): Promise<Model[]>;
+  getById(id: string): Promise<Model>;
+  create(model: CreateModelDto): Promise<Model>;
+  update(id: string, updates: Partial<Model>): Promise<Model>;
+  delete(id: string): Promise<void>;
+  testConnection(id: string): Promise<ConnectionTestResult>;
+}
+
+// services/modelService.ts - Factory that returns mock or real
+import { getMockModelService } from './mock/mockModelService';
+import { getRealModelService } from './real/realModelService';
+
+export const modelService: IModelService = 
+  import.meta.env.VITE_USE_MOCK_BACKEND === 'true'
+    ? getMockModelService()
+    : getRealModelService();
+```
+
+### Mock Backend Requirements
+
+Mock backends MUST:
+- ✅ Implement the same interface as real backends
+- ✅ Return realistic data with proper delays (simulate network latency)
+- ✅ Handle error cases (404, 500, validation errors)
+- ✅ Persist state in memory or localStorage for the session
+- ✅ Be fully covered by unit tests
+- ✅ Support all CRUD operations with realistic behavior
+
+### Testing Strategy
+
+| Test Type | Backend | Purpose |
+|-----------|---------|---------|
+| Unit Tests | Mock | Test components, stores, and services in isolation |
+| Integration Tests | Mock | Test component + store + service integration |
+| E2E Tests | Real (optional) | Validate full stack integration |
+
+### File Structure
+
+```
+# Project Root
+maestro.config.json           # Shared configuration (mock/real, API URL)
+maestro.config.local.json     # Local overrides (gitignored)
+schemas/
+└── maestro-config.schema.json  # JSON Schema for IDE validation
+
+# Frontend Services
+frontend/src/
+├── config/
+│   ├── config.ts             # Config loader (reads maestro.config.json)
+│   └── config.types.ts       # TypeScript types for config
+├── services/
+│   ├── interfaces/
+│   │   ├── IModelService.ts
+│   │   ├── IWorkflowService.ts
+│   │   └── IExecutionService.ts
+│   ├── mock/
+│   │   ├── mockModelService.ts
+│   │   ├── mockWorkflowService.ts
+│   │   ├── mockExecutionService.ts
+│   │   └── mockData/
+│   │       ├── models.ts
+│   │       ├── workflows.ts
+│   │       └── executions.ts
+│   ├── real/
+│   │   ├── realModelService.ts
+│   │   ├── realWorkflowService.ts
+│   │   └── realExecutionService.ts
+│   ├── modelService.ts       # Factory export
+│   ├── workflowService.ts    # Factory export
+│   └── executionService.ts   # Factory export
+```
+
+### Benefits
+
+1. **Parallel Development**: Frontend team doesn't wait for backend APIs
+2. **Reliable Testing**: Tests run without external dependencies
+3. **Fast Development**: No backend startup required for UI work
+4. **Contract-First**: Interfaces define the contract before implementation
+5. **Easy Debugging**: Isolate issues to frontend or backend
+6. **CI/CD Friendly**: Tests run in any environment without backend
+
+---
+
+## �📊 Development Phases Overview
 
 ```
 Phase 1:  Foundation (Backend Core)             [█████████░] 90%
 Phase 2:  Domain & Application Layer            [░░░░░░░░░░]  0%
 Phase 3:  Infrastructure Layer                  [░░░░░░░░░░]  0%
 Phase 4a: Frontend Foundation                   [██████████] 100%
-Phase 4b: Block Architecture & Types            [░░░░░░░░░░]  0%
-Phase 4c: IDE Layout & Panel System             [░░░░░░░░░░]  0%
-Phase 4d: Canvas Foundation (React Flow)        [░░░░░░░░░░]  0%
-Phase 4e: Models Panel & Registry               [░░░░░░░░░░]  0%
+Phase 4b: Block Architecture & Types            [██████████]  0%
+Phase 4c: IDE Layout & Panel System             [██████████]  0%
+Phase 4d: Canvas Foundation (React Flow)        [██████████]  0%
+Phase 4e: Models Panel & Registry               [██████████]  0%
+Phase 4f: Frontend Refactor & Foundry           [░░░░░░░░░░]  0%
 Phase 5:  Workflow Engine & Execution           [░░░░░░░░░░]  0%
 Phase 6:  Agent Implementations                 [░░░░░░░░░░]  0%
 Phase 7:  Monitoring & Observability            [░░░░░░░░░░]  0%
@@ -768,6 +936,113 @@ Phase 13: Auto-Optimization & Benchmarking      [░░░░░░░░░░]
 2. **Rich metadata**: Enables intelligent model selection and future auto-optimization
 3. **Provider abstraction**: UI doesn't care about provider implementation details
 4. **Local-first storage**: Model configs stored locally, synced optionally
+
+---
+
+## 🔷 Phase 4f: Frontend Refactor & Foundry Page
+
+**Goal**: Consolidate frontend architecture by introducing the Foundry Page — a unified interface for creating and managing all block types. Fix bugs, complete missing CRUD functionality, and prepare UI for self-improving workflows.
+
+**Duration**: 2-3 weeks  
+**Team**: Frontend (1-2 developers)  
+**Dependencies**: Phase 4e complete  
+**Issue**: [docs/issues/phase-4f-frontend-refactor-foundry.md](docs/issues/phase-4f-frontend-refactor-foundry.md)
+
+### Tasks
+
+#### 4f.1 Bug Fixes & Technical Debt
+- [ ] Add ROADMAP update instructions to code conventions
+- [ ] Fix expand/collapse arrows in BlockExplorer (use SVG icons)
+- [ ] Consolidate duplicate type definitions across files
+- [ ] Add proper error boundaries to all pages
+- [ ] Implement loading skeletons for async components
+- [ ] Add accessibility audit and fixes (ARIA labels, keyboard nav)
+
+#### 4f.2 Foundry Page Foundation
+- [ ] Create `FoundryPage.tsx` with layout structure
+- [ ] Create `FoundrySidebar.tsx` with category filters
+- [ ] Create `FoundrySearchBar.tsx` with type/capability filters
+- [ ] Create `BlockGrid.tsx` for displaying blocks
+- [ ] Create `BlockCard.tsx` component with hover actions
+- [ ] Implement responsive grid (CSS Grid with auto-fit)
+- [ ] Add keyboard navigation (arrow keys, enter to select)
+- [ ] Add unit tests
+
+#### 4f.3 Block Store Enhancements
+- [ ] Add `getAllBlocks()` method to blockStore
+- [ ] Add `getBlocksByType(type: BlockType)` filter
+- [ ] Add `getBlocksByCapability(cap: string)` filter
+- [ ] Add `searchBlocks(query: string)` with fuzzy matching
+- [ ] Add `tags: string[]` field to Block interface
+- [ ] Add `status: 'draft' | 'active' | 'archived'` field
+- [ ] Implement `duplicateBlock(id)` action
+- [ ] Implement `exportBlock(id)` / `importBlock(json)`
+- [ ] Add unit tests for all new methods
+
+#### 4f.4 Block Creation Wizard
+- [ ] Create `CreateBlockWizard.tsx` modal component
+- [ ] Step 1: Select block type (visual cards)
+- [ ] Step 2: Basic info (name, description, tags)
+- [ ] Step 3: Type-specific configuration
+- [ ] Step 4: Preview and confirm
+- [ ] Implement template presets per type
+- [ ] Add validation at each step
+- [ ] Add unit tests
+
+#### 4f.5 Block Detail/Edit Views
+- [ ] Create `BlockDetailView.tsx` for viewing block info
+- [ ] Implement inline editing for atomic blocks
+- [ ] Navigate to Canvas for composite blocks on "Edit Contents"
+- [ ] Show block usage (where is this block referenced?)
+- [ ] Add unit tests
+
+#### 4f.6 Missing CRUD Functionality
+- [ ] **Create**: Via Foundry wizard OR drag template to canvas
+- [ ] **Read**: Block detail view, block card hover info
+- [ ] **Update**: Inline edit for atomics, Canvas for composites
+- [ ] **Delete**: With confirmation, check for usages first
+- [ ] Implement `blockService` interface with mock backend
+- [ ] Add unit tests
+
+#### 4f.7 Routing Refactor
+- [ ] Update `router.tsx` with new routes:
+  - `/foundry` - FoundryPage (all blocks)
+  - `/foundry/:blockType` - FoundryPage filtered
+  - `/foundry/:blockId/edit` - Block edit
+  - `/canvas/:blockId` - Canvas for composite blocks
+- [ ] Add redirects from old routes
+- [ ] Update navigation links in Sidebar
+- [ ] Add breadcrumbs for deep navigation
+- [ ] Add unit tests
+
+#### 4f.8 Self-Improvement Preparation
+- [ ] Create `IBlockDiscoveryService` interface
+- [ ] Create `mockBlockDiscoveryService` for frontend use
+- [ ] Implement block discovery by type/capability
+- [ ] Expose discovery methods in stores
+- [ ] Document API for agent prompt usage
+- [ ] Add unit tests
+
+#### 4f.9 Navigation & UX Improvements
+- [ ] Add global search (Cmd+K / Ctrl+K) for blocks, workflows, models
+- [ ] Add recent items list in sidebar
+- [ ] Add favorites/pinned blocks
+- [ ] Add "Create New" quick action menu in TopBar
+- [ ] Add keyboard shortcuts panel (? key)
+- [ ] Add unit tests
+
+#### 4f.10 Documentation
+- [ ] Update frontend/README.md with Foundry documentation
+- [ ] Add example blocks for each type
+- [ ] Create "Getting Started" workflow example
+- [ ] Document block schema and configuration options
+
+**Outputs**:
+- ✅ Unified Foundry page for all block management
+- ✅ Complete CRUD for blocks
+- ✅ Block discovery API for self-improvement
+- ✅ Improved navigation and UX
+- ✅ Comprehensive documentation
 
 ---
 

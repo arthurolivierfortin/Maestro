@@ -1,0 +1,22 @@
+{
+  "$schema": "./docs/schemas/maestro-config.schema.json",
+  "environment": "development",
+  "frontend": {
+    "useMockBackend": true,
+    "apiBaseUrl": "https://localhost:5001",
+    "mockLatency": {
+      "min": 100,
+      "max": 300
+    },
+    "enableDevTools": true
+  },
+  "backend": {
+    "llmProvider": "openai",
+    "enableSwagger": true,
+    "persistenceMode": "json"
+  },
+  "models": {
+    "loadPresetsOnStart": true,
+    "defaultModelId": "gpt-4o"
+  }
+}

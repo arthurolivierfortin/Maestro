@@ -10,6 +10,7 @@ import type { ImperativePanelHandle } from 'react-resizable-panels';
 import { useNavigationStore } from '../../store/navigationStore';
 import { useBlockStore } from '../../store/blockStore';
 import { BlockTypeRegistry } from '../../registry';
+import { ModelSelector } from '../ModelSelector';
 import type { Block, BlockConfig } from '../../types/block.types';
 import './PropertiesPanel.scss';
 
@@ -239,10 +240,24 @@ function renderConfigFields(
           </div>
         );
       }
-      if ('model' in config) {
+      if ('modelId' in config) {
+        fields.push(
+          <div key="modelId" className="properties-panel__field">
+            <label className="properties-panel__field-label">Model</label>
+            <ModelSelector
+              value={config.modelId || ''}
+              onChange={(modelId) => onChange('modelId', modelId)}
+              onlyAvailable={true}
+              placeholder="Select a model..."
+            />
+          </div>
+        );
+      }
+      if ('model' in config && !('modelId' in config)) {
+        // Legacy model field - show text input for backward compatibility
         fields.push(
           <div key="model" className="properties-panel__field">
-            <label className="properties-panel__field-label">Model</label>
+            <label className="properties-panel__field-label">Model (Legacy)</label>
             <input
               type="text"
               value={config.model || ''}
