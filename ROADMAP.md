@@ -225,7 +225,7 @@ Phase 4c: IDE Layout & Panel System             [██████████]
 Phase 4d: Canvas Foundation (React Flow)        [██████████]  0%
 Phase 4e: Models Panel & Registry               [██████████]  0%
 Phase 4f: Frontend Refactor & Foundry           [████░░░░░░] 40%
-Phase 4g: Block Editing, CRUD & UX              [█░░░░░░░░░] 10%
+Phase 4g: Block Editing, CRUD & UX              [███░░░░░░░] 32%
 Phase 5:  Workflow Engine & Execution           [░░░░░░░░░░]  0%
 Phase 6:  Agent Implementations                 [░░░░░░░░░░]  0%
 Phase 7:  Monitoring & Observability            [░░░░░░░░░░]  0%
@@ -1065,18 +1065,18 @@ Phase 13: Auto-Optimization & Benchmarking      [░░░░░░░░░░]
 - [x] Add unit tests for fixes
 
 #### 4g.2 Block Edit Page & Type-Specific Editors
-- [ ] Create `BlockEditPage.tsx` route handler
-- [ ] Create `BaseBlockEditor.tsx` with shared layout
-- [ ] Create `AgentEditor.tsx` (model selector, prompt, tools, temperature)
-- [ ] Create `ToolEditor.tsx` (script editor, input/output schemas)
-- [ ] Create `PromptEditor.tsx` (template, variables, live preview)
-- [ ] Create `InstructionEditor.tsx` (markdown, scope)
-- [ ] Create `TaskEditor.tsx` (description, inputs/outputs, validation)
-- [ ] Create `TriggerEditor.tsx` (cron, webhook, event config)
-- [ ] Create `ValidatorEditor.tsx` (JSON schema, test button)
-- [ ] Create `DecisionEditor.tsx` (condition, branches)
-- [ ] Create `EditorRegistry.ts` (map BlockType → Editor)
-- [ ] Add form validation and unsaved changes warning
+- [x] Create `BlockEditPage.tsx` route handler
+- [x] Create `BaseBlockEditor.tsx` with shared layout
+- [x] Create `AgentEditor.tsx` (model selector, prompt, tools, temperature)
+- [x] Create `ToolEditor.tsx` (script editor, input/output schemas)
+- [x] Create `PromptEditor.tsx` (template, variables, live preview)
+- [x] Create `InstructionEditor.tsx` (markdown, scope)
+- [x] Create `TaskEditor.tsx` (description, inputs/outputs, validation)
+- [x] Create `TriggerEditor.tsx` (cron, webhook, event config)
+- [x] Create `ValidatorEditor.tsx` (JSON schema, test button)
+- [x] Create `DecisionEditor.tsx` (condition, branches)
+- [x] Create `EditorRegistry.ts` (map BlockType → Editor)
+- [x] Add form validation and unsaved changes warning
 - [ ] Add unit tests for each editor
 
 #### 4g.3 Block Creation Wizard Modal
