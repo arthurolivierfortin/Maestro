@@ -9,7 +9,6 @@ import { useNavigate } from 'react-router-dom';
 import { Search, X } from 'lucide-react';
 import { SearchResults, type SearchResult } from './SearchResults';
 import { getRecentItems, addRecentItem, clearRecentItems } from './recentItems';
-import { blockService } from '../../../services';
 import { useBlockStore } from '../../../store/blockStore';
 import './CommandPalette.scss';
 
@@ -30,7 +29,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
-  const blocks = useBlockStore(state => state.blocks);
+  const blocksMap = useBlockStore(state => state.blocks);
 
   // Focus input when opened
   useEffect(() => {
@@ -48,7 +47,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
       const recent = getRecentItems();
       const recentResults: SearchResult[] = recent.map(item => {
         if (item.type === 'block') {
-          const block = blocks.find(b => b.id === item.id);
+          const block = blocksMap.get(item.id);
           return {
             id: item.id,
             name: item.name,
@@ -71,12 +70,13 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
 
     // Search blocks
     const searchTerm = query.toLowerCase();
+    const blocks = Array.from(blocksMap.values());
     const blockResults: SearchResult[] = blocks
       .filter(
         b =>
           b.name.toLowerCase().includes(searchTerm) ||
-          b.description?.toLowerCase().includes(searchTerm) ||
-          b.tags?.some(tag => tag.toLowerCase().includes(searchTerm))
+          b.metadata.description?.toLowerCase().includes(searchTerm) ||
+          b.metadata.tags?.some(tag => tag.toLowerCase().includes(searchTerm))
       )
       .slice(0, 10)
       .map(block => ({
@@ -84,7 +84,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
         name: block.name,
         type: 'block' as const,
         data: block,
-        description: block.description,
+        description: block.metadata.description,
       }));
 
     // Quick actions

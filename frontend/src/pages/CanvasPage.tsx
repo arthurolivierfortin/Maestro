@@ -4,20 +4,26 @@
  * Visual workflow editor with palette and canvas.
  */
 
+import { useRef } from 'react';
 import { useNavigationStore } from '../store/navigationStore';
 import { useBlockStore } from '../store/blockStore';
 import { BlockCanvas } from '../components/BlockCanvas';
 import { BlockPalette } from '../components/BlockPalette';
 import { BlockTypeRegistry } from '../registry';
+import { useCanvasShortcuts } from '../hooks/useCanvasShortcuts';
 import type { BlockType } from '../types/block.types';
 import './CanvasPage.scss';
 
 export function CanvasPage() {
   const { currentPath, navigateInto } = useNavigationStore();
   const { addBlock } = useBlockStore();
+  const canvasRef = useRef<HTMLDivElement>(null);
 
   // Get current parent ID (last item in path, or null for root)
   const currentParentId = currentPath.length > 0 ? currentPath[currentPath.length - 1] : null;
+
+  // Enable keyboard shortcuts
+  useCanvasShortcuts({ enabled: true, parentId: currentParentId });
 
   const handleDrillDown = (blockId: string) => {
     navigateInto(blockId);
@@ -35,12 +41,19 @@ export function CanvasPage() {
     // Generate unique ID
     const blockId = `block-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
+    // Calculate position relative to canvas
+    const canvasRect = canvasRef.current?.getBoundingClientRect();
+    const position = {
+      x: canvasRect ? event.clientX - canvasRect.left : 100,
+      y: canvasRect ? event.clientY - canvasRect.top : 100,
+    };
+
     // Create block with position at drop location
     const newBlock = {
       ...defaultBlock,
       id: blockId,
       parentId: currentParentId,
-      position: { x: 100, y: 100 }, // TODO: Calculate from drop position
+      position,
       metadata: {
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
@@ -66,7 +79,12 @@ export function CanvasPage() {
         </div>
         <BlockPalette />
       </div>
-      <div className="canvas-page__canvas" onDrop={handleDrop} onDragOver={handleDragOver}>
+      <div 
+        ref={canvasRef}
+        className="canvas-page__canvas" 
+        onDrop={handleDrop} 
+        onDragOver={handleDragOver}
+      >
         <BlockCanvas parentId={currentParentId} onDrillDown={handleDrillDown} />
       </div>
     </div>

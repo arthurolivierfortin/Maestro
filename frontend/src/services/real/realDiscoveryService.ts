@@ -16,7 +16,7 @@ import type {
   Execution,
 } from '../interfaces/IBlockDiscoveryService';
 import type { Block } from '@/types/block.types';
-import { apiClient } from './api';
+import { apiClient } from '../api';
 
 /**
  * Real Discovery Service Implementation

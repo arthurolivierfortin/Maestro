@@ -4,10 +4,13 @@
  * Base node component for all block types on the canvas.
  */
 
-import { memo, useCallback } from 'react';
+import { memo, useCallback, useState } from 'react';
 import { Handle, Position } from 'reactflow';
 import { MoreVertical } from 'lucide-react';
 import { BlockIcon } from '../icons/BlockIcons';
+import { NodeContextMenu } from '../NodeContextMenu';
+import { useBlockStore } from '../../store/blockStore';
+import { useNavigationStore } from '../../store/navigationStore';
 import type { Block } from '../../types/block.types';
 import {
   isAgentConfig,
@@ -33,6 +36,9 @@ export interface BaseBlockNodeProps {
  */
 export const BaseBlockNode = memo(({ data, selected }: BaseBlockNodeProps) => {
   const { block, isExecuting, executionStatus, onDrillDown } = data;
+  const [menuOpen, setMenuOpen] = useState(false);
+  const { duplicateBlock, removeBlock } = useBlockStore();
+  const { selectBlock, setPropertiesPanelMode } = useNavigationStore();
 
   // Handle double-click to drill down into composite blocks
   const handleDoubleClick = useCallback(() => {
@@ -42,11 +48,31 @@ export const BaseBlockNode = memo(({ data, selected }: BaseBlockNodeProps) => {
   }, [block, onDrillDown]);
 
   // Handle menu click
-  const handleMenuClick = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation();
-    // TODO: Implement context menu or action dropdown
-    console.log('Menu clicked for block:', block.id);
-  }, [block.id]);
+  const handleMenuClick = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      setMenuOpen(!menuOpen);
+    },
+    [menuOpen]
+  );
+
+  // Context menu actions
+  const handleEdit = useCallback(() => {
+    selectBlock(block.id);
+    setPropertiesPanelMode('edit');
+  }, [block.id, selectBlock, setPropertiesPanelMode]);
+
+  const handleDuplicate = useCallback(() => {
+    duplicateBlock(block.id);
+  }, [block.id, duplicateBlock]);
+
+  const handleDelete = useCallback(() => {
+    removeBlock(block.id);
+  }, [block.id, removeBlock]);
+
+  const handleDrillIntoMenu = useCallback(() => {
+    onDrillDown(block.id);
+  }, [block.id, onDrillDown]);
 
   // Determine status class
   const statusClass = executionStatus
@@ -79,8 +105,8 @@ export const BaseBlockNode = memo(({ data, selected }: BaseBlockNodeProps) => {
       <div className="base-block-node__header">
         <BlockIcon type={block.blockType} size={16} className="base-block-node__icon" />
         <span className="base-block-node__name">{block.name}</span>
-        <button 
-          className="base-block-node__menu" 
+        <button
+          className="base-block-node__menu"
           onClick={handleMenuClick}
           aria-label="Block menu"
           title="Block menu"
@@ -117,6 +143,18 @@ export const BaseBlockNode = memo(({ data, selected }: BaseBlockNodeProps) => {
           className="base-block-node__handle base-block-node__handle--output"
         />
       ))}
+
+      {/* Context Menu */}
+      {menuOpen && (
+        <NodeContextMenu
+          block={block}
+          onEdit={handleEdit}
+          onDuplicate={handleDuplicate}
+          onDelete={handleDelete}
+          onDrillInto={hasChildren ? handleDrillIntoMenu : undefined}
+          onClose={() => setMenuOpen(false)}
+        />
+      )}
     </div>
   );
 });

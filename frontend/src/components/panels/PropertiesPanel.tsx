@@ -219,7 +219,7 @@ export function PropertiesPanel({ panelRef }: PropertiesPanelProps) {
             <div className="properties-panel__section">
               <label className="properties-panel__label">Configuration</label>
               <div className="properties-panel__config">
-                {renderConfigFields(block.blockType, editedConfig, handleConfigChange, isViewMode)}
+                {renderConfigFields(block.blockType, editedConfig, handleConfigChange)}
               </div>
             </div>
           )}

@@ -29,8 +29,8 @@ class MockDiscoveryService implements IBlockDiscoveryService {
   async listAvailableBlocks(filter?: BlockFilter): Promise<BlockSummary[]> {
     await delay(150);
     
-    const blocks = useBlockStore.getState().blocks;
-    let filtered = blocks;
+    const blocksMap = useBlockStore.getState().blocks;
+    let filtered = Array.from(blocksMap.values());
 
     // Apply filters
     if (filter?.type) {
@@ -42,11 +42,11 @@ class MockDiscoveryService implements IBlockDiscoveryService {
       );
     }
     if (filter?.status) {
-      filtered = filtered.filter(b => b.status === filter.status);
+      filtered = filtered.filter(b => b.metadata.status === filter.status);
     }
     if (filter?.tags && filter.tags.length > 0) {
       filtered = filtered.filter(b =>
-        filter.tags!.some(tag => b.tags?.includes(tag))
+        filter.tags!.some(tag => b.metadata.tags?.includes(tag))
       );
     }
 
@@ -56,14 +56,14 @@ class MockDiscoveryService implements IBlockDiscoveryService {
       name: b.name,
       type: b.blockType,
       capabilities: b.capabilities || [],
-      description: b.description,
+      description: b.metadata.description,
     }));
   }
 
   async getBlockCapabilities(blockId: string): Promise<string[]> {
     await delay(100);
     
-    const block = useBlockStore.getState().blocks.find(b => b.id === blockId);
+    const block = useBlockStore.getState().blocks.get(blockId);
     if (!block) {
       throw new Error(`Block with ID '${blockId}' not found`);
     }
@@ -74,7 +74,7 @@ class MockDiscoveryService implements IBlockDiscoveryService {
   async getBlockSchema(blockId: string): Promise<BlockSchema> {
     await delay(100);
     
-    const block = useBlockStore.getState().blocks.find(b => b.id === blockId);
+    const block = useBlockStore.getState().blocks.get(blockId);
     if (!block) {
       throw new Error(`Block with ID '${blockId}' not found`);
     }
@@ -93,11 +93,11 @@ class MockDiscoveryService implements IBlockDiscoveryService {
   async suggestBlocks(context: WorkflowContext): Promise<BlockSuggestion[]> {
     await delay(200);
     
-    const blocks = useBlockStore.getState().blocks;
+    const blocksMap = useBlockStore.getState().blocks;
     const suggestions: BlockSuggestion[] = [];
 
     // Simple suggestion logic based on context
-    for (const block of blocks) {
+    for (const [, block] of blocksMap) {
       let score = 0;
       let reason = '';
 
@@ -108,7 +108,7 @@ class MockDiscoveryService implements IBlockDiscoveryService {
       }
 
       // Score based on workflow type
-      if (context.workflowType && block.tags?.includes(context.workflowType)) {
+      if (context.workflowType && block.metadata.tags?.includes(context.workflowType)) {
         score += 30;
         reason += reason ? ` and matches workflow type` : `Matches workflow type`;
       }
@@ -126,7 +126,7 @@ class MockDiscoveryService implements IBlockDiscoveryService {
             name: block.name,
             type: block.blockType,
             capabilities: block.capabilities || [],
-            description: block.description,
+            description: block.metadata.description,
           },
           relevanceScore: score,
           reason: reason || 'General match',
@@ -143,15 +143,15 @@ class MockDiscoveryService implements IBlockDiscoveryService {
   async findSimilarBlocks(blockId: string): Promise<Block[]> {
     await delay(150);
     
-    const blocks = useBlockStore.getState().blocks;
-    const targetBlock = blocks.find(b => b.id === blockId);
+    const blocksMap = useBlockStore.getState().blocks;
+    const targetBlock = blocksMap.get(blockId);
     
     if (!targetBlock) {
       throw new Error(`Block with ID '${blockId}' not found`);
     }
 
     // Find similar blocks based on type and capabilities
-    const similar = blocks.filter(b => {
+    const similar = Array.from(blocksMap.values()).filter(b => {
       if (b.id === blockId) return false;
       
       // Same type
@@ -170,7 +170,7 @@ class MockDiscoveryService implements IBlockDiscoveryService {
   async getBlockStats(blockId: string): Promise<BlockStats> {
     await delay(100);
     
-    const block = useBlockStore.getState().blocks.find(b => b.id === blockId);
+    const block = useBlockStore.getState().blocks.get(blockId);
     if (!block) {
       throw new Error(`Block with ID '${blockId}' not found`);
     }
@@ -187,7 +187,7 @@ class MockDiscoveryService implements IBlockDiscoveryService {
   async getRecentExecutions(blockId: string, limit: number = 10): Promise<Execution[]> {
     await delay(150);
     
-    const block = useBlockStore.getState().blocks.find(b => b.id === blockId);
+    const block = useBlockStore.getState().blocks.get(blockId);
     if (!block) {
       throw new Error(`Block with ID '${blockId}' not found`);
     }
