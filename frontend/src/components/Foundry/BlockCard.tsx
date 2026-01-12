@@ -6,10 +6,11 @@
 
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MoreVertical, Edit, Copy, Trash2 } from 'lucide-react';
+import { MoreVertical, Edit, Copy, Trash2, Star } from 'lucide-react';
 import { BlockIcon } from '../icons';
 import type { Block } from '../../types/block.types';
 import { useBlockStore } from '../../store';
+import { useFavorites } from '../../hooks/useFavorites';
 import './BlockCard.scss';
 
 interface BlockCardProps {
@@ -20,6 +21,7 @@ export function BlockCard({ block }: BlockCardProps) {
   const navigate = useNavigate();
   const [showActions, setShowActions] = useState(false);
   const { duplicateBlock, removeBlock } = useBlockStore();
+  const { toggleFavorite, isFavorite } = useFavorites();
 
   /**
    * Handle card click - navigate to block detail or canvas
@@ -30,6 +32,14 @@ export function BlockCard({ block }: BlockCardProps) {
     } else {
       navigate(`/canvas/${block.id}`);
     }
+  };
+
+  /**
+   * Handle favorite toggle
+   */
+  const handleFavoriteToggle = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    toggleFavorite(block.id);
   };
 
   /**
@@ -95,6 +105,15 @@ export function BlockCard({ block }: BlockCardProps) {
         <div className="block-card__icon-wrapper">
           <BlockIcon type={block.blockType} size={32} className="block-card__icon" />
         </div>
+
+        <button
+          className={`block-card__favorite ${isFavorite(block.id) ? 'block-card__favorite--active' : ''}`}
+          onClick={handleFavoriteToggle}
+          aria-label={isFavorite(block.id) ? 'Remove from favorites' : 'Add to favorites'}
+          title={isFavorite(block.id) ? 'Remove from favorites' : 'Add to favorites'}
+        >
+          <Star size={16} fill={isFavorite(block.id) ? 'currentColor' : 'none'} />
+        </button>
 
         <button
           className="block-card__actions-toggle"

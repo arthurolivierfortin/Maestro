@@ -96,6 +96,9 @@ export interface Block<TConfig = BlockConfig> {
   // Visual
   position: Position;
 
+  // User preferences
+  isFavorite?: boolean; // Starred/favorited by user
+
   // Metadata
   metadata: BlockMetadata;
 }

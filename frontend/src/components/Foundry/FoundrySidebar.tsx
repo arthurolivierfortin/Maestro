@@ -4,15 +4,16 @@
  * Category filters for block types in the Foundry page.
  */
 
-import { Package } from 'lucide-react';
+import { Package, Star } from 'lucide-react';
 import { Button } from '../common';
 import { BlockIcon } from '../icons';
 import type { BlockType } from '../../types/block.types';
+import { useFavorites } from '../../hooks/useFavorites';
 import './FoundrySidebar.scss';
 
 interface FoundrySidebarProps {
-  selectedCategory: BlockType | 'all';
-  onCategorySelect: (category: BlockType | 'all') => void;
+  selectedCategory: BlockType | 'all' | 'favorites';
+  onCategorySelect: (category: BlockType | 'all' | 'favorites') => void;
   onCreateBlock: () => void;
 }
 
@@ -41,6 +42,8 @@ export function FoundrySidebar({
   onCategorySelect,
   onCreateBlock,
 }: FoundrySidebarProps) {
+  const { favoriteCount } = useFavorites();
+
   return (
     <aside className="foundry-sidebar">
       <div className="foundry-sidebar__header">
@@ -48,6 +51,27 @@ export function FoundrySidebar({
       </div>
 
       <nav className="foundry-sidebar__categories" role="navigation" aria-label="Block categories">
+        {/* Favorites section */}
+        {favoriteCount > 0 && (
+          <>
+            <button
+              className={`foundry-sidebar__category ${
+                selectedCategory === 'favorites' ? 'foundry-sidebar__category--active' : ''
+              }`}
+              onClick={() => onCategorySelect('favorites')}
+              aria-label="View favorites"
+              aria-current={selectedCategory === 'favorites' ? 'true' : undefined}
+            >
+              <span className="foundry-sidebar__category-icon">
+                <Star size={20} fill={selectedCategory === 'favorites' ? 'currentColor' : 'none'} />
+              </span>
+              <span className="foundry-sidebar__category-label">Favorites</span>
+              <span className="foundry-sidebar__category-count">{favoriteCount}</span>
+            </button>
+            <div className="foundry-sidebar__divider" />
+          </>
+        )}
+
         {CATEGORIES.map((category) => (
           <button
             key={category.id}
