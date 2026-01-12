@@ -3,20 +3,24 @@
  *
  * Main sidebar component showing block hierarchy.
  * Replaces the original Sidebar component.
+ * Can be collapsed/expanded like the PropertiesPanel.
  */
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { ChevronLeft } from 'lucide-react';
 import { useBlockActions } from '../../hooks';
 import { BlockTreeItem } from './BlockTreeItem';
 import { BlockContextMenu } from './BlockContextMenu';
 import type { Block } from '../../types/block.types';
+import type { ImperativePanelHandle } from 'react-resizable-panels';
 import './BlockExplorer.scss';
 
 interface BlockExplorerProps {
   contextBlockId?: string | null;
+  panelRef?: React.RefObject<ImperativePanelHandle>;
 }
 
-export function BlockExplorer({ contextBlockId }: BlockExplorerProps = {}) {
+export function BlockExplorer({ contextBlockId, panelRef }: BlockExplorerProps = {}) {
   const { getRootBlock, getBlock, removeBlock, duplicateBlock, renameBlock, canDeleteBlock } =
     useBlockActions();
   const [contextMenu, setContextMenu] = useState<{
@@ -24,6 +28,37 @@ export function BlockExplorer({ contextBlockId }: BlockExplorerProps = {}) {
     x: number;
     y: number;
   } | null>(null);
+  const [isCollapsed, setIsCollapsed] = useState(false);
+
+  // Sync isCollapsed with panel collapse state
+  useEffect(() => {
+    if (!panelRef) return;
+
+    const handlePanelCollapse = () => {
+      const panel = panelRef.current;
+      if (panel) {
+        const collapsed = panel.isCollapsed();
+        setIsCollapsed(collapsed);
+      }
+    };
+
+    // Check initial state and set up listener
+    handlePanelCollapse();
+    const interval = setInterval(handlePanelCollapse, 100);
+
+    return () => clearInterval(interval);
+  }, [panelRef]);
+
+  const handleToggle = useCallback(() => {
+    if (!panelRef?.current) return;
+
+    const panel = panelRef.current;
+    if (panel.isCollapsed()) {
+      panel.expand();
+    } else {
+      panel.collapse();
+    }
+  }, [panelRef]);
 
   // If contextBlockId is provided, use that block as root, otherwise use the actual root
   const displayBlock = contextBlockId ? getBlock(contextBlockId) : getRootBlock();
@@ -64,8 +99,16 @@ export function BlockExplorer({ contextBlockId }: BlockExplorerProps = {}) {
   };
 
   return (
-    <aside className="block-explorer">
+    <aside className="block-explorer" data-state={isCollapsed ? 'collapsed' : 'expanded'}>
       <div className="block-explorer__header">
+        <button
+          className="block-explorer__toggle-btn"
+          onClick={handleToggle}
+          aria-label={isCollapsed ? 'Expand block explorer' : 'Collapse block explorer'}
+          aria-expanded={!isCollapsed}
+        >
+          <ChevronLeft size={16} />
+        </button>
         <h2 className="block-explorer__title">Block Explorer</h2>
       </div>
 

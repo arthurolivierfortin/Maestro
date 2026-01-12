@@ -107,12 +107,13 @@ export function IDELayout() {
                   <PanelItem
                     id="sidebar"
                     defaultSize={20}
-                    minSize={15}
+                    minSize={2}
                     maxSize={35}
                     collapsible={true}
+                    collapsedSize={2}
                     panelRef={leftPanelRef}
                   >
-                    <BlockExplorer contextBlockId={contextBlockId} />
+                    <BlockExplorer contextBlockId={contextBlockId} panelRef={leftPanelRef} />
                   </PanelItem>
 
                   <PanelDivider />
@@ -137,10 +138,10 @@ export function IDELayout() {
                   <PanelItem
                     id="properties"
                     defaultSize={20}
-                    minSize={15}
+                    minSize={2}
                     maxSize={35}
                     collapsible={true}
-                    collapsedSize={5}
+                    collapsedSize={2}
                     panelRef={rightPanelRef}
                   >
                     <PropertiesPanel panelRef={rightPanelRef} />

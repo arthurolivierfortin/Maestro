@@ -5,7 +5,7 @@
  */
 
 import { useEffect, useState, useCallback } from 'react';
-import { ChevronRight, Copy, Check } from 'lucide-react';
+import { ChevronRight, Copy, Check, Eye, Pencil } from 'lucide-react';
 import type { ImperativePanelHandle } from 'react-resizable-panels';
 import { useNavigationStore } from '../../store/navigationStore';
 import { useBlockStore } from '../../store/blockStore';
@@ -132,11 +132,11 @@ export function PropertiesPanel({ panelRef }: PropertiesPanelProps) {
         
         {block && !isCollapsed && (
           <button
-            className="properties-panel__mode-btn"
+            className={`properties-panel__mode-btn ${isViewMode ? 'properties-panel__mode-btn--view' : 'properties-panel__mode-btn--edit'}`}
             onClick={handleToggleMode}
             title={isViewMode ? 'Switch to edit mode' : 'Switch to view mode'}
           >
-            {isViewMode ? '👁️ View' : '✏️ Edit'}
+            {isViewMode ? <><Eye size={14} /> View</> : <><Pencil size={14} /> Edit</>}
           </button>
         )}
       </div>
