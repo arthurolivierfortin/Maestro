@@ -58,5 +58,6 @@ export function useNavigation() {
     getCurrentBlock,
     getBreadcrumbs,
     canNavigateInto,
+    getRootBlock,
   };
 }

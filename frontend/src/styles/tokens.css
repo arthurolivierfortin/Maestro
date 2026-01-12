@@ -131,6 +131,17 @@
   
   --surface: var(--color-white);
   --surface-hover: var(--color-gray-50);
+  
+  /* Aliases for backwards compatibility */
+  --border-color: var(--border);
+  --color-border: var(--border);
+  --color-border-hover: var(--border-hover);
+  --bg-secondary: var(--background-secondary);
+  --bg-tertiary: var(--background-tertiary);
+  --bg-hover: var(--surface-hover);
+  --text-muted: var(--text-tertiary);
+  --scrollbar-thumb: var(--color-gray-300);
+  --scrollbar-thumb-hover: var(--color-gray-400);
 }
 
 /* Dark Theme */
@@ -148,4 +159,15 @@
   
   --surface: var(--color-gray-800);
   --surface-hover: var(--color-gray-700);
+  
+  /* Dark theme overrides */
+  --border-color: var(--border);
+  --color-border: var(--border);
+  --color-border-hover: var(--border-hover);
+  --bg-secondary: var(--background-secondary);
+  --bg-tertiary: var(--background-tertiary);
+  --bg-hover: var(--surface-hover);
+  --text-muted: var(--text-tertiary);
+  --scrollbar-thumb: var(--color-gray-600);
+  --scrollbar-thumb-hover: var(--color-gray-500);
 }
