@@ -71,9 +71,19 @@ export function BlockPalette({ searchQuery = '', onDragStart }: BlockPaletteProp
   }, [search]);
 
   const handleDragStart = (blockType: BlockType) => (e: React.DragEvent) => {
+    console.log('[BlockPalette] Drag started:', {
+      blockType,
+      clientX: e.clientX,
+      clientY: e.clientY,
+    });
+    
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('application/reactflow-blocktype', blockType);
+    
+    console.log('[BlockPalette] MIME data set to:', blockType);
+    
     if (onDragStart) {
+      console.log('[BlockPalette] Calling onDragStart callback');
       onDragStart(blockType);
     }
   };

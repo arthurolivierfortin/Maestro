@@ -97,8 +97,16 @@ function BlockCanvasInner({
   onDrop,
 }: BlockCanvasProps) {
   // Sync canvas state with block store
-  const { nodes, edges, onNodesChange, onEdgesChange, onConnect, onNodeClick, onPaneClick, onDrop: handleDrop } =
-    useCanvasSync({
+  const { 
+    nodes, 
+    edges, 
+    onNodesChange, 
+    onEdgesChange, 
+    onConnect, 
+    onNodeClick, 
+    onPaneClick, 
+    onDrop: handleDrop,
+  } = useCanvasSync({
       parentId,
       onBlockSelect,
       onDrillDown,

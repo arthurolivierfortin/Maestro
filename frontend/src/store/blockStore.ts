@@ -149,28 +149,49 @@ export const useBlockStore = create<BlockState>()(
           const state = get();
           const blocks = new Map(state.blocks);
 
+          console.log('[BlockStore] addBlock called:', {
+            blockId: block.id,
+            blockName: block.name,
+            blockType: block.blockType,
+            parentId,
+            currentRootId: state.rootId,
+            totalBlocksBefore: blocks.size,
+          });
+
           // Ensure block has metadata
           if (!block.metadata) {
             block.metadata = createMetadata();
           }
 
-          // If no parent, this becomes the root
+          // If no parent, this is a top-level block
           if (parentId === null) {
+            console.log('[BlockStore] Adding top-level block');
             blocks.set(block.id, { ...block, parentId: null });
-            set(saveHistory(state, blocks, block.id));
+            // Only set root if it doesn't exist yet
+            const newRootId = state.rootId || block.id;
+            console.log('[BlockStore] Root ID - was:', state.rootId, 'now:', newRootId);
+            set(saveHistory(state, blocks, newRootId));
             return;
           }
 
           // Find parent and add to its children
           const parent = blocks.get(parentId);
           if (!parent) {
-            console.error(`Parent block ${parentId} not found`);
+            console.error(`[BlockStore] Parent block ${parentId} not found`);
             return;
           }
 
+          console.log('[BlockStore] Found parent:', {
+            parentId: parent.id,
+            parentName: parent.name,
+            canContain: BlockTypeRegistry.canContain(parent.blockType, block.blockType),
+          });
+
           // Check if parent can contain this child
           if (!BlockTypeRegistry.canContain(parent.blockType, block.blockType)) {
-            console.error(`Parent ${parent.blockType} cannot contain child ${block.blockType}`);
+            console.error(
+              `[BlockStore] Parent ${parent.blockType} cannot contain child ${block.blockType}`
+            );
             return;
           }
 
@@ -184,6 +205,13 @@ export const useBlockStore = create<BlockState>()(
             children: [...(parent.children || []), updatedBlock],
           };
           blocks.set(parentId, updatedParent);
+
+          console.log('[BlockStore] Block added to parent:', {
+            blockId: block.id,
+            parentId,
+            parentChildrenCount: updatedParent.children?.length,
+            totalBlocksAfter: blocks.size,
+          });
 
           set(saveHistory(state, blocks, state.rootId));
         },
@@ -235,9 +263,18 @@ export const useBlockStore = create<BlockState>()(
           const block = blocks.get(id);
 
           if (!block) {
-            console.error(`Block ${id} not found`);
+            console.error(`[BlockStore] Block ${id} not found for update`);
             return;
           }
+
+          console.log('[BlockStore] updateBlock called:', {
+            blockId: id,
+            updates: {
+              position: updates.position,
+              name: updates.name,
+              config: !!updates.config,
+            },
+          });
 
           const updatedBlock = {
             ...block,
@@ -262,6 +299,7 @@ export const useBlockStore = create<BlockState>()(
             }
           }
 
+          console.log('[BlockStore] Block updated successfully');
           set(saveHistory(state, blocks, state.rootId));
         },
 

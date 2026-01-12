@@ -42,8 +42,19 @@ export const BaseBlockNode = memo(({ data, selected }: BaseBlockNodeProps) => {
 
   // Handle double-click to drill down into composite blocks
   const handleDoubleClick = useCallback(() => {
-    if (!block.isAtomic && block.children && block.children.length > 0) {
+    console.log('[BaseBlockNode] Double-click on block:', {
+      blockId: block.id,
+      blockName: block.name,
+      isAtomic: block.isAtomic,
+      hasChildren: block.children && block.children.length > 0,
+    });
+    
+    // Allow drill-down into any composite (non-atomic) block, even if empty
+    if (!block.isAtomic) {
+      console.log('[BaseBlockNode] Drilling down into composite block');
       onDrillDown(block.id);
+    } else {
+      console.log('[BaseBlockNode] Block is atomic - no drill down');
     }
   }, [block, onDrillDown]);
 
@@ -58,19 +69,23 @@ export const BaseBlockNode = memo(({ data, selected }: BaseBlockNodeProps) => {
 
   // Context menu actions
   const handleEdit = useCallback(() => {
+    console.log('[BaseBlockNode Menu] Edit action clicked for block:', block.id);
     selectBlock(block.id);
     setPropertiesPanelMode('edit');
   }, [block.id, selectBlock, setPropertiesPanelMode]);
 
   const handleDuplicate = useCallback(() => {
+    console.log('[BaseBlockNode Menu] Duplicate action clicked for block:', block.id);
     duplicateBlock(block.id);
   }, [block.id, duplicateBlock]);
 
   const handleDelete = useCallback(() => {
+    console.log('[BaseBlockNode Menu] Delete action clicked for block:', block.id);
     removeBlock(block.id);
   }, [block.id, removeBlock]);
 
   const handleDrillIntoMenu = useCallback(() => {
+    console.log('[BaseBlockNode Menu] Drill into action clicked for block:', block.id);
     onDrillDown(block.id);
   }, [block.id, onDrillDown]);
 
