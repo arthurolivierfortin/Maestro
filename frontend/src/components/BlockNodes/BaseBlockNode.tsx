@@ -41,6 +41,13 @@ export const BaseBlockNode = memo(({ data, selected }: BaseBlockNodeProps) => {
     }
   }, [block, onDrillDown]);
 
+  // Handle menu click
+  const handleMenuClick = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    // TODO: Implement context menu or action dropdown
+    console.log('Menu clicked for block:', block.id);
+  }, [block.id]);
+
   // Determine status class
   const statusClass = executionStatus
     ? `base-block-node--${executionStatus}`
@@ -72,7 +79,12 @@ export const BaseBlockNode = memo(({ data, selected }: BaseBlockNodeProps) => {
       <div className="base-block-node__header">
         <BlockIcon type={block.blockType} size={16} className="base-block-node__icon" />
         <span className="base-block-node__name">{block.name}</span>
-        <button className="base-block-node__menu" aria-label="Block menu">
+        <button 
+          className="base-block-node__menu" 
+          onClick={handleMenuClick}
+          aria-label="Block menu"
+          title="Block menu"
+        >
           <MoreVertical size={14} />
         </button>
       </div>

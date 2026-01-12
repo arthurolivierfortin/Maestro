@@ -10,6 +10,13 @@
   background-color: var(--surface);
   border-left: 1px solid var(--border);
   overflow: hidden;
+  min-width: 250px;
+
+  /* When collapsed, use minimal fixed width */
+  &[data-state="collapsed"] {
+    min-width: 40px;
+    max-width: 40px;
+  }
 
   &__header {
     display: flex;
