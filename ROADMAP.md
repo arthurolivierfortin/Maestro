@@ -225,7 +225,7 @@ Phase 4c: IDE Layout & Panel System             [██████████]
 Phase 4d: Canvas Foundation (React Flow)        [██████████]  0%
 Phase 4e: Models Panel & Registry               [██████████]  0%
 Phase 4f: Frontend Refactor & Foundry           [████░░░░░░] 40%
-Phase 4g: Block Editing, CRUD & UX              [███░░░░░░░] 32%
+Phase 4g: Block Editing, CRUD & UX              [█████░░░░░] 45%
 Phase 5:  Workflow Engine & Execution           [░░░░░░░░░░]  0%
 Phase 6:  Agent Implementations                 [░░░░░░░░░░]  0%
 Phase 7:  Monitoring & Observability            [░░░░░░░░░░]  0%
@@ -1080,14 +1080,15 @@ Phase 13: Auto-Optimization & Benchmarking      [░░░░░░░░░░]
 - [ ] Add unit tests for each editor
 
 #### 4g.3 Block Creation Wizard Modal
-- [ ] Create `CreateBlockWizard.tsx` modal with step navigation
-- [ ] Step 1: Select block type (visual cards)
-- [ ] Step 2: Basic info (name, description, tags, status)
-- [ ] Step 3: Type-specific configuration forms
-- [ ] Step 4: Preview JSON and confirm
-- [ ] Implement wizard state management (useReducer)
+- [x] Create `CreateBlockWizard.tsx` modal with step navigation
+- [x] Step 1: Select block type (visual cards)
+- [x] Step 2: Basic info (name, description, tags, status)
+- [x] Step 3: Type-specific configuration forms
+- [x] Step 4: Preview JSON and confirm
+- [x] Implement wizard state management (useReducer)
+- [x] Add keyboard navigation and validation
+- [x] Integrate with FoundryPage
 - [ ] Add template presets per block type
-- [ ] Add keyboard navigation and validation
 - [ ] Add unit tests
 
 #### 4g.4 CRUD Service Layer

@@ -11,12 +11,14 @@ import type { BlockType } from '../types/block.types';
 import { FoundrySidebar } from '../components/Foundry/FoundrySidebar';
 import { FoundrySearchBar } from '../components/Foundry/FoundrySearchBar';
 import { BlockGrid } from '../components/Foundry/BlockGrid';
+import { CreateBlockWizard } from '../components/Foundry/CreateBlockWizard';
 import './FoundryPage.scss';
 
 export function FoundryPage() {
   const [selectedCategory, setSelectedCategory] = useState<BlockType | 'all'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCapability, setSelectedCapability] = useState<string | null>(null);
+  const [isWizardOpen, setIsWizardOpen] = useState(false);
 
   const { getAllBlocks, searchBlocks } = useBlockStore();
 
@@ -73,8 +75,14 @@ export function FoundryPage() {
    * Handle create new block
    */
   const handleCreateBlock = () => {
-    // TODO: Open CreateBlockWizard modal (Phase 4f.4)
-    console.log('Create new block');
+    setIsWizardOpen(true);
+  };
+
+  /**
+   * Handle close wizard
+   */
+  const handleCloseWizard = () => {
+    setIsWizardOpen(false);
   };
 
   return (
@@ -108,6 +116,9 @@ export function FoundryPage() {
           <BlockGrid blocks={filteredBlocks} />
         </div>
       </div>
+
+      {/* Create Block Wizard Modal */}
+      <CreateBlockWizard isOpen={isWizardOpen} onClose={handleCloseWizard} />
     </div>
   );
 }
