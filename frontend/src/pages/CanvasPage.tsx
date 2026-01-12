@@ -36,21 +36,14 @@ export function CanvasPage() {
     const blockType = event.dataTransfer.getData('application/reactflow-blocktype') as BlockType;
 
     if (!blockType) {
-      console.log('[CanvasPage Drop] No block type found in dataTransfer');
       return;
     }
-
-    console.log('[CanvasPage Drop] Block type:', blockType);
-    console.log('[CanvasPage Drop] Flow position (with zoom/pan applied):', flowPosition);
 
     // Get the default block configuration from registry
     const defaultBlock = BlockTypeRegistry.getDefaultBlock(blockType);
 
     // Generate unique ID
     const blockId = `block-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-
-    // Use flow position directly - already transformed by React Flow
-    console.log('[CanvasPage Drop] Using position:', flowPosition);
 
     // Create block with position at drop location
     const newBlock = {
@@ -67,7 +60,6 @@ export function CanvasPage() {
       },
     };
 
-    console.log('[CanvasPage Drop] Adding block:', { id: blockId, parentId: currentParentId, position: flowPosition });
     addBlock(currentParentId, newBlock);
   };
 
