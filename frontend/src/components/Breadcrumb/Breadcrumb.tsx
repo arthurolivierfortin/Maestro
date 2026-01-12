@@ -3,16 +3,17 @@
  *
  * Displays navigation breadcrumb with clickable segments.
  * Home button navigates to root route when at block root.
+ * Includes back/forward navigation buttons.
  */
 
 import { useNavigate } from 'react-router-dom';
 import { useNavigation } from '../../hooks';
 import { BlockIcon } from '../icons';
-import { Home } from 'lucide-react';
+import { Home, ChevronLeft, ChevronRight } from 'lucide-react';
 import './Breadcrumb.scss';
 
 export function Breadcrumb() {
-  const { getBreadcrumbs, navigateTo, navigateToRoot, isAtRoot } = useNavigation();
+  const { getBreadcrumbs, navigateTo, navigateToRoot, isAtRoot, navigateBack, navigateForward, canGoBack, canGoForward } = useNavigation();
   const navigate = useNavigate();
   const breadcrumbs = getBreadcrumbs();
 
@@ -44,6 +45,27 @@ export function Breadcrumb() {
 
   return (
     <nav className="breadcrumb" aria-label="Breadcrumb navigation">
+      <div className="breadcrumb__nav-controls">
+        <button
+          className="breadcrumb__nav-btn"
+          onClick={() => navigateBack()}
+          disabled={!canGoBack()}
+          aria-label="Go back"
+          title="Go back"
+        >
+          <ChevronLeft size={16} />
+        </button>
+        <button
+          className="breadcrumb__nav-btn"
+          onClick={() => navigateForward()}
+          disabled={!canGoForward()}
+          aria-label="Go forward"
+          title="Go forward"
+        >
+          <ChevronRight size={16} />
+        </button>
+      </div>
+
       <ol className="breadcrumb__list">
         {/* Root/Home segment */}
         <li className="breadcrumb__item">
