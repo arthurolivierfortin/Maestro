@@ -15,6 +15,7 @@ import type {
 } from 'reactflow';
 import { useBlockStore } from '../../store/blockStore';
 import { useNavigationStore } from '../../store/navigationStore';
+import { useExecutionStore } from '../../store/executionStore';
 import type { Block, BlockConnection } from '../../types/block.types';
 import type { BlockNodeData, ConnectionEdgeData } from './BlockCanvas';
 
@@ -31,20 +32,24 @@ interface UseCanvasSyncProps {
 function blocksToNodes(
   blocks: Block[],
   selectedBlockId: string | null,
-  onDrillDown: (blockId: string) => void
+  onDrillDown: (blockId: string) => void,
+  nodeExecutions?: Map<string, { status: string; isExecuting: boolean }>
 ): Node<BlockNodeData>[] {
-  return blocks.map((block) => ({
-    id: block.id,
-    type: block.blockType,
-    position: block.position,
-    data: {
-      block,
-      isSelected: block.id === selectedBlockId,
-      isExecuting: false,
-      executionStatus: undefined,
-      onDrillDown,
-    },
-  }));
+  return blocks.map((block) => {
+    const execution = nodeExecutions?.get(block.id);
+    return {
+      id: block.id,
+      type: block.blockType,
+      position: block.position,
+      data: {
+        block,
+        isSelected: block.id === selectedBlockId,
+        isExecuting: execution?.isExecuting || false,
+        executionStatus: execution?.status as any,
+        onDrillDown,
+      },
+    };
+  });
 }
 
 /**
@@ -84,6 +89,7 @@ export function useCanvasSync({
   const { getBlockChildren, updateBlock, addConnection, removeConnection, getBlockConnections } =
     useBlockStore();
   const { selectedBlockId, selectBlock } = useNavigationStore();
+  const { currentExecution } = useExecutionStore();
   const getRootBlock = useBlockStore((state) => state.getRootBlock);
 
   // Get current block and its children - memoized to avoid exhaustive deps warnings
@@ -101,6 +107,20 @@ export function useCanvasSync({
     return parentId === null && rootBlock ? [rootBlock] : childBlocks;
   }, [parentId, getRootBlock, childBlocks]);
 
+  // Create execution state map for nodes
+  const nodeExecutions = useMemo(() => {
+    if (!currentExecution) return undefined;
+    
+    const map = new Map();
+    currentExecution.nodeExecutions?.forEach((nodeExec) => {
+      map.set(nodeExec.nodeId, {
+        status: nodeExec.status.toLowerCase(),
+        isExecuting: nodeExec.status === 'Running',
+      });
+    });
+    return map;
+  }, [currentExecution]);
+
   // Drill-down handler
   const handleDrillDown = useCallback(
     (blockId: string) => {
@@ -113,8 +133,8 @@ export function useCanvasSync({
 
   // Convert to React Flow format
   const nodes = useMemo(
-    () => blocksToNodes(blocksToDisplay, selectedBlockId, handleDrillDown),
-    [blocksToDisplay, selectedBlockId, handleDrillDown]
+    () => blocksToNodes(blocksToDisplay, selectedBlockId, handleDrillDown, nodeExecutions),
+    [blocksToDisplay, selectedBlockId, handleDrillDown, nodeExecutions]
   );
 
   const edges = useMemo(() => connectionsToEdges(connections), [connections]);
