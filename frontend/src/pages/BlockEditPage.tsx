@@ -4,14 +4,13 @@
  * Edit page for individual blocks. Routes atomic blocks here for editing
  * while composite blocks (workflows) go to the Canvas editor.
  *
- * Phase 4g.2: Type-specific editors will be added in future enhancements.
- * For now, this provides a basic edit layout with block metadata.
+ * Phase 4g.2: Type-specific editors integrated.
  */
 
 import { useParams, useNavigate } from 'react-router-dom';
 import { useBlockStore } from '../store';
-import { BlockIcon } from '../components/icons';
 import { Button } from '../components/common';
+import { getEditorForBlockType } from '../components/BlockEditors';
 import './BlockEditPage.scss';
 
 export function BlockEditPage() {
@@ -41,126 +40,26 @@ export function BlockEditPage() {
     return null;
   }
 
-  // Handle back to foundry
-  const handleBack = () => {
-    navigate('/foundry');
-  };
+  // Get the appropriate editor for this block type
+  const EditorComponent = getEditorForBlockType(block.blockType);
 
-  // Handle save (placeholder for future implementation)
-  const handleSave = () => {
-    console.log('Save block:', block);
-    // TODO: Implement save logic with type-specific editors
-  };
-
-  return (
-    <div className="block-edit-page">
-      {/* Header */}
-      <div className="block-edit-page__header">
-        <div className="block-edit-page__title-row">
-          <BlockIcon type={block.blockType} size={32} />
-          <div className="block-edit-page__title-group">
-            <h1 className="block-edit-page__title">{block.name}</h1>
-            <span className="block-edit-page__type-badge">{block.blockType}</span>
-          </div>
-        </div>
-
-        <div className="block-edit-page__actions">
-          <Button variant="secondary" onClick={handleBack}>
-            Cancel
-          </Button>
-          <Button variant="primary" onClick={handleSave}>
-            Save Changes
-          </Button>
-        </div>
-      </div>
-
-      {/* Metadata Section */}
-      <div className="block-edit-page__section">
-        <h2 className="block-edit-page__section-title">Block Information</h2>
-        <div className="block-edit-page__metadata">
-          <div className="block-edit-page__field">
-            <label>Name</label>
-            <div className="block-edit-page__value">{block.name}</div>
-          </div>
-
-          <div className="block-edit-page__field">
-            <label>Type</label>
-            <div className="block-edit-page__value">{block.blockType}</div>
-          </div>
-
-          {block.metadata.description && (
-            <div className="block-edit-page__field">
-              <label>Description</label>
-              <div className="block-edit-page__value">{block.metadata.description}</div>
-            </div>
-          )}
-
-          <div className="block-edit-page__field">
-            <label>Status</label>
-            <div className="block-edit-page__value">
-              <span className={`block-edit-page__status block-edit-page__status--${block.metadata.status}`}>
-                {block.metadata.status}
-              </span>
-            </div>
-          </div>
-
-          {block.metadata.tags.length > 0 && (
-            <div className="block-edit-page__field">
-              <label>Tags</label>
-              <div className="block-edit-page__tags">
-                {block.metadata.tags.map((tag) => (
-                  <span key={tag} className="block-edit-page__tag">
-                    {tag}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {block.capabilities && block.capabilities.length > 0 && (
-            <div className="block-edit-page__field">
-              <label>Capabilities</label>
-              <div className="block-edit-page__tags">
-                {block.capabilities.map((capability) => (
-                  <span key={capability} className="block-edit-page__tag">
-                    {capability}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-
-          <div className="block-edit-page__field">
-            <label>Created</label>
-            <div className="block-edit-page__value">
-              {new Date(block.metadata.createdAt).toLocaleString()}
-            </div>
-          </div>
-
-          <div className="block-edit-page__field">
-            <label>Last Updated</label>
-            <div className="block-edit-page__value">
-              {new Date(block.metadata.updatedAt).toLocaleString()}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Editor Placeholder */}
-      <div className="block-edit-page__section">
-        <h2 className="block-edit-page__section-title">Configuration</h2>
-        <div className="block-edit-page__editor-placeholder">
+  // If no editor exists for this block type, show placeholder
+  if (!EditorComponent) {
+    return (
+      <div className="block-edit-page">
+        <div className="block-edit-page__section">
+          <h2 className="block-edit-page__section-title">Editor Not Available</h2>
           <p>
-            Type-specific editor for <strong>{block.blockType}</strong> blocks will be implemented in
-            Phase 4g.2.
+            No editor available for <strong>{block.blockType}</strong> blocks yet.
           </p>
-          <p className="block-edit-page__editor-hint">
-            Configuration: <code>{JSON.stringify(block.config, null, 2)}</code>
-          </p>
+          <Button onClick={() => navigate('/foundry')}>Back to Foundry</Button>
         </div>
       </div>
-    </div>
-  );
+    );
+  }
+
+  // Render the type-specific editor
+  return <EditorComponent block={block} />;
 }
 
 export default BlockEditPage;

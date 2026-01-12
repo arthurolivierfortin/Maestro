@@ -1,0 +1,50 @@
+/**
+ * Editor Registry
+ *
+ * Maps block types to their corresponding editor components.
+ * Used by BlockEditPage to render the appropriate editor.
+ */
+
+import { ComponentType } from 'react';
+import { AgentEditor } from './AgentEditor';
+import { ToolEditor } from './ToolEditor';
+import { PromptEditor } from './PromptEditor';
+import { InstructionEditor } from './InstructionEditor';
+import { TaskEditor } from './TaskEditor';
+import { TriggerEditor } from './TriggerEditor';
+import { ValidatorEditor } from './ValidatorEditor';
+import { DecisionEditor } from './DecisionEditor';
+import type { Block, BlockType } from '../../types/block.types';
+
+export interface BlockEditorProps {
+  block: Block;
+}
+
+/**
+ * Registry mapping block types to editor components
+ */
+export const EditorRegistry: Record<BlockType, ComponentType<BlockEditorProps> | null> = {
+  agent: AgentEditor as ComponentType<BlockEditorProps>,
+  tool: ToolEditor as ComponentType<BlockEditorProps>,
+  prompt: PromptEditor as ComponentType<BlockEditorProps>,
+  instruction: InstructionEditor as ComponentType<BlockEditorProps>,
+  task: TaskEditor as ComponentType<BlockEditorProps>,
+  trigger: TriggerEditor as ComponentType<BlockEditorProps>,
+  validator: ValidatorEditor as ComponentType<BlockEditorProps>,
+  decision: DecisionEditor as ComponentType<BlockEditorProps>,
+  workflow: null, // Workflows use Canvas editor, not a form editor
+};
+
+/**
+ * Get editor component for a given block type
+ */
+export function getEditorForBlockType(blockType: BlockType): ComponentType<BlockEditorProps> | null {
+  return EditorRegistry[blockType];
+}
+
+/**
+ * Check if a block type has a dedicated editor
+ */
+export function hasEditor(blockType: BlockType): boolean {
+  return EditorRegistry[blockType] !== null;
+}
