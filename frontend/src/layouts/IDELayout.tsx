@@ -16,6 +16,7 @@ import { PropertiesPanel } from '../components/panels/PropertiesPanel';
 import { BottomPanel } from '../components/panels/BottomPanel';
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
 import { useBlockExplorerVisibility } from '../hooks/useBlockExplorerVisibility';
+import { usePropertiesPanelVisibility } from '../hooks/usePropertiesPanelVisibility';
 import './IDELayout.scss';
 
 export function IDELayout() {
@@ -25,6 +26,9 @@ export function IDELayout() {
 
   // Determine if BlockExplorer should be visible
   const { isVisible: showExplorer, contextBlockId } = useBlockExplorerVisibility();
+  
+  // Determine if Properties panel should be visible
+  const { isVisible: showProperties } = usePropertiesPanelVisibility();
 
   // Setup keyboard shortcuts
   useKeyboardShortcuts({
@@ -95,20 +99,24 @@ export function IDELayout() {
                 </div>
               </PanelItem>
 
-              <PanelDivider />
+              {showProperties && (
+                <>
+                  <PanelDivider />
 
-              {/* Right - Properties Panel */}
-              <PanelItem
-                id="properties"
-                defaultSize={20}
-                minSize={15}
-                maxSize={35}
-                collapsible={true}
-                collapsedSize={5}
-                panelRef={rightPanelRef}
-              >
-                <PropertiesPanel panelRef={rightPanelRef} />
-              </PanelItem>
+                  {/* Right - Properties Panel */}
+                  <PanelItem
+                    id="properties"
+                    defaultSize={20}
+                    minSize={15}
+                    maxSize={35}
+                    collapsible={true}
+                    collapsedSize={5}
+                    panelRef={rightPanelRef}
+                  >
+                    <PropertiesPanel panelRef={rightPanelRef} />
+                  </PanelItem>
+                </>
+              )}
             </PanelLayout>
           </PanelItem>
 
