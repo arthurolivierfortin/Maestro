@@ -1,120 +1,143 @@
-🎯 Feature : MAESTRO-4F – Frontend Foundry, Models panel, Mock Services & Phase 4G planning
-
+🎯 Feature : MAESTRO-4G – Implement Block Editing, Foundry UI, Discovery & UX Improvements
 
 # 🎯 Purpose
-This pull request consolidates all work on the branch `copilot/frontend-refactor-foundry-page-again`. It contains the frontend Foundry UI, Models panel and model management UIs, mock service implementations, store enhancements and tests, and planning artifacts (Phase 4f/4g issue documents and a `ROADMAP.md` update). The branch is mock-first with the goal of enabling frontend work and a clear Phase 4G plan for the team.
+This PR consolidates all frontend work on the branch `copilot/implement-block-editing-features` and implements the Phase 4G scope for block editing, Foundry (block browser), model management, discovery/recommendation primitives, UX improvements (global command palette, keyboard shortcuts, favorites), and supporting documentation and tests. The branch is mock-first to enable frontend progress while backend endpoints are prepared.
 
-This PR is primarily frontend and documentation: it adds new components, interfaces, mock backends and tests, and updates documentation to reflect the new Phase 4G workstream. No backend database migrations or production runtime changes are included.
+# 📋 Changes Summary
+Notable additions and modifications (selected files and areas):
 
-# 📋 Summary of Changes
-Files changed: 69 (8612 insertions, 74 deletions). Key additions and modifications:
+- Frontend UX & Pages
+  - Foundry page and components: `frontend/src/pages/FoundryPage.tsx`, `frontend/src/components/Foundry/*` (BlockGrid, BlockCard, FoundrySidebar, search bar, styles, tests)
+  - Block editing pages/components: `frontend/src/pages/BlockEditPage.tsx`, type-specific editors in `frontend/src/components/BlockEditors/*` (Agent, Tool, Prompt, Decision, Validator, etc.)
+  - Multi-step Block Creation Wizard: `frontend/src/components/Foundry/CreateBlockWizard/*`.
 
-- Documentation & Planning
-  - Added `docs/issues/phase-4f-frontend-refactor-foundry.md` (Foundry spec)
-  - Added `docs/issues/phase-4g-block-editing-crud.md` (Phase 4G spec + task breakdown)
-  - Updated `ROADMAP.md` to include Phase 4G and reflect Phase 4f progress
-  - Added `.github/prompts/complete-task.prompt.md` and new instruction files
+- Global UI & Accessibility
+  - Global Command Palette (Cmd/Ctrl+K): `frontend/src/components/common/CommandPalette/*` and `useCommandPalette` hook; overlays rendered in `IDELayout` to ensure Router context.
+  - Keyboard Shortcuts panel: `frontend/src/components/common/KeyboardShortcutsPanel/*`.
+  - Favorites support and hook: `frontend/src/hooks/useFavorites.ts`.
 
-- Foundry UI & Components
-  - New Foundry pages & components:
-    - `frontend/src/pages/FoundryPage.tsx` (+ `FoundryPage.scss`)
-    - `frontend/src/components/Foundry/FoundrySidebar.tsx`, `FoundrySearchBar.tsx`, `BlockGrid.tsx`, `BlockCard.tsx` and corresponding styles
-  - `BlockCard` click behavior navigates to `/foundry/:blockId/edit` for atomic blocks and `/canvas/:blockId` for composite
+- Discovery & Services
+  - Discovery contract and types: `frontend/src/services/interfaces/IBlockDiscoveryService.ts`.
+  - Mock discovery implementation: `frontend/src/services/mock/mockDiscoveryService.ts`.
+  - Real discovery & service stubs: `frontend/src/services/real/*` and factory `frontend/src/services/discoveryService.ts`.
+  - Block & model service interfaces and factories: `frontend/src/services/interfaces/IBlockService.ts`, `IModelService.ts`, `modelService.ts`, `blockService.ts`.
 
-- Models Panel & Config
-  - Added `ModelConfigForm`, `ModelSelector`, `ModelsPanel`, model presets and related styles
-  - New configuration helper files: `frontend/src/config/*` and `maestro.config.json`
+- Models & Configuration
+  - Models panel and model configuration UI: `frontend/src/components/ModelsPanel/*`, `ModelConfigForm`, `ModelSelector`, and presets in `frontend/src/data/modelPresets.ts`.
 
-- Services (mock + real) & Interfaces
-  - `frontend/src/services/interfaces/IModelService.ts` and `services/modelService.ts` factory
-  - Mock service implementation: `frontend/src/services/mock/mockModelService.ts` and test utilities (latency, errors)
-  - Real service stub: `frontend/src/services/real/realModelService.ts`
+- Stores & State
+  - `blockStore` and `modelStore` enhancements: query helpers, Map-based storage with `getAllBlocks()`, and tests in `frontend/src/store/*`.
 
-- State / Stores
-  - `frontend/src/store/blockStore.ts` enhancements (query/filter/search interface)
-  - New `frontend/src/store/modelStore.ts` with tests
+- Tests & Tooling
+  - Unit tests added/updated for mock services and stores: `frontend/src/services/mock/__tests__/*`, `frontend/src/store/*` tests, and component tests (CommandPalette, FoundrySidebar, BlockEditPage).
 
-- Tests
-  - Added `frontend/src/services/mock/__tests__/mockModelService.test.ts`
-  - Added `frontend/src/store/modelStore.test.ts`
-  - Updated `frontend/src/store/blockStore.test.ts`
-
-- Icons & Types
-  - New `CapabilityIcons.tsx` and `ProviderIcons.tsx`
-  - Minor updates to `frontend/src/types/block.types.ts`
+- Documentation & Roadmap
+  - Updated `ROADMAP.md`, added `docs/PHASE_4G_STATUS.md`, `docs/issues/phase-4g-block-editing-crud.md`, and Foundry spec `docs/issues/phase-4f-frontend-refactor-foundry.md`.
 
 # 🏗️ Technical Details & Rationale
 
-- Mock-First Development
-  - Mock services emulate realistic latency and error states so the UI can be developed and tested without the backend.
-  - `modelService.ts` selects mock or real implementation using environment flags; this pattern is repeated for other services planned in Phase 4G.
+- Router & Overlay handling
+  - Overlays were moved into `IDELayout` (router-mounted layout) so React Router hooks (`useNavigate`, `useLocation`) are used in-context — resolves runtime hook errors when overlays were mounted next to `RouterProvider`.
 
-- Foundry
-  - Foundry is implemented as a page (grid + sidebar). New block UI components are built for reusability.
-  - The design keeps composite blocks editable in the Canvas while atomic blocks have type-specific edit pages.
+- Store shape and consumption
+  - `blockStore` uses a `Map<string, Block>` for identity and fast lookup. Components must use `getAllBlocks()` or Map-aware selectors when arrays are needed (see `useFavorites` fix).
 
-- Stores
-  - `blockStore` additions support filtering and search needed by Foundry and the upcoming global command palette.
+- Discovery design
+  - `IBlockDiscoveryService` exposes listing, schema retrieval, similarity search, and suggestions for a workflow context. The mock includes deterministic heuristics and latency simulation; the real client calls `/api/discovery/*`.
 
-- Tests
-  - The branch adds unit tests around mock services and stores to catch regressions early.
+- Mock-first approach
+  - Service factories select mock or real implementations via configuration (`maestro.config.json` and environment flags) to enable independent frontend development.
 
-# 🧪 How To Test Locally
-1. From repository root, run frontend tests:
+# 🧪 Testing
+
+Run unit tests and component tests:
 
 ```bash
 cd frontend
-pnpm install   # or npm install / yarn
-pnpm test
+npm install     # or pnpm install / yarn
+npm test
 ```
 
-2. To run the app locally (dev server):
+Run the dev server locally (mock services active by default):
 
 ```bash
 cd frontend
-pnpm install
-pnpm dev
+npm install
+npm run dev
 ```
 
 Notes:
-- The frontend uses mock services by default (see `maestro.config.json` and `frontend/src/config`) so the UI should be functional without a backend.
+- Mock services simulate latency and errors; tests exercise these behaviors. Switch to real services when backend endpoints are available.
 
 # 📖 Documentation
-New and updated docs:
 
+Updated docs:
+
+- `ROADMAP.md` — Phase 4G tasks and progress
+- `docs/PHASE_4G_STATUS.md` — progress summary
+- `docs/issues/phase-4g-block-editing-crud.md` — Phase 4G plan
 - `docs/issues/phase-4f-frontend-refactor-foundry.md` — Foundry spec
-- `docs/issues/phase-4g-block-editing-crud.md` — Phase 4G plan and task breakdown
-- `ROADMAP.md` — added Phase 4G to overview and detailed section
-- `.github/instructions/*` and `.github/prompts/*` — task completion prompts and instruction updates
 
 # 🚀 Deployment Notes
-- No backend migrations or environment changes are required.
-- `maestro.config.json` is present to toggle mock/real services; ensure CI does not expose secrets in public configs.
 
-# 🔗 Related Commits (most recent first)
-- `e7e96fa` feat(roadmap): add Phase 4g for Block Editing, CRUD & UX improvements
-- `a734c76` feat(nav): add Foundry link to TopBar navigation [4f.7]
-- `7344079` docs: update ROADMAP to reflect Phase 4f progress [4f]
-- `dc3ae04` feat(ui): create Foundry page with sidebar, search, and block grid [4f.2]
-- `1abe32b` feat(store): enhance block store with query and filter methods [4f.3]
+- No DB migrations or breaking backend changes included.
+- If enabling real services, ensure backend `/api/discovery` and `/api/models` match DTOs defined in the interfaces.
+
+# 🔄 Migration Guide
+
+- Use `getAllBlocks()` when consuming `blockStore` if array methods are required; avoid calling array methods directly on `Map`.
+
+# 🔗 Commits Included (oldest → newest)
+
+da8fa20 Initial plan
+03c044d feat: Add model store, presets, and hooks for Phase 4E
+e077571 feat: Add ModelsPanel UI components and routing
+553de53 feat: Add ModelSelector to PropertiesPanel and create tests
+dfe619b fix: Apply prettier formatting and fix linting issues
+821f543 feat(ui): add mock-backed ModelConfigForm and models management flow
+14795a5 feat(docs): addPhase 4E PR description
+744f31d feat(docs): add instructions for updating ROADMAP and create task completion prompt
+cacee0f fix: correct feature identifier in PR description
+3b3163f Initial plan
+1abe32b feat(store): enhance block store with query and filter methods [4f.3]
+dc3ae04 feat(ui): create Foundry page with sidebar, search, and block grid [4f.2]
+7344079 docs: update ROADMAP to reflect Phase 4f progress [4f]
+a734c76 feat(nav): add Foundry link to TopBar navigation [4f.7]
+e7e96fa feat(roadmap): add Phase 4g for Block Editing, CRUD & UX improvements
+3bc8291 feat(docs): add Phase 4f PR description
+a408e97 Initial plan
+28d36ec feat: Fix BUG-001 and BUG-002 - Replace emoji icons with Lucide icons and make BlockExplorer conditional
+6b2c9c6 feat: Fix BUG-003 - Implement BlockEditPage for atomic block editing
+340d874 fix: Fix TypeScript errors in test files
+2eab262 docs: Update ROADMAP.md to mark Phase 4g bug fixes complete
+6cae0fb feat: Add Properties panel conditional visibility and view/edit modes
+09c7aab docs: Add comprehensive Phase 4G status and implementation roadmap
+77f17e3 feat: Implement Phase 4g.2 type-specific block editors
+d52a906 docs: Update ROADMAP to mark Phase 4g.2 complete (32% overall)
+0b749b1 feat: Implement Phase 4g.3 Block Creation Wizard with multi-step flow
+21a1ee1 feat: Implement Phase 4g.4 CRUD Service Layer with mock and API stubs
+06ab7ba feat: Implement Phase 4g.5 Discovery API for self-improving workflows
+9d4b9f3 feat: Implement Phase 4g.6 Global Search Command Palette (Cmd+K)
+62ef54f feat: Implement Phase 4g.7 Favorites system and Keyboard Shortcuts panel
+dcbddc3 docs: Complete Phase 4g.9 - Mark Phase 4G as 100% complete in ROADMAP
+1a80f5b feat: Implement block editing features with command palette and keyboard shortcuts
 
 # 👥 Review Notes
-Please focus on:
 
-- UI/UX: Accessibility (keyboard navigation, ARIA attributes), styling consistency with existing components
-- Services & Interfaces: completeness of `IModelService` and factory selection pattern (mock vs real)
-- Tests: run local tests and examine failures; mock utilities should produce consistent simulated errors/latency
-- Docs: accuracy of `ROADMAP.md` and Phase 4G issue; verify links
+Focus on:
 
-Recommended next steps after merge:
+- Accessibility & keyboard flows (Command Palette, editors, wizard navigation)
+- Router / layout changes: overlays are now rendered from `IDELayout` to ensure Router hooks run in-context
+- Store usage: confirm components use `getAllBlocks()` or array-returning selectors when expecting array operations
+- Discovery contract: verify DTOs in `IBlockDiscoveryService` and REST expectations with backend team
+- Tests: run added unit tests and review behavior around mocked latency
 
-1. Create small, focused feature branches for each Phase 4G subtask (editors, wizard, service)
-2. Implement `IBlockService` mock and wire editors incrementally
-3. Add tests for each new editor and extend the command palette integration
+# ✅ Merge Checklist
+
+- [ ] Run `npm install` (or `pnpm install`) and `npm test` in `frontend` and ensure tests pass
+- [ ] Smoke-test Foundry, block editors, Command Palette (Cmd/Ctrl+K) and favorites behavior
+- [ ] Coordinate with backend for `/api/discovery` and `/api/models` endpoints if enabling real services
+- [ ] Get at least one frontend reviewer for UI/UX and one engineer to review services/store code
 
 ---
 
-## PR Checklist
-- [ ] Run `pnpm test` (or `npm test`) and ensure tests pass
-- [ ] Confirm `ROADMAP.md` links resolve in the repository
-- [ ] Get at least one frontend reviewer for UI/UX and one for services/store
