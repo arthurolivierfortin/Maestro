@@ -149,12 +149,16 @@ export function useCanvasSync({
           case 'position':
             if (change.position && change.dragging === false) {
               // Only update position when drag is complete
+              console.log('[NodeChange] Position update:', { id: change.id, position: change.position, dragging: change.dragging });
               updateBlock(change.id, { position: change.position });
+            } else if (change.dragging) {
+              console.log('[NodeChange] Dragging:', { id: change.id, dragging: true });
             }
             break;
 
           case 'remove':
             // Handled by keyboard shortcuts
+            console.log('[NodeChange] Remove:', change.id);
             break;
 
           default:

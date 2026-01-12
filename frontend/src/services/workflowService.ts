@@ -5,6 +5,8 @@
  */
 
 import { apiClient } from './api';
+import { config } from '../config';
+import { getMockExecutionService } from './mock/mockExecutionService';
 import type {
   Workflow,
   WorkflowSummary,
@@ -96,6 +98,13 @@ export const executionService = {
    * Execute workflow
    */
   async execute(workflowId: string): Promise<WorkflowExecution> {
+    const useMock = config.useMockBackend();
+    
+    if (useMock) {
+      const mockService = getMockExecutionService();
+      return mockService.execute(workflowId);
+    }
+    
     return apiClient.post<WorkflowExecution>(`/api/workflows/${workflowId}/execute`);
   },
 
@@ -103,6 +112,13 @@ export const executionService = {
    * Get execution by ID
    */
   async getExecution(executionId: string): Promise<WorkflowExecution> {
+    const useMock = config.useMockBackend();
+    
+    if (useMock) {
+      const mockService = getMockExecutionService();
+      return mockService.getExecution(executionId);
+    }
+    
     return apiClient.get<WorkflowExecution>(`/api/executions/${executionId}`);
   },
 
@@ -110,6 +126,13 @@ export const executionService = {
    * Pause execution
    */
   async pause(executionId: string): Promise<void> {
+    const useMock = config.useMockBackend();
+    
+    if (useMock) {
+      const mockService = getMockExecutionService();
+      return mockService.pause(executionId);
+    }
+    
     return apiClient.post<void>(`/api/executions/${executionId}/pause`);
   },
 
@@ -117,6 +140,13 @@ export const executionService = {
    * Resume execution
    */
   async resume(executionId: string): Promise<void> {
+    const useMock = config.useMockBackend();
+    
+    if (useMock) {
+      const mockService = getMockExecutionService();
+      return mockService.resume(executionId);
+    }
+    
     return apiClient.post<void>(`/api/executions/${executionId}/resume`);
   },
 
@@ -124,6 +154,13 @@ export const executionService = {
    * Cancel execution
    */
   async cancel(executionId: string): Promise<void> {
+    const useMock = config.useMockBackend();
+    
+    if (useMock) {
+      const mockService = getMockExecutionService();
+      return mockService.cancel(executionId);
+    }
+    
     return apiClient.post<void>(`/api/executions/${executionId}/cancel`);
   },
 
@@ -131,6 +168,13 @@ export const executionService = {
    * Get execution history
    */
   async getHistory(filters?: ExecutionFilters): Promise<ExecutionSummary[]> {
+    const useMock = config.useMockBackend();
+    
+    if (useMock) {
+      const mockService = getMockExecutionService();
+      return mockService.getHistory() as Promise<any>;
+    }
+    
     const params = new URLSearchParams();
     if (filters) {
       Object.entries(filters).forEach(([key, value]) => {
@@ -146,6 +190,13 @@ export const executionService = {
    * Get execution logs
    */
   async getLogs(executionId: string): Promise<string> {
+    const useMock = config.useMockBackend();
+    
+    if (useMock) {
+      const mockService = getMockExecutionService();
+      return mockService.getLogs(executionId);
+    }
+    
     return apiClient.get<string>(`/api/executions/${executionId}/logs`);
   },
 };

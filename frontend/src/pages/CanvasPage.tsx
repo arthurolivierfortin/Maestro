@@ -38,7 +38,12 @@ export function CanvasPage() {
     event.preventDefault();
     const blockType = event.dataTransfer.getData('application/reactflow-blocktype') as BlockType;
 
-    if (!blockType) return;
+    if (!blockType) {
+      console.log('[Drop] No block type found in dataTransfer');
+      return;
+    }
+
+    console.log('[Drop] Block type:', blockType);
 
     // Get the default block configuration from registry
     const defaultBlock = BlockTypeRegistry.getDefaultBlock(blockType);
@@ -48,10 +53,15 @@ export function CanvasPage() {
 
     // Calculate position relative to canvas
     const canvasRect = canvasRef.current?.getBoundingClientRect();
+    console.log('[Drop] Canvas rect:', canvasRect);
+    console.log('[Drop] Mouse position:', { x: event.clientX, y: event.clientY });
+    
     const position = {
       x: canvasRect ? event.clientX - canvasRect.left : 100,
       y: canvasRect ? event.clientY - canvasRect.top : 100,
     };
+    
+    console.log('[Drop] Calculated position:', position);
 
     // Create block with position at drop location
     const newBlock = {
@@ -68,6 +78,7 @@ export function CanvasPage() {
       },
     };
 
+    console.log('[Drop] Adding block:', { id: blockId, parentId: currentParentId, position });
     addBlock(currentParentId, newBlock);
   };
 
