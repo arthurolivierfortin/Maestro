@@ -9,6 +9,7 @@ import { useNavigationStore } from '../store/navigationStore';
 import { useBlockStore } from '../store/blockStore';
 import { BlockCanvas } from '../components/BlockCanvas';
 import { BlockPalette } from '../components/BlockPalette';
+import { ExecutionBar } from '../components/ExecutionBar';
 import { BlockTypeRegistry } from '../registry';
 import { useCanvasShortcuts } from '../hooks/useCanvasShortcuts';
 import type { BlockType } from '../types/block.types';
@@ -16,11 +17,15 @@ import './CanvasPage.scss';
 
 export function CanvasPage() {
   const { currentPath, navigateInto } = useNavigationStore();
-  const { addBlock } = useBlockStore();
+  const { addBlock, getRootBlock } = useBlockStore();
   const canvasRef = useRef<HTMLDivElement>(null);
 
   // Get current parent ID (last item in path, or null for root)
   const currentParentId = currentPath.length > 0 ? currentPath[currentPath.length - 1] : null;
+
+  // Get the root block (workflow) for execution
+  const rootBlock = getRootBlock();
+  const workflowId = rootBlock?.id || null;
 
   // Enable keyboard shortcuts
   useCanvasShortcuts({ enabled: true, parentId: currentParentId });
@@ -73,19 +78,23 @@ export function CanvasPage() {
 
   return (
     <div className="canvas-page">
-      <div className="canvas-page__palette">
-        <div className="canvas-page__palette-header">
-          <h3>Block Palette</h3>
+      <ExecutionBar workflowId={workflowId} />
+      
+      <div className="canvas-page__content">
+        <div className="canvas-page__palette">
+          <div className="canvas-page__palette-header">
+            <h3>Block Palette</h3>
+          </div>
+          <BlockPalette />
         </div>
-        <BlockPalette />
-      </div>
-      <div 
-        ref={canvasRef}
-        className="canvas-page__canvas" 
-        onDrop={handleDrop} 
-        onDragOver={handleDragOver}
-      >
-        <BlockCanvas parentId={currentParentId} onDrillDown={handleDrillDown} />
+        <div 
+          ref={canvasRef}
+          className="canvas-page__canvas" 
+          onDrop={handleDrop} 
+          onDragOver={handleDragOver}
+        >
+          <BlockCanvas parentId={currentParentId} onDrillDown={handleDrillDown} />
+        </div>
       </div>
     </div>
   );
