@@ -4,35 +4,37 @@
  * Category filters for block types in the Foundry page.
  */
 
+import { Package, Star } from 'lucide-react';
 import { Button } from '../common';
+import { BlockIcon } from '../icons';
 import type { BlockType } from '../../types/block.types';
+import { useFavorites } from '../../hooks/useFavorites';
 import './FoundrySidebar.scss';
 
 interface FoundrySidebarProps {
-  selectedCategory: BlockType | 'all';
-  onCategorySelect: (category: BlockType | 'all') => void;
+  selectedCategory: BlockType | 'all' | 'favorites';
+  onCategorySelect: (category: BlockType | 'all' | 'favorites') => void;
   onCreateBlock: () => void;
 }
 
 /**
- * Category definitions with icons and labels
+ * Category definitions with labels
  */
 const CATEGORIES: Array<{
   id: BlockType | 'all';
   label: string;
-  icon: string;
   types?: BlockType[];
 }> = [
-  { id: 'all', label: 'All Blocks', icon: '📦' },
-  { id: 'agent', label: 'Agents', icon: '🤖' },
-  { id: 'task', label: 'Tasks', icon: '📋' },
-  { id: 'tool', label: 'Tools', icon: '🔧' },
-  { id: 'prompt', label: 'Prompts', icon: '📝' },
-  { id: 'instruction', label: 'Instructions', icon: '📄' },
-  { id: 'trigger', label: 'Triggers', icon: '⚡' },
-  { id: 'workflow', label: 'Workflows', icon: '🔀' },
-  { id: 'validator', label: 'Validators', icon: '✅' },
-  { id: 'decision', label: 'Decisions', icon: '❓' },
+  { id: 'all', label: 'All Blocks' },
+  { id: 'agent', label: 'Agents' },
+  { id: 'task', label: 'Tasks' },
+  { id: 'tool', label: 'Tools' },
+  { id: 'prompt', label: 'Prompts' },
+  { id: 'instruction', label: 'Instructions' },
+  { id: 'trigger', label: 'Triggers' },
+  { id: 'workflow', label: 'Workflows' },
+  { id: 'validator', label: 'Validators' },
+  { id: 'decision', label: 'Decisions' },
 ];
 
 export function FoundrySidebar({
@@ -40,6 +42,8 @@ export function FoundrySidebar({
   onCategorySelect,
   onCreateBlock,
 }: FoundrySidebarProps) {
+  const { favoriteCount } = useFavorites();
+
   return (
     <aside className="foundry-sidebar">
       <div className="foundry-sidebar__header">
@@ -47,6 +51,27 @@ export function FoundrySidebar({
       </div>
 
       <nav className="foundry-sidebar__categories" role="navigation" aria-label="Block categories">
+        {/* Favorites section */}
+        {favoriteCount > 0 && (
+          <>
+            <button
+              className={`foundry-sidebar__category ${
+                selectedCategory === 'favorites' ? 'foundry-sidebar__category--active' : ''
+              }`}
+              onClick={() => onCategorySelect('favorites')}
+              aria-label="View favorites"
+              aria-current={selectedCategory === 'favorites' ? 'true' : undefined}
+            >
+              <span className="foundry-sidebar__category-icon">
+                <Star size={20} fill={selectedCategory === 'favorites' ? 'currentColor' : 'none'} />
+              </span>
+              <span className="foundry-sidebar__category-label">Favorites</span>
+              <span className="foundry-sidebar__category-count">{favoriteCount}</span>
+            </button>
+            <div className="foundry-sidebar__divider" />
+          </>
+        )}
+
         {CATEGORIES.map((category) => (
           <button
             key={category.id}
@@ -57,7 +82,13 @@ export function FoundrySidebar({
             aria-label={`Filter by ${category.label}`}
             aria-current={selectedCategory === category.id ? 'true' : undefined}
           >
-            <span className="foundry-sidebar__category-icon">{category.icon}</span>
+            <span className="foundry-sidebar__category-icon">
+              {category.id === 'all' ? (
+                <Package size={20} />
+              ) : (
+                <BlockIcon type={category.id as BlockType} size={20} />
+              )}
+            </span>
             <span className="foundry-sidebar__category-label">{category.label}</span>
           </button>
         ))}

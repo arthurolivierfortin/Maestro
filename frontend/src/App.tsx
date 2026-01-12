@@ -10,6 +10,8 @@ import { RouterProvider } from 'react-router-dom';
 import { router } from './router';
 
 function App() {
+  // App simply provides the router; route-level layout components
+  // (like IDELayout) will render global UI such as CommandPalette.
   return <RouterProvider router={router} />;
 }
 

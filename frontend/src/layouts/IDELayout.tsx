@@ -5,7 +5,7 @@
  * Inspired by VS Code, Claude Code, and n8n workflows.
  */
 
-import { useRef } from 'react';
+import { useRef, useEffect, useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import type { ImperativePanelHandle } from 'react-resizable-panels';
 import { BlockExplorer } from '../components/BlockExplorer';
@@ -15,12 +15,50 @@ import { PanelLayout, PanelItem, PanelDivider } from '../components/panels';
 import { PropertiesPanel } from '../components/panels/PropertiesPanel';
 import { BottomPanel } from '../components/panels/BottomPanel';
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
+import { useBlockExplorerVisibility } from '../hooks/useBlockExplorerVisibility';
+import { usePropertiesPanelVisibility } from '../hooks/usePropertiesPanelVisibility';
+import { CommandPalette, useCommandPalette } from '../components/common/CommandPalette';
+import { KeyboardShortcutsPanel } from '../components/common/KeyboardShortcutsPanel';
 import './IDELayout.scss';
 
 export function IDELayout() {
   const leftPanelRef = useRef<ImperativePanelHandle>(null);
   const rightPanelRef = useRef<ImperativePanelHandle>(null);
   const bottomPanelRef = useRef<ImperativePanelHandle>(null);
+
+  // Command palette and shortcuts state (now in router context)
+  const { isOpen, close, open } = useCommandPalette();
+  const [showShortcuts, setShowShortcuts] = useState(false);
+
+  // Determine if BlockExplorer should be visible
+  const { isVisible: showExplorer, contextBlockId } = useBlockExplorerVisibility();
+  
+  // Determine if Properties panel should be visible
+  const { isVisible: showProperties } = usePropertiesPanelVisibility();
+
+  // Listen for ? key to show shortcuts and Cmd/Ctrl+K for command palette
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // ? key to show shortcuts panel
+      if (e.key === '?' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        const target = e.target as HTMLElement;
+        if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA')) {
+          return;
+        }
+        e.preventDefault();
+        setShowShortcuts(true);
+      }
+
+      // Cmd/Ctrl+K for command palette
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        open();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [open]);
 
   // Setup keyboard shortcuts
   useKeyboardShortcuts({
@@ -63,22 +101,26 @@ export function IDELayout() {
           {/* Top section: left sidebar + center + right properties */}
           <PanelItem id="top" defaultSize={80} minSize={30}>
             <PanelLayout persistKey="horizontal" direction="horizontal">
-              {/* Left Sidebar - BlockExplorer */}
-              <PanelItem
-                id="sidebar"
-                defaultSize={20}
-                minSize={15}
-                maxSize={35}
-                collapsible={true}
-                panelRef={leftPanelRef}
-              >
-                <BlockExplorer />
-              </PanelItem>
+              {/* Left Sidebar - BlockExplorer (conditional) */}
+              {showExplorer && (
+                <>
+                  <PanelItem
+                    id="sidebar"
+                    defaultSize={20}
+                    minSize={15}
+                    maxSize={35}
+                    collapsible={true}
+                    panelRef={leftPanelRef}
+                  >
+                    <BlockExplorer contextBlockId={contextBlockId} />
+                  </PanelItem>
 
-              <PanelDivider />
+                  <PanelDivider />
+                </>
+              )}
 
               {/* Center - Main workspace */}
-              <PanelItem id="main" defaultSize={60} minSize={40}>
+              <PanelItem id="main" defaultSize={showExplorer ? 60 : 80} minSize={40}>
                 <div className="ide-layout__main-area">
                   <Breadcrumb />
                   <main className="ide-layout__workspace" tabIndex={0}>
@@ -87,20 +129,24 @@ export function IDELayout() {
                 </div>
               </PanelItem>
 
-              <PanelDivider />
+              {showProperties && (
+                <>
+                  <PanelDivider />
 
-              {/* Right - Properties Panel */}
-              <PanelItem
-                id="properties"
-                defaultSize={20}
-                minSize={15}
-                maxSize={35}
-                collapsible={true}
-                collapsedSize={5}
-                panelRef={rightPanelRef}
-              >
-                <PropertiesPanel panelRef={rightPanelRef} />
-              </PanelItem>
+                  {/* Right - Properties Panel */}
+                  <PanelItem
+                    id="properties"
+                    defaultSize={20}
+                    minSize={15}
+                    maxSize={35}
+                    collapsible={true}
+                    collapsedSize={5}
+                    panelRef={rightPanelRef}
+                  >
+                    <PropertiesPanel panelRef={rightPanelRef} />
+                  </PanelItem>
+                </>
+              )}
             </PanelLayout>
           </PanelItem>
 
@@ -119,6 +165,13 @@ export function IDELayout() {
           </PanelItem>
         </PanelLayout>
       </div>
+
+      {/* Global overlays - rendered inside Router context */}
+      <CommandPalette isOpen={isOpen} onClose={close} />
+      <KeyboardShortcutsPanel
+        isOpen={showShortcuts}
+        onClose={() => setShowShortcuts(false)}
+      />
     </div>
   );
 }

@@ -20,6 +20,8 @@ interface PropertiesPanelProps {
 
 export function PropertiesPanel({ panelRef }: PropertiesPanelProps) {
   const selectedBlockId = useNavigationStore((state) => state.selectedBlockId);
+  const propertiesPanelMode = useNavigationStore((state) => state.propertiesPanelMode);
+  const setPropertiesPanelMode = useNavigationStore((state) => state.setPropertiesPanelMode);
   const getBlock = useBlockStore((state) => state.getBlock);
   const updateBlock = useBlockStore((state) => state.updateBlock);
 
@@ -27,6 +29,9 @@ export function PropertiesPanel({ panelRef }: PropertiesPanelProps) {
   const [editedConfig, setEditedConfig] = useState<BlockConfig | null>(null);
   const [copiedId, setCopiedId] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
+  
+  const isViewMode = propertiesPanelMode === 'view';
+  const isEditMode = propertiesPanelMode === 'edit';
 
   // Sync isCollapsed with panel collapse state
   useEffect(() => {
@@ -107,6 +112,10 @@ export function PropertiesPanel({ panelRef }: PropertiesPanelProps) {
 
   const typeInfo = block ? BlockTypeRegistry.get(block.blockType) : undefined;
 
+  const handleToggleMode = useCallback(() => {
+    setPropertiesPanelMode(isViewMode ? 'edit' : 'view');
+  }, [isViewMode, setPropertiesPanelMode]);
+
   return (
     <div className="properties-panel" data-state={isCollapsed ? 'collapsed' : 'expanded'}>
       <div className="properties-panel__header">
@@ -120,6 +129,16 @@ export function PropertiesPanel({ panelRef }: PropertiesPanelProps) {
         </button>
 
         <h3 className="properties-panel__title">Properties</h3>
+        
+        {block && !isCollapsed && (
+          <button
+            className="properties-panel__mode-btn"
+            onClick={handleToggleMode}
+            title={isViewMode ? 'Switch to edit mode' : 'Switch to view mode'}
+          >
+            {isViewMode ? '👁️ View' : '✏️ Edit'}
+          </button>
+        )}
       </div>
 
       {/* Content area: hidden via CSS when collapsed */}
@@ -169,8 +188,10 @@ export function PropertiesPanel({ panelRef }: PropertiesPanelProps) {
               type="text"
               value={block.name}
               onChange={(e) => handleNameChange(e.target.value)}
-              className="properties-panel__input"
+              className={`properties-panel__input ${isViewMode ? 'properties-panel__input--readonly' : ''}`}
               placeholder="Enter block name"
+              readOnly={isViewMode}
+              disabled={isViewMode}
             />
           </div>
 
@@ -198,7 +219,7 @@ export function PropertiesPanel({ panelRef }: PropertiesPanelProps) {
             <div className="properties-panel__section">
               <label className="properties-panel__label">Configuration</label>
               <div className="properties-panel__config">
-                {renderConfigFields(block.blockType, editedConfig, handleConfigChange)}
+                {renderConfigFields(block.blockType, editedConfig, handleConfigChange, isViewMode)}
               </div>
             </div>
           )}

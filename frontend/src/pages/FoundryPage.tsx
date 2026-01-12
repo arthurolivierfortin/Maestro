@@ -11,14 +11,18 @@ import type { BlockType } from '../types/block.types';
 import { FoundrySidebar } from '../components/Foundry/FoundrySidebar';
 import { FoundrySearchBar } from '../components/Foundry/FoundrySearchBar';
 import { BlockGrid } from '../components/Foundry/BlockGrid';
+import { CreateBlockWizard } from '../components/Foundry/CreateBlockWizard';
+import { useFavorites } from '../hooks/useFavorites';
 import './FoundryPage.scss';
 
 export function FoundryPage() {
-  const [selectedCategory, setSelectedCategory] = useState<BlockType | 'all'>('all');
+  const [selectedCategory, setSelectedCategory] = useState<BlockType | 'all' | 'favorites'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCapability, setSelectedCapability] = useState<string | null>(null);
+  const [isWizardOpen, setIsWizardOpen] = useState(false);
 
   const { getAllBlocks, searchBlocks } = useBlockStore();
+  const { getFavorites } = useFavorites();
 
   /**
    * Filter blocks based on current criteria
@@ -26,8 +30,12 @@ export function FoundryPage() {
   const filteredBlocks = useMemo(() => {
     let blocks = getAllBlocks();
 
+    // Filter by favorites
+    if (selectedCategory === 'favorites') {
+      blocks = getFavorites();
+    }
     // Filter by category (block type)
-    if (selectedCategory !== 'all') {
+    else if (selectedCategory !== 'all') {
       blocks = blocks.filter((block) => block.blockType === selectedCategory);
     }
 
@@ -46,12 +54,12 @@ export function FoundryPage() {
     }
 
     return blocks;
-  }, [selectedCategory, selectedCapability, searchQuery, getAllBlocks, searchBlocks]);
+  }, [selectedCategory, selectedCapability, searchQuery, getAllBlocks, searchBlocks, getFavorites]);
 
   /**
    * Handle category selection from sidebar
    */
-  const handleCategorySelect = (category: BlockType | 'all') => {
+  const handleCategorySelect = (category: BlockType | 'all' | 'favorites') => {
     setSelectedCategory(category);
   };
 
@@ -73,8 +81,14 @@ export function FoundryPage() {
    * Handle create new block
    */
   const handleCreateBlock = () => {
-    // TODO: Open CreateBlockWizard modal (Phase 4f.4)
-    console.log('Create new block');
+    setIsWizardOpen(true);
+  };
+
+  /**
+   * Handle close wizard
+   */
+  const handleCloseWizard = () => {
+    setIsWizardOpen(false);
   };
 
   return (
@@ -108,6 +122,9 @@ export function FoundryPage() {
           <BlockGrid blocks={filteredBlocks} />
         </div>
       </div>
+
+      {/* Create Block Wizard Modal */}
+      <CreateBlockWizard isOpen={isWizardOpen} onClose={handleCloseWizard} />
     </div>
   );
 }

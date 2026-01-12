@@ -12,8 +12,12 @@ import { BlockContextMenu } from './BlockContextMenu';
 import type { Block } from '../../types/block.types';
 import './BlockExplorer.scss';
 
-export function BlockExplorer() {
-  const { getRootBlock, removeBlock, duplicateBlock, renameBlock, canDeleteBlock } =
+interface BlockExplorerProps {
+  contextBlockId?: string | null;
+}
+
+export function BlockExplorer({ contextBlockId }: BlockExplorerProps = {}) {
+  const { getRootBlock, getBlock, removeBlock, duplicateBlock, renameBlock, canDeleteBlock } =
     useBlockActions();
   const [contextMenu, setContextMenu] = useState<{
     block: Block;
@@ -21,7 +25,8 @@ export function BlockExplorer() {
     y: number;
   } | null>(null);
 
-  const rootBlock = getRootBlock();
+  // If contextBlockId is provided, use that block as root, otherwise use the actual root
+  const displayBlock = contextBlockId ? getBlock(contextBlockId) : getRootBlock();
 
   const handleContextMenu = (block: Block, event: React.MouseEvent) => {
     setContextMenu({
@@ -65,8 +70,8 @@ export function BlockExplorer() {
       </div>
 
       <nav className="block-explorer__content" role="navigation" aria-label="Block hierarchy">
-        {rootBlock ? (
-          <BlockTreeItem block={rootBlock} onContextMenu={handleContextMenu} />
+        {displayBlock ? (
+          <BlockTreeItem block={displayBlock} onContextMenu={handleContextMenu} />
         ) : (
           <div className="block-explorer__empty">
             <p>No blocks yet</p>

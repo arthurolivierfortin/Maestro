@@ -29,6 +29,7 @@
     justify-content: space-between;
     align-items: flex-start;
     margin-bottom: var(--spacing-md);
+    gap: var(--spacing-xs);
   }
 
   &__icon-wrapper {
@@ -43,6 +44,30 @@
 
   &__icon {
     color: var(--color-primary);
+  }
+
+  &__favorite {
+    padding: var(--spacing-xs);
+    border: none;
+    background: transparent;
+    color: var(--color-text-tertiary);
+    cursor: pointer;
+    border-radius: var(--radius-sm);
+    transition: all 0.2s ease;
+
+    &:hover {
+      background: var(--color-surface-hover);
+      color: var(--color-warning);
+    }
+
+    &--active {
+      color: var(--color-warning);
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--color-primary);
+      outline-offset: 2px;
+    }
   }
 
   &__actions-toggle {
