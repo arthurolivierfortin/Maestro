@@ -10,3 +10,10 @@ export type {
   UpdateModelDto,
   ConnectionTestResult,
 } from './IModelService';
+
+export type {
+  IBlockService,
+  CreateBlockDto,
+  UpdateBlockDto,
+  BlockUsage,
+} from './IBlockService';

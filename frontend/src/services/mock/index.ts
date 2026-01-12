@@ -3,3 +3,4 @@
  */
 
 export { getMockModelService, resetMockModelService } from './mockModelService';
+export { getMockBlockService } from './mockBlockService';

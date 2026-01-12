@@ -225,7 +225,7 @@ Phase 4c: IDE Layout & Panel System             [██████████]
 Phase 4d: Canvas Foundation (React Flow)        [██████████]  0%
 Phase 4e: Models Panel & Registry               [██████████]  0%
 Phase 4f: Frontend Refactor & Foundry           [████░░░░░░] 40%
-Phase 4g: Block Editing, CRUD & UX              [█████░░░░░] 45%
+Phase 4g: Block Editing, CRUD & UX              [██████░░░░] 55%
 Phase 5:  Workflow Engine & Execution           [░░░░░░░░░░]  0%
 Phase 6:  Agent Implementations                 [░░░░░░░░░░]  0%
 Phase 7:  Monitoring & Observability            [░░░░░░░░░░]  0%
@@ -1092,11 +1092,11 @@ Phase 13: Auto-Optimization & Benchmarking      [░░░░░░░░░░]
 - [ ] Add unit tests
 
 #### 4g.4 CRUD Service Layer
-- [ ] Define `IBlockService` interface
-- [ ] Implement `mockBlockService.ts` using blockStore
-- [ ] Add `findUsages()` to track block references
-- [ ] Add proper error handling with typed errors
-- [ ] Prepare `apiBlockService.ts` stub for backend
+- [x] Define `IBlockService` interface
+- [x] Implement `mockBlockService.ts` using blockStore
+- [x] Add `findUsages()` to track block references
+- [x] Add proper error handling with typed errors
+- [x] Prepare `apiBlockService.ts` stub for backend
 - [ ] Add unit tests
 
 #### 4g.5 Self-Improvement Discovery API
