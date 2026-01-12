@@ -46,6 +46,13 @@
     color: var(--color-primary);
   }
 
+  &__actions-bar {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    margin-left: auto;
+  }
+
   &__favorite {
     padding: var(--spacing-xs);
     border: none;

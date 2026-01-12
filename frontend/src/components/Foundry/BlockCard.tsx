@@ -106,22 +106,24 @@ export function BlockCard({ block }: BlockCardProps) {
           <BlockIcon type={block.blockType} size={32} className="block-card__icon" />
         </div>
 
-        <button
-          className={`block-card__favorite ${isFavorite(block.id) ? 'block-card__favorite--active' : ''}`}
-          onClick={handleFavoriteToggle}
-          aria-label={isFavorite(block.id) ? 'Remove from favorites' : 'Add to favorites'}
-          title={isFavorite(block.id) ? 'Remove from favorites' : 'Add to favorites'}
-        >
-          <Star size={16} fill={isFavorite(block.id) ? 'currentColor' : 'none'} />
-        </button>
+        <div className="block-card__actions-bar">
+          <button
+            className={`block-card__favorite ${isFavorite(block.id) ? 'block-card__favorite--active' : ''}`}
+            onClick={handleFavoriteToggle}
+            aria-label={isFavorite(block.id) ? 'Remove from favorites' : 'Add to favorites'}
+            title={isFavorite(block.id) ? 'Remove from favorites' : 'Add to favorites'}
+          >
+            <Star size={16} fill={isFavorite(block.id) ? 'currentColor' : 'none'} />
+          </button>
 
-        <button
-          className="block-card__actions-toggle"
-          onClick={handleToggleActions}
-          aria-label="More actions"
-        >
-          <MoreVertical size={16} />
-        </button>
+          <button
+            className="block-card__actions-toggle"
+            onClick={handleToggleActions}
+            aria-label="More actions"
+          >
+            <MoreVertical size={16} />
+          </button>
+        </div>
 
         {showActions && (
           <div className="block-card__actions">

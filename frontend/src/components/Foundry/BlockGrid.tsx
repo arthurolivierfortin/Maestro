@@ -4,6 +4,7 @@
  * Displays blocks in a responsive grid layout.
  */
 
+import { Package } from 'lucide-react';
 import type { Block } from '../../types/block.types';
 import { BlockCard } from './BlockCard';
 import './BlockGrid.scss';
@@ -16,7 +17,7 @@ export function BlockGrid({ blocks }: BlockGridProps) {
   if (blocks.length === 0) {
     return (
       <div className="block-grid__empty">
-        <div className="block-grid__empty-icon">📦</div>
+        <Package size={64} className="block-grid__empty-icon" strokeWidth={1.5} />
         <h3 className="block-grid__empty-title">No blocks found</h3>
         <p className="block-grid__empty-description">
           Try adjusting your filters or create a new block.
