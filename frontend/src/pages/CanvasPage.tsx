@@ -4,7 +4,6 @@
  * Visual workflow editor with palette and canvas.
  */
 
-import { useRef } from 'react';
 import { useNavigationStore } from '../store/navigationStore';
 import { useBlockStore } from '../store/blockStore';
 import { BlockCanvas } from '../components/BlockCanvas';
@@ -18,7 +17,6 @@ import './CanvasPage.scss';
 export function CanvasPage() {
   const { currentPath, navigateInto } = useNavigationStore();
   const { addBlock, getRootBlock } = useBlockStore();
-  const canvasRef = useRef<HTMLDivElement>(null);
 
   // Get current parent ID (last item in path, or null for root)
   const currentParentId = currentPath.length > 0 ? currentPath[currentPath.length - 1] : null;
@@ -34,16 +32,16 @@ export function CanvasPage() {
     navigateInto(blockId);
   };
 
-  const handleDrop = (event: React.DragEvent) => {
-    event.preventDefault();
+  const handleDrop = (event: React.DragEvent, flowPosition: { x: number; y: number }) => {
     const blockType = event.dataTransfer.getData('application/reactflow-blocktype') as BlockType;
 
     if (!blockType) {
-      console.log('[Drop] No block type found in dataTransfer');
+      console.log('[CanvasPage Drop] No block type found in dataTransfer');
       return;
     }
 
-    console.log('[Drop] Block type:', blockType);
+    console.log('[CanvasPage Drop] Block type:', blockType);
+    console.log('[CanvasPage Drop] Flow position (with zoom/pan applied):', flowPosition);
 
     // Get the default block configuration from registry
     const defaultBlock = BlockTypeRegistry.getDefaultBlock(blockType);
@@ -51,24 +49,15 @@ export function CanvasPage() {
     // Generate unique ID
     const blockId = `block-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
-    // Calculate position relative to canvas
-    const canvasRect = canvasRef.current?.getBoundingClientRect();
-    console.log('[Drop] Canvas rect:', canvasRect);
-    console.log('[Drop] Mouse position:', { x: event.clientX, y: event.clientY });
-    
-    const position = {
-      x: canvasRect ? event.clientX - canvasRect.left : 100,
-      y: canvasRect ? event.clientY - canvasRect.top : 100,
-    };
-    
-    console.log('[Drop] Calculated position:', position);
+    // Use flow position directly - already transformed by React Flow
+    console.log('[CanvasPage Drop] Using position:', flowPosition);
 
     // Create block with position at drop location
     const newBlock = {
       ...defaultBlock,
       id: blockId,
       parentId: currentParentId,
-      position,
+      position: flowPosition,
       metadata: {
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
@@ -78,13 +67,8 @@ export function CanvasPage() {
       },
     };
 
-    console.log('[Drop] Adding block:', { id: blockId, parentId: currentParentId, position });
+    console.log('[CanvasPage Drop] Adding block:', { id: blockId, parentId: currentParentId, position: flowPosition });
     addBlock(currentParentId, newBlock);
-  };
-
-  const handleDragOver = (event: React.DragEvent) => {
-    event.preventDefault();
-    event.dataTransfer.dropEffect = 'move';
   };
 
   return (
@@ -98,13 +82,12 @@ export function CanvasPage() {
           </div>
           <BlockPalette />
         </div>
-        <div 
-          ref={canvasRef}
-          className="canvas-page__canvas" 
-          onDrop={handleDrop} 
-          onDragOver={handleDragOver}
-        >
-          <BlockCanvas parentId={currentParentId} onDrillDown={handleDrillDown} />
+        <div className="canvas-page__canvas">
+          <BlockCanvas 
+            parentId={currentParentId} 
+            onDrillDown={handleDrillDown}
+            onDrop={handleDrop}
+          />
         </div>
       </div>
     </div>

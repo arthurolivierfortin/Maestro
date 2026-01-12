@@ -13,6 +13,7 @@ import type {
   OnConnect,
   NodeMouseHandler,
 } from 'reactflow';
+import { useReactFlow } from 'reactflow';
 import { useBlockStore } from '../../store/blockStore';
 import { useNavigationStore } from '../../store/navigationStore';
 import { useExecutionStore } from '../../store/executionStore';
@@ -83,6 +84,7 @@ export function useCanvasSync({
   parentId,
   onBlockSelect,
   onDrillDown,
+  onDrop,
   readOnly = false,
 }: UseCanvasSyncProps) {
   // Store hooks
@@ -91,6 +93,9 @@ export function useCanvasSync({
   const { selectedBlockId, selectBlock } = useNavigationStore();
   const { currentExecution } = useExecutionStore();
   const getRootBlock = useBlockStore((state) => state.getRootBlock);
+  
+  // React Flow hook for coordinate transformation
+  const { screenToFlowPosition } = useReactFlow();
 
   // Get current block and its children - memoized to avoid exhaustive deps warnings
   const childBlocks = useMemo(() => {
@@ -219,6 +224,30 @@ export function useCanvasSync({
       onBlockSelect(null);
     }
   }, [selectBlock, onBlockSelect]);
+  
+  // Handle drop on canvas
+  const handleDrop = useCallback((event: React.DragEvent) => {
+    if (readOnly || !onDrop) return;
+    
+    event.preventDefault();
+    
+    // Get mouse position in screen coordinates
+    const screenPosition = {
+      x: event.clientX,
+      y: event.clientY,
+    };
+    
+    // Convert screen coordinates to flow coordinates (accounting for zoom/pan)
+    const flowPosition = screenToFlowPosition(screenPosition);
+    
+    console.log('[useCanvasSync] Drop event:', { 
+      screenPosition, 
+      flowPosition 
+    });
+    
+    // Pass to parent handler with flow position
+    onDrop(event, flowPosition);
+  }, [readOnly, onDrop, screenToFlowPosition]);
 
   return {
     nodes,
@@ -228,5 +257,6 @@ export function useCanvasSync({
     onConnect: handleConnect,
     onNodeClick: handleNodeClick,
     onPaneClick: handlePaneClick,
+    onDrop: handleDrop,
   };
 }

@@ -12,6 +12,7 @@ import ReactFlow, {
   NodeTypes,
   EdgeTypes,
   BackgroundVariant,
+  ReactFlowProvider,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import { useCanvasSync } from './useCanvasSync';
@@ -29,6 +30,8 @@ export interface BlockCanvasProps {
   onBlockSelect?: (blockId: string | null) => void;
   /** Callback when drill-down is requested */
   onDrillDown?: (blockId: string) => void;
+  /** Callback when block is dropped on canvas */
+  onDrop?: (event: React.DragEvent, position: { x: number; y: number }) => void;
 }
 
 /**
@@ -84,20 +87,22 @@ const defaultEdgeOptions = {
 };
 
 /**
- * BlockCanvas Component
+ * BlockCanvas Inner Component (has access to React Flow context)
  */
-export function BlockCanvas({
+function BlockCanvasInner({
   parentId,
   readOnly = false,
   onBlockSelect,
   onDrillDown,
+  onDrop,
 }: BlockCanvasProps) {
   // Sync canvas state with block store
-  const { nodes, edges, onNodesChange, onEdgesChange, onConnect, onNodeClick, onPaneClick } =
+  const { nodes, edges, onNodesChange, onEdgesChange, onConnect, onNodeClick, onPaneClick, onDrop: handleDrop } =
     useCanvasSync({
       parentId,
       onBlockSelect,
       onDrillDown,
+      onDrop,
       readOnly,
     });
 
@@ -115,6 +120,11 @@ export function BlockCanvas({
         onConnect={onConnect}
         onNodeClick={onNodeClick}
         onPaneClick={onPaneClick}
+        onDrop={handleDrop}
+        onDragOver={(event) => {
+          event.preventDefault();
+          event.dataTransfer.dropEffect = 'move';
+        }}
         nodeTypes={memoizedNodeTypes}
         edgeTypes={memoizedEdgeTypes}
         defaultEdgeOptions={defaultEdgeOptions}
@@ -140,5 +150,16 @@ export function BlockCanvas({
         />
       </ReactFlow>
     </div>
+  );
+}
+
+/**
+ * BlockCanvas Component (wraps with ReactFlowProvider)
+ */
+export function BlockCanvas(props: BlockCanvasProps) {
+  return (
+    <ReactFlowProvider>
+      <BlockCanvasInner {...props} />
+    </ReactFlowProvider>
   );
 }
