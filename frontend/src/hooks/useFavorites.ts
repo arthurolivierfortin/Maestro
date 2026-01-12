@@ -41,13 +41,11 @@ function saveFavorites(favoriteIds: Set<string>): void {
  * Favorites management hook
  */
 export function useFavorites() {
-  const blocks = useBlockStore(state => state.blocks);
+  const getAllBlocks = useBlockStore(state => state.getAllBlocks);
   const updateBlock = useBlockStore(state => state.updateBlock);
 
-  // Load favorites and sync with blocks
-  const favoriteIds = loadFavorites();
-  
   const toggleFavorite = useCallback((blockId: string) => {
+    const blocks = getAllBlocks();
     const block = blocks.find(b => b.id === blockId);
     if (!block) return;
 
@@ -64,21 +62,22 @@ export function useFavorites() {
       favorites.delete(blockId);
     }
     saveFavorites(favorites);
-  }, [blocks, updateBlock]);
+  }, [getAllBlocks, updateBlock]);
 
   const getFavorites = useCallback(() => {
-    return blocks.filter(b => b.isFavorite);
-  }, [blocks]);
+    return getAllBlocks().filter(b => b.isFavorite);
+  }, [getAllBlocks]);
 
   const isFavorite = useCallback((blockId: string) => {
+    const blocks = getAllBlocks();
     const block = blocks.find(b => b.id === blockId);
     return block?.isFavorite || false;
-  }, [blocks]);
+  }, [getAllBlocks]);
 
   return {
     toggleFavorite,
     getFavorites,
     isFavorite,
-    favoriteCount: blocks.filter(b => b.isFavorite).length,
+    favoriteCount: getAllBlocks().filter(b => b.isFavorite).length,
   };
 }

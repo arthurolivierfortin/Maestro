@@ -5,7 +5,7 @@
  * Inspired by VS Code, Claude Code, and n8n workflows.
  */
 
-import { useRef } from 'react';
+import { useRef, useEffect, useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import type { ImperativePanelHandle } from 'react-resizable-panels';
 import { BlockExplorer } from '../components/BlockExplorer';
@@ -17,6 +17,8 @@ import { BottomPanel } from '../components/panels/BottomPanel';
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
 import { useBlockExplorerVisibility } from '../hooks/useBlockExplorerVisibility';
 import { usePropertiesPanelVisibility } from '../hooks/usePropertiesPanelVisibility';
+import { CommandPalette, useCommandPalette } from '../components/common/CommandPalette';
+import { KeyboardShortcutsPanel } from '../components/common/KeyboardShortcutsPanel';
 import './IDELayout.scss';
 
 export function IDELayout() {
@@ -24,11 +26,39 @@ export function IDELayout() {
   const rightPanelRef = useRef<ImperativePanelHandle>(null);
   const bottomPanelRef = useRef<ImperativePanelHandle>(null);
 
+  // Command palette and shortcuts state (now in router context)
+  const { isOpen, close, open } = useCommandPalette();
+  const [showShortcuts, setShowShortcuts] = useState(false);
+
   // Determine if BlockExplorer should be visible
   const { isVisible: showExplorer, contextBlockId } = useBlockExplorerVisibility();
   
   // Determine if Properties panel should be visible
   const { isVisible: showProperties } = usePropertiesPanelVisibility();
+
+  // Listen for ? key to show shortcuts and Cmd/Ctrl+K for command palette
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // ? key to show shortcuts panel
+      if (e.key === '?' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        const target = e.target as HTMLElement;
+        if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA')) {
+          return;
+        }
+        e.preventDefault();
+        setShowShortcuts(true);
+      }
+
+      // Cmd/Ctrl+K for command palette
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        open();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [open]);
 
   // Setup keyboard shortcuts
   useKeyboardShortcuts({
@@ -135,6 +165,13 @@ export function IDELayout() {
           </PanelItem>
         </PanelLayout>
       </div>
+
+      {/* Global overlays - rendered inside Router context */}
+      <CommandPalette isOpen={isOpen} onClose={close} />
+      <KeyboardShortcutsPanel
+        isOpen={showShortcuts}
+        onClose={() => setShowShortcuts(false)}
+      />
     </div>
   );
 }
