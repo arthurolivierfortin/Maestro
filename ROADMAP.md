@@ -1,7 +1,7 @@
 # B-One Maestro Development Roadmap
 
 > **Status**: Active Development  
-> **Last Updated**: 2026-01-11  
+> **Last Updated**: 2026-01-12  
 > **Purpose**: This roadmap provides a detailed, step-by-step execution plan to build B-One Maestro from its current initialized state to a functional MVP and beyond.
 
 ---
@@ -220,12 +220,14 @@ Phase 1:  Foundation (Backend Core)             [█████████░]
 Phase 2:  Domain & Application Layer            [░░░░░░░░░░]  0%
 Phase 3:  Infrastructure Layer                  [░░░░░░░░░░]  0%
 Phase 4a: Frontend Foundation                   [██████████] 100%
-Phase 4b: Block Architecture & Types            [██████████]  0%
-Phase 4c: IDE Layout & Panel System             [██████████]  0%
-Phase 4d: Canvas Foundation (React Flow)        [██████████]  0%
-Phase 4e: Models Panel & Registry               [██████████]  0%
+Phase 4b: Block Architecture & Types            [██████████] 100%
+Phase 4c: IDE Layout & Panel System             [██████████] 100%
+Phase 4d: Canvas Foundation (React Flow)        [██████████] 100%
+Phase 4e: Models Panel & Registry               [██████████] 100%
 Phase 4f: Frontend Refactor & Foundry           [████░░░░░░] 40%
 Phase 4g: Block Editing, CRUD & UX              [██████████] 100%
+Phase 4h: Canvas & Node Functionality           [░░░░░░░░░░]  0%
+Phase 4i: Breadcrumb Navigation Fix             [░░░░░░░░░░]  0%
 Phase 5:  Workflow Engine & Execution           [░░░░░░░░░░]  0%
 Phase 6:  Agent Implementations                 [░░░░░░░░░░]  0%
 Phase 7:  Monitoring & Observability            [░░░░░░░░░░]  0%
@@ -1146,6 +1148,166 @@ Phase 13: Auto-Optimization & Benchmarking      [░░░░░░░░░░]
 - ✅ Favorites and keyboard shortcuts
 - ✅ Comprehensive unit test coverage (>80%)
 - ✅ Complete documentation
+
+---
+
+## 🔷 Phase 4h: Canvas & Node Functionality
+
+**Goal**: Make the canvas and node system fully functional. Users must be able to create workflows, drag nodes from palette, move nodes, connect nodes, and execute workflows with mocked behaviors.
+
+**Duration**: 2-3 weeks  
+**Team**: Frontend (1-2 developers)  
+**Dependencies**: Phase 4g complete  
+**Status**: Not Started  
+**Issue**: [docs/issues/phase-4h-canvas-node-functionality.md](docs/issues/phase-4h-canvas-node-functionality.md)
+
+### Tasks
+
+#### 4h.1 Block Palette Component
+- [ ] Create `BlockPalette.tsx` component
+- [ ] Create `PaletteCategory.tsx` for grouped block types
+- [ ] Create `PaletteItem.tsx` with drag functionality
+- [ ] Implement drag-and-drop using React DnD or native HTML5 DnD
+- [ ] Add search/filter functionality
+- [ ] Add tooltips with block type descriptions
+- [ ] Add unit tests
+
+#### 4h.2 Drag-and-Drop to Canvas
+- [ ] Implement drop zone on `BlockCanvas`
+- [ ] Calculate drop position relative to canvas viewport
+- [ ] Create new block with correct position via `blockStore.addBlock()`
+- [ ] Generate unique block IDs on drop
+- [ ] Create default configuration based on block type
+- [ ] Auto-select newly added block
+- [ ] Add unit tests
+
+#### 4h.3 Node Movement
+- [ ] Fix `onNodesChange` handler in `useCanvasSync.ts`
+- [ ] Update block position in store after drag ends
+- [ ] Ensure position persists (store → localStorage/backend)
+- [ ] Add grid snapping option
+- [ ] Support multi-node selection and movement
+- [ ] Add unit tests
+
+#### 4h.4 Node Connections
+- [ ] Fix `onConnect` handler in `useCanvasSync.ts`
+- [ ] Implement port validation (input-to-output only)
+- [ ] Add visual feedback during connection drag
+- [ ] Create connection edge with proper styling
+- [ ] Store connections in parent block's `connections` array
+- [ ] Prevent duplicate connections
+- [ ] Allow connection deletion
+- [ ] Add unit tests
+
+#### 4h.5 Node Context Menu & Actions
+- [ ] Fix `handleMenuClick` in `BaseBlockNode.tsx`
+- [ ] Create `NodeContextMenu.tsx` dropdown component
+- [ ] Implement actions: Edit, Duplicate, Delete, Drill into
+- [ ] Add keyboard shortcut hints in menu
+- [ ] Add unit tests
+
+#### 4h.6 Keyboard Shortcuts
+- [ ] Create `useCanvasShortcuts.ts` hook
+- [ ] Implement Delete/Backspace, Ctrl+A, Ctrl+C/V/X, Ctrl+D
+- [ ] Implement Ctrl+Z (undo), Ctrl+Shift+Z (redo)
+- [ ] Implement Escape (clear selection), Enter (drill into)
+- [ ] Add visual feedback for operations
+- [ ] Add unit tests
+
+#### 4h.7 Workflow Execution (Mock)
+- [ ] Create `IExecutionService` interface
+- [ ] Create `mockExecutionService.ts` with simulated execution
+- [ ] Create `ExecutionBar.tsx` component (Run/Stop/Pause buttons)
+- [ ] Implement execution state management
+- [ ] Show execution status on nodes (pending → running → completed/failed)
+- [ ] Animate connections during execution
+- [ ] Display execution logs in bottom panel
+- [ ] Add unit tests
+
+#### 4h.8 Example Workflow: Commit Description Generator
+- [ ] Create `EXAMPLE_COMMIT_WORKFLOW` in mock data
+- [ ] Blocks: Trigger (Manual) → Tool (git diff) → Agent (Describe) → Validator (Format)
+- [ ] Add to Foundry examples section
+- [ ] Ensure workflow loads correctly on canvas
+- [ ] Implement mock execution for each node type
+- [ ] Show realistic mock outputs
+- [ ] Add unit tests
+
+#### 4h.9 Foundry → Canvas Navigation
+- [ ] Clicking composite block in Foundry → opens Canvas with block
+- [ ] Breadcrumb updates correctly when entering Canvas
+- [ ] Back button returns to Foundry
+- [ ] Block hierarchy (BlockExplorer) shows correct context
+- [ ] Creating workflow in Foundry → navigate to Canvas for editing
+- [ ] Add unit tests
+
+**Outputs**:
+- ✅ Fully functional block palette with drag-and-drop
+- ✅ Nodes movable and connectable on canvas
+- ✅ Node context menu with all actions working
+- ✅ Keyboard shortcuts for canvas operations
+- ✅ Mock workflow execution with visual feedback
+- ✅ Working example workflow (Commit Description Generator)
+- ✅ Seamless Foundry ↔ Canvas navigation
+
+---
+
+## 🔷 Phase 4i: Breadcrumb Navigation & Route Synchronization
+
+**Goal**: Fix the breadcrumb navigation system so it always reflects the current page/route accurately, updates immediately when navigating, and is always visible below the TopBar.
+
+**Duration**: 3-5 days  
+**Team**: Frontend (1 developer)  
+**Dependencies**: Phase 4g complete  
+**Status**: Not Started  
+**Issue**: [docs/issues/phase-4i-breadcrumb-navigation.md](docs/issues/phase-4i-breadcrumb-navigation.md)
+
+### Tasks
+
+#### 4i.1 Route Synchronization Hook
+- [ ] Create `useRouteSync.ts` hook
+- [ ] Parse current URL to extract route type and parameters
+- [ ] Update `NavigationStore` when URL changes
+- [ ] Update URL when `NavigationStore` changes programmatically
+- [ ] Handle browser back/forward button events
+- [ ] Add unit tests
+
+#### 4i.2 Updated NavigationStore
+- [ ] Add `currentRoute: RouteInfo` to state
+- [ ] Add `setCurrentRoute(route: RouteInfo)` action
+- [ ] Add `getBreadcrumbSegments()` computed method
+- [ ] Modify `navigateInto` / `navigateUp` to update URL
+- [ ] Remove duplicate history (use browser history instead)
+- [ ] Add unit tests
+
+#### 4i.3 Breadcrumb Component Refactor
+- [ ] Replace current implementation with route-aware logic
+- [ ] Render segments based on `getBreadcrumbSegments()`
+- [ ] Use React Router's `Link` for navigation
+- [ ] Keep back/forward buttons but sync with browser history
+- [ ] Ensure proper styling and accessibility
+- [ ] Add unit tests
+
+#### 4i.4 Breadcrumb Layout Position
+- [ ] Move Breadcrumb outside `PanelLayout` in `IDELayout.tsx`
+- [ ] Place directly below TopBar, above panels
+- [ ] Update CSS for fixed positioning (doesn't scroll with content)
+- [ ] Ensure breadcrumb visible on all pages
+- [ ] Add unit tests
+
+#### 4i.5 Browser History Integration
+- [ ] Remove custom `history` array from NavigationStore
+- [ ] Use `navigate(-1)` and `navigate(1)` for back/forward
+- [ ] `canGoBack()` checks browser history
+- [ ] `canGoForward()` uses sessionStorage tracking
+- [ ] Add unit tests
+
+**Outputs**:
+- ✅ Breadcrumb shows correct path for all routes
+- ✅ Breadcrumb updates immediately on navigation
+- ✅ Breadcrumb always visible below TopBar (doesn't scroll)
+- ✅ Back/forward buttons use browser history
+- ✅ Deep links work correctly
 
 ---
 
