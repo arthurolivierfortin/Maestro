@@ -115,11 +115,27 @@ export function useCanvasSync({
   const contextBlockId = parentId ?? rootId;
 
   // Derive blocks to display reactively from the blocks Map
-  // We always show the CHILDREN of the context block, never the block itself
+  // IMPORTANT: We use the Map as the source of truth, NOT contextBlock.children
+  // This ensures positions are always current (children array may have stale copies)
   const blocksToDisplay = useMemo(() => {
     if (!contextBlockId) return [];
-    const contextBlock = blocks.get(contextBlockId);
-    return contextBlock?.children || [];
+    
+    // Get all blocks whose parentId matches the context block
+    // This ensures we always get the current block data from the Map
+    const childBlocks: Block[] = [];
+    blocks.forEach((block) => {
+      if (block.parentId === contextBlockId) {
+        childBlocks.push(block);
+      }
+    });
+    
+    console.log('[useCanvasSync] blocksToDisplay:', childBlocks.map(b => ({ 
+      id: b.id, 
+      name: b.name,
+      position: b.position 
+    })));
+    
+    return childBlocks;
   }, [contextBlockId, blocks]);
 
   // Derive connections reactively (connections belong to the context block)
@@ -155,7 +171,11 @@ export function useCanvasSync({
 
   // Convert store blocks to React Flow format (source of truth from store)
   const storeNodes = useMemo(
-    () => blocksToNodes(blocksToDisplay, selectedBlockId, handleDrillDown, nodeExecutions),
+    () => {
+      const nodes = blocksToNodes(blocksToDisplay, selectedBlockId, handleDrillDown, nodeExecutions);
+      console.log('[useCanvasSync] storeNodes recalculated:', nodes.map(n => ({ id: n.id, position: n.position })));
+      return nodes;
+    },
     [blocksToDisplay, selectedBlockId, handleDrillDown, nodeExecutions]
   );
 
@@ -163,8 +183,49 @@ export function useCanvasSync({
   const [localNodes, setLocalNodes] = useState<Node<BlockNodeData>[]>(storeNodes);
 
   // Sync local nodes when store changes (but not during drag)
+  // IMPORTANT: Only sync if block data actually changed, not just references
   useEffect(() => {
-    setLocalNodes(storeNodes);
+    // Compare by block positions to avoid unnecessary syncs
+    const storePositions = storeNodes.map(n => `${n.id}:${n.position.x},${n.position.y}`).sort().join('|');
+    const localPositions = localNodes.map(n => `${n.id}:${n.position.x},${n.position.y}`).sort().join('|');
+    
+    // Also check if node count changed (add/remove)
+    const storeIds = storeNodes.map(n => n.id).sort().join('|');
+    const localIds = localNodes.map(n => n.id).sort().join('|');
+    
+    console.log('[useCanvasSync] Sync check:', {
+      storePositions,
+      localPositions,
+      positionsMatch: storePositions === localPositions,
+      idsMatch: storeIds === localIds,
+    });
+    
+    // Only sync if nodes were added/removed OR if store has different positions
+    // (store positions take precedence when they change from external source)
+    if (storeIds !== localIds) {
+      console.log('[useCanvasSync] Node list changed - syncing');
+      setLocalNodes(storeNodes);
+    } else if (storePositions !== localPositions) {
+      // Store positions changed - but we need to check if this is from a drag we just did
+      // or from external source. For now, preserve local positions during edits
+      // Only sync if a significant data change happened (not just position)
+      const storeDataHash = storeNodes.map(n => `${n.id}:${n.data.isSelected}:${n.data.isExecuting}`).join('|');
+      const localDataHash = localNodes.map(n => `${n.id}:${n.data.isSelected}:${n.data.isExecuting}`).join('|');
+      
+      if (storeDataHash !== localDataHash) {
+        console.log('[useCanvasSync] Data changed - syncing while preserving positions');
+        // Merge: use local positions but update other data from store
+        setLocalNodes(prev => {
+          const positionMap = new Map(prev.map(n => [n.id, n.position]));
+          return storeNodes.map(n => ({
+            ...n,
+            position: positionMap.get(n.id) || n.position,
+          }));
+        });
+      } else {
+        console.log('[useCanvasSync] Only positions differ - keeping local positions');
+      }
+    }
   }, [storeNodes]);
 
   const edges = useMemo(() => connectionsToEdges(connections), [connections]);

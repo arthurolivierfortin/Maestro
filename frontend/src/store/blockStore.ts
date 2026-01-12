@@ -665,7 +665,30 @@ export const useBlockStore = create<BlockState>()(
         onRehydrateStorage: () => (state) => {
           if (state && Array.isArray(state.blocks)) {
             // Convert array back to Map
-            state.blocks = new Map(state.blocks as [string, Block][]);
+            const blocksMap = new Map(state.blocks as [string, Block][]);
+            
+            // CRITICAL: Rebuild children arrays from parentId relationships
+            // This ensures we use the canonical block data from the Map,
+            // not stale copies that may have been persisted in children arrays
+            blocksMap.forEach((block) => {
+              // Clear existing children (may be stale copies)
+              block.children = [];
+            });
+            
+            // Rebuild children arrays from parentId
+            blocksMap.forEach((block) => {
+              if (block.parentId) {
+                const parent = blocksMap.get(block.parentId);
+                if (parent) {
+                  parent.children ??= [];
+                  // Add reference to the actual block from the Map
+                  parent.children.push(block);
+                }
+              }
+            });
+            
+            state.blocks = blocksMap;
+            console.log('[BlockStore] Rehydrated with rebuilt children arrays');
           }
         },
       }
