@@ -8,9 +8,17 @@
 
 import { RouterProvider } from 'react-router-dom';
 import { router } from './router';
+import { CommandPalette, useCommandPalette } from './components/common/CommandPalette';
 
 function App() {
-  return <RouterProvider router={router} />;
+  const { isOpen, close } = useCommandPalette();
+
+  return (
+    <>
+      <RouterProvider router={router} />
+      <CommandPalette isOpen={isOpen} onClose={close} />
+    </>
+  );
 }
 
 export default App;
