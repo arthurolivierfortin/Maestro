@@ -108,7 +108,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
 
     setResults([...actions, ...blockResults]);
     setSelectedIndex(0);
-  }, [query, isOpen, blocks]);
+  }, [query, isOpen, blocksMap]);
 
   // Keyboard navigation
   useEffect(() => {
