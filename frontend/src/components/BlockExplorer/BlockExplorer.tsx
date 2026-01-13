@@ -9,6 +9,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { ChevronLeft } from 'lucide-react';
 import { useBlockActions } from '../../hooks';
+import { useBlockStore } from '../../store/blockStore';
 import { BlockTreeItem } from './BlockTreeItem';
 import { BlockContextMenu } from './BlockContextMenu';
 import type { Block } from '../../types/block.types';
@@ -23,6 +24,8 @@ interface BlockExplorerProps {
 export function BlockExplorer({ contextBlockId, panelRef }: BlockExplorerProps = {}) {
   const { getRootBlock, getBlock, removeBlock, duplicateBlock, renameBlock, canDeleteBlock } =
     useBlockActions();
+  // Subscribe to block store changes to trigger re-render when blocks change
+  useBlockStore((state) => state.blocks);
   const [contextMenu, setContextMenu] = useState<{
     block: Block;
     x: number;
@@ -78,7 +81,7 @@ export function BlockExplorer({ contextBlockId, panelRef }: BlockExplorerProps =
   const handleRename = (block: Block) => {
     // In a real implementation, this would open a rename dialog
     const newName = prompt('Enter new name:', block.name);
-    if (newName && newName.trim()) {
+    if (newName?.trim()) {
       renameBlock(block.id, newName.trim());
     }
   };
