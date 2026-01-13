@@ -48,6 +48,14 @@
   margin-bottom: 4px;
 }
 
+.block-palette__category-block {
+  display: block;
+}
+
+.block-palette__subcategory {
+  margin-top: 6px;
+}
+
 .block-palette__category-header {
   width: 100%;
   display: flex;
@@ -126,4 +134,9 @@
   font-size: 13px;
   font-weight: 500;
   color: var(--text-primary);
+}
+
+.block-palette__category-header.level-1,
+.block-palette__category-header.level-2 {
+  /* fallback in case inline styles aren't applied */
 }
