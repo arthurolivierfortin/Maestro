@@ -37,14 +37,22 @@ const PALETTE_CATEGORIES: PaletteCategory[] = [
   // Multi-node containers (can contain other nodes)
   { id: 'multi-node', label: 'Multi-Node', blockTypes: ['workflow', 'agent'] },
 
-  // Atomic blocks grouped under a single top-level category
+  // Atomic blocks grouped under a single top-level category with subcategories
   {
     id: 'atomic',
     label: 'Atomic Blocks',
-    // Keep top-level atomic list but also expose subcategories for better organization
-    blockTypes: ['task', 'inference'],
+    blockTypes: [],
     subcategories: [
-      { id: 'tools_prompts', label: 'Tools & Prompts', blockTypes: ['tool', 'prompt', 'instruction'] },
+      { id: 'tasks', label: 'Tasks', blockTypes: ['task'] },
+      { id: 'inference', label: 'Inference / LLM', blockTypes: ['inference'] },
+      {
+        id: 'tools_prompts',
+        label: 'Tools & Prompts',
+        subcategories: [
+          { id: 'tools', label: 'Tools', blockTypes: ['tool'] },
+          { id: 'prompts', label: 'Prompts', blockTypes: ['prompt', 'instruction'] },
+        ],
+      },
       { id: 'flow_control', label: 'Flow Control', blockTypes: ['decision', 'validator', 'trigger'] },
       { id: 'scripts', label: 'Scripts', blockTypes: ['script'] },
     ],
