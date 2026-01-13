@@ -7,6 +7,7 @@
 
 import { ReactNode, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useNavigationStore } from '../../store/navigationStore';
 import { BlockIcon } from '../icons';
 import { Button } from '../common';
 import type { Block, BlockConfig } from '../../types/block.types';
@@ -28,6 +29,7 @@ export function BaseBlockEditor({
   hasUnsavedChanges = false,
 }: BaseBlockEditorProps) {
   const navigate = useNavigate();
+  const { isEditingAtomicBlock, exitAtomicBlockEdit } = useNavigationStore();
   const [isSaving, setIsSaving] = useState(false);
 
   const handleCancel = useCallback(() => {
@@ -47,8 +49,13 @@ export function BaseBlockEditor({
     setIsSaving(true);
     try {
       onSave(block.config);
-      // Navigate back after successful save
-      navigate('/foundry');
+      // If we're editing an atomic block in-canvas, exit atomic edit to return to workflow view
+      if (isEditingAtomicBlock) {
+        exitAtomicBlockEdit();
+      } else {
+        // Fallback: navigate to foundry page for non-atomic editors
+        navigate('/foundry');
+      }
     } catch (error) {
       console.error('Failed to save block:', error);
       alert('Failed to save block. Please try again.');
