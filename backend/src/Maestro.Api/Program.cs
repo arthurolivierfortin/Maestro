@@ -3,6 +3,9 @@ using Maestro.Application.Interfaces;
 using Maestro.Infrastructure.LLMGateway;
 using Maestro.Infrastructure.Monitoring;
 using Maestro.Infrastructure.Persistence;
+using Maestro.Infrastructure.BlockStore;
+using System.IO;
+using System;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -15,7 +18,13 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddScoped<IWorkflowRepository, JsonWorkflowRepository>();
 builder.Services.AddScoped<ILLMGateway, LLMGateway>();
 builder.Services.AddScoped<IExecutionMonitor, ExecutionMonitor>();
+// Phase 5A: Filesystem block discovery and repository
+var blocksGlobalPath = Path.Combine(AppContext.BaseDirectory, "blocks");
+var blocksUserPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile) ?? "", ".maestro", "blocks");
+var blocksProjectPath = Path.Combine(Directory.GetCurrentDirectory(), ".maestro", "blocks");
 
+builder.Services.AddSingleton<IBlockDiscoveryService>(_ => new FileSystemBlockDiscoveryService(new[] { blocksProjectPath, blocksUserPath, blocksGlobalPath }));
+builder.Services.AddScoped<IBlockRepository>(_ => new FileSystemBlockRepository(blocksProjectPath));
 // Add CORS for frontend development
 builder.Services.AddCors(options =>
 {
