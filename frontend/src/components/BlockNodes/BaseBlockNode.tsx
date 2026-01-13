@@ -6,6 +6,7 @@
 
 import { memo, useCallback, useState } from 'react';
 import { Handle, Position } from 'reactflow';
+import { useNavigate } from 'react-router-dom';
 import { MoreVertical } from 'lucide-react';
 import { BlockIcon } from '../icons/BlockIcons';
 import { NodeContextMenu } from '../NodeContextMenu';
@@ -39,24 +40,18 @@ export const BaseBlockNode = memo(({ data, selected }: BaseBlockNodeProps) => {
   const [menuOpen, setMenuOpen] = useState(false);
   const { duplicateBlock, removeBlock } = useBlockStore();
   const { selectBlock, setPropertiesPanelMode } = useNavigationStore();
+  const navigate = useNavigate();
 
-  // Handle double-click to drill down into composite blocks
+  // Handle double-click: drill down for composite blocks, edit page for atomic blocks
   const handleDoubleClick = useCallback(() => {
-    console.log('[BaseBlockNode] Double-click on block:', {
-      blockId: block.id,
-      blockName: block.name,
-      isAtomic: block.isAtomic,
-      hasChildren: block.children && block.children.length > 0,
-    });
-    
-    // Allow drill-down into any composite (non-atomic) block, even if empty
-    if (!block.isAtomic) {
-      console.log('[BaseBlockNode] Drilling down into composite block');
-      onDrillDown(block.id);
+    if (block.isAtomic) {
+      // Navigate to edit page for atomic blocks
+      navigate(`/foundry/${block.id}/edit`);
     } else {
-      console.log('[BaseBlockNode] Block is atomic - no drill down');
+      // Drill down into composite blocks
+      onDrillDown(block.id);
     }
-  }, [block, onDrillDown]);
+  }, [block.id, block.isAtomic, navigate, onDrillDown]);
 
   // Handle menu click
   const handleMenuClick = useCallback(
@@ -69,23 +64,25 @@ export const BaseBlockNode = memo(({ data, selected }: BaseBlockNodeProps) => {
 
   // Context menu actions
   const handleEdit = useCallback(() => {
-    console.log('[BaseBlockNode Menu] Edit action clicked for block:', block.id);
-    selectBlock(block.id);
-    setPropertiesPanelMode('edit');
-  }, [block.id, selectBlock, setPropertiesPanelMode]);
+    if (block.isAtomic) {
+      // Navigate to edit page for atomic blocks
+      navigate(`/foundry/${block.id}/edit`);
+    } else {
+      // For composite blocks, open properties panel
+      selectBlock(block.id);
+      setPropertiesPanelMode('edit');
+    }
+  }, [block.id, block.isAtomic, navigate, selectBlock, setPropertiesPanelMode]);
 
   const handleDuplicate = useCallback(() => {
-    console.log('[BaseBlockNode Menu] Duplicate action clicked for block:', block.id);
     duplicateBlock(block.id);
   }, [block.id, duplicateBlock]);
 
   const handleDelete = useCallback(() => {
-    console.log('[BaseBlockNode Menu] Delete action clicked for block:', block.id);
     removeBlock(block.id);
   }, [block.id, removeBlock]);
 
   const handleDrillIntoMenu = useCallback(() => {
-    console.log('[BaseBlockNode Menu] Drill into action clicked for block:', block.id);
     onDrillDown(block.id);
   }, [block.id, onDrillDown]);
 

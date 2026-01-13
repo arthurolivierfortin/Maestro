@@ -30,6 +30,10 @@ interface NavigationState {
   propertiesPanelMode: PropertiesPanelMode; // Edit or view mode
   history: HistoryEntry[]; // Navigation history
   historyIndex: number; // Current position in history
+  
+  // Atomic block editing state
+  isEditingAtomicBlock: boolean; // True when editing an atomic block (hides properties panel)
+  editingAtomicBlockId: string | null; // ID of the atomic block being edited
 
   // Navigation actions
   navigateInto: (blockId: string) => void;
@@ -45,6 +49,10 @@ interface NavigationState {
   
   // Properties panel mode actions
   setPropertiesPanelMode: (mode: PropertiesPanelMode) => void;
+  
+  // Atomic block editing actions
+  enterAtomicBlockEdit: (blockId: string) => void;
+  exitAtomicBlockEdit: () => void;
 
   // Utility
   getCurrentBlockId: () => string | null;
@@ -65,6 +73,8 @@ export const useNavigationStore = create<NavigationState>()(
       propertiesPanelMode: 'view', // Default to view mode (read-only quick-view)
       history: [{ path: [], timestamp: Date.now() }], // Start with root in history
       historyIndex: 0,
+      isEditingAtomicBlock: false,
+      editingAtomicBlockId: null,
 
       // Helper to add to history
       _addToHistory: (path: string[]) => {
@@ -165,6 +175,8 @@ export const useNavigationStore = create<NavigationState>()(
 
       // Select a block
       selectBlock: (id: string | null, mode: PropertiesPanelMode = 'view') => {
+        // Don't allow selection when editing atomic block
+        if (get().isEditingAtomicBlock) return;
         set({ selectedBlockId: id, propertiesPanelMode: mode });
       },
 
@@ -175,7 +187,26 @@ export const useNavigationStore = create<NavigationState>()(
       
       // Set properties panel mode
       setPropertiesPanelMode: (mode: PropertiesPanelMode) => {
+        // Don't allow mode change when editing atomic block
+        if (get().isEditingAtomicBlock) return;
         set({ propertiesPanelMode: mode });
+      },
+      
+      // Enter atomic block edit mode (hides properties panel)
+      enterAtomicBlockEdit: (blockId: string) => {
+        set({
+          isEditingAtomicBlock: true,
+          editingAtomicBlockId: blockId,
+          selectedBlockId: null, // Clear selection
+        });
+      },
+      
+      // Exit atomic block edit mode (restores previous state)
+      exitAtomicBlockEdit: () => {
+        set({
+          isEditingAtomicBlock: false,
+          editingAtomicBlockId: null,
+        });
       },
 
       // Get current block ID (last in path)

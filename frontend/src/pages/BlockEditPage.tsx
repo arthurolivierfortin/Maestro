@@ -7,8 +7,10 @@
  * Phase 4g.2: Type-specific editors integrated.
  */
 
+import { useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useBlockStore } from '../store';
+import { useNavigationStore } from '../store/navigationStore';
 import { Button } from '../components/common';
 import { getEditorForBlockType } from '../components/BlockEditors';
 import './BlockEditPage.scss';
@@ -17,9 +19,21 @@ export function BlockEditPage() {
   const { blockId } = useParams<{ blockId: string }>();
   const navigate = useNavigate();
   const { getBlock } = useBlockStore();
+  const { enterAtomicBlockEdit, exitAtomicBlockEdit } = useNavigationStore();
 
   // Get the block from store
   const block = blockId ? getBlock(blockId) : undefined;
+
+  // Enter atomic block edit mode on mount, exit on unmount
+  useEffect(() => {
+    if (blockId && block?.isAtomic) {
+      enterAtomicBlockEdit(blockId);
+    }
+    
+    return () => {
+      exitAtomicBlockEdit();
+    };
+  }, [blockId, block?.isAtomic, enterAtomicBlockEdit, exitAtomicBlockEdit]);
 
   // If block not found, show error
   if (!blockId || !block) {
