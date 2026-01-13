@@ -129,12 +129,6 @@ export function useCanvasSync({
       }
     });
     
-    console.log('[useCanvasSync] blocksToDisplay:', childBlocks.map(b => ({ 
-      id: b.id, 
-      name: b.name,
-      position: b.position 
-    })));
-    
     return childBlocks;
   }, [contextBlockId, blocks]);
 
@@ -171,11 +165,7 @@ export function useCanvasSync({
 
   // Convert store blocks to React Flow format (source of truth from store)
   const storeNodes = useMemo(
-    () => {
-      const nodes = blocksToNodes(blocksToDisplay, selectedBlockId, handleDrillDown, nodeExecutions);
-      console.log('[useCanvasSync] storeNodes recalculated:', nodes.map(n => ({ id: n.id, position: n.position })));
-      return nodes;
-    },
+    () => blocksToNodes(blocksToDisplay, selectedBlockId, handleDrillDown, nodeExecutions),
     [blocksToDisplay, selectedBlockId, handleDrillDown, nodeExecutions]
   );
 
@@ -185,47 +175,32 @@ export function useCanvasSync({
   // Sync local nodes when store changes (but not during drag)
   // IMPORTANT: Only sync if block data actually changed, not just references
   useEffect(() => {
-    // Compare by block positions to avoid unnecessary syncs
-    const storePositions = storeNodes.map(n => `${n.id}:${n.position.x},${n.position.y}`).sort().join('|');
-    const localPositions = localNodes.map(n => `${n.id}:${n.position.x},${n.position.y}`).sort().join('|');
+    // Check if node list changed (add/remove)
+    const storeIds = storeNodes.map(n => n.id).sort((a, b) => a.localeCompare(b)).join('|');
+    const localIds = localNodes.map(n => n.id).sort((a, b) => a.localeCompare(b)).join('|');
     
-    // Also check if node count changed (add/remove)
-    const storeIds = storeNodes.map(n => n.id).sort().join('|');
-    const localIds = localNodes.map(n => n.id).sort().join('|');
-    
-    console.log('[useCanvasSync] Sync check:', {
-      storePositions,
-      localPositions,
-      positionsMatch: storePositions === localPositions,
-      idsMatch: storeIds === localIds,
-    });
-    
-    // Only sync if nodes were added/removed OR if store has different positions
-    // (store positions take precedence when they change from external source)
     if (storeIds !== localIds) {
-      console.log('[useCanvasSync] Node list changed - syncing');
+      // Nodes were added or removed - full sync needed
       setLocalNodes(storeNodes);
-    } else if (storePositions !== localPositions) {
-      // Store positions changed - but we need to check if this is from a drag we just did
-      // or from external source. For now, preserve local positions during edits
-      // Only sync if a significant data change happened (not just position)
-      const storeDataHash = storeNodes.map(n => `${n.id}:${n.data.isSelected}:${n.data.isExecuting}`).join('|');
-      const localDataHash = localNodes.map(n => `${n.id}:${n.data.isSelected}:${n.data.isExecuting}`).join('|');
-      
-      if (storeDataHash !== localDataHash) {
-        console.log('[useCanvasSync] Data changed - syncing while preserving positions');
-        // Merge: use local positions but update other data from store
-        setLocalNodes(prev => {
-          const positionMap = new Map(prev.map(n => [n.id, n.position]));
-          return storeNodes.map(n => ({
-            ...n,
-            position: positionMap.get(n.id) || n.position,
-          }));
-        });
-      } else {
-        console.log('[useCanvasSync] Only positions differ - keeping local positions');
-      }
+      return;
     }
+    
+    // Same nodes - check if we need to update data (selection, execution status)
+    // but preserve local positions (they may differ during/after drag)
+    const storeDataHash = storeNodes.map(n => `${n.id}:${n.data.isSelected}:${n.data.isExecuting}`).join('|');
+    const localDataHash = localNodes.map(n => `${n.id}:${n.data.isSelected}:${n.data.isExecuting}`).join('|');
+    
+    if (storeDataHash !== localDataHash) {
+      // Data changed - merge store data with local positions
+      setLocalNodes(prev => {
+        const positionMap = new Map(prev.map(n => [n.id, n.position]));
+        return storeNodes.map(n => ({
+          ...n,
+          position: positionMap.get(n.id) || n.position,
+        }));
+      });
+    }
+    // If only positions differ, keep local positions (user may have dragged)
   }, [storeNodes]);
 
   const edges = useMemo(() => connectionsToEdges(connections), [connections]);
@@ -245,10 +220,8 @@ export function useCanvasSync({
           case 'position':
             // Only persist to store when dragging is finished
             if (change.position && !change.dragging) {
-              console.log('[useCanvasSync] Saving final position to store:', change.id, change.position);
               updateBlock(change.id, { position: change.position });
             }
-            // During drag: positions are already applied to localNodes via applyNodeChanges
             break;
 
           case 'remove':
@@ -268,16 +241,10 @@ export function useCanvasSync({
   // Handle edge changes (deletion)
   const handleEdgesChange: OnEdgesChange = useCallback(
     (changes) => {
-      console.log('[useCanvasSync] handleEdgesChange called:', changes);
-      
-      if (readOnly) {
-        console.log('[useCanvasSync] Ignored - readOnly mode');
-        return;
-      }
+      if (readOnly) return;
 
       changes.forEach((change) => {
         if (change.type === 'remove' && contextBlockId) {
-          console.log('[useCanvasSync] Removing connection:', change.id);
           removeConnection(contextBlockId, change.id);
         }
       });
@@ -288,17 +255,7 @@ export function useCanvasSync({
   // Handle new connections
   const handleConnect: OnConnect = useCallback(
     (connection) => {
-      console.log('[useCanvasSync] handleConnect called:', {
-        source: connection.source,
-        target: connection.target,
-        sourceHandle: connection.sourceHandle,
-        targetHandle: connection.targetHandle,
-        readOnly,
-        contextBlockId,
-      });
-      
       if (readOnly || !contextBlockId || !connection.source || !connection.target) {
-        console.warn('[useCanvasSync] Connection ignored - check conditions above');
         return;
       }
 
@@ -310,9 +267,7 @@ export function useCanvasSync({
         targetPortId: connection.targetHandle || 'input',
       };
 
-      console.log('[useCanvasSync] Creating connection:', newConnection);
       addConnection(contextBlockId, newConnection);
-      console.log('[useCanvasSync] Connection added to store');
     },
     [addConnection, contextBlockId, readOnly]
   );
@@ -320,67 +275,33 @@ export function useCanvasSync({
   // Handle node click (selection)
   const handleNodeClick: NodeMouseHandler = useCallback(
     (_event, node) => {
-      console.log('[useCanvasSync] Node clicked:', { nodeId: node.id });
       selectBlock(node.id);
-      if (onBlockSelect) {
-        console.log('[useCanvasSync] Calling onBlockSelect callback');
-        onBlockSelect(node.id);
-      }
+      onBlockSelect?.(node.id);
     },
     [selectBlock, onBlockSelect]
   );
 
   // Handle pane click (deselect)
   const handlePaneClick = useCallback(() => {
-    console.log('[useCanvasSync] Pane clicked - deselecting');
     selectBlock(null);
-    if (onBlockSelect) {
-      console.log('[useCanvasSync] Calling onBlockSelect(null) callback');
-      onBlockSelect(null);
-    }
+    onBlockSelect?.(null);
   }, [selectBlock, onBlockSelect]);
   
   // Handle drop on canvas
   const handleDrop = useCallback((event: React.DragEvent) => {
-    console.log('[Canvas Drop] Event triggered', { 
-      clientX: event.clientX, 
-      clientY: event.clientY,
-      readOnly,
-      contextBlockId,
-      hasOnDrop: !!onDrop 
-    });
-    
-    if (readOnly || !contextBlockId) {
-      console.log('[Canvas Drop] Aborted - readOnly mode or no context block');
-      return;
-    }
-    
-    if (!onDrop) {
-      console.log('[Canvas Drop] Aborted - no onDrop handler');
+    if (readOnly || !contextBlockId || !onDrop) {
       return;
     }
     
     event.preventDefault();
     
-    // Get mouse position in screen coordinates
-    const screenPosition = {
+    // Convert screen coordinates to flow coordinates (accounting for zoom/pan)
+    const flowPosition = screenToFlowPosition({
       x: event.clientX,
       y: event.clientY,
-    };
+    });
     
-    console.log('[Canvas Drop] Screen position:', screenPosition);
-    
-    // Convert screen coordinates to flow coordinates (accounting for zoom/pan)
-    try {
-      const flowPosition = screenToFlowPosition(screenPosition);
-      console.log('[Canvas Drop] Flow position:', flowPosition);
-      
-      // Pass to parent handler with flow position
-      onDrop(event, flowPosition);
-      console.log('[Canvas Drop] Successfully passed to parent handler');
-    } catch (error) {
-      console.error('[Canvas Drop] Error converting coordinates:', error);
-    }
+    onDrop(event, flowPosition);
   }, [readOnly, contextBlockId, onDrop, screenToFlowPosition]);
 
   return {

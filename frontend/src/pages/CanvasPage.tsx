@@ -33,20 +33,15 @@ export function CanvasPage() {
   };
 
   const handleDrop = (event: React.DragEvent, flowPosition: { x: number; y: number }) => {
-    console.log('[CanvasPage Drop] Handler called with position:', flowPosition);
-    
     const blockType = event.dataTransfer.getData('application/reactflow-blocktype') as BlockType;
-    console.log('[CanvasPage Drop] Block type from drag data:', blockType);
 
     if (!blockType) {
-      console.warn('[CanvasPage Drop] No block type found in drag data');
       return;
     }
 
     try {
       // Get the default block configuration from registry
       const defaultBlock = BlockTypeRegistry.getDefaultBlock(blockType);
-      console.log('[CanvasPage Drop] Default block config:', defaultBlock);
 
       // Generate unique ID
       const blockId = `block-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -54,7 +49,6 @@ export function CanvasPage() {
       // Determine parent: if at root level (currentParentId === null), 
       // add as child of the root workflow block
       const effectiveParentId = currentParentId ?? rootBlock?.id ?? null;
-      console.log('[CanvasPage Drop] Effective parent ID:', effectiveParentId);
 
       // Create block with position at drop location
       const newBlock = {
@@ -71,11 +65,9 @@ export function CanvasPage() {
         },
       };
 
-      console.log('[CanvasPage Drop] Creating new block:', newBlock);
       addBlock(effectiveParentId, newBlock);
-      console.log('[CanvasPage Drop] Block added successfully to store');
     } catch (error) {
-      console.error('[CanvasPage Drop] Error creating block:', error);
+      console.error('[CanvasPage] Error creating block:', error);
     }
   };
 

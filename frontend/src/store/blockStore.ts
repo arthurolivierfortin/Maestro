@@ -149,15 +149,6 @@ export const useBlockStore = create<BlockState>()(
           const state = get();
           const blocks = new Map(state.blocks);
 
-          console.log('[BlockStore] addBlock called:', {
-            blockId: block.id,
-            blockName: block.name,
-            blockType: block.blockType,
-            parentId,
-            currentRootId: state.rootId,
-            totalBlocksBefore: blocks.size,
-          });
-
           // Ensure block has metadata
           if (!block.metadata) {
             block.metadata = createMetadata();
@@ -165,11 +156,9 @@ export const useBlockStore = create<BlockState>()(
 
           // If no parent, this is a top-level block
           if (parentId === null) {
-            console.log('[BlockStore] Adding top-level block');
             blocks.set(block.id, { ...block, parentId: null });
             // Only set root if it doesn't exist yet
             const newRootId = state.rootId || block.id;
-            console.log('[BlockStore] Root ID - was:', state.rootId, 'now:', newRootId);
             set(saveHistory(state, blocks, newRootId));
             return;
           }
@@ -180,12 +169,6 @@ export const useBlockStore = create<BlockState>()(
             console.error(`[BlockStore] Parent block ${parentId} not found`);
             return;
           }
-
-          console.log('[BlockStore] Found parent:', {
-            parentId: parent.id,
-            parentName: parent.name,
-            canContain: BlockTypeRegistry.canContain(parent.blockType, block.blockType),
-          });
 
           // Check if parent can contain this child
           if (!BlockTypeRegistry.canContain(parent.blockType, block.blockType)) {
@@ -205,13 +188,6 @@ export const useBlockStore = create<BlockState>()(
             children: [...(parent.children || []), updatedBlock],
           };
           blocks.set(parentId, updatedParent);
-
-          console.log('[BlockStore] Block added to parent:', {
-            blockId: block.id,
-            parentId,
-            parentChildrenCount: updatedParent.children?.length,
-            totalBlocksAfter: blocks.size,
-          });
 
           set(saveHistory(state, blocks, state.rootId));
         },
@@ -267,15 +243,6 @@ export const useBlockStore = create<BlockState>()(
             return;
           }
 
-          console.log('[BlockStore] updateBlock called:', {
-            blockId: id,
-            updates: {
-              position: updates.position,
-              name: updates.name,
-              config: !!updates.config,
-            },
-          });
-
           const updatedBlock = {
             ...block,
             ...updates,
@@ -299,7 +266,6 @@ export const useBlockStore = create<BlockState>()(
             }
           }
 
-          console.log('[BlockStore] Block updated successfully');
           set(saveHistory(state, blocks, state.rootId));
         },
 
@@ -688,7 +654,6 @@ export const useBlockStore = create<BlockState>()(
             });
             
             state.blocks = blocksMap;
-            console.log('[BlockStore] Rehydrated with rebuilt children arrays');
           }
         },
       }
