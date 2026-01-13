@@ -15,6 +15,7 @@ import type {
   ValidatorBlockConfig,
   TriggerBlockConfig,
   WorkflowBlockConfig,
+  InferenceBlockConfig,
 } from '../types/block.types';
 
 /**
@@ -27,7 +28,7 @@ export const workflowTypeInfo: BlockTypeInfo = {
   icon: 'Workflow',
   color: '#2563eb',
   isAtomic: false,
-  allowedChildren: ['agent', 'task', 'tool', 'decision', 'validator', 'trigger'],
+  allowedChildren: ['agent', 'task', 'tool', 'decision', 'validator', 'trigger', 'inference'],
   allowedParents: [],
   defaultConfig: {
     type: 'workflow',
@@ -328,6 +329,47 @@ export const triggerTypeInfo: BlockTypeInfo = {
 };
 
 /**
+ * Inference Unit block type
+ */
+export const inferenceTypeInfo: BlockTypeInfo = {
+  type: 'inference',
+  label: 'Inference Unit',
+  description: 'Low-level LLM call with dynamic I/O for meta-optimization',
+  icon: 'Brain',
+  color: '#8b5cf6',
+  isAtomic: true,
+  allowedChildren: [],
+  allowedParents: ['workflow', 'task', 'agent'],
+  defaultConfig: {
+    type: 'inference',
+    systemPrompt: '',
+    userPrompt: '',
+    inputs: [],
+    structuredOutputs: [],
+    temperature: 0.7,
+    maxTokens: 1000,
+    responseFormat: 'text',
+  } as InferenceBlockConfig,
+  defaultInputs: [],
+  defaultOutputs: [
+    {
+      id: 'raw_response',
+      name: 'Raw Response',
+      dataType: 'string',
+      required: true,
+      multiple: false,
+    },
+    {
+      id: 'metadata',
+      name: 'Metadata',
+      dataType: 'object',
+      required: true,
+      multiple: false,
+    },
+  ],
+};
+
+/**
  * All block type definitions
  */
 export const blockTypeDefinitions: BlockTypeInfo[] = [
@@ -340,4 +382,5 @@ export const blockTypeDefinitions: BlockTypeInfo[] = [
   decisionTypeInfo,
   validatorTypeInfo,
   triggerTypeInfo,
+  inferenceTypeInfo,
 ];

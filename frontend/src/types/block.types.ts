@@ -17,7 +17,8 @@ export type BlockType =
   | 'tool' // Executable tool (atomic)
   | 'decision' // Conditional branching (atomic)
   | 'validator' // Output validation (atomic)
-  | 'trigger'; // Workflow trigger (atomic)
+  | 'trigger' // Workflow trigger (atomic)
+  | 'inference'; // LLM inference unit with dynamic inputs/outputs (atomic)
 
 /**
  * Input/Output port for block connections
@@ -115,7 +116,8 @@ export type BlockConfig =
   | DecisionBlockConfig
   | ValidatorBlockConfig
   | TriggerBlockConfig
-  | WorkflowBlockConfig;
+  | WorkflowBlockConfig
+  | InferenceBlockConfig;
 
 /**
  * Workflow block configuration (top-level container)
@@ -233,6 +235,56 @@ export interface TriggerBlockConfig {
 }
 
 /**
+ * Dynamic parameter for inference unit
+ */
+export interface InferenceParameter {
+  name: string;
+  type: 'string' | 'number' | 'boolean' | 'object' | 'array';
+  description?: string;
+  required: boolean;
+  defaultValue?: unknown;
+}
+
+/**
+ * Structured output extraction (optional)
+ */
+export interface InferenceOutput {
+  name: string;
+  type: 'string' | 'number' | 'boolean' | 'object' | 'array';
+  description?: string;
+  jsonPath?: string; // JSONPath expression to extract from response
+  regex?: string; // Regex pattern to extract from response
+}
+
+/**
+ * Inference Unit block configuration
+ * Low-level LLM call with dynamic inputs/outputs
+ */
+export interface InferenceBlockConfig {
+  type: 'inference';
+  
+  // Prompts
+  systemPrompt?: string;
+  userPrompt: string; // Can use {{parameterName}} for dynamic parameters
+  
+  // Dynamic inputs
+  inputs: InferenceParameter[];
+  
+  // Structured outputs (optional extractions)
+  // Note: raw_response and metadata outputs are always available automatically
+  structuredOutputs?: InferenceOutput[];
+  
+  // LLM configuration
+  modelId?: string; // Model ID from model registry
+  fallbackModelId?: string;
+  temperature?: number;
+  maxTokens?: number;
+  topP?: number;
+  responseFormat?: 'text' | 'json' | 'yaml';
+  stopSequences?: string[];
+}
+
+/**
  * Type guards for block configs
  */
 export function isAgentConfig(config: BlockConfig): config is AgentBlockConfig {
@@ -269,4 +321,8 @@ export function isTriggerConfig(config: BlockConfig): config is TriggerBlockConf
 
 export function isWorkflowConfig(config: BlockConfig): config is WorkflowBlockConfig {
   return config.type === 'workflow';
+}
+
+export function isInferenceConfig(config: BlockConfig): config is InferenceBlockConfig {
+  return config.type === 'inference';
 }

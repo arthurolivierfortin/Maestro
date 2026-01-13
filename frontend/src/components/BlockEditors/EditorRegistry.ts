@@ -14,6 +14,7 @@ import { TaskEditor } from './TaskEditor';
 import { TriggerEditor } from './TriggerEditor';
 import { ValidatorEditor } from './ValidatorEditor';
 import { DecisionEditor } from './DecisionEditor';
+import { InferenceEditor } from './InferenceEditor';
 import type { Block, BlockType } from '../../types/block.types';
 
 export interface BlockEditorProps {
@@ -32,6 +33,7 @@ export const EditorRegistry: Record<BlockType, ComponentType<BlockEditorProps> |
   trigger: TriggerEditor as ComponentType<BlockEditorProps>,
   validator: ValidatorEditor as ComponentType<BlockEditorProps>,
   decision: DecisionEditor as ComponentType<BlockEditorProps>,
+  inference: InferenceEditor as ComponentType<BlockEditorProps>,
   workflow: null, // Workflows use Canvas editor, not a form editor
 };
 

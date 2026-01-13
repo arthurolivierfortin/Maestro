@@ -13,6 +13,7 @@ export { TaskEditor } from './TaskEditor';
 export { TriggerEditor } from './TriggerEditor';
 export { ValidatorEditor } from './ValidatorEditor';
 export { DecisionEditor } from './DecisionEditor';
+export { InferenceEditor } from './InferenceEditor';
 export { EditorRegistry, getEditorForBlockType, hasEditor } from './EditorRegistry';
 
 export type { BaseBlockEditorProps } from './BaseBlockEditor';
