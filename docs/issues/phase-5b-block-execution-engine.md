@@ -1,0 +1,287 @@
+# Phase 5B: Block Execution Engine
+
+**Goal**: Implement the execution engine that can run individual blocks and pass data between them. This is the core runtime that makes blocks actually do something.
+
+**Duration**: 2-3 weeks  
+**Team**: Backend (2 developers)  
+**Dependencies**: Phase 5A complete (filesystem block architecture)  
+**Status**: Not Started
+
+---
+
+## 🎯 Strategic Context
+
+The execution engine must be:
+
+1. **Deterministic**: Same inputs → same outputs (for benchmarking and replay)
+2. **Environment-agnostic**: No dependency on VS Code, MCP, or specific runtime
+3. **Observable**: Every step produces logs and can be monitored
+4. **Resumable**: Can pause and resume execution
+5. **Testable**: Can run with mocked LLM responses
+
+### Execution Model
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    Execution Request                         │
+│  (WorkflowId, Inputs, ExecutionMode)                        │
+└─────────────────────────────────────────────────────────────┘
+                            │
+                            ▼
+┌─────────────────────────────────────────────────────────────┐
+│                   Execution Engine                           │
+│  - Loads workflow/block definition                          │
+│  - Creates execution context                                │
+│  - Orchestrates block execution                             │
+└─────────────────────────────────────────────────────────────┘
+                            │
+              ┌─────────────┼─────────────┐
+              ▼             ▼             ▼
+        ┌─────────┐   ┌─────────┐   ┌─────────┐
+        │ Block   │   │ Block   │   │ Block   │
+        │Executor │   │Executor │   │Executor │
+        │(Agent)  │   │(Tool)   │   │(Prompt) │
+        └─────────┘   └─────────┘   └─────────┘
+              │             │             │
+              ▼             ▼             ▼
+        ┌─────────────────────────────────────┐
+        │         Execution Result            │
+        │  (Outputs, Logs, Metrics, State)    │
+        └─────────────────────────────────────┘
+```
+
+---
+
+## 🗂️ Tasks
+
+### 5B.1 Execution Context
+
+- [ ] Create `ExecutionContext` domain entity
+  ```csharp
+  public class ExecutionContext
+  {
+      public ExecutionId Id { get; }
+      public string WorkflowId { get; }
+      public ExecutionStatus Status { get; private set; }
+      public Dictionary<string, object> Variables { get; }
+      public Dictionary<string, BlockExecutionState> BlockStates { get; }
+      public List<ExecutionLog> Logs { get; }
+      public ExecutionMetrics Metrics { get; }
+      public DateTimeOffset StartedAt { get; }
+      public DateTimeOffset? CompletedAt { get; private set; }
+      
+      public void SetBlockOutput(string blockId, string portId, object value);
+      public object? GetBlockOutput(string blockId, string portId);
+      public void LogInfo(string message, string? blockId = null);
+      public void LogError(string message, Exception? ex = null, string? blockId = null);
+  }
+  ```
+- [ ] Create `BlockExecutionState` value object (Pending, Running, Completed, Failed, Skipped)
+- [ ] Create `ExecutionMetrics` (duration, token count, cost estimate)
+- [ ] Add serialization support for persistence and replay
+- [ ] Add unit tests
+
+### 5B.2 Block Executor Interface
+
+- [ ] Create `IBlockExecutor` interface in Application layer
+  ```csharp
+  public interface IBlockExecutor
+  {
+      BlockType SupportedType { get; }
+      Task<BlockExecutionResult> ExecuteAsync(
+          BlockDefinition block,
+          ExecutionContext context,
+          Dictionary<string, object> inputs,
+          CancellationToken ct = default);
+  }
+  ```
+- [ ] Create `BlockExecutionResult` with outputs, logs, duration
+- [ ] Create `BlockExecutorRegistry` to map types to executors
+- [ ] Add unit tests
+
+### 5B.3 Prompt Block Executor
+
+- [ ] Create `PromptBlockExecutor` implementation
+- [ ] Load template from `template.md` file
+- [ ] Resolve template variables from inputs
+- [ ] Output: resolved prompt string
+- [ ] No LLM call - just template resolution
+- [ ] Add unit tests
+
+### 5B.4 Inference Block Executor
+
+- [ ] Create `InferenceBlockExecutor` implementation
+- [ ] Load user prompt from file or config
+- [ ] Resolve template variables
+- [ ] Call `ILLMGateway.SendAsync()` with configured model
+- [ ] Parse response according to output schema (if defined)
+- [ ] Handle streaming responses
+- [ ] Add retry logic with exponential backoff
+- [ ] **Mock mode**: Load response from `mock-response.json` if exists
+- [ ] Add unit tests with mocked LLM
+
+### 5B.5 Tool Block Executor
+
+- [ ] Create `ToolBlockExecutor` implementation
+- [ ] Load script from block folder
+- [ ] Validate inputs against schema
+- [ ] Execute script in sandboxed environment
+- [ ] Capture stdout/stderr
+- [ ] Parse output according to output schema
+- [ ] Support tool types: `bash`, `powershell`, `node`, `python`
+- [ ] Add timeout handling
+- [ ] Add unit tests
+
+### 5B.6 Decision Block Executor
+
+- [ ] Create `DecisionBlockExecutor` implementation
+- [ ] Load condition expression from config
+- [ ] Evaluate condition with inputs as context
+- [ ] Output: `{ "result": true/false, "branch": "true"|"false" }`
+- [ ] Support JavaScript expressions (via Jint or similar)
+- [ ] Add unit tests
+
+### 5B.7 Validator Block Executor
+
+- [ ] Create `ValidatorBlockExecutor` implementation
+- [ ] Support validation types:
+  - JSON Schema validation
+  - Regex pattern matching
+  - Custom script validation
+- [ ] Output: `{ "isValid": true/false, "errors": [...] }`
+- [ ] Add unit tests
+
+### 5B.8 Agent Block Executor
+
+- [ ] Create `AgentBlockExecutor` implementation
+- [ ] Load system prompt from `system-prompt.md`
+- [ ] Load available tools from `tools.json`
+- [ ] Build messages array from inputs
+- [ ] Call LLM with tool definitions
+- [ ] Handle tool calls → execute tools → return to LLM
+- [ ] Implement max iterations limit
+- [ ] Add unit tests with mocked LLM
+
+### 5B.9 Trigger Block Executor
+
+- [ ] Create `TriggerBlockExecutor` implementation
+- [ ] For manual triggers: pass through input data
+- [ ] For webhook triggers: parse incoming request
+- [ ] For schedule triggers: record trigger time
+- [ ] Output: trigger metadata + input data
+- [ ] Add unit tests
+
+### 5B.10 Execution Engine Service
+
+- [ ] Create `IExecutionEngine` interface
+  ```csharp
+  public interface IExecutionEngine
+  {
+      Task<ExecutionContext> ExecuteBlockAsync(
+          string blockId,
+          Dictionary<string, object> inputs,
+          ExecutionOptions? options = null,
+          CancellationToken ct = default);
+      
+      Task<ExecutionContext> ExecuteWorkflowAsync(
+          string workflowId,
+          Dictionary<string, object> inputs,
+          ExecutionOptions? options = null,
+          CancellationToken ct = default);
+      
+      Task PauseAsync(ExecutionId executionId);
+      Task ResumeAsync(ExecutionId executionId);
+      Task CancelAsync(ExecutionId executionId);
+  }
+  ```
+- [ ] Create `ExecutionEngine` implementation
+- [ ] Load block/workflow definition from repository
+- [ ] Create execution context
+- [ ] Resolve executor for block type
+- [ ] Execute and collect results
+- [ ] Publish events via `IExecutionMonitor`
+- [ ] Add unit tests
+
+### 5B.11 Execution Persistence
+
+- [ ] Create `IExecutionRepository` interface
+- [ ] Implement `FileSystemExecutionRepository`
+- [ ] Store executions as JSON files in `executions/` folder
+- [ ] Support querying by workflow, status, date range
+- [ ] Implement execution log streaming to file
+- [ ] Add unit tests
+
+### 5B.12 Execution Events (SignalR)
+
+- [ ] Create `IExecutionMonitor` interface
+- [ ] Implement `SignalRExecutionMonitor`
+- [ ] Publish events:
+  - `ExecutionStarted`
+  - `BlockStarted`, `BlockCompleted`, `BlockFailed`
+  - `ExecutionCompleted`, `ExecutionFailed`
+  - `LogAdded`
+- [ ] Create SignalR hub for execution updates
+- [ ] Add integration tests
+
+---
+
+## 📤 Outputs
+
+- ✅ Execution context with state management
+- ✅ Block executors for all block types
+- ✅ Execution engine with pause/resume/cancel
+- ✅ Execution persistence
+- ✅ Real-time execution events via SignalR
+
+---
+
+## 🧪 Acceptance Criteria
+
+1. **Single Block**: Can execute a prompt block and get resolved template
+2. **LLM Call**: Can execute an inference block with mocked LLM response
+3. **Tool Execution**: Can execute a bash tool and capture output
+4. **Decision Logic**: Can evaluate a condition and route execution
+5. **Persistence**: Execution history is saved and queryable
+6. **Real-time**: Frontend receives execution events via SignalR
+7. **Mock Mode**: All blocks can run with mocked responses for testing
+
+---
+
+## ⚠️ Design Decisions
+
+### Why Separate Prompt and Inference?
+
+- **Prompt**: Template resolution only, no LLM call
+- **Inference**: Actual LLM call with model selection
+- Separation allows reusing prompts across multiple inference calls
+
+### Mock Mode Strategy
+
+Each block can have a `mock-response.json` file that provides the output when running in mock mode:
+
+```json
+{
+  "outputs": {
+    "message": "feat: Add user authentication\n\nImplement JWT-based authentication..."
+  },
+  "metadata": {
+    "tokensUsed": 150,
+    "model": "gpt-4",
+    "duration": 1500
+  }
+}
+```
+
+This enables:
+- Frontend development without real API calls
+- Unit testing with deterministic outputs
+- Benchmarking with controlled responses
+
+### Tool Sandboxing
+
+Tools run in a restricted environment:
+- Working directory limited to workspace
+- No network access by default (configurable)
+- Resource limits (CPU, memory, time)
+- Output size limits
+
