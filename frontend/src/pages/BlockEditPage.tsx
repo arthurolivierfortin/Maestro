@@ -8,6 +8,7 @@
 import { useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useBlockStore } from '../store';
+import { useNavigationStore } from '../store/navigationStore';
 import { EditorWrapper } from '../components/EditorWrapper';
 import { ArrowLeft } from 'lucide-react';
 import './BlockEditPage.scss';
@@ -16,13 +17,20 @@ export function BlockEditPage() {
   const { blockId } = useParams<{ blockId: string }>();
   const navigate = useNavigate();
   const { getBlock } = useBlockStore();
+  const popOne = useNavigationStore((s) => s.popOne);
+  const canGoUp = useNavigationStore((s) => s.canGoUp);
 
   // Get the block from store
   const block = blockId ? getBlock(blockId) : undefined;
 
   useEffect(() => {
     if (!blockId || !block) {
-      navigate('/foundry');
+      // Prefer to pop navigation stack if possible to preserve breadcrumb
+      if (canGoUp()) {
+        popOne();
+      } else {
+        navigate('/foundry');
+      }
       return;
     }
 
@@ -31,7 +39,7 @@ export function BlockEditPage() {
       navigate(`/canvas/${blockId}`, { replace: true });
       return;
     }
-  }, [blockId, block, navigate]);
+  }, [blockId, block, navigate, popOne, canGoUp]);
 
   // Loading/not found state
   if (!block) {

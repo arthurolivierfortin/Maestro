@@ -4,7 +4,7 @@
  * Pre-built workflow examples demonstrating various features
  */
 
-import type { Block } from '../../../types/block.types';
+import type { Block } from '../types/block.types';
 
 /**
  * Example 1: Commit Description Generator

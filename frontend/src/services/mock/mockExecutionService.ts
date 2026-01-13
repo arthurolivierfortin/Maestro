@@ -4,12 +4,7 @@
  * Simulates workflow execution without backend API
  */
 
-import type {
-  WorkflowExecution,
-  NodeExecution,
-  ExecutionStatus,
-  ExecutionLog,
-} from '../../types/execution.types';
+import type { WorkflowExecution, NodeExecution } from '../../types/execution.types';
 
 /**
  * Delay helper for simulating async operations
@@ -189,7 +184,7 @@ class MockExecutionService {
     // Execute nodes sequentially
     for (const nodeExec of execution.nodeExecutions) {
       // Check if paused or cancelled
-      if (execution.status === 'Paused' || execution.status === 'Cancelled') {
+      if (['Paused', 'Cancelled'].includes(execution.status as string)) {
         return;
       }
 
@@ -210,7 +205,7 @@ class MockExecutionService {
       await randomDelay(500, 2000);
 
       // Check again after delay
-      if (execution.status === 'Paused' || execution.status === 'Cancelled') {
+      if (['Paused', 'Cancelled'].includes(execution.status as string)) {
         return;
       }
 

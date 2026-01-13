@@ -41,10 +41,12 @@ export function BaseBlockEditor({
 
     if (onCancel) {
       onCancel();
+    } else if (canGoUp()) {
+      popOne();
     } else {
       navigate('/foundry');
     }
-  }, [hasUnsavedChanges, onCancel, navigate]);
+  }, [hasUnsavedChanges, onCancel, navigate, canGoUp, popOne]);
 
   const handleSave = useCallback(async () => {
     setIsSaving(true);

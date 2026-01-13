@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { BaseBlockEditor } from './BaseBlockEditor';
 import type { Block, ScriptBlockConfig } from '../../types/block.types';
 import { useBlockStore } from '../../store/blockStore';
+import { useNavigationStore } from '../../store/navigationStore';
 import './ScriptEditor.scss';
 
 interface ScriptEditorProps {
@@ -15,6 +16,9 @@ export function ScriptEditor({ block }: ScriptEditorProps) {
   const [config, setConfig] = useState<ScriptBlockConfig>(block.config);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
+  const popOne = useNavigationStore((s) => s.popOne);
+  const canGoUp = useNavigationStore((s) => s.canGoUp);
+
   useEffect(() => {
     setHasUnsavedChanges(JSON.stringify(config) !== JSON.stringify(block.config));
   }, [config, block.config]);
@@ -26,7 +30,10 @@ export function ScriptEditor({ block }: ScriptEditorProps) {
   const handleCancelFull = () => {
     setConfig(block.config);
     setHasUnsavedChanges(false);
-    // Navigate back to foundry
+    if (canGoUp()) {
+      popOne();
+      return;
+    }
     navigate('/foundry');
   };
 

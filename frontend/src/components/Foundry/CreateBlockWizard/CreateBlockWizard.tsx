@@ -18,7 +18,7 @@ import { StepSelectType } from './StepSelectType';
 import { StepBasicInfo } from './StepBasicInfo';
 import { StepConfiguration } from './StepConfiguration';
 import { StepPreview } from './StepPreview';
-import type { BlockType, Block } from '../../../types/block.types';
+import type { BlockType, Block, BlockConfig } from '../../../types/block.types';
 import './CreateBlockWizard.scss';
 
 export interface CreateBlockWizardProps {
@@ -143,7 +143,7 @@ export function CreateBlockWizard({ isOpen, onClose }: CreateBlockWizardProps) {
         state.selectedType !== 'workflow' &&
         state.selectedType !== 'agent' &&
         state.selectedType !== 'task',
-      config: state.config,
+      config: state.config as BlockConfig,
       inputs: [],
       outputs: [],
       position: { x: 100, y: 100 },

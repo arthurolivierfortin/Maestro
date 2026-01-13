@@ -5,6 +5,6 @@
 export * from './api';
 export * from './workflowService';
 export * from './signalRService';
-export * from './blockService';
-export * from './modelService';
+export { blockService, isUsingMockBackend as isBlockServiceUsingMock } from './blockService';
+export { modelService, isUsingMockBackend as isModelServiceUsingMock } from './modelService';
 export * from './discoveryService';

@@ -4,9 +4,9 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook } from '@testing-library/react';
-import { useCanvasShortcuts } from '../useCanvasShortcuts';
-import { useBlockStore } from '../../store/blockStore';
-import { useNavigationStore } from '../../store/navigationStore';
+import { useCanvasShortcuts } from './useCanvasShortcuts';
+import { useBlockStore } from '../store/blockStore';
+import { useNavigationStore } from '../store/navigationStore';
 
 // Mock the stores
 vi.mock('../../store/blockStore');

@@ -3,7 +3,7 @@
  *
  * Shows JSON preview of the block to be created.
  */
-import type { BlockType } from '../../../types/block.types';
+import type { BlockType, Block } from '../../../types/block.types';
 import { WizardStep } from './WizardStep';
 import type { BasicInfo } from './wizardTypes';
 
@@ -15,7 +15,7 @@ export interface StepPreviewProps {
 
 export function StepPreview({ blockType, basicInfo, config }: StepPreviewProps) {
   // Build preview block object
-  const previewBlock: Partial<Block> = {
+  const previewBlock: Partial<Block<Record<string, any>>> = {
     blockType,
     name: basicInfo.name,
     isAtomic: blockType !== 'workflow' && blockType !== 'agent' && blockType !== 'task',
