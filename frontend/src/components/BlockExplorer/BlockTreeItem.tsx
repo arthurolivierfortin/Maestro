@@ -6,8 +6,7 @@
 
 import { useState } from 'react';
 import { useNavigation } from '../../hooks';
-import { BlockIcon } from '../icons';
-import { ChevronIcon } from '../icons';
+import { BlockIcon, ChevronIcon } from '../icons';
 import type { Block } from '../../types/block.types';
 import './BlockTreeItem.scss';
 
@@ -19,19 +18,23 @@ interface BlockTreeItemProps {
 
 export function BlockTreeItem({ block, level = 0, onContextMenu }: BlockTreeItemProps) {
   const [isExpanded, setIsExpanded] = useState(true);
-  const { navigateInto, currentPath, selectBlock, selectedBlockId } = useNavigation();
+  const { navigateInto, currentPath, selectBlock, selectedBlockId, enterAtomicBlockEdit } =
+    useNavigation();
 
   const hasChildren = block.children && block.children.length > 0;
   const isInPath = currentPath.includes(block.id);
   const isSelected = selectedBlockId === block.id;
-  const canDrillDown = !block.isAtomic && hasChildren;
 
   const handleClick = () => {
     selectBlock(block.id);
   };
 
   const handleDoubleClick = () => {
-    if (canDrillDown) {
+    if (block.isAtomic) {
+      // Enter edit mode for atomic blocks
+      enterAtomicBlockEdit(block.id);
+    } else if (hasChildren) {
+      // Drill down into composite blocks
       navigateInto(block.id);
     }
   };
