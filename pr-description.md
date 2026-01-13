@@ -1,92 +1,101 @@
-🎨 Fix : MAESTRO-4G – UI/UX Fixes and Style Consistency for Foundry & Panels
-
+🎯 Feature : MAESTRO-4I – Breadcrumb Navigation & Route Synchronization
 
 # 🎯 Purpose
-This PR applies a set of UI/UX fixes and style consistency improvements focused on the Foundry, Block Explorer, Breadcrumb, Properties Panel and Base block/node components. The changes address multiple frontend issues (search icon spacing, favorite icon position, panel collapse behavior, breadcrumb navigation, node action buttons, styling inconsistencies) and add small interaction improvements such as back/forward breadcrumb controls and a collapse/expand toggle for the Block Explorer.
+This branch implements Phase 4I: a robust breadcrumb/navigation experience and synchronized routing for the Foundry/Canvas/Block edit flows. The changes introduce a stack-based navigation model, two-way route↔store synchronization with re-entrancy protection, and consistent navigation semantics between atomic and composite blocks (atomic blocks open in dedicated editors, non-atomic open in the canvas). Additionally, this PR fixes several UX/layout issues (notably Block Explorer collapse edge cases), integrates multiple editors, and improves test coverage for navigation and canvas shortcuts.
 
 # 📋 Changes Summary
-- Frontend fixes (multiple components) – see `frontend/src/components/*` and `frontend/src/layouts/*` files
-  - Fix breadcrumb navigation UI and add Back/Forward buttons (Breadcrumb component and styles)
-  - Add collapse/expand toggle and independent collapsed state handling to Block Explorer (BlockExplorer component + styles)
-  - Restore and standardize Block Card actions (favorite positioning, actions menu, status badges)
-  - Make Base block node menu buttons clickable and restore proper event handling for node actions
-  - Update Foundry search bar spacing and select/dropdown styles
-  - Complete styling fixes for mode buttons, radio labels, and select dropdowns in Properties and Editor components
-- Documentation
-  - Add Phase 4G UI/UX fixes plan under `docs/issues/phase-4g-ui-ux-fixes-plan.md` describing 11 prioritized issues and a reversion checklist
+- Navigation & routing
+  - Implemented a stack-based navigation store and APIs (`pushPage`, `pushBlock`, `popOne`, `popToIndex`, `initFromUrl`, `getBreadcrumbSegments`) to replace brittle path-based orchestration.
+  - Added `useRouteSync` to keep the URL and navigation store in sync with a re-entrancy guard to prevent route/store loops.
+  - Updated editors and pages (`BaseBlockEditor`, `ScriptEditor`, `BlockEditPage`, `BlockEditPage.test.tsx`) to prefer `popOne()` when cancelling instead of unconditional `navigate('/foundry')`, preserving breadcrumb state.
+
+- Breadcrumb and block navigation
+  - Reworked `Breadcrumb` to use the navigation stack and render consistent breadcrumbs.
+  - Unified navigation semantics: atomic blocks open in dedicated editors; non-atomic blocks redirect to canvas routes.
+
+- UI / Layout / Panels
+  - Hardened `BlockExplorer` collapse detection using a ResizeObserver fallback and CSS changes to prevent child-enforced `min-width` from blocking panel collapse.
+  - Adjusted `PropertiesPanel` and panel CSS so panels can collapse reliably without being forced open by child elements.
+  - Multiple UI polish and style updates: ExecutionBar, BlockPalette, BlockCard, and general style tokens.
+
+- Editors and block types
+  - Added/updated editors and block types: ScriptEditor, InferenceEditor, Integration for Agent/Tool/Prompt/Decision/etc editors and styles.
+  - Introduced `EditorWrapper` component to host editors in the Block edit page.
+
+- Services, mocks, and utils
+  - Improved mock services including a `mockExecutionService` for local execution simulation and debugging drag/drop behaviors.
+  - Resolved duplicate exports and reorganized `services/index.ts` to avoid barrel collisions.
+
+- Tests and examples
+  - Added tests for navigation store, `useCanvasShortcuts`, `NodeContextMenu`, and improved BlockPalette/ Breadcrumb tests.
+  - Added example workflows and Phase 4 documentation (Phase-4H/Phase-4I implementation notes).
 
 # 🏗️ Technical Details
-- Components touched (frontend):
-  - Breadcrumb: `frontend/src/components/Breadcrumb/Breadcrumb.tsx`, `Breadcrumb.scss` — adds back/forward buttons, keyboard accessibility handlers, and more robust home/root behavior.
-  - BlockExplorer: `frontend/src/components/BlockExplorer/BlockExplorer.tsx`, `BlockExplorer.scss` — adds a collapse/expand toggle, syncs collapsed state with an optional `panelRef`, and uses a fixed minimal width when collapsed to prevent layout shifts.
-  - BlockCard: `frontend/src/components/Foundry/BlockCard.tsx`, `BlockCard.scss` — fixes actions bar, favorite button behavior and uses Lucide icons (no emojis), ensures action menu positioning and hover/focus states are consistent.
-  - BaseBlockNode: `frontend/src/components/BlockNodes/BaseBlockNode.tsx` — restores menu click handlers with proper event stopping and double-click drill-down behavior; preserves handles and status indicators.
-  - Foundry Search & Editor styles: `FoundrySearchBar.scss`, `BaseBlockEditor.scss` adjustments for consistent spacing and theme colors.
+- Navigation model
+  - The navigation store now maintains a `navStack` which is the single source of truth for breadcrumb and back/forward flows. Components call `pushBlock` or `pushPage` to navigate; cancellation and editor exit prefer `popOne()` to preserve history.
+  - `useRouteSync` serializes the active `navStack` into URL paths and also initializes store state from initial URL on load. A re-entrancy `isSyncing` guard prevents infinite toggling between the router and the store.
 
-- Behaviour & Accessibility:
-  - Breadcrumb segments are keyboard-accessible (`Enter`/`Space`) and include `aria-current` where appropriate.
-  - Nav controls include tooltips/labels and disabled states for back/forward actions.
-  - Collapse state for `BlockExplorer` uses CSS minimal widths (`min-width: 40px`) so closing a panel no longer forces other panels to resize.
+- Route semantics
+  - Routes remain compatible with existing routes (`/foundry`, `/canvas/:blockId`, `/foundry/:blockId/edit`) but navigation now relies on the store for preferred back semantics. Components avoid unconditional redirects that previously reset the stack.
 
-- No backend, API, or domain/application layer changes were made. All changes are isolated to the frontend.
+- Panel collapse fix
+  - `BlockExplorer` now sets `data-state` reliably by observing the element size and the panel's collapsed state. CSS changes (`width: 100%`, `min-width` only when expanded) prevent child components from blocking panel collapse.
+
+- Editor integration
+  - `EditorWrapper` abstracts mounting of specialized editors and handles save/cancel via the navigation store; dedicated atomic editors now return control to the nav stack on cancel.
+
+- Tests & CI
+  - Added/updated tests for navigation logic and canvas shortcuts. TypeScript checks pass in the frontend workspace (`npx tsc --noEmit`).
 
 # 🧪 Testing
-- Automated tests: No new unit tests were added in this PR. Recommended follow-ups:
-  - Add component tests for `Breadcrumb` (keyboard navigation, back/forward enabled states)
-  - Add interaction tests for `BlockExplorer` collapse/expand behavior
+How to run locally:
 
-- Manual testing checklist (run locally):
-  1. Start dev server:
-     ```powershell
-     cd frontend
-     npm run dev
-     ```
-  2. Verify Breadcrumb:
-     - Back/Forward buttons enabled/disabled correctly
-     - Clicking segments navigates to the expected block/home
-     - Keyboard activation with `Enter`/`Space` works
-  3. Verify Block Explorer:
-     - Click collapse toggle, explorer collapses to fixed small width and does not hide other panels
-     - Expand back and ensure content returns
-     - Right-click block items to show context menu (rename/duplicate/delete)
-  4. Verify Foundry Block Cards:
-     - Favorite star is positioned to the right and toggles without navigating
-     - More actions menu opens and actions (Edit, Duplicate, Delete) function
-  5. Verify Node Actions on Canvas:
-     - The three node action buttons log/trigger expected behavior; no unresponsive buttons
-  6. UI polish checks:
-     - Search icon spacing, select dropdown colors, mode button icons look consistent with theme
+```bash
+cd frontend
+npx tsc --noEmit          # TypeScript check
+npm install               # if dependencies missing
+npm run dev               # Run dev server and manually validate UX
+npm test                  # Run unit tests (vitest)
+```
+
+Manual test scenarios to validate
+- Open multiple blocks and navigate using breadcrumbs — ensure back/forward navigates the stack rather than resetting to Foundry.
+- Open atomic block editor and press Cancel — app should `popOne()` back to previous breadcrumb instead of navigating to `/foundry`.
+- Toggle Block Explorer repeatedly and drag the divider — panel should fully collapse/expand reliably and not be stuck in a semi-collapsed state.
+- Open/close the Properties panel and ensure it does not force the Block Explorer to re-open.
 
 # 📖 Documentation
-- Added: `docs/issues/phase-4g-ui-ux-fixes-plan.md` — detailed checklist and reversion guidance for Phase 4G fixes.
+- Added Phase 4H/4I implementation notes: `PHASE-4H-IMPLEMENTATION-SUMMARY.md`, `docs/issues/phase-4i-breadcrumb-navigation.md` and related docs.
+- Updated `ROADMAP.md` with progress notes.
 
 # 🚀 Deployment Notes
-- Frontend-only changes. No environment, build or deployment configuration changes required.
-- Recommend running `npm run build` in `frontend` and verifying CI static checks (linting, type checking) succeed before merge.
+- No API or backend changes — frontend-only changes. No DB migrations.
+- Ensure frontend build passes in CI; `npx tsc --noEmit` should be included in CI steps for this branch.
 
 # 🔄 Migration Guide
-- Not applicable — no data or API changes.
+- Not applicable. Changes are backwards-compatible at route level; navigation semantics are internal to the frontend store.
 
 # 📸 Screenshots/Examples
-- Visual diffs are available in the branch for reviewers to inspect; run the dev server to review changes locally.
+- None included; visual changes are in the Foundry UI (breadcrumbs, panel collapse behavior, editors). Reviewer should run the dev server to inspect UX.
 
 # 🔗 Related Issues
-- See `docs/issues/phase-4g-ui-ux-fixes-plan.md` for the set of tickets/issues tracked under Phase 4G. Commits include multiple `fix(ui):` messages addressing listed issues.
+- MAESTRO-4I (breadcrumb navigation & route synchronization)
+- MAESTRO-4H (related editor and palette work)
 
 # 👥 Review Notes
-- Focus review on these high-risk areas:
-  - Panel collapse behavior (Issue 7) — ensure closing Block Explorer does NOT affect Properties Panel layout
-  - Node action buttons (Issue 8) — ensure click handlers are not swallowed by parent canvas handlers
-  - Style regressions — verify no unintended global style changes were introduced (follow the Style Reversion Checklist in docs)
+- Key areas to review:
+  - `frontend/src/store/navigationStore.ts` — new stack-based navigation API and edge cases around init/pop.
+  - `frontend/src/hooks/useRouteSync.ts` — re-entrancy guard and URL↔store initialization.
+  - `frontend/src/components/BlockExplorer/*` — Collapse logic and CSS changes.
+  - `frontend/src/components/BlockEditors/*` and `EditorWrapper.tsx` — ensure editors preserve navigation semantics and correctly call `popOne()` on cancel.
+  - Test files under `frontend/src/hooks` and `frontend/src/store` — navigation tests and canvas shortcuts.
 
-- Suggested review steps:
-  1. Run the frontend dev server locally and exercise the manual testing checklist
-  2. Compare CSS changes against `main` for unintended modifications (see reversion checklist)
-  3. Run lint/type checks: `cd frontend && npm ci && npm run lint && npm run type-check` (if available)
+- Risks and mitigations:
+  - Risk: Some components may still call `navigate('/foundry')` directly and inadvertently reset stack. Mitigation: search/replace calls and prefer nav-store APIs.
+  - Risk: Edge cases where URL initialization could produce unexpected stack shapes. Mitigation: `useRouteSync` guards and unit tests validate common flows.
 
-- Merge checklist:
-  - [ ] Manual UI verification complete
-  - [ ] Linting and type checks pass
-  - [ ] No unintended style regressions found in Foundry components
-
-
+# Checklist for merge
+- [ ] CI TypeScript check passes (`npx tsc --noEmit`)
+- [ ] Unit tests pass (`npm test`)
+- [ ] Manual UX verification steps completed by reviewer
+- [ ] Optional: run cross-browser smoke tests for panel resizing
