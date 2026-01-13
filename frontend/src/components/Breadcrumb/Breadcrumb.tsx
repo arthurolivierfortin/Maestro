@@ -98,7 +98,7 @@ export function Breadcrumb() {
           if (!block) return null;
 
           return (
-            <li key={item.id} className="breadcrumb__item">
+            <li key={`${item.id}-${index}`} className="breadcrumb__item">
               <span className="breadcrumb__separator">/</span>
               <button
                 className={`breadcrumb__segment ${isLast ? 'breadcrumb__segment--active' : ''}`}
