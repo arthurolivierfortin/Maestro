@@ -1,92 +1,111 @@
-🎨 Fix : MAESTRO-4G – UI/UX Fixes and Style Consistency for Foundry & Panels
-
+⚙️ Feature : copilot/complete-workflow-editing – Rework Block Palette and complete workflow editing UX
 
 # 🎯 Purpose
-This PR applies a set of UI/UX fixes and style consistency improvements focused on the Foundry, Block Explorer, Breadcrumb, Properties Panel and Base block/node components. The changes address multiple frontend issues (search icon spacing, favorite icon position, panel collapse behavior, breadcrumb navigation, node action buttons, styling inconsistencies) and add small interaction improvements such as back/forward breadcrumb controls and a collapse/expand toggle for the Block Explorer.
+This branch consolidates work to improve the workflow editing experience in the frontend. The main focus is a reworked Block Palette with nested sub-categories, plus a set of complementary frontend features: new and improved block editors (Inference, Script), block discovery and registry updates, explorer and foundry UX improvements, and supporting services and tests. The goal is to make it easier to find, organize and add blocks (including LLM/inference units and scripts), and to complete the editing flow for atomic and multi-node blocks.
 
 # 📋 Changes Summary
-- Frontend fixes (multiple components) – see `frontend/src/components/*` and `frontend/src/layouts/*` files
-  - Fix breadcrumb navigation UI and add Back/Forward buttons (Breadcrumb component and styles)
-  - Add collapse/expand toggle and independent collapsed state handling to Block Explorer (BlockExplorer component + styles)
-  - Restore and standardize Block Card actions (favorite positioning, actions menu, status badges)
-  - Make Base block node menu buttons clickable and restore proper event handling for node actions
-  - Update Foundry search bar spacing and select/dropdown styles
-  - Complete styling fixes for mode buttons, radio labels, and select dropdowns in Properties and Editor components
-- Documentation
-  - Add Phase 4G UI/UX fixes plan under `docs/issues/phase-4g-ui-ux-fixes-plan.md` describing 11 prioritized issues and a reversion checklist
+- Frontend: Reorganized `BlockPalette` to restore the top-level `Multi-Node` and `Atomic Blocks` groups and introduce logical nested sub-categories (Tasks, Inference/LLM, Tools & Prompts, Flow Control, Scripts).
+- Frontend: Added/updated block editors and related assets: `InferenceEditor`, `ScriptEditor`, other block editors improved (Agent, Task, Tool, Trigger, Validator, Prompt, Instruction, Decision).
+- Frontend: Editor UX and navigation improvements (BaseBlockEditor, navigation store integration, Foundry/Explorer enhancements, BlockTreeItem/BlockExplorer improvements).
+- Frontend: Added `ExecutionBar` and execution visualization features; example workflows and execution state visualization included.
+- Frontend: Many tests and docs added/updated: new tests for NodeContextMenu, canvas shortcuts, docs and roadmap updates, implementation summary.
+- Services/Registry: Updates to block type definitions, discovery service, mock services and blockStore/navigationStore improvements.
 
 # 🏗️ Technical Details
-- Components touched (frontend):
-  - Breadcrumb: `frontend/src/components/Breadcrumb/Breadcrumb.tsx`, `Breadcrumb.scss` — adds back/forward buttons, keyboard accessibility handlers, and more robust home/root behavior.
-  - BlockExplorer: `frontend/src/components/BlockExplorer/BlockExplorer.tsx`, `BlockExplorer.scss` — adds a collapse/expand toggle, syncs collapsed state with an optional `panelRef`, and uses a fixed minimal width when collapsed to prevent layout shifts.
-  - BlockCard: `frontend/src/components/Foundry/BlockCard.tsx`, `BlockCard.scss` — fixes actions bar, favorite button behavior and uses Lucide icons (no emojis), ensures action menu positioning and hover/focus states are consistent.
-  - BaseBlockNode: `frontend/src/components/BlockNodes/BaseBlockNode.tsx` — restores menu click handlers with proper event stopping and double-click drill-down behavior; preserves handles and status indicators.
-  - Foundry Search & Editor styles: `FoundrySearchBar.scss`, `BaseBlockEditor.scss` adjustments for consistent spacing and theme colors.
+- Block Palette
+  - `frontend/src/components/BlockPalette/BlockPalette.tsx` was rewritten to support nested `PaletteCategory` objects with `blockTypes` and `subcategories` fields. The component now renders categories recursively and maintains an `expandedCategories` set so categories and subcategories can be opened/closed like a file system.
+  - Style updates in `BlockPalette.scss` add indentation and subcategory spacing to visually represent hierarchy.
+  - The palette preserves the previous top-level categories (`multi-node`, `atomic`) while allowing easier programmatic addition of subcategories.
 
-- Behaviour & Accessibility:
-  - Breadcrumb segments are keyboard-accessible (`Enter`/`Space`) and include `aria-current` where appropriate.
-  - Nav controls include tooltips/labels and disabled states for back/forward actions.
-  - Collapse state for `BlockExplorer` uses CSS minimal widths (`min-width: 40px`) so closing a panel no longer forces other panels to resize.
+- Editors and UX
+  - New editors added: `InferenceEditor` and `ScriptEditor` (with styles and registration in the editor registry).
+  - `BaseBlockEditor` integrated with navigation store for atomic block editing and improved save handling.
+  - Foundry and Block Explorer improvements: the Block Explorer now subscribes to the block store and supports rename and improved interactions; BlockTreeItem double-click handling refactored.
 
-- No backend, API, or domain/application layer changes were made. All changes are isolated to the frontend.
+- Registry & Services
+  - `frontend/src/registry/blockTypeDefinitions.ts` updated to include new block types and metadata.
+  - Discovery and mock services updated (mock block & discovery services, mock execution service added) to support the enhanced editors and palette.
+
+- Tests & Docs
+  - Tests added for `NodeContextMenu` and `useCanvasShortcuts`; `BlockPalette` tests updated.
+  - Documentation files added/updated: PHASE-4H-IMPLEMENTATION-SUMMARY.md, several docs/issues files and roadmap updates.
 
 # 🧪 Testing
-- Automated tests: No new unit tests were added in this PR. Recommended follow-ups:
-  - Add component tests for `Breadcrumb` (keyboard navigation, back/forward enabled states)
-  - Add interaction tests for `BlockExplorer` collapse/expand behavior
+How to run frontend dev & tests locally:
 
-- Manual testing checklist (run locally):
-  1. Start dev server:
-     ```powershell
-     cd frontend
-     npm run dev
-     ```
-  2. Verify Breadcrumb:
-     - Back/Forward buttons enabled/disabled correctly
-     - Clicking segments navigates to the expected block/home
-     - Keyboard activation with `Enter`/`Space` works
-  3. Verify Block Explorer:
-     - Click collapse toggle, explorer collapses to fixed small width and does not hide other panels
-     - Expand back and ensure content returns
-     - Right-click block items to show context menu (rename/duplicate/delete)
-  4. Verify Foundry Block Cards:
-     - Favorite star is positioned to the right and toggles without navigating
-     - More actions menu opens and actions (Edit, Duplicate, Delete) function
-  5. Verify Node Actions on Canvas:
-     - The three node action buttons log/trigger expected behavior; no unresponsive buttons
-  6. UI polish checks:
-     - Search icon spacing, select dropdown colors, mode button icons look consistent with theme
+1. Start the frontend dev server and verify the palette UI and editors:
+
+```bash
+cd frontend
+npm install        # if dependencies not installed
+npm run dev
+```
+
+2. Run the unit tests (frontend):
+
+```bash
+cd frontend
+npm test
+```
+
+Test / manual verification checklist:
+- Open the Block Palette in the Foundry/Editor UI.
+- Confirm top-level categories: `Multi-Node` and `Atomic Blocks` are present.
+- Expand `Atomic Blocks` and verify sub-categories: `Tasks`, `Inference / LLM`, `Tools & Prompts` (with `Tools` and `Prompts` nested), `Flow Control`, and `Scripts`.
+- Confirm block counts display (category total = direct + nested counts).
+- Drag a block from the palette to the canvas; verify `onDragStart` logs appear and drag MIME data is set (console logs added for debugging during development).
+- Open `InferenceEditor` and `ScriptEditor` for new block types and verify expected fields render.
 
 # 📖 Documentation
-- Added: `docs/issues/phase-4g-ui-ux-fixes-plan.md` — detailed checklist and reversion guidance for Phase 4G fixes.
+Files added/updated (high level):
+- PHASE-4H-IMPLEMENTATION-SUMMARY.md (new)
+- docs/issues/phase-4g-ui-ux-fixes-plan.md (new)
+- docs/issues/phase-4h-canvas-node-functionality.md (new)
+- docs/issues/phase-4i-breadcrumb-navigation.md (new)
+- ROADMAP.md updated to reflect palette and editor work
+
+Frontend code files of note (non-exhaustive).
+- frontend/src/components/BlockPalette/BlockPalette.tsx (major rewrite)
+- frontend/src/components/BlockPalette/BlockPalette.scss
+- frontend/src/components/BlockEditors/InferenceEditor.tsx (+ scss)
+- frontend/src/components/BlockEditors/ScriptEditor.tsx (+ scss)
+- frontend/src/components/BlockExplorer/* (improvements)
+- frontend/src/registry/blockTypeDefinitions.ts
+- frontend/src/services/mock/mockExecutionService.ts (new)
+- frontend/src/store/blockStore.ts, navigationStore.ts
 
 # 🚀 Deployment Notes
-- Frontend-only changes. No environment, build or deployment configuration changes required.
-- Recommend running `npm run build` in `frontend` and verifying CI static checks (linting, type checking) succeed before merge.
+- No backend or API migrations are required — the changes are frontend and documentation focused.
+- If you deploy the frontend as a standalone artifact, ensure the build step runs in an environment with the project's TypeScript `lib` options (ES2015/ES2019) and JSX enabled. Local `tsconfig.json` should be used for CI builds.
 
 # 🔄 Migration Guide
-- Not applicable — no data or API changes.
+- None required for runtime. Consumers of frontend bundles should not see breaking changes to external APIs. If there are integrations that parse the palette structure at runtime (rare), they should tolerate nested categories.
 
-# 📸 Screenshots/Examples
-- Visual diffs are available in the branch for reviewers to inspect; run the dev server to review changes locally.
+# 📸 Screenshots / Examples
+- N/A in this file. Reviewers should open the dev server to see the new nested palette and the new editors.
 
-# 🔗 Related Issues
-- See `docs/issues/phase-4g-ui-ux-fixes-plan.md` for the set of tickets/issues tracked under Phase 4G. Commits include multiple `fix(ui):` messages addressing listed issues.
+# 🔗 Related Issues / Commits
+Key commits on this branch (partial):
+- feat(BlockPalette): reorganize atomic blocks to include subcategories for improved structure
+- feat(BlockPalette): enhance category structure with subcategories and improve rendering logic
+- feat(BaseBlockEditor): integrate navigation store for atomic block editing and improve save handling
+- feat(ScriptEditor): add Script block type with editor, configuration, and styling
+- feat(Inference): add Inference block type with editor and configuration options
 
 # 👥 Review Notes
-- Focus review on these high-risk areas:
-  - Panel collapse behavior (Issue 7) — ensure closing Block Explorer does NOT affect Properties Panel layout
-  - Node action buttons (Issue 8) — ensure click handlers are not swallowed by parent canvas handlers
-  - Style regressions — verify no unintended global style changes were introduced (follow the Style Reversion Checklist in docs)
+- Focus areas for review:
+  - `BlockPalette.tsx`: correctness of the recursive renderer, expanded state handling, and counts calculation.
+  - `BlockPalette.scss`: visual indentation and spacing for nested sub-categories.
+  - New editors: `InferenceEditor` and `ScriptEditor` — check that fields match the `BlockConfig` expectations.
+  - Registry and discovery updates: ensure new block types are registered and discovery works with mock/real services.
+  - Tests: run the newly added tests and verify they pass in CI.
 
-- Suggested review steps:
-  1. Run the frontend dev server locally and exercise the manual testing checklist
-  2. Compare CSS changes against `main` for unintended modifications (see reversion checklist)
-  3. Run lint/type checks: `cd frontend && npm ci && npm run lint && npm run type-check` (if available)
+- Risks & mitigations:
+  - TypeScript environment errors surfaced during a local `npm run build` indicate project `tsconfig`/lib/JSX configuration may need to be enforced in CI. Those are environmental and pre-existing; this PR does not intentionally change compiler settings.
+  - The nested category rendering is intentionally defensive (filters out empty categories after search). If a category appears unexpectedly empty, check `blockTypeDefinitions` and `BlockTypeRegistry` for missing registrations.
 
-- Merge checklist:
-  - [ ] Manual UI verification complete
-  - [ ] Linting and type checks pass
-  - [ ] No unintended style regressions found in Foundry components
-
-
+# Checklist for merge
+- [ ] All frontend tests pass in CI
+- [ ] Visual verification of Block Palette and key editors in dev server
+- [ ] No regressions in drag-and-drop behavior (manual sanity test)
+- [ ] Documentation updated (roadmap and PHASE-4H summary)
