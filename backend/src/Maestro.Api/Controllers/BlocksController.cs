@@ -10,11 +10,13 @@ namespace Maestro.Api.Controllers
     {
         private readonly IBlockDiscoveryService _discovery;
         private readonly IBlockRepository _repository;
+        private readonly Maestro.Application.Interfaces.IBlockValidator _validator;
 
-        public BlocksController(IBlockDiscoveryService discovery, IBlockRepository repository)
+        public BlocksController(IBlockDiscoveryService discovery, IBlockRepository repository, Maestro.Application.Interfaces.IBlockValidator validator)
         {
             _discovery = discovery;
             _repository = repository;
+            _validator = validator;
         }
 
         [HttpGet]
@@ -35,9 +37,77 @@ namespace Maestro.Api.Controllers
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] object body)
         {
-            // Minimal: accept block JSON and save
-            // In a complete impl, map to BlockDefinition and validate
-            return BadRequest("Not implemented");
+            var json = body?.ToString() ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(json)) return BadRequest("Empty body");
+
+            var validation = await _validator.ValidateAsync(json);
+            if (!validation.IsValid) return BadRequest(new { errors = validation.Errors });
+
+            // naive parse to get id
+            using var doc = System.Text.Json.JsonDocument.Parse(json);
+            var root = doc.RootElement;
+            var id = root.GetProperty("id").GetString();
+            var name = root.GetProperty("name").GetString();
+            var type = root.GetProperty("blockType").GetString();
+
+            var block = Maestro.Domain.Entities.BlockDefinition.Create(id ?? System.Guid.NewGuid().ToString(), name ?? id ?? "block", type ?? "unknown");
+            // save
+            await _repository.SaveAsync(block);
+
+            return CreatedAtAction(nameof(GetById), new { id = block.Id }, block);
+        }
+
+        [HttpPut("{id}")]
+        public async Task<IActionResult> Update(string id, [FromBody] object body)
+        {
+            var json = body?.ToString() ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(json)) return BadRequest("Empty body");
+
+            var existing = await _repository.GetByIdAsync(id);
+            if (existing == null) return NotFound();
+
+            var validation = await _validator.ValidateAsync(json);
+            if (!validation.IsValid) return BadRequest(new { errors = validation.Errors });
+
+            // For now, overwrite basic metadata
+            using var doc = System.Text.Json.JsonDocument.Parse(json);
+            var root = doc.RootElement;
+            if (root.TryGetProperty("name", out var name)) existing = Maestro.Domain.Entities.BlockDefinition.Create(existing.Id, name.GetString() ?? existing.Name, existing.BlockType);
+
+            await _repository.SaveAsync(existing);
+            return Ok(existing);
+        }
+
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> Delete(string id)
+        {
+            var existing = await _repository.GetByIdAsync(id);
+            if (existing == null) return NotFound();
+            await _repository.DeleteAsync(id);
+            return NoContent();
+        }
+
+        [HttpGet("{id}/content/{*filePath}")]
+        public async Task<IActionResult> GetContent(string id, string filePath)
+        {
+            var blockPath = await _repository.GetBlockPathAsync(id);
+            if (blockPath == null) return NotFound();
+            var full = System.IO.Path.Combine(blockPath, filePath);
+            if (!System.IO.File.Exists(full)) return NotFound();
+            var txt = await System.IO.File.ReadAllTextAsync(full);
+            return Ok(txt);
+        }
+
+        [HttpPut("{id}/content/{*filePath}")]
+        public async Task<IActionResult> PutContent(string id, string filePath, [FromBody] string content)
+        {
+            var blockPath = await _repository.GetBlockPathAsync(id);
+            if (blockPath == null) return NotFound();
+            var full = System.IO.Path.Combine(blockPath, filePath);
+            var dir = System.IO.Path.GetDirectoryName(full);
+            if (!System.IO.Directory.Exists(dir)) System.IO.Directory.CreateDirectory(dir!);
+            await System.IO.File.WriteAllTextAsync(full, content);
+            return NoContent();
         }
     }
 }

@@ -52,7 +52,7 @@ namespace Maestro.Infrastructure.BlockStore
 
         private void OnFileChanged(object sender, FileSystemEventArgs e)
         {
-            if (!e.Name.Equals("block.json", StringComparison.OrdinalIgnoreCase)) return;
+            if (string.IsNullOrEmpty(e.Name) || !e.Name.Equals("block.json", StringComparison.OrdinalIgnoreCase)) return;
             var folder = Path.GetDirectoryName(e.FullPath);
             if (folder == null) return;
             try
@@ -95,11 +95,13 @@ namespace Maestro.Infrastructure.BlockStore
             var txt = File.ReadAllText(file);
             using var doc = JsonDocument.Parse(txt);
             var root = doc.RootElement;
-            var id = root.GetProperty("id").GetString() ?? Path.GetFileName(folder);
-            var name = root.GetProperty("name").GetString() ?? id;
-            var blockType = root.GetProperty("blockType").GetString() ?? "unknown";
+            var id = root.TryGetProperty("id", out var idEl) ? idEl.GetString() : null;
+            id ??= Path.GetFileName(folder);
 
-            var def = BlockDefinition.Create(id, name, blockType);
+            var name = root.TryGetProperty("name", out var nameEl) ? nameEl.GetString() : id;
+            var blockType = root.TryGetProperty("blockType", out var btEl) ? btEl.GetString() : "unknown";
+
+            var def = BlockDefinition.Create(id ?? Guid.NewGuid().ToString(), name ?? id ?? string.Empty, blockType ?? string.Empty);
 
             if (root.TryGetProperty("config", out var cfg))
             {

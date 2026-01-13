@@ -25,6 +25,7 @@ var blocksProjectPath = Path.Combine(Directory.GetCurrentDirectory(), ".maestro"
 
 builder.Services.AddSingleton<IBlockDiscoveryService>(_ => new FileSystemBlockDiscoveryService(new[] { blocksProjectPath, blocksUserPath, blocksGlobalPath }));
 builder.Services.AddScoped<IBlockRepository>(_ => new FileSystemBlockRepository(blocksProjectPath));
+builder.Services.AddScoped<Maestro.Application.Interfaces.IBlockValidator, Maestro.Infrastructure.BlockStore.JsonSchemaBlockValidator>();
 // Add CORS for frontend development
 builder.Services.AddCors(options =>
 {
