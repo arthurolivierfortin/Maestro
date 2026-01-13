@@ -19,10 +19,8 @@ describe('BlockPalette', () => {
 
   it('should render all categories', () => {
     render(<BlockPalette />);
-    expect(screen.getByText('Agents & Tasks')).toBeInTheDocument();
-    expect(screen.getByText('Tools & Prompts')).toBeInTheDocument();
-    expect(screen.getByText('Flow Control')).toBeInTheDocument();
-    expect(screen.getByText('Containers')).toBeInTheDocument();
+    expect(screen.getByText('Multi-Node')).toBeInTheDocument();
+    expect(screen.getByText('Atomic Blocks')).toBeInTheDocument();
   });
 
   it('should filter blocks based on search query', async () => {
@@ -40,7 +38,7 @@ describe('BlockPalette', () => {
     const user = userEvent.setup();
     render(<BlockPalette />);
 
-    const categoryHeader = screen.getByText('Agents & Tasks');
+    const categoryHeader = screen.getByText('Atomic Blocks');
     await user.click(categoryHeader);
 
     // Category should still be in the document

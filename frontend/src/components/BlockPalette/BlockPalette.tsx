@@ -27,10 +27,25 @@ interface PaletteCategory {
 }
 
 const PALETTE_CATEGORIES: PaletteCategory[] = [
-  { id: 'agents', label: 'Agents & Tasks', blockTypes: ['agent', 'task'] },
-  { id: 'tools', label: 'Tools & Prompts', blockTypes: ['tool', 'prompt', 'instruction', 'inference', 'script'] },
-  { id: 'flow', label: 'Flow Control', blockTypes: ['decision', 'validator', 'trigger'] },
-  { id: 'containers', label: 'Containers', blockTypes: ['workflow'] },
+  // Multi-node containers (can contain other nodes)
+  { id: 'multi-node', label: 'Multi-Node', blockTypes: ['workflow', 'agent'] },
+
+  // Atomic blocks grouped under a single top-level category
+  {
+    id: 'atomic',
+    label: 'Atomic Blocks',
+    blockTypes: [
+      'task',
+      'tool',
+      'prompt',
+      'instruction',
+      'inference',
+      'script',
+      'decision',
+      'validator',
+      'trigger',
+    ],
+  },
 ];
 
 export function BlockPalette({ searchQuery = '', onDragStart }: BlockPaletteProps) {
