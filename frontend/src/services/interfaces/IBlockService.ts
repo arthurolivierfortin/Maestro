@@ -62,7 +62,7 @@ export interface BlockUsage {
  */
 export interface IBlockService {
   // ===== CRUD Operations =====
-  
+
   /** Get all blocks */
   getAll(): Promise<Block[]>;
 
@@ -79,7 +79,7 @@ export interface IBlockService {
   delete(id: string): Promise<void>;
 
   // ===== Query Operations =====
-  
+
   /** Get blocks by type */
   getByType(type: BlockType): Promise<Block[]>;
 
@@ -93,7 +93,7 @@ export interface IBlockService {
   findUsages(blockId: string): Promise<BlockUsage[]>;
 
   // ===== Action Operations =====
-  
+
   /** Duplicate a block with a new ID */
   duplicate(id: string): Promise<Block>;
 

@@ -1,22 +1,25 @@
 /**
  * usePropertiesPanelVisibility Hook
  *
- * Determines whether the Properties panel should be visible based on current route.
- * Properties panel should only be visible in canvas contexts (workflows, blocks, nodes).
+ * Determines whether the Properties panel should be visible based on current route
+ * and navigation state. Properties panel is hidden when editing atomic blocks.
  */
 
 import { useLocation } from 'react-router-dom';
+import { useNavigationStore } from '../store/navigationStore';
 
 export function usePropertiesPanelVisibility() {
   const location = useLocation();
+  const isEditingAtomicBlock = useNavigationStore((state) => state.isEditingAtomicBlock);
+
+  // Hide properties panel when editing an atomic block
+  // (atomic blocks have their own full editor page)
+  if (isEditingAtomicBlock) {
+    return { isVisible: false };
+  }
 
   // Canvas pages - properties panel visible
   if (location.pathname.startsWith('/canvas')) {
-    return { isVisible: true };
-  }
-
-  // Block edit pages for composite blocks - properties panel visible
-  if (location.pathname.includes('/foundry/') && location.pathname.endsWith('/edit')) {
     return { isVisible: true };
   }
 

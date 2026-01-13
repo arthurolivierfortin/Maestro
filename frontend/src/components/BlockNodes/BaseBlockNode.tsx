@@ -4,10 +4,13 @@
  * Base node component for all block types on the canvas.
  */
 
-import { memo, useCallback } from 'react';
+import { memo, useCallback, useState } from 'react';
 import { Handle, Position } from 'reactflow';
 import { MoreVertical } from 'lucide-react';
 import { BlockIcon } from '../icons/BlockIcons';
+import { NodeContextMenu } from '../NodeContextMenu';
+import { useBlockStore } from '../../store/blockStore';
+import { useNavigationStore } from '../../store/navigationStore';
 import type { Block } from '../../types/block.types';
 import {
   isAgentConfig,
@@ -19,6 +22,7 @@ import {
   isTriggerConfig,
   isInstructionConfig,
   isWorkflowConfig,
+  isScriptConfig,
 } from '../../types/block.types';
 import type { BlockNodeData } from '../BlockCanvas/BlockCanvas';
 import './BaseBlockNode.scss';
@@ -33,20 +37,53 @@ export interface BaseBlockNodeProps {
  */
 export const BaseBlockNode = memo(({ data, selected }: BaseBlockNodeProps) => {
   const { block, isExecuting, executionStatus, onDrillDown } = data;
+  const [menuOpen, setMenuOpen] = useState(false);
+  const { duplicateBlock, removeBlock } = useBlockStore();
+  const { selectBlock, setPropertiesPanelMode, enterAtomicBlockEdit } = useNavigationStore();
 
-  // Handle double-click to drill down into composite blocks
+  // Handle double-click: drill down for composite blocks, edit for atomic blocks
   const handleDoubleClick = useCallback(() => {
-    if (!block.isAtomic && block.children && block.children.length > 0) {
+    if (block.isAtomic) {
+      // Enter edit mode for atomic blocks (shown in canvas workspace)
+      enterAtomicBlockEdit(block.id);
+    } else {
+      // Drill down into composite blocks
       onDrillDown(block.id);
     }
-  }, [block, onDrillDown]);
+  }, [block.id, block.isAtomic, enterAtomicBlockEdit, onDrillDown]);
 
   // Handle menu click
-  const handleMenuClick = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation();
-    // TODO: Implement context menu or action dropdown
-    console.log('Menu clicked for block:', block.id);
-  }, [block.id]);
+  const handleMenuClick = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      setMenuOpen(!menuOpen);
+    },
+    [menuOpen]
+  );
+
+  // Context menu actions
+  const handleEdit = useCallback(() => {
+    if (block.isAtomic) {
+      // Enter edit mode for atomic blocks (shown in canvas workspace)
+      enterAtomicBlockEdit(block.id);
+    } else {
+      // For composite blocks, open properties panel
+      selectBlock(block.id);
+      setPropertiesPanelMode('edit');
+    }
+  }, [block.id, block.isAtomic, enterAtomicBlockEdit, selectBlock, setPropertiesPanelMode]);
+
+  const handleDuplicate = useCallback(() => {
+    duplicateBlock(block.id);
+  }, [block.id, duplicateBlock]);
+
+  const handleDelete = useCallback(() => {
+    removeBlock(block.id);
+  }, [block.id, removeBlock]);
+
+  const handleDrillIntoMenu = useCallback(() => {
+    onDrillDown(block.id);
+  }, [block.id, onDrillDown]);
 
   // Determine status class
   const statusClass = executionStatus
@@ -79,8 +116,8 @@ export const BaseBlockNode = memo(({ data, selected }: BaseBlockNodeProps) => {
       <div className="base-block-node__header">
         <BlockIcon type={block.blockType} size={16} className="base-block-node__icon" />
         <span className="base-block-node__name">{block.name}</span>
-        <button 
-          className="base-block-node__menu" 
+        <button
+          className="base-block-node__menu"
           onClick={handleMenuClick}
           aria-label="Block menu"
           title="Block menu"
@@ -117,6 +154,18 @@ export const BaseBlockNode = memo(({ data, selected }: BaseBlockNodeProps) => {
           className="base-block-node__handle base-block-node__handle--output"
         />
       ))}
+
+      {/* Context Menu */}
+      {menuOpen && (
+        <NodeContextMenu
+          block={block}
+          onEdit={handleEdit}
+          onDuplicate={handleDuplicate}
+          onDelete={handleDelete}
+          onDrillInto={hasChildren ? handleDrillIntoMenu : undefined}
+          onClose={() => setMenuOpen(false)}
+        />
+      )}
     </div>
   );
 });
@@ -242,6 +291,17 @@ function renderBlockContent(block: Block) {
             <div className="base-block-node__preview-text">
               {block.config.description || 'Workflow container'}
             </div>
+          </div>
+        );
+      }
+      return null;
+
+    case 'script':
+      if (isScriptConfig(block.config)) {
+        return (
+          <div className="base-block-node__preview">
+            <div className="base-block-node__preview-label">Language:</div>
+            <div className="base-block-node__preview-value">{block.config.language}</div>
           </div>
         );
       }

@@ -17,7 +17,9 @@ export type BlockType =
   | 'tool' // Executable tool (atomic)
   | 'decision' // Conditional branching (atomic)
   | 'validator' // Output validation (atomic)
-  | 'trigger'; // Workflow trigger (atomic)
+  | 'trigger' // Workflow trigger (atomic)
+  | 'inference' // LLM inference unit with dynamic inputs/outputs (atomic)
+  | 'script'; // Script block to run user-provided code (atomic)
 
 /**
  * Input/Output port for block connections
@@ -115,7 +117,20 @@ export type BlockConfig =
   | DecisionBlockConfig
   | ValidatorBlockConfig
   | TriggerBlockConfig
-  | WorkflowBlockConfig;
+  | WorkflowBlockConfig
+  | InferenceBlockConfig
+  | ScriptBlockConfig;
+
+/**
+ * Script block configuration - allows storing code in any language
+ */
+export interface ScriptBlockConfig {
+  type: 'script';
+  language: string; // e.g., 'javascript', 'python', 'bash'
+  code: string; // the source code to run
+  runInSandbox?: boolean; // whether execution should be sandboxed
+  timeoutSeconds?: number; // max execution time
+}
 
 /**
  * Workflow block configuration (top-level container)
@@ -233,6 +248,46 @@ export interface TriggerBlockConfig {
 }
 
 /**
+ * Dynamic parameter for inference unit
+ */
+export interface InferenceParameter {
+  name: string;
+  type: 'string' | 'number' | 'boolean' | 'object' | 'array';
+  description?: string;
+  required: boolean;
+  defaultValue?: unknown;
+}
+
+/**
+ * Inference Unit block configuration
+ * Low-level LLM call with dynamic inputs/outputs
+ */
+export interface InferenceBlockConfig {
+  type: 'inference';
+  
+  // Prompts
+  systemPrompt?: string;
+  userPrompt: string; // Can use {{parameterName}} for dynamic parameters
+  
+  // Dynamic inputs
+  inputs: InferenceParameter[];
+  
+  // Output schema (added to prompt to guide structure)
+  // Note: Only raw_response and metadata outputs are generated.
+  // Use other blocks (Tool, Decision) to parse/extract from raw_response.
+  outputSchema?: string; // JSON schema definition (added to prompt, no auto-parsing)
+  
+  // LLM configuration
+  modelId?: string; // Model ID from model registry
+  fallbackModelId?: string;
+  temperature?: number;
+  maxTokens?: number;
+  topP?: number;
+  responseFormat?: 'text' | 'json' | 'yaml';
+  stopSequences?: string[];
+}
+
+/**
  * Type guards for block configs
  */
 export function isAgentConfig(config: BlockConfig): config is AgentBlockConfig {
@@ -269,4 +324,19 @@ export function isTriggerConfig(config: BlockConfig): config is TriggerBlockConf
 
 export function isWorkflowConfig(config: BlockConfig): config is WorkflowBlockConfig {
   return config.type === 'workflow';
+}
+
+export function isInferenceConfig(config: BlockConfig): config is InferenceBlockConfig {
+  return config.type === 'inference';
+}
+
+export function isScriptConfig(config: BlockConfig): config is ScriptBlockConfig {
+  return config.type === 'script';
+}
+
+/**
+ * Check if inference config has output schema
+ */
+export function hasOutputSchema(config: InferenceBlockConfig): boolean {
+  return !!(config.outputSchema && config.outputSchema.trim());
 }

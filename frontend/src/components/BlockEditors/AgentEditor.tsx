@@ -33,12 +33,9 @@ export function AgentEditor({ block }: AgentEditorProps) {
     [block.id, updateBlock]
   );
 
-  const handleFieldChange = useCallback(
-    (field: keyof AgentBlockConfig, value: unknown) => {
-      setConfig((prev) => ({ ...prev, [field]: value }));
-    },
-    []
-  );
+  const handleFieldChange = useCallback((field: keyof AgentBlockConfig, value: unknown) => {
+    setConfig((prev) => ({ ...prev, [field]: value }));
+  }, []);
 
   return (
     <BaseBlockEditor
@@ -187,8 +184,8 @@ export function AgentEditor({ block }: AgentEditorProps) {
         <div className="base-block-editor__field">
           <label className="base-block-editor__label">Available Tools</label>
           <p className="base-block-editor__help-text">
-            Tool selection interface will be implemented in a future update.
-            For now, tools can be configured via the Properties panel.
+            Tool selection interface will be implemented in a future update. For now, tools can be
+            configured via the Properties panel.
           </p>
         </div>
       </div>

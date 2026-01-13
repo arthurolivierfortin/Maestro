@@ -30,12 +30,9 @@ export function InstructionEditor({ block }: InstructionEditorProps) {
     [block.id, updateBlock]
   );
 
-  const handleFieldChange = useCallback(
-    (field: keyof InstructionBlockConfig, value: unknown) => {
-      setConfig((prev) => ({ ...prev, [field]: value }));
-    },
-    []
-  );
+  const handleFieldChange = useCallback((field: keyof InstructionBlockConfig, value: unknown) => {
+    setConfig((prev) => ({ ...prev, [field]: value }));
+  }, []);
 
   return (
     <BaseBlockEditor
@@ -75,7 +72,9 @@ export function InstructionEditor({ block }: InstructionEditorProps) {
             type="text"
             className="base-block-editor__input"
             value={(config as any).scope || ''}
-            onChange={(e) => handleFieldChange('scope' as keyof InstructionBlockConfig, e.target.value)}
+            onChange={(e) =>
+              handleFieldChange('scope' as keyof InstructionBlockConfig, e.target.value)
+            }
             placeholder="global, workflow, or agent"
           />
           <p className="base-block-editor__help-text">

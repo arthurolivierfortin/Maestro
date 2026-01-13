@@ -18,7 +18,7 @@ export function delay(minMs?: number, maxMs?: number): Promise<void> {
   const latencyConfig = config.mockLatency();
   const min = minMs ?? latencyConfig.min;
   const max = maxMs ?? latencyConfig.max;
-  
+
   const duration = Math.floor(Math.random() * (max - min + 1)) + min;
   return new Promise((resolve) => setTimeout(resolve, duration));
 }

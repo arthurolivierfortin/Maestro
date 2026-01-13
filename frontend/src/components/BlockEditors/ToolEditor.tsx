@@ -30,12 +30,9 @@ export function ToolEditor({ block }: ToolEditorProps) {
     [block.id, updateBlock]
   );
 
-  const handleFieldChange = useCallback(
-    (field: keyof ToolBlockConfig, value: unknown) => {
-      setConfig((prev) => ({ ...prev, [field]: value }));
-    },
-    []
-  );
+  const handleFieldChange = useCallback((field: keyof ToolBlockConfig, value: unknown) => {
+    setConfig((prev) => ({ ...prev, [field]: value }));
+  }, []);
 
   return (
     <BaseBlockEditor

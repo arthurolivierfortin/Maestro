@@ -26,11 +26,11 @@ async function loadConfig(): Promise<MaestroConfig> {
     // In development, we use a dynamic import
     const configModule = await import('../../../maestro.config.json');
     loadedConfig = { ...DEFAULT_CONFIG, ...configModule.default } as MaestroConfig;
-    
+
     if (import.meta.env.DEV) {
       console.log('[Config] Loaded maestro.config.json:', loadedConfig);
     }
-    
+
     return loadedConfig;
   } catch (error) {
     console.warn('[Config] Failed to load maestro.config.json, using defaults:', error);
@@ -62,17 +62,17 @@ function getFrontendConfig(): FrontendConfig {
  */
 function shouldUseMockBackend(): boolean {
   const config = getConfig();
-  
+
   // In test environment, always use mock
   if (config.environment === 'test') {
     return true;
   }
-  
+
   // In production, never use mock (override any config)
   if (config.environment === 'production') {
     return false;
   }
-  
+
   // Otherwise, use config value
   return config.frontend.useMockBackend;
 }
@@ -108,25 +108,25 @@ const configPromise = loadConfig();
 export const config = {
   /** Initialize and load configuration (call once at app start) */
   init: loadConfig,
-  
+
   /** Wait for config to be ready */
   ready: configPromise,
-  
+
   /** Get full configuration */
   get: getConfig,
-  
+
   /** Get frontend configuration section */
   frontend: getFrontendConfig,
-  
+
   /** Check if mock backend should be used */
   useMockBackend: shouldUseMockBackend,
-  
+
   /** Get API base URL */
   apiBaseUrl: getApiBaseUrl,
-  
+
   /** Get mock latency settings */
   mockLatency: getMockLatency,
-  
+
   /** Check if dev tools are enabled */
   devToolsEnabled: isDevToolsEnabled,
 };

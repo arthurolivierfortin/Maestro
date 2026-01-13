@@ -1,6 +1,6 @@
 /**
  * Keyboard Shortcuts Panel Component
- * 
+ *
  * Displays all available keyboard shortcuts organized by context.
  */
 
@@ -55,27 +55,23 @@ export const KeyboardShortcutsPanel: React.FC<KeyboardShortcutsPanelProps> = ({
   if (!isOpen) return null;
 
   // Group shortcuts by context
-  const grouped = SHORTCUTS.reduce((acc, shortcut) => {
-    if (!acc[shortcut.context]) {
-      acc[shortcut.context] = [];
-    }
-    acc[shortcut.context].push(shortcut);
-    return acc;
-  }, {} as Record<string, Shortcut[]>);
+  const grouped = SHORTCUTS.reduce(
+    (acc, shortcut) => {
+      if (!acc[shortcut.context]) {
+        acc[shortcut.context] = [];
+      }
+      acc[shortcut.context].push(shortcut);
+      return acc;
+    },
+    {} as Record<string, Shortcut[]>
+  );
 
   return (
     <div className="shortcuts-panel-backdrop" onClick={onClose}>
-      <div
-        className="shortcuts-panel"
-        onClick={e => e.stopPropagation()}
-      >
+      <div className="shortcuts-panel" onClick={(e) => e.stopPropagation()}>
         <div className="panel-header">
           <h2>Keyboard Shortcuts</h2>
-          <button
-            className="close-button"
-            onClick={onClose}
-            aria-label="Close"
-          >
+          <button className="close-button" onClick={onClose} aria-label="Close">
             <X size={20} />
           </button>
         </div>
@@ -95,9 +91,7 @@ export const KeyboardShortcutsPanel: React.FC<KeyboardShortcutsPanelProps> = ({
                         </React.Fragment>
                       ))}
                     </div>
-                    <div className="shortcut-description">
-                      {shortcut.description}
-                    </div>
+                    <div className="shortcut-description">{shortcut.description}</div>
                   </div>
                 ))}
               </div>
@@ -106,7 +100,9 @@ export const KeyboardShortcutsPanel: React.FC<KeyboardShortcutsPanelProps> = ({
         </div>
 
         <div className="panel-footer">
-          <p>Press <kbd>?</kbd> anytime to show this panel</p>
+          <p>
+            Press <kbd>?</kbd> anytime to show this panel
+          </p>
         </div>
       </div>
     </div>

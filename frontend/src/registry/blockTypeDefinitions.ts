@@ -15,6 +15,8 @@ import type {
   ValidatorBlockConfig,
   TriggerBlockConfig,
   WorkflowBlockConfig,
+  InferenceBlockConfig,
+  ScriptBlockConfig,
 } from '../types/block.types';
 
 /**
@@ -27,7 +29,20 @@ export const workflowTypeInfo: BlockTypeInfo = {
   icon: 'Workflow',
   color: '#2563eb',
   isAtomic: false,
-  allowedChildren: ['agent', 'task', 'tool', 'decision', 'validator', 'trigger'],
+  // Allow any block type inside a workflow
+  allowedChildren: [
+    'workflow',
+    'agent',
+    'task',
+    'prompt',
+    'instruction',
+    'tool',
+    'decision',
+    'validator',
+    'trigger',
+    'inference',
+    'script',
+  ],
   allowedParents: [],
   defaultConfig: {
     type: 'workflow',
@@ -328,6 +343,86 @@ export const triggerTypeInfo: BlockTypeInfo = {
 };
 
 /**
+ * Inference Unit block type
+ */
+export const inferenceTypeInfo: BlockTypeInfo = {
+  type: 'inference',
+  label: 'Inference Unit',
+  description: 'Low-level LLM call with dynamic I/O for meta-optimization',
+  icon: 'Brain',
+  color: '#8b5cf6',
+  isAtomic: true,
+  allowedChildren: [],
+  allowedParents: ['workflow', 'task', 'agent'],
+  defaultConfig: {
+    type: 'inference',
+    systemPrompt: '',
+    userPrompt: '',
+    inputs: [],
+    outputSchema: '',
+    temperature: 0.7,
+    maxTokens: 1000,
+    responseFormat: 'text',
+  } as InferenceBlockConfig,
+  defaultInputs: [], // Note: Inputs are dynamic based on config.inputs
+  defaultOutputs: [
+    {
+      id: 'raw_response',
+      name: 'Raw Response',
+      dataType: 'string',
+      required: true,
+      multiple: false,
+    },
+    {
+      id: 'metadata',
+      name: 'Metadata',
+      dataType: 'object',
+      required: true,
+      multiple: false,
+    },
+  ],
+};
+
+/**
+ * Script block type
+ */
+export const scriptTypeInfo: BlockTypeInfo = {
+  type: 'script',
+  label: 'Script',
+  description: 'Execute user-provided scripts (various languages)',
+  icon: 'Code',
+  color: '#f43f5e',
+  isAtomic: true,
+  allowedChildren: [],
+  allowedParents: ['workflow', 'task', 'agent'],
+  defaultConfig: {
+    type: 'script',
+    language: 'javascript',
+    code: '// write your script here',
+    runInSandbox: true,
+    timeoutSeconds: 30,
+  } as ScriptBlockConfig,
+  defaultInputs: [
+    {
+      id: 'input',
+      name: 'Input',
+      dataType: 'any',
+      required: false,
+      multiple: false,
+    },
+  ],
+  defaultOutputs: [
+    {
+      id: 'output',
+      name: 'Output',
+      dataType: 'any',
+      required: false,
+      multiple: false,
+    },
+  ],
+};
+
+/**
  * All block type definitions
  */
 export const blockTypeDefinitions: BlockTypeInfo[] = [
@@ -340,4 +435,6 @@ export const blockTypeDefinitions: BlockTypeInfo[] = [
   decisionTypeInfo,
   validatorTypeInfo,
   triggerTypeInfo,
+  inferenceTypeInfo,
+  scriptTypeInfo,
 ];

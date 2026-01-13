@@ -154,23 +154,27 @@ export const useBlockStore = create<BlockState>()(
             block.metadata = createMetadata();
           }
 
-          // If no parent, this becomes the root
+          // If no parent, this is a top-level block
           if (parentId === null) {
             blocks.set(block.id, { ...block, parentId: null });
-            set(saveHistory(state, blocks, block.id));
+            // Only set root if it doesn't exist yet
+            const newRootId = state.rootId || block.id;
+            set(saveHistory(state, blocks, newRootId));
             return;
           }
 
           // Find parent and add to its children
           const parent = blocks.get(parentId);
           if (!parent) {
-            console.error(`Parent block ${parentId} not found`);
+            console.error(`[BlockStore] Parent block ${parentId} not found`);
             return;
           }
 
           // Check if parent can contain this child
           if (!BlockTypeRegistry.canContain(parent.blockType, block.blockType)) {
-            console.error(`Parent ${parent.blockType} cannot contain child ${block.blockType}`);
+            console.error(
+              `[BlockStore] Parent ${parent.blockType} cannot contain child ${block.blockType}`
+            );
             return;
           }
 
@@ -235,7 +239,7 @@ export const useBlockStore = create<BlockState>()(
           const block = blocks.get(id);
 
           if (!block) {
-            console.error(`Block ${id} not found`);
+            console.error(`[BlockStore] Block ${id} not found for update`);
             return;
           }
 
@@ -627,7 +631,29 @@ export const useBlockStore = create<BlockState>()(
         onRehydrateStorage: () => (state) => {
           if (state && Array.isArray(state.blocks)) {
             // Convert array back to Map
-            state.blocks = new Map(state.blocks as [string, Block][]);
+            const blocksMap = new Map(state.blocks as [string, Block][]);
+
+            // CRITICAL: Rebuild children arrays from parentId relationships
+            // This ensures we use the canonical block data from the Map,
+            // not stale copies that may have been persisted in children arrays
+            blocksMap.forEach((block) => {
+              // Clear existing children (may be stale copies)
+              block.children = [];
+            });
+
+            // Rebuild children arrays from parentId
+            blocksMap.forEach((block) => {
+              if (block.parentId) {
+                const parent = blocksMap.get(block.parentId);
+                if (parent) {
+                  parent.children ??= [];
+                  // Add reference to the actual block from the Map
+                  parent.children.push(block);
+                }
+              }
+            });
+
+            state.blocks = blocksMap;
           }
         },
       }

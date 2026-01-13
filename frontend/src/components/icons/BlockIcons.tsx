@@ -14,6 +14,8 @@ import {
   GitBranch,
   ShieldCheck,
   Zap,
+  Brain,
+  Code,
   type LucideIcon,
 } from 'lucide-react';
 import type { BlockType } from '../../types/block.types';
@@ -31,6 +33,8 @@ const iconMap: Record<BlockType, LucideIcon> = {
   decision: GitBranch,
   validator: ShieldCheck,
   trigger: Zap,
+  inference: Brain,
+  script: Code,
 };
 
 /**
@@ -46,6 +50,8 @@ export const blockColorMap: Record<BlockType, string> = {
   decision: '#06b6d4',
   validator: '#ec4899',
   trigger: '#ef4444',
+  inference: '#8b5cf6',
+  script: '#f43f5e',
 };
 
 interface BlockIconProps {

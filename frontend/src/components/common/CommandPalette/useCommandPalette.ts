@@ -1,6 +1,6 @@
 /**
  * Command Palette Hook
- * 
+ *
  * Manages command palette state and keyboard shortcut.
  */
 
@@ -19,7 +19,7 @@ export function useCommandPalette() {
         e.preventDefault();
         setIsOpen(true);
       }
-      
+
       // Escape to close
       if (e.key === 'Escape' && isOpen) {
         setIsOpen(false);

@@ -1,6 +1,6 @@
 /**
  * Favorites Hook
- * 
+ *
  * Manages favorite blocks with localStorage persistence.
  */
 
@@ -16,7 +16,7 @@ function loadFavorites(): Set<string> {
   try {
     const stored = localStorage.getItem(FAVORITES_STORAGE_KEY);
     if (!stored) return new Set();
-    
+
     const ids: string[] = JSON.parse(stored);
     return new Set(ids);
   } catch (error) {
@@ -41,43 +41,49 @@ function saveFavorites(favoriteIds: Set<string>): void {
  * Favorites management hook
  */
 export function useFavorites() {
-  const getAllBlocks = useBlockStore(state => state.getAllBlocks);
-  const updateBlock = useBlockStore(state => state.updateBlock);
+  const getAllBlocks = useBlockStore((state) => state.getAllBlocks);
+  const updateBlock = useBlockStore((state) => state.updateBlock);
 
-  const toggleFavorite = useCallback((blockId: string) => {
-    const blocks = getAllBlocks();
-    const block = blocks.find(b => b.id === blockId);
-    if (!block) return;
+  const toggleFavorite = useCallback(
+    (blockId: string) => {
+      const blocks = getAllBlocks();
+      const block = blocks.find((b) => b.id === blockId);
+      if (!block) return;
 
-    const newFavoriteState = !block.isFavorite;
-    
-    // Update block
-    updateBlock(blockId, { isFavorite: newFavoriteState });
+      const newFavoriteState = !block.isFavorite;
 
-    // Update localStorage
-    const favorites = loadFavorites();
-    if (newFavoriteState) {
-      favorites.add(blockId);
-    } else {
-      favorites.delete(blockId);
-    }
-    saveFavorites(favorites);
-  }, [getAllBlocks, updateBlock]);
+      // Update block
+      updateBlock(blockId, { isFavorite: newFavoriteState });
+
+      // Update localStorage
+      const favorites = loadFavorites();
+      if (newFavoriteState) {
+        favorites.add(blockId);
+      } else {
+        favorites.delete(blockId);
+      }
+      saveFavorites(favorites);
+    },
+    [getAllBlocks, updateBlock]
+  );
 
   const getFavorites = useCallback(() => {
-    return getAllBlocks().filter(b => b.isFavorite);
+    return getAllBlocks().filter((b) => b.isFavorite);
   }, [getAllBlocks]);
 
-  const isFavorite = useCallback((blockId: string) => {
-    const blocks = getAllBlocks();
-    const block = blocks.find(b => b.id === blockId);
-    return block?.isFavorite || false;
-  }, [getAllBlocks]);
+  const isFavorite = useCallback(
+    (blockId: string) => {
+      const blocks = getAllBlocks();
+      const block = blocks.find((b) => b.id === blockId);
+      return block?.isFavorite || false;
+    },
+    [getAllBlocks]
+  );
 
   return {
     toggleFavorite,
     getFavorites,
     isFavorite,
-    favoriteCount: getAllBlocks().filter(b => b.isFavorite).length,
+    favoriteCount: getAllBlocks().filter((b) => b.isFavorite).length,
   };
 }

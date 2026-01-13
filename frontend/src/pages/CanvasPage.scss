@@ -6,8 +6,15 @@
   width: 100%;
   height: 100%;
   display: flex;
+  flex-direction: column;
   overflow: hidden;
   background: var(--bg-primary);
+}
+
+.canvas-page__content {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
 }
 
 .canvas-page__palette {
@@ -38,4 +45,11 @@
   flex: 1;
   height: 100%;
   overflow: hidden;
+}
+
+.canvas-page__editor {
+  flex: 1;
+  height: 100%;
+  overflow: auto;
+  background: var(--bg-primary);
 }

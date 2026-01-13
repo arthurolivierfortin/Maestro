@@ -140,7 +140,10 @@ export function CreateBlockWizard({ isOpen, onClose }: CreateBlockWizardProps) {
       id: blockId,
       name: state.basicInfo.name,
       blockType: state.selectedType,
-      isAtomic: state.selectedType !== 'workflow' && state.selectedType !== 'agent' && state.selectedType !== 'task',
+      isAtomic:
+        state.selectedType !== 'workflow' &&
+        state.selectedType !== 'agent' &&
+        state.selectedType !== 'task',
       config: state.config,
       inputs: [],
       outputs: [],
@@ -267,8 +270,8 @@ export function CreateBlockWizard({ isOpen, onClose }: CreateBlockWizardProps) {
                 index === currentStepIndex
                   ? 'wizard-progress__step--active'
                   : index < currentStepIndex
-                  ? 'wizard-progress__step--completed'
-                  : ''
+                    ? 'wizard-progress__step--completed'
+                    : ''
               }`}
             >
               <div className="wizard-progress__number">{index + 1}</div>

@@ -13,7 +13,16 @@ import { Home, ChevronLeft, ChevronRight } from 'lucide-react';
 import './Breadcrumb.scss';
 
 export function Breadcrumb() {
-  const { getBreadcrumbs, navigateTo, navigateToRoot, isAtRoot, navigateBack, navigateForward, canGoBack, canGoForward } = useNavigation();
+  const {
+    getBreadcrumbs,
+    navigateTo,
+    navigateToRoot,
+    isAtRoot,
+    navigateBack,
+    navigateForward,
+    canGoBack,
+    canGoForward,
+  } = useNavigation();
   const navigate = useNavigate();
   const breadcrumbs = getBreadcrumbs();
 
@@ -89,7 +98,7 @@ export function Breadcrumb() {
           if (!block) return null;
 
           return (
-            <li key={item.id} className="breadcrumb__item">
+            <li key={`${item.id}-${index}`} className="breadcrumb__item">
               <span className="breadcrumb__separator">/</span>
               <button
                 className={`breadcrumb__segment ${isLast ? 'breadcrumb__segment--active' : ''}`}

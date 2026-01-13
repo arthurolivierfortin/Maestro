@@ -1,6 +1,6 @@
 /**
  * Search Results Component
- * 
+ *
  * Displays search results with keyboard navigation.
  */
 
@@ -46,18 +46,13 @@ export const SearchResults: React.FC<SearchResultsProps> = ({
       {results.map((result, index) => (
         <div
           key={result.id}
-          className={`search-result-item ${
-            index === selectedIndex ? 'selected' : ''
-          }`}
+          className={`search-result-item ${index === selectedIndex ? 'selected' : ''}`}
           onClick={() => onSelect(result)}
           onMouseEnter={() => onHover(index)}
         >
           <div className="result-icon">
             {result.type === 'block' && (
-              <BlockIcon
-                type={(result.data as Block).blockType}
-                size={20}
-              />
+              <BlockIcon type={(result.data as Block).blockType} size={20} />
             )}
             {result.type === 'action' && <span>⚡</span>}
             {result.type === 'workflow' && <span>🔀</span>}
@@ -65,9 +60,7 @@ export const SearchResults: React.FC<SearchResultsProps> = ({
           </div>
           <div className="result-content">
             <div className="result-name">{result.name}</div>
-            {result.description && (
-              <div className="result-description">{result.description}</div>
-            )}
+            {result.description && <div className="result-description">{result.description}</div>}
           </div>
           <div className="result-type">{result.type}</div>
         </div>

@@ -68,10 +68,7 @@ const BLOCK_TYPES: Array<{
 
 export function StepSelectType({ selectedType, onSelectType }: StepSelectTypeProps) {
   return (
-    <WizardStep
-      title="Select Block Type"
-      description="Choose the type of block you want to create"
-    >
+    <WizardStep title="Select Block Type" description="Choose the type of block you want to create">
       <div className="type-cards">
         {BLOCK_TYPES.map((blockType) => (
           <button

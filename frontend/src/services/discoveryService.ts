@@ -1,6 +1,6 @@
 /**
  * Discovery Service Factory
- * 
+ *
  * Provides discovery service based on configuration.
  */
 

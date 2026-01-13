@@ -1,6 +1,6 @@
 /**
  * Block Discovery Service Interface
- * 
+ *
  * Provides programmatic access to block discovery, recommendations,
  * and execution insights for self-improving workflows.
  */

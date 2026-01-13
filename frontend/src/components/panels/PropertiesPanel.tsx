@@ -29,7 +29,7 @@ export function PropertiesPanel({ panelRef }: PropertiesPanelProps) {
   const [editedConfig, setEditedConfig] = useState<BlockConfig | null>(null);
   const [copiedId, setCopiedId] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
-  
+
   const isViewMode = propertiesPanelMode === 'view';
   const isEditMode = propertiesPanelMode === 'edit';
 
@@ -129,14 +129,22 @@ export function PropertiesPanel({ panelRef }: PropertiesPanelProps) {
         </button>
 
         <h3 className="properties-panel__title">Properties</h3>
-        
+
         {block && !isCollapsed && (
           <button
             className={`properties-panel__mode-btn ${isViewMode ? 'properties-panel__mode-btn--view' : 'properties-panel__mode-btn--edit'}`}
             onClick={handleToggleMode}
             title={isViewMode ? 'Switch to edit mode' : 'Switch to view mode'}
           >
-            {isViewMode ? <><Eye size={14} /> View</> : <><Pencil size={14} /> Edit</>}
+            {isViewMode ? (
+              <>
+                <Eye size={14} /> View
+              </>
+            ) : (
+              <>
+                <Pencil size={14} /> Edit
+              </>
+            )}
           </button>
         )}
       </div>
@@ -219,7 +227,7 @@ export function PropertiesPanel({ panelRef }: PropertiesPanelProps) {
             <div className="properties-panel__section">
               <label className="properties-panel__label">Configuration</label>
               <div className="properties-panel__config">
-                {renderConfigFields(block.blockType, editedConfig, handleConfigChange, isViewMode)}
+                {renderConfigFields(block.blockType, editedConfig, handleConfigChange)}
               </div>
             </div>
           )}

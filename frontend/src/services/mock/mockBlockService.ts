@@ -58,7 +58,7 @@ class MockBlockService implements IBlockService {
     }
 
     const now = new Date().toISOString();
-    
+
     // Create new block
     const newBlock: Block = {
       id,
@@ -105,7 +105,9 @@ class MockBlockService implements IBlockService {
       ...(updates.position && { position: updates.position }),
       metadata: {
         ...existing.metadata,
-        ...(updates.metadata?.description !== undefined && { description: updates.metadata.description }),
+        ...(updates.metadata?.description !== undefined && {
+          description: updates.metadata.description,
+        }),
         ...(updates.metadata?.tags && { tags: updates.metadata.tags }),
         ...(updates.metadata?.status && { status: updates.metadata.status }),
         updatedAt: new Date().toISOString(),
@@ -187,7 +189,7 @@ class MockBlockService implements IBlockService {
         const relatedConnections = b.connections.filter(
           (conn) => conn.sourceBlockId === blockId || conn.targetBlockId === blockId
         );
-        
+
         relatedConnections.forEach((conn) => {
           usages.push({
             blockId: b.id,

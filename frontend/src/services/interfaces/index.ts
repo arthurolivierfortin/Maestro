@@ -11,12 +11,7 @@ export type {
   ConnectionTestResult,
 } from './IModelService';
 
-export type {
-  IBlockService,
-  CreateBlockDto,
-  UpdateBlockDto,
-  BlockUsage,
-} from './IBlockService';
+export type { IBlockService, CreateBlockDto, UpdateBlockDto, BlockUsage } from './IBlockService';
 
 export type {
   IBlockDiscoveryService,

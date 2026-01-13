@@ -31,12 +31,9 @@ export function ValidatorEditor({ block }: ValidatorEditorProps) {
     [block.id, updateBlock]
   );
 
-  const handleFieldChange = useCallback(
-    (field: keyof ValidatorBlockConfig, value: unknown) => {
-      setConfig((prev) => ({ ...prev, [field]: value }));
-    },
-    []
-  );
+  const handleFieldChange = useCallback((field: keyof ValidatorBlockConfig, value: unknown) => {
+    setConfig((prev) => ({ ...prev, [field]: value }));
+  }, []);
 
   const handleTestValidation = useCallback(() => {
     try {
@@ -73,8 +70,16 @@ export function ValidatorEditor({ block }: ValidatorEditorProps) {
           <textarea
             id="validationSchema"
             className="base-block-editor__textarea"
-            value={(config as any).validationSchema || (config.schema ? JSON.stringify(config.schema, null, 2) : '')}
-            onChange={(e) => handleFieldChange('schema' as keyof ValidatorBlockConfig, e.target.value ? JSON.parse(e.target.value) : undefined)}
+            value={
+              (config as any).validationSchema ||
+              (config.schema ? JSON.stringify(config.schema, null, 2) : '')
+            }
+            onChange={(e) =>
+              handleFieldChange(
+                'schema' as keyof ValidatorBlockConfig,
+                e.target.value ? JSON.parse(e.target.value) : undefined
+              )
+            }
             placeholder='{"type": "object", "properties": {...}}'
             rows={15}
             style={{ fontFamily: 'monospace' }}

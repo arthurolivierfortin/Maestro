@@ -4,7 +4,7 @@
  * Synchronizes React Flow state with BlockStore and NavigationStore.
  */
 
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState, useEffect } from 'react';
 import type {
   Node,
   Edge,
@@ -13,8 +13,10 @@ import type {
   OnConnect,
   NodeMouseHandler,
 } from 'reactflow';
+import { useReactFlow, applyNodeChanges } from 'reactflow';
 import { useBlockStore } from '../../store/blockStore';
 import { useNavigationStore } from '../../store/navigationStore';
+import { useExecutionStore } from '../../store/executionStore';
 import type { Block, BlockConnection } from '../../types/block.types';
 import type { BlockNodeData, ConnectionEdgeData } from './BlockCanvas';
 
@@ -22,6 +24,7 @@ interface UseCanvasSyncProps {
   parentId: string | null;
   onBlockSelect?: (blockId: string | null) => void;
   onDrillDown?: (blockId: string) => void;
+  onDrop?: (event: React.DragEvent, position: { x: number; y: number }) => void;
   readOnly?: boolean;
 }
 
@@ -31,20 +34,32 @@ interface UseCanvasSyncProps {
 function blocksToNodes(
   blocks: Block[],
   selectedBlockId: string | null,
-  onDrillDown: (blockId: string) => void
+  onDrillDown: (blockId: string) => void,
+  nodeExecutions?: Map<string, { status: string; isExecuting: boolean }>
 ): Node<BlockNodeData>[] {
-  return blocks.map((block) => ({
-    id: block.id,
-    type: block.blockType,
-    position: block.position,
-    data: {
-      block,
-      isSelected: block.id === selectedBlockId,
-      isExecuting: false,
-      executionStatus: undefined,
-      onDrillDown,
-    },
-  }));
+  return blocks.map((block, index) => {
+    const execution = nodeExecutions?.get(block.id);
+
+    // Provide default position if not set
+    const position = block.position || {
+      x: index * 280,
+      y: 0,
+    };
+
+    return {
+      id: block.id,
+      type: block.blockType,
+      position,
+      data: {
+        block,
+        isSelected: block.id === selectedBlockId,
+        isExecuting: execution?.isExecuting || false,
+        executionStatus: execution?.status as any,
+        onDrillDown,
+        hasChildren: (block.children && block.children.length > 0) || false,
+      },
+    };
+  });
 }
 
 /**
@@ -78,28 +93,65 @@ export function useCanvasSync({
   parentId,
   onBlockSelect,
   onDrillDown,
+  onDrop,
   readOnly = false,
 }: UseCanvasSyncProps) {
-  // Store hooks
-  const { getBlockChildren, updateBlock, addConnection, removeConnection, getBlockConnections } =
-    useBlockStore();
+  // Store hooks - use reactive selectors for automatic re-renders
+  const blocks = useBlockStore((state) => state.blocks);
+  const rootId = useBlockStore((state) => state.rootId);
+  const updateBlock = useBlockStore((state) => state.updateBlock);
+  const addConnection = useBlockStore((state) => state.addConnection);
+  const removeConnection = useBlockStore((state) => state.removeConnection);
+
   const { selectedBlockId, selectBlock } = useNavigationStore();
-  const getRootBlock = useBlockStore((state) => state.getRootBlock);
+  const { currentExecution } = useExecutionStore();
 
-  // Get current block and its children - memoized to avoid exhaustive deps warnings
-  const childBlocks = useMemo(() => {
-    return parentId ? getBlockChildren(parentId) : [];
-  }, [parentId, getBlockChildren]);
+  // React Flow hook for coordinate transformation (correct API: screenToFlowPosition)
+  const { screenToFlowPosition } = useReactFlow();
 
-  const connections = useMemo(() => {
-    return parentId ? getBlockConnections(parentId) : [];
-  }, [parentId, getBlockConnections]);
+  // Determine the "context" block - the block whose children we're viewing
+  // If parentId is null, we're viewing the root block's children
+  // If parentId is set, we're viewing that block's children
+  const contextBlockId = parentId ?? rootId;
 
-  // If viewing root (parentId === null), get all top-level blocks
+  // Derive blocks to display reactively from the blocks Map
+  // IMPORTANT: We use the Map as the source of truth, NOT contextBlock.children
+  // This ensures positions are always current (children array may have stale copies)
   const blocksToDisplay = useMemo(() => {
-    const rootBlock = getRootBlock();
-    return parentId === null && rootBlock ? [rootBlock] : childBlocks;
-  }, [parentId, getRootBlock, childBlocks]);
+    if (!contextBlockId) return [];
+
+    // Get all blocks whose parentId matches the context block
+    // This ensures we always get the current block data from the Map
+    const childBlocks: Block[] = [];
+    blocks.forEach((block) => {
+      if (block.parentId === contextBlockId) {
+        childBlocks.push(block);
+      }
+    });
+
+    return childBlocks;
+  }, [contextBlockId, blocks]);
+
+  // Derive connections reactively (connections belong to the context block)
+  const connections = useMemo(() => {
+    if (!contextBlockId) return [];
+    const contextBlock = blocks.get(contextBlockId);
+    return contextBlock?.connections || [];
+  }, [contextBlockId, blocks]);
+
+  // Create execution state map for nodes
+  const nodeExecutions = useMemo(() => {
+    if (!currentExecution) return undefined;
+
+    const map = new Map();
+    currentExecution.nodeExecutions?.forEach((nodeExec) => {
+      map.set(nodeExec.nodeId, {
+        status: nodeExec.status.toLowerCase(),
+        isExecuting: nodeExec.status === 'Running',
+      });
+    });
+    return map;
+  }, [currentExecution]);
 
   // Drill-down handler
   const handleDrillDown = useCallback(
@@ -111,24 +163,73 @@ export function useCanvasSync({
     [onDrillDown]
   );
 
-  // Convert to React Flow format
-  const nodes = useMemo(
-    () => blocksToNodes(blocksToDisplay, selectedBlockId, handleDrillDown),
-    [blocksToDisplay, selectedBlockId, handleDrillDown]
+  // Convert store blocks to React Flow format (source of truth from store)
+  const storeNodes = useMemo(
+    () => blocksToNodes(blocksToDisplay, selectedBlockId, handleDrillDown, nodeExecutions),
+    [blocksToDisplay, selectedBlockId, handleDrillDown, nodeExecutions]
   );
+
+  // Local state for nodes - allows React Flow to control positions during drag
+  const [localNodes, setLocalNodes] = useState<Node<BlockNodeData>[]>(storeNodes);
+
+  // Sync local nodes when store changes (but not during drag)
+  // IMPORTANT: Only sync if block data actually changed, not just references
+  useEffect(() => {
+    // Check if node list changed (add/remove)
+    const storeIds = storeNodes
+      .map((n) => n.id)
+      .sort((a, b) => a.localeCompare(b))
+      .join('|');
+    const localIds = localNodes
+      .map((n) => n.id)
+      .sort((a, b) => a.localeCompare(b))
+      .join('|');
+
+    if (storeIds !== localIds) {
+      // Nodes were added or removed - full sync needed
+      setLocalNodes(storeNodes);
+      return;
+    }
+
+    // Same nodes - check if we need to update data (selection, execution status)
+    // but preserve local positions (they may differ during/after drag)
+    const storeDataHash = storeNodes
+      .map((n) => `${n.id}:${n.data.isSelected}:${n.data.isExecuting}`)
+      .join('|');
+    const localDataHash = localNodes
+      .map((n) => `${n.id}:${n.data.isSelected}:${n.data.isExecuting}`)
+      .join('|');
+
+    if (storeDataHash !== localDataHash) {
+      // Data changed - merge store data with local positions
+      setLocalNodes((prev) => {
+        const positionMap = new Map(prev.map((n) => [n.id, n.position]));
+        return storeNodes.map((n) => ({
+          ...n,
+          position: positionMap.get(n.id) || n.position,
+        }));
+      });
+    }
+    // If only positions differ, keep local positions (user may have dragged)
+  }, [storeNodes]);
 
   const edges = useMemo(() => connectionsToEdges(connections), [connections]);
 
   // Handle node changes (position, selection, deletion)
   const handleNodesChange: OnNodesChange = useCallback(
     (changes) => {
-      if (readOnly) return;
+      // Apply changes to local state immediately for smooth dragging
+      setLocalNodes((nds) => applyNodeChanges(changes, nds));
+
+      if (readOnly) {
+        return;
+      }
 
       changes.forEach((change) => {
         switch (change.type) {
           case 'position':
-            if (change.position && change.dragging === false) {
-              // Only update position when drag is complete
+            // Only persist to store when dragging is finished
+            if (change.position && !change.dragging) {
               updateBlock(change.id, { position: change.position });
             }
             break;
@@ -137,7 +238,9 @@ export function useCanvasSync({
             // Handled by keyboard shortcuts
             break;
 
-          default:
+          case 'dimensions':
+          case 'select':
+            // Ignore - handled elsewhere
             break;
         }
       });
@@ -151,18 +254,20 @@ export function useCanvasSync({
       if (readOnly) return;
 
       changes.forEach((change) => {
-        if (change.type === 'remove' && parentId) {
-          removeConnection(parentId, change.id);
+        if (change.type === 'remove' && contextBlockId) {
+          removeConnection(contextBlockId, change.id);
         }
       });
     },
-    [removeConnection, parentId, readOnly]
+    [removeConnection, contextBlockId, readOnly]
   );
 
   // Handle new connections
   const handleConnect: OnConnect = useCallback(
     (connection) => {
-      if (readOnly || !parentId || !connection.source || !connection.target) return;
+      if (readOnly || !contextBlockId || !connection.source || !connection.target) {
+        return;
+      }
 
       const newConnection: BlockConnection = {
         id: generateConnectionId(),
@@ -172,18 +277,16 @@ export function useCanvasSync({
         targetPortId: connection.targetHandle || 'input',
       };
 
-      addConnection(parentId, newConnection);
+      addConnection(contextBlockId, newConnection);
     },
-    [addConnection, parentId, readOnly]
+    [addConnection, contextBlockId, readOnly]
   );
 
   // Handle node click (selection)
   const handleNodeClick: NodeMouseHandler = useCallback(
     (_event, node) => {
       selectBlock(node.id);
-      if (onBlockSelect) {
-        onBlockSelect(node.id);
-      }
+      onBlockSelect?.(node.id);
     },
     [selectBlock, onBlockSelect]
   );
@@ -191,18 +294,38 @@ export function useCanvasSync({
   // Handle pane click (deselect)
   const handlePaneClick = useCallback(() => {
     selectBlock(null);
-    if (onBlockSelect) {
-      onBlockSelect(null);
-    }
+    onBlockSelect?.(null);
   }, [selectBlock, onBlockSelect]);
 
+  // Handle drop on canvas
+  const handleDrop = useCallback(
+    (event: React.DragEvent) => {
+      if (readOnly || !contextBlockId || !onDrop) {
+        return;
+      }
+
+      event.preventDefault();
+
+      // Convert screen coordinates to flow coordinates (accounting for zoom/pan)
+      const flowPosition = screenToFlowPosition({
+        x: event.clientX,
+        y: event.clientY,
+      });
+
+      onDrop(event, flowPosition);
+    },
+    [readOnly, contextBlockId, onDrop, screenToFlowPosition]
+  );
+
   return {
-    nodes,
+    nodes: localNodes,
     edges,
     onNodesChange: handleNodesChange,
     onEdgesChange: handleEdgesChange,
     onConnect: handleConnect,
     onNodeClick: handleNodeClick,
     onPaneClick: handlePaneClick,
+    onDrop: handleDrop,
+    contextBlockId,
   };
 }

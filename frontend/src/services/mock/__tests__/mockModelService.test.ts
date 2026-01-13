@@ -167,9 +167,9 @@ describe('mockModelService', () => {
         displayName: 'Updated',
       };
 
-      await expect(
-        mockModelService.update('non-existent-id', updateDto)
-      ).rejects.toThrow('not found');
+      await expect(mockModelService.update('non-existent-id', updateDto)).rejects.toThrow(
+        'not found'
+      );
     });
   });
 
@@ -210,28 +210,20 @@ describe('mockModelService', () => {
     });
 
     it('should throw error for non-existent model', async () => {
-      await expect(
-        mockModelService.delete('non-existent-id')
-      ).rejects.toThrow('not found');
+      await expect(mockModelService.delete('non-existent-id')).rejects.toThrow('not found');
     });
   });
 
   describe('testConnection', () => {
     it('should return success for local models', async () => {
-      const result = await mockModelService.testConnection(
-        'local-model',
-        'http://localhost:11434'
-      );
+      const result = await mockModelService.testConnection('local-model', 'http://localhost:11434');
 
       expect(result.success).toBe(true);
       expect(result.latencyMs).toBeGreaterThanOrEqual(0);
     });
 
     it('should return failure for invalid endpoints', async () => {
-      const result = await mockModelService.testConnection(
-        'some-model',
-        'invalid-url'
-      );
+      const result = await mockModelService.testConnection('some-model', 'invalid-url');
 
       expect(result.success).toBe(false);
       expect(result.error).toBeDefined();
@@ -257,7 +249,7 @@ describe('mockModelService', () => {
 describe('resetMockData', () => {
   it('should reset data to initial state', async () => {
     const mockModelService = getMockModelService();
-    
+
     // Create a custom model
     const dto: CreateModelDto = {
       id: 'temporary-model',

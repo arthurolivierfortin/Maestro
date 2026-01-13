@@ -30,12 +30,9 @@ export function TriggerEditor({ block }: TriggerEditorProps) {
     [block.id, updateBlock]
   );
 
-  const handleFieldChange = useCallback(
-    (field: keyof TriggerBlockConfig, value: unknown) => {
-      setConfig((prev) => ({ ...prev, [field]: value }));
-    },
-    []
-  );
+  const handleFieldChange = useCallback((field: keyof TriggerBlockConfig, value: unknown) => {
+    setConfig((prev) => ({ ...prev, [field]: value }));
+  }, []);
 
   return (
     <BaseBlockEditor

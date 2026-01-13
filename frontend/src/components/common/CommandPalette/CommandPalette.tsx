@@ -1,6 +1,6 @@
 /**
  * Command Palette Component
- * 
+ *
  * Global search palette with fuzzy search and keyboard navigation.
  */
 
@@ -9,7 +9,6 @@ import { useNavigate } from 'react-router-dom';
 import { Search, X } from 'lucide-react';
 import { SearchResults, type SearchResult } from './SearchResults';
 import { getRecentItems, addRecentItem, clearRecentItems } from './recentItems';
-import { blockService } from '../../../services';
 import { useBlockStore } from '../../../store/blockStore';
 import './CommandPalette.scss';
 
@@ -21,16 +20,13 @@ interface CommandPaletteProps {
 /**
  * Command Palette
  */
-export const CommandPalette: React.FC<CommandPaletteProps> = ({
-  isOpen,
-  onClose,
-}) => {
+export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose }) => {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SearchResult[]>([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
-  const blocks = useBlockStore(state => state.blocks);
+  const blocksMap = useBlockStore((state) => state.blocks);
 
   // Focus input when opened
   useEffect(() => {
@@ -46,9 +42,9 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
     if (query.trim() === '') {
       // Show recent items
       const recent = getRecentItems();
-      const recentResults: SearchResult[] = recent.map(item => {
+      const recentResults: SearchResult[] = recent.map((item) => {
         if (item.type === 'block') {
-          const block = blocks.find(b => b.id === item.id);
+          const block = blocksMap.get(item.id);
           return {
             id: item.id,
             name: item.name,
@@ -71,20 +67,21 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
 
     // Search blocks
     const searchTerm = query.toLowerCase();
+    const blocks = Array.from(blocksMap.values());
     const blockResults: SearchResult[] = blocks
       .filter(
-        b =>
+        (b) =>
           b.name.toLowerCase().includes(searchTerm) ||
-          b.description?.toLowerCase().includes(searchTerm) ||
-          b.tags?.some(tag => tag.toLowerCase().includes(searchTerm))
+          b.metadata.description?.toLowerCase().includes(searchTerm) ||
+          b.metadata.tags?.some((tag) => tag.toLowerCase().includes(searchTerm))
       )
       .slice(0, 10)
-      .map(block => ({
+      .map((block) => ({
         id: block.id,
         name: block.name,
         type: 'block' as const,
         data: block,
-        description: block.description,
+        description: block.metadata.description,
       }));
 
     // Quick actions
@@ -108,7 +105,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
 
     setResults([...actions, ...blockResults]);
     setSelectedIndex(0);
-  }, [query, isOpen, blocks]);
+  }, [query, isOpen, blocksMap]);
 
   // Keyboard navigation
   useEffect(() => {
@@ -117,10 +114,10 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'ArrowDown') {
         e.preventDefault();
-        setSelectedIndex(prev => Math.min(prev + 1, results.length - 1));
+        setSelectedIndex((prev) => Math.min(prev + 1, results.length - 1));
       } else if (e.key === 'ArrowUp') {
         e.preventDefault();
-        setSelectedIndex(prev => Math.max(prev - 1, 0));
+        setSelectedIndex((prev) => Math.max(prev - 1, 0));
       } else if (e.key === 'Enter' && results[selectedIndex]) {
         e.preventDefault();
         handleSelect(results[selectedIndex]);
@@ -135,7 +132,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
     if (result.type === 'block') {
       const block = result.data;
       addRecentItem({ id: block.id, name: block.name, type: 'block' });
-      
+
       if (block.isAtomic) {
         navigate(`/foundry/${block.id}/edit`);
       } else {
@@ -149,7 +146,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
         navigate('/canvas');
       }
     }
-    
+
     onClose();
     setQuery('');
   };
@@ -163,10 +160,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
 
   return (
     <div className="command-palette-backdrop" onClick={onClose}>
-      <div
-        className="command-palette"
-        onClick={e => e.stopPropagation()}
-      >
+      <div className="command-palette" onClick={(e) => e.stopPropagation()}>
         <div className="palette-header">
           <Search size={20} className="search-icon" />
           <input
@@ -174,14 +168,10 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
             type="text"
             placeholder="Search blocks, workflows, models..."
             value={query}
-            onChange={e => setQuery(e.target.value)}
+            onChange={(e) => setQuery(e.target.value)}
             className="palette-input"
           />
-          <button
-            className="close-button"
-            onClick={onClose}
-            aria-label="Close"
-          >
+          <button className="close-button" onClick={onClose} aria-label="Close">
             <X size={20} />
           </button>
         </div>
@@ -190,15 +180,12 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
           {query === '' && results.length > 0 && (
             <div className="recent-header">
               <span>Recent</span>
-              <button
-                className="clear-recent"
-                onClick={handleClearRecent}
-              >
+              <button className="clear-recent" onClick={handleClearRecent}>
                 Clear
               </button>
             </div>
           )}
-          
+
           <SearchResults
             results={results}
             selectedIndex={selectedIndex}
@@ -209,9 +196,15 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
 
         <div className="palette-footer">
           <div className="keyboard-hints">
-            <span><kbd>↑↓</kbd> Navigate</span>
-            <span><kbd>↵</kbd> Select</span>
-            <span><kbd>Esc</kbd> Close</span>
+            <span>
+              <kbd>↑↓</kbd> Navigate
+            </span>
+            <span>
+              <kbd>↵</kbd> Select
+            </span>
+            <span>
+              <kbd>Esc</kbd> Close
+            </span>
           </div>
         </div>
       </div>
