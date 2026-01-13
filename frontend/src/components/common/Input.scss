@@ -34,7 +34,6 @@
     background-color: var(--surface);
     border: var(--border-width, 1px) var(--border-style, solid) var(--border);
     border-radius: var(--radius-md);
-    box-shadow: var(--shadow-sm);
     transition: all 150ms ease-in-out;
 
     &:hover:not(:disabled) {

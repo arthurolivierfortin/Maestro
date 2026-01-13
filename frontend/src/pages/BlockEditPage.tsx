@@ -6,11 +6,10 @@
  */
 
 import { useEffect } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useBlockStore } from '../store';
 import { useNavigationStore } from '../store/navigationStore';
 import { EditorWrapper } from '../components/EditorWrapper';
-import { ArrowLeft } from 'lucide-react';
 import './BlockEditPage.scss';
 
 export function BlockEditPage() {
@@ -50,16 +49,9 @@ export function BlockEditPage() {
     );
   }
 
-  // Render editor for atomic block
+  // Render editor for atomic block (header removed)
   return (
     <div className="block-edit-page">
-      <div className="block-edit-page__header">
-        <Link to="/foundry" className="block-edit-page__back">
-          <ArrowLeft size={16} />
-          <span>Back to Foundry</span>
-        </Link>
-        <h1 className="block-edit-page__title">{block.name}</h1>
-      </div>
       <div className="block-edit-page__content">
         <EditorWrapper block={block} />
       </div>
