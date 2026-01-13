@@ -16,6 +16,7 @@ import type {
   TriggerBlockConfig,
   WorkflowBlockConfig,
   InferenceBlockConfig,
+  ScriptBlockConfig,
 } from '../types/block.types';
 
 /**
@@ -28,7 +29,20 @@ export const workflowTypeInfo: BlockTypeInfo = {
   icon: 'Workflow',
   color: '#2563eb',
   isAtomic: false,
-  allowedChildren: ['agent', 'task', 'tool', 'decision', 'validator', 'trigger', 'inference'],
+  // Allow any block type inside a workflow
+  allowedChildren: [
+    'workflow',
+    'agent',
+    'task',
+    'prompt',
+    'instruction',
+    'tool',
+    'decision',
+    'validator',
+    'trigger',
+    'inference',
+    'script',
+  ],
   allowedParents: [],
   defaultConfig: {
     type: 'workflow',
@@ -370,6 +384,45 @@ export const inferenceTypeInfo: BlockTypeInfo = {
 };
 
 /**
+ * Script block type
+ */
+export const scriptTypeInfo: BlockTypeInfo = {
+  type: 'script',
+  label: 'Script',
+  description: 'Execute user-provided scripts (various languages)',
+  icon: 'Code',
+  color: '#f43f5e',
+  isAtomic: true,
+  allowedChildren: [],
+  allowedParents: ['workflow', 'task', 'agent'],
+  defaultConfig: {
+    type: 'script',
+    language: 'javascript',
+    code: '// write your script here',
+    runInSandbox: true,
+    timeoutSeconds: 30,
+  } as ScriptBlockConfig,
+  defaultInputs: [
+    {
+      id: 'input',
+      name: 'Input',
+      dataType: 'any',
+      required: false,
+      multiple: false,
+    },
+  ],
+  defaultOutputs: [
+    {
+      id: 'output',
+      name: 'Output',
+      dataType: 'any',
+      required: false,
+      multiple: false,
+    },
+  ],
+};
+
+/**
  * All block type definitions
  */
 export const blockTypeDefinitions: BlockTypeInfo[] = [
@@ -383,4 +436,5 @@ export const blockTypeDefinitions: BlockTypeInfo[] = [
   validatorTypeInfo,
   triggerTypeInfo,
   inferenceTypeInfo,
+  scriptTypeInfo,
 ];

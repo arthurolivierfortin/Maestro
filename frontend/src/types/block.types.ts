@@ -18,7 +18,8 @@ export type BlockType =
   | 'decision' // Conditional branching (atomic)
   | 'validator' // Output validation (atomic)
   | 'trigger' // Workflow trigger (atomic)
-  | 'inference'; // LLM inference unit with dynamic inputs/outputs (atomic)
+  | 'inference' // LLM inference unit with dynamic inputs/outputs (atomic)
+  | 'script'; // Script block to run user-provided code (atomic)
 
 /**
  * Input/Output port for block connections
@@ -117,7 +118,19 @@ export type BlockConfig =
   | ValidatorBlockConfig
   | TriggerBlockConfig
   | WorkflowBlockConfig
-  | InferenceBlockConfig;
+  | InferenceBlockConfig
+  | ScriptBlockConfig;
+
+/**
+ * Script block configuration - allows storing code in any language
+ */
+export interface ScriptBlockConfig {
+  type: 'script';
+  language: string; // e.g., 'javascript', 'python', 'bash'
+  code: string; // the source code to run
+  runInSandbox?: boolean; // whether execution should be sandboxed
+  timeoutSeconds?: number; // max execution time
+}
 
 /**
  * Workflow block configuration (top-level container)
@@ -315,6 +328,10 @@ export function isWorkflowConfig(config: BlockConfig): config is WorkflowBlockCo
 
 export function isInferenceConfig(config: BlockConfig): config is InferenceBlockConfig {
   return config.type === 'inference';
+}
+
+export function isScriptConfig(config: BlockConfig): config is ScriptBlockConfig {
+  return config.type === 'script';
 }
 
 /**

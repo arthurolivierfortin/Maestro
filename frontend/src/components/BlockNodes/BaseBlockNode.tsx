@@ -22,6 +22,7 @@ import {
   isTriggerConfig,
   isInstructionConfig,
   isWorkflowConfig,
+  isScriptConfig,
 } from '../../types/block.types';
 import type { BlockNodeData } from '../BlockCanvas/BlockCanvas';
 import './BaseBlockNode.scss';
@@ -290,6 +291,17 @@ function renderBlockContent(block: Block) {
             <div className="base-block-node__preview-text">
               {block.config.description || 'Workflow container'}
             </div>
+          </div>
+        );
+      }
+      return null;
+
+    case 'script':
+      if (isScriptConfig(block.config)) {
+        return (
+          <div className="base-block-node__preview">
+            <div className="base-block-node__preview-label">Language:</div>
+            <div className="base-block-node__preview-value">{block.config.language}</div>
           </div>
         );
       }

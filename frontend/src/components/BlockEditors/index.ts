@@ -14,6 +14,7 @@ export { TriggerEditor } from './TriggerEditor';
 export { ValidatorEditor } from './ValidatorEditor';
 export { DecisionEditor } from './DecisionEditor';
 export { InferenceEditor } from './InferenceEditor';
+export { ScriptEditor } from './ScriptEditor';
 export { EditorRegistry, getEditorForBlockType, hasEditor } from './EditorRegistry';
 
 export type { BaseBlockEditorProps } from './BaseBlockEditor';

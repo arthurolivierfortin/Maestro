@@ -28,7 +28,7 @@ interface PaletteCategory {
 
 const PALETTE_CATEGORIES: PaletteCategory[] = [
   { id: 'agents', label: 'Agents & Tasks', blockTypes: ['agent', 'task'] },
-  { id: 'tools', label: 'Tools & Prompts', blockTypes: ['tool', 'prompt', 'instruction', 'inference'] },
+  { id: 'tools', label: 'Tools & Prompts', blockTypes: ['tool', 'prompt', 'instruction', 'inference', 'script'] },
   { id: 'flow', label: 'Flow Control', blockTypes: ['decision', 'validator', 'trigger'] },
   { id: 'containers', label: 'Containers', blockTypes: ['workflow'] },
 ];

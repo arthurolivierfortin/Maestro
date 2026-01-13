@@ -69,6 +69,7 @@ const nodeTypes: NodeTypes = {
   workflow: BaseBlockNode,
   instruction: BaseBlockNode,
   inference: BaseBlockNode,
+  script: BaseBlockNode,
 };
 
 /**
