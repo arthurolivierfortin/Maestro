@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { BaseBlockEditor } from './BaseBlockEditor';
 import type { Block, ScriptBlockConfig } from '../../types/block.types';
 import { useBlockStore } from '../../store/blockStore';
+import { useNavigationStore } from '../../store/navigationStore';
 import './ScriptEditor.scss';
 
 interface ScriptEditorProps {
@@ -23,10 +24,14 @@ export function ScriptEditor({ block }: ScriptEditorProps) {
 
   const handleCancel = () => setConfig(block.config);
 
-  // Reset editor state and unsaved flag when cancelling
+  // Reset editor state, unsaved flag and exit atomic edit when cancelling
+  const { exitAtomicBlockEdit } = useNavigationStore();
+
   const handleCancelFull = () => {
     setConfig(block.config);
     setHasUnsavedChanges(false);
+    // Exit atomic editing mode so the canvas returns to normal
+    exitAtomicBlockEdit();
   };
 
   return (
