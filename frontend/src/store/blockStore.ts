@@ -632,7 +632,7 @@ export const useBlockStore = create<BlockState>()(
           if (state && Array.isArray(state.blocks)) {
             // Convert array back to Map
             const blocksMap = new Map(state.blocks as [string, Block][]);
-            
+
             // CRITICAL: Rebuild children arrays from parentId relationships
             // This ensures we use the canonical block data from the Map,
             // not stale copies that may have been persisted in children arrays
@@ -640,7 +640,7 @@ export const useBlockStore = create<BlockState>()(
               // Clear existing children (may be stale copies)
               block.children = [];
             });
-            
+
             // Rebuild children arrays from parentId
             blocksMap.forEach((block) => {
               if (block.parentId) {
@@ -652,7 +652,7 @@ export const useBlockStore = create<BlockState>()(
                 }
               }
             });
-            
+
             state.blocks = blocksMap;
           }
         },

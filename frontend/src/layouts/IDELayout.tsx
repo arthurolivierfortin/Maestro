@@ -32,7 +32,7 @@ export function IDELayout() {
 
   // Determine if BlockExplorer should be visible
   const { isVisible: showExplorer, contextBlockId } = useBlockExplorerVisibility();
-  
+
   // Determine if Properties panel should be visible
   const { isVisible: showProperties } = usePropertiesPanelVisibility();
 
@@ -169,10 +169,7 @@ export function IDELayout() {
 
       {/* Global overlays - rendered inside Router context */}
       <CommandPalette isOpen={isOpen} onClose={close} />
-      <KeyboardShortcutsPanel
-        isOpen={showShortcuts}
-        onClose={() => setShowShortcuts(false)}
-      />
+      <KeyboardShortcutsPanel isOpen={showShortcuts} onClose={() => setShowShortcuts(false)} />
     </div>
   );
 }

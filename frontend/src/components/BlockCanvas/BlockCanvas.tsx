@@ -97,22 +97,22 @@ function BlockCanvasInner({
   onDrop,
 }: BlockCanvasProps) {
   // Sync canvas state with block store
-  const { 
-    nodes, 
-    edges, 
-    onNodesChange, 
-    onEdgesChange, 
-    onConnect, 
-    onNodeClick, 
-    onPaneClick, 
+  const {
+    nodes,
+    edges,
+    onNodesChange,
+    onEdgesChange,
+    onConnect,
+    onNodeClick,
+    onPaneClick,
     onDrop: handleDrop,
   } = useCanvasSync({
-      parentId,
-      onBlockSelect,
-      onDrillDown,
-      onDrop,
-      readOnly,
-    });
+    parentId,
+    onBlockSelect,
+    onDrillDown,
+    onDrop,
+    readOnly,
+  });
 
   // Memoize node types
   const memoizedNodeTypes = useMemo(() => nodeTypes, []);

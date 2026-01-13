@@ -39,13 +39,13 @@ function blocksToNodes(
 ): Node<BlockNodeData>[] {
   return blocks.map((block, index) => {
     const execution = nodeExecutions?.get(block.id);
-    
+
     // Provide default position if not set
-    const position = block.position || { 
-      x: index * 280, 
-      y: 0 
+    const position = block.position || {
+      x: index * 280,
+      y: 0,
     };
-    
+
     return {
       id: block.id,
       type: block.blockType,
@@ -102,10 +102,10 @@ export function useCanvasSync({
   const updateBlock = useBlockStore((state) => state.updateBlock);
   const addConnection = useBlockStore((state) => state.addConnection);
   const removeConnection = useBlockStore((state) => state.removeConnection);
-  
+
   const { selectedBlockId, selectBlock } = useNavigationStore();
   const { currentExecution } = useExecutionStore();
-  
+
   // React Flow hook for coordinate transformation (correct API: screenToFlowPosition)
   const { screenToFlowPosition } = useReactFlow();
 
@@ -119,7 +119,7 @@ export function useCanvasSync({
   // This ensures positions are always current (children array may have stale copies)
   const blocksToDisplay = useMemo(() => {
     if (!contextBlockId) return [];
-    
+
     // Get all blocks whose parentId matches the context block
     // This ensures we always get the current block data from the Map
     const childBlocks: Block[] = [];
@@ -128,7 +128,7 @@ export function useCanvasSync({
         childBlocks.push(block);
       }
     });
-    
+
     return childBlocks;
   }, [contextBlockId, blocks]);
 
@@ -142,7 +142,7 @@ export function useCanvasSync({
   // Create execution state map for nodes
   const nodeExecutions = useMemo(() => {
     if (!currentExecution) return undefined;
-    
+
     const map = new Map();
     currentExecution.nodeExecutions?.forEach((nodeExec) => {
       map.set(nodeExec.nodeId, {
@@ -176,25 +176,35 @@ export function useCanvasSync({
   // IMPORTANT: Only sync if block data actually changed, not just references
   useEffect(() => {
     // Check if node list changed (add/remove)
-    const storeIds = storeNodes.map(n => n.id).sort((a, b) => a.localeCompare(b)).join('|');
-    const localIds = localNodes.map(n => n.id).sort((a, b) => a.localeCompare(b)).join('|');
-    
+    const storeIds = storeNodes
+      .map((n) => n.id)
+      .sort((a, b) => a.localeCompare(b))
+      .join('|');
+    const localIds = localNodes
+      .map((n) => n.id)
+      .sort((a, b) => a.localeCompare(b))
+      .join('|');
+
     if (storeIds !== localIds) {
       // Nodes were added or removed - full sync needed
       setLocalNodes(storeNodes);
       return;
     }
-    
+
     // Same nodes - check if we need to update data (selection, execution status)
     // but preserve local positions (they may differ during/after drag)
-    const storeDataHash = storeNodes.map(n => `${n.id}:${n.data.isSelected}:${n.data.isExecuting}`).join('|');
-    const localDataHash = localNodes.map(n => `${n.id}:${n.data.isSelected}:${n.data.isExecuting}`).join('|');
-    
+    const storeDataHash = storeNodes
+      .map((n) => `${n.id}:${n.data.isSelected}:${n.data.isExecuting}`)
+      .join('|');
+    const localDataHash = localNodes
+      .map((n) => `${n.id}:${n.data.isSelected}:${n.data.isExecuting}`)
+      .join('|');
+
     if (storeDataHash !== localDataHash) {
       // Data changed - merge store data with local positions
-      setLocalNodes(prev => {
-        const positionMap = new Map(prev.map(n => [n.id, n.position]));
-        return storeNodes.map(n => ({
+      setLocalNodes((prev) => {
+        const positionMap = new Map(prev.map((n) => [n.id, n.position]));
+        return storeNodes.map((n) => ({
           ...n,
           position: positionMap.get(n.id) || n.position,
         }));
@@ -210,7 +220,7 @@ export function useCanvasSync({
     (changes) => {
       // Apply changes to local state immediately for smooth dragging
       setLocalNodes((nds) => applyNodeChanges(changes, nds));
-      
+
       if (readOnly) {
         return;
       }
@@ -227,7 +237,7 @@ export function useCanvasSync({
           case 'remove':
             // Handled by keyboard shortcuts
             break;
-          
+
           case 'dimensions':
           case 'select':
             // Ignore - handled elsewhere
@@ -286,23 +296,26 @@ export function useCanvasSync({
     selectBlock(null);
     onBlockSelect?.(null);
   }, [selectBlock, onBlockSelect]);
-  
+
   // Handle drop on canvas
-  const handleDrop = useCallback((event: React.DragEvent) => {
-    if (readOnly || !contextBlockId || !onDrop) {
-      return;
-    }
-    
-    event.preventDefault();
-    
-    // Convert screen coordinates to flow coordinates (accounting for zoom/pan)
-    const flowPosition = screenToFlowPosition({
-      x: event.clientX,
-      y: event.clientY,
-    });
-    
-    onDrop(event, flowPosition);
-  }, [readOnly, contextBlockId, onDrop, screenToFlowPosition]);
+  const handleDrop = useCallback(
+    (event: React.DragEvent) => {
+      if (readOnly || !contextBlockId || !onDrop) {
+        return;
+      }
+
+      event.preventDefault();
+
+      // Convert screen coordinates to flow coordinates (accounting for zoom/pan)
+      const flowPosition = screenToFlowPosition({
+        x: event.clientX,
+        y: event.clientY,
+      });
+
+      onDrop(event, flowPosition);
+    },
+    [readOnly, contextBlockId, onDrop, screenToFlowPosition]
+  );
 
   return {
     nodes: localNodes,

@@ -113,7 +113,9 @@ export function StepBasicInfo({
                   onChange={(e) => onUpdateBasicInfo({ status: e.target.value as BlockStatus })}
                   className="radio-input"
                 />
-                <span className="radio-text">{status.charAt(0).toUpperCase() + status.slice(1)}</span>
+                <span className="radio-text">
+                  {status.charAt(0).toUpperCase() + status.slice(1)}
+                </span>
               </label>
             ))}
           </div>

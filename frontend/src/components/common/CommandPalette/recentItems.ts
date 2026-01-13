@@ -1,6 +1,6 @@
 /**
  * Recent Items Tracking
- * 
+ *
  * Tracks recently accessed items in localStorage.
  */
 
@@ -21,7 +21,7 @@ export function getRecentItems(): RecentItem[] {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (!stored) return [];
-    
+
     const items: RecentItem[] = JSON.parse(stored);
     return items.slice(0, MAX_RECENT_ITEMS);
   } catch (error) {
@@ -36,16 +36,16 @@ export function getRecentItems(): RecentItem[] {
 export function addRecentItem(item: Omit<RecentItem, 'accessedAt'>): void {
   try {
     const recent = getRecentItems();
-    
+
     // Remove if already exists
-    const filtered = recent.filter(r => r.id !== item.id);
-    
+    const filtered = recent.filter((r) => r.id !== item.id);
+
     // Add to front
     const updated: RecentItem[] = [
       { ...item, accessedAt: new Date().toISOString() },
       ...filtered,
     ].slice(0, MAX_RECENT_ITEMS);
-    
+
     localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
   } catch (error) {
     console.error('Failed to save recent item:', error);

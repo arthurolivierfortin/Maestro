@@ -13,7 +13,7 @@ import type { Block } from '../types/block.types';
  */
 export function loadExampleWorkflow(workflowId: string): boolean {
   const workflow = EXAMPLE_WORKFLOWS.find((w) => w.id === workflowId);
-  
+
   if (!workflow) {
     console.error(`Example workflow with ID "${workflowId}" not found`);
     return false;

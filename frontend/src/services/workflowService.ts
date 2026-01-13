@@ -99,12 +99,12 @@ export const executionService = {
    */
   async execute(workflowId: string): Promise<WorkflowExecution> {
     const useMock = config.useMockBackend();
-    
+
     if (useMock) {
       const mockService = getMockExecutionService();
       return mockService.execute(workflowId);
     }
-    
+
     return apiClient.post<WorkflowExecution>(`/api/workflows/${workflowId}/execute`);
   },
 
@@ -113,12 +113,12 @@ export const executionService = {
    */
   async getExecution(executionId: string): Promise<WorkflowExecution> {
     const useMock = config.useMockBackend();
-    
+
     if (useMock) {
       const mockService = getMockExecutionService();
       return mockService.getExecution(executionId);
     }
-    
+
     return apiClient.get<WorkflowExecution>(`/api/executions/${executionId}`);
   },
 
@@ -127,12 +127,12 @@ export const executionService = {
    */
   async pause(executionId: string): Promise<void> {
     const useMock = config.useMockBackend();
-    
+
     if (useMock) {
       const mockService = getMockExecutionService();
       return mockService.pause(executionId);
     }
-    
+
     return apiClient.post<void>(`/api/executions/${executionId}/pause`);
   },
 
@@ -141,12 +141,12 @@ export const executionService = {
    */
   async resume(executionId: string): Promise<void> {
     const useMock = config.useMockBackend();
-    
+
     if (useMock) {
       const mockService = getMockExecutionService();
       return mockService.resume(executionId);
     }
-    
+
     return apiClient.post<void>(`/api/executions/${executionId}/resume`);
   },
 
@@ -155,12 +155,12 @@ export const executionService = {
    */
   async cancel(executionId: string): Promise<void> {
     const useMock = config.useMockBackend();
-    
+
     if (useMock) {
       const mockService = getMockExecutionService();
       return mockService.cancel(executionId);
     }
-    
+
     return apiClient.post<void>(`/api/executions/${executionId}/cancel`);
   },
 
@@ -169,12 +169,12 @@ export const executionService = {
    */
   async getHistory(filters?: ExecutionFilters): Promise<ExecutionSummary[]> {
     const useMock = config.useMockBackend();
-    
+
     if (useMock) {
       const mockService = getMockExecutionService();
       return mockService.getHistory() as Promise<any>;
     }
-    
+
     const params = new URLSearchParams();
     if (filters) {
       Object.entries(filters).forEach(([key, value]) => {
@@ -191,12 +191,12 @@ export const executionService = {
    */
   async getLogs(executionId: string): Promise<string> {
     const useMock = config.useMockBackend();
-    
+
     if (useMock) {
       const mockService = getMockExecutionService();
       return mockService.getLogs(executionId);
     }
-    
+
     return apiClient.get<string>(`/api/executions/${executionId}/logs`);
   },
 };

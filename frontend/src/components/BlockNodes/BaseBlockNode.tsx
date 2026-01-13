@@ -6,7 +6,6 @@
 
 import { memo, useCallback, useState } from 'react';
 import { Handle, Position } from 'reactflow';
-import { useNavigate } from 'react-router-dom';
 import { MoreVertical } from 'lucide-react';
 import { BlockIcon } from '../icons/BlockIcons';
 import { NodeContextMenu } from '../NodeContextMenu';
@@ -39,19 +38,18 @@ export const BaseBlockNode = memo(({ data, selected }: BaseBlockNodeProps) => {
   const { block, isExecuting, executionStatus, onDrillDown } = data;
   const [menuOpen, setMenuOpen] = useState(false);
   const { duplicateBlock, removeBlock } = useBlockStore();
-  const { selectBlock, setPropertiesPanelMode } = useNavigationStore();
-  const navigate = useNavigate();
+  const { selectBlock, setPropertiesPanelMode, enterAtomicBlockEdit } = useNavigationStore();
 
-  // Handle double-click: drill down for composite blocks, edit page for atomic blocks
+  // Handle double-click: drill down for composite blocks, edit for atomic blocks
   const handleDoubleClick = useCallback(() => {
     if (block.isAtomic) {
-      // Navigate to edit page for atomic blocks
-      navigate(`/foundry/${block.id}/edit`);
+      // Enter edit mode for atomic blocks (shown in canvas workspace)
+      enterAtomicBlockEdit(block.id);
     } else {
       // Drill down into composite blocks
       onDrillDown(block.id);
     }
-  }, [block.id, block.isAtomic, navigate, onDrillDown]);
+  }, [block.id, block.isAtomic, enterAtomicBlockEdit, onDrillDown]);
 
   // Handle menu click
   const handleMenuClick = useCallback(
@@ -65,14 +63,14 @@ export const BaseBlockNode = memo(({ data, selected }: BaseBlockNodeProps) => {
   // Context menu actions
   const handleEdit = useCallback(() => {
     if (block.isAtomic) {
-      // Navigate to edit page for atomic blocks
-      navigate(`/foundry/${block.id}/edit`);
+      // Enter edit mode for atomic blocks (shown in canvas workspace)
+      enterAtomicBlockEdit(block.id);
     } else {
       // For composite blocks, open properties panel
       selectBlock(block.id);
       setPropertiesPanelMode('edit');
     }
-  }, [block.id, block.isAtomic, navigate, selectBlock, setPropertiesPanelMode]);
+  }, [block.id, block.isAtomic, enterAtomicBlockEdit, selectBlock, setPropertiesPanelMode]);
 
   const handleDuplicate = useCallback(() => {
     duplicateBlock(block.id);

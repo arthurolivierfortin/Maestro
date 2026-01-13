@@ -26,11 +26,7 @@ export function useCanvasShortcuts({ enabled = true, parentId }: UseCanvasShortc
     const handleKeyDown = (event: KeyboardEvent) => {
       // Don't handle shortcuts if typing in an input
       const target = event.target as HTMLElement;
-      if (
-        target.tagName === 'INPUT' ||
-        target.tagName === 'TEXTAREA' ||
-        target.isContentEditable
-      ) {
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
         return;
       }
 

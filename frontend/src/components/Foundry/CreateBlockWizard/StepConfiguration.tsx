@@ -255,7 +255,8 @@ export function StepConfiguration({ blockType, config, onUpdateConfig }: StepCon
         return (
           <div className="config-fields">
             <p className="config-note">
-              Workflow blocks are composite blocks. Configuration will be done in the Canvas editor after creation.
+              Workflow blocks are composite blocks. Configuration will be done in the Canvas editor
+              after creation.
             </p>
           </div>
         );
@@ -270,10 +271,7 @@ export function StepConfiguration({ blockType, config, onUpdateConfig }: StepCon
   };
 
   return (
-    <WizardStep
-      title="Configuration"
-      description="Configure type-specific settings for your block"
-    >
+    <WizardStep title="Configuration" description="Configure type-specific settings for your block">
       {renderConfigFields()}
     </WizardStep>
   );

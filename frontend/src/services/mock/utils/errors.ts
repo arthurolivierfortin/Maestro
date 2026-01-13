@@ -12,12 +12,7 @@ export class ApiError extends Error {
   public readonly code: string;
   public readonly details?: Record<string, unknown>;
 
-  constructor(
-    message: string,
-    status: number,
-    code: string,
-    details?: Record<string, unknown>
-  ) {
+  constructor(message: string, status: number, code: string, details?: Record<string, unknown>) {
     super(message);
     this.name = 'ApiError';
     this.status = status;
@@ -30,38 +25,28 @@ export class ApiError extends Error {
  * Create a 404 Not Found error
  */
 export function createNotFoundError(resourceType: string, id: string): ApiError {
-  return new ApiError(
-    `${resourceType} with ID '${id}' not found`,
-    404,
-    'NOT_FOUND',
-    { resourceType, id }
-  );
+  return new ApiError(`${resourceType} with ID '${id}' not found`, 404, 'NOT_FOUND', {
+    resourceType,
+    id,
+  });
 }
 
 /**
  * Create a 400 Validation error
  */
-export function createValidationError(
-  message: string,
-  fields?: Record<string, string>
-): ApiError {
+export function createValidationError(message: string, fields?: Record<string, string>): ApiError {
   return new ApiError(message, 400, 'VALIDATION_ERROR', { fields });
 }
 
 /**
  * Create a 409 Conflict error (duplicate)
  */
-export function createConflictError(
-  resourceType: string,
-  field: string,
-  value: string
-): ApiError {
-  return new ApiError(
-    `${resourceType} with ${field} '${value}' already exists`,
-    409,
-    'CONFLICT',
-    { resourceType, field, value }
-  );
+export function createConflictError(resourceType: string, field: string, value: string): ApiError {
+  return new ApiError(`${resourceType} with ${field} '${value}' already exists`, 409, 'CONFLICT', {
+    resourceType,
+    field,
+    value,
+  });
 }
 
 /**
@@ -74,10 +59,7 @@ export function createServerError(message: string = 'Internal server error'): Ap
 /**
  * Create a 503 Service Unavailable error
  */
-export function createServiceUnavailableError(
-  service: string,
-  reason?: string
-): ApiError {
+export function createServiceUnavailableError(service: string, reason?: string): ApiError {
   return new ApiError(
     `Service '${service}' is currently unavailable${reason ? `: ${reason}` : ''}`,
     503,

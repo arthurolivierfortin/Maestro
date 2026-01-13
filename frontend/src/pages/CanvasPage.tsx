@@ -2,6 +2,7 @@
  * Canvas Page
  *
  * Visual workflow editor with palette and canvas.
+ * Can also display atomic block editor when in editing mode.
  */
 
 import { useNavigationStore } from '../store/navigationStore';
@@ -9,14 +10,16 @@ import { useBlockStore } from '../store/blockStore';
 import { BlockCanvas } from '../components/BlockCanvas';
 import { BlockPalette } from '../components/BlockPalette';
 import { ExecutionBar } from '../components/ExecutionBar';
+import { EditorWrapper } from '../components/EditorWrapper';
 import { BlockTypeRegistry } from '../registry';
 import { useCanvasShortcuts } from '../hooks/useCanvasShortcuts';
 import type { BlockType } from '../types/block.types';
 import './CanvasPage.scss';
 
 export function CanvasPage() {
-  const { currentPath, navigateInto } = useNavigationStore();
-  const { addBlock, getRootBlock } = useBlockStore();
+  const { currentPath, navigateInto, isEditingAtomicBlock, editingAtomicBlockId } =
+    useNavigationStore();
+  const { addBlock, getRootBlock, getBlock } = useBlockStore();
 
   // Get current parent ID (last item in path, or null for root)
   const currentParentId = currentPath.length > 0 ? currentPath[currentPath.length - 1] : null;
@@ -44,9 +47,9 @@ export function CanvasPage() {
       const defaultBlock = BlockTypeRegistry.getDefaultBlock(blockType);
 
       // Generate unique ID
-      const blockId = `block-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      const blockId = `block-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
 
-      // Determine parent: if at root level (currentParentId === null), 
+      // Determine parent: if at root level (currentParentId === null),
       // add as child of the root workflow block
       const effectiveParentId = currentParentId ?? rootBlock?.id ?? null;
 
@@ -71,10 +74,28 @@ export function CanvasPage() {
     }
   };
 
+  // If editing an atomic block, show the block editor
+  if (isEditingAtomicBlock && editingAtomicBlockId) {
+    const block = getBlock(editingAtomicBlockId);
+    if (block?.isAtomic) {
+      return (
+        <div className="canvas-page">
+          <ExecutionBar workflowId={workflowId} />
+          <div className="canvas-page__content">
+            <div className="canvas-page__editor">
+              <EditorWrapper block={block} />
+            </div>
+          </div>
+        </div>
+      );
+    }
+  }
+
+  // Show normal canvas
   return (
     <div className="canvas-page">
       <ExecutionBar workflowId={workflowId} />
-      
+
       <div className="canvas-page__content">
         <div className="canvas-page__palette">
           <div className="canvas-page__palette-header">
@@ -83,8 +104,8 @@ export function CanvasPage() {
           <BlockPalette />
         </div>
         <div className="canvas-page__canvas">
-          <BlockCanvas 
-            parentId={currentParentId} 
+          <BlockCanvas
+            parentId={currentParentId}
             onDrillDown={handleDrillDown}
             onDrop={handleDrop}
           />

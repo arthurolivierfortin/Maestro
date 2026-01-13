@@ -38,7 +38,9 @@ export const EditorRegistry: Record<BlockType, ComponentType<BlockEditorProps> |
 /**
  * Get editor component for a given block type
  */
-export function getEditorForBlockType(blockType: BlockType): ComponentType<BlockEditorProps> | null {
+export function getEditorForBlockType(
+  blockType: BlockType
+): ComponentType<BlockEditorProps> | null {
   return EditorRegistry[blockType];
 }
 

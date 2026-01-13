@@ -28,11 +28,11 @@ export function ExecutionBar({ workflowId, onExecutionStart }: ExecutionBarProps
 
   const handleRun = async () => {
     if (!workflowId) return;
-    
+
     if (onExecutionStart) {
       onExecutionStart();
     }
-    
+
     await startExecution(workflowId);
   };
 
@@ -135,7 +135,9 @@ export function ExecutionBar({ workflowId, onExecutionStart }: ExecutionBarProps
       {/* Status Display */}
       {currentExecution && (
         <div className="execution-bar__status">
-          <div className={`execution-bar__status-indicator execution-bar__status-indicator--${getStatusColor(currentExecution.status)}`}>
+          <div
+            className={`execution-bar__status-indicator execution-bar__status-indicator--${getStatusColor(currentExecution.status)}`}
+          >
             <span className="execution-bar__status-dot" />
             <span className="execution-bar__status-text">{currentExecution.status}</span>
           </div>
@@ -143,7 +145,7 @@ export function ExecutionBar({ workflowId, onExecutionStart }: ExecutionBarProps
           {currentExecution.status === 'Running' && currentExecution.nodeExecutions && (
             <div className="execution-bar__progress">
               <span className="execution-bar__progress-text">
-                {currentExecution.nodeExecutions.filter(n => n.status === 'Completed').length} /{' '}
+                {currentExecution.nodeExecutions.filter((n) => n.status === 'Completed').length} /{' '}
                 {currentExecution.nodeExecutions.length} nodes
               </span>
             </div>
@@ -182,12 +184,12 @@ function formatDuration(ms: number): string {
   if (ms < 1000) {
     return `${ms}ms`;
   }
-  
+
   const seconds = Math.floor(ms / 1000);
   if (seconds < 60) {
     return `${seconds}s`;
   }
-  
+
   const minutes = Math.floor(seconds / 60);
   const remainingSeconds = seconds % 60;
   return `${minutes}m ${remainingSeconds}s`;

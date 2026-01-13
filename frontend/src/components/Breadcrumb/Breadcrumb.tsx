@@ -13,7 +13,16 @@ import { Home, ChevronLeft, ChevronRight } from 'lucide-react';
 import './Breadcrumb.scss';
 
 export function Breadcrumb() {
-  const { getBreadcrumbs, navigateTo, navigateToRoot, isAtRoot, navigateBack, navigateForward, canGoBack, canGoForward } = useNavigation();
+  const {
+    getBreadcrumbs,
+    navigateTo,
+    navigateToRoot,
+    isAtRoot,
+    navigateBack,
+    navigateForward,
+    canGoBack,
+    canGoForward,
+  } = useNavigation();
   const navigate = useNavigate();
   const breadcrumbs = getBreadcrumbs();
 

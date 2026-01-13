@@ -32,9 +32,7 @@ export function BaseBlockEditor({
 
   const handleCancel = useCallback(() => {
     if (hasUnsavedChanges) {
-      const confirmed = window.confirm(
-        'You have unsaved changes. Are you sure you want to leave?'
-      );
+      const confirmed = window.confirm('You have unsaved changes. Are you sure you want to leave?');
       if (!confirmed) return;
     }
 

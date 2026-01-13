@@ -30,12 +30,9 @@ export function TaskEditor({ block }: TaskEditorProps) {
     [block.id, updateBlock]
   );
 
-  const handleFieldChange = useCallback(
-    (field: keyof TaskBlockConfig, value: unknown) => {
-      setConfig((prev) => ({ ...prev, [field]: value }));
-    },
-    []
-  );
+  const handleFieldChange = useCallback((field: keyof TaskBlockConfig, value: unknown) => {
+    setConfig((prev) => ({ ...prev, [field]: value }));
+  }, []);
 
   return (
     <BaseBlockEditor
@@ -74,7 +71,9 @@ export function TaskEditor({ block }: TaskEditorProps) {
             id="expectedInput"
             className="base-block-editor__textarea"
             value={(config as any).expectedInput || ''}
-            onChange={(e) => handleFieldChange('expectedInput' as keyof TaskBlockConfig, e.target.value)}
+            onChange={(e) =>
+              handleFieldChange('expectedInput' as keyof TaskBlockConfig, e.target.value)
+            }
             placeholder="Describe expected input format..."
             rows={4}
           />
@@ -88,7 +87,9 @@ export function TaskEditor({ block }: TaskEditorProps) {
             id="expectedOutput"
             className="base-block-editor__textarea"
             value={(config as any).expectedOutput || ''}
-            onChange={(e) => handleFieldChange('expectedOutput' as keyof TaskBlockConfig, e.target.value)}
+            onChange={(e) =>
+              handleFieldChange('expectedOutput' as keyof TaskBlockConfig, e.target.value)
+            }
             placeholder="Describe expected output format..."
             rows={4}
           />

@@ -27,7 +27,11 @@ function renderWithRouter(path: string) {
     createElement(
       MemoryRouter,
       { initialEntries: [path] },
-      createElement(Routes, null, createElement(Route, { path: '/foundry/:blockId/edit', element: children }))
+      createElement(
+        Routes,
+        null,
+        createElement(Route, { path: '/foundry/:blockId/edit', element: children })
+      )
     );
 
   return render(createElement(BlockEditPage), { wrapper });
@@ -204,7 +208,8 @@ describe('BlockEditPage', () => {
     expect(
       screen.getByText((_content, element) => {
         return (
-          element?.textContent === 'Type-specific editor for agent blocks will be implemented in Phase 4g.2.'
+          element?.textContent ===
+          'Type-specific editor for agent blocks will be implemented in Phase 4g.2.'
         );
       })
     ).toBeInTheDocument();

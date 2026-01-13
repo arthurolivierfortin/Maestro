@@ -161,7 +161,10 @@ export function BlockCard({ block }: BlockCardProps) {
           </span>
 
           {!block.isAtomic && (
-            <span className="block-card__badge block-card__badge--composite" title="Composite block">
+            <span
+              className="block-card__badge block-card__badge--composite"
+              title="Composite block"
+            >
               ⊞ Composite
             </span>
           )}

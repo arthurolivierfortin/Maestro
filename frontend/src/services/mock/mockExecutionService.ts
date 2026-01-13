@@ -61,12 +61,12 @@ class MockExecutionService {
    */
   async getExecution(executionId: string): Promise<WorkflowExecution> {
     await randomDelay(50, 150);
-    
+
     const execution = this.executions.get(executionId);
     if (!execution) {
       throw new Error(`Execution ${executionId} not found`);
     }
-    
+
     return execution;
   }
 
@@ -75,7 +75,7 @@ class MockExecutionService {
    */
   async pause(executionId: string): Promise<void> {
     await randomDelay(50, 100);
-    
+
     const execution = this.executions.get(executionId);
     if (execution) {
       execution.status = 'Paused';
@@ -88,7 +88,7 @@ class MockExecutionService {
    */
   async resume(executionId: string): Promise<void> {
     await randomDelay(50, 100);
-    
+
     const execution = this.executions.get(executionId);
     if (execution) {
       execution.status = 'Running';
@@ -103,7 +103,7 @@ class MockExecutionService {
    */
   async cancel(executionId: string): Promise<void> {
     await randomDelay(50, 100);
-    
+
     const execution = this.executions.get(executionId);
     if (execution) {
       execution.status = 'Cancelled';
@@ -126,17 +126,17 @@ class MockExecutionService {
    */
   async getLogs(executionId: string): Promise<string> {
     await randomDelay(50, 100);
-    
+
     const execution = this.executions.get(executionId);
     if (!execution) {
       throw new Error(`Execution ${executionId} not found`);
     }
-    
+
     const logs = execution.nodeExecutions
       .flatMap((ne) => ne.logs)
       .map((log) => `[${log.timestamp}] [${log.level.toUpperCase()}] ${log.message}`)
       .join('\n');
-    
+
     return logs || 'No logs available';
   }
 
@@ -170,7 +170,7 @@ class MockExecutionService {
   private async simulateExecution(execution: WorkflowExecution) {
     // Get number of nodes to simulate (default 3 if not specified)
     const nodeCount = execution.nodeExecutions.length || 3;
-    
+
     // Initialize node executions if not present
     if (execution.nodeExecutions.length === 0) {
       for (let i = 0; i < nodeCount; i++) {
@@ -203,7 +203,7 @@ class MockExecutionService {
         message: `Starting ${nodeExec.nodeName}`,
         source: 'system',
       });
-      
+
       this.notifyCallback(execution.id, { ...execution });
 
       // Simulate processing
@@ -237,7 +237,7 @@ class MockExecutionService {
     execution.status = 'Completed';
     execution.completedAt = new Date().toISOString();
     execution.duration = Date.now() - new Date(execution.startedAt).getTime();
-    
+
     this.notifyCallback(execution.id, execution);
   }
 }

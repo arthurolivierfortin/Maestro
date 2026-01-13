@@ -1,6 +1,6 @@
 /**
  * Real Block Discovery Service
- * 
+ *
  * API client for block discovery operations.
  * Connects to backend API for production use.
  */
@@ -29,12 +29,10 @@ class RealDiscoveryService implements IBlockDiscoveryService {
     if (filter?.type) params.append('type', filter.type);
     if (filter?.capability) params.append('capability', filter.capability);
     if (filter?.status) params.append('status', filter.status);
-    if (filter?.tags) filter.tags.forEach(tag => params.append('tags', tag));
+    if (filter?.tags) filter.tags.forEach((tag) => params.append('tags', tag));
 
     const query = params.toString();
-    return apiClient.get<BlockSummary[]>(
-      `${this.basePath}/blocks${query ? `?${query}` : ''}`
-    );
+    return apiClient.get<BlockSummary[]>(`${this.basePath}/blocks${query ? `?${query}` : ''}`);
   }
 
   async getBlockCapabilities(blockId: string): Promise<string[]> {

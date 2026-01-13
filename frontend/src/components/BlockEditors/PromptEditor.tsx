@@ -37,12 +37,9 @@ export function PromptEditor({ block }: PromptEditorProps) {
     [block.id, updateBlock]
   );
 
-  const handleFieldChange = useCallback(
-    (field: keyof PromptBlockConfig, value: unknown) => {
-      setConfig((prev) => ({ ...prev, [field]: value }));
-    },
-    []
-  );
+  const handleFieldChange = useCallback((field: keyof PromptBlockConfig, value: unknown) => {
+    setConfig((prev) => ({ ...prev, [field]: value }));
+  }, []);
 
   return (
     <BaseBlockEditor
@@ -53,7 +50,7 @@ export function PromptEditor({ block }: PromptEditorProps) {
       <div className="base-block-editor__section">
         <h2 className="base-block-editor__section-title">Prompt Template</h2>
         <p className="base-block-editor__section-description">
-          Create a reusable prompt template with variables using {'{{'} variableName {'}}'}  syntax.
+          Create a reusable prompt template with variables using {'{{'} variableName {'}}'} syntax.
         </p>
 
         <div className="base-block-editor__field">
@@ -100,7 +97,8 @@ export function PromptEditor({ block }: PromptEditorProps) {
           </ul>
         ) : (
           <p className="base-block-editor__help-text">
-            No variables detected. Add {'{{'} variableName {'}}'} to your template to define variables.
+            No variables detected. Add {'{{'} variableName {'}}'} to your template to define
+            variables.
           </p>
         )}
       </div>
