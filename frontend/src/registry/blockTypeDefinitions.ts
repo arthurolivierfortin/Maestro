@@ -345,12 +345,12 @@ export const inferenceTypeInfo: BlockTypeInfo = {
     systemPrompt: '',
     userPrompt: '',
     inputs: [],
-    structuredOutputs: [],
+    outputSchema: '',
     temperature: 0.7,
     maxTokens: 1000,
     responseFormat: 'text',
   } as InferenceBlockConfig,
-  defaultInputs: [],
+  defaultInputs: [], // Note: Inputs are dynamic based on config.inputs
   defaultOutputs: [
     {
       id: 'raw_response',

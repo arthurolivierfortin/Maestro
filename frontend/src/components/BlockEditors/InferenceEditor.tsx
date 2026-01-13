@@ -8,8 +8,9 @@
 import { useState, useCallback, useEffect } from 'react';
 import { Plus, Trash2, Info } from 'lucide-react';
 import { BaseBlockEditor } from './BaseBlockEditor';
+import { ModelSelector } from '../ModelSelector';
 import { useBlockStore } from '../../store/blockStore';
-import type { Block, InferenceBlockConfig, InferenceParameter, InferenceOutput } from '../../types/block.types';
+import type { Block, InferenceBlockConfig, InferenceParameter } from '../../types/block.types';
 import './InferenceEditor.scss';
 
 interface InferenceEditorProps {
@@ -26,7 +27,39 @@ export function InferenceEditor({ block }: InferenceEditorProps) {
   }, [config, block.config]);
 
   const handleSave = useCallback(() => {
-    updateBlock(block.id, { config });
+    // Synchronize block inputs with config.inputs
+    const blockInputs = config.inputs.map((param) => ({
+      id: param.name,
+      name: param.name,
+      dataType: param.type as any,
+      required: param.required,
+      multiple: false,
+    }));
+
+    // Block outputs: only raw_response and metadata
+    // No structured_response - parsing happens in other blocks
+    const blockOutputs = [
+      {
+        id: 'raw_response',
+        name: 'Raw Response',
+        dataType: 'string' as const,
+        required: true,
+        multiple: false,
+      },
+      {
+        id: 'metadata',
+        name: 'Metadata',
+        dataType: 'object' as const,
+        required: true,
+        multiple: false,
+      },
+    ];
+
+    updateBlock(block.id, {
+      config,
+      inputs: blockInputs,
+      outputs: blockOutputs,
+    });
     setHasUnsavedChanges(false);
   }, [block.id, config, updateBlock]);
 
@@ -59,29 +92,7 @@ export function InferenceEditor({ block }: InferenceEditorProps) {
     });
   };
 
-  // Structured output management
-  const handleAddOutput = () => {
-    setConfig({
-      ...config,
-      structuredOutputs: [
-        ...(config.structuredOutputs || []),
-        { name: `output${(config.structuredOutputs?.length || 0) + 1}`, type: 'string' },
-      ],
-    });
-  };
-
-  const handleUpdateOutput = (index: number, field: keyof InferenceOutput, value: any) => {
-    const newOutputs = [...(config.structuredOutputs || [])];
-    newOutputs[index] = { ...newOutputs[index], [field]: value };
-    setConfig({ ...config, structuredOutputs: newOutputs });
-  };
-
-  const handleRemoveOutput = (index: number) => {
-    setConfig({
-      ...config,
-      structuredOutputs: config.structuredOutputs?.filter((_, i) => i !== index),
-    });
-  };
+  // No longer need structured outputs handlers - using single schema instead
 
   return (
     <BaseBlockEditor
@@ -207,82 +218,61 @@ export function InferenceEditor({ block }: InferenceEditorProps) {
               <p><strong>metadata</strong> (object) - Execution metadata (tokens, latency, model)</p>
             </div>
           </div>
+          <p className="inference-editor__hint">
+            <Info size={14} />
+            Use Tool/Decision blocks to parse or extract data from raw_response.
+          </p>
         </section>
 
-        {/* Structured Outputs Section (Optional) */}
+        {/* Output Schema Section (Optional) */}
         <section className="inference-editor__section">
-          <div className="inference-editor__section-header">
-            <h3 className="inference-editor__section-title">
-              Structured Outputs
-              <span className="inference-editor__label-hint">(Optional Extractions)</span>
-            </h3>
-            <button
-              type="button"
-              className="inference-editor__add-btn"
-              onClick={handleAddOutput}
-            >
-              <Plus size={16} />
-              Add Output
-            </button>
-          </div>
+          <h3 className="inference-editor__section-title">
+            Output Schema
+            <span className="inference-editor__label-hint">(Optional - Added to Prompt)</span>
+          </h3>
 
-          {!config.structuredOutputs || config.structuredOutputs.length === 0 ? (
-            <p className="inference-editor__empty">No structured outputs defined</p>
-          ) : (
-            <div className="inference-editor__list">
-              {config.structuredOutputs.map((output, index) => (
-                <div key={index} className="inference-editor__item">
-                  <div className="inference-editor__item-row">
-                    <input
-                      type="text"
-                      className="inference-editor__input"
-                      value={output.name}
-                      onChange={(e) => handleUpdateOutput(index, 'name', e.target.value)}
-                      placeholder="Output name"
-                    />
-                    <select
-                      className="inference-editor__select"
-                      value={output.type}
-                      onChange={(e) => handleUpdateOutput(index, 'type', e.target.value)}
-                    >
-                      <option value="string">String</option>
-                      <option value="number">Number</option>
-                      <option value="boolean">Boolean</option>
-                      <option value="object">Object</option>
-                      <option value="array">Array</option>
-                    </select>
-                    <button
-                      type="button"
-                      className="inference-editor__remove-btn"
-                      onClick={() => handleRemoveOutput(index)}
-                      aria-label="Remove output"
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
-                  <input
-                    type="text"
-                    className="inference-editor__input inference-editor__input--full"
-                    value={output.jsonPath || ''}
-                    onChange={(e) => handleUpdateOutput(index, 'jsonPath', e.target.value)}
-                    placeholder="JSONPath (e.g., $.result.title)"
-                  />
-                  <input
-                    type="text"
-                    className="inference-editor__input inference-editor__input--full"
-                    value={output.description || ''}
-                    onChange={(e) => handleUpdateOutput(index, 'description', e.target.value)}
-                    placeholder="Description (optional)"
-                  />
-                </div>
-              ))}
-            </div>
-          )}
+          <div className="inference-editor__field">
+            <label className="inference-editor__label">JSON Schema</label>
+            <textarea
+              className="inference-editor__textarea"
+              value={config.outputSchema || ''}
+              onChange={(e) => setConfig({ ...config, outputSchema: e.target.value })}
+              placeholder={'{\n  "result": "string",\n  "confidence": "number",\n  "items": ["string"]\n}'}
+              rows={8}
+              style={{ fontFamily: 'monospace' }}
+            />
+            <p className="inference-editor__hint">
+              <Info size={14} />
+              This schema is <strong>added to the prompt</strong> to guide the LLM to structure its response.
+              The raw response is returned as-is. Use Tool blocks with JSON.parse() or other parsing logic
+              to extract structured data from raw_response.
+            </p>
+          </div>
         </section>
 
         {/* LLM Configuration */}
         <section className="inference-editor__section">
           <h3 className="inference-editor__section-title">LLM Configuration</h3>
+
+          <div className="inference-editor__field">
+            <label className="inference-editor__label">Model</label>
+            <ModelSelector
+              value={config.modelId || ''}
+              onChange={(modelId) => setConfig({ ...config, modelId: modelId || undefined })}
+              onlyAvailable={true}
+              placeholder="Select a model..."
+            />
+          </div>
+
+          <div className="inference-editor__field">
+            <label className="inference-editor__label">Fallback Model (Optional)</label>
+            <ModelSelector
+              value={config.fallbackModelId || ''}
+              onChange={(modelId) => setConfig({ ...config, fallbackModelId: modelId || undefined })}
+              onlyAvailable={true}
+              placeholder="Select a fallback model..."
+            />
+          </div>
 
           <div className="inference-editor__field-row">
             <div className="inference-editor__field">

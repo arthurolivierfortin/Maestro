@@ -246,17 +246,6 @@ export interface InferenceParameter {
 }
 
 /**
- * Structured output extraction (optional)
- */
-export interface InferenceOutput {
-  name: string;
-  type: 'string' | 'number' | 'boolean' | 'object' | 'array';
-  description?: string;
-  jsonPath?: string; // JSONPath expression to extract from response
-  regex?: string; // Regex pattern to extract from response
-}
-
-/**
  * Inference Unit block configuration
  * Low-level LLM call with dynamic inputs/outputs
  */
@@ -270,9 +259,10 @@ export interface InferenceBlockConfig {
   // Dynamic inputs
   inputs: InferenceParameter[];
   
-  // Structured outputs (optional extractions)
-  // Note: raw_response and metadata outputs are always available automatically
-  structuredOutputs?: InferenceOutput[];
+  // Output schema (added to prompt to guide structure)
+  // Note: Only raw_response and metadata outputs are generated.
+  // Use other blocks (Tool, Decision) to parse/extract from raw_response.
+  outputSchema?: string; // JSON schema definition (added to prompt, no auto-parsing)
   
   // LLM configuration
   modelId?: string; // Model ID from model registry
@@ -325,4 +315,11 @@ export function isWorkflowConfig(config: BlockConfig): config is WorkflowBlockCo
 
 export function isInferenceConfig(config: BlockConfig): config is InferenceBlockConfig {
   return config.type === 'inference';
+}
+
+/**
+ * Check if inference config has output schema
+ */
+export function hasOutputSchema(config: InferenceBlockConfig): boolean {
+  return !!(config.outputSchema && config.outputSchema.trim());
 }
