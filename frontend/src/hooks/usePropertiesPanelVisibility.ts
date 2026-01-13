@@ -10,11 +10,15 @@ import { useNavigationStore } from '../store/navigationStore';
 
 export function usePropertiesPanelVisibility() {
   const location = useLocation();
-  const isEditingAtomicBlock = useNavigationStore((state) => state.isEditingAtomicBlock);
+  const getLastEntry = useNavigationStore((s) => s.getLastEntry);
+
+  // Check if currently at an atomic block edit
+  const lastEntry = getLastEntry();
+  const isAtAtomicBlock = lastEntry?.type === 'block' && lastEntry?.isAtomic === true;
 
   // Hide properties panel when editing an atomic block
   // (atomic blocks have their own full editor page)
-  if (isEditingAtomicBlock) {
+  if (isAtAtomicBlock) {
     return { isVisible: false };
   }
 

@@ -18,11 +18,11 @@ interface BlockTreeItemProps {
 
 export function BlockTreeItem({ block, level = 0, onContextMenu }: BlockTreeItemProps) {
   const [isExpanded, setIsExpanded] = useState(true);
-  const { navigateInto, currentPath, selectBlock, selectedBlockId, enterAtomicBlockEdit } =
-    useNavigation();
+  const { navigateToBlock, navStack, selectBlock, selectedBlockId } = useNavigation();
 
   const hasChildren = block.children && block.children.length > 0;
-  const isInPath = currentPath.includes(block.id);
+  // Check if block is in navigation path (any block in stack)
+  const isInPath = navStack.some((e) => e.type === 'block' && e.blockId === block.id);
   const isSelected = selectedBlockId === block.id;
 
   const handleClick = () => {
@@ -30,13 +30,8 @@ export function BlockTreeItem({ block, level = 0, onContextMenu }: BlockTreeItem
   };
 
   const handleDoubleClick = () => {
-    if (block.isAtomic) {
-      // Enter edit mode for atomic blocks
-      enterAtomicBlockEdit(block.id);
-    } else if (hasChildren) {
-      // Drill down into composite blocks
-      navigateInto(block.id);
-    }
+    // Navigate to block (handles both atomic and non-atomic)
+    navigateToBlock(block.id);
   };
 
   const handleContextMenu = (e: React.MouseEvent) => {

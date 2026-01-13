@@ -3,8 +3,6 @@
  *
  * Type-specific configuration form.
  */
-
-import React from 'react';
 import type { BlockType } from '../../../types/block.types';
 import { WizardStep } from './WizardStep';
 

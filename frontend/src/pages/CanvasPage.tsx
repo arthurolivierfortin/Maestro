@@ -2,27 +2,27 @@
  * Canvas Page
  *
  * Visual workflow editor with palette and canvas.
- * Can also display atomic block editor when in editing mode.
+ * This page is used for editing non-atomic (composite) blocks.
  */
 
-import { useNavigationStore } from '../store/navigationStore';
+import { useParams } from 'react-router-dom';
 import { useBlockStore } from '../store/blockStore';
+import { useNavigation } from '../hooks/useNavigation';
 import { BlockCanvas } from '../components/BlockCanvas';
 import { BlockPalette } from '../components/BlockPalette';
 import { ExecutionBar } from '../components/ExecutionBar';
-import { EditorWrapper } from '../components/EditorWrapper';
 import { BlockTypeRegistry } from '../registry';
 import { useCanvasShortcuts } from '../hooks/useCanvasShortcuts';
 import type { BlockType } from '../types/block.types';
 import './CanvasPage.scss';
 
 export function CanvasPage() {
-  const { currentPath, navigateInto, isEditingAtomicBlock, editingAtomicBlockId } =
-    useNavigationStore();
-  const { addBlock, getRootBlock, getBlock } = useBlockStore();
+  const { blockId } = useParams<{ blockId: string }>();
+  const { navigateToBlock } = useNavigation();
+  const { addBlock, getRootBlock } = useBlockStore();
 
-  // Get current parent ID (last item in path, or null for root)
-  const currentParentId = currentPath.length > 0 ? currentPath[currentPath.length - 1] : null;
+  // Current parent is the block we're viewing the canvas of
+  const currentParentId = blockId || null;
 
   // Get the root block (workflow) for execution
   const rootBlock = getRootBlock();
@@ -31,8 +31,8 @@ export function CanvasPage() {
   // Enable keyboard shortcuts
   useCanvasShortcuts({ enabled: true, parentId: currentParentId });
 
-  const handleDrillDown = (blockId: string) => {
-    navigateInto(blockId);
+  const handleDrillDown = (drillBlockId: string) => {
+    navigateToBlock(drillBlockId);
   };
 
   const handleDrop = (event: React.DragEvent, flowPosition: { x: number; y: number }) => {
@@ -47,7 +47,7 @@ export function CanvasPage() {
       const defaultBlock = BlockTypeRegistry.getDefaultBlock(blockType);
 
       // Generate unique ID
-      const blockId = `block-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+      const newBlockId = `block-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
 
       // Determine parent: if at root level (currentParentId === null),
       // add as child of the root workflow block
@@ -56,7 +56,7 @@ export function CanvasPage() {
       // Create block with position at drop location
       const newBlock = {
         ...defaultBlock,
-        id: blockId,
+        id: newBlockId,
         parentId: effectiveParentId,
         position: flowPosition,
         metadata: {
@@ -73,23 +73,6 @@ export function CanvasPage() {
       console.error('[CanvasPage] Error creating block:', error);
     }
   };
-
-  // If editing an atomic block, show the block editor
-  if (isEditingAtomicBlock && editingAtomicBlockId) {
-    const block = getBlock(editingAtomicBlockId);
-    if (block?.isAtomic) {
-      return (
-        <div className="canvas-page">
-          <ExecutionBar workflowId={workflowId} />
-          <div className="canvas-page__content">
-            <div className="canvas-page__editor">
-              <EditorWrapper block={block} />
-            </div>
-          </div>
-        </div>
-      );
-    }
-  }
 
   // Show normal canvas
   return (

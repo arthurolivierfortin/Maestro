@@ -3,8 +3,6 @@
  *
  * Visual type cards for selecting the block type to create.
  */
-
-import React from 'react';
 import type { BlockType } from '../../../types/block.types';
 import { BlockIcon, blockColorMap } from '../../icons/BlockIcons';
 import { WizardStep } from './WizardStep';

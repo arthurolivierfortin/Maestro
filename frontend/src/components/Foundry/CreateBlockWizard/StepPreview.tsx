@@ -3,9 +3,7 @@
  *
  * Shows JSON preview of the block to be created.
  */
-
-import React from 'react';
-import type { Block, BlockType } from '../../../types/block.types';
+import type { BlockType } from '../../../types/block.types';
 import { WizardStep } from './WizardStep';
 import type { BasicInfo } from './wizardTypes';
 

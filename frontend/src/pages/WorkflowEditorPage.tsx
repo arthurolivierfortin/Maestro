@@ -4,18 +4,20 @@
  * Visual workflow editor using block canvas.
  */
 
-import { useNavigationStore } from '../store/navigationStore';
+import { useParams } from 'react-router-dom';
+import { useNavigation } from '../hooks/useNavigation';
 import { BlockCanvas } from '../components/BlockCanvas';
 import './WorkflowEditorPage.scss';
 
 export function WorkflowEditorPage() {
-  const { currentPath, navigateInto } = useNavigationStore();
+  const { id: workflowId } = useParams<{ id: string }>();
+  const { navigateToBlock } = useNavigation();
 
-  // Get current parent ID (last item in path, or null for root)
-  const currentParentId = currentPath.length > 0 ? currentPath[currentPath.length - 1] : null;
+  // Current parent ID is the workflow ID from the URL
+  const currentParentId = workflowId || null;
 
   const handleDrillDown = (blockId: string) => {
-    navigateInto(blockId);
+    navigateToBlock(blockId);
   };
 
   return (

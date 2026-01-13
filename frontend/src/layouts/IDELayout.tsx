@@ -10,6 +10,7 @@ import { Outlet } from 'react-router-dom';
 import type { ImperativePanelHandle } from 'react-resizable-panels';
 import { BlockExplorer } from '../components/BlockExplorer';
 import { Breadcrumb } from '../components/Breadcrumb';
+import { useRouteSync } from '../hooks/useRouteSync';
 import { TopBar } from '../components/layout/TopBar';
 import { PanelLayout, PanelItem, PanelDivider } from '../components/panels';
 import { PropertiesPanel } from '../components/panels/PropertiesPanel';
@@ -25,6 +26,9 @@ export function IDELayout() {
   const leftPanelRef = useRef<ImperativePanelHandle>(null);
   const rightPanelRef = useRef<ImperativePanelHandle>(null);
   const bottomPanelRef = useRef<ImperativePanelHandle>(null);
+
+  // Sync router <-> navigation store
+  useRouteSync();
 
   // Command palette and shortcuts state (now in router context)
   const { isOpen, close, open } = useCommandPalette();
@@ -95,6 +99,8 @@ export function IDELayout() {
   return (
     <div className="ide-layout">
       <TopBar />
+      {/* Breadcrumb fixed below TopBar */}
+      <Breadcrumb />
       <div className="ide-layout__body">
         {/* Main horizontal split: left sidebar + center/right + bottom */}
         <PanelLayout persistKey="main" direction="vertical">
@@ -123,7 +129,6 @@ export function IDELayout() {
               {/* Center - Main workspace */}
               <PanelItem id="main" defaultSize={showExplorer ? 60 : 80} minSize={40}>
                 <div className="ide-layout__main-area">
-                  <Breadcrumb />
                   <main className="ide-layout__workspace" tabIndex={0}>
                     <Outlet />
                   </main>

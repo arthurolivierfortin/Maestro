@@ -36,21 +36,16 @@ export interface BaseBlockNodeProps {
  * BaseBlockNode Component
  */
 export const BaseBlockNode = memo(({ data, selected }: BaseBlockNodeProps) => {
-  const { block, isExecuting, executionStatus, onDrillDown } = data;
+  const { block, isExecuting, executionStatus } = data;
   const [menuOpen, setMenuOpen] = useState(false);
   const { duplicateBlock, removeBlock } = useBlockStore();
-  const { selectBlock, setPropertiesPanelMode, enterAtomicBlockEdit } = useNavigationStore();
+  const { selectBlock, setPropertiesPanelMode, pushBlock } = useNavigationStore();
 
-  // Handle double-click: drill down for composite blocks, edit for atomic blocks
+  // Handle double-click: navigate to block (drill down for composite, edit for atomic)
   const handleDoubleClick = useCallback(() => {
-    if (block.isAtomic) {
-      // Enter edit mode for atomic blocks (shown in canvas workspace)
-      enterAtomicBlockEdit(block.id);
-    } else {
-      // Drill down into composite blocks
-      onDrillDown(block.id);
-    }
-  }, [block.id, block.isAtomic, enterAtomicBlockEdit, onDrillDown]);
+    // pushBlock handles both atomic and non-atomic blocks
+    pushBlock(block.id);
+  }, [block.id, pushBlock]);
 
   // Handle menu click
   const handleMenuClick = useCallback(
@@ -64,14 +59,14 @@ export const BaseBlockNode = memo(({ data, selected }: BaseBlockNodeProps) => {
   // Context menu actions
   const handleEdit = useCallback(() => {
     if (block.isAtomic) {
-      // Enter edit mode for atomic blocks (shown in canvas workspace)
-      enterAtomicBlockEdit(block.id);
+      // Navigate to atomic block edit page
+      pushBlock(block.id);
     } else {
       // For composite blocks, open properties panel
       selectBlock(block.id);
       setPropertiesPanelMode('edit');
     }
-  }, [block.id, block.isAtomic, enterAtomicBlockEdit, selectBlock, setPropertiesPanelMode]);
+  }, [block.id, block.isAtomic, pushBlock, selectBlock, setPropertiesPanelMode]);
 
   const handleDuplicate = useCallback(() => {
     duplicateBlock(block.id);
@@ -82,8 +77,8 @@ export const BaseBlockNode = memo(({ data, selected }: BaseBlockNodeProps) => {
   }, [block.id, removeBlock]);
 
   const handleDrillIntoMenu = useCallback(() => {
-    onDrillDown(block.id);
-  }, [block.id, onDrillDown]);
+    pushBlock(block.id);
+  }, [block.id, pushBlock]);
 
   // Determine status class
   const statusClass = executionStatus

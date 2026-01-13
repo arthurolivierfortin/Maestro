@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { BaseBlockEditor } from './BaseBlockEditor';
 import type { Block, ScriptBlockConfig } from '../../types/block.types';
 import { useBlockStore } from '../../store/blockStore';
-import { useNavigationStore } from '../../store/navigationStore';
 import './ScriptEditor.scss';
 
 interface ScriptEditorProps {
@@ -11,6 +11,7 @@ interface ScriptEditorProps {
 
 export function ScriptEditor({ block }: ScriptEditorProps) {
   const { updateBlock } = useBlockStore();
+  const navigate = useNavigate();
   const [config, setConfig] = useState<ScriptBlockConfig>(block.config);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
@@ -22,16 +23,11 @@ export function ScriptEditor({ block }: ScriptEditorProps) {
     updateBlock(block.id, { config, inputs: block.inputs, outputs: block.outputs });
   }, [block.id, config, updateBlock, block.inputs, block.outputs]);
 
-  const handleCancel = () => setConfig(block.config);
-
-  // Reset editor state, unsaved flag and exit atomic edit when cancelling
-  const { exitAtomicBlockEdit } = useNavigationStore();
-
   const handleCancelFull = () => {
     setConfig(block.config);
     setHasUnsavedChanges(false);
-    // Exit atomic editing mode so the canvas returns to normal
-    exitAtomicBlockEdit();
+    // Navigate back to foundry
+    navigate('/foundry');
   };
 
   return (

@@ -29,7 +29,8 @@ export function BaseBlockEditor({
   hasUnsavedChanges = false,
 }: BaseBlockEditorProps) {
   const navigate = useNavigate();
-  const { isEditingAtomicBlock, exitAtomicBlockEdit } = useNavigationStore();
+  const popOne = useNavigationStore((s) => s.popOne);
+  const canGoUp = useNavigationStore((s) => s.canGoUp);
   const [isSaving, setIsSaving] = useState(false);
 
   const handleCancel = useCallback(() => {
@@ -49,11 +50,10 @@ export function BaseBlockEditor({
     setIsSaving(true);
     try {
       onSave(block.config);
-      // If we're editing an atomic block in-canvas, exit atomic edit to return to workflow view
-      if (isEditingAtomicBlock) {
-        exitAtomicBlockEdit();
+      // Navigate back: either pop the stack or go to foundry
+      if (canGoUp()) {
+        popOne();
       } else {
-        // Fallback: navigate to foundry page for non-atomic editors
         navigate('/foundry');
       }
     } catch (error) {
@@ -62,7 +62,7 @@ export function BaseBlockEditor({
     } finally {
       setIsSaving(false);
     }
-  }, [block.config, onSave, navigate]);
+  }, [block.config, onSave, navigate, canGoUp, popOne]);
 
   return (
     <div className="base-block-editor">

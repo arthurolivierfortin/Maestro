@@ -4,7 +4,7 @@
  * Multi-step wizard for creating new blocks.
  */
 
-import React, { useReducer, useEffect } from 'react';
+import { useReducer, useEffect } from 'react';
 import { Modal } from '../../common/Modal';
 import { Button } from '../../common/Button';
 import { useBlockStore } from '../../../store';
@@ -12,7 +12,6 @@ import { useNavigate } from 'react-router-dom';
 import {
   wizardReducer,
   initialWizardState,
-  type WizardState,
   type WizardStep,
 } from './wizardTypes';
 import { StepSelectType } from './StepSelectType';
