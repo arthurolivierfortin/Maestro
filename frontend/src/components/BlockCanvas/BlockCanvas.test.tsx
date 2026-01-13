@@ -23,8 +23,9 @@ vi.mock('reactflow', () => ({
 describe('BlockCanvas', () => {
   beforeEach(() => {
     useNavigationStore.setState({
-      currentPath: [],
+      navStack: [],
       selectedBlockId: null,
+      propertiesPanelMode: 'view',
     });
     useBlockStore.getState().clear();
   });

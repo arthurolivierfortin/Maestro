@@ -5,11 +5,11 @@
  */
 
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { MoreVertical, Edit, Copy, Trash2, Star } from 'lucide-react';
 import { BlockIcon } from '../icons';
 import type { Block } from '../../types/block.types';
 import { useBlockStore } from '../../store';
+import { useNavigation } from '../../hooks/useNavigation';
 import { useFavorites } from '../../hooks/useFavorites';
 import './BlockCard.scss';
 
@@ -18,20 +18,17 @@ interface BlockCardProps {
 }
 
 export function BlockCard({ block }: BlockCardProps) {
-  const navigate = useNavigate();
   const [showActions, setShowActions] = useState(false);
   const { duplicateBlock, removeBlock } = useBlockStore();
   const { toggleFavorite, isFavorite } = useFavorites();
+  const { navigateToBlock } = useNavigation();
 
   /**
    * Handle card click - navigate to block detail or canvas
+   * Uses unified navigation: atomic -> edit page, non-atomic -> canvas
    */
   const handleClick = () => {
-    if (block.isAtomic) {
-      navigate(`/foundry/${block.id}/edit`);
-    } else {
-      navigate(`/canvas/${block.id}`);
-    }
+    navigateToBlock(block.id);
   };
 
   /**

@@ -2,116 +2,92 @@
  * Breadcrumb Component Tests
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { render, screen, fireEvent } from '@testing-library/react';
+import { BrowserRouter } from 'react-router-dom';
 import { Breadcrumb } from './Breadcrumb';
 import { useNavigationStore } from '../../store/navigationStore';
-import { useBlockStore } from '../../store/blockStore';
-import type { Block } from '../../types/block.types';
 
-// Mock the hooks
-vi.mock('../../hooks/useNavigation', () => ({
-  useNavigation: () => {
-    const navigation = useNavigationStore();
-    const getBlock = useBlockStore((state) => state.getBlock);
-    const getRootBlock = useBlockStore((state) => state.getRootBlock);
+// Mock navigate
+const mockNavigate = vi.fn();
+vi.mock('react-router-dom', async () => {
+  const actual = await vi.importActual('react-router-dom');
+  return {
+    ...actual,
+    useNavigate: () => mockNavigate,
+  };
+});
 
-    const getBreadcrumbs = () => {
-      const root = getRootBlock();
-      const items: Array<{ id: string; block: Block | undefined }> = [];
-
-      if (root) {
-        items.push({ id: root.id, block: root });
-      }
-
-      navigation.currentPath.forEach((id) => {
-        if (id !== root?.id) {
-          items.push({ id, block: getBlock(id) });
-        }
-      });
-
-      return items;
+// Mock the block store
+vi.mock('../../store/blockStore', () => ({
+  useBlockStore: vi.fn((selector) => {
+    const state = {
+      blocks: new Map([
+        ['block-1', { id: 'block-1', name: 'Test Block', blockType: 'agent' }],
+      ]),
     };
-
-    return {
-      ...navigation,
-      getBreadcrumbs,
-    };
-  },
+    return selector(state);
+  }),
 }));
 
 describe('Breadcrumb', () => {
   beforeEach(() => {
+    vi.clearAllMocks();
+    // Reset navigation store
     useNavigationStore.setState({
-      currentPath: [],
+      navStack: [
+        { type: 'page', id: 'foundry', label: 'Foundry', path: '/foundry' },
+      ],
       selectedBlockId: null,
+      propertiesPanelMode: 'view',
     });
-    useBlockStore.getState().clear();
   });
 
-  const createTestBlock = (id: string, name: string): Block => ({
-    id,
-    name,
-    blockType: 'workflow',
-    isAtomic: false,
-    parentId: null,
-    config: { type: 'workflow' },
-    inputs: [],
-    outputs: [],
-    position: { x: 0, y: 0 },
-    children: [],
-    metadata: {
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      createdBy: 'user',
-      tags: [],
-      status: 'active' as const,
-    },
+  const renderWithRouter = (component: React.ReactElement) => {
+    return render(<BrowserRouter>{component}</BrowserRouter>);
+  };
+
+  it('should render Home segment', () => {
+    renderWithRouter(<Breadcrumb />);
+    expect(screen.getByRole('button', { name: /home/i })).toBeInTheDocument();
   });
 
-  it('should render home segment when at root', () => {
-    render(<Breadcrumb />);
-    expect(screen.getByText('Home')).toBeInTheDocument();
+  it('should render page segment from navigation stack', () => {
+    renderWithRouter(<Breadcrumb />);
+    expect(screen.getByText('Foundry')).toBeInTheDocument();
   });
 
-  it('should render root block name', () => {
-    const rootBlock = createTestBlock('root-1', 'My Workflow');
-    useBlockStore.getState().addBlock(null, rootBlock);
+  it('should render multiple segments when navigating into blocks', () => {
+    useNavigationStore.setState({
+      navStack: [
+        { type: 'page', id: 'foundry', label: 'Foundry', path: '/foundry' },
+        { type: 'block', id: 'block-1', label: 'Block 1', path: '/canvas/block-1', blockId: 'block-1', isAtomic: false },
+      ],
+      selectedBlockId: null,
+      propertiesPanelMode: 'view',
+    });
 
-    render(<Breadcrumb />);
-    expect(screen.getByText('Home')).toBeInTheDocument();
-    expect(screen.getByText('My Workflow')).toBeInTheDocument();
+    renderWithRouter(<Breadcrumb />);
+    expect(screen.getByText('Foundry')).toBeInTheDocument();
+    expect(screen.getByText('Block 1')).toBeInTheDocument();
   });
 
-  it('should navigate to root when home is clicked', async () => {
-    const user = userEvent.setup();
-    const rootBlock = createTestBlock('root-1', 'Workflow');
-
-    useBlockStore.getState().addBlock(null, rootBlock);
-
-    render(<Breadcrumb />);
-
-    const homeButton = screen.getByLabelText('Navigate to root');
-    await user.click(homeButton);
-
-    expect(useNavigationStore.getState().currentPath).toEqual([]);
+  it('should have back and forward navigation buttons', () => {
+    renderWithRouter(<Breadcrumb />);
+    expect(screen.getByRole('button', { name: /go back/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /go forward/i })).toBeInTheDocument();
   });
 
-  it('should mark home as active when at root', () => {
-    render(<Breadcrumb />);
-
-    const homeButton = screen.getByLabelText('Navigate to root');
-    expect(homeButton).toHaveClass('breadcrumb__segment--active');
+  it('should navigate to home when Home segment is clicked', () => {
+    renderWithRouter(<Breadcrumb />);
+    const homeButton = screen.getByRole('button', { name: /home/i });
+    fireEvent.click(homeButton);
+    expect(mockNavigate).toHaveBeenCalledWith('/');
   });
 
-  it('should mark root block as active when not navigated into children', () => {
-    const rootBlock = createTestBlock('root-1', 'My Workflow');
-    useBlockStore.getState().addBlock(null, rootBlock);
-
-    render(<Breadcrumb />);
-
-    const workflowButton = screen.getByLabelText('Navigate to My Workflow');
-    expect(workflowButton).toHaveClass('breadcrumb__segment--active');
+  it('should mark the last segment as current with aria-current', () => {
+    renderWithRouter(<Breadcrumb />);
+    const foundryButton = screen.getByText('Foundry').closest('button');
+    expect(foundryButton).toHaveAttribute('aria-current', 'page');
   });
 });

@@ -2,113 +2,82 @@
  * Breadcrumb Component
  *
  * Displays navigation breadcrumb with clickable segments.
- * Home button navigates to root route when at block root.
- * Includes back/forward navigation buttons.
+ * Uses the navigation stack to generate segments.
  */
 
 import { useNavigate } from 'react-router-dom';
 import { useNavigation } from '../../hooks';
 import { BlockIcon } from '../icons';
+import { useBlockStore } from '../../store/blockStore';
+import type { BreadcrumbSegment } from '../../types/navigation.types';
 import { Home, ChevronLeft, ChevronRight } from 'lucide-react';
 import './Breadcrumb.scss';
 
+/**
+ * Helper to render block segment with name and icon
+ */
+function BlockSegmentContent({ segment }: { segment: BreadcrumbSegment }) {
+  const blocks = useBlockStore((s) => s.blocks);
+  const block = segment.blockId ? blocks.get(segment.blockId) : undefined;
+  const label = block ? block.name : segment.label;
+  const type = block ? block.blockType : (segment.blockType as any) || 'workflow';
+
+  return (
+    <>
+      <BlockIcon type={type} size={16} className="breadcrumb__icon" />
+      <span className="breadcrumb__label">{label}</span>
+    </>
+  );
+}
+
 export function Breadcrumb() {
-  const {
-    getBreadcrumbs,
-    navigateTo,
-    navigateToRoot,
-    isAtRoot,
-    navigateBack,
-    navigateForward,
-    canGoBack,
-    canGoForward,
-  } = useNavigation();
+  const { getBreadcrumbSegments, popToIndex } = useNavigation();
+  const segments = getBreadcrumbSegments();
   const navigate = useNavigate();
-  const breadcrumbs = getBreadcrumbs();
 
-  const handleHomeClick = () => {
-    if (isAtRoot()) {
-      // Already at block root, navigate to home page
+  const handleBack = () => navigate(-1);
+  const handleForward = () => navigate(1);
+
+  const handleSegmentClick = (segment: BreadcrumbSegment, segmentIndex: number) => {
+    // Home is index -1 (before the stack), stack entries start at index 0
+    if (segment.type === 'home') {
       navigate('/');
-    } else {
-      // Navigate to block root
-      navigateToRoot();
+      return;
     }
-  };
 
-  const handleSegmentClick = (index: number) => {
-    if (index === 0) {
-      handleHomeClick();
-    } else {
-      const path = breadcrumbs.slice(1, index + 1).map((b) => b.id);
-      navigateTo(path);
-    }
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent, index: number) => {
-    if (e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault();
-      handleSegmentClick(index);
+    // For stack entries, pop to that index
+    // segmentIndex 0 = Home, so stack index = segmentIndex - 1
+    const stackIndex = segmentIndex - 1;
+    if (stackIndex >= 0) {
+      popToIndex(stackIndex);
     }
   };
 
   return (
     <nav className="breadcrumb" aria-label="Breadcrumb navigation">
       <div className="breadcrumb__nav-controls">
-        <button
-          className="breadcrumb__nav-btn"
-          onClick={() => navigateBack()}
-          disabled={!canGoBack()}
-          aria-label="Go back"
-          title="Go back"
-        >
+        <button className="breadcrumb__nav-btn" onClick={handleBack} aria-label="Go back" title="Go back">
           <ChevronLeft size={16} />
         </button>
-        <button
-          className="breadcrumb__nav-btn"
-          onClick={() => navigateForward()}
-          disabled={!canGoForward()}
-          aria-label="Go forward"
-          title="Go forward"
-        >
+        <button className="breadcrumb__nav-btn" onClick={handleForward} aria-label="Go forward" title="Go forward">
           <ChevronRight size={16} />
         </button>
       </div>
 
       <ol className="breadcrumb__list">
-        {/* Root/Home segment */}
-        <li className="breadcrumb__item">
-          <button
-            className={`breadcrumb__segment ${isAtRoot() ? 'breadcrumb__segment--active' : ''}`}
-            onClick={handleHomeClick}
-            onKeyDown={(e) => handleKeyDown(e, 0)}
-            aria-label={isAtRoot() ? 'Navigate to home page' : 'Navigate to block root'}
-            aria-current={isAtRoot() ? 'page' : undefined}
-          >
-            <Home size={16} className="breadcrumb__icon" />
-            <span className="breadcrumb__label">Home</span>
-          </button>
-        </li>
-
-        {/* Block segments */}
-        {breadcrumbs.map((item, index) => {
-          const isLast = index === breadcrumbs.length - 1;
-          const block = item.block;
-
-          if (!block) return null;
-
+        {segments.map((segment, index) => {
+          const isLast = segment.isCurrent;
           return (
-            <li key={`${item.id}-${index}`} className="breadcrumb__item">
-              <span className="breadcrumb__separator">/</span>
+            <li key={`${segment.path}-${index}`} className="breadcrumb__item">
+              {index > 0 && <span className="breadcrumb__separator">/</span>}
               <button
                 className={`breadcrumb__segment ${isLast ? 'breadcrumb__segment--active' : ''}`}
-                onClick={() => handleSegmentClick(index + 1)}
-                onKeyDown={(e) => handleKeyDown(e, index + 1)}
-                aria-label={`Navigate to ${block.name}`}
+                onClick={() => handleSegmentClick(segment, index)}
+                disabled={!segment.isClickable}
                 aria-current={isLast ? 'page' : undefined}
               >
-                <BlockIcon type={block.blockType} size={16} className="breadcrumb__icon" />
-                <span className="breadcrumb__label">{block.name}</span>
+                {segment.type === 'home' ? <Home size={16} className="breadcrumb__icon" /> : null}
+                {segment.type === 'block' ? <BlockSegmentContent segment={segment} /> : <span className="breadcrumb__label">{segment.label}</span>}
               </button>
             </li>
           );

@@ -1,11 +1,18 @@
 /**
  * Navigation Store (Zustand)
  *
- * Manages drill-down navigation state and block selection.
+ * Simple stack-based navigation for breadcrumb and drill-down.
+ * 
+ * Core concept: A navigation stack where each entry is a breadcrumb segment.
+ * - First entry is always the origin page (Foundry, Workflows, etc.)
+ * - Subsequent entries are blocks we've navigated into
+ * - The URL is derived from the last entry in the stack
  */
 
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
+import type { BreadcrumbSegment } from '../types/navigation.types';
+import { useBlockStore } from './blockStore';
 
 /**
  * Properties panel mode
@@ -13,52 +20,81 @@ import { devtools } from 'zustand/middleware';
 export type PropertiesPanelMode = 'edit' | 'view';
 
 /**
- * History entry for navigation
+ * Stack entry representing a navigation point
  */
-interface HistoryEntry {
-  path: string[];
-  timestamp: number;
+export interface NavStackEntry {
+  /** Type: 'page' for top-level pages, 'block' for blocks */
+  type: 'page' | 'block';
+  /** Unique identifier (page name or block ID) */
+  id: string;
+  /** Display label for breadcrumb */
+  label: string;
+  /** URL path */
+  path: string;
+  /** Block ID (only for block entries) */
+  blockId?: string;
+  /** Whether this is an atomic block (for routing) */
+  isAtomic?: boolean;
 }
 
 /**
  * Navigation State
  */
 interface NavigationState {
-  // State
-  currentPath: string[]; // Array of block IDs representing navigation path
-  selectedBlockId: string | null;
-  propertiesPanelMode: PropertiesPanelMode; // Edit or view mode
-  history: HistoryEntry[]; // Navigation history
-  historyIndex: number; // Current position in history
+  // Core navigation stack
+  navStack: NavStackEntry[];
 
-  // Atomic block editing state
-  isEditingAtomicBlock: boolean; // True when editing an atomic block (hides properties panel)
-  editingAtomicBlockId: string | null; // ID of the atomic block being edited
+  // Selection state
+  selectedBlockId: string | null;
+  propertiesPanelMode: PropertiesPanelMode;
 
   // Navigation actions
-  navigateInto: (blockId: string) => void;
-  navigateUp: () => void;
-  navigateTo: (path: string[]) => void;
-  navigateToRoot: () => void;
-  navigateBack: () => boolean; // Returns true if navigation occurred
-  navigateForward: () => boolean; // Returns true if navigation occurred
+  /**
+   * Push a page onto the stack (starts fresh navigation)
+   */
+  pushPage: (pageId: string, label: string, basePath: string) => void;
+
+  /**
+   * Push a block onto the stack (drill-down)
+   */
+  pushBlock: (blockId: string) => void;
+
+  /**
+   * Pop to a specific index in the stack (breadcrumb click)
+   */
+  popToIndex: (index: number) => void;
+
+  /**
+   * Pop one level (go up/back)
+   */
+  popOne: () => void;
+
+  /**
+   * Clear the entire stack
+   */
+  clearStack: () => void;
+
+  /**
+   * Initialize from URL (used by route sync)
+   */
+  initFromUrl: (pageId: string, pageLabel: string, basePath: string, blockId?: string) => void;
 
   // Selection actions
   selectBlock: (id: string | null, mode?: PropertiesPanelMode) => void;
   clearSelection: () => void;
-
-  // Properties panel mode actions
   setPropertiesPanelMode: (mode: PropertiesPanelMode) => void;
 
-  // Atomic block editing actions
-  enterAtomicBlockEdit: (blockId: string) => void;
-  exitAtomicBlockEdit: () => void;
-
-  // Utility
+  // Getters
+  /** Get the current (last) block ID, if any */
   getCurrentBlockId: () => string | null;
-  isAtRoot: () => boolean;
-  canGoBack: () => boolean;
-  canGoForward: () => boolean;
+  /** Get the current URL path */
+  getCurrentPath: () => string;
+  /** Get breadcrumb segments */
+  getBreadcrumbSegments: () => BreadcrumbSegment[];
+  /** Check if can go up */
+  canGoUp: () => boolean;
+  /** Get the last entry in the stack */
+  getLastEntry: () => NavStackEntry | null;
 }
 
 /**
@@ -67,186 +103,220 @@ interface NavigationState {
 export const useNavigationStore = create<NavigationState>()(
   devtools(
     (set, get) => ({
-      // Initial state
-      currentPath: [],
+      navStack: [],
       selectedBlockId: null,
-      propertiesPanelMode: 'view', // Default to view mode (read-only quick-view)
-      history: [{ path: [], timestamp: Date.now() }], // Start with root in history
-      historyIndex: 0,
-      isEditingAtomicBlock: false,
-      editingAtomicBlockId: null,
+      propertiesPanelMode: 'view',
 
-      // Helper to add to history
-      _addToHistory: (path: string[]) => {
-        const state = get();
-        // Remove forward history if we navigate after going back
-        const newHistory = state.history.slice(0, state.historyIndex + 1);
-        // Add new entry
-        newHistory.push({ path: [...path], timestamp: Date.now() });
-        // Limit history size to 50 entries
-        const limitedHistory = newHistory.slice(-50);
-
+      pushPage: (pageId: string, label: string, basePath: string) => {
         set({
-          history: limitedHistory,
-          historyIndex: limitedHistory.length - 1,
-        });
-      },
-
-      // Navigate into a block (drill down)
-      navigateInto: (blockId: string) => {
-        set((state: NavigationState) => {
-          const newPath = [...state.currentPath, blockId];
-          (get() as any)._addToHistory(newPath);
-          return {
-            currentPath: newPath,
-            selectedBlockId: null, // Clear selection when navigating
-            propertiesPanelMode: 'view',
-            // Exit atomic block edit mode when navigating
-            isEditingAtomicBlock: false,
-            editingAtomicBlockId: null,
-          };
-        });
-      },
-
-      // Navigate up one level (go back)
-      navigateUp: () => {
-        set((state: NavigationState) => {
-          if (state.currentPath.length === 0) return state;
-          const newPath = state.currentPath.slice(0, -1);
-          (get() as any)._addToHistory(newPath);
-          return {
-            currentPath: newPath,
-            selectedBlockId: null,
-            propertiesPanelMode: 'view',
-            // Exit atomic block edit mode when navigating
-            isEditingAtomicBlock: false,
-            editingAtomicBlockId: null,
-          };
-        });
-      },
-
-      // Navigate to specific path
-      navigateTo: (path: string[]) => {
-        (get() as any)._addToHistory(path);
-        set({
-          currentPath: [...path],
+          navStack: [{
+            type: 'page',
+            id: pageId,
+            label,
+            path: basePath,
+          }],
           selectedBlockId: null,
           propertiesPanelMode: 'view',
-          // Exit atomic block edit mode when navigating
-          isEditingAtomicBlock: false,
-          editingAtomicBlockId: null,
         });
       },
 
-      // Navigate to root (clear path)
-      navigateToRoot: () => {
-        (get() as any)._addToHistory([]);
+      pushBlock: (blockId: string) => {
+        const state = get();
+        const block = useBlockStore.getState().getBlock(blockId);
+
+        if (!block) {
+          console.warn(`[NavigationStore] Block not found: ${blockId}`);
+          return;
+        }
+
+        // Check if this block is already in the stack
+        const existingIndex = state.navStack.findIndex(
+          (e) => e.type === 'block' && e.blockId === blockId
+        );
+
+        if (existingIndex >= 0) {
+          // Already in stack - navigate to that position instead of duplicating
+          set({
+            navStack: state.navStack.slice(0, existingIndex + 1),
+            selectedBlockId: null,
+            propertiesPanelMode: 'view',
+          });
+          return;
+        }
+
+        // Determine URL path based on whether block is atomic
+        const path = block.isAtomic
+          ? `/foundry/${blockId}/edit`
+          : `/canvas/${blockId}`;
+
+        const newEntry: NavStackEntry = {
+          type: 'block',
+          id: blockId,
+          label: block.name,
+          path,
+          blockId,
+          isAtomic: block.isAtomic,
+        };
+
         set({
-          currentPath: [],
+          navStack: [...state.navStack, newEntry],
           selectedBlockId: null,
           propertiesPanelMode: 'view',
-          // Exit atomic block edit mode when navigating
-          isEditingAtomicBlock: false,
-          editingAtomicBlockId: null,
         });
       },
 
-      // Navigate back in history
-      navigateBack: () => {
+      popToIndex: (index: number) => {
         const state = get();
-        if (state.historyIndex > 0) {
-          const newIndex = state.historyIndex - 1;
-          const entry = state.history[newIndex];
-          set({
-            currentPath: [...entry.path],
-            historyIndex: newIndex,
-            selectedBlockId: null,
-            propertiesPanelMode: 'view',
-            // Exit atomic block edit mode when navigating
-            isEditingAtomicBlock: false,
-            editingAtomicBlockId: null,
-          });
-          return true;
-        }
-        return false;
+        if (index < 0 || index >= state.navStack.length) return;
+
+        set({
+          navStack: state.navStack.slice(0, index + 1),
+          selectedBlockId: null,
+          propertiesPanelMode: 'view',
+        });
       },
 
-      // Navigate forward in history
-      navigateForward: () => {
+      popOne: () => {
         const state = get();
-        if (state.historyIndex < state.history.length - 1) {
-          const newIndex = state.historyIndex + 1;
-          const entry = state.history[newIndex];
-          set({
-            currentPath: [...entry.path],
-            historyIndex: newIndex,
-            selectedBlockId: null,
-            propertiesPanelMode: 'view',
-            // Exit atomic block edit mode when navigating
-            isEditingAtomicBlock: false,
-            editingAtomicBlockId: null,
-          });
-          return true;
-        }
-        return false;
+        if (state.navStack.length <= 1) return;
+
+        set({
+          navStack: state.navStack.slice(0, -1),
+          selectedBlockId: null,
+          propertiesPanelMode: 'view',
+        });
       },
 
-      // Select a block
+      clearStack: () => {
+        set({
+          navStack: [],
+          selectedBlockId: null,
+          propertiesPanelMode: 'view',
+        });
+      },
+
+      initFromUrl: (pageId: string, pageLabel: string, basePath: string, blockId?: string) => {
+        const state = get();
+        
+        // Check if we're already at the right state to avoid unnecessary updates
+        const currentPage = state.navStack[0];
+        const currentBlockId = get().getCurrentBlockId();
+        
+        if (currentPage?.id === pageId && currentBlockId === (blockId || null)) {
+          // Already at the right state
+          return;
+        }
+
+        const newStack: NavStackEntry[] = [{
+          type: 'page',
+          id: pageId,
+          label: pageLabel,
+          path: basePath,
+        }];
+
+        if (blockId) {
+          const block = useBlockStore.getState().getBlock(blockId);
+          if (block) {
+            const path = block.isAtomic
+              ? `/foundry/${blockId}/edit`
+              : `/canvas/${blockId}`;
+
+            newStack.push({
+              type: 'block',
+              id: blockId,
+              label: block.name,
+              path,
+              blockId,
+              isAtomic: block.isAtomic,
+            });
+          }
+        }
+
+        set({
+          navStack: newStack,
+          selectedBlockId: null,
+          propertiesPanelMode: 'view',
+        });
+      },
+
       selectBlock: (id: string | null, mode: PropertiesPanelMode = 'view') => {
-        // Don't allow selection when editing atomic block
-        if (get().isEditingAtomicBlock) return;
         set({ selectedBlockId: id, propertiesPanelMode: mode });
       },
 
-      // Clear selection
       clearSelection: () => {
         set({ selectedBlockId: null, propertiesPanelMode: 'view' });
       },
 
-      // Set properties panel mode
       setPropertiesPanelMode: (mode: PropertiesPanelMode) => {
-        // Don't allow mode change when editing atomic block
-        if (get().isEditingAtomicBlock) return;
         set({ propertiesPanelMode: mode });
       },
 
-      // Enter atomic block edit mode (hides properties panel)
-      enterAtomicBlockEdit: (blockId: string) => {
-        set({
-          isEditingAtomicBlock: true,
-          editingAtomicBlockId: blockId,
-          selectedBlockId: null, // Clear selection
-        });
-      },
-
-      // Exit atomic block edit mode (restores previous state)
-      exitAtomicBlockEdit: () => {
-        set({
-          isEditingAtomicBlock: false,
-          editingAtomicBlockId: null,
-        });
-      },
-
-      // Get current block ID (last in path)
       getCurrentBlockId: () => {
-        const path = get().currentPath;
-        return path.length > 0 ? path[path.length - 1] : null;
+        const stack = get().navStack;
+        for (let i = stack.length - 1; i >= 0; i--) {
+          if (stack[i].type === 'block' && stack[i].blockId) {
+            return stack[i].blockId!;
+          }
+        }
+        return null;
       },
 
-      // Check if at root
-      isAtRoot: () => {
-        return get().currentPath.length === 0;
+      getCurrentPath: () => {
+        const stack = get().navStack;
+        if (stack.length === 0) return '/';
+        return stack[stack.length - 1].path;
       },
 
-      // Check if can go back
-      canGoBack: () => {
-        return get().historyIndex > 0;
-      },
-
-      // Check if can go forward
-      canGoForward: () => {
+      getBreadcrumbSegments: () => {
         const state = get();
-        return state.historyIndex < state.history.length - 1;
+        const segments: BreadcrumbSegment[] = [];
+
+        // Home is always first
+        segments.push({
+          type: 'home',
+          label: 'Home',
+          path: '/',
+          isClickable: true,
+          isCurrent: state.navStack.length === 0,
+        });
+
+        // Add stack entries
+        state.navStack.forEach((entry, index) => {
+          const isLast = index === state.navStack.length - 1;
+
+          if (entry.type === 'page') {
+            segments.push({
+              type: 'route',
+              label: entry.label,
+              path: entry.path,
+              isClickable: !isLast,
+              isCurrent: isLast,
+            });
+          } else {
+            // Get fresh block data for label and type
+            const block = useBlockStore.getState().getBlock(entry.blockId!);
+            segments.push({
+              type: 'block',
+              label: block?.name || entry.label,
+              path: entry.path,
+              blockId: entry.blockId,
+              blockType: block?.blockType,
+              isClickable: !isLast,
+              isCurrent: isLast,
+            });
+          }
+        });
+
+        return segments;
+      },
+
+      canGoUp: () => {
+        return get().navStack.length > 1;
+      },
+
+      getLastEntry: () => {
+        const stack = get().navStack;
+        return stack.length > 0 ? stack[stack.length - 1] : null;
       },
     }),
     { name: 'NavigationStore' }

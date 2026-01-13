@@ -6,7 +6,7 @@
  * Can be collapsed/expanded like the PropertiesPanel.
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { ChevronLeft } from 'lucide-react';
 import { useBlockActions } from '../../hooks';
 import { useBlockStore } from '../../store/blockStore';
@@ -32,6 +32,7 @@ export function BlockExplorer({ contextBlockId, panelRef }: BlockExplorerProps =
     y: number;
   } | null>(null);
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const rootRef = useRef<HTMLElement | null>(null);
 
   // Sync isCollapsed with panel collapse state
   useEffect(() => {
@@ -51,6 +52,26 @@ export function BlockExplorer({ contextBlockId, panelRef }: BlockExplorerProps =
 
     return () => clearInterval(interval);
   }, [panelRef]);
+
+  // Fallback: observe actual element width to detect collapse state reliably
+  useEffect(() => {
+    const el = rootRef.current;
+    if (!el) return;
+
+    const ro = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const width = entry.contentRect.width;
+        // Consider collapsed if width is very small (e.g., <= 48px)
+        setIsCollapsed((prev) => {
+          const collapsed = width <= 48;
+          return collapsed !== prev ? collapsed : prev;
+        });
+      }
+    });
+
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   const handleToggle = useCallback(() => {
     if (!panelRef?.current) return;

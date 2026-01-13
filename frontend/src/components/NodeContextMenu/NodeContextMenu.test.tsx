@@ -5,7 +5,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { NodeContextMenu } from '../NodeContextMenu';
-import type { Block } from '../../../types/block.types';
+import type { Block } from '../../types/block.types';
 
 describe('NodeContextMenu', () => {
   const mockBlock: Block = {

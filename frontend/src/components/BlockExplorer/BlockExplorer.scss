@@ -10,7 +10,12 @@
   border-right: 1px solid var(--border-color);
   position: relative;
   overflow: hidden;
-  min-width: 250px;
+  width: 100%;
+
+  /* Expanded explicit min width to avoid parent forcing small width */
+  &[data-state="expanded"] {
+    min-width: 250px;
+  }
 
   /* When collapsed, use minimal fixed width */
   &[data-state="collapsed"] {

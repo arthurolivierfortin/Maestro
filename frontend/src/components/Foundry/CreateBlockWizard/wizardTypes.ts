@@ -4,7 +4,7 @@
  * Type definitions for the Create Block Wizard state management.
  */
 
-import type { Block, BlockType, BlockStatus } from '../../../types/block.types';
+import type { BlockType, BlockStatus } from '../../../types/block.types';
 
 /**
  * Wizard step identifiers

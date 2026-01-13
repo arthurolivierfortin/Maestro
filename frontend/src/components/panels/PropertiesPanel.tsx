@@ -31,7 +31,6 @@ export function PropertiesPanel({ panelRef }: PropertiesPanelProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
 
   const isViewMode = propertiesPanelMode === 'view';
-  const isEditMode = propertiesPanelMode === 'edit';
 
   // Sync isCollapsed with panel collapse state
   useEffect(() => {

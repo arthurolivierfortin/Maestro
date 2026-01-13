@@ -16,6 +16,13 @@
     position: relative;
   }
 
+  // Breadcrumb occupies a fixed area below TopBar
+  .breadcrumb {
+    flex-shrink: 0;
+    z-index: 10;
+    width: 100%;
+  }
+
   &__main-area {
     display: flex;
     flex-direction: column;
