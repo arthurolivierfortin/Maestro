@@ -4,19 +4,21 @@ using Maestro.Domain.ValueObjects;
 
 namespace Maestro.Domain.Entities
 {
+
     public class ExecutionContext
     {
-        public ExecutionId Id { get; private set; }
-        public string WorkflowId { get; private set; }
-        public string Status { get; private set; }
-        public Dictionary<string, object> Variables { get; private set; } = new();
-        public Dictionary<string, BlockExecutionState> BlockStates { get; private set; } = new();
-        public List<ExecutionLog> Logs { get; private set; } = new();
-        public ExecutionMetrics Metrics { get; private set; } = new();
-        public DateTimeOffset StartedAt { get; private set; }
-        public DateTimeOffset? CompletedAt { get; private set; }
+        public ExecutionId Id { get; set; }
+        public string WorkflowId { get; set; } = string.Empty;
+        public string Status { get; set; } = string.Empty;
+        public Dictionary<string, object> Variables { get; set; } = new();
+        public Dictionary<string, BlockExecutionState> BlockStates { get; set; } = new();
+        public List<ExecutionLog> Logs { get; set; } = new();
+        public ExecutionMetrics Metrics { get; set; } = new();
+        public DateTimeOffset StartedAt { get; set; }
+        public DateTimeOffset? CompletedAt { get; set; }
 
-        private ExecutionContext() { }
+        // Public parameterless ctor for deserialization
+        public ExecutionContext() { }
 
         public static ExecutionContext Create(string workflowId)
         {

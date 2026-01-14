@@ -10,7 +10,7 @@ using System;
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container
-builder.Services.AddControllers();
+builder.Services.AddControllers().AddNewtonsoftJson();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSignalR();
 
@@ -58,7 +58,10 @@ builder.Services.AddCors(options =>
 var app = builder.Build();
 
 // Configure the HTTP request pipeline
-app.UseHttpsRedirection();
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHttpsRedirection();
+}
 app.UseCors("AllowFrontend");
 app.MapControllers();
 app.MapHub<Maestro.Api.Hubs.BlockHub>("/hubs/blocks");
@@ -72,4 +75,10 @@ app.MapGet("/", () => new
 });
 
 app.Run();
+
+// Expose Program class for WebApplicationFactory in tests
+namespace Maestro.Api
+{
+    public partial class Program { }
+}
 

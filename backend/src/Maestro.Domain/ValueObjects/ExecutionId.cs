@@ -2,7 +2,7 @@ namespace Maestro.Domain.ValueObjects;
 
 public readonly record struct ExecutionId
 {
-    public Guid Value { get; }
+    public Guid Value { get; init; }
 
     private ExecutionId(Guid value)
     {
