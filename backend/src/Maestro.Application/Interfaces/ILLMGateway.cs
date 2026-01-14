@@ -7,6 +7,12 @@ namespace Maestro.Application.Interfaces;
 public interface ILLMGateway
 {
     Task<LLMResponse> SendAsync(LLMRequest request, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Optional streaming API that yields partial content chunks as they arrive.
+    /// Implementations may throw NotSupportedException if streaming isn't available.
+    /// </summary>
+    IAsyncEnumerable<string> StreamAsync(LLMRequest request, CancellationToken cancellationToken = default);
 }
 
 /// <summary>

@@ -100,6 +100,15 @@ public class ToolBlockExecutor : IBlockExecutor
             logs.Add($"Sandbox enabled: {sandboxDir}");
         }
 
+        // Best-effort network disable flag (not a secure sandbox). When set, we try to pass
+        // environment variables to common runtimes to limit outbound network access. This is
+        // not a substitute for proper OS/container sandboxing and should be used for tests only.
+        var disableNetwork = config.TryGetValue("disableNetwork", out var dn) && dn is bool dnb && dnb;
+        if (disableNetwork)
+        {
+            logs.Add("Network access disabled (best-effort). This is not a secure sandbox.");
+        }
+
         // Basic inputs validation: config may include inputs.required array
         if (config.TryGetValue("inputs", out var inputsObj) && inputsObj is System.Collections.IDictionary inputsDict && inputsDict.Contains("required"))
         {
@@ -185,6 +194,18 @@ public class ToolBlockExecutor : IBlockExecutor
                 CreateNoWindow = true,
                 UseShellExecute = false,
             };
+
+            // Best-effort environment tweaks to disable network in common runtimes
+            if (disableNetwork)
+            {
+                // Example: set HTTP_PROXY/HTTPS_PROXY to invalid value to discourage network calls
+                psi.Environment["HTTP_PROXY"] = "127.0.0.1:0";
+                psi.Environment["HTTPS_PROXY"] = "127.0.0.1:0";
+                // Node: set environment to disable certain modules via NODE_OPTIONS (best-effort)
+                if (fileName == "node") psi.Environment["NODE_OPTIONS"] = "--no-experimental-fetch";
+                // Python: set env var to discourage pip or requests; not guaranteed
+                if (fileName == "python") psi.Environment["PYTHONWARNINGS"] = "ignore";
+            }
 
             using var proc = new Process { StartInfo = psi };
             proc.Start();

@@ -15,10 +15,12 @@ namespace Maestro.Infrastructure.BlockExecutors;
 public class InferenceBlockExecutor : IBlockExecutor
 {
     private readonly ILLMGateway _llmGateway;
+    private readonly Maestro.Application.Interfaces.IExecutionMonitor? _monitor;
 
-    public InferenceBlockExecutor(ILLMGateway llmGateway)
+    public InferenceBlockExecutor(ILLMGateway llmGateway, Maestro.Application.Interfaces.IExecutionMonitor? monitor = null)
     {
         _llmGateway = llmGateway ?? throw new ArgumentNullException(nameof(llmGateway));
+        _monitor = monitor;
     }
 
     public string SupportedType => "inference";
@@ -76,31 +78,74 @@ public class InferenceBlockExecutor : IBlockExecutor
             }
         }
 
-        // Real LLM call with simple retry/backoff (3 attempts)
+        // Real LLM call with optional streaming and simple retry/backoff (3 attempts)
         var request = new LLMRequest { Prompt = resolved };
-        Maestro.Application.Interfaces.LLMResponse response = null;
+        Maestro.Application.Interfaces.LLMResponse? response = null;
         var attempts = 0;
         var maxAttempts = 3;
         var delayMs = 200;
-        while (attempts < maxAttempts)
+
+        // Check whether this block requests streaming (opt-in)
+        var wantsStream = false;
+        if (block.Config != null && block.Config.TryGetValue("stream", out var s) && s is bool b && b) wantsStream = true;
+
+        if (wantsStream)
         {
-            attempts++;
+            // Attempt streaming; if not supported or fails, fall back to SendAsync with retries
             try
             {
-                response = await _llmGateway.SendAsync(request, ct);
-                break;
+                var sb = new System.Text.StringBuilder();
+                await foreach (var chunk in _llmGateway.StreamAsync(request, ct))
+                {
+                    if (string.IsNullOrEmpty(chunk)) continue;
+                    sb.Append(chunk);
+                    context?.LogInfo("LLM stream chunk received");
+                    if (_monitor != null)
+                    {
+                        // Publish partial token/chunk to monitor for real-time UI
+                        await _monitor.PublishTerminalOutputAsync(chunk, ct);
+                    }
+                }
+
+                response = new Maestro.Application.Interfaces.LLMResponse { Content = sb.ToString() };
+            }
+            catch (NotSupportedException)
+            {
+                // Streaming not available - will fall through to non-streaming retry
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
             {
                 throw;
             }
-            catch (Exception ex) when (attempts < maxAttempts)
+            catch (Exception ex)
             {
-                // transient, backoff and retry
-                await Task.Delay(delayMs, ct);
-                delayMs *= 2;
-                // log to context if available
-                context?.LogInfo($"LLM call failed attempt {attempts}: {ex.Message}");
+                // If streaming fails unexpectedly, log and fall back to non-streaming
+                context?.LogInfo($"LLM streaming failed: {ex.Message}");
+            }
+        }
+
+        if (response == null)
+        {
+            while (attempts < maxAttempts)
+            {
+                attempts++;
+                try
+                {
+                    response = await _llmGateway.SendAsync(request, ct);
+                    break;
+                }
+                catch (OperationCanceledException) when (ct.IsCancellationRequested)
+                {
+                    throw;
+                }
+                catch (Exception ex) when (attempts < maxAttempts)
+                {
+                    // transient, backoff and retry
+                    await Task.Delay(delayMs, ct);
+                    delayMs *= 2;
+                    // log to context if available
+                    context?.LogInfo($"LLM call failed attempt {attempts}: {ex.Message}");
+                }
             }
         }
 

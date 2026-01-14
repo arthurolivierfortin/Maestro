@@ -14,10 +14,12 @@ namespace Maestro.Infrastructure.BlockExecutors;
 public class AgentBlockExecutor : IBlockExecutor
 {
     private readonly ILLMGateway _llmGateway;
+    private readonly Maestro.Infrastructure.BlockExecutors.BlockExecutorRegistry? _registry;
 
-    public AgentBlockExecutor(ILLMGateway llmGateway)
+    public AgentBlockExecutor(ILLMGateway llmGateway, Maestro.Infrastructure.BlockExecutors.BlockExecutorRegistry? registry = null)
     {
         _llmGateway = llmGateway;
+        _registry = registry;
     }
 
     public string SupportedType => "agent";
@@ -69,11 +71,15 @@ public class AgentBlockExecutor : IBlockExecutor
             {
                 try
                 {
-                    var tf = await File.ReadAllTextAsync(toolsFile, ct);
+                    await File.ReadAllTextAsync(toolsFile, ct); // loaded for future use; content not required now
                     // keep as log for now
                     result.Logs.Add("tools.json loaded");
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    // best-effort: failure to read tools.json is non-fatal for agent scaffold
+                    result.Logs.Add($"Failed to load tools.json: {ex.Message}");
+                }
             }
         }
 
@@ -82,8 +88,56 @@ public class AgentBlockExecutor : IBlockExecutor
         var resolved = userPrompt;
         if (!string.IsNullOrEmpty(systemPrompt)) resolved = systemPrompt + "\n" + resolved;
 
-        var request = new LLMRequest { Prompt = resolved };
-        var response = await _llmGateway.SendAsync(request, ct);
+        var maxIterations = 5;
+        if (block.Config != null && block.Config.TryGetValue("maxIterations", out var mi) && mi is int mii) maxIterations = mii;
+
+        var iteration = 0;
+        LLMResponse response = null;
+        while (true)
+        {
+            iteration++;
+            var request = new LLMRequest { Prompt = resolved };
+            response = await _llmGateway.SendAsync(request, ct);
+
+            // If the LLM indicates a tool call, execute it and feed result back
+            var toolCalled = false;
+            try
+            {
+                using var doc = JsonDocument.Parse(response.Content);
+                if (doc.RootElement.ValueKind == JsonValueKind.Object && doc.RootElement.TryGetProperty("tool", out var toolProp))
+                {
+                    var toolId = toolProp.GetString();
+                    var args = doc.RootElement.TryGetProperty("args", out var argsProp) ? argsProp : default;
+                    if (!string.IsNullOrEmpty(toolId) && _registry != null)
+                    {
+                        // Attempt to find tool block by id in context (context.BlockStates keys may contain metadata)
+                        // For now, assume tool blockId == toolId and execute with args as inputs
+                        var inputsForTool = new Dictionary<string, object>();
+                        if (args.ValueKind == JsonValueKind.Object)
+                        {
+                            foreach (var p in args.EnumerateObject()) inputsForTool[p.Name] = p.Value.ToString();
+                        }
+
+                        var toolExec = _registry.Resolve(toolId);
+                        if (toolExec != null)
+                        {
+                            var toolBlock = new BlockDefinition(toolId, toolId, "tool");
+                            var toolRes = await toolExec.ExecuteAsync(toolBlock, context, inputsForTool, ct);
+                            // inject tool output into resolved prompt for next iteration
+                            resolved += "\nToolResult:" + (toolRes.Outputs.ContainsKey("stdout") ? toolRes.Outputs["stdout"]?.ToString() : string.Empty);
+                            toolCalled = true;
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                // ignore parse errors from LLM response; treat as non-tool response
+                result.Logs.Add($"LLM parse error (tool detection): {ex.Message}");
+            }
+
+            if (!toolCalled || iteration >= maxIterations) break;
+        }
 
         // Try to parse structured outputs if defined
         if (block.Config != null && block.Config.TryGetValue("outputKey", out var ok) && ok is string outKey && !string.IsNullOrEmpty(outKey))

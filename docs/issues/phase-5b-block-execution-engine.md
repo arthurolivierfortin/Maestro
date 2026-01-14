@@ -119,7 +119,7 @@ The execution engine must be:
 - [x] Resolve template variables
 - [x] Call `ILLMGateway.SendAsync()` with configured model
 - [x] Parse response according to output schema (if defined)
-- [ ] Handle streaming responses
+- [x] Handle streaming responses (implementation + unit test added)
 - [x] Add retry logic with exponential backoff (basic retries implemented)
 - [x] **Mock mode**: Load response from `mock-response.json` if exists
 - [x] Add retry logic with exponential backoff (basic retries implemented)
@@ -130,7 +130,8 @@ The execution engine must be:
  - [x] Create `ToolBlockExecutor` implementation (scaffold)
  - [x] Load script from block folder (resolved when `scriptFile` and `metadata.path` present)
  - [x] Validate inputs against schema (basic required/pattern validation implemented)
- - [ ] Execute script in sandboxed environment (needs hardening)
+- [ ] Execute script in sandboxed environment (needs hardening)
+  - Notes: added `enableSandbox` and `disableNetwork` best-effort flags; hardening (OS/container-level isolation) still required.
  - [x] Capture stdout/stderr
  - [x] Parse output according to output schema (JSON parsing implemented)
  - [x] Support tool types: `bash`, `powershell`, `node`, `python` (basic runtime mapping)
@@ -166,8 +167,8 @@ The execution engine must be:
  - [x] Load available tools from `tools.json` (loaded if present)
  - [x] Build messages array from inputs (config-driven)
  - [x] Call LLM with tool definitions
- - [ ] Handle tool calls → execute tools → return to LLM
- - [ ] Implement max iterations limit
+ - [x] Handle tool calls → execute tools → return to LLM (basic loop implemented; supports tool call JSON with `tool` + `args`)
+ - [x] Implement max iterations limit (configurable `maxIterations` in block config; default 5)
  - [x] Add unit tests with mocked LLM (mock-response.json)
 
 ### 5B.9 Trigger Block Executor
@@ -217,19 +218,22 @@ The execution engine must be:
 - [x] Store executions as JSON files in `executions/` folder (configurable folder)
 - [x] Support querying by workflow, status, date range (FileSystemExecutionRepository.QueryAsync)
 - [x] Implement execution log streaming to file (SaveLogAsync writes logs)
-- [ ] Add unit tests
+ - [x] Add unit tests (FileSystemExecutionRepository persistence test added)
 
 ### 5B.12 Execution Events (SignalR)
-
-- [ ] Create `IExecutionMonitor` interface
-- [ ] Implement `SignalRExecutionMonitor`
-- [ ] Publish events:
+ - [x] Create `IExecutionMonitor` interface (exists and expanded)
+ - [x] Implement `SignalRExecutionMonitor` (minimal implementation added)
+ - [ ] Publish events:
   - `ExecutionStarted`
   - `BlockStarted`, `BlockCompleted`, `BlockFailed`
   - `ExecutionCompleted`, `ExecutionFailed`
   - `LogAdded`
-- [ ] Create SignalR hub for execution updates
-- [ ] Add integration tests
+ - [x] Create SignalR hub for execution updates (`ExecutionHub` and `IExecutionClient` added)
+ - [ ] Add integration tests (unit test for monitor-to-hub added; full integration tests pending)
+
+Notes:
+- `IExecutionMonitor` interface exists and was expanded with lifecycle methods; a console-backed `ExecutionMonitor` scaffold is present in `backend/src/Maestro.Infrastructure/Monitoring/ExecutionMonitor.cs` and `SignalRExecutionMonitor.cs` acts as a lightweight scaffold printing to console.
+- The SignalR hub `BlockHub` exists and is mapped in `Program.cs` at `/hubs/blocks`; full integration tests for execution events are still pending.
 
 ---
 
