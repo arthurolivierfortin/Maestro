@@ -1,0 +1,15 @@
+{
+  "id": "inference/describe-commit",
+  "name": "Describe Commit",
+  "type": "inference",
+  "description": "Calls LLM to produce a conventional commit message from diff and context",
+  "inputs": {
+    "type": "object",
+    "properties": {
+      "diff": { "type": "string" },
+      "context": { "type": "string" }
+    }
+  },
+  "outputs": "output-schema.json",
+  "promptRef": "prompts/commit-description"
+}
