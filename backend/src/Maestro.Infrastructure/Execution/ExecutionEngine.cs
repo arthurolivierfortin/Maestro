@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.IO;
@@ -38,6 +39,8 @@ public class ExecutionEngine : IExecutionEngine
 
         var context = ExecutionContext.Create(block.Id);
 
+        await _monitor.PublishExecutionStartedAsync(context.Id, ct);
+
         var executor = _registry.Get(block.BlockType);
         if (executor == null) throw new InvalidOperationException($"No executor for type {block.BlockType}");
 
@@ -54,15 +57,27 @@ public class ExecutionEngine : IExecutionEngine
         if (result.Success)
         {
             context.LogInfo("Block completed", block.Id);
+            await _monitor.PublishLogAddedAsync(context.Id, "Block completed");
         }
         else
         {
             context.LogError("Block failed", null, block.Id);
+            await _monitor.PublishLogAddedAsync(context.Id, "Block failed");
         }
 
         context.Complete();
         await _executionRepository.SaveAsync(context, ct);
-        await _monitor.PublishNodeCompletedAsync(ParseNodeId(block.Id), ct);
+        if (result.Success)
+        {
+            await _monitor.PublishNodeCompletedAsync(ParseNodeId(block.Id), ct);
+            await _monitor.PublishExecutionCompletedAsync(context.Id, ct);
+        }
+        else
+        {
+            var errMsg = result.Logs != null ? string.Join("; ", result.Logs) : "Block failed";
+            await _monitor.PublishNodeFailedAsync(ParseNodeId(block.Id), errMsg, ct);
+            await _monitor.PublishExecutionFailedAsync(context.Id, errMsg, ct);
+        }
 
         return context;
     }
@@ -157,6 +172,7 @@ public class ExecutionEngine : IExecutionEngine
                 if (executor == null)
                 {
                     context.LogError($"No executor for node type {nodeBlock.BlockType}", null, nodeId);
+                    await _monitor.PublishLogAddedAsync(context.Id, $"No executor for node type {nodeBlock.BlockType}");
                 }
                 else
                 {
@@ -169,9 +185,15 @@ public class ExecutionEngine : IExecutionEngine
                     }
 
                     if (result.Success)
+                    {
                         context.LogInfo($"Node {nodeId} completed", nodeId);
+                        await _monitor.PublishLogAddedAsync(context.Id, $"Node {nodeId} completed");
+                    }
                     else
+                    {
                         context.LogError($"Node {nodeId} failed", null, nodeId);
+                        await _monitor.PublishLogAddedAsync(context.Id, $"Node {nodeId} failed");
+                    }
 
                     await _monitor.PublishNodeCompletedAsync(ParseNodeId(nodeId), ct);
                 }

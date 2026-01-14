@@ -19,6 +19,8 @@ builder.Services.AddSignalR();
 builder.Services.AddScoped<IWorkflowRepository, JsonWorkflowRepository>();
 builder.Services.AddScoped<ILLMGateway, LLMGateway>();
 builder.Services.AddScoped<IExecutionMonitor, ExecutionMonitor>();
+// Prefer SignalR-backed monitor when available (scaffold). Register both if needed.
+builder.Services.AddScoped<Maestro.Application.Interfaces.IExecutionMonitor, Maestro.Infrastructure.Monitoring.SignalRExecutionMonitor>();
 // Register block executors from Infrastructure
 builder.Services.AddScoped<Maestro.Application.Interfaces.IBlockExecutor, Maestro.Infrastructure.BlockExecutors.PromptBlockExecutor>();
 builder.Services.AddScoped<Maestro.Application.Interfaces.IBlockExecutor, Maestro.Infrastructure.BlockExecutors.InferenceBlockExecutor>();
@@ -65,6 +67,7 @@ if (!app.Environment.IsDevelopment())
 app.UseCors("AllowFrontend");
 app.MapControllers();
 app.MapHub<Maestro.Api.Hubs.BlockHub>("/hubs/blocks");
+app.MapHub<Maestro.Api.Hubs.ExecutionHub>("/hubs/execution");
 
 app.MapGet("/", () => new
 {

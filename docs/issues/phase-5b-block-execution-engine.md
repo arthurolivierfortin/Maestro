@@ -224,12 +224,17 @@ The execution engine must be:
  - [x] Create `IExecutionMonitor` interface (exists and expanded)
  - [x] Implement `SignalRExecutionMonitor` (minimal implementation added)
  - [ ] Publish events:
+ - [x] Publish events: (ExecutionEngine now publishes lifecycle events via `IExecutionMonitor`)
+  - `ExecutionStarted`
+  - `BlockStarted`, `BlockCompleted`, `BlockFailed`
+  - `ExecutionCompleted`, `ExecutionFailed`
+  - `LogAdded`
   - `ExecutionStarted`
   - `BlockStarted`, `BlockCompleted`, `BlockFailed`
   - `ExecutionCompleted`, `ExecutionFailed`
   - `LogAdded`
  - [x] Create SignalR hub for execution updates (`ExecutionHub` and `IExecutionClient` added)
- - [ ] Add integration tests (unit test for monitor-to-hub added; full integration tests pending)
+ - [x] Add integration tests (integration-style test added that connects to `/hubs/execution` and validates `ExecutionStarted` event; more end-to-end tests may be needed)
 
 Notes:
 - `IExecutionMonitor` interface exists and was expanded with lifecycle methods; a console-backed `ExecutionMonitor` scaffold is present in `backend/src/Maestro.Infrastructure/Monitoring/ExecutionMonitor.cs` and `SignalRExecutionMonitor.cs` acts as a lightweight scaffold printing to console.
