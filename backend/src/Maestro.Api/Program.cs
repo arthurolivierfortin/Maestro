@@ -19,6 +19,17 @@ builder.Services.AddSignalR();
 builder.Services.AddScoped<IWorkflowRepository, JsonWorkflowRepository>();
 builder.Services.AddScoped<ILLMGateway, LLMGateway>();
 builder.Services.AddScoped<IExecutionMonitor, ExecutionMonitor>();
+// Register block executors from Infrastructure
+builder.Services.AddScoped<Maestro.Application.Interfaces.IBlockExecutor, Maestro.Infrastructure.BlockExecutors.PromptBlockExecutor>();
+builder.Services.AddScoped<Maestro.Application.Interfaces.IBlockExecutor, Maestro.Infrastructure.BlockExecutors.InferenceBlockExecutor>();
+builder.Services.AddScoped<Maestro.Application.Interfaces.IBlockExecutor, Maestro.Infrastructure.BlockExecutors.ToolBlockExecutor>();
+
+// Register registry that consumes all IBlockExecutor implementations
+builder.Services.AddScoped<Maestro.Infrastructure.BlockExecutors.BlockExecutorRegistry>(sp =>
+{
+    var executors = sp.GetServices<Maestro.Application.Interfaces.IBlockExecutor>();
+    return new Maestro.Infrastructure.BlockExecutors.BlockExecutorRegistry(executors);
+});
 // Phase 5A: Filesystem block discovery and repository
 var blocksGlobalPath = Path.Combine(AppContext.BaseDirectory, "blocks");
 var blocksUserPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile) ?? "", ".maestro", "blocks");

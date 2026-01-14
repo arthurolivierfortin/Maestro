@@ -125,16 +125,16 @@ The execution engine must be:
 
 ### 5B.5 Tool Block Executor
 
-- [ ] Create `ToolBlockExecutor` implementation
-- [ ] Load script from block folder
-- [ ] Validate inputs against schema
-- [ ] Execute script in sandboxed environment
-- [ ] Capture stdout/stderr
-- [ ] Parse output according to output schema
-- [ ] Support tool types: `bash`, `powershell`, `node`, `python`
-- [ ] Add timeout handling
-- [ ] Add unit tests
- - [x] Add unit tests (ExecutionEngine coverage added in Maestro.Execution.Tests)
+ - [x] Create `ToolBlockExecutor` implementation (scaffold)
+ - [ ] Load script from block folder
+ - [ ] Validate inputs against schema
+ - [ ] Execute script in sandboxed environment (needs hardening)
+ - [x] Capture stdout/stderr
+ - [ ] Parse output according to output schema
+ - [ ] Support tool types: `bash`, `powershell`, `node`, `python`
+ - [x] Add timeout handling
+ - [x] Add unit tests
+  - [x] Add unit tests (ExecutionEngine coverage added in Maestro.Execution.Tests)
 
 ### 5B.6 Decision Block Executor
 
@@ -300,10 +300,18 @@ Tools run in a restricted environment:
   - `Maestro.Infrastructure`: `PromptBlockExecutor`, `InferenceBlockExecutor`, `BlockExecutorRegistry`, `FileSystemExecutionRepository`, partial `ExecutionEngine`
 
 - **Next**:
+ - **Next**:
   - Implement `InferenceBlockExecutor` parsing, streaming and retries
-  - Implement `ToolBlockExecutor` sandboxing and timeouts
-  - Expand unit tests for Prompt, Inference, Repository and Tool executors
-  - Implement SignalR `SignalRExecutionMonitor` and hub; add integration tests
+  - Harden `ToolBlockExecutor`: enforce sandboxing, whitelist runtimes, add resource limits
+  - Register `ToolBlockExecutor` in DI and `BlockExecutorRegistry` (done)
+  - Add unit tests for Prompt, Inference, Repository and Tool executors (Tool tests added and passing)
+  - Replace console scaffold with real SignalR `SignalRExecutionMonitor` and add integration tests
+
+## Recent Changes (summary)
+
+- Added `ToolBlockExecutor` scaffold: runs scripts with timeout, captures stdout/stderr, returns `BlockExecutionResult` (file: backend/src/Maestro.Infrastructure/BlockExecutors/ToolBlockExecutor.cs).
+- Added console-based `SignalRExecutionMonitor` scaffold implementing `IExecutionMonitor` for runtime logs (file: backend/src/Maestro.Infrastructure/Monitoring/SignalRExecutionMonitor.cs).
+- Updated progress checklist to mark scaffolds as added and note hardening/test work required.
 
 Last updated: 2026-01-14
 
