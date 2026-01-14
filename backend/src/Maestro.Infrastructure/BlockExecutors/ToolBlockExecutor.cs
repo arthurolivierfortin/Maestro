@@ -39,11 +39,24 @@ public class ToolBlockExecutor : IBlockExecutor
             workingDir = pathStr;
         workingDir ??= Directory.GetCurrentDirectory();
 
-        // Determine runtime: default to pwsh on Windows, bash on Unix
-        var runtime = config.TryGetValue("runtime", out var r) && r is string rs ? rs : (OperatingSystem.IsWindows() ? "powershell" : "bash");
-
+        // Prepare outputs and logs before sandboxing
         var resultOutputs = new Dictionary<string, object?>();
         var logs = new List<string>();
+
+        // Optional sandboxing: create a temporary working directory when enabled
+        var enableSandbox = config.TryGetValue("enableSandbox", out var sb) && sb is bool b && b;
+        string? sandboxDir = null;
+        if (enableSandbox)
+        {
+            sandboxDir = Path.Combine(Path.GetTempPath(), "maestro_tool_sandbox", Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(sandboxDir);
+            // copy files from workingDir minimally if needed (not implemented here)
+            workingDir = sandboxDir;
+            logs.Add($"Sandbox enabled: {sandboxDir}");
+        }
+
+        // Determine runtime: default to pwsh on Windows, bash on Unix
+        var runtime = config.TryGetValue("runtime", out var r) && r is string rs ? rs : (OperatingSystem.IsWindows() ? "powershell" : "bash");
 
         try
         {
@@ -67,8 +80,12 @@ public class ToolBlockExecutor : IBlockExecutor
             using var proc = new Process { StartInfo = psi };
             proc.Start();
 
-            var outputTask = proc.StandardOutput.ReadToEndAsync();
-            var errorTask = proc.StandardError.ReadToEndAsync();
+            // Limit captured output size (bytes) to avoid OOM from noisy tools
+            config.TryGetValue("maxOutputBytes", out var maxOutObj);
+            var maxOutputBytes = maxOutObj is int mb ? mb : 200 * 1024; // default 200KB
+
+            var outputTask = ReadStreamWithLimitAsync(proc.StandardOutput, maxOutputBytes, ct);
+            var errorTask = ReadStreamWithLimitAsync(proc.StandardError, maxOutputBytes, ct);
 
             var completed = await Task.WhenAny(Task.Run(() => proc.WaitForExit()), Task.Delay(timeoutMs, ct));
             if (completed is Task delayTask && delayTask.IsCompleted && !proc.HasExited)
@@ -108,5 +125,40 @@ public class ToolBlockExecutor : IBlockExecutor
                 DurationMs = sw.ElapsedMilliseconds
             };
         }
+        finally
+        {
+            // Clean up sandbox directory if created
+            if (!string.IsNullOrEmpty(sandboxDir))
+            {
+                try { Directory.Delete(sandboxDir, true); } catch { }
+            }
+        }
+    }
+
+    private static async Task<string> ReadStreamWithLimitAsync(System.IO.TextReader reader, int maxBytes, CancellationToken ct)
+    {
+        const int bufferSize = 4096;
+        var sb = new System.Text.StringBuilder();
+        var total = 0;
+        var buffer = new char[bufferSize];
+
+        while (!ct.IsCancellationRequested)
+        {
+            var read = await reader.ReadAsync(buffer, 0, bufferSize);
+            if (read <= 0) break;
+            total += read;
+            if (total > maxBytes)
+            {
+                // append only the allowed portion
+                var allowed = read - (total - maxBytes);
+                if (allowed > 0)
+                    sb.Append(buffer, 0, allowed);
+                sb.Append("\n--output-truncated--\n");
+                break;
+            }
+            sb.Append(buffer, 0, read);
+        }
+
+        return sb.ToString();
     }
 }

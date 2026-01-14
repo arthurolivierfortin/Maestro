@@ -135,45 +135,46 @@ The execution engine must be:
  - [x] Add timeout handling
  - [x] Add unit tests
   - [x] Add unit tests (ExecutionEngine coverage added in Maestro.Execution.Tests)
+ - [~] Start sandboxing and output-size limits (in-progress)
 
 ### 5B.6 Decision Block Executor
-
-- [ ] Create `DecisionBlockExecutor` implementation
-- [ ] Load condition expression from config
-- [ ] Evaluate condition with inputs as context
-- [ ] Output: `{ "result": true/false, "branch": "true"|"false" }`
-- [ ] Support JavaScript expressions (via Jint or similar)
-- [ ] Add unit tests
+ 
+ - [x] Create `DecisionBlockExecutor` implementation (simple evaluator)
+ - [x] Load condition expression from config
+ - [x] Evaluate condition with inputs as context
+ - [x] Output: `{ "result": true/false, "branch": "true"|"false" }`
+ - [ ] Support JavaScript expressions (via Jint or similar)
+ - [x] Add unit tests
 
 ### 5B.7 Validator Block Executor
-
-- [ ] Create `ValidatorBlockExecutor` implementation
-- [ ] Support validation types:
+ 
+ - [x] Create `ValidatorBlockExecutor` implementation (lightweight rules)
+ - [ ] Support validation types:
   - JSON Schema validation
   - Regex pattern matching
   - Custom script validation
-- [ ] Output: `{ "isValid": true/false, "errors": [...] }`
-- [ ] Add unit tests
+ - [x] Output: `{ "isValid": true/false, "errors": [...] }`
+ - [x] Add unit tests
 
 ### 5B.8 Agent Block Executor
-
-- [ ] Create `AgentBlockExecutor` implementation
-- [ ] Load system prompt from `system-prompt.md`
-- [ ] Load available tools from `tools.json`
-- [ ] Build messages array from inputs
-- [ ] Call LLM with tool definitions
-- [ ] Handle tool calls → execute tools → return to LLM
-- [ ] Implement max iterations limit
-- [ ] Add unit tests with mocked LLM
+ 
+ - [x] Create `AgentBlockExecutor` implementation (LLM + mock support)
+ - [ ] Load system prompt from `system-prompt.md`
+ - [ ] Load available tools from `tools.json`
+ - [x] Build messages array from inputs (config-driven)
+ - [x] Call LLM with tool definitions
+ - [ ] Handle tool calls → execute tools → return to LLM
+ - [ ] Implement max iterations limit
+ - [x] Add unit tests with mocked LLM (mock-response.json)
 
 ### 5B.9 Trigger Block Executor
-
-- [ ] Create `TriggerBlockExecutor` implementation
-- [ ] For manual triggers: pass through input data
-- [ ] For webhook triggers: parse incoming request
-- [ ] For schedule triggers: record trigger time
-- [ ] Output: trigger metadata + input data
-- [ ] Add unit tests
+ 
+ - [x] Create `TriggerBlockExecutor` implementation (pass-through)
+ - [x] For manual triggers: pass through input data
+ - [ ] For webhook triggers: parse incoming request
+ - [ ] For schedule triggers: record trigger time
+ - [x] Output: trigger metadata + input data
+ - [x] Add unit tests
 
 ### 5B.10 Execution Engine Service
 
@@ -312,6 +313,8 @@ Tools run in a restricted environment:
 - Added `ToolBlockExecutor` scaffold: runs scripts with timeout, captures stdout/stderr, returns `BlockExecutionResult` (file: backend/src/Maestro.Infrastructure/BlockExecutors/ToolBlockExecutor.cs).
 - Added console-based `SignalRExecutionMonitor` scaffold implementing `IExecutionMonitor` for runtime logs (file: backend/src/Maestro.Infrastructure/Monitoring/SignalRExecutionMonitor.cs).
 - Updated progress checklist to mark scaffolds as added and note hardening/test work required.
+ - Started: sandboxing support and output-size limits for `ToolBlockExecutor` (config keys: `enableSandbox`, `maxOutputBytes`).
+ - Added `DecisionBlockExecutor`, `ValidatorBlockExecutor`, `AgentBlockExecutor`, and `TriggerBlockExecutor` with unit tests.
 
 Last updated: 2026-01-14
 

@@ -54,3 +54,71 @@ public class ToolBlockExecutorTests
         Assert.True(result.Logs.Any(l => l.Contains("killed", StringComparison.OrdinalIgnoreCase)) || result.DurationMs < 3000);
     }
 }
+
+public class OtherExecutorsTests
+{
+    [Fact]
+    public async Task PromptBlock_ResolvesTemplate()
+    {
+        var executor = new Maestro.Infrastructure.BlockExecutors.PromptBlockExecutor();
+        var block = BlockDefinition.Create("p1", "prompt", "prompt");
+        block.UpdateConfig(new Dictionary<string, object> { ["template"] = "Hello {{name}}" });
+        var ctx = ExecutionContext.Create("wf");
+        var res = await executor.ExecuteAsync(block, ctx, new Dictionary<string, object> { ["name"] = "Alice" });
+        Assert.True(res.Outputs.TryGetValue("prompt", out var p) && p.ToString().Contains("Alice"));
+    }
+
+    [Fact]
+    public async Task DecisionBlock_EvaluatesCondition()
+    {
+        var executor = new Maestro.Infrastructure.BlockExecutors.DecisionBlockExecutor();
+        var block = BlockDefinition.Create("d1", "decision", "decision");
+        block.UpdateConfig(new Dictionary<string, object> { ["condition"] = "{{flag}} == true" });
+        var ctx = ExecutionContext.Create("wf");
+        var res = await executor.ExecuteAsync(block, ctx, new Dictionary<string, object> { ["flag"] = "true" });
+        Assert.True(res.Outputs.TryGetValue("result", out var r) && r is bool bv && bv);
+    }
+
+    [Fact]
+    public async Task ValidatorBlock_ChecksRequiredAndPattern()
+    {
+        var executor = new Maestro.Infrastructure.BlockExecutors.ValidatorBlockExecutor();
+        var rules = new Dictionary<string, object>
+        {
+            ["required"] = new[] { "email" },
+            ["patterns"] = new Dictionary<string, string> { ["email"] = ".+@.+\\..+" }
+        };
+        var block = BlockDefinition.Create("v1", "validator", "validator");
+        block.UpdateConfig(new Dictionary<string, object> { ["rules"] = rules });
+        var ctx = ExecutionContext.Create("wf");
+        var res = await executor.ExecuteAsync(block, ctx, new Dictionary<string, object> { ["email"] = "me@example.com" });
+        Assert.True(res.Outputs.TryGetValue("isValid", out var v) && (bool)v);
+    }
+
+    [Fact]
+    public async Task AgentBlock_LoadsMockResponse()
+    {
+        var path = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "maestro_agent_mock");
+        System.IO.Directory.CreateDirectory(path);
+        var mock = System.Text.Json.JsonSerializer.Serialize(new { outputs = new { message = "ok" } });
+        await System.IO.File.WriteAllTextAsync(System.IO.Path.Combine(path, "mock-response.json"), mock);
+
+        var executor = new Maestro.Infrastructure.BlockExecutors.AgentBlockExecutor(new Maestro.Infrastructure.LLMGateway.LLMGateway());
+        var block = BlockDefinition.Create("a1", "agent", "agent");
+        block.UpdateConfig(new Dictionary<string, object> { ["path"] = path });
+        var ctx = ExecutionContext.Create("wf");
+        var res = await executor.ExecuteAsync(block, ctx, new Dictionary<string, object>());
+        Assert.True(res.Outputs.ContainsKey("message"));
+    }
+
+    [Fact]
+    public async Task TriggerBlock_ForwardsPayload()
+    {
+        var executor = new Maestro.Infrastructure.BlockExecutors.TriggerBlockExecutor();
+        var block = BlockDefinition.Create("t1", "trigger", "trigger");
+        var ctx = ExecutionContext.Create("wf");
+        var payload = new Dictionary<string, object> { ["x"] = 1 };
+        var res = await executor.ExecuteAsync(block, ctx, new Dictionary<string, object> { ["payload"] = payload });
+        Assert.True(res.Outputs.TryGetValue("payload", out var p) && p is Dictionary<string, object>);
+    }
+}
