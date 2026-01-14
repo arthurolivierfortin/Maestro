@@ -104,7 +104,7 @@ public class AgentBlockExecutor : IBlockExecutor
             try
             {
                 using var doc = JsonDocument.Parse(response.Content);
-                if (doc.RootElement.ValueKind == JsonValueKind.Object && doc.RootElement.TryGetProperty("tool", out var toolProp))
+                    if (doc.RootElement.ValueKind == JsonValueKind.Object && doc.RootElement.TryGetProperty("tool", out var toolProp))
                 {
                     var toolId = toolProp.GetString();
                     var args = doc.RootElement.TryGetProperty("args", out var argsProp) ? argsProp : default;
@@ -115,18 +115,17 @@ public class AgentBlockExecutor : IBlockExecutor
                         var inputsForTool = new Dictionary<string, object>();
                         if (args.ValueKind == JsonValueKind.Object)
                         {
-                            foreach (var p in args.EnumerateObject()) inputsForTool[p.Name] = p.Value.ToString();
+                                foreach (var prop in args.EnumerateObject()) inputsForTool[prop.Name] = prop.Value.ToString();
                         }
-
-                        var toolExec = _registry.Resolve(toolId);
-                        if (toolExec != null)
-                        {
-                            var toolBlock = new BlockDefinition(toolId, toolId, "tool");
-                            var toolRes = await toolExec.ExecuteAsync(toolBlock, context, inputsForTool, ct);
-                            // inject tool output into resolved prompt for next iteration
-                            resolved += "\nToolResult:" + (toolRes.Outputs.ContainsKey("stdout") ? toolRes.Outputs["stdout"]?.ToString() : string.Empty);
-                            toolCalled = true;
-                        }
+                            var toolExec = _registry.Get("tool");
+                            if (toolExec != null)
+                            {
+                                var toolBlock = Maestro.Domain.Entities.BlockDefinition.Create(toolId, toolId, "tool");
+                                var toolRes = await toolExec.ExecuteAsync(toolBlock, context, inputsForTool, ct);
+                                // inject tool output into resolved prompt for next iteration
+                                resolved += "\nToolResult:" + (toolRes.Outputs.ContainsKey("stdout") ? toolRes.Outputs["stdout"]?.ToString() : string.Empty);
+                                toolCalled = true;
+                            }
                     }
                 }
             }

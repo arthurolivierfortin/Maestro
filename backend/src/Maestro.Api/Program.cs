@@ -20,11 +20,16 @@ builder.Services.AddScoped<IWorkflowRepository, JsonWorkflowRepository>();
 builder.Services.AddScoped<ILLMGateway, LLMGateway>();
 builder.Services.AddScoped<IExecutionMonitor, ExecutionMonitor>();
 // Prefer SignalR-backed monitor when available (scaffold). Register both if needed.
-builder.Services.AddScoped<Maestro.Application.Interfaces.IExecutionMonitor, Maestro.Infrastructure.Monitoring.SignalRExecutionMonitor>();
+// Prefer SignalR-backed monitor when available (scaffold). Register both if needed.
+builder.Services.AddScoped<Maestro.Application.Interfaces.IExecutionMonitor, Maestro.Api.Monitoring.SignalRExecutionMonitor>();
 // Register block executors from Infrastructure
 builder.Services.AddScoped<Maestro.Application.Interfaces.IBlockExecutor, Maestro.Infrastructure.BlockExecutors.PromptBlockExecutor>();
 builder.Services.AddScoped<Maestro.Application.Interfaces.IBlockExecutor, Maestro.Infrastructure.BlockExecutors.InferenceBlockExecutor>();
 builder.Services.AddScoped<Maestro.Application.Interfaces.IBlockExecutor, Maestro.Infrastructure.BlockExecutors.ToolBlockExecutor>();
+
+// Orchestration services (Phase 5C)
+builder.Services.AddScoped<Maestro.Application.Interfaces.IDataFlowManager, Maestro.Infrastructure.Orchestration.DataFlowManager>();
+builder.Services.AddScoped<Maestro.Application.Interfaces.IWorkflowExecutor, Maestro.Infrastructure.Orchestration.WorkflowExecutor>();
 
 // Register registry that consumes all IBlockExecutor implementations
 builder.Services.AddScoped<Maestro.Infrastructure.BlockExecutors.BlockExecutorRegistry>(sp =>
@@ -32,6 +37,9 @@ builder.Services.AddScoped<Maestro.Infrastructure.BlockExecutors.BlockExecutorRe
     var executors = sp.GetServices<Maestro.Application.Interfaces.IBlockExecutor>();
     return new Maestro.Infrastructure.BlockExecutors.BlockExecutorRegistry(executors);
 });
+// Register execution repository (persistence for checkpoints/executions)
+var execFolder = Path.Combine(AppContext.BaseDirectory, "executions");
+builder.Services.AddScoped<Maestro.Application.Interfaces.IExecutionRepository>(_ => new Maestro.Infrastructure.Persistence.FileSystemExecutionRepository(execFolder));
 // Phase 5A: Filesystem block discovery and repository
 var blocksGlobalPath = Path.Combine(AppContext.BaseDirectory, "blocks");
 var blocksUserPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile) ?? "", ".maestro", "blocks");

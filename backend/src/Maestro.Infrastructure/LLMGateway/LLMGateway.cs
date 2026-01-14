@@ -18,4 +18,11 @@ public class LLMGateway : ILLMGateway
 
         return Task.FromResult(response);
     }
+
+        public async IAsyncEnumerable<string> StreamAsync(LLMRequest request, [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
+        {
+            // Best-effort fallback: yield single chunk containing the full response
+            var res = await SendAsync(request, cancellationToken);
+            yield return res.Content;
+        }
 }

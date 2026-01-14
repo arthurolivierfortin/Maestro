@@ -13,6 +13,8 @@ namespace Maestro.Domain.Entities
         public Dictionary<string, object> Variables { get; set; } = new();
         public Dictionary<string, BlockExecutionState> BlockStates { get; set; } = new();
         public List<ExecutionLog> Logs { get; set; } = new();
+        public List<string> ActiveBranches { get; set; } = new();
+        public List<string> CheckpointFiles { get; set; } = new();
         public ExecutionMetrics Metrics { get; set; } = new();
         public DateTimeOffset StartedAt { get; set; }
         public DateTimeOffset? CompletedAt { get; set; }
@@ -60,6 +62,11 @@ namespace Maestro.Domain.Entities
             Status = "Completed";
             CompletedAt = DateTimeOffset.UtcNow;
             Metrics.Duration = CompletedAt.Value - StartedAt;
+        }
+
+        public void AddCheckpoint(string path)
+        {
+            CheckpointFiles.Add(path);
         }
 
         public void Pause()
