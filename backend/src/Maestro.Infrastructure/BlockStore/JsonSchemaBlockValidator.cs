@@ -100,6 +100,82 @@ namespace Maestro.Infrastructure.BlockStore
                         var connSchema = JsonSchema.FromFileAsync(connSchemaPath).GetAwaiter().GetResult();
                         var cErrors = connSchema.Validate(connText);
                         if (cErrors != null && cErrors.Any()) errors.AddRange(cErrors.Select(e => $"connections.json: {e.Path}: {e.Kind} - {e.ToString()}"));
+
+                        // Additional validation: ensure connections reference valid node ids and ports
+                        try
+                        {
+                            using var connDoc = System.Text.Json.JsonDocument.Parse(connText);
+                            var connRoot = connDoc.RootElement;
+                            var connections = connRoot.TryGetProperty("connections", out var conns) ? conns.EnumerateArray() : Enumerable.Empty<System.Text.Json.JsonElement>().GetEnumerator();
+
+                            // load nodes to know available ids and ports
+                            HashSet<string> nodeIds = new();
+                            Dictionary<string, HashSet<string>> nodePorts = new();
+                            if (File.Exists(nodesPath))
+                            {
+                                var nodesText2 = await File.ReadAllTextAsync(nodesPath, ct);
+                                using var nDoc = System.Text.Json.JsonDocument.Parse(nodesText2);
+                                var nRoot = nDoc.RootElement;
+                                if (nRoot.TryGetProperty("nodes", out var nodesArr))
+                                {
+                                    foreach (var n in nodesArr.EnumerateArray())
+                                    {
+                                        if (n.TryGetProperty("id", out var nidEl))
+                                        {
+                                            var nid = nidEl.GetString();
+                                            if (!string.IsNullOrEmpty(nid))
+                                            {
+                                                nodeIds.Add(nid);
+                                                var ports = new HashSet<string>();
+                                                if (n.TryGetProperty("ports", out var portsEl) && portsEl.ValueKind == System.Text.Json.JsonValueKind.Array)
+                                                {
+                                                    foreach (var p in portsEl.EnumerateArray())
+                                                    {
+                                                        if (p.TryGetProperty("id", out var pidEl))
+                                                        {
+                                                            var pid = pidEl.GetString();
+                                                            if (!string.IsNullOrEmpty(pid)) ports.Add(pid);
+                                                        }
+                                                    }
+                                                }
+                                                nodePorts[nid] = ports;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            if (connections.MoveNext())
+                            {
+                                do
+                                {
+                                    var c = connections.Current;
+                                    if (c.TryGetProperty("from", out var from) && c.TryGetProperty("to", out var to))
+                                    {
+                                        var fromNode = from.GetProperty("nodeId").GetString();
+                                        var fromPort = from.GetProperty("portId").GetString();
+                                        var toNode = to.GetProperty("nodeId").GetString();
+                                        var toPort = to.GetProperty("portId").GetString();
+
+                                        if (string.IsNullOrEmpty(fromNode) || !nodeIds.Contains(fromNode)) errors.Add($"connections.json: unknown from.nodeId '{fromNode}'");
+                                        if (string.IsNullOrEmpty(toNode) || !nodeIds.Contains(toNode)) errors.Add($"connections.json: unknown to.nodeId '{toNode}'");
+
+                                        if (!string.IsNullOrEmpty(fromNode) && !string.IsNullOrEmpty(fromPort))
+                                        {
+                                            if (!nodePorts.TryGetValue(fromNode, out var fpSet) || !fpSet.Contains(fromPort)) errors.Add($"connections.json: unknown from.portId '{fromPort}' for node '{fromNode}'");
+                                        }
+                                        if (!string.IsNullOrEmpty(toNode) && !string.IsNullOrEmpty(toPort))
+                                        {
+                                            if (!nodePorts.TryGetValue(toNode, out var tpSet) || !tpSet.Contains(toPort)) errors.Add($"connections.json: unknown to.portId '{toPort}' for node '{toNode}'");
+                                        }
+                                    }
+                                } while (connections.MoveNext());
+                            }
+                        }
+                        catch (System.Text.Json.JsonException je)
+                        {
+                            errors.Add($"connections.json: invalid json - {je.Message}");
+                        }
                     }
                 }
 

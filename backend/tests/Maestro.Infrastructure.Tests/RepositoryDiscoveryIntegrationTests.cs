@@ -29,6 +29,18 @@ namespace Maestro.Infrastructure.Tests
                 // repository get
                 var byId = await repo.GetByIdAsync("test-block");
                 Assert.NotNull(byId);
+
+                // now simulate multi-location: project overrides global
+                var globalRoot = Path.Combine(Path.GetTempPath(), "maestro-global-" + Guid.NewGuid().ToString("N"));
+                Directory.CreateDirectory(globalRoot);
+                var gblk = Path.Combine(globalRoot, "test-block");
+                Directory.CreateDirectory(gblk);
+                File.WriteAllText(Path.Combine(gblk, "block.json"), "{ \"id\": \"test-block\", \"name\": \"Global Block\", \"blockType\": \"prompt\" }");
+
+                var discMulti = new Maestro.Infrastructure.BlockStore.FileSystemBlockDiscoveryService(new [] { tempRoot, globalRoot });
+                var all2 = await discMulti.DiscoverAllAsync();
+                // project (tempRoot) should win and provide the Test Block we created earlier
+                Assert.Contains(all2, b => b.Id == "test-block");
             }
             finally
             {

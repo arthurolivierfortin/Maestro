@@ -170,7 +170,7 @@ Support discovering blocks from multiple locations:
 - [x] Implement priority/override logic (project > user > global)
 - [x] Support `.maestroignore` file for excluding paths
 - [x] Add configuration to `appsettings.json` and `maestro.config.json`
- - [ ] Add unit tests
+ - [x] Add unit tests
 
 ### 5A.6 Block File Watcher
 
@@ -188,10 +188,10 @@ Support discovering blocks from multiple locations:
 - [x] Create `IBlockValidator` interface
 - [x] Implement JSON Schema validation for `block.json`
 - [x] Validate required files exist for each block type
-- [ ] Validate input/output port definitions
-- [ ] Validate connections reference valid ports
-- [x] Return detailed validation errors with line numbers
-- [ ] Add unit tests
+ - [x] Validate input/output port definitions
+ - [x] Validate connections reference valid ports
+ - [x] Return detailed validation errors with line numbers
+ - [x] Add unit tests
 
 ### 5A.8 API Endpoints
 
@@ -303,6 +303,15 @@ Note: This section was appended to record the current implementation status with
 - [x] Refactor `FileSystemBlockRepository` to depend on `IBlockChangePublisher` instead of `IHubContext` (prevents cross-layer references)
 
 These changes ensure real-time block events are published without violating Clean Architecture.
+
+### Recent Updates (Validator & Tests)
+
+- [x] `JsonSchemaBlockValidator` extended to validate `nodes.json` and `connections.json` for workflow blocks
+- [x] Additional cross-file checks: connections reference existing node ids and port ids
+- [x] Added unit tests: handler tests, validator tests (connections), multi-location discovery integration test
+- [x] Added `docs/block-schema-reference.md` summarizing expected files per block type
+
+These updates improve validation accuracy and add coverage for handler/discovery/validator behavior.
 
 ### Current State
 - Overall phase status: In Progress
