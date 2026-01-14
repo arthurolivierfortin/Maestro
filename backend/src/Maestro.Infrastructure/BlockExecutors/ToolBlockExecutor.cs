@@ -49,6 +49,13 @@ public class ToolBlockExecutor : IBlockExecutor
         // Determine runtime: default to pwsh on Windows, bash on Unix
         var runtime = config.TryGetValue("runtime", out var r) && r is string rs ? rs : (OperatingSystem.IsWindows() ? "powershell" : "bash");
 
+        // If a scriptFile is provided and the block has a metadata.path, try to resolve it relative to that path
+        if (!string.IsNullOrEmpty(scriptFile) && block.Metadata != null && block.Metadata.TryGetValue("path", out var metaPathObj) && metaPathObj is string metaPath)
+        {
+            var candidate = Path.Combine(metaPath, scriptFile);
+            if (File.Exists(candidate)) script = candidate;
+        }
+
         // Optional sandboxing: create a temporary working directory when enabled
         var enableSandbox = config.TryGetValue("enableSandbox", out var sb) && sb is bool b && b;
         string? sandboxDir = null;
@@ -160,9 +167,17 @@ public class ToolBlockExecutor : IBlockExecutor
                 };
             }
 
+            // Map common runtime names to executables
+            var fileName = runtime;
+            if (runtime == "node") fileName = "node";
+            else if (runtime == "python") fileName = "python";
+            else if (runtime == "pwsh") fileName = "pwsh";
+            else if (runtime == "powershell") fileName = OperatingSystem.IsWindows() ? "powershell" : "pwsh";
+            else if (runtime == "bash") fileName = "bash";
+
             var psi = new ProcessStartInfo
             {
-                FileName = runtime,
+                FileName = fileName,
                 Arguments = arguments,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,

@@ -107,7 +107,32 @@ public class InferenceBlockExecutor : IBlockExecutor
         var res = new BlockExecutionResult();
         if (response != null)
         {
-            res.Outputs["content"] = response.Content;
+            // If block config defines an output schema key, try to parse structured outputs
+            if (block.Config != null && block.Config.TryGetValue("outputKey", out var ok) && ok is string outKey && !string.IsNullOrEmpty(outKey))
+            {
+                // Try to parse JSON object from response content
+                try
+                {
+                    using var doc = JsonDocument.Parse(response.Content);
+                    if (doc.RootElement.ValueKind == JsonValueKind.Object && doc.RootElement.TryGetProperty(outKey, out var prop))
+                    {
+                        res.Outputs[outKey] = prop.GetString() ?? prop.ToString();
+                    }
+                    else
+                    {
+                        res.Outputs["content"] = response.Content;
+                    }
+                }
+                catch
+                {
+                    res.Outputs["content"] = response.Content;
+                }
+            }
+            else
+            {
+                res.Outputs["content"] = response.Content;
+            }
+
             res.Logs.Add("LLM response received");
         }
         else

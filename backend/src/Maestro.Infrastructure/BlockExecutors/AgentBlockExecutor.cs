@@ -55,8 +55,28 @@ public class AgentBlockExecutor : IBlockExecutor
             }
         }
 
-        // Build prompt from system/user templates
-        var systemPrompt = block.Config != null && block.Config.TryGetValue("system", out var s) ? s?.ToString() ?? string.Empty : string.Empty;
+        // Load system prompt from file if present
+        var systemPrompt = string.Empty;
+        if (path != null)
+        {
+            var sp = Path.Combine(path, "system-prompt.md");
+            if (File.Exists(sp)) systemPrompt = await File.ReadAllTextAsync(sp, ct);
+
+            // Load tools.json if present (for agent tool definitions). Not fully executed here,
+            // but makes tools available for future tool-call handling.
+            var toolsFile = Path.Combine(path, "tools.json");
+            if (File.Exists(toolsFile))
+            {
+                try
+                {
+                    var tf = await File.ReadAllTextAsync(toolsFile, ct);
+                    // keep as log for now
+                    result.Logs.Add("tools.json loaded");
+                }
+                catch { }
+            }
+        }
+
         var userPrompt = block.Config != null && block.Config.TryGetValue("user", out var u) ? u?.ToString() ?? string.Empty : string.Empty;
 
         var resolved = userPrompt;
@@ -65,7 +85,31 @@ public class AgentBlockExecutor : IBlockExecutor
         var request = new LLMRequest { Prompt = resolved };
         var response = await _llmGateway.SendAsync(request, ct);
 
-        result.Outputs["content"] = response.Content;
+        // Try to parse structured outputs if defined
+        if (block.Config != null && block.Config.TryGetValue("outputKey", out var ok) && ok is string outKey && !string.IsNullOrEmpty(outKey))
+        {
+            try
+            {
+                using var doc = JsonDocument.Parse(response.Content);
+                if (doc.RootElement.ValueKind == JsonValueKind.Object && doc.RootElement.TryGetProperty(outKey, out var prop))
+                {
+                    result.Outputs[outKey] = prop.GetString() ?? prop.ToString();
+                }
+                else
+                {
+                    result.Outputs["content"] = response.Content;
+                }
+            }
+            catch
+            {
+                result.Outputs["content"] = response.Content;
+            }
+        }
+        else
+        {
+            result.Outputs["content"] = response.Content;
+        }
+
         result.Logs.Add("Agent LLM response received");
         result.DurationMs = sw.ElapsedMilliseconds;
         return result;

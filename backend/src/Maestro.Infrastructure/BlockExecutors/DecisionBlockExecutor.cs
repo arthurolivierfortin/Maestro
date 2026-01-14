@@ -7,6 +7,9 @@ using Maestro.Application.DTOs;
 using Maestro.Application.Interfaces;
 using Maestro.Domain.Entities;
 using ExecutionContext = Maestro.Domain.Entities.ExecutionContext;
+using Jint;
+using Jint.Native;
+using Jint.Runtime;
 
 namespace Maestro.Infrastructure.BlockExecutors;
 
@@ -42,15 +45,38 @@ public class DecisionBlockExecutor : IBlockExecutor
             return string.Empty;
         });
 
-        // Support simple forms: true/false or comparisons like "value == expected"
+        // Support simple forms: if config.engine == "js" use JS eval (Jint), else simple comparisons
         bool res = false;
-        if (bool.TryParse(resolved, out var b)) res = b;
-        else if (resolved.Contains("=="))
+        var engine = block.Config != null && block.Config.TryGetValue("engine", out var e) ? e?.ToString() ?? string.Empty : string.Empty;
+        if (engine == "js")
         {
-            var parts = resolved.Split(new[] {"=="}, StringSplitOptions.RemoveEmptyEntries);
-            if (parts.Length == 2)
+            try
             {
-                res = parts[0].Trim().Trim('"') == parts[1].Trim().Trim('"');
+                var js = new Engine(cfg => cfg.TimeoutInterval(TimeSpan.FromMilliseconds(200)).LimitRecursion(64));
+                var value = js.Evaluate(resolved).ToObject();
+                if (value is bool bv) res = bv;
+                else if (value is string sv) bool.TryParse(sv, out res);
+            }
+            catch (JavaScriptException jex)
+            {
+                result.Logs.Add("JS evaluation error: " + jex.Message);
+            }
+            catch (Exception ex)
+            {
+                result.Logs.Add("JS evaluation failed: " + ex.Message);
+            }
+        }
+        else
+        {
+            // Support simple comparisons like "value == expected" or boolean literal
+            if (bool.TryParse(resolved, out var b)) res = b;
+            else if (resolved.Contains("=="))
+            {
+                var parts = resolved.Split(new[] {"=="}, StringSplitOptions.RemoveEmptyEntries);
+                if (parts.Length == 2)
+                {
+                    res = parts[0].Trim().Trim('"') == parts[1].Trim().Trim('"');
+                }
             }
         }
 
