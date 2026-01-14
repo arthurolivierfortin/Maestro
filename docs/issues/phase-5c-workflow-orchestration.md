@@ -53,7 +53,7 @@ Workflows are the core value proposition of Maestro. This phase connects individ
 
 ### 5C.1 Execution Graph Builder
 
-- [ ] Create `ExecutionGraph` domain model
+- [x] Create `ExecutionGraph` domain model
   ```csharp
   public class ExecutionGraph
   {
@@ -65,17 +65,17 @@ Workflows are the core value proposition of Maestro. This phase connects individ
       public IEnumerable<IReadOnlyList<ExecutionNode>> GetExecutionLayers();
   }
   ```
-- [ ] Create `ExecutionNode` wrapping block definition with execution metadata
-- [ ] Create `ExecutionEdge` representing data flow between blocks
-- [ ] Implement graph builder from workflow nodes/connections
-- [ ] Add cycle detection (DFS-based)
-- [ ] Add topological sort for execution order
-- [ ] Identify parallelizable layers (nodes with all dependencies satisfied)
-- [ ] Add unit tests
+- [x] Create `ExecutionNode` wrapping block definition with execution metadata
+- [x] Create `ExecutionEdge` representing data flow between blocks
+- [x] Implement graph builder from workflow nodes/connections
+- [x] Add cycle detection (DFS-based)
+- [x] Add topological sort for execution order
+- [x] Identify parallelizable layers (nodes with all dependencies satisfied)
+- [x] Add unit tests
 
 ### 5C.2 Data Flow Manager
 
-- [ ] Create `IDataFlowManager` interface
+- [x] Create `IDataFlowManager` interface
   ```csharp
   public interface IDataFlowManager
   {
@@ -85,15 +85,15 @@ Workflows are the core value proposition of Maestro. This phase connects individ
       bool AreInputsSatisfied(string blockId, ExecutionGraph graph);
   }
   ```
-- [ ] Implement data flow based on connection mappings
-- [ ] Handle port type coercion (string ↔ object, etc.)
-- [ ] Handle optional inputs (use default if not connected)
-- [ ] Handle multiple connections to same input (array aggregation)
-- [ ] Add unit tests
+- [x] Implement data flow based on connection mappings
+- [x] Handle port type coercion (string ↔ object, etc.)
+- [x] Handle optional inputs (use default if not connected)
+- [x] Handle multiple connections to same input (array aggregation)
+- [x] Add unit tests
 
 ### 5C.3 Workflow Executor
 
-- [ ] Create `IWorkflowExecutor` interface
+- [x] Create `IWorkflowExecutor` interface
   ```csharp
   public interface IWorkflowExecutor
   {
@@ -104,7 +104,7 @@ Workflows are the core value proposition of Maestro. This phase connects individ
           CancellationToken ct = default);
   }
   ```
-- [ ] Implement `WorkflowExecutor`:
+- [x] Implement `WorkflowExecutor`:
   1. Build execution graph
   2. Validate graph (no cycles, valid connections)
   3. Create execution context
@@ -112,24 +112,24 @@ Workflows are the core value proposition of Maestro. This phase connects individ
   5. Iterate through execution layers
   6. For each layer, execute blocks in parallel
   7. Collect outputs and pass to dependents
-  8. Handle decision branches (skip inactive paths)
+  8. Handle decision branches (skip inactive paths)  <!-- baseline skipping implemented; advanced branching pending -->
   9. Aggregate final outputs
-- [ ] Add unit tests
+- [x] Add unit tests
 
 ### 5C.4 Parallel Execution Support
 
-- [ ] Implement parallel execution within layers
-- [ ] Configure max parallelism (default: 4)
-- [ ] Handle partial failures (continue if some blocks fail)
-- [ ] Implement cancellation propagation
-- [ ] Add proper async/await with `Task.WhenAll`
-- [ ] Add unit tests for parallel scenarios
+- [x] Implement parallel execution within layers
+- [x] Configure max parallelism (default: 4)
+- [x] Handle partial failures (continue if some blocks fail)
+- [x] Implement cancellation propagation
+- [x] Add proper async/await with `Task.WhenAll`
+- [x] Add unit tests for parallel scenarios
 
 ### 5C.5 Decision Block Handling
 
 - [ ] Implement branch routing based on decision output
 - [ ] Track active branches in execution context
-- [ ] Skip blocks on inactive branches
+- [x] Skip blocks on inactive branches  <!-- basic skipping implemented when decision outputs present -->
 - [ ] Support nested decisions
 - [ ] Handle convergence (blocks after decision with inputs from both branches)
 - [ ] Add unit tests
