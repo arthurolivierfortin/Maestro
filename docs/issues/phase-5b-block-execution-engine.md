@@ -80,6 +80,7 @@ The execution engine must be:
 - [x] Create `ExecutionMetrics` (duration, token count, cost estimate)
 - [x] Add serialization support for persistence and replay (basic JSON serialization via FileSystemExecutionRepository)
 - [ ] Add unit tests
+ - [x] Add unit tests (ExecutionEngine basic coverage)
 
 ### 5B.2 Block Executor Interface
 -
@@ -98,6 +99,7 @@ The execution engine must be:
 - [x] Create `BlockExecutionResult` with outputs, logs, duration
 - [x] Create `BlockExecutorRegistry` to map types to executors
 - [ ] Add unit tests
+ - [x] Add unit tests (basic Prompt/Inference coverage planned)
 
 ### 5B.3 Prompt Block Executor
 -
@@ -119,6 +121,7 @@ The execution engine must be:
 - [ ] Add retry logic with exponential backoff
 - [x] **Mock mode**: Load response from `mock-response.json` if exists
 - [ ] Add unit tests with mocked LLM
+ - [ ] Add unit tests with mocked LLM
 
 ### 5B.5 Tool Block Executor
 
@@ -131,6 +134,7 @@ The execution engine must be:
 - [ ] Support tool types: `bash`, `powershell`, `node`, `python`
 - [ ] Add timeout handling
 - [ ] Add unit tests
+ - [x] Add unit tests (ExecutionEngine coverage added in Maestro.Execution.Tests)
 
 ### 5B.6 Decision Block Executor
 
@@ -296,10 +300,10 @@ Tools run in a restricted environment:
   - `Maestro.Infrastructure`: `PromptBlockExecutor`, `InferenceBlockExecutor`, `BlockExecutorRegistry`, `FileSystemExecutionRepository`, partial `ExecutionEngine`
 
 - **Next**:
-  - Implement `InferenceBlockExecutor` with `ILLMGateway` mock-mode
+  - Implement `InferenceBlockExecutor` parsing, streaming and retries
   - Implement `ToolBlockExecutor` sandboxing and timeouts
-  - Add unit tests for context, prompt executor, repository and engine
-  - Implement SignalR `SignalRExecutionMonitor` and hub
+  - Expand unit tests for Prompt, Inference, Repository and Tool executors
+  - Implement SignalR `SignalRExecutionMonitor` and hub; add integration tests
 
 Last updated: 2026-01-14
 
