@@ -1,0 +1,36 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Maestro Block",
+  "type": "object",
+  "required": ["id", "name", "blockType"],
+  "properties": {
+    "id": { "type": "string" },
+    "name": { "type": "string" },
+    "blockType": { "type": "string" },
+    "version": { "type": "string" },
+    "isAtomic": { "type": "boolean" },
+    "description": { "type": "string" },
+    "inputs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "type"],
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "type": { "type": "string" },
+          "required": { "type": "boolean" },
+          "description": { "type": "string" }
+        }
+      }
+    },
+    "outputs": {
+      "type": "array",
+      "items": { "$ref": "#/properties/inputs/items" }
+    },
+    "config": { "type": ["object", "null"] },
+    "metadata": { "type": "object" },
+    "capabilities": { "type": "array", "items": { "type": "string" } }
+  },
+  "additionalProperties": true
+}

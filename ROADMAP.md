@@ -1311,42 +1311,181 @@ Phase 13: Auto-Optimization & Benchmarking      [░░░░░░░░░░]
 
 ---
 
-## 🔷 Phase 5: Workflow Engine & Execution
+## 🔷 Phase 5: Backend - Filesystem Block Architecture & Execution Engine
 
-**Goal**: Implement the backend execution engine that runs workflows/blocks.
+**Goal**: Implement the complete backend for filesystem-based block discovery, execution, and workflow orchestration. This is the **critical foundation** for human-editable, frontend-creatable, and agent-improvable workflows.
 
-**Duration**: 2-3 weeks  
-**Team**: Backend (2 developers)  
-**Dependencies**: Phase 2, 3 complete
+**Duration**: 6-8 weeks  
+**Team**: Backend (2-3 developers)  
+**Dependencies**: Phase 4i complete  
+**Status**: Not Started
 
-### Tasks
+### Strategic Vision
 
-#### 5.1 Execution Engine Core
-- [ ] Implement `IExecutionEngine` interface
-- [ ] Create `WorkflowExecutor` - top-level orchestrator
-- [ ] Create `BlockExecutor` - executes individual blocks
-- [ ] Implement execution context and state management
-- [ ] Handle recursive block execution (composite blocks)
-- [ ] Add pause/resume/cancel support
-- [ ] Add unit tests
+This phase establishes the backend architecture that will enable:
+1. **Human-editable blocks**: Create/modify blocks in any text editor
+2. **Frontend-created blocks**: UI writes proper file structures to disk
+3. **Agent-generated blocks**: Future auto-improvement generates and compares workflows
+4. **Deterministic replay**: Workflows are serializable and replayable identically
+5. **Environment-agnostic**: No dependency on VS Code, MCP, or specific runtime
+6. **MCP Server**: Expose Maestro as tools for VS Code Copilot and other LLM agents
 
-#### 5.2 Block Executors
-- [ ] Implement `AgentBlockExecutor` - calls LLM Gateway
-- [ ] Implement `ToolBlockExecutor` - runs tools
-- [ ] Implement `DecisionBlockExecutor` - evaluates conditions
-- [ ] Implement `ValidatorBlockExecutor` - validates outputs
-- [ ] Add unit tests for each executor
+### Sub-Phases
 
-#### 5.3 Execution State & Events
-- [ ] Implement execution state machine
-- [ ] Publish events via SignalR (started, progress, completed, failed)
-- [ ] Store execution history
-- [ ] Add unit tests
+| Phase | Focus | Duration | Issue |
+|-------|-------|----------|-------|
+| 5A | Filesystem Block Architecture | 2-3 weeks | [phase-5a-filesystem-block-architecture.md](docs/issues/phase-5a-filesystem-block-architecture.md) |
+| 5B | Block Execution Engine | 2-3 weeks | [phase-5b-block-execution-engine.md](docs/issues/phase-5b-block-execution-engine.md) |
+| 5C | Workflow Orchestration | 2 weeks | [phase-5c-workflow-orchestration.md](docs/issues/phase-5c-workflow-orchestration.md) |
+| 5D | Commit Workflow & MCP Server | 1-2 weeks | [phase-5d-commit-workflow-mcp.md](docs/issues/phase-5d-commit-workflow-mcp.md) |
 
-**Outputs**:
-- ✅ Working execution engine
-- ✅ Real-time execution updates via SignalR
-- ✅ Execution history persistence
+---
+
+### 🔹 Phase 5A: Filesystem Block Architecture
+
+**Goal**: Design and implement filesystem-based block definitions discovered dynamically from folders.
+
+#### Block Folder Structure
+```
+blocks/
+├── agents/
+│   └── planner/
+│       ├── block.json          # Block metadata
+│       ├── system-prompt.md    # System prompt
+│       └── tools.json          # Available tools
+├── prompts/
+│   └── commit-description/
+│       ├── block.json
+│       └── template.md
+├── tools/
+│   └── git-diff/
+│       ├── block.json
+│       └── script.sh
+├── workflows/
+│   └── commit-generator/
+│       ├── block.json
+│       ├── nodes.json
+│       └── connections.json
+└── inference/
+    └── describe-changes/
+        ├── block.json
+        └── output-schema.json
+```
+
+#### Tasks
+- [ ] Create `docs/schemas/block.schema.json` with JSON Schema for block.json
+- [ ] Create `IBlockDiscoveryService` interface (Application layer)
+- [ ] Implement `FileSystemBlockDiscoveryService` (Infrastructure layer)
+- [ ] Create `IBlockRepository` interface for CRUD operations
+- [ ] Implement block type handlers (Agent, Prompt, Tool, Inference, Workflow, etc.)
+- [ ] Implement multi-location discovery (global, project `.maestro/`, user)
+- [ ] Implement file watcher for live block updates
+- [ ] Create `BlocksController` REST API endpoints
+- [ ] Update frontend `realBlockService.ts` to use backend API
+- [ ] Add comprehensive unit tests
+
+---
+
+### 🔹 Phase 5B: Block Execution Engine
+
+**Goal**: Implement the execution engine that runs individual blocks with proper data flow.
+
+#### Execution Model
+```
+ExecutionRequest → ExecutionEngine → BlockExecutor → ExecutionResult
+                        ↓
+                  ExecutionContext
+                  (Variables, Logs, Metrics)
+```
+
+#### Tasks
+- [ ] Create `ExecutionContext` domain entity with state management
+- [ ] Create `IBlockExecutor` interface and `BlockExecutorRegistry`
+- [ ] Implement `PromptBlockExecutor` (template resolution only)
+- [ ] Implement `InferenceBlockExecutor` (LLM calls via ILLMGateway)
+- [ ] Implement `ToolBlockExecutor` (sandboxed script execution)
+- [ ] Implement `DecisionBlockExecutor` (condition evaluation)
+- [ ] Implement `ValidatorBlockExecutor` (schema/regex validation)
+- [ ] Implement `AgentBlockExecutor` (with tool calling loop)
+- [ ] Implement `TriggerBlockExecutor` (manual/webhook/schedule)
+- [ ] Create `IExecutionEngine` service interface
+- [ ] Implement execution persistence to filesystem
+- [ ] Implement SignalR events for real-time updates
+- [ ] Support mock mode (load `mock-response.json` for testing)
+- [ ] Add comprehensive unit tests
+
+---
+
+### 🔹 Phase 5C: Workflow Orchestration
+
+**Goal**: Execute multi-block workflows with proper dependency resolution and data flow.
+
+#### Execution Graph
+```
+Layer 0: [Trigger]
+Layer 1: [GitDiff, GetContext]  ← parallel
+Layer 2: [Describe]             ← waits for Layer 1
+Layer 3: [Format]               ← waits for Layer 2
+```
+
+#### Tasks
+- [ ] Create `ExecutionGraph` with topological sort
+- [ ] Implement cycle detection (reject workflows with cycles)
+- [ ] Create `IDataFlowManager` for passing data between blocks
+- [ ] Implement `IWorkflowExecutor` with layer-based parallel execution
+- [ ] Implement decision branch routing
+- [ ] Implement error handling with retry policies
+- [ ] Support workflow variables and environment secrets
+- [ ] Implement execution checkpoints for resume
+- [ ] Support composite block execution (nested workflows)
+- [ ] Create workflow execution REST API endpoints
+- [ ] Update frontend execution service to use real API
+- [ ] Add comprehensive unit tests
+
+---
+
+### 🔹 Phase 5D: Commit Description Workflow & MCP Server
+
+**Goal**: Create first working end-to-end workflow and MCP server foundation.
+
+#### Commit Generator Workflow
+```
+Manual Trigger → Git Diff (Tool) → Describe (Inference) → Format (Validator)
+```
+
+#### Tasks
+- [ ] Create `blocks/tools/git-diff/` tool block
+- [ ] Create `blocks/prompts/commit-description/` prompt block
+- [ ] Create `blocks/inference/describe-commit/` inference block
+- [ ] Create `blocks/validators/commit-format/` validator block
+- [ ] Create `blocks/workflows/commit-generator/` workflow
+- [ ] Create `Maestro.Cli` project with `maestro execute` command
+- [ ] Create `Maestro.McpServer` project for VS Code integration
+- [ ] Implement MCP tools: `execute-workflow`, `list-workflows`, `get-workflow`
+- [ ] Support `.maestro/blocks/` for project-specific blocks
+- [ ] Create MCP setup documentation
+- [ ] Add end-to-end integration tests
+
+---
+
+### Outputs (Phase 5 Complete)
+- ✅ Filesystem-based block discovery and persistence
+- ✅ JSON Schema validation for all block types
+- ✅ Block executors for all block types
+- ✅ Workflow execution with parallel support
+- ✅ Real-time execution events via SignalR
+- ✅ Working commit description generator workflow
+- ✅ CLI for executing workflows (`maestro execute`)
+- ✅ MCP server for VS Code Copilot integration
+- ✅ Project-level blocks (`.maestro/` folder support)
+
+### Acceptance Criteria
+1. **Manual block creation**: Create block in text editor → appears in frontend
+2. **Frontend block creation**: Create in UI → proper files written to disk
+3. **Hot reload**: Edit block.json → frontend updates immediately
+4. **Workflow execution**: Run commit-generator → get valid commit message
+5. **Mock mode**: Run with `--mock` → uses mock responses
+6. **MCP integration**: VS Code Copilot can call Maestro workflows
 
 ---
 
@@ -1694,12 +1833,14 @@ Week 1-2:   Phase 1 (Backend Core)    ║ Phase 4a (Frontend Foundation) ✓
 Week 3-4:   Phase 2 (Domain/App)      ║ Phase 4b (Block Architecture)
 Week 5-6:   Phase 2 (continued)       ║ Phase 4c (IDE Layout) + Phase 4e (Models Panel)
 Week 7-8:   Phase 3 (Infrastructure)  ║ Phase 4d (Canvas Foundation)
-Week 9-12:  Phase 5 (Execution) + Phase 6 (Agents) ║ Phase 4d (continued)
-Week 13-14: Phase 7 (Monitoring)      ║ Phase 8 (Tool Executors)
-Week 15-16: Phase 9 (Terminal & CLI)
-Week 17-19: Phase 10 (Integration & Testing) - Full Team
-Week 20-21: Phase 11 (Documentation)  ║ Phase 12 (Release Prep)
-Week 22+:   Phase 13 (Auto-Optimization) - Post-MVP
+Week 9-10:  Phase 4i (Breadcrumb)     ║ Phase 4g (Block Editing)
+Week 11-14: Phase 5A (Filesystem)     ║ Phase 5B (Execution Engine)
+Week 15-16: Phase 5C (Orchestration)  ║ Phase 5D (MCP + CLI)
+Week 17-18: Phase 6 (Agents)          ║ Phase 7 (Monitoring)
+Week 19-20: Phase 8 (Tools)           ║ Phase 9 (Terminal CLI)
+Week 21-23: Phase 10 (Integration & Testing) - Full Team
+Week 24-25: Phase 11 (Documentation)  ║ Phase 12 (Release Prep)
+Week 26+:   Phase 13 (Auto-Optimization) - Post-MVP
 ```
 
 ### Dependencies Matrix
@@ -1707,22 +1848,27 @@ Week 22+:   Phase 13 (Auto-Optimization) - Post-MVP
 | Phase | Depends On | Blocks |
 |-------|------------|--------|
 | 1     | None       | 2, 3   |
-| 2     | 1          | 3, 5, 6 |
-| 3     | 2          | 4e (backend), 5, 6, 7, 8 |
+| 2     | 1          | 3, 5A, 6 |
+| 3     | 2          | 4e (backend), 5A, 6, 7, 8 |
 | 4a    | None       | 4b, 4e |
 | 4b    | 4a         | 4c, 4d |
 | 4c    | 4b         | 4d, 9  |
 | 4d    | 4b, 4c     | 7, 10  |
 | 4e    | 4a, 3 (partial) | 6, 13 |
-| 5     | 2, 3       | 7, 10, 13  |
-| 6     | 2, 3, 4e   | 10, 13 |
-| 7     | 4d, 5      | 10, 13 |
+| 4g    | 4b         | 5A     |
+| 4i    | 4c         | 5A     |
+| **5A**| 2, 3, 4i   | 5B, 5C |
+| **5B**| 5A         | 5C, 5D |
+| **5C**| 5B         | 5D, 7, 10 |
+| **5D**| 5A, 5B, 5C | 9, 10, 13 |
+| 6     | 2, 3, 4e, 5B | 10, 13 |
+| 7     | 4d, 5C     | 10, 13 |
 | 8     | 3, 6       | 10     |
-| 9     | 4c, 7      | 10     |
-| 10    | 5-9        | 11, 12 |
+| 9     | 4c, 5D, 7  | 10     |
+| 10    | 5D, 6-9    | 11, 12 |
 | 11    | 10         | 12     |
 | 12    | 11         | Release |
-| 13    | 4e, 5, 6, 7 | Future |
+| 13    | 4e, 5D, 6, 7 | Future |
 
 ### Team Allocation Recommendations
 
@@ -1823,5 +1969,5 @@ Each task in this roadmap should be converted into a GitHub issue with:
 
 ---
 
-**Last Updated**: 2026-01-10  
+**Last Updated**: 2025-01-27  
 **Maintained by**: Architecture Team

@@ -1,0 +1,6 @@
+{
+  "terminal.integrated.env.windows": {
+    "PATH": "${env:LOCALAPPDATA}\\Microsoft\\dotnet;${env:PATH}"
+  },
+  "dotnet.defaultSolution": "backend\\Maestro.sln"
+}

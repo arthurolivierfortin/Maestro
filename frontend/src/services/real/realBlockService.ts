@@ -13,6 +13,7 @@ import type {
 } from '../interfaces/IBlockService';
 import type { Block, BlockType } from '../../types/block.types';
 import { apiClient } from '../api';
+import { initBlockHub } from '../signalr/blockHub';
 
 /**
  * Real Block Service Implementation
@@ -90,4 +91,13 @@ export function getRealBlockService(): IBlockService {
     instance = new RealBlockService();
   }
   return instance;
+}
+
+// Initialize realtime updates (SignalR). Call once on app startup.
+export async function initRealBlockRealtime(baseUrl: string) {
+  try {
+    await initBlockHub(baseUrl);
+  } catch (e) {
+    console.warn('initRealBlockRealtime failed', e);
+  }
 }
