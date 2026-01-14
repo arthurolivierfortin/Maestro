@@ -20,6 +20,7 @@ namespace Maestro.Application.Interfaces
             WorkflowDefinition workflow,
             Dictionary<string, object>? inputs = null,
             ExecutionOptions? options = null,
+            Maestro.Domain.Entities.ExecutionContext? resumeFrom = null,
             CancellationToken ct = default);
     }
 

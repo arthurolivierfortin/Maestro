@@ -37,6 +37,9 @@ builder.Services.AddScoped<Maestro.Infrastructure.BlockExecutors.BlockExecutorRe
     var executors = sp.GetServices<Maestro.Application.Interfaces.IBlockExecutor>();
     return new Maestro.Infrastructure.BlockExecutors.BlockExecutorRegistry(executors);
 });
+// Register execution repository (persistence for checkpoints/executions)
+var execFolder = Path.Combine(AppContext.BaseDirectory, "executions");
+builder.Services.AddScoped<Maestro.Application.Interfaces.IExecutionRepository>(_ => new Maestro.Infrastructure.Persistence.FileSystemExecutionRepository(execFolder));
 // Phase 5A: Filesystem block discovery and repository
 var blocksGlobalPath = Path.Combine(AppContext.BaseDirectory, "blocks");
 var blocksUserPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile) ?? "", ".maestro", "blocks");

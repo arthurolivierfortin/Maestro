@@ -9,6 +9,18 @@
 
 ---
 
+## Next Steps (short-term priorities)
+
+- Persist `WorkflowDefinition` with execution or implement a background resume worker (choose one)
+- Implement decision routing (5C.5) for nested branches and convergence
+- Add per-block retry policy and error strategies (5C.6)
+- Implement per-block checkpoints and cleanup policy (5C.8)
+- Expose full execution API endpoints and wire frontend SignalR (5C.10 & 5C.11)
+
+> Recommended first action: persist the `WorkflowDefinition` inside the `ExecutionContext` at execution start. This enables safe, automatic resume without needing an external workflow lookup. If you prefer not to persist definitions, implement a background worker that can load definitions from the workflow repository before resuming.
+
+---
+
 ## 🎯 Strategic Context
 
 Workflows are the core value proposition of Maestro. This phase connects individual blocks into executable pipelines:
@@ -153,6 +165,7 @@ Workflows are the core value proposition of Maestro. This phase connects individ
 - [ ] Add error recovery hooks
 - [ ] Add unit tests
 
+
 ### 5C.7 Workflow Variables
 
 - [ ] Implement workflow-level variables
@@ -165,10 +178,12 @@ Workflows are the core value proposition of Maestro. This phase connects individ
 ### 5C.8 Execution Checkpoints
 
 - [ ] Implement checkpoint saving after each block completes
-- [ ] Store checkpoint: execution context + completed outputs
+- [x] Store checkpoint: execution context + completed outputs  <!-- persisted per-layer by FileSystemExecutionRepository -->
 - [ ] Support resuming from checkpoint after restart
 - [ ] Add checkpoint cleanup policy (keep last N)
 - [ ] Add unit tests
+
+
 
 ### 5C.9 Composite Block Execution
 
@@ -184,14 +199,20 @@ Workflows are the core value proposition of Maestro. This phase connects individ
 
 - [ ] Create `WorkflowExecutionController`:
   - `POST /api/workflows/{id}/execute` - start execution
-  - `GET /api/executions/{id}` - get execution status
-  - `GET /api/executions/{id}/logs` - get execution logs
+  - `GET /api/executions/{id}` - get execution status  <!-- scaffolded -->
+  - `GET /api/executions/{id}/logs` - get execution logs  <!-- scaffolded -->
   - `POST /api/executions/{id}/pause` - pause execution
-  - `POST /api/executions/{id}/resume` - resume execution
-  - `POST /api/executions/{id}/cancel` - cancel execution
+  - `POST /api/executions/{id}/resume` - resume execution  <!-- scaffolded -->
+  - `POST /api/executions/{id}/cancel` - cancel execution  <!-- scaffolded -->
   - `GET /api/executions` - list recent executions
 - [ ] Add OpenAPI documentation
 - [ ] Add integration tests
+
+> Note: The controller exists as a minimal scaffold; the listed scaffolded endpoints are wired to the `IExecutionRepository`. Full execution start behavior and integration tests remain to be implemented.
+
+> Note: A minimal `WorkflowExecutionController` scaffold was added which exposes endpoints for retrieving execution state, logs and persisting resume state. It currently does not auto-start background resumes; implementing automatic resume requires either persisting the `WorkflowDefinition` with the execution or a background worker that can load the workflow definition before resuming.
+
+> Status update: `GET /api/executions/{id}`, `GET /api/executions/{id}/logs`, `POST /api/executions/{id}/resume` and `POST /api/executions/{id}/cancel` endpoints are scaffolded and wired to the `IExecutionRepository`. The `POST /api/workflows/{id}/execute` endpoint is present but currently returns an accepted/placeholder response — starting background execution and returning a persistent `ExecutionId` is a next task.
 
 ### 5C.11 Frontend Execution Integration
 
