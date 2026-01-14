@@ -27,6 +27,45 @@ function handleRequest(req) {
     if (!workflowId) return { error: 'workflowId required' };
     return runMockWorkflow(workflowId, inputs);
   }
+  if (req.tool === 'list-workflows') {
+    const base = path.join(__dirname, '../../blocks/workflows');
+    if (!fs.existsSync(base)) return { workflows: [] };
+    const items = fs.readdirSync(base).filter(d => fs.existsSync(path.join(base, d, 'block.json')));
+    return { workflows: items };
+  }
+  if (req.tool === 'get-workflow') {
+    const workflowId = req.arguments && req.arguments.workflowId;
+    if (!workflowId) return { error: 'workflowId required' };
+    const wfPath = path.join(__dirname, '../../blocks/workflows', workflowId);
+    if (!fs.existsSync(wfPath)) return { error: 'not found' };
+    const block = loadJson(path.join(wfPath, 'block.json'));
+    const nodes = loadJson(path.join(wfPath, 'nodes.json'));
+    const conns = loadJson(path.join(wfPath, 'connections.json'));
+    return { workflowId, block, nodes, connections: conns };
+  }
+  // Resource handlers (workflows:// and workflow://id)
+  if (req.resource) {
+    try {
+      const res = req.resource.toString();
+      if (res === 'workflows://') {
+        const base = path.join(__dirname, '../../blocks/workflows');
+        if (!fs.existsSync(base)) return { workflows: [] };
+        const items = fs.readdirSync(base).filter(d => fs.existsSync(path.join(base, d, 'block.json')));
+        return { workflows: items };
+      }
+      if (res.startsWith('workflow://')) {
+        const id = res.substring('workflow://'.length);
+        const wfPath = path.join(__dirname, '../../blocks/workflows', id);
+        if (!fs.existsSync(wfPath)) return { error: 'not found' };
+        const block = loadJson(path.join(wfPath, 'block.json'));
+        const nodes = loadJson(path.join(wfPath, 'nodes.json'));
+        const conns = loadJson(path.join(wfPath, 'connections.json'));
+        return { workflowId: id, block, nodes, connections: conns };
+      }
+    } catch (e) {
+      return { error: 'invalid resource' };
+    }
+  }
   return { error: 'unknown tool' };
 }
 

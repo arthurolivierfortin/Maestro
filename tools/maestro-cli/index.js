@@ -63,6 +63,16 @@ function main() {
   const cmd = argv._[0];
   if (!cmd) { console.log('usage: maestro <command> [args]'); process.exit(1); }
   if (cmd === 'list') return listWorkflows();
+  if (cmd === 'validate') {
+    const wf = argv._[1];
+    if (!wf) { console.error('workflow id required'); process.exit(1); }
+    const w = findWorkflow(wf);
+    if (!w) { console.error('workflow not found:', wf); process.exit(2); }
+    const ok = Array.isArray(w.nodes) && w.nodes.length > 0;
+    if (!ok) { console.error('invalid workflow:', wf); process.exit(3); }
+    console.log(JSON.stringify({ workflow: wf, valid: ok, nodeCount: w.nodes.length }, null, 2));
+    return;
+  }
   if (cmd === 'execute') {
     const wf = argv._[1];
     if (!wf) { console.error('workflow id required'); process.exit(1); }

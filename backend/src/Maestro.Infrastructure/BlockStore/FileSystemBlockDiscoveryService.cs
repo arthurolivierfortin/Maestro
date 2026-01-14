@@ -70,6 +70,30 @@ namespace Maestro.Infrastructure.BlockStore
         {
             foreach (var basePath in _searchPaths)
             {
+                // First scan project-level .maestro folders to allow overrides
+                try
+                {
+                    var projectMaestro = Path.Combine(basePath, ".maestro");
+                    if (Directory.Exists(projectMaestro))
+                    {
+                        foreach (var file in Directory.EnumerateFiles(projectMaestro, "block.json", SearchOption.AllDirectories))
+                        {
+                            var folder = Path.GetDirectoryName(file);
+                            if (folder == null) continue;
+                            try
+                            {
+                                var block = LoadBlockFromFolder(folder);
+                                if (block != null)
+                                {
+                                    _cache[block.Id] = block;
+                                }
+                            }
+                            catch { }
+                        }
+                    }
+                }
+                catch { }
+
                 if (!Directory.Exists(basePath)) continue;
                 foreach (var file in Directory.EnumerateFiles(basePath, "block.json", SearchOption.AllDirectories))
                 {

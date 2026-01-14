@@ -217,6 +217,7 @@ Create a simple CLI to execute workflows:
 - [ ] Implement `maestro execute <workflow-id>` command
 - [ ] Implement `maestro list` command
 - [ ] Implement `maestro validate <workflow-id>` command
+ - [x] Implement `maestro validate <workflow-id>` command
 - [ ] Support `--mock` flag for testing
 - [ ] Support `--input key=value` for passing inputs
 - [ ] Output result to stdout (JSON or formatted)
@@ -229,6 +230,15 @@ Create a simple CLI to execute workflows:
 - [x] Support `--input key=value` for passing inputs (PoC)
 - [x] Output result to stdout (JSON or formatted)
 - [ ] Add integration tests
+
+ - [x] Create `Maestro.Cli` project
+ - [x] Implement `maestro execute <workflow-id>` command
+ - [x] Implement `maestro list` command
+ - [x] Implement `maestro validate <workflow-id>` command
+ - [x] Support `--mock` flag for testing
+ - [x] Support `--input key=value` for passing inputs
+ - [x] Output result to stdout (JSON or formatted)
+ - [ ] Add integration tests
 
 
 ### 5D.8 MCP Server Foundation
@@ -269,8 +279,8 @@ Prepare for Model Context Protocol integration:
     }
   }
   ```
-- [ ] Implement MCP tool: `list-workflows`
-- [ ] Implement MCP tool: `get-workflow`
+- [x] Implement MCP tool: `list-workflows`
+- [x] Implement MCP tool: `get-workflow`
 - [ ] Implement MCP resource: `workflows://` for listing
 - [ ] Implement MCP resource: `workflow://{id}` for details
 - [ ] Add stdio transport for VS Code integration
@@ -283,13 +293,13 @@ Prepare for Model Context Protocol integration:
  - [ ] Implement MCP resource: `workflow://{id}` for details
  - [x] Add stdio transport for VS Code integration (PoC: `tools/maestro-mcp/index.js`)
  - [ ] Add integration tests
- - [ ] Create `Maestro.McpServer` project
- - [ ] Implement MCP tool: `execute-workflow`
- - [ ] Implement MCP tool: `list-workflows`
- - [ ] Implement MCP tool: `get-workflow`
- - [ ] Implement MCP resource: `workflows://` for listing
- - [ ] Implement MCP resource: `workflow://{id}` for details
- - [ ] Add stdio transport for VS Code integration
+ - [x] Create `Maestro.McpServer` project
+ - [x] Implement MCP tool: `execute-workflow`
+ - [x] Implement MCP tool: `list-workflows`
+ - [x] Implement MCP tool: `get-workflow`
+ - [x] Implement MCP resource: `workflows://` for listing
+ - [x] Implement MCP resource: `workflow://{id}` for details
+ - [x] Add stdio transport for VS Code integration
  - [ ] Add integration tests
 
 ### 5D.9 VS Code MCP Configuration
@@ -315,8 +325,6 @@ Document how to configure VS Code to use Maestro as MCP server:
 - [ ] Add example prompts for Copilot
  - [x] Create `docs/mcp-setup.md` with setup instructions
  - [x] Create example `.vscode/mcp.json` configuration:
- - [ ] Document available tools and their usage
- - [ ] Add example prompts for Copilot
 
 ### 5D.10 Project Block Discovery (.maestro folder)
 
@@ -328,9 +336,10 @@ Enable per-project block definitions:
 - [ ] Add `.maestro/config.json` for project settings
 - [ ] Document `.maestro/` folder structure
 - [ ] Add unit tests
- - [ ] Implement `.maestro/blocks/` discovery in `FileSystemBlockDiscoveryService`
- - [ ] Support `.maestro/workflows/` for project workflows
- - [ ] Implement block override logic (project > global)
+
+ - [x] Implement `.maestro/blocks/` discovery in `FileSystemBlockDiscoveryService`
+ - [x] Support `.maestro/workflows/` for project workflows
+ - [x] Implement block override logic (project > global)
  - [ ] Add `.maestro/config.json` for project settings
  - [x] Document `.maestro/` folder structure
  - [ ] Add unit tests
