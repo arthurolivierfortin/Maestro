@@ -9,7 +9,7 @@ namespace Maestro.Domain.Interfaces;
 /// </summary>
 public interface IWorkflowRepository
 {
-    Task<Workflow?> GetByIdAsync(WorkflowId id, CancellationToken cancellationToken = default);
-    Task<IEnumerable<Workflow>> GetAllAsync(CancellationToken cancellationToken = default);
-    Task SaveAsync(Workflow workflow, CancellationToken cancellationToken = default);
+    Task<Maestro.Domain.Entities.Workflow?> GetByIdAsync(WorkflowId id, CancellationToken cancellationToken = default);
+    Task<IEnumerable<Maestro.Domain.Entities.Workflow>> GetAllAsync(CancellationToken cancellationToken = default);
+    Task SaveAsync(Maestro.Domain.Entities.Workflow workflow, CancellationToken cancellationToken = default);
 }

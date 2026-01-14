@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -26,12 +27,20 @@ namespace Maestro.Execution.Tests
     {
         public Task SaveAsync(Maestro.Domain.Entities.ExecutionContext context, CancellationToken ct = default) => Task.CompletedTask;
         public Task<Maestro.Domain.Entities.ExecutionContext?> GetByIdAsync(DomainVO.ExecutionId id, CancellationToken ct = default) => Task.FromResult<Maestro.Domain.Entities.ExecutionContext?>(null);
+        public Task<IEnumerable<Maestro.Domain.Entities.ExecutionContext>> QueryAsync(string? workflowId = null, string? status = null, DateTimeOffset? from = null, DateTimeOffset? to = null, CancellationToken ct = default)
+            => Task.FromResult(Enumerable.Empty<Maestro.Domain.Entities.ExecutionContext>());
+        public Task SaveLogAsync(DomainVO.ExecutionId id, string logLine, CancellationToken ct = default) => Task.CompletedTask;
     }
 
     class NoopMonitor : IExecutionMonitor
     {
-        public Task PublishNodeCompletedAsync(Maestro.Domain.ValueObjects.NodeId nodeId, CancellationToken cancellationToken = default) => Task.CompletedTask;
-        public Task PublishNodeStartedAsync(Maestro.Domain.ValueObjects.NodeId nodeId, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task PublishExecutionStartedAsync(DomainVO.ExecutionId executionId, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task PublishNodeStartedAsync(DomainVO.NodeId nodeId, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task PublishNodeCompletedAsync(DomainVO.NodeId nodeId, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task PublishNodeFailedAsync(DomainVO.NodeId nodeId, string error, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task PublishExecutionCompletedAsync(DomainVO.ExecutionId executionId, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task PublishExecutionFailedAsync(DomainVO.ExecutionId executionId, string error, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task PublishLogAddedAsync(DomainVO.ExecutionId executionId, string logLine, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task PublishTerminalOutputAsync(string output, CancellationToken cancellationToken = default) => Task.CompletedTask;
     }
 

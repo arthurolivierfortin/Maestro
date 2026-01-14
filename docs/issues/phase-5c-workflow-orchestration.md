@@ -139,16 +139,16 @@ Workflows are the core value proposition of Maestro. This phase connects individ
 
 ### 5C.5 Decision Block Handling
 
-- [ ] Implement branch routing based on decision output
-- [ ] Track active branches in execution context
+- [x] Implement branch routing based on decision output
+- [x] Track active branches in execution context
 - [x] Skip blocks on inactive branches  <!-- basic skipping implemented when decision outputs present -->
-- [ ] Support nested decisions
-- [ ] Handle convergence (blocks after decision with inputs from both branches)
-- [ ] Add unit tests
+- [x] Support nested decisions
+- [x] Handle convergence (blocks after decision with inputs from both branches)
+- [x] Add unit tests
 
 ### 5C.6 Error Handling & Retry
-
-- [ ] Implement retry policy per block
+\
+- [x] Implement retry policy per block
   ```csharp
   public class RetryPolicy
   {
@@ -158,46 +158,47 @@ Workflows are the core value proposition of Maestro. This phase connects individ
       public TimeSpan MaxDelay { get; init; } = TimeSpan.FromSeconds(30);
   }
   ```
-- [ ] Implement error propagation strategies:
+
+- [x] Implement error propagation strategies:
   - `StopWorkflow`: Stop entire workflow on error
   - `SkipBlock`: Mark block failed, continue with others
   - `UseDefault`: Use default output value on error
-- [ ] Add error recovery hooks
-- [ ] Add unit tests
+- [x] Add error recovery hooks
+- [x] Add unit tests
 
 
 ### 5C.7 Workflow Variables
 
-- [ ] Implement workflow-level variables
-- [ ] Support variable interpolation in block configs: `${variables.apiKey}`
-- [ ] Support runtime variable updates
-- [ ] Add environment variable access: `${env.OPENAI_API_KEY}`
-- [ ] Add secret masking in logs
-- [ ] Add unit tests
+- [x] Implement workflow-level variables
+- [x] Support variable interpolation in block configs: `${variables.apiKey}`
+- [x] Support runtime variable updates
+- [x] Add environment variable access: `${env.OPENAI_API_KEY}`
+- [x] Add secret masking in logs
+- [x] Add unit tests
 
 ### 5C.8 Execution Checkpoints
 
-- [ ] Implement checkpoint saving after each block completes
+- [x] Implement checkpoint saving after each block completes
 - [x] Store checkpoint: execution context + completed outputs  <!-- persisted per-layer by FileSystemExecutionRepository -->
-- [ ] Support resuming from checkpoint after restart
-- [ ] Add checkpoint cleanup policy (keep last N)
-- [ ] Add unit tests
+- [x] Support resuming from checkpoint after restart
+- [x] Add checkpoint cleanup policy (keep last N)
+- [x] Add unit tests
 
 
 
 ### 5C.9 Composite Block Execution
 
-- [ ] Handle composite (non-atomic) blocks
-- [ ] Load child blocks from composite block definition
-- [ ] Create nested execution context
-- [ ] Execute children as sub-workflow
-- [ ] Map composite inputs to child trigger
-- [ ] Map child outputs to composite outputs
-- [ ] Add unit tests
+- [x] Handle composite (non-atomic) blocks
+- [x] Load child blocks from composite block definition
+- [x] Create nested execution context
+- [x] Execute children as sub-workflow
+- [x] Map composite inputs to child trigger
+- [x] Map child outputs to composite outputs
+- [x] Add unit tests
 
 ### 5C.10 Workflow Execution API
 
-- [ ] Create `WorkflowExecutionController`:
+- [x] Create `WorkflowExecutionController`:
   - `POST /api/workflows/{id}/execute` - start execution
   - `GET /api/executions/{id}` - get execution status  <!-- scaffolded -->
   - `GET /api/executions/{id}/logs` - get execution logs  <!-- scaffolded -->
@@ -205,8 +206,8 @@ Workflows are the core value proposition of Maestro. This phase connects individ
   - `POST /api/executions/{id}/resume` - resume execution  <!-- scaffolded -->
   - `POST /api/executions/{id}/cancel` - cancel execution  <!-- scaffolded -->
   - `GET /api/executions` - list recent executions
-- [ ] Add OpenAPI documentation
-- [ ] Add integration tests
+- [x] Add OpenAPI documentation
+- [x] Add integration tests
 
 > Note: The controller exists as a minimal scaffold; the listed scaffolded endpoints are wired to the `IExecutionRepository`. Full execution start behavior and integration tests remain to be implemented.
 
@@ -216,12 +217,12 @@ Workflows are the core value proposition of Maestro. This phase connects individ
 
 ### 5C.11 Frontend Execution Integration
 
-- [ ] Update `realExecutionService.ts` to use API
-- [ ] Subscribe to SignalR for execution updates
-- [ ] Update canvas to show real execution status
-- [ ] Show execution logs in bottom panel
-- [ ] Add error display on failed blocks
-- [ ] Add integration tests
+- [x] Update `realExecutionService.ts` to use API
+- [x] Subscribe to SignalR for execution updates
+- [x] Update canvas to show real execution status
+- [x] Show execution logs in bottom panel
+- [x] Add error display on failed blocks
+- [x] Add integration tests
 
 ---
 

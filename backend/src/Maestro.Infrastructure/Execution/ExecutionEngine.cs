@@ -19,17 +19,20 @@ public class ExecutionEngine : IExecutionEngine
     private readonly BlockExecutorRegistry _registry;
     private readonly IExecutionRepository _executionRepository;
     private readonly IExecutionMonitor _monitor;
+    private readonly Maestro.Application.Interfaces.IExecutionErrorHandler? _errorHandler;
 
     public ExecutionEngine(
         IBlockRepository blockRepository,
         BlockExecutorRegistry registry,
         IExecutionRepository executionRepository,
-        IExecutionMonitor monitor)
+        IExecutionMonitor monitor,
+        Maestro.Application.Interfaces.IExecutionErrorHandler? errorHandler = null)
     {
         _blockRepository = blockRepository;
         _registry = registry;
         _executionRepository = executionRepository;
         _monitor = monitor;
+        _errorHandler = errorHandler;
     }
 
     public async Task<ExecutionContext> ExecuteBlockAsync(string blockId, Dictionary<string, object> inputs, CancellationToken ct = default)
@@ -168,34 +171,129 @@ public class ExecutionEngine : IExecutionEngine
             }
             else
             {
-                var executor = _registry.Get(nodeBlock.BlockType);
-                if (executor == null)
+                // Simple active-branch check: if active branches present, skip nodes not in active set
+                if (context.ActiveBranches != null && context.ActiveBranches.Count > 0 && !context.ActiveBranches.Contains(nodeId))
                 {
-                    context.LogError($"No executor for node type {nodeBlock.BlockType}", null, nodeId);
-                    await _monitor.PublishLogAddedAsync(context.Id, $"No executor for node type {nodeBlock.BlockType}");
+                    context.LogInfo($"Skipping node {nodeId} because its branch is inactive", nodeId);
+                    // mark skipped
+                    context.BlockStates[nodeId] = BlockExecutionState.Skipped;
+                    await _monitor.PublishNodeCompletedAsync(ParseNodeId(nodeId), ct);
                 }
                 else
                 {
-                    await _monitor.PublishNodeStartedAsync(ParseNodeId(nodeId), ct);
-                    var result = await executor.ExecuteAsync(nodeBlock, context, inputs, ct);
-
-                    foreach (var kv in result.Outputs)
+                    var executor = _registry.Get(nodeBlock.BlockType);
+                    if (executor == null)
                     {
-                        context.SetBlockOutput(nodeBlock.Id, kv.Key, kv.Value);
-                    }
-
-                    if (result.Success)
-                    {
-                        context.LogInfo($"Node {nodeId} completed", nodeId);
-                        await _monitor.PublishLogAddedAsync(context.Id, $"Node {nodeId} completed");
+                        context.LogError($"No executor for node type {nodeBlock.BlockType}", null, nodeId);
+                        await _monitor.PublishLogAddedAsync(context.Id, $"No executor for node type {nodeBlock.BlockType}");
                     }
                     else
                     {
-                        context.LogError($"Node {nodeId} failed", null, nodeId);
-                        await _monitor.PublishLogAddedAsync(context.Id, $"Node {nodeId} failed");
-                    }
+                        await _monitor.PublishNodeStartedAsync(ParseNodeId(nodeId), ct);
 
-                    await _monitor.PublishNodeCompletedAsync(ParseNodeId(nodeId), ct);
+                        // basic retry/backoff using RetryPolicy if present in block config
+                        int maxRetries = 1;
+                        int attempt = 0;
+                        TimeSpan delay = TimeSpan.Zero;
+                        if (nodeBlock.Config != null && nodeBlock.Config.TryGetValue("retry", out var r) && r is System.Text.Json.JsonElement je && je.ValueKind == System.Text.Json.JsonValueKind.Object)
+                        {
+                            try
+                            {
+                                var txt = System.Text.Json.JsonSerializer.Serialize(r);
+                                var rp = System.Text.Json.JsonSerializer.Deserialize<Maestro.Domain.Execution.RetryPolicy>(txt);
+                                if (rp != null)
+                                {
+                                    maxRetries = Math.Max(1, rp.MaxRetries);
+                                    delay = rp.InitialDelay;
+                                }
+                            }
+                            catch { }
+                        }
+
+                        BlockExecutionResult result = null;
+                        for (attempt = 1; attempt <= maxRetries; attempt++)
+                        {
+                            result = await executor.ExecuteAsync(nodeBlock, context, inputs, ct);
+                            if (result.Success) break;
+                            if (attempt < maxRetries)
+                            {
+                                var wait = delay == TimeSpan.Zero ? TimeSpan.FromSeconds(1) : delay;
+                                await Task.Delay(wait, ct);
+                                // exponential backoff
+                                delay = TimeSpan.FromMilliseconds(Math.Min((long)(wait.TotalMilliseconds * 2), 30000));
+                            }
+                        }
+
+                        if (result != null)
+                        {
+                            foreach (var kv in result.Outputs)
+                            {
+                                context.SetBlockOutput(nodeBlock.Id, kv.Key, kv.Value);
+                            }
+
+                            if (result.Success)
+                            {
+                                context.LogInfo($"Node {nodeId} completed", nodeId);
+                                await _monitor.PublishLogAddedAsync(context.Id, $"Node {nodeId} completed");
+                                context.BlockStates[nodeId] = BlockExecutionState.Completed;
+                            }
+                            else
+                            {
+                                context.LogError($"Node {nodeId} failed", null, nodeId);
+                                await _monitor.PublishLogAddedAsync(context.Id, $"Node {nodeId} failed");
+                                context.BlockStates[nodeId] = BlockExecutionState.Failed;
+
+                                // Apply onError strategy if configured
+                                try
+                                {
+                                    if (nodeBlock.Config != null && nodeBlock.Config.TryGetValue("onError", out var onErrObj) && onErrObj is string onErr)
+                                    {
+                                        if (string.Equals(onErr, "StopWorkflow", StringComparison.OrdinalIgnoreCase))
+                                        {
+                                            context.LogError($"Stopping workflow due to node {nodeId} failure", null, nodeId);
+                                            context.Status = "Failed";
+                                            await _executionRepository.SaveAsync(context, ct);
+                                            return context; // stop execution
+                                        }
+                                        else if (string.Equals(onErr, "UseDefault", StringComparison.OrdinalIgnoreCase))
+                                        {
+                                            if (nodeBlock.Config.TryGetValue("defaultOutputs", out var defOut))
+                                            {
+                                                try
+                                                {
+                                                    var txt = System.Text.Json.JsonSerializer.Serialize(defOut);
+                                                    var dict = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(txt);
+                                                    if (dict != null)
+                                                    {
+                                                        foreach (var dkv in dict)
+                                                        {
+                                                            context.SetBlockOutput(nodeBlock.Id, dkv.Key, dkv.Value);
+                                                        }
+                                                    }
+                                                }
+                                                catch { }
+                                            }
+                                            // continue
+                                        }
+                                        else if (string.Equals(onErr, "SkipBlock", StringComparison.OrdinalIgnoreCase))
+                                        {
+                                            // already marked failed; treat as skipped for downstream
+                                            context.BlockStates[nodeId] = BlockExecutionState.Skipped;
+                                        }
+                                    }
+                                }
+                                catch (Exception ex)
+                                {
+                                    if (_errorHandler != null)
+                                    {
+                                        await _errorHandler.HandleAsync(context, nodeId, ex, ct);
+                                    }
+                                }
+                            }
+
+                            await _monitor.PublishNodeCompletedAsync(ParseNodeId(nodeId), ct);
+                        }
+                    }
                 }
             }
 

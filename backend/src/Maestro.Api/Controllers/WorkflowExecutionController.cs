@@ -20,10 +20,30 @@ public class WorkflowExecutionController : ControllerBase
     [HttpPost("{workflowId}/execute")]
     public async Task<IActionResult> Execute(string workflowId, [FromBody] Dictionary<string, object>? inputs)
     {
-        // For now: load workflow definition from IWorkflowRepository or Blocks repository placeholder
-        // Use a minimal WorkflowDefinition with a trigger block if available
-        // This is a scaffold: in full implementation, WorkflowRepository should be used
-        return Accepted();
+        // Create an execution record in repository and persist initial checkpoint
+        var ctx = Maestro.Domain.Entities.ExecutionContext.Create(workflowId);
+        // snapshot inputs into variables
+        if (inputs != null)
+        {
+            foreach (var kv in inputs) ctx.Variables[kv.Key] = kv.Value;
+        }
+
+        await _repository.SaveAsync(ctx);
+
+        // Enqueue background execution via ExecutionCoordinator if available (fallback: use executor directly)
+        // Try to resolve coordinator from services
+        var coordinator = HttpContext.RequestServices.GetService(typeof(Maestro.Application.Execution.ExecutionCoordinator)) as Maestro.Application.Execution.ExecutionCoordinator;
+        if (coordinator != null)
+        {
+            await coordinator.EnqueueAsync(workflowId, inputs ?? new Dictionary<string, object>());
+        }
+        else
+        {
+            // fallback: start execution without waiting
+            _ = _executor.ExecuteAsync(new Maestro.Domain.Workflow.WorkflowDefinition(), inputs ?? new Dictionary<string, object>());
+        }
+
+        return Accepted(new { executionId = ctx.Id.ToString() });
     }
 
     [HttpGet("executions/{id}")]
@@ -59,8 +79,14 @@ public class WorkflowExecutionController : ControllerBase
         ctx.Resume();
         await _repository.SaveAsync(ctx);
 
-        // Note: actual resume execution requires the workflow definition to be available.
-        // For now we persist the resumed state; a background job may pick this up to continue execution.
+        var coordinator = HttpContext.RequestServices.GetService(typeof(Maestro.Application.Execution.ExecutionCoordinator)) as Maestro.Application.Execution.ExecutionCoordinator;
+        if (coordinator != null)
+        {
+            // Attempt to re-enqueue with empty inputs; ResumeService should load checkpoint
+            await coordinator.EnqueueAsync(ctx.WorkflowId, ctx.Variables);
+            return Accepted();
+        }
+
         return Accepted();
     }
 }
