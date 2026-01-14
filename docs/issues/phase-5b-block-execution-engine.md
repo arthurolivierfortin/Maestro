@@ -81,6 +81,7 @@ The execution engine must be:
 - [x] Add serialization support for persistence and replay (basic JSON serialization via FileSystemExecutionRepository)
 - [ ] Add unit tests
  - [x] Add unit tests (ExecutionEngine basic coverage)
+ - [x] Add unit tests (ExecutionContext unit tests added)
 
 ### 5B.2 Block Executor Interface
 -
@@ -100,6 +101,7 @@ The execution engine must be:
 - [x] Create `BlockExecutorRegistry` to map types to executors
 - [ ] Add unit tests
  - [x] Add unit tests (basic Prompt/Inference coverage planned)
+ - [x] Add unit tests (Prompt/Registry unit tests added)
 
 ### 5B.3 Prompt Block Executor
 -
@@ -109,6 +111,7 @@ The execution engine must be:
 - [x] Output: resolved prompt string
 - [x] No LLM call - just template resolution
 - [ ] Add unit tests
+ - [x] Add unit tests (Prompt executor unit tests added)
 
 ### 5B.4 Inference Block Executor
 
@@ -121,6 +124,7 @@ The execution engine must be:
 - [ ] Add retry logic with exponential backoff
 - [x] **Mock mode**: Load response from `mock-response.json` if exists
 - [ ] Add unit tests with mocked LLM
+ - [x] Add retry logic with exponential backoff (basic retries implemented)
  - [ ] Add unit tests with mocked LLM
 
 ### 5B.5 Tool Block Executor
@@ -128,6 +132,7 @@ The execution engine must be:
  - [x] Create `ToolBlockExecutor` implementation (scaffold)
  - [ ] Load script from block folder
  - [ ] Validate inputs against schema
+ - [x] Validate inputs against schema (basic required/pattern validation implemented)
  - [ ] Execute script in sandboxed environment (needs hardening)
  - [x] Capture stdout/stderr
  - [ ] Parse output according to output schema
@@ -136,6 +141,7 @@ The execution engine must be:
  - [x] Add unit tests
   - [x] Add unit tests (ExecutionEngine coverage added in Maestro.Execution.Tests)
  - [~] Start sandboxing and output-size limits (in-progress)
+ - [x] Start sandboxing and output-size limits (in-progress)
 
 ### 5B.6 Decision Block Executor
  

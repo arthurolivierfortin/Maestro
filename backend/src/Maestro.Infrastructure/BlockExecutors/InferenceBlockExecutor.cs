@@ -76,15 +76,46 @@ public class InferenceBlockExecutor : IBlockExecutor
             }
         }
 
-        // Real LLM call
+        // Real LLM call with simple retry/backoff (3 attempts)
         var request = new LLMRequest { Prompt = resolved };
-        var response = await _llmGateway.SendAsync(request, ct);
+        Maestro.Application.Interfaces.LLMResponse response = null;
+        var attempts = 0;
+        var maxAttempts = 3;
+        var delayMs = 200;
+        while (attempts < maxAttempts)
+        {
+            attempts++;
+            try
+            {
+                response = await _llmGateway.SendAsync(request, ct);
+                break;
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception ex) when (attempts < maxAttempts)
+            {
+                // transient, backoff and retry
+                await Task.Delay(delayMs, ct);
+                delayMs *= 2;
+                // log to context if available
+                context?.LogInfo($"LLM call failed attempt {attempts}: {ex.Message}");
+            }
+        }
 
         var res = new BlockExecutionResult();
-        res.Outputs["content"] = response.Content;
-        res.Logs.Add("LLM response received");
-        res.DurationMs = sw.ElapsedMilliseconds;
+        if (response != null)
+        {
+            res.Outputs["content"] = response.Content;
+            res.Logs.Add("LLM response received");
+        }
+        else
+        {
+            res.Logs.Add("LLM call failed after retries");
+        }
 
+        res.DurationMs = sw.ElapsedMilliseconds;
         return res;
     }
 

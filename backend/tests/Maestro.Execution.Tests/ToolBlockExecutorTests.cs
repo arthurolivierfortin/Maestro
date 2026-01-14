@@ -121,4 +121,45 @@ public class OtherExecutorsTests
         var res = await executor.ExecuteAsync(block, ctx, new Dictionary<string, object> { ["payload"] = payload });
         Assert.True(res.Outputs.TryGetValue("payload", out var p) && p is Dictionary<string, object>);
     }
+
+    [Fact]
+    public async Task InferenceBlock_UsesMockGateway()
+    {
+        var mock = new Moq.Mock<Maestro.Application.Interfaces.ILLMGateway>();
+        mock.Setup(m => m.SendAsync(Moq.It.IsAny<Maestro.Application.Interfaces.LLMRequest>(), Moq.It.IsAny<System.Threading.CancellationToken>()))
+            .Returns(System.Threading.Tasks.Task.FromResult(new Maestro.Application.Interfaces.LLMResponse { Content = "mocked content" }));
+
+        var executor = new Maestro.Infrastructure.BlockExecutors.InferenceBlockExecutor(mock.Object);
+        var block = Maestro.Domain.Entities.BlockDefinition.Create("i1", "inference", "inference");
+        block.UpdateConfig(new Dictionary<string, object> { ["template"] = "Say hi" });
+        var ctx = ExecutionContext.Create("wf");
+        var res = await executor.ExecuteAsync(block, ctx, new Dictionary<string, object>());
+        Assert.True(res.Outputs.TryGetValue("content", out var c) && c.ToString().Contains("mocked"));
+    }
+
+    [Fact]
+    public async Task ToolBlock_ExecutesScriptFile_ParsesJsonOutput()
+    {
+        var tempDir = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "maestro_tool_test");
+        System.IO.Directory.CreateDirectory(tempDir);
+        var scriptPath = System.IO.Path.Combine(tempDir, "out.sh");
+        var content = "echo '{\"result\": \"ok\"}'";
+        await System.IO.File.WriteAllTextAsync(scriptPath, content);
+
+        var executor = new Maestro.Infrastructure.BlockExecutors.ToolBlockExecutor();
+        var block = Maestro.Domain.Entities.BlockDefinition.Create("tfile", "toolfile", "tool");
+        block.UpdateConfig(new Dictionary<string, object>
+        {
+            ["scriptFile"] = "out.sh",
+            ["runtime"] = System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Windows) ? "powershell" : "bash",
+            ["parseOutput"] = "json",
+            ["timeoutMs"] = 5000,
+            ["enableSandbox"] = true
+        });
+        block.UpdateMetadata(new Dictionary<string, object> { ["path"] = tempDir });
+
+        var ctx = ExecutionContext.Create("wf");
+        var res = await executor.ExecuteAsync(block, ctx, new Dictionary<string, object>());
+        Assert.True(res.Outputs.TryGetValue("result", out var r) && r.ToString() == "ok");
+    }
 }
