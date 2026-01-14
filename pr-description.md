@@ -1,3 +1,89 @@
+📡 Feature : MAESTRO-5B – Publish execution lifecycle events and SignalR monitoring
+
+# 🎯 Purpose
+This PR implements real-time execution monitoring and lifecycle event publishing across the execution engine, adds SignalR scaffolding and a SignalR-backed `IExecutionMonitor`, and includes tests and documentation updates required by Phase 5B (Block Execution Engine). It centralizes lifecycle notification logic so external clients (UI, real-time dashboards, or monitoring systems) can subscribe to execution progress and logs.
+
+# 📋 Changes Summary
+- Published execution lifecycle events from `ExecutionEngine`: `ExecutionStarted`, `Block/NodeStarted`, `Block/NodeCompleted`, `Block/NodeFailed`, `ExecutionCompleted`, `ExecutionFailed`, and `LogAdded`.
+- Added SignalR integration: `ExecutionHub`, `IExecutionClient` and a `SignalRExecutionMonitor` implementation; mapped hub at `/hubs/execution` and registered the monitor in DI.
+- Implemented LLM streaming forwarding and monitor publish calls in the inference executor path.
+- Improved execution persistence and added FileSystem-backed execution repository tests.
+- Added integration-style and unit tests for the SignalR monitor and streaming behavior.
+- Updated Phase 5B checklist documentation to reflect completed items and remaining follow-ups.
+
+# 🏗️ Technical Details
+- Layers affected:
+  - Presentation (`backend/src/Maestro.Api`): new `ExecutionHub`, hub mapping in `Program.cs`, minor controller updates.
+  - Application (`backend/src/Maestro.Application`): expanded `IExecutionMonitor` interface and related contracts.
+  - Infrastructure (`backend/src/Maestro.Infrastructure`): `ExecutionEngine` now emits lifecycle events; `SignalRExecutionMonitor` implemented; executors (Inference, Agent, Tool, Decision, Trigger) updated to publish logs/streaming data; persistence improvements in `FileSystemExecutionRepository`.
+  - Tests (`backend/tests/*`): new unit and integration-style tests for streaming, persistence, and monitor behavior.
+
+- Key design notes:
+  - `IExecutionMonitor` is an application-layer abstraction used by `ExecutionEngine` and executors to publish progress and logs. This keeps the domain and orchestration decoupled from SignalR specifics.
+  - `SignalRExecutionMonitor` uses the typed hub client interface `IExecutionClient` to forward events to connected clients.
+  - Streaming LLM responses are consumed via the gateway streaming API and forwarded to `IExecutionMonitor.PublishTerminalOutputAsync` as partial chunks, with fallback to non-streaming calls.
+  - The `ToolBlockExecutor` contains sandbox scaffolding and a best-effort `disableNetwork` mode; this is NOT secure for production and needs OS/container isolation for full hardening.
+
+# 🧪 Testing
+- Added and updated tests (run with `dotnet test`):
+  - `InferenceBlockExecutorStreamingTests` — verifies streaming chunks are forwarded to the monitor and final result aggregation.
+  - `FileSystemExecutionRepositoryPersistenceTests` / `FileSystemExecutionRepositoryTests` — verify save/load of `ExecutionContext`.
+  - `SignalRExecutionMonitorTests` — unit tests asserting monitor forwards calls to the Hub client.
+  - `ExecutionMonitorIntegrationTests` — integration-style test that starts the test server and connects a SignalR client to `/hubs/execution` to validate `ExecutionStarted` is received.
+
+Run tests locally:
+```bash
+cd backend
+dotnet test
+```
+
+# 📖 Documentation
+- Updated `docs/issues/phase-5b-block-execution-engine.md` to mark published lifecycle events, SignalR scaffold, streaming, and tests added. The doc lists remaining work (sandbox hardening and broader end-to-end SignalR tests).
+
+# 🚀 Deployment Notes
+- New SignalR hub route: `/hubs/execution` — ensure the server is reachable by any real-time clients.
+- No breaking API changes are introduced to existing REST endpoints, but the DI registration for `IExecutionMonitor` was extended; ensure DI registrations in `Program.cs` remain consistent if customizing monitors.
+
+# 🔄 Migration Guide
+- None required for existing persisted executions. New events are emitted but do not change persisted data schema.
+
+# 🔗 Affected Files (high level)
+- backend/src/Maestro.Api/Program.cs
+- backend/src/Maestro.Api/Hubs/ExecutionHub.cs
+- backend/src/Maestro.Api/Hubs/IExecutionClient.cs
+- backend/src/Maestro.Application/Interfaces/IExecutionMonitor.cs
+- backend/src/Maestro.Infrastructure/Execution/ExecutionEngine.cs
+- backend/src/Maestro.Infrastructure/Monitoring/SignalRExecutionMonitor.cs
+- backend/src/Maestro.Infrastructure/BlockExecutors/* (Inference, Agent, Tool, Decision, Trigger)
+- backend/src/Maestro.Infrastructure/Persistence/FileSystemExecutionRepository.cs
+- backend/tests/** (new/updated streaming, persistence, and SignalR tests)
+- docs/issues/phase-5b-block-execution-engine.md
+
+# 👥 Review Notes
+- Pay close attention to `ExecutionEngine` changes — the engine now publishes lifecycle events at multiple points. Ensure the event semantics and ordering meet consumers' expectations.
+- `ToolBlockExecutor` sandboxing is intentionally lightweight; do not treat current sandboxing as production-safe. Recommend blocking production merge until sandbox hardening or explicit accept of current limitations.
+- SignalR integration tests are integration-style and may require stable timing; review test timeouts and WebApplicationFactory configuration for CI reliability.
+
+# Checklist
+- [x] Emit execution lifecycle events from `ExecutionEngine`
+- [x] Add `ExecutionHub` and `IExecutionClient`
+- [x] Implement `SignalRExecutionMonitor` and register hub route
+- [x] Forward LLM streaming chunks to monitor and persist execution context
+- [x] Add unit and integration-style tests for streaming, persistence, and monitor
+- [x] Update Phase 5B documentation
+- [ ] Harden tool sandbox (follow-up)
+- [ ] Expand end-to-end SignalR tests and verify stability in CI (follow-up)
+
+# Related Commits
+- feat(infrastructure): add pause/resume/cancel support and persist execution state
+- feat(infrastructure): add execution query/logging and executor enhancements
+- feat(infrastructure): enable integration tests and JSON persistence
+- docs(phase-5b): update checklist — streaming, agent loop, persistence tests, SignalR scaffold
+
+# Next Steps
+- Stage and commit any remaining unstaged changes then push the branch and open a PR targeting `main` with this description.
+- Run the full test matrix in CI and stabilize any timing-sensitive SignalR integration tests.
+- Plan a follow-up PR to implement secure sandboxing (container/OS-level) for `ToolBlockExecutor`.
 🏛️ Feature : MAESTRO-5A – Filesystem-based Block Architecture and Frontend Realtime Integration
 
 # 🎯 Purpose

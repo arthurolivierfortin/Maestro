@@ -10,13 +10,12 @@
     <PackageReference Include="xunit.runner.visualstudio" Version="2.4.5" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.0.1" />
     <PackageReference Include="Moq" Version="4.20.0" />
-    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="8.0.0" />
-    <PackageReference Include="Microsoft.AspNetCore.SignalR.Client" Version="8.0.0" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Maestro.Infrastructure\Maestro.Infrastructure.csproj" />
-    <ProjectReference Include="..\..\src\Maestro.Api\Maestro.Api.csproj" />
+    <ProjectReference Include="..\..\src\Maestro.Application\Maestro.Application.csproj" />
+    <ProjectReference Include="..\..\src\Maestro.Domain\Maestro.Domain.csproj" />
   </ItemGroup>
 
 </Project>
