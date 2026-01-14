@@ -12,6 +12,7 @@ var builder = WebApplication.CreateBuilder(args);
 // Add services to the container
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSignalR();
 
 // Register application services following Clean Architecture
 // Infrastructure implementations for Application interfaces
@@ -24,7 +25,13 @@ var blocksUserPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialF
 var blocksProjectPath = Path.Combine(Directory.GetCurrentDirectory(), ".maestro", "blocks");
 
 builder.Services.AddSingleton<IBlockDiscoveryService>(_ => new FileSystemBlockDiscoveryService(new[] { blocksProjectPath, blocksUserPath, blocksGlobalPath }));
-builder.Services.AddScoped<IBlockRepository>(_ => new FileSystemBlockRepository(blocksProjectPath));
+builder.Services.AddScoped<IBlockRepository>(sp =>
+{
+    var publisher = sp.GetService<Maestro.Application.Interfaces.IBlockChangePublisher>();
+    return new FileSystemBlockRepository(blocksProjectPath, publisher);
+});
+// Register SignalR-based publisher implementation
+builder.Services.AddScoped<Maestro.Application.Interfaces.IBlockChangePublisher, Maestro.Api.Services.SignalRBlockChangePublisher>();
 builder.Services.AddScoped<Maestro.Application.Interfaces.IBlockValidator, Maestro.Infrastructure.BlockStore.JsonSchemaBlockValidator>();
 // Add CORS for frontend development
 builder.Services.AddCors(options =>
@@ -43,6 +50,7 @@ var app = builder.Build();
 app.UseHttpsRedirection();
 app.UseCors("AllowFrontend");
 app.MapControllers();
+app.MapHub<Maestro.Api.Hubs.BlockHub>("/hubs/blocks");
 
 app.MapGet("/", () => new
 {

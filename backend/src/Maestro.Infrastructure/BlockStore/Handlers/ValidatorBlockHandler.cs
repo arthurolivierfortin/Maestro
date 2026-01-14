@@ -6,7 +6,7 @@ using Maestro.Domain.Entities;
 
 namespace Maestro.Infrastructure.BlockStore.Handlers
 {
-    public class AgentBlockHandler : IBlockTypeHandler
+    public class ValidatorBlockHandler : IBlockTypeHandler
     {
         public BlockDefinition? Load(string folderPath)
         {
@@ -19,18 +19,13 @@ namespace Maestro.Infrastructure.BlockStore.Handlers
 
             var id = root.TryGetProperty("id", out var idEl) ? idEl.GetString() : Path.GetFileName(folderPath);
             var name = root.TryGetProperty("name", out var nameEl) ? nameEl.GetString() : id;
-            var blockType = root.TryGetProperty("blockType", out var btEl) ? btEl.GetString() : "agent";
+            var blockType = root.TryGetProperty("blockType", out var btEl) ? btEl.GetString() : "validator";
 
-            var def = BlockDefinition.Create(id ?? Guid.NewGuid().ToString(), name ?? id ?? "block", blockType ?? "agent");
+            var def = BlockDefinition.Create(id ?? Guid.NewGuid().ToString(), name ?? id ?? "block", blockType ?? "validator");
 
             var dict = new Dictionary<string, object>();
-            // load system-prompt.md
-            var promptPath = Path.Combine(folderPath, "system-prompt.md");
-            if (File.Exists(promptPath)) dict["systemPrompt"] = File.ReadAllText(promptPath);
-
-            // load tools.json
-            var toolsPath = Path.Combine(folderPath, "tools.json");
-            if (File.Exists(toolsPath)) dict["tools"] = JsonSerializer.Deserialize<object>(File.ReadAllText(toolsPath)) ?? new object();
+            var schemaPath = Path.Combine(folderPath, "schema.json");
+            if (File.Exists(schemaPath)) dict["schema"] = File.ReadAllText(schemaPath);
 
             def.UpdateConfig(dict);
 

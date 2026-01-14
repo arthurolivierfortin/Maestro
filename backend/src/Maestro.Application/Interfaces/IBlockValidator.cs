@@ -6,6 +6,7 @@ namespace Maestro.Application.Interfaces
     public interface IBlockValidator
     {
         Task<BlockValidationResult> ValidateAsync(string blockJson, CancellationToken ct = default);
+        Task<BlockValidationResult> ValidateFolderAsync(string folderPath, CancellationToken ct = default);
     }
 
     public class BlockValidationResult

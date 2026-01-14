@@ -13,18 +13,24 @@ namespace Maestro.Infrastructure.BlockStore
     public class FileSystemBlockRepository : IBlockRepository
     {
         private readonly string _basePath;
+        private readonly Maestro.Application.Interfaces.IBlockChangePublisher? _publisher;
 
-        public FileSystemBlockRepository(string basePath)
+        public FileSystemBlockRepository(string basePath, Maestro.Application.Interfaces.IBlockChangePublisher? publisher = null)
         {
             _basePath = basePath ?? throw new ArgumentNullException(nameof(basePath));
+            _publisher = publisher;
             Directory.CreateDirectory(_basePath);
         }
 
-        public Task DeleteAsync(string id, CancellationToken ct = default)
+        public async Task DeleteAsync(string id, CancellationToken ct = default)
         {
             var path = Path.Combine(_basePath, id);
             if (Directory.Exists(path)) Directory.Delete(path, true);
-            return Task.CompletedTask;
+            if (_publisher != null)
+            {
+                await _publisher.PublishBlockDeletedAsync(id);
+            }
+            return;
         }
 
         public Task<IEnumerable<BlockDefinition>> GetAllAsync(CancellationToken ct = default)
@@ -75,7 +81,7 @@ namespace Maestro.Infrastructure.BlockStore
             return Task.FromResult<string?>(null);
         }
 
-        public Task SaveAsync(BlockDefinition block, CancellationToken ct = default)
+        public async Task SaveAsync(BlockDefinition block, CancellationToken ct = default)
         {
             var dir = Path.Combine(_basePath, block.Id);
             Directory.CreateDirectory(dir);
@@ -99,7 +105,14 @@ namespace Maestro.Infrastructure.BlockStore
             File.WriteAllText(tmp, json);
             if (File.Exists(file)) File.Delete(file);
             File.Move(tmp, file);
-            return Task.CompletedTask;
+
+            if (_publisher != null)
+            {
+                var lightweight = new { id = block.Id, name = block.Name, blockType = block.BlockType };
+                await _publisher.PublishBlockUpdatedAsync(lightweight);
+            }
+
+            return;
         }
     }
 }

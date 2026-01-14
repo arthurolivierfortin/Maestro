@@ -113,6 +113,24 @@ namespace Maestro.Infrastructure.BlockStore
                 def.UpdateMetadata(JsonSerializer.Deserialize<Dictionary<string, object>>(meta.GetRawText()) ?? new());
             }
 
+            // Try to enrich using a specific handler
+
+            try
+            {
+                Maestro.Infrastructure.BlockStore.Handlers.IBlockTypeHandler? handler = blockType?.ToLowerInvariant() switch
+                {
+                    "prompt" => new Maestro.Infrastructure.BlockStore.Handlers.PromptBlockHandler(),
+                    "tool" => new Maestro.Infrastructure.BlockStore.Handlers.ToolBlockHandler(),
+                    "agent" => new Maestro.Infrastructure.BlockStore.Handlers.AgentBlockHandler(),
+                    "workflow" => new Maestro.Infrastructure.BlockStore.Handlers.WorkflowBlockHandler(),
+                    _ => null
+                };
+
+                var enriched = handler?.Load(folder);
+                if (enriched != null) return enriched;
+            }
+            catch { /* swallow handler errors */ }
+
             return def;
         }
 

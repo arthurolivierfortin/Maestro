@@ -6,7 +6,7 @@ using Maestro.Domain.Entities;
 
 namespace Maestro.Infrastructure.BlockStore.Handlers
 {
-    public class AgentBlockHandler : IBlockTypeHandler
+    public class InferenceBlockHandler : IBlockTypeHandler
     {
         public BlockDefinition? Load(string folderPath)
         {
@@ -19,18 +19,26 @@ namespace Maestro.Infrastructure.BlockStore.Handlers
 
             var id = root.TryGetProperty("id", out var idEl) ? idEl.GetString() : Path.GetFileName(folderPath);
             var name = root.TryGetProperty("name", out var nameEl) ? nameEl.GetString() : id;
-            var blockType = root.TryGetProperty("blockType", out var btEl) ? btEl.GetString() : "agent";
+            var blockType = root.TryGetProperty("blockType", out var btEl) ? btEl.GetString() : "inference";
 
-            var def = BlockDefinition.Create(id ?? Guid.NewGuid().ToString(), name ?? id ?? "block", blockType ?? "agent");
+            var def = BlockDefinition.Create(id ?? Guid.NewGuid().ToString(), name ?? id ?? "block", blockType ?? "inference");
 
             var dict = new Dictionary<string, object>();
-            // load system-prompt.md
-            var promptPath = Path.Combine(folderPath, "system-prompt.md");
-            if (File.Exists(promptPath)) dict["systemPrompt"] = File.ReadAllText(promptPath);
+            // load prompts/ directory if present
+            var promptsDir = Path.Combine(folderPath, "prompts");
+            if (Directory.Exists(promptsDir))
+            {
+                var prompts = new Dictionary<string, string>();
+                foreach (var f in Directory.GetFiles(promptsDir, "*.md"))
+                {
+                    prompts[Path.GetFileName(f)] = File.ReadAllText(f);
+                }
+                dict["prompts"] = prompts;
+            }
 
-            // load tools.json
-            var toolsPath = Path.Combine(folderPath, "tools.json");
-            if (File.Exists(toolsPath)) dict["tools"] = JsonSerializer.Deserialize<object>(File.ReadAllText(toolsPath)) ?? new object();
+            // load output schema if present
+            var outSchema = Path.Combine(folderPath, "output-schema.json");
+            if (File.Exists(outSchema)) dict["outputSchema"] = File.ReadAllText(outSchema);
 
             def.UpdateConfig(dict);
 

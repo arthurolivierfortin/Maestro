@@ -59,7 +59,6 @@ This phase is **critical** because it establishes the foundation for:
 {
   "$schema": "../schemas/block.schema.json",
   "id": "commit-description-prompt",
- [x] Create `BlocksController` with endpoints:
   "version": "1.0.0",
   "isAtomic": true,
   "description": "Generates a commit message from git diff",
@@ -67,14 +66,9 @@ This phase is **critical** because it establishes the foundation for:
   "inputs": [
     {
       "id": "diff",
-      "name": "Git Diff",
- [x] Add OpenAPI documentation
       "required": true,
- [ ] Update `realBlockService.ts` to call backend API
- [ ] Update block store to support backend-discovered blocks
- [ ] Implement real-time block updates via SignalR
- [ ] Test frontend with real backend blocks
- [ ] Add integration tests
+      "name": "Git Diff",
+
     "variables": ["diff", "context"]
   },
   
@@ -91,20 +85,21 @@ This phase is **critical** because it establishes the foundation for:
 
 ---
 
+
 ## 🗂️ Tasks
 
 ### 5A.1 Block Schema Definition
 
-- [ ] Create `docs/schemas/block.schema.json` with JSON Schema for `block.json`
-- [ ] Define schemas for each block type's config section
-- [ ] Create `docs/schemas/workflow-nodes.schema.json` for workflow node instances
-- [ ] Create `docs/schemas/connections.schema.json` for node connections
-- [ ] Add JSON Schema validation to block loader
-- [ ] Add schema documentation in `docs/block-schema-reference.md`
+- [x] Create `docs/schemas/block.schema.json` with JSON Schema for `block.json`
+- [x] Define schemas for each block type's config section
+- [x] Create `docs/schemas/workflow-nodes.schema.json` for workflow node instances
+- [x] Create `docs/schemas/connections.schema.json` for node connections
+- [x] Add JSON Schema validation to block loader
+- [x] Add schema documentation in `docs/block-schema-reference.md`
 
 ### 5A.2 Block Discovery Service
 
-- [ ] Create `IBlockDiscoveryService` interface in Application layer
+-- [x] Create `IBlockDiscoveryService` interface in Application layer
   ```csharp
   public interface IBlockDiscoveryService
   {
@@ -115,16 +110,17 @@ This phase is **critical** because it establishes the foundation for:
       Task WatchForChangesAsync(Action<BlockChangeEvent> onChange, CancellationToken ct = default);
   }
   ```
-- [ ] Create `BlockDefinition` domain entity with all block properties
-- [ ] Implement `FileSystemBlockDiscoveryService` in Infrastructure layer
-- [ ] Scan configured directories for `block.json` files
-- [ ] Parse and validate block definitions
-- [ ] Cache discovered blocks with file watcher invalidation
-- [ ] Add unit tests with in-memory filesystem
+
+- [x] Create `BlockDefinition` domain entity with all block properties
+- [x] Implement `FileSystemBlockDiscoveryService` in Infrastructure layer
+- [x] Scan configured directories for `block.json` files
+- [x] Parse and validate block definitions
+- [x] Cache discovered blocks with file watcher invalidation
+ - [x] Add unit tests with in-memory filesystem
 
 ### 5A.3 Block Repository (Persistence)
 
-- [ ] Create `IBlockRepository` interface in Application layer
+ - [x] Create `IBlockRepository` interface in Application layer
   ```csharp
   public interface IBlockRepository
   {
@@ -135,11 +131,12 @@ This phase is **critical** because it establishes the foundation for:
       Task<string> GetBlockPathAsync(string id, CancellationToken ct = default);
   }
   ```
-- [ ] Implement `FileSystemBlockRepository` in Infrastructure layer
-- [ ] Create folder structure when saving new blocks
-- [ ] Write `block.json` and associated files (templates, scripts)
-- [ ] Support atomic writes (write to temp, then rename)
-- [ ] Add unit tests
+
+- [x] Implement `FileSystemBlockRepository` in Infrastructure layer
+- [x] Create folder structure when saving new blocks
+- [x] Write `block.json` and associated files (templates, scripts)
+- [x] Support atomic writes (write to temp, then rename)
+ - [x] Add unit tests
 
 ### 5A.4 Block Type Handlers
 
@@ -148,16 +145,17 @@ For each block type, create a handler that knows how to:
 - Load associated files (templates, scripts, schemas)
 - Validate the block definition
 
-- [ ] Create `IBlockTypeHandler` interface
-- [ ] Implement `AgentBlockHandler` - loads system-prompt.md, tools.json
-- [ ] Implement `PromptBlockHandler` - loads template.md, variables
-- [ ] Implement `ToolBlockHandler` - loads script, input/output schemas
-- [ ] Implement `InferenceBlockHandler` - loads prompts, output schema
-- [ ] Implement `WorkflowBlockHandler` - loads nodes.json, connections.json
-- [ ] Implement `DecisionBlockHandler` - loads condition expression
-- [ ] Implement `ValidatorBlockHandler` - loads validation schema/script
-- [ ] Implement `TriggerBlockHandler` - loads trigger config
-- [ ] Add unit tests for each handler
+
+- [x] Create `IBlockTypeHandler` interface
+- [x] Implement `AgentBlockHandler` - loads system-prompt.md, tools.json
+- [x] Implement `PromptBlockHandler` - loads template.md, variables
+- [x] Implement `ToolBlockHandler` - loads script, input/output schemas
+- [x] Implement `InferenceBlockHandler` - loads prompts, output schema
+- [x] Implement `WorkflowBlockHandler` - loads nodes.json, connections.json
+- [x] Implement `DecisionBlockHandler` - loads condition expression
+- [x] Implement `ValidatorBlockHandler` - loads validation schema/script
+- [x] Implement `TriggerBlockHandler` - loads trigger config
+- [x] Add unit tests for each handler
 
 ### 5A.5 Multi-Location Discovery
 
@@ -167,34 +165,37 @@ Support discovering blocks from multiple locations:
 2. **Project blocks**: `<repo>/.maestro/blocks/` - project-specific blocks
 3. **User blocks**: `~/.maestro/blocks/` - user custom blocks
 
-- [ ] Create `BlockDiscoveryConfiguration` for configuring search paths
-- [ ] Implement priority/override logic (project > user > global)
-- [ ] Support `.maestroignore` file for excluding paths
-- [ ] Add configuration to `appsettings.json` and `maestro.config.json`
-- [ ] Add unit tests
+
+- [x] Create `BlockDiscoveryConfiguration` for configuring search paths
+- [x] Implement priority/override logic (project > user > global)
+- [x] Support `.maestroignore` file for excluding paths
+- [x] Add configuration to `appsettings.json` and `maestro.config.json`
+ - [ ] Add unit tests
 
 ### 5A.6 Block File Watcher
 
-- [ ] Implement `IFileWatcher` interface
-- [ ] Create `FileSystemWatcher`-based implementation
-- [ ] Debounce rapid changes (100ms)
-- [ ] Emit events: `BlockAdded`, `BlockModified`, `BlockDeleted`
-- [ ] Auto-refresh block cache on changes
-- [ ] Add unit tests
+
+- [x] Implement `IFileWatcher` interface
+- [x] Create `FileSystemWatcher`-based implementation
+- [x] Debounce rapid changes (100ms)
+- [x] Emit events: `BlockAdded`, `BlockModified`, `BlockDeleted`
+- [x] Auto-refresh block cache on changes
+- [x] Add unit tests
 
 ### 5A.7 Block Validation Service
 
-- [ ] Create `IBlockValidator` interface
-- [ ] Implement JSON Schema validation for `block.json`
-- [ ] Validate required files exist for each block type
+
+- [x] Create `IBlockValidator` interface
+- [x] Implement JSON Schema validation for `block.json`
+- [x] Validate required files exist for each block type
 - [ ] Validate input/output port definitions
 - [ ] Validate connections reference valid ports
-- [ ] Return detailed validation errors with line numbers
+- [x] Return detailed validation errors with line numbers
 - [ ] Add unit tests
 
 ### 5A.8 API Endpoints
 
-- [ ] Create `BlocksController` with endpoints:
+-- [x] Create `BlocksController` with endpoints:
   - `GET /api/blocks` - list all discovered blocks
   - `GET /api/blocks/{id}` - get block by ID
   - `GET /api/blocks/type/{type}` - filter by type
@@ -203,10 +204,12 @@ Support discovering blocks from multiple locations:
   - `DELETE /api/blocks/{id}` - delete block (deletes folder)
   - `GET /api/blocks/{id}/content/{file}` - get file content (template, script)
   - `PUT /api/blocks/{id}/content/{file}` - update file content
-- [ ] Add OpenAPI documentation
+
+- [x] Add OpenAPI documentation
 - [ ] Add integration tests
 
 ### 5A.9 Frontend Integration
+
 
 - [ ] Update `realBlockService.ts` to call backend API
 - [ ] Update block store to support backend-discovered blocks
@@ -293,6 +296,14 @@ Note: This section was appended to record the current implementation status with
 - `backend/src/Maestro.Api/Controllers/BlocksController.cs` — API endpoints for blocks and content
 - `backend/src/Maestro.Api/Program.cs` — DI registrations and default discovery paths
 
+### Recent Updates (SignalR & Publisher)
+
+- [x] Decouple SignalR from Infrastructure by adding `IBlockChangePublisher` in Application layer
+- [x] Implement `SignalRBlockChangePublisher` in `backend/src/Maestro.Api/Services/SignalRBlockChangePublisher.cs`
+- [x] Refactor `FileSystemBlockRepository` to depend on `IBlockChangePublisher` instead of `IHubContext` (prevents cross-layer references)
+
+These changes ensure real-time block events are published without violating Clean Architecture.
+
 ### Current State
 - Overall phase status: In Progress
 - Majority of backend plumbing (discovery, repository, validator, API endpoints) implemented and compiling under the local .NET 10 SDK
@@ -305,5 +316,4 @@ Note: This section was appended to record the current implementation status with
 3. Add unit tests for discovery, repository, validator, and handlers (use temporary directories or in-memory FS helpers).
 4. Update frontend `realBlockService.ts` to consume the API and subscribe to block changes (SignalR) once handlers provide richer metadata.
 
-If you want I can start step 1 now and commit the handler implementations and minimal unit tests. Indicate your preference and I will proceed.
 
