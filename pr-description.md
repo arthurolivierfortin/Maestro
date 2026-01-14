@@ -1,101 +1,86 @@
-🎯 Feature : MAESTRO-4I – Breadcrumb Navigation & Route Synchronization
+🏛️ Feature : MAESTRO-5A – Filesystem-based Block Architecture and Frontend Realtime Integration
 
 # 🎯 Purpose
-This branch implements Phase 4I: a robust breadcrumb/navigation experience and synchronized routing for the Foundry/Canvas/Block edit flows. The changes introduce a stack-based navigation model, two-way route↔store synchronization with re-entrancy protection, and consistent navigation semantics between atomic and composite blocks (atomic blocks open in dedicated editors, non-atomic open in the canvas). Additionally, this PR fixes several UX/layout issues (notably Block Explorer collapse edge cases), integrates multiple editors, and improves test coverage for navigation and canvas shortcuts.
+This PR implements the filesystem-based block architecture (Phase 5A) and integrates realtime block updates into the frontend. It delivers the backend discovery/repository/validation plumbing, type-specific handler skeletons, SignalR-based block hub, and frontend wiring to consume discovered blocks and real-time events. The changes enable human-editable, git-friendly blocks, live updates in the UI, and basic end-to-end CRUD coverage via integration tests.
 
 # 📋 Changes Summary
-- Navigation & routing
-  - Implemented a stack-based navigation store and APIs (`pushPage`, `pushBlock`, `popOne`, `popToIndex`, `initFromUrl`, `getBreadcrumbSegments`) to replace brittle path-based orchestration.
-  - Added `useRouteSync` to keep the URL and navigation store in sync with a re-entrancy guard to prevent route/store loops.
-  - Updated editors and pages (`BaseBlockEditor`, `ScriptEditor`, `BlockEditPage`, `BlockEditPage.test.tsx`) to prefer `popOne()` when cancelling instead of unconditional `navigate('/foundry')`, preserving breadcrumb state.
-
-- Breadcrumb and block navigation
-  - Reworked `Breadcrumb` to use the navigation stack and render consistent breadcrumbs.
-  - Unified navigation semantics: atomic blocks open in dedicated editors; non-atomic blocks redirect to canvas routes.
-
-- UI / Layout / Panels
-  - Hardened `BlockExplorer` collapse detection using a ResizeObserver fallback and CSS changes to prevent child-enforced `min-width` from blocking panel collapse.
-  - Adjusted `PropertiesPanel` and panel CSS so panels can collapse reliably without being forced open by child elements.
-  - Multiple UI polish and style updates: ExecutionBar, BlockPalette, BlockCard, and general style tokens.
-
-- Editors and block types
-  - Added/updated editors and block types: ScriptEditor, InferenceEditor, Integration for Agent/Tool/Prompt/Decision/etc editors and styles.
-  - Introduced `EditorWrapper` component to host editors in the Block edit page.
-
-- Services, mocks, and utils
-  - Improved mock services including a `mockExecutionService` for local execution simulation and debugging drag/drop behaviors.
-  - Resolved duplicate exports and reorganized `services/index.ts` to avoid barrel collisions.
-
-- Tests and examples
-  - Added tests for navigation store, `useCanvasShortcuts`, `NodeContextMenu`, and improved BlockPalette/ Breadcrumb tests.
-  - Added example workflows and Phase 4 documentation (Phase-4H/Phase-4I implementation notes).
+- Backend: Add filesystem block discovery, repository, JSON-schema validator, block handlers (skeletons), SignalR publisher, BlocksController endpoints, and application interfaces.
+- Tests: Add unit and integration tests covering discovery, repository, handlers, validator, SignalR publisher, and a BlocksController integration test.
+- Frontend: Wire realtime block updates via SignalR (`blockHub.ts`), expose `initRealBlockRealtime()` in `realBlockService.ts`, start realtime client on app startup, and adapt block store to accept backend-discovered blocks.
+- Docs & Schemas: Add JSON schemas for `block.json`, `workflow-nodes.json`, and `connections.json`; update Phase 5A documentation and supporting docs.
+- Misc: Add helper scripts, project file adjustments, and example workflows/data used by frontend tests.
 
 # 🏗️ Technical Details
-- Navigation model
-  - The navigation store now maintains a `navStack` which is the single source of truth for breadcrumb and back/forward flows. Components call `pushBlock` or `pushPage` to navigate; cancellation and editor exit prefer `popOne()` to preserve history.
-  - `useRouteSync` serializes the active `navStack` into URL paths and also initializes store state from initial URL on load. A re-entrancy `isSyncing` guard prevents infinite toggling between the router and the store.
+- Architecture & layering
+  - Application interfaces (`IBlockDiscoveryService`, `IBlockRepository`, `IBlockValidator`, `IBlockChangePublisher`) are defined in `backend/src/Maestro.Application/Interfaces` to respect Clean Architecture.
+  - Infrastructure implements discovery and persistence (`FileSystemBlockDiscoveryService`, `FileSystemBlockRepository`) and a JSON-schema-based validator (`JsonSchemaBlockValidator`).
+  - SignalR events are published via `IBlockChangePublisher` implemented by `SignalRBlockChangePublisher` in the API project; `FileSystemBlockRepository` depends on the publisher interface (not SignalR directly) to avoid layer leaks.
 
-- Route semantics
-  - Routes remain compatible with existing routes (`/foundry`, `/canvas/:blockId`, `/foundry/:blockId/edit`) but navigation now relies on the store for preferred back semantics. Components avoid unconditional redirects that previously reset the stack.
+- Backend API
+  - `BlocksController` exposes CRUD endpoints and file content endpoints for block management.
+  - `BlockHub` (SignalR) broadcasts `BlockAdded`, `BlockUpdated`, and `BlockDeleted` events to connected clients.
 
-- Panel collapse fix
-  - `BlockExplorer` now sets `data-state` reliably by observing the element size and the panel's collapsed state. CSS changes (`width: 100%`, `min-width` only when expanded) prevent child components from blocking panel collapse.
+- Frontend
+  - `frontend/src/services/signalr/blockHub.ts` provides a small SignalR client to connect to `/hubs/blocks`, subscribe to block events, and update the `useBlockStore` directly.
+  - `initRealBlockRealtime()` added to `realBlockService.ts` and invoked from `frontend/src/main.tsx` on startup (best-effort connect using `VITE_API_URL`).
 
-- Editor integration
-  - `EditorWrapper` abstracts mounting of specialized editors and handles save/cancel via the navigation store; dedicated atomic editors now return control to the nav stack on cancel.
-
-- Tests & CI
-  - Added/updated tests for navigation logic and canvas shortcuts. TypeScript checks pass in the frontend workspace (`npx tsc --noEmit`).
+- Tests
+  - Backend: Multiple new tests were added under `backend/tests/Maestro.Infrastructure.Tests/` including handler tests, repository/discovery integration tests, validator tests, publisher tests, and `BlocksControllerIntegrationTests.cs` which exercises controller CRUD flows against an in-memory test host.
+  - Frontend: Added/updated unit tests for hooks and components to account for discovery and realtime flows.
 
 # 🧪 Testing
-How to run locally:
-
+- Run backend tests (requires .NET 10):
 ```bash
-cd frontend
-npx tsc --noEmit          # TypeScript check
-npm install               # if dependencies missing
-npm run dev               # Run dev server and manually validate UX
-npm test                  # Run unit tests (vitest)
+dotnet test backend/tests/Maestro.Infrastructure.Tests/Maestro.Infrastructure.Tests.csproj
 ```
 
-Manual test scenarios to validate
-- Open multiple blocks and navigate using breadcrumbs — ensure back/forward navigates the stack rather than resetting to Foundry.
-- Open atomic block editor and press Cancel — app should `popOne()` back to previous breadcrumb instead of navigating to `/foundry`.
-- Toggle Block Explorer repeatedly and drag the divider — panel should fully collapse/expand reliably and not be stuck in a semi-collapsed state.
-- Open/close the Properties panel and ensure it does not force the Block Explorer to re-open.
+- Run frontend tests (Node + Vitest):
+```bash
+cd frontend
+pnpm install
+pnpm test
+```
+
+- Manual E2E check:
+  1. Start backend (ensure `VITE_API_URL` matches backend URL).
+ 2. Start frontend.
+ 3. Create a `block.json` under a configured discovery path or use `POST /api/blocks`.
+ 4. Observe the frontend updates (Block Explorer / Foundry) and check SignalR console logs.
 
 # 📖 Documentation
-- Added Phase 4H/4I implementation notes: `PHASE-4H-IMPLEMENTATION-SUMMARY.md`, `docs/issues/phase-4i-breadcrumb-navigation.md` and related docs.
-- Updated `ROADMAP.md` with progress notes.
+- Added `docs/schemas/block.schema.json`, `docs/schemas/workflow-nodes.schema.json`, `docs/schemas/connections.schema.json`.
+- Updated `docs/issues/phase-5a-filesystem-block-architecture.md` with implementation status and next steps.
+- Added `docs/block-schema-reference.md` describing expected files per block type.
 
 # 🚀 Deployment Notes
-- No API or backend changes — frontend-only changes. No DB migrations.
-- Ensure frontend build passes in CI; `npx tsc --noEmit` should be included in CI steps for this branch.
+- Backend configuration: ensure discovery paths are configured in `appsettings.json` / `maestro.config.json` and that the API exposes SignalR hubs at `/hubs/blocks` behind any proxies.
+- Frontend: set `VITE_API_URL` to the backend base URL in environment (used by `initRealBlockRealtime`).
 
 # 🔄 Migration Guide
-- Not applicable. Changes are backwards-compatible at route level; navigation semantics are internal to the frontend store.
+- No database migrations required — filesystem-based blocks are compatible with git and do not alter existing storage.
 
 # 📸 Screenshots/Examples
-- None included; visual changes are in the Foundry UI (breadcrumbs, panel collapse behavior, editors). Reviewer should run the dev server to inspect UX.
+- N/A (UI wiring added; visuals unchanged in this PR)
 
 # 🔗 Related Issues
-- MAESTRO-4I (breadcrumb navigation & route synchronization)
-- MAESTRO-4H (related editor and palette work)
+- Phase 5A: Filesystem-Based Block Architecture (roadmap)
+- Phase 5B/C: Block Execution Engine & Workflow Orchestration (next phases)
 
 # 👥 Review Notes
-- Key areas to review:
-  - `frontend/src/store/navigationStore.ts` — new stack-based navigation API and edge cases around init/pop.
-  - `frontend/src/hooks/useRouteSync.ts` — re-entrancy guard and URL↔store initialization.
-  - `frontend/src/components/BlockExplorer/*` — Collapse logic and CSS changes.
-  - `frontend/src/components/BlockEditors/*` and `EditorWrapper.tsx` — ensure editors preserve navigation semantics and correctly call `popOne()` on cancel.
-  - Test files under `frontend/src/hooks` and `frontend/src/store` — navigation tests and canvas shortcuts.
+- Focus review on:
+  - Correct layering: confirm no infrastructure types leak into Application/Domain.
+  - SignalR behavior: ensure `IBlockChangePublisher` is used in infra and SignalR implementation lives in API layer.
+  - Tests: verify `BlocksControllerIntegrationTests` runs in local environment (may need tool-specific setup for file paths).
+  - Frontend: check `initRealBlockRealtime` is best-effort and does not break on missing backend; connection errors are logged and do not crash the app.
 
-- Risks and mitigations:
-  - Risk: Some components may still call `navigate('/foundry')` directly and inadvertently reset stack. Mitigation: search/replace calls and prefer nav-store APIs.
-  - Risk: Edge cases where URL initialization could produce unexpected stack shapes. Mitigation: `useRouteSync` guards and unit tests validate common flows.
+- Risks:
+  - Handler implementations are skeletons — they will need to be extended to fully populate `BlockDefinition.Metadata` for richer UI usage.
+  - If discovery paths are misconfigured, frontend may not show blocks until the paths are corrected.
 
-# Checklist for merge
-- [ ] CI TypeScript check passes (`npx tsc --noEmit`)
-- [ ] Unit tests pass (`npm test`)
-- [ ] Manual UX verification steps completed by reviewer
-- [ ] Optional: run cross-browser smoke tests for panel resizing
+---
+
+Checklist before merge:
+- [ ] All backend tests pass in CI (including integration tests)
+- [ ] Frontend tests pass and build succeeds
+- [ ] Confirm `VITE_API_URL` configuration in deployment pipelines
+- [ ] Optional: Add retry/backoff and test coverage for SignalR client
