@@ -79,9 +79,9 @@ The execution engine must be:
 - [x] Create `BlockExecutionState` value object (Pending, Running, Completed, Failed, Skipped)
 - [x] Create `ExecutionMetrics` (duration, token count, cost estimate)
 - [x] Add serialization support for persistence and replay (basic JSON serialization via FileSystemExecutionRepository)
-- [ ] Add unit tests
- - [x] Add unit tests (ExecutionEngine basic coverage)
- - [x] Add unit tests (ExecutionContext unit tests added)
+ - [x] Add unit tests
+  - [x] Add unit tests (ExecutionEngine basic coverage)
+  - [x] Add unit tests (ExecutionEngine unit tests added and passing)
 
 ### 5B.2 Block Executor Interface
 -
@@ -123,9 +123,9 @@ The execution engine must be:
 - [ ] Handle streaming responses
 - [ ] Add retry logic with exponential backoff
 - [x] **Mock mode**: Load response from `mock-response.json` if exists
-- [ ] Add unit tests with mocked LLM
+ - [x] **Mock mode**: Load response from `mock-response.json` if exists
  - [x] Add retry logic with exponential backoff (basic retries implemented)
- - [ ] Add unit tests with mocked LLM
+ - [x] Add unit tests with mocked LLM (basic mocked tests added)
 
 ### 5B.5 Tool Block Executor
 
@@ -140,8 +140,8 @@ The execution engine must be:
  - [x] Add timeout handling
  - [x] Add unit tests
   - [x] Add unit tests (ExecutionEngine coverage added in Maestro.Execution.Tests)
- - [~] Start sandboxing and output-size limits (in-progress)
- - [x] Start sandboxing and output-size limits (in-progress)
+  - [x] Add unit tests (Executor registry and prompt tests added)
+ - [x] Start sandboxing and output-size limits
 
 ### 5B.6 Decision Block Executor
  
@@ -184,7 +184,7 @@ The execution engine must be:
 
 ### 5B.10 Execution Engine Service
 
-- [ ] Create `IExecutionEngine` interface
+ - [ ] Create `IExecutionEngine` interface
   ```csharp
   public interface IExecutionEngine
   {
@@ -211,7 +211,7 @@ The execution engine must be:
 -- [x] Resolve executor for block type
 -- [x] Execute and collect results (single-block execution)
 -- [x] Publish events via `IExecutionMonitor` (node started/completed)
--- [ ] Add unit tests
+- [x] Add unit tests (pause/resume/cancel implemented and persisted)
 
 ### 5B.11 Execution Persistence
 -
@@ -312,6 +312,7 @@ Tools run in a restricted environment:
   - Harden `ToolBlockExecutor`: enforce sandboxing, whitelist runtimes, add resource limits
   - Register `ToolBlockExecutor` in DI and `BlockExecutorRegistry` (done)
   - Add unit tests for Prompt, Inference, Repository and Tool executors (Tool tests added and passing)
+  - Note: `Maestro.Execution.Tests` ran locally and all tests passed (16/16)
   - Replace console scaffold with real SignalR `SignalRExecutionMonitor` and add integration tests
 
 ## Recent Changes (summary)

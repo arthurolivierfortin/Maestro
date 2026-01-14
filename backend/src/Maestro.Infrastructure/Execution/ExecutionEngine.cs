@@ -69,7 +69,15 @@ public class ExecutionEngine : IExecutionEngine
 
     public Task CancelAsync(ExecutionId executionId)
     {
-        return Task.CompletedTask;
+        return CancelAsyncInternal(executionId);
+    }
+
+    private async Task CancelAsyncInternal(ExecutionId executionId)
+    {
+        var ctx = await _executionRepository.GetByIdAsync(executionId);
+        if (ctx == null) return;
+        ctx.Cancel();
+        await _executionRepository.SaveAsync(ctx);
     }
 
     public Task<ExecutionContext> ExecuteWorkflowAsync(string workflowId, Dictionary<string, object> inputs, CancellationToken ct = default)
@@ -186,12 +194,28 @@ public class ExecutionEngine : IExecutionEngine
 
     public Task PauseAsync(ExecutionId executionId)
     {
-        return Task.CompletedTask;
+        return PauseAsyncInternal(executionId);
     }
 
     public Task ResumeAsync(ExecutionId executionId)
     {
-        return Task.CompletedTask;
+        return ResumeAsyncInternal(executionId);
+    }
+
+    private async Task PauseAsyncInternal(ExecutionId executionId)
+    {
+        var ctx = await _executionRepository.GetByIdAsync(executionId);
+        if (ctx == null) return;
+        ctx.Pause();
+        await _executionRepository.SaveAsync(ctx);
+    }
+
+    private async Task ResumeAsyncInternal(ExecutionId executionId)
+    {
+        var ctx = await _executionRepository.GetByIdAsync(executionId);
+        if (ctx == null) return;
+        ctx.Resume();
+        await _executionRepository.SaveAsync(ctx);
     }
 
     private static NodeId ParseNodeId(string id)

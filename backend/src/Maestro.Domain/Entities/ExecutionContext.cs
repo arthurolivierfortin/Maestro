@@ -59,5 +59,22 @@ namespace Maestro.Domain.Entities
             CompletedAt = DateTimeOffset.UtcNow;
             Metrics.Duration = CompletedAt.Value - StartedAt;
         }
+
+        public void Pause()
+        {
+            if (Status == "Running") Status = "Paused";
+        }
+
+        public void Resume()
+        {
+            if (Status == "Paused") Status = "Running";
+        }
+
+        public void Cancel()
+        {
+            if (Status != "Completed") Status = "Cancelled";
+            CompletedAt = DateTimeOffset.UtcNow;
+            Metrics.Duration = CompletedAt.Value - StartedAt;
+        }
     }
 }

@@ -5,6 +5,7 @@ using Maestro.Infrastructure.Execution;
 using Maestro.Infrastructure.BlockExecutors;
 using Maestro.Application.Interfaces;
 using Maestro.Domain.Entities;
+using DomainVO = Maestro.Domain.ValueObjects;
 using System.Linq;
 using Xunit;
 
@@ -23,8 +24,8 @@ namespace Maestro.Execution.Tests
 
     class DummyExecutionRepo : IExecutionRepository
     {
-        public Task SaveAsync(ExecutionContext context, CancellationToken ct = default) => Task.CompletedTask;
-        public Task<ExecutionContext?> GetByIdAsync(ExecutionId id, CancellationToken ct = default) => Task.FromResult<ExecutionContext?>(null);
+        public Task SaveAsync(Maestro.Domain.Entities.ExecutionContext context, CancellationToken ct = default) => Task.CompletedTask;
+        public Task<Maestro.Domain.Entities.ExecutionContext?> GetByIdAsync(DomainVO.ExecutionId id, CancellationToken ct = default) => Task.FromResult<Maestro.Domain.Entities.ExecutionContext?>(null);
     }
 
     class NoopMonitor : IExecutionMonitor
@@ -44,8 +45,7 @@ namespace Maestro.Execution.Tests
             block.UpdateConfig(new Dictionary<string, object> { ["script"] = "echo hi", ["runtime"] = "bash", ["timeoutMs"] = 2000 });
             repo.Add(block);
 
-            var registry = new BlockExecutorRegistry();
-            registry.Register(new ToolBlockExecutor());
+            var registry = new BlockExecutorRegistry(new[] { (Maestro.Application.Interfaces.IBlockExecutor)new ToolBlockExecutor() });
 
             var engine = new ExecutionEngine(repo, registry, new DummyExecutionRepo(), new NoopMonitor());
 
@@ -78,8 +78,7 @@ namespace Maestro.Execution.Tests
             wf.UpdateConfig(new Dictionary<string, object> { ["nodes"] = nodes, ["connections"] = conns });
             repo.Add(wf);
 
-            var registry = new BlockExecutorRegistry();
-            registry.Register(new PromptBlockExecutor());
+            var registry = new BlockExecutorRegistry(new[] { (Maestro.Application.Interfaces.IBlockExecutor)new PromptBlockExecutor() });
 
             var engine = new ExecutionEngine(repo, registry, new DummyExecutionRepo(), new NoopMonitor());
 

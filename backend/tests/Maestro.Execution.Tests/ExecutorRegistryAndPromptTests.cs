@@ -22,13 +22,12 @@ namespace Maestro.Execution.Tests
         [Fact]
         public void BlockExecutorRegistry_ResolvesRegisteredType()
         {
-            var registry = new Maestro.Infrastructure.BlockExecutors.BlockExecutorRegistry();
             var prompt = new PromptBlockExecutor();
-            registry.Register(prompt);
+            var registry = new Maestro.Infrastructure.BlockExecutors.BlockExecutorRegistry(new[] { (Maestro.Application.Interfaces.IBlockExecutor)prompt });
 
-            var resolved = registry.Resolve("prompt");
+            var resolved = registry.Get("prompt");
             Assert.NotNull(resolved);
-            Assert.Equal(prompt.SupportedType, resolved.SupportedType);
+            Assert.Equal(prompt.SupportedType, resolved!.SupportedType);
         }
     }
 }
