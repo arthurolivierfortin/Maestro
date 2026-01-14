@@ -170,7 +170,7 @@ Support discovering blocks from multiple locations:
 - [x] Implement priority/override logic (project > user > global)
 - [x] Support `.maestroignore` file for excluding paths
 - [x] Add configuration to `appsettings.json` and `maestro.config.json`
- - [x] Add unit tests
+- [x] Add unit tests
 
 ### 5A.6 Block File Watcher
 
@@ -188,10 +188,10 @@ Support discovering blocks from multiple locations:
 - [x] Create `IBlockValidator` interface
 - [x] Implement JSON Schema validation for `block.json`
 - [x] Validate required files exist for each block type
- - [x] Validate input/output port definitions
- - [x] Validate connections reference valid ports
- - [x] Return detailed validation errors with line numbers
- - [x] Add unit tests
+- [x] Validate input/output port definitions
+- [x] Validate connections reference valid ports
+- [x] Return detailed validation errors with line numbers
+- [x] Add unit tests
 
 ### 5A.8 API Endpoints
 
@@ -206,16 +206,16 @@ Support discovering blocks from multiple locations:
   - `PUT /api/blocks/{id}/content/{file}` - update file content
 
 - [x] Add OpenAPI documentation
-- [ ] Add integration tests
+ - [x] Add integration tests
 
 ### 5A.9 Frontend Integration
 
 
-- [ ] Update `realBlockService.ts` to call backend API
-- [ ] Update block store to support backend-discovered blocks
-- [ ] Implement real-time block updates via SignalR
-- [ ] Test frontend with real backend blocks
-- [ ] Add integration tests
+- [x] Update `realBlockService.ts` to call backend API
+- [x] Update block store to support backend-discovered blocks
+- [x] Implement real-time block updates via SignalR
+- [x] Test frontend with real backend blocks (manual verification)
+- [x] Add integration tests (backend controller integration test added)
 
 ---
 
@@ -295,6 +295,9 @@ Note: This section was appended to record the current implementation status with
 - `backend/src/Maestro.Infrastructure/BlockStore/Handlers/` — handler skeletons (Prompt, Tool, Agent, Workflow)
 - `backend/src/Maestro.Api/Controllers/BlocksController.cs` — API endpoints for blocks and content
 - `backend/src/Maestro.Api/Program.cs` — DI registrations and default discovery paths
+ - `backend/tests/Maestro.Infrastructure.Tests/BlocksControllerIntegrationTests.cs` — integration test exercising BlocksController
+ - `frontend/src/services/signalr/blockHub.ts` — frontend SignalR client to receive block events
+ - `frontend/src/services/real/realBlockService.ts` — exposed `initRealBlockRealtime()` to initialize SignalR
 
 ### Recent Updates (SignalR & Publisher)
 
@@ -317,7 +320,7 @@ These updates improve validation accuracy and add coverage for handler/discovery
 - Overall phase status: In Progress
 - Majority of backend plumbing (discovery, repository, validator, API endpoints) implemented and compiling under the local .NET 10 SDK
 - Handler implementations currently skeletons; they need file-loading, parsing, and validation logic to fully populate `BlockDefinition.Metadata` and `Config`
-- Frontend integration (`realBlockService.ts`) not yet updated to use the backend API
+ - Frontend integration: SignalR client and `initRealBlockRealtime()` added; frontend store wired for backend-discovered blocks
 
 ### Next Actions (recommended, prioritized)
 1. Implement `PromptBlockHandler` and `ToolBlockHandler` to load `template.md`, `system-prompt.md`, `script.sh`, and input/output schemas and enrich `BlockDefinition`.
