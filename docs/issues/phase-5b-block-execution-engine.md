@@ -5,7 +5,7 @@
 **Duration**: 2-3 weeks  
 **Team**: Backend (2 developers)  
 **Dependencies**: Phase 5A complete (filesystem block architecture)  
-**Status**: Not Started
+**Status**: In Progress
 
 ---
 
@@ -55,8 +55,8 @@ The execution engine must be:
 ## 🗂️ Tasks
 
 ### 5B.1 Execution Context
-
-- [ ] Create `ExecutionContext` domain entity
+-
+- [x] Create `ExecutionContext` domain entity
   ```csharp
   public class ExecutionContext
   {
@@ -76,14 +76,14 @@ The execution engine must be:
       public void LogError(string message, Exception? ex = null, string? blockId = null);
   }
   ```
-- [ ] Create `BlockExecutionState` value object (Pending, Running, Completed, Failed, Skipped)
-- [ ] Create `ExecutionMetrics` (duration, token count, cost estimate)
-- [ ] Add serialization support for persistence and replay
+- [x] Create `BlockExecutionState` value object (Pending, Running, Completed, Failed, Skipped)
+- [x] Create `ExecutionMetrics` (duration, token count, cost estimate)
+- [x] Add serialization support for persistence and replay (basic JSON serialization via FileSystemExecutionRepository)
 - [ ] Add unit tests
 
 ### 5B.2 Block Executor Interface
-
-- [ ] Create `IBlockExecutor` interface in Application layer
+-
+- [x] Create `IBlockExecutor` interface in Application layer
   ```csharp
   public interface IBlockExecutor
   {
@@ -95,29 +95,29 @@ The execution engine must be:
           CancellationToken ct = default);
   }
   ```
-- [ ] Create `BlockExecutionResult` with outputs, logs, duration
-- [ ] Create `BlockExecutorRegistry` to map types to executors
+- [x] Create `BlockExecutionResult` with outputs, logs, duration
+- [x] Create `BlockExecutorRegistry` to map types to executors
 - [ ] Add unit tests
 
 ### 5B.3 Prompt Block Executor
-
-- [ ] Create `PromptBlockExecutor` implementation
-- [ ] Load template from `template.md` file
-- [ ] Resolve template variables from inputs
-- [ ] Output: resolved prompt string
-- [ ] No LLM call - just template resolution
+-
+- [x] Create `PromptBlockExecutor` implementation
+- [x] Load template from `template.md` file or `template` config
+- [x] Resolve template variables from inputs
+- [x] Output: resolved prompt string
+- [x] No LLM call - just template resolution
 - [ ] Add unit tests
 
 ### 5B.4 Inference Block Executor
 
-- [ ] Create `InferenceBlockExecutor` implementation
-- [ ] Load user prompt from file or config
-- [ ] Resolve template variables
-- [ ] Call `ILLMGateway.SendAsync()` with configured model
+- [x] Create `InferenceBlockExecutor` implementation (basic)
+- [x] Load user prompt from `prompt.md` (or `template` config)
+- [x] Resolve template variables
+- [x] Call `ILLMGateway.SendAsync()` with configured model
 - [ ] Parse response according to output schema (if defined)
 - [ ] Handle streaming responses
 - [ ] Add retry logic with exponential backoff
-- [ ] **Mock mode**: Load response from `mock-response.json` if exists
+- [x] **Mock mode**: Load response from `mock-response.json` if exists
 - [ ] Add unit tests with mocked LLM
 
 ### 5B.5 Tool Block Executor
@@ -194,19 +194,19 @@ The execution engine must be:
       Task CancelAsync(ExecutionId executionId);
   }
   ```
-- [ ] Create `ExecutionEngine` implementation
-- [ ] Load block/workflow definition from repository
-- [ ] Create execution context
-- [ ] Resolve executor for block type
-- [ ] Execute and collect results
-- [ ] Publish events via `IExecutionMonitor`
-- [ ] Add unit tests
+-- [x] Create `ExecutionEngine` implementation (partial)
+-- [x] Load block/workflow definition from repository
+-- [x] Create execution context
+-- [x] Resolve executor for block type
+-- [x] Execute and collect results (single-block execution)
+-- [x] Publish events via `IExecutionMonitor` (node started/completed)
+-- [ ] Add unit tests
 
 ### 5B.11 Execution Persistence
-
-- [ ] Create `IExecutionRepository` interface
-- [ ] Implement `FileSystemExecutionRepository`
-- [ ] Store executions as JSON files in `executions/` folder
+-
+- [x] Create `IExecutionRepository` interface
+- [x] Implement `FileSystemExecutionRepository` (save/load-by-id)
+- [x] Store executions as JSON files in `executions/` folder (configurable folder)
 - [ ] Support querying by workflow, status, date range
 - [ ] Implement execution log streaming to file
 - [ ] Add unit tests
@@ -284,4 +284,22 @@ Tools run in a restricted environment:
 - No network access by default (configurable)
 - Resource limits (CPU, memory, time)
 - Output size limits
+
+---
+
+## Progress
+
+- **Done (in repo)**:
+  - `Maestro.Domain`: `ExecutionId`, `ExecutionMetrics`, `BlockExecutionState`, `ExecutionLog`, `ExecutionContext`
+  - `Maestro.Application`: `IBlockExecutor`, `IExecutionEngine`, `IExecutionRepository`, `BlockExecutionResult` DTO
+  - `Maestro.Infrastructure`: `PromptBlockExecutor`, `BlockExecutorRegistry`, `FileSystemExecutionRepository`, partial `ExecutionEngine`
+  - `Maestro.Infrastructure`: `PromptBlockExecutor`, `InferenceBlockExecutor`, `BlockExecutorRegistry`, `FileSystemExecutionRepository`, partial `ExecutionEngine`
+
+- **Next**:
+  - Implement `InferenceBlockExecutor` with `ILLMGateway` mock-mode
+  - Implement `ToolBlockExecutor` sandboxing and timeouts
+  - Add unit tests for context, prompt executor, repository and engine
+  - Implement SignalR `SignalRExecutionMonitor` and hub
+
+Last updated: 2026-01-14
 
