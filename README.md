@@ -89,7 +89,91 @@ The AI landscape evolves rapidly. New models emerge, APIs change, and organizati
 
 ---
 
-## � Model Registry & Auto-Optimization
+## 🔐 Backend as Single Source of Truth
+
+### Unified Block Architecture
+
+**Critical Design Principle**: The Backend is the **exclusive owner** of all block and workflow data. All clients (Frontend, CLI, MCP Server, future agents) access blocks through the Backend HTTP API.
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│                    FILESYSTEM (Real Blocks)                      │
+│         blocks/, .maestro/blocks/, ~/.maestro/blocks/            │
+└─────────────────────────┬────────────────────────────────────────┘
+                          │ READ/WRITE (exclusive)
+                          ▼
+┌──────────────────────────────────────────────────────────────────┐
+│                  BACKEND (Single Source of Truth)                │
+│  FileSystemBlockDiscoveryService → BlocksController → REST API   │
+│  Real-time events via SignalR for file changes                   │
+└─────────────────────────┬────────────────────────────────────────┘
+                          │ HTTP API + SignalR
+          ┌───────────────┼───────────────┬────────────────┐
+          ▼               ▼               ▼                ▼
+    ┌──────────┐   ┌──────────────┐   ┌─────────┐   ┌───────────┐
+    │ Frontend │   │ Maestro CLI  │   │  MCP    │   │  Future   │
+    │ (React)  │   │ (Node.js)    │   │ Server  │   │  Agents   │
+    └──────────┘   └──────────────┘   └─────────┘   └───────────┘
+```
+
+### Why This Matters
+
+1. **Docker Isolation**: Backend can run in a container; clients connect via HTTP
+2. **Auto-Training Ready**: Agents can create/modify blocks through API with validation
+3. **Consistency**: All clients see the same block state
+4. **Security**: Centralized validation and access control
+5. **Real-time Updates**: SignalR broadcasts changes to all connected clients
+
+### Block Discovery Paths
+
+The backend discovers blocks from multiple locations (in priority order):
+
+| Location | Purpose | Example Path |
+|----------|---------|--------------|
+| Project | Project-specific blocks | `./.maestro/blocks/` |
+| User | User's personal blocks | `~/.maestro/blocks/` |
+| Global | Shipped with Maestro | `{install}/blocks/` |
+
+### API-First Design
+
+All block operations go through the REST API:
+
+| Operation | Endpoint | Description |
+|-----------|----------|-------------|
+| List | `GET /api/blocks` | Get all blocks with filtering |
+| Get | `GET /api/blocks/{id}` | Get single block details |
+| Create | `POST /api/blocks` | Create new block |
+| Update | `PUT /api/blocks/{id}` | Update existing block |
+| Delete | `DELETE /api/blocks/{id}` | Delete block |
+| Search | `GET /api/blocks/search?q=...` | Search blocks |
+
+### Self-Improvement Architecture
+
+This architecture enables Maestro's long-term goal of **self-improvement**:
+
+1. **Agent Creates Block**: An agent generates a new prompt or tool block
+2. **API Validates**: Backend validates against JSON schema
+3. **Persistence**: Block written to filesystem
+4. **Broadcast**: SignalR notifies all connected clients
+5. **Comparison**: New block can be benchmarked against existing solutions
+6. **Iteration**: Agent refines based on benchmark results
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    Self-Improvement Loop                     │
+├─────────────────────────────────────────────────────────────┤
+│  1. Agent identifies improvement opportunity                 │
+│  2. Agent generates new/modified block via API              │
+│  3. Backend validates and persists block                    │
+│  4. Benchmark compares new vs existing approach             │
+│  5. If improvement: promote new block                       │
+│  6. If regression: revert and log learnings                 │
+└─────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 📊 Model Registry & Auto-Optimization
 
 ### Model as a First-Class Resource
 
