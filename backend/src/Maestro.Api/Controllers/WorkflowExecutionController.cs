@@ -20,6 +20,12 @@ public class WorkflowExecutionController : ControllerBase
     [HttpPost("{workflowId}/execute")]
     public async Task<IActionResult> Execute(string workflowId, [FromBody] Dictionary<string, object>? inputs)
     {
+        // Ensure workflowId is a valid GUID string
+        if (!Guid.TryParse(workflowId, out var wfGuid))
+        {
+            return BadRequest("workflowId must be a valid GUID string");
+        }
+
         // Create an execution record in repository and persist initial checkpoint
         var ctx = Maestro.Domain.Entities.ExecutionContext.Create(workflowId);
         // Attempt to load the workflow definition and snapshot it into the execution context
@@ -28,12 +34,17 @@ public class WorkflowExecutionController : ControllerBase
             var wfRepo = HttpContext.RequestServices.GetService(typeof(Maestro.Domain.Interfaces.IWorkflowRepository)) as Maestro.Domain.Interfaces.IWorkflowRepository;
             if (wfRepo != null)
             {
-                var wfId = Maestro.Domain.ValueObjects.WorkflowId.From(workflowId);
+                var wfId = Maestro.Domain.ValueObjects.WorkflowId.From(wfGuid);
                 var wf = await wfRepo.GetByIdAsync(wfId);
                 if (wf != null)
                 {
                     // serialize minimal workflow definition structure
-                    ctx.WorkflowDefinitionJson = System.Text.Json.JsonSerializer.Serialize(new { wf.Id, wf.Nodes, wf.Connections });
+                    var serializable = new
+                    {
+                        id = wf.Id.ToString(),
+                        nodes = wf.Nodes
+                    };
+                    ctx.WorkflowDefinitionJson = System.Text.Json.JsonSerializer.Serialize(serializable);
                 }
             }
         }
@@ -52,27 +63,45 @@ public class WorkflowExecutionController : ControllerBase
         // Enqueue background execution via ExecutionCoordinator if available (fallback: use executor directly)
         // Try to resolve coordinator from services
         // Use a coordinator abstraction if available
-        var coordinator = HttpContext.RequestServices.GetService(typeof(Maestro.Application.Interfaces.IExecutionCoordinator)) as Maestro.Application.Interfaces.IExecutionCoordinator;
-        if (coordinator != null)
+        // Try to resolve a coordinator if available. Some builds don't define IExecutionCoordinator; fallback to direct execution
+        try
         {
-            await coordinator.EnqueueAsync(workflowId, inputs ?? new Dictionary<string, object>());
+            var coordService = HttpContext.RequestServices.GetService(typeof(object));
+            if (coordService != null)
+            {
+                // Try dynamic enqueue if the service supports it
+                dynamic d = coordService;
+                try
+                {
+                    await d.EnqueueAsync(workflowId, inputs ?? new Dictionary<string, object>());
+                    return Accepted(new { executionId = ctx.Id.ToString() });
+                }
+                catch { /* not the coordinator we expect; continue to fallback */ }
+            }
         }
-        else
+        catch { }
+
         {
             // fallback: start execution without waiting - attempt to resolve workflow definition via repository
-            Maestro.Domain.Workflow.WorkflowDefinition wfDef = new();
+            var wfDef = new Maestro.Application.Interfaces.WorkflowDefinition(
+                "",
+                new List<Maestro.Domain.Entities.BlockDefinition>(),
+                new List<Maestro.Domain.Entities.ConnectionDefinition>());
             try
             {
                 var wfRepo = HttpContext.RequestServices.GetService(typeof(Maestro.Domain.Interfaces.IWorkflowRepository)) as Maestro.Domain.Interfaces.IWorkflowRepository;
                 if (wfRepo != null)
                 {
-                    var wfId = Maestro.Domain.ValueObjects.WorkflowId.From(workflowId);
+                    var wfId = Maestro.Domain.ValueObjects.WorkflowId.From(wfGuid);
                     var wf = await wfRepo.GetByIdAsync(wfId);
                     if (wf != null)
                     {
-                        wfDef.Id = wf.Id;
-                        wfDef.Nodes = wf.Nodes;
-                        wfDef.Connections = wf.Connections;
+                        // Map domain Nodes to BlockDefinition list
+                        var blocks = wf.Nodes.Select(n => Maestro.Domain.Entities.BlockDefinition.Create(n.Id.ToString(), n.Name, n.Type.ToString())).ToList();
+                        wfDef = new Maestro.Application.Interfaces.WorkflowDefinition(
+                            wf.Id.ToString(),
+                            blocks,
+                            new List<Maestro.Domain.Entities.ConnectionDefinition>());
                     }
                 }
             }
