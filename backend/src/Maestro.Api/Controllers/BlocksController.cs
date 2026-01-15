@@ -1,10 +1,17 @@
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using System.Text.Json;
 using Microsoft.AspNetCore.Mvc;
 using Maestro.Application.Interfaces;
+using Maestro.Application.DTOs;
 
 namespace Maestro.Api.Controllers
 {
+    /// <summary>
+    /// API controller for block CRUD operations.
+    /// Provides single source of truth for all block operations.
+    /// </summary>
     [ApiController]
     [Route("api/[controller]")]
     public class BlocksController : ControllerBase
@@ -20,85 +27,221 @@ namespace Maestro.Api.Controllers
             _validator = validator;
         }
 
+        /// <summary>
+        /// List all blocks with optional filtering.
+        /// </summary>
+        /// <param name="type">Filter by block type (e.g., "prompt", "tool")</param>
+        /// <param name="capability">Filter by capability</param>
+        /// <param name="search">Search in name and description</param>
         [HttpGet]
-        public async Task<IActionResult> GetAll()
+        public async Task<ActionResult<List<BlockDto>>> GetBlocks(
+            [FromQuery] string? type = null,
+            [FromQuery] string? capability = null,
+            [FromQuery] string? search = null)
         {
             var blocks = await _discovery.DiscoverAllAsync();
-            var blocksJson = JsonSerializer.Serialize(blocks, new JsonSerializerOptions { WriteIndented = true });
-            return Content(blocksJson, "application/json");
+            
+            // Apply filters
+            if (!string.IsNullOrEmpty(type))
+            {
+                blocks = blocks.Where(b => b.BlockType.Equals(type, System.StringComparison.OrdinalIgnoreCase));
+            }
+            
+            if (!string.IsNullOrEmpty(capability))
+            {
+                blocks = blocks.Where(b => b.Capabilities.Contains(capability));
+            }
+            
+            if (!string.IsNullOrEmpty(search))
+            {
+                blocks = blocks.Where(b => 
+                    b.Name.Contains(search, System.StringComparison.OrdinalIgnoreCase) ||
+                    b.Description.Contains(search, System.StringComparison.OrdinalIgnoreCase));
+            }
+            
+            var dtos = blocks.Select(b =>
+            {
+                var path = _repository.GetBlockPathAsync(b.Id).Result;
+                return BlockDto.FromDomain(b, path);
+            }).ToList();
+            
+            return Ok(dtos);
         }
 
+        /// <summary>
+        /// Get a single block by ID.
+        /// </summary>
         [HttpGet("{id}")]
-        public async Task<IActionResult> GetById(string id)
+        public async Task<ActionResult<BlockDto>> GetById(string id)
         {
             var block = await _discovery.GetByIdAsync(id);
-            if (block == null) return NotFound();
-            var blockJson = JsonSerializer.Serialize(block, new JsonSerializerOptions { WriteIndented = true });
-            return Content(blockJson, "application/json");
+            if (block == null) return NotFound(new { error = $"Block '{id}' not found" });
+            
+            var path = await _repository.GetBlockPathAsync(id);
+            var dto = BlockDto.FromDomain(block, path);
+            return Ok(dto);
         }
 
+        /// <summary>
+        /// Create a new block.
+        /// </summary>
         [HttpPost]
-        public async Task<IActionResult> Create([FromBody] object body)
+        public async Task<ActionResult<BlockDto>> Create([FromBody] CreateBlockRequest request)
         {
-            var json = body?.ToString() ?? string.Empty;
-            if (string.IsNullOrWhiteSpace(json)) return BadRequest("Empty body");
+            if (string.IsNullOrWhiteSpace(request.Name))
+                return BadRequest(new { error = "Name is required" });
+            
+            if (string.IsNullOrWhiteSpace(request.BlockType))
+                return BadRequest(new { error = "BlockType is required" });
 
-            var validation = await _validator.ValidateAsync(json);
-            if (!validation.IsValid)
+            // Generate ID from name if not provided
+            var id = request.Name.ToLowerInvariant().Replace(" ", "-");
+            
+            // Check if block already exists
+            var existing = await _repository.GetByIdAsync(id);
+            if (existing != null)
+                return Conflict(new { error = $"Block '{id}' already exists" });
+
+            // Create block entity
+            var block = Domain.Entities.BlockDefinition.Create(id, request.Name, request.BlockType);
+            block.UpdateMetadata(new Dictionary<string, object>
             {
-                // Validation failed - log and continue for integration tests and developer workflows
-                // TODO: make validation strict in production flows
-                // return BadRequest(new { errors = validation.Errors });
+                ["description"] = request.Description ?? string.Empty,
+                ["tags"] = request.Tags ?? new List<string>()
+            });
+            
+            if (request.Config != null)
+            {
+                var configDict = JsonSerializer.Deserialize<Dictionary<string, object>>(
+                    request.Config.RootElement.GetRawText());
+                if (configDict != null)
+                    block.UpdateConfig(configDict);
             }
 
-            // naive parse to get id
-            using var doc = System.Text.Json.JsonDocument.Parse(json);
-            var root = doc.RootElement;
-            var id = root.GetProperty("id").GetString();
-            var name = root.GetProperty("name").GetString();
-            var type = root.GetProperty("blockType").GetString();
-
-            var block = Maestro.Domain.Entities.BlockDefinition.Create(id ?? System.Guid.NewGuid().ToString(), name ?? id ?? "block", type ?? "unknown");
-            // save
+            // Save block
             await _repository.SaveAsync(block);
-            var createdJson = JsonSerializer.Serialize(block, new JsonSerializerOptions { WriteIndented = true });
-            return new ContentResult { Content = createdJson, ContentType = "application/json", StatusCode = 201 };
+            
+            var path = await _repository.GetBlockPathAsync(id);
+            var dto = BlockDto.FromDomain(block, path);
+            
+            return CreatedAtAction(nameof(GetById), new { id = block.Id }, dto);
         }
 
+        /// <summary>
+        /// Update an existing block.
+        /// </summary>
         [HttpPut("{id}")]
-        public async Task<IActionResult> Update(string id, [FromBody] object body)
+        public async Task<ActionResult<BlockDto>> Update(string id, [FromBody] UpdateBlockRequest request)
         {
-            var json = body?.ToString() ?? string.Empty;
-            if (string.IsNullOrWhiteSpace(json)) return BadRequest("Empty body");
-
             var existing = await _repository.GetByIdAsync(id);
-            if (existing == null) return NotFound();
+            if (existing == null) 
+                return NotFound(new { error = $"Block '{id}' not found" });
 
-            var validation = await _validator.ValidateAsync(json);
-            if (!validation.IsValid)
+            // Update properties
+            if (!string.IsNullOrEmpty(request.Name))
             {
-                // Continue despite validation errors during tests
+                existing = Domain.Entities.BlockDefinition.Create(
+                    existing.Id, 
+                    request.Name, 
+                    existing.BlockType);
             }
-
-            // For now, overwrite basic metadata
-            using var doc = System.Text.Json.JsonDocument.Parse(json);
-            var root = doc.RootElement;
-            if (root.TryGetProperty("name", out var name)) existing = Maestro.Domain.Entities.BlockDefinition.Create(existing.Id, name.GetString() ?? existing.Name, existing.BlockType);
+            
+            // Update metadata
+            var metadata = existing.Metadata ?? new Dictionary<string, object>();
+            if (!string.IsNullOrEmpty(request.Description))
+                metadata["description"] = request.Description;
+            if (request.Tags != null)
+                metadata["tags"] = request.Tags;
+            
+            existing.UpdateMetadata(metadata);
+            
+            // Update config
+            if (request.Config != null)
+            {
+                var configDict = JsonSerializer.Deserialize<Dictionary<string, object>>(
+                    request.Config.RootElement.GetRawText());
+                if (configDict != null)
+                    existing.UpdateConfig(configDict);
+            }
 
             await _repository.SaveAsync(existing);
-            var existingJson = JsonSerializer.Serialize(existing, new JsonSerializerOptions { WriteIndented = true });
-            return Content(existingJson, "application/json");
+            
+            var path = await _repository.GetBlockPathAsync(id);
+            var dto = BlockDto.FromDomain(existing, path);
+            return Ok(dto);
         }
 
+        /// <summary>
+        /// Delete a block.
+        /// </summary>
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(string id)
         {
             var existing = await _repository.GetByIdAsync(id);
-            if (existing == null) return NotFound();
+            if (existing == null) 
+                return NotFound(new { error = $"Block '{id}' not found" });
+            
             await _repository.DeleteAsync(id);
             return NoContent();
         }
 
+        /// <summary>
+        /// Advanced search for blocks.
+        /// </summary>
+        [HttpGet("search")]
+        public async Task<ActionResult<List<BlockDto>>> SearchBlocks(
+            [FromQuery] string q,
+            [FromQuery] string? type = null,
+            [FromQuery] string? capability = null,
+            [FromQuery] int limit = 50)
+        {
+            var blocks = await _discovery.DiscoverAllAsync();
+            
+            // Apply search query
+            if (!string.IsNullOrEmpty(q))
+            {
+                blocks = blocks.Where(b => 
+                    b.Name.Contains(q, System.StringComparison.OrdinalIgnoreCase) ||
+                    b.Description.Contains(q, System.StringComparison.OrdinalIgnoreCase) ||
+                    b.Id.Contains(q, System.StringComparison.OrdinalIgnoreCase));
+            }
+            
+            // Apply filters
+            if (!string.IsNullOrEmpty(type))
+            {
+                blocks = blocks.Where(b => b.BlockType.Equals(type, System.StringComparison.OrdinalIgnoreCase));
+            }
+            
+            if (!string.IsNullOrEmpty(capability))
+            {
+                blocks = blocks.Where(b => b.Capabilities.Contains(capability));
+            }
+            
+            // Apply limit
+            blocks = blocks.Take(limit);
+            
+            var dtos = blocks.Select(b =>
+            {
+                var path = _repository.GetBlockPathAsync(b.Id).Result;
+                return BlockDto.FromDomain(b, path);
+            }).ToList();
+            
+            return Ok(dtos);
+        }
+
+        /// <summary>
+        /// List available block types.
+        /// </summary>
+        [HttpGet("types")]
+        public ActionResult<List<string>> GetBlockTypes()
+        {
+            var types = System.Enum.GetNames(typeof(BlockType)).ToList();
+            return Ok(types);
+        }
+
+        /// <summary>
+        /// Get content of a specific file within a block.
+        /// </summary>
         [HttpGet("{id}/content/{*filePath}")]
         public async Task<IActionResult> GetContent(string id, string filePath)
         {
@@ -110,6 +253,9 @@ namespace Maestro.Api.Controllers
             return Ok(txt);
         }
 
+        /// <summary>
+        /// Update content of a specific file within a block.
+        /// </summary>
         [HttpPut("{id}/content/{*filePath}")]
         public async Task<IActionResult> PutContent(string id, string filePath, [FromBody] string content)
         {

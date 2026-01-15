@@ -16,10 +16,12 @@ namespace Maestro.Infrastructure.BlockStore
         private readonly string[] _searchPaths;
         private readonly ConcurrentDictionary<string, BlockDefinition> _cache = new();
         private readonly List<FileSystemWatcher> _watchers = new();
+        private readonly IBlockChangePublisher? _changePublisher;
 
-        public FileSystemBlockDiscoveryService(string[] searchPaths)
+        public FileSystemBlockDiscoveryService(string[] searchPaths, IBlockChangePublisher? changePublisher = null)
         {
             _searchPaths = searchPaths ?? Array.Empty<string>();
+            _changePublisher = changePublisher;
             InitializeWatchers();
             ScanAll();
         }
@@ -60,7 +62,33 @@ namespace Maestro.Infrastructure.BlockStore
                 var block = LoadBlockFromFolder(folder);
                 if (block != null)
                 {
+                    var isNew = !_cache.ContainsKey(block.Id);
                     _cache[block.Id] = block;
+                    
+                    // Publish SignalR event
+                    if (_changePublisher != null)
+                    {
+                        if (isNew)
+                        {
+                            _ = _changePublisher.PublishBlockAddedAsync(new { id = block.Id, name = block.Name, blockType = block.BlockType });
+                        }
+                        else
+                        {
+                            _ = _changePublisher.PublishBlockUpdatedAsync(new { id = block.Id, name = block.Name, blockType = block.BlockType });
+                        }
+                    }
+                }
+                else if (e.ChangeType == WatcherChangeTypes.Deleted)
+                {
+                    // Block was deleted
+                    var blockId = Path.GetFileName(folder);
+                    if (_cache.TryRemove(blockId, out _))
+                    {
+                        if (_changePublisher != null)
+                        {
+                            _ = _changePublisher.PublishBlockDeletedAsync(blockId);
+                        }
+                    }
                 }
             }
             catch { /* swallow errors for watcher */ }

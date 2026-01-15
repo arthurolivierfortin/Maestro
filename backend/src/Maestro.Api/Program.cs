@@ -40,19 +40,30 @@ builder.Services.AddScoped<Maestro.Infrastructure.BlockExecutors.BlockExecutorRe
 // Register execution repository (persistence for checkpoints/executions)
 var execFolder = Path.Combine(AppContext.BaseDirectory, "executions");
 builder.Services.AddScoped<Maestro.Application.Interfaces.IExecutionRepository>(_ => new Maestro.Infrastructure.Persistence.FileSystemExecutionRepository(execFolder));
+
 // Phase 5A: Filesystem block discovery and repository
 var blocksGlobalPath = Path.Combine(AppContext.BaseDirectory, "blocks");
 var blocksUserPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile) ?? "", ".maestro", "blocks");
 var blocksProjectPath = Path.Combine(Directory.GetCurrentDirectory(), ".maestro", "blocks");
 
-builder.Services.AddSingleton<IBlockDiscoveryService>(_ => new FileSystemBlockDiscoveryService(new[] { blocksProjectPath, blocksUserPath, blocksGlobalPath }));
+// Register SignalR-based publisher implementation as singleton (for FileSystemBlockDiscoveryService)
+builder.Services.AddSingleton<Maestro.Application.Interfaces.IBlockChangePublisher, Maestro.Api.Services.SignalRBlockChangePublisher>();
+
+// Register block discovery service with change publisher
+builder.Services.AddSingleton<IBlockDiscoveryService>(sp =>
+{
+    var publisher = sp.GetService<Maestro.Application.Interfaces.IBlockChangePublisher>();
+    return new FileSystemBlockDiscoveryService(new[] { blocksProjectPath, blocksUserPath, blocksGlobalPath }, publisher);
+});
+
+// Register block repository with publisher and validator
 builder.Services.AddScoped<IBlockRepository>(sp =>
 {
     var publisher = sp.GetService<Maestro.Application.Interfaces.IBlockChangePublisher>();
-    return new FileSystemBlockRepository(blocksProjectPath, publisher);
+    var validator = sp.GetService<Maestro.Application.Interfaces.IBlockValidator>();
+    return new FileSystemBlockRepository(blocksProjectPath, publisher, validator);
 });
-// Register SignalR-based publisher implementation
-builder.Services.AddScoped<Maestro.Application.Interfaces.IBlockChangePublisher, Maestro.Api.Services.SignalRBlockChangePublisher>();
+
 builder.Services.AddScoped<Maestro.Application.Interfaces.IBlockValidator, Maestro.Infrastructure.BlockStore.JsonSchemaBlockValidator>();
 // Add CORS for frontend development
 builder.Services.AddCors(options =>
