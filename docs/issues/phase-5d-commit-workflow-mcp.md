@@ -41,16 +41,7 @@ blocks/tools/git-diff/
 └── output-schema.json
 ```
 
-- [ ] Create `block.json` with input/output definitions
-- [ ] Implement `script.sh` for Unix:
-  ```bash
-  #!/bin/bash
-  git diff --staged --no-color
-  ```
-- [ ] Implement `script.ps1` for Windows
-- [ ] Define output schema: `{ diff: string, files: string[], stats: object }`
-- [ ] Add mock-response.json for testing
-- [ ] Add unit tests
+
  - [x] Create `block.json` with input/output definitions
  - [x] Implement `script.sh` for Unix:
  - [x] Implement `script.ps1` for Windows
@@ -72,8 +63,8 @@ blocks/prompts/commit-description/
     └── refactor-example.md
 ```
 
-- [ ] Create `block.json` with template variables
-- [ ] Create `template.md`:
+- [x] Create `block.json` with template variables
+- [x] Create `template.md`:
   ```markdown
   You are a commit message generator following Conventional Commits.
   
@@ -95,12 +86,8 @@ blocks/prompts/commit-description/
   {{this}}
   {{/each}}
   ```
-- [ ] Create example files for few-shot prompting
+- [x] Create example files for few-shot prompting
 - [ ] Add unit tests
- - [x] Create `block.json` with template variables
- - [x] Create `template.md`:
- - [x] Create example files for few-shot prompting
- - [ ] Add unit tests
 
 ### 5D.3 Commit Description Inference Block
 
@@ -114,9 +101,9 @@ blocks/inference/describe-commit/
 └── mock-response.json
 ```
 
-- [ ] Create `block.json` with model configuration
-- [ ] Reference prompt block for building the prompt
-- [ ] Define output schema:
+- [x] Create `block.json` with model configuration
+- [x] Reference prompt block for building the prompt
+- [x] Define output schema:
   ```json
   {
     "type": "object",
@@ -129,13 +116,8 @@ blocks/inference/describe-commit/
     "required": ["type", "subject"]
   }
   ```
-- [ ] Create mock-response.json for testing
+- [x] Create mock-response.json for testing
 - [ ] Add unit tests
- - [x] Create `block.json` with model configuration
- - [x] Reference prompt block for building the prompt
- - [x] Define output schema:
- - [x] Create mock-response.json for testing
- - [ ] Add unit tests
 
 ### 5D.4 Commit Format Validator Block
 
@@ -148,16 +130,11 @@ blocks/validators/commit-format/
 └── custom-rules.js
 ```
 
-- [ ] Create `block.json` with validation config
-- [ ] Implement Conventional Commits regex validation
-- [ ] Check subject length (≤72 chars)
-- [ ] Validate type is in allowed list
+- [x] Create `block.json` with validation config
+- [x] Implement Conventional Commits regex validation
+- [x] Check subject length (≤72 chars)
+- [x] Validate type is in allowed list
 - [ ] Add unit tests
- - [x] Create `block.json` with validation config
- - [x] Implement Conventional Commits regex validation
- - [x] Check subject length (≤72 chars)
- - [x] Validate type is in allowed list
- - [ ] Add unit tests
 
 ### 5D.5 Commit Generator Workflow
 
@@ -170,8 +147,8 @@ blocks/workflows/commit-generator/
 └── connections.json
 ```
 
-- [ ] Create `block.json` with workflow metadata
-- [ ] Create `nodes.json`:
+- [x] Create `block.json` with workflow metadata
+- [x] Create `nodes.json`:
   ```json
   [
     { "id": "trigger", "blockRef": "triggers/manual", "position": { "x": 100, "y": 200 } },
@@ -180,7 +157,7 @@ blocks/workflows/commit-generator/
     { "id": "validate", "blockRef": "validators/commit-format", "position": { "x": 700, "y": 200 } }
   ]
   ```
-- [ ] Create `connections.json`:
+- [x] Create `connections.json`:
   ```json
   [
     { "from": "trigger", "fromPort": "context", "to": "describe", "toPort": "context" },
@@ -189,10 +166,6 @@ blocks/workflows/commit-generator/
   ]
   ```
 - [ ] Add unit tests
- - [x] Create `block.json` with workflow metadata
- - [x] Create `nodes.json`:
- - [x] Create `connections.json`:
- - [ ] Add unit tests
 
 ### 5D.6 End-to-End Workflow Test
 
@@ -202,43 +175,19 @@ blocks/workflows/commit-generator/
 - [ ] Verify output format matches schema
 - [ ] Test error handling (invalid diff, LLM error)
 - [ ] Add test coverage report
- - [ ] Create integration test that runs full workflow
- - [ ] Test with mocked LLM responses
- - [ ] Verify correct data flow between blocks
- - [ ] Verify output format matches schema
- - [ ] Test error handling (invalid diff, LLM error)
- - [ ] Add test coverage report
 
 ### 5D.7 CLI Execution
 
 Create a simple CLI to execute workflows:
 
-- [ ] Create `Maestro.Cli` project
-- [ ] Implement `maestro execute <workflow-id>` command
-- [ ] Implement `maestro list` command
-- [ ] Implement `maestro validate <workflow-id>` command
- - [x] Implement `maestro validate <workflow-id>` command
-- [ ] Support `--mock` flag for testing
-- [ ] Support `--input key=value` for passing inputs
-- [ ] Output result to stdout (JSON or formatted)
-- [ ] Add integration tests
-- [x] Create `Maestro.Cli` project (lightweight Node.js PoC under `tools/maestro-cli`)
-- [x] Implement `maestro execute <workflow-id>` command (PoC, supports `--mock`)
-- [x] Implement `maestro list` command (PoC)
-- [ ] Implement `maestro validate <workflow-id>` command
-- [x] Support `--mock` flag for testing (PoC)
-- [x] Support `--input key=value` for passing inputs (PoC)
+- [x] Create `Maestro.Cli` project
+- [x] Implement `maestro execute <workflow-id>` command
+- [x] Implement `maestro list` command
+- [x] Implement `maestro validate <workflow-id>` command
+- [x] Support `--mock` flag for testing
+- [x] Support `--input key=value` for passing inputs
 - [x] Output result to stdout (JSON or formatted)
 - [ ] Add integration tests
-
- - [x] Create `Maestro.Cli` project
- - [x] Implement `maestro execute <workflow-id>` command
- - [x] Implement `maestro list` command
- - [x] Implement `maestro validate <workflow-id>` command
- - [x] Support `--mock` flag for testing
- - [x] Support `--input key=value` for passing inputs
- - [x] Output result to stdout (JSON or formatted)
- - [ ] Add integration tests
 
 
 ### 5D.8 MCP Server Foundation
@@ -264,8 +213,8 @@ Prepare for Model Context Protocol integration:
 └─────────────────────────────────────────────────────────────┘
 ```
 
-- [ ] Create `Maestro.McpServer` project
-- [ ] Implement MCP tool: `execute-workflow`
+- [x] Create `Maestro.McpServer` project
+- [x] Implement MCP tool: `execute-workflow`
   ```json
   {
     "name": "execute-workflow",
@@ -281,33 +230,17 @@ Prepare for Model Context Protocol integration:
   ```
 - [x] Implement MCP tool: `list-workflows`
 - [x] Implement MCP tool: `get-workflow`
-- [ ] Implement MCP resource: `workflows://` for listing
-- [ ] Implement MCP resource: `workflow://{id}` for details
-- [ ] Add stdio transport for VS Code integration
+- [x] Implement MCP resource: `workflows://` for listing
+- [x] Implement MCP resource: `workflow://{id}` for details
+- [x] Add stdio transport for VS Code integration
 - [ ] Add integration tests
- - [x] Create `Maestro.McpServer` project (lightweight PoC under `tools/maestro-mcp`)
- - [x] Implement MCP tool: `execute-workflow` (stdio PoC)
- - [ ] Implement MCP tool: `list-workflows`
- - [ ] Implement MCP tool: `get-workflow`
- - [ ] Implement MCP resource: `workflows://` for listing
- - [ ] Implement MCP resource: `workflow://{id}` for details
- - [x] Add stdio transport for VS Code integration (PoC: `tools/maestro-mcp/index.js`)
- - [ ] Add integration tests
- - [x] Create `Maestro.McpServer` project
- - [x] Implement MCP tool: `execute-workflow`
- - [x] Implement MCP tool: `list-workflows`
- - [x] Implement MCP tool: `get-workflow`
- - [x] Implement MCP resource: `workflows://` for listing
- - [x] Implement MCP resource: `workflow://{id}` for details
- - [x] Add stdio transport for VS Code integration
- - [ ] Add integration tests
 
 ### 5D.9 VS Code MCP Configuration
 
 Document how to configure VS Code to use Maestro as MCP server:
 
-- [ ] Create `docs/mcp-setup.md` with setup instructions
-- [ ] Create example `.vscode/mcp.json` configuration:
+- [x] Create `docs/mcp-setup.md` with setup instructions
+- [x] Create example `.vscode/mcp.json` configuration:
   ```json
   {
     "servers": {
@@ -323,26 +256,17 @@ Document how to configure VS Code to use Maestro as MCP server:
   ```
 - [ ] Document available tools and their usage
 - [ ] Add example prompts for Copilot
- - [x] Create `docs/mcp-setup.md` with setup instructions
- - [x] Create example `.vscode/mcp.json` configuration:
 
 ### 5D.10 Project Block Discovery (.maestro folder)
 
 Enable per-project block definitions:
 
-- [ ] Implement `.maestro/blocks/` discovery in `FileSystemBlockDiscoveryService`
-- [ ] Support `.maestro/workflows/` for project workflows
-- [ ] Implement block override logic (project > global)
+- [x] Implement `.maestro/blocks/` discovery in `FileSystemBlockDiscoveryService`
+- [x] Support `.maestro/workflows/` for project workflows
+- [x] Implement block override logic (project > global)
 - [ ] Add `.maestro/config.json` for project settings
-- [ ] Document `.maestro/` folder structure
+- [x] Document `.maestro/` folder structure
 - [ ] Add unit tests
-
- - [x] Implement `.maestro/blocks/` discovery in `FileSystemBlockDiscoveryService`
- - [x] Support `.maestro/workflows/` for project workflows
- - [x] Implement block override logic (project > global)
- - [ ] Add `.maestro/config.json` for project settings
- - [x] Document `.maestro/` folder structure
- - [ ] Add unit tests
 
 ---
 

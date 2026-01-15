@@ -6,4 +6,7 @@
   "dependencies": {
     "minimist": "^1.2.8"
   }
+  ,"scripts": {
+    "test": "node tests/validator.test.js && node tests/execute-integration.test.js"
+  }
 }
