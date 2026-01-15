@@ -1,116 +1,135 @@
-⚙️ Feature : MAESTRO-5C – Implement Workflow Execution Engine and API
+✨ Feature : MAESTRO-5D – Commit Description Workflow & MCP Server Foundation
 
 # 🎯 Purpose
-This PR implements Phase 5C: a first-class workflow execution orchestration layer and API surface. It provides the core pieces required to run workflows end-to-end: execution state and checkpoints, retry and error strategies, composite/nested workflow execution, variable interpolation, schema-based validation for blocks, a minimal background coordinator, and SignalR hooks for real-time monitoring. The implementation is a scaffold intended for iteration and hardening; it is focused on correctness, testability, and respecting Clean Architecture boundaries.
+This PR delivers the Commit Description workflow and the MCP/CLI server foundation (Phase 5D). It wires a new commit-generator workflow into the execution stack, adds block definitions and handlers for commit description, tools and validators, and provides a minimal MCP/CLI PoC and server scaffolding to run and discover workflows remotely. The changes bundle backend execution improvements, block discovery and schemas, frontend wiring for execution controls, and end-to-end tests for the new commit workflow.
 
 # 📋 Changes Summary
-This PR spans Domain, Application, Infrastructure, API, and Frontend layers. Highlights:
+This branch contains changes across multiple layers: Domain, Application, Infrastructure, API/Presentation, Frontend, Blocks, Tools, Tests and Docs. Highlights below.
 
 - Domain
-  - Enhance `ExecutionContext` with active branch tracking, checkpoint metadata, and improved logging/metrics.
-  - Add domain types: `RetryPolicy`, `DecisionResult`, `WorkflowDefinition`, and execution-related value objects.
+  - Add `ExecutionId`, `BlockExecutionState`, `ExecutionMetrics` value objects and `ExecutionContext` entity updates to track checkpoints, logs and active branches.
+  - Add `RetryPolicy` and `DecisionResult` under domain execution types.
 
 - Application
-  - Add `ExecutionCoordinator` (simple in-memory queue) to enqueue background workflow runs.
-  - Introduce `IVariableResolver` and `BlockExecutionResult` DTOs.
-  - Add `IExecutionErrorHandler` interface for pluggable error handling.
+  - Add `ExecutionCoordinator` (in-memory queue) and `IWorkflowExecutor`/`IWorkflowOrchestration` interfaces for orchestration.
+  - Introduce `IVariableResolver`, `IExecutionRepository`, `IExecutionEngine` and `IExecutionErrorHandler` interfaces.
+  - DTOs: `BlockExecutionResult`, `BlockType`.
 
 - Infrastructure
-  - Implement core `ExecutionEngine` orchestrator with retry/backoff, `onError` strategies (StopWorkflow, SkipBlock, UseDefault), active-branch skipping, and checkpoint persistence hooks.
-  - Add `CompositeBlockExecutor` to execute nested workflows and map child outputs to parent outputs.
-  - Restore `JsonSchemaBlockValidator` using `NJsonSchema` to validate `block.json`, `nodes.json`, and `connections.json` during discovery and publishing.
-  - Implement `VariableResolver` for `${variables.*}` and `${env.*}` interpolation.
-  - Add `ExecutionErrorHandler` to persist failing contexts and emit logs.
-  - Provide a set of block executors (Prompt, Inference, Tool, Decision, Validator, Trigger, Agent scaffolds) and a registry for executor lookup.
-  - File-based persistence: add `FileSystemExecutionRepository` for checkpointing execution contexts.
+  - Add `ExecutionEngine`, `WorkflowExecutor`, `ExecutionGraph`, and `DataFlowManager` for DAG execution and data flow between blocks.
+  - Implement a registry and multiple `BlockExecutor` implementations: Prompt, Inference, Tool, Decision, Validator, Trigger, Agent, Composite (nested workflow) and a `BlockExecutorRegistry`.
+  - Block discovery and repository: `FileSystemBlockDiscoveryService`, `FileSystemBlockRepository`, and file-schema validation via `JsonSchemaBlockValidator` (NJsonSchema).
+  - Persistence: `FileSystemExecutionRepository` for checkpointing execution contexts.
+  - Monitoring & error handling: `ExecutionErrorHandler`, `ExecutionMonitor` improvements and `SignalRExecutionMonitor` for real-time events.
+  - Variable resolution implementation in `VariableResolver`.
 
 - API / Presentation
-  - Add `WorkflowExecutionController` endpoints to start executions (returns `executionId`), resume and query executions (scaffolded behavior persists checkpoint and enqueues work when available).
-  - Add SignalR hubs and `SignalRExecutionMonitor` to publish execution lifecycle events for frontend consumption.
+  - Add `WorkflowExecutionController` with endpoints to start, resume and query executions.
+  - SignalR hubs: `ExecutionHub`, `BlockHub`, and SignalR client interfaces to stream lifecycle events.
+  - `BlocksController` additions for block discovery/publishing endpoints.
 
 - Frontend
-  - Add `realExecutionService.ts` (scaffold) to start executions and subscribe to SignalR events; update UI components to consume execution events (scaffolded wiring).
+  - Add `ExecutionBar` component, execution wiring in `realExecutionService.ts`, and SignalR client code (`blockHub` service) to subscribe to execution events.
+  - Minor editor and canvas updates to surface execution status and controls.
+
+- Blocks & Tools
+  - Add `blocks/workflows/commit-generator` workflow with `nodes.json`, `connections.json`, unit tests and README.
+  - Add new blocks for `prompts/commit-description`, `inference/describe-commit`, and `tools/git-diff` with example scripts and test fixtures.
+  - Add validator block `commit-format` with custom rules and tests.
+
+- CLI / MCP PoC & Tools
+  - Add `tools/maestro-cli` and `tools/maestro-mcp` packages with basic integration tests and README. These provide a proof-of-concept for running workflows and discovery from a separate client.
 
 - Tests
-  - Add and update multiple unit and integration tests under `backend/tests/*` for ExecutionEngine behavior, block executors, persistence, discovery, and SignalR monitors. Local execution tests passed during development.
+  - Add/extend many unit and integration tests in `backend/tests/*` for execution engine, block executors, discovery, persistence and SignalR monitoring.
+  - Add workflow integration tests for the commit-generator end-to-end flow.
 
 - Docs
-  - Update `docs/issues/phase-5c-workflow-orchestration.md` to reflect implemented Phase 5C checklist items and add JSON schema files under `docs/schemas/`.
+  - Add/update Phase 5 docs, security sandboxing guidance, block schema references and issue checklists under `docs/` and `docs/issues/`.
 
 # 🏗️ Technical Details
 
-- Execution model
-  - `ExecutionEngine` processes `BlockDefinition` graphs, runs executors via a registry, and persists checkpoints via `IExecutionRepository`.
-  - Blocks support per-block `retry` config and `onError` strategies encoded in block config.
-  - Decision blocks update `ExecutionContext.ActiveBranches` to enable branch routing and skipping.
+- Commit-generator workflow
+  - The commit-generator is a composite workflow that uses a `git-diff` tool block, an `describe-commit` inference block (LLM), and a `commit-description` prompt block to produce suggested commit messages. Outputs flow via `ExecutionGraph` dataflow mappings.
 
-- Error handling
-  - `IExecutionErrorHandler` allows infrastructure to plug in custom handling (default persists and logs). The engine respects configured `onError` behavior and uses the handler for unexpected exceptions.
-
-- Composite execution
-  - Composite blocks invoke nested workflow execution using the same engine, producing a nested `ExecutionContext` whose outputs are mapped to the parent block outputs.
+- Execution model & persistence
+  - `ExecutionEngine` orchestrates block execution using a `BlockExecutorRegistry`. Each block may define `retry` and `onError` strategies; the engine persists checkpoint state via `IExecutionRepository` (file-backed default) to allow resume and inspection.
 
 - Variable resolution
-  - `VariableResolver` performs iterative token replacement for `${variables.key}` and `${env.KEY}` tokens, with a max depth to avoid infinite loops.
+  - `VariableResolver` resolves `${variables.*}` and `${env.*}` tokens iteratively with depth protection to avoid cycles.
 
-- Schema validation
-  - `JsonSchemaBlockValidator` locates `docs/schemas/` (by walking directories or assembly base) and validates schema files using `NJsonSchema`.
+- Block discovery & validation
+  - `FileSystemBlockDiscoveryService` finds block definitions on disk; `JsonSchemaBlockValidator` validates `block.json`, `nodes.json`, and `connections.json` against schemas in `docs/schemas/`.
+
+- MCP / CLI PoC
+  - `tools/maestro-mcp` provides a small server and `tools/maestro-cli` a client to discover and invoke workflows remotely (PoC). They talk to the API endpoints added in `Maestro.Api` and exercise block discovery/publishing flows.
 
 # 🧪 Testing
 
-Commands to run locally (from repository root):
+Run tests from repository root:
 
 ```bash
 cd backend
 dotnet test Maestro.sln
 ```
 
-Or run targeted projects for faster feedback:
+Run targeted test projects:
 
 ```bash
 dotnet test tests/Maestro.Execution.Tests/Maestro.Execution.Tests.csproj
 dotnet test tests/Maestro.Infrastructure.Tests/Maestro.Infrastructure.Tests.csproj
 ```
 
+Frontend quick run (dev):
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
 Notes:
-- I executed `Maestro.Execution.Tests` locally and those tests passed. CI should run the full solution tests.
-- Some integration tests (SignalR, file-system discovery) rely on environment or file paths; reviewers may need to adjust paths for CI or local environment.
+- I ran unit tests locally for the new execution tests during development; they passed. CI should run the full matrix.
+- Some integration tests (SignalR, filesystem discovery, CLI/MCP) may require environment adjustments or paths on CI; see test fixtures and `docs/mcp-setup.md` for local setup.
 
 # 📖 Documentation
 
-- `docs/issues/phase-5c-workflow-orchestration.md` — updated checklist and implementation notes.
-- `docs/schemas/` — contains `block.schema.json`, `workflow-nodes.schema.json`, and `connections.schema.json` used by the validator.
+- Updated issues and guides: `docs/issues/phase-5d-commit-workflow-mcp.md`, `docs/PHASE-5-DOCUMENTATION.md`, `docs/SECURITY-SANDBOXING.md`.
+- Block schemas: `docs/schemas/block.schema.json`, `docs/schemas/workflow-nodes.schema.json`, `docs/schemas/connections.schema.json`.
+- MCP/CLI READMEs: `tools/maestro-cli/README.md`, `tools/maestro-mcp/README.md`.
 
 # 🚀 Deployment Notes
 
-- Persistence: current execution checkpoints use the `FileSystemExecutionRepository` (file-backed). For production, replace or augment with a durable DB-backed repository.
-- Environment variables for LLM gateways remain unchanged; ensure provider keys are present in deployment if using LLM integrations.
+- Persistence: Default `FileSystemExecutionRepository` is file-backed. For production, replace with a durable store (database or blob storage) and ensure a migration strategy for existing checkpoints.
+- Ensure `NJsonSchema` (or required NuGet package) is available in CI images and included in `Maestro.Infrastructure` project.
+- LLM provider environment variables (OpenAI/Anthropic/etc.) are unchanged; verify provider keys are present in target environments if inference blocks are used.
+- Frontend uses SignalR — ensure CORS and SignalR endpoints are reachable from deployed frontend.
 
 # 🔄 Migration Guide
 
-- No breaking DB migrations. Execution persistence format is file-based; if migrating to a DB-backed repository, plan a migration path for existing checkpoints.
+- No breaking DB schema migrations introduced. API additions are additive (new endpoints for execution and block publishing). Review clients that may rely on older `BlocksController` behavior.
 
 # 📸 Screenshots / Examples
 
-- Frontend wiring is scaffolded; manually run frontend with backend to verify runtime behaviors and SignalR events.
+- Frontend wiring is scaffolded; run frontend and backend locally to view the `ExecutionBar` and real-time execution events.
 
 # 🔗 Related Issues
 
-- Branch: feat/MESTRO-5C-workflow-orchestration-multi-block-execution (this branch)
-- See ADRs under `docs/adr/` for model-agnostic and architecture decisions.
+- Branch: feat/MAESTRO-5D-commit-description-workflow-mcp-server-foundation (this branch)
+- Related ADRs: see `docs/adr/` for model-agnostic design and execution architecture rationale.
 
 # 👥 Review Notes
 
-- Areas to review carefully:
-  - `ExecutionEngine` orchestration logic (retry/backoff, `onError` strategies, checkpoint persistence).
-  - `CompositeBlockExecutor` behavior and output mapping.
-  - Block executor sandboxing (ToolBlockExecutor) — requires a security review before production use.
-  - SignalR hooks and `IExecutionMonitor` contracts for ordering and event semantics.
-  - `JsonSchemaBlockValidator` path discovery in CI environments.
+- Focus review on:
+  - `blocks/workflows/commit-generator` nodes/connections and handler mappings.
+  - `ExecutionEngine` orchestration (retry/backoff, `onError` strategies, checkpointing and resume semantics).
+  - `ToolBlockExecutor` and script/tool sandboxing — security risk surface.
+  - MCP/CLI server endpoints: discovery, publish and invoke flows in `Maestro.Api` and `tools/maestro-mcp`.
+  - SignalR hubs and `SignalRExecutionMonitor` ordering and event semantics.
 
 - Known risks & mitigations:
-  - `ExecutionCoordinator` is currently in-memory and not durable — replace with durable queue in future PR.
-  - Tool execution sandboxing is best-effort; do not run untrusted scripts without proper OS/container isolation.
+  - `ExecutionCoordinator` is in-memory and not durable — plan to replace with durable queue (Redis/Service Bus) for production.
+  - Tool/script execution must be sandboxed in a secure runtime (OS container / restricted permissions) before enabling on production.
 
 # Checklist for merge
 
