@@ -22,8 +22,28 @@ async function loadConfig(): Promise<MaestroConfig> {
   }
 
   try {
-    // Try to load from project root (Vite will resolve this at build time)
-    // In development, we use a dynamic import
+    // First, respect explicit environment override from Vite.
+    // When running inside Docker/Vite we often set VITE_USE_MOCK_BACKEND.
+    const envUseMock = import.meta.env.VITE_USE_MOCK_BACKEND;
+    if (envUseMock !== undefined) {
+      // Convert common truthy values to boolean
+      const val = String(envUseMock).toLowerCase();
+      const useMock = val === 'true' || val === '1' || val === 'yes';
+      loadedConfig = { ...DEFAULT_CONFIG, ...{ frontend: { ...DEFAULT_CONFIG.frontend, useMockBackend: useMock } } } as MaestroConfig;
+      if (import.meta.env.DEV) console.log('[Config] Using VITE_USE_MOCK_BACKEND override:', useMock);
+      // Still attempt to load file to merge other values if present
+      try {
+        const configModule = await import('../../../maestro.config.json');
+        loadedConfig = { ...loadedConfig, ...configModule.default } as MaestroConfig;
+        // ensure env override stays
+        loadedConfig.frontend = { ...loadedConfig.frontend, useMockBackend: useMock };
+      } catch {
+        // ignore file load errors - we already have an env-driven config
+      }
+      return loadedConfig;
+    }
+
+    // No env override, try to load from project root (Vite will resolve this at build time)
     const configModule = await import('../../../maestro.config.json');
     loadedConfig = { ...DEFAULT_CONFIG, ...configModule.default } as MaestroConfig;
 
@@ -130,6 +150,22 @@ export const config = {
   /** Check if dev tools are enabled */
   devToolsEnabled: isDevToolsEnabled,
 };
+
+/**
+ * Synchronous check for whether mock backend should be used.
+ * This prefers the Vite env `VITE_USE_MOCK_BACKEND` when present
+ * so services initialized at module load time can pick the correct mode.
+ */
+export function useMockBackendEffective(): boolean {
+  const envUse = (import.meta.env as any).VITE_USE_MOCK_BACKEND;
+  if (envUse !== undefined) {
+    const val = String(envUse).toLowerCase();
+    return val === 'true' || val === '1' || val === 'yes';
+  }
+
+  if (loadedConfig) return loadedConfig.frontend.useMockBackend;
+  return DEFAULT_CONFIG.frontend.useMockBackend;
+}
 
 // Re-export types
 export type { MaestroConfig, FrontendConfig, MockLatencyConfig } from './config.types';

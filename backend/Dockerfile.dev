@@ -1,5 +1,5 @@
 # Development Dockerfile with hot reload
-FROM mcr.microsoft.com/dotnet/sdk:8.0 AS development
+FROM mcr.microsoft.com/dotnet/sdk:10.0.101 AS development
 WORKDIR /app
 
 # Install curl for health checks
@@ -10,6 +10,7 @@ COPY src/Maestro.Domain/*.csproj src/Maestro.Domain/
 COPY src/Maestro.Application/*.csproj src/Maestro.Application/
 COPY src/Maestro.Infrastructure/*.csproj src/Maestro.Infrastructure/
 COPY src/Maestro.Api/*.csproj src/Maestro.Api/
+COPY src/Maestro.Agents/*.csproj src/Maestro.Agents/
 
 # Restore NuGet packages
 RUN dotnet restore src/Maestro.Api/Maestro.Api.csproj

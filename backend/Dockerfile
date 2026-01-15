@@ -1,5 +1,5 @@
 # Build stage
-FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+FROM mcr.microsoft.com/dotnet/sdk:10.0.101 AS build
 WORKDIR /src
 
 # Copy project files for dependency restore
@@ -7,6 +7,7 @@ COPY src/Maestro.Domain/*.csproj src/Maestro.Domain/
 COPY src/Maestro.Application/*.csproj src/Maestro.Application/
 COPY src/Maestro.Infrastructure/*.csproj src/Maestro.Infrastructure/
 COPY src/Maestro.Api/*.csproj src/Maestro.Api/
+COPY src/Maestro.Agents/*.csproj src/Maestro.Agents/
 
 # Restore NuGet packages
 RUN dotnet restore src/Maestro.Api/Maestro.Api.csproj
@@ -19,7 +20,7 @@ WORKDIR /src/src/Maestro.Api
 RUN dotnet publish -c Release -o /app/publish --no-restore
 
 # Runtime stage
-FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS runtime
+FROM mcr.microsoft.com/dotnet/aspnet:10.0.101 AS runtime
 WORKDIR /app
 
 # Install curl for health checks

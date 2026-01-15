@@ -1,5 +1,3 @@
-version: '3.8'
-
 # Development-specific configuration
 # Use: docker-compose -f docker-compose.yml -f docker-compose.dev.yml up
 
@@ -10,11 +8,13 @@ services:
       dockerfile: Dockerfile.dev
     container_name: maestro-backend-dev
     volumes:
-      # Mount source code for hot reload
-      - ./backend/src:/app/src:ro
+      # Mount source code for hot reload (read-write so dotnet can create build artifacts)
+      - ./backend/src:/app/src:rw
       # Mount blocks directories (read-write)
       - ./blocks:/app/blocks:rw
       - ./.maestro:/app/.maestro:rw
+      # Mount repository docs so schema validator can find docs/schemas
+      - ./docs:/app/docs:ro
       - ${HOME}/.maestro/blocks:/root/.maestro/blocks:ro
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
@@ -46,13 +46,23 @@ services:
       - ./frontend/src:/app/src:ro
       - ./frontend/public:/app/public:ro
       - ./frontend/index.html:/app/index.html:ro
+      # Mount project config so Vite can import maestro.config.json
+      - ./maestro.config.json:/app/maestro.config.json:ro
+      # Vite in this project resolves '../../../maestro.config.json' from src/config
+      # which evaluates to /maestro.config.json inside the container, so mount there too
+      - ./maestro.config.json:/maestro.config.json:ro
       # Don't mount node_modules (use container's)
       - /app/node_modules
     environment:
       - VITE_USE_MOCK_BACKEND=false
-      - VITE_API_BASE_URL=http://backend:5000
+      - VITE_API_BASE_URL=http://localhost:5000
     depends_on:
       backend:
         condition: service_healthy
     networks:
       - maestro-network
+
+networks:
+  maestro-network:
+    name: maestro-network
+    driver: bridge

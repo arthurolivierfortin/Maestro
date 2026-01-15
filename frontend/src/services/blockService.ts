@@ -9,12 +9,13 @@ import type { IBlockService } from './interfaces/IBlockService';
 import { getMockBlockService } from './mock/mockBlockService';
 import { getRealBlockService } from './real/realBlockService';
 import { config } from '../config';
+import { useMockBackendEffective } from '../config/config';
 
 /**
  * Create block service based on configuration
  */
 function createBlockService(): IBlockService {
-  const useMock = config.useMockBackend();
+  const useMock = useMockBackendEffective();
 
   if (config.devToolsEnabled()) {
     console.log(`[BlockService] Using ${useMock ? 'MOCK' : 'REAL'} backend`);
@@ -34,7 +35,7 @@ export const blockService = createBlockService();
  * Check if currently using mock backend
  */
 export function isUsingMockBackend(): boolean {
-  return config.useMockBackend();
+  return useMockBackendEffective();
 }
 
 // Re-export types for convenience

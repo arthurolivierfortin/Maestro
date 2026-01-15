@@ -7,7 +7,33 @@
 
 import axios, { AxiosInstance, AxiosError, InternalAxiosRequestConfig } from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://localhost:5001';
+// Base URL from Vite env. When running Vite in a container, compose sets VITE_API_BASE_URL
+// to http://backend:5000 so the frontend container can reach the backend service by name.
+// However the browser (developer's host) cannot resolve the container hostname `backend`.
+// To make the same build work for both containerized Vite and local browser access,
+// rewrite the hostname to `localhost` when executing in the browser and the host is `backend`.
+const RAW_API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://localhost:5001';
+let API_BASE_URL = RAW_API_BASE;
+
+try {
+  // Only adjust when running in a browser environment
+  if (typeof window !== 'undefined' && RAW_API_BASE) {
+    try {
+      const parsed = new URL(RAW_API_BASE, window.location.origin);
+      if (parsed.hostname === 'backend') {
+        parsed.hostname = 'localhost';
+        // If compose mapped port 5000, keep it
+        API_BASE_URL = parsed.toString().replace(/\/?$/, '');
+        if (import.meta.env.DEV) console.log('[API] Rewrote API base from backend to localhost:', API_BASE_URL);
+      }
+    } catch (e) {
+      // If URL parsing fails, fall back to raw value
+      API_BASE_URL = RAW_API_BASE;
+    }
+  }
+} catch (e) {
+  API_BASE_URL = RAW_API_BASE;
+}
 
 /**
  * Error response structure from backend

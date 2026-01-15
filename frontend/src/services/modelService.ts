@@ -9,12 +9,13 @@ import type { IModelService } from './interfaces/IModelService';
 import { getMockModelService } from './mock/mockModelService';
 import { getRealModelService } from './real/realModelService';
 import { config } from '../config';
+import { useMockBackendEffective } from '../config/config';
 
 /**
  * Create model service based on configuration
  */
 function createModelService(): IModelService {
-  const useMock = config.useMockBackend();
+  const useMock = useMockBackendEffective();
 
   if (config.devToolsEnabled()) {
     console.log(`[ModelService] Using ${useMock ? 'MOCK' : 'REAL'} backend`);
@@ -34,7 +35,7 @@ export const modelService = createModelService();
  * Check if currently using mock backend
  */
 export function isUsingMockBackend(): boolean {
-  return config.useMockBackend();
+  return useMockBackendEffective();
 }
 
 // Re-export types for convenience
