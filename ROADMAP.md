@@ -1489,13 +1489,220 @@ Manual Trigger → Git Diff (Tool) → Describe (Inference) → Format (Validato
 
 ---
 
-## 🔷 Phase 6: Agent Implementations
+## 🔷 Phase 6: Unified Block Architecture & Single Source of Truth ⚠️ CRITICAL
+
+**Goal**: Refactor the block architecture so the **Backend is the single authoritative source** for all block operations. All clients (Frontend, CLI, MCP) must use the Backend API exclusively. This enables Docker isolation, auto-training capabilities, and consistent block management.
+
+**Duration**: 3-4 weeks  
+**Team**: Backend (2 developers) + Frontend (1 developer) + Tools (1 developer)  
+**Dependencies**: Phase 5 complete  
+**Status**: Not Started  
+**Priority**: **CRITICAL** — Blocking Docker, auto-training, and production deployment
+
+### Strategic Vision
+
+The current architecture has a **fundamental flaw**: multiple independent filesystem readers (Backend, Frontend mocks, CLI, MCP) each reading block files directly. This creates:
+
+1. **Data inconsistencies** between components
+2. **Impossible Docker isolation** (frontend mocks bypass backend)
+3. **Blocked auto-training** (agents can't reliably create/modify blocks)
+4. **No single source of truth** for block state
+
+**Target Architecture**:
+```
+┌──────────────────────────────────────────────────────────────────┐
+│                    FILESYSTEM (Real Blocks)                      │
+│         blocks/, .maestro/blocks/, ~/.maestro/blocks/            │
+└─────────────────────────┬────────────────────────────────────────┘
+                          │ READ/WRITE (exclusive)
+                          ▼
+┌──────────────────────────────────────────────────────────────────┐
+│                  BACKEND (Single Source of Truth)                │
+│  FileSystemBlockDiscoveryService → BlocksController → REST API   │
+│  Real-time events via SignalR for file changes                   │
+└─────────────────────────┬────────────────────────────────────────┘
+                          │ HTTP API + SignalR
+          ┌───────────────┼───────────────┬────────────────┐
+          ▼               ▼               ▼                ▼
+    ┌──────────┐   ┌──────────────┐   ┌─────────┐   ┌───────────┐
+    │ Frontend │   │ Maestro CLI  │   │  MCP    │   │  Future   │
+    │ (React)  │   │ (Node.js)    │   │ Server  │   │  Clients  │
+    └──────────┘   └──────────────┘   └─────────┘   └───────────┘
+         │                │                │
+         └────────────────┴────────────────┘
+                    ALL USE HTTP API
+                 NO DIRECT FS ACCESS
+```
+
+### Sub-Phases
+
+| Phase | Focus | Duration | Issue |
+|-------|-------|----------|-------|
+| 6A | Unified Block Source Architecture | 1 week | [phase-6a-unified-block-source.md](docs/issues/phase-6a-unified-block-source.md) |
+| 6B | Complete Discovery API | 1 week | [phase-6b-discovery-api.md](docs/issues/phase-6b-discovery-api.md) |
+| 6C | CLI/MCP API Client Migration | 1 week | [phase-6c-cli-mcp-api-clients.md](docs/issues/phase-6c-cli-mcp-api-clients.md) |
+| 6D | Frontend Real Service Integration | 1 week | [phase-6d-frontend-real-integration.md](docs/issues/phase-6d-frontend-real-integration.md) |
+| 6E | Docker Isolation Preparation | 2-3 days | [phase-6e-docker-preparation.md](docs/issues/phase-6e-docker-preparation.md) |
+
+---
+
+### 🔹 Phase 6A: Unified Block Source Architecture
+
+**Goal**: Establish the Backend as the exclusive filesystem reader for blocks.
+
+#### Current Problems
+1. `FileSystemBlockDiscoveryService` exists but is incomplete
+2. Frontend mock services read fake data, real services call non-existent endpoints
+3. CLI (`tools/maestro-cli/index.js`) reads filesystem directly: `path.join(__dirname, '../../blocks')`
+4. MCP (`tools/maestro-mcp/index.js`) reads filesystem directly with same pattern
+5. No consistent block schema validation across readers
+
+#### Tasks
+- [ ] Audit all filesystem reads across codebase
+- [ ] Complete `BlocksController` with full CRUD endpoints
+- [ ] Add `GET /api/blocks` - list all blocks (with filtering)
+- [ ] Add `GET /api/blocks/{id}` - get block details
+- [ ] Add `POST /api/blocks` - create block (writes to filesystem)
+- [ ] Add `PUT /api/blocks/{id}` - update block
+- [ ] Add `DELETE /api/blocks/{id}` - delete block
+- [ ] Add `GET /api/blocks/search?q=...&type=...&capability=...`
+- [ ] Implement SignalR events for block changes (added/modified/deleted)
+- [ ] Add JSON Schema validation on all block operations
+- [ ] Add comprehensive integration tests
+
+---
+
+### 🔹 Phase 6B: Complete Discovery API
+
+**Goal**: Implement the full discovery API that frontend's `realDiscoveryService` expects.
+
+#### Current Problems
+1. `frontend/src/services/real/realDiscoveryService.ts` expects `/api/discovery` endpoints
+2. No `DiscoveryController` exists in backend
+3. Discovery service needs: health check, capabilities, configuration
+
+#### Tasks
+- [ ] Create `DiscoveryController` in backend
+- [ ] Add `GET /api/discovery/health` - backend health check
+- [ ] Add `GET /api/discovery/capabilities` - available block types, executors
+- [ ] Add `GET /api/discovery/config` - current configuration
+- [ ] Add `GET /api/discovery/blocks/types` - available block types with metadata
+- [ ] Add `GET /api/discovery/blocks/by-capability/{capability}`
+- [ ] Update `realDiscoveryService.ts` to use correct endpoints
+- [ ] Add unit tests for discovery endpoints
+- [ ] Document discovery API in OpenAPI/Swagger
+
+---
+
+### 🔹 Phase 6C: CLI/MCP API Client Migration
+
+**Goal**: Migrate CLI and MCP from direct filesystem reads to Backend API calls.
+
+#### Current Problems
+1. CLI reads blocks from `path.join(__dirname, '../../blocks')`
+2. MCP reads blocks from same relative path
+3. Neither can work if backend is in Docker or remote
+4. Block discovery logic duplicated across 4 codebases
+
+#### Tasks
+- [ ] Create `@maestro/api-client` shared package (or inline client)
+- [ ] Implement `BlockApiClient` with methods:
+  - `listBlocks(filter?)`
+  - `getBlock(id)`
+  - `createBlock(block)`
+  - `updateBlock(id, updates)`
+  - `deleteBlock(id)`
+  - `searchBlocks(query)`
+  - `executeWorkflow(id, options)`
+- [ ] Refactor `tools/maestro-cli/index.js` to use API client
+- [ ] Refactor `tools/maestro-mcp/index.js` to use API client
+- [ ] Add `--api-url` flag to CLI (default: `http://localhost:5000`)
+- [ ] Add environment variable support: `MAESTRO_API_URL`
+- [ ] Remove all direct filesystem reads from CLI/MCP
+- [ ] Add integration tests for CLI with real backend
+- [ ] Update CLI documentation
+
+---
+
+### 🔹 Phase 6D: Frontend Real Service Integration
+
+**Goal**: Make frontend work seamlessly with real backend (no mocks in production).
+
+#### Current Problems
+1. Mock services are comprehensive but fake
+2. Real services exist but have incorrect/missing endpoints
+3. `VITE_USE_MOCK_BACKEND` flag exists but switching is untested
+4. No integration tests for frontend + backend
+
+#### Tasks
+- [ ] Complete `realBlockService.ts` with all CRUD operations
+- [ ] Complete `realDiscoveryService.ts` with correct endpoints
+- [ ] Create `realExecutionService.ts` for workflow execution
+- [ ] Create `realModelService.ts` for model registry
+- [ ] Implement SignalR connection for real-time updates
+- [ ] Create `useBackendConnection` hook for connection state
+- [ ] Add connection error handling and retry logic
+- [ ] Add offline mode detection
+- [ ] Create integration tests (frontend + backend together)
+- [ ] Document switching between mock and real backend
+
+---
+
+### 🔹 Phase 6E: Docker Isolation Preparation
+
+**Goal**: Prepare architecture for Docker deployment where backend runs in container.
+
+#### Current Problems
+1. Frontend mocks bypass backend entirely
+2. CLI/MCP expect local filesystem access
+3. No consideration for network-based API access
+4. Block paths are hardcoded relative paths
+
+#### Tasks
+- [ ] Create `docker-compose.yml` for backend service
+- [ ] Configure volume mounts for block directories
+- [ ] Add CORS configuration for frontend development
+- [ ] Create environment-based configuration for API URLs
+- [ ] Test CLI connecting to containerized backend
+- [ ] Test MCP connecting to containerized backend
+- [ ] Test frontend connecting to containerized backend
+- [ ] Document Docker deployment process
+- [ ] Create `docker-compose.dev.yml` for development
+
+---
+
+### Outputs (Phase 6 Complete)
+- ✅ Backend is single authoritative source for blocks
+- ✅ All clients (Frontend, CLI, MCP) use HTTP API exclusively
+- ✅ No direct filesystem reads outside backend
+- ✅ SignalR events for real-time block updates
+- ✅ Full CRUD API for blocks
+- ✅ Discovery API for capabilities and health
+- ✅ Docker-ready architecture
+- ✅ CLI and MCP work with remote backends
+
+### Acceptance Criteria
+1. **Frontend Real Mode**: Set `useMockBackend: false` → frontend works with backend
+2. **CLI Remote**: `maestro --api-url http://backend:5000 list blocks` works
+3. **MCP Remote**: MCP server connects to backend API, not filesystem
+4. **Docker**: `docker-compose up` runs backend, all clients connect
+5. **Hot Reload**: Edit block file → all connected clients update via SignalR
+6. **No FS Leaks**: Grep codebase for direct fs reads outside Infrastructure layer → zero results
+
+### Breaking Changes
+- CLI flag changes: may need `--api-url` instead of implicit filesystem
+- Frontend config: `maestro.config.json` must have correct `apiBaseUrl`
+- MCP: May need configuration for backend URL
+
+---
+
+## 🔷 Phase 7: Agent Implementations
 
 **Goal**: Implement the core AI agents (Planner, Coder, Tester, Reviewer).
 
 **Duration**: 2-3 weeks  
 **Team**: Backend (2 developers)  
-**Dependencies**: Phase 3, 5 complete
+**Dependencies**: Phase 3, 5, 6 complete
 
 ### Tasks
 
@@ -1513,13 +1720,13 @@ Manual Trigger → Git Diff (Tool) → Describe (Inference) → Format (Validato
 
 ---
 
-## 🔷 Phase 7: Monitoring & Observability
+## 🔷 Phase 8: Monitoring & Observability
 
 **Goal**: Implement real-time monitoring UI for workflow execution.
 
 **Duration**: 1-2 weeks  
 **Team**: Frontend + Backend (2 developers)  
-**Dependencies**: Phase 4d, 5 complete
+**Dependencies**: Phase 4d, 5, 6 complete
 
 ### Tasks
 
@@ -1536,13 +1743,13 @@ Manual Trigger → Git Diff (Tool) → Describe (Inference) → Format (Validato
 
 ---
 
-## 🔷 Phase 8: Tool Executors & Integration
+## 🔷 Phase 9: Tool Executors & Integration
 
 **Goal**: Implement tool executors for bash, git, and file operations.
 
 **Duration**: 1-2 weeks  
 **Team**: Backend (1-2 developers)  
-**Dependencies**: Phase 3, 5 complete
+**Dependencies**: Phase 3, 5, 6 complete
 
 ### Tasks
 
@@ -1558,13 +1765,13 @@ Manual Trigger → Git Diff (Tool) → Describe (Inference) → Format (Validato
 
 ---
 
-## 🔷 Phase 9: Terminal & CLI Integration
+## 🔷 Phase 10: Terminal & CLI Integration
 
 **Goal**: Implement the integrated terminal panel for CLI interactions and log viewing.
 
 **Duration**: 2 weeks  
 **Team**: Frontend (1-2 developers)  
-**Dependencies**: Phase 4c, 7 complete
+**Dependencies**: Phase 4c, 6C, 8 complete
 
 ### Tasks
 
@@ -1602,13 +1809,13 @@ Manual Trigger → Git Diff (Tool) → Describe (Inference) → Format (Validato
 
 ---
 
-## 🔷 Phase 10: End-to-End Integration & Testing
+## 🔷 Phase 11: End-to-End Integration & Testing
 
 **Goal**: Integrate all components and perform comprehensive testing.
 
 **Duration**: 2-3 weeks  
 **Team**: Full team  
-**Dependencies**: Phases 5-9 complete
+**Dependencies**: Phases 5-10 complete
 
 ### Tasks
 
@@ -1625,13 +1832,13 @@ Manual Trigger → Git Diff (Tool) → Describe (Inference) → Format (Validato
 
 ---
 
-## 🔷 Phase 11: Documentation & Examples
+## 🔷 Phase 12: Documentation & Examples
 
 **Goal**: Complete documentation and example workflows.
 
 **Duration**: 1-2 weeks  
 **Team**: Documentation (1-2 developers)  
-**Dependencies**: Phase 10 complete
+**Dependencies**: Phase 11 complete
 
 ### Tasks
 
@@ -1647,13 +1854,13 @@ Manual Trigger → Git Diff (Tool) → Describe (Inference) → Format (Validato
 
 ---
 
-## 🔷 Phase 12: MVP Release Preparation
+## 🔷 Phase 13: MVP Release Preparation
 
 **Goal**: Prepare for MVP release.
 
 **Duration**: 1 week  
 **Team**: Full team  
-**Dependencies**: Phase 11 complete
+**Dependencies**: Phase 12 complete
 
 ### Tasks
 
@@ -1667,13 +1874,13 @@ Manual Trigger → Git Diff (Tool) → Describe (Inference) → Format (Validato
 
 ---
 
-## � Phase 13: Auto-Optimization & Benchmarking (Post-MVP)
+## 🔷 Phase 14: Auto-Optimization & Benchmarking (Post-MVP)
 
 **Goal**: Enable workflows to self-optimize by benchmarking different model configurations and automatically selecting the best model for each task based on cost, quality, and speed requirements.
 
 **Duration**: 3-4 weeks  
 **Team**: Backend (2 developers) + Frontend (1 developer)  
-**Dependencies**: Phases 4e, 5, 6, 7 complete
+**Dependencies**: Phases 4e, 5, 6, 7, 8 complete
 
 ### Vision
 
@@ -1795,34 +2002,39 @@ Maestro will be able to **improve its own workflows** by:
 
 ---
 
-## �🔄 Parallelization Strategy
+## 🔄 Parallelization Strategy
 
 ### Work Streams
 
-To maximize parallel development, the project is divided into **5 primary work streams**:
+To maximize parallel development, the project is divided into **6 primary work streams**:
 
 #### 1️⃣ **Backend Core** (2-3 developers)
-- **Phases**: 1, 2, 3, 5, 6, 8
+- **Phases**: 1, 2, 3, 5, 7, 9
 - **Focus**: Domain model, application layer, infrastructure, agents
 - **Critical path**: Yes (blocks frontend integration)
 
 #### 2️⃣ **Frontend Core** (2-3 developers)
-- **Phases**: 4a, 4b, 4c, 4d, 4e, 9
+- **Phases**: 4a, 4b, 4c, 4d, 4e, 10
 - **Focus**: Block architecture, canvas editor, models panel, terminal integration
 - **Critical path**: No (can start independently with mocks)
 
-#### 3️⃣ **Monitoring & Real-Time** (1-2 developers)
-- **Phases**: 7
+#### 3️⃣ **Unified Architecture** (2 developers) ⚠️ CRITICAL
+- **Phases**: 6A, 6B, 6C, 6D, 6E
+- **Focus**: Single source of truth, API migration, Docker preparation
+- **Critical path**: Yes (blocks production deployment and auto-training)
+
+#### 4️⃣ **Monitoring & Real-Time** (1-2 developers)
+- **Phases**: 8
 - **Focus**: SignalR integration, monitoring UI
 - **Critical path**: No (depends on Phase 5, but can start early with mocks)
 
-#### 4️⃣ **Documentation & QA** (1-2 developers)
-- **Phases**: 11, 12
+#### 5️⃣ **Documentation & QA** (1-2 developers)
+- **Phases**: 12, 13
 - **Focus**: Documentation, examples, testing
 - **Critical path**: No (continuous throughout development)
 
-#### 5️⃣ **Auto-Optimization** (Post-MVP, 2 developers)
-- **Phases**: 13
+#### 6️⃣ **Auto-Optimization** (Post-MVP, 2 developers)
+- **Phases**: 14
 - **Focus**: Benchmarking engine, model recommendations, self-improvement
 - **Critical path**: No (post-MVP enhancement)
 
@@ -1836,11 +2048,12 @@ Week 7-8:   Phase 3 (Infrastructure)  ║ Phase 4d (Canvas Foundation)
 Week 9-10:  Phase 4i (Breadcrumb)     ║ Phase 4g (Block Editing)
 Week 11-14: Phase 5A (Filesystem)     ║ Phase 5B (Execution Engine)
 Week 15-16: Phase 5C (Orchestration)  ║ Phase 5D (MCP + CLI)
-Week 17-18: Phase 6 (Agents)          ║ Phase 7 (Monitoring)
-Week 19-20: Phase 8 (Tools)           ║ Phase 9 (Terminal CLI)
-Week 21-23: Phase 10 (Integration & Testing) - Full Team
-Week 24-25: Phase 11 (Documentation)  ║ Phase 12 (Release Prep)
-Week 26+:   Phase 13 (Auto-Optimization) - Post-MVP
+Week 17-18: Phase 6A-6B (Unified API) ║ Phase 6C-6D (Client Migration)
+Week 19-20: Phase 6E (Docker)         ║ Phase 7 (Agents)
+Week 21-22: Phase 8 (Monitoring)      ║ Phase 9 (Tools)
+Week 23-24: Phase 10 (Terminal CLI)   ║ Phase 11 (Integration Testing)
+Week 25-26: Phase 12 (Documentation)  ║ Phase 13 (Release Prep)
+Week 27+:   Phase 14 (Auto-Optimization) - Post-MVP
 ```
 
 ### Dependencies Matrix
@@ -1848,31 +2061,36 @@ Week 26+:   Phase 13 (Auto-Optimization) - Post-MVP
 | Phase | Depends On | Blocks |
 |-------|------------|--------|
 | 1     | None       | 2, 3   |
-| 2     | 1          | 3, 5A, 6 |
-| 3     | 2          | 4e (backend), 5A, 6, 7, 8 |
+| 2     | 1          | 3, 5A, 7 |
+| 3     | 2          | 4e (backend), 5A, 7, 9 |
 | 4a    | None       | 4b, 4e |
 | 4b    | 4a         | 4c, 4d |
-| 4c    | 4b         | 4d, 9  |
-| 4d    | 4b, 4c     | 7, 10  |
-| 4e    | 4a, 3 (partial) | 6, 13 |
+| 4c    | 4b         | 4d, 10 |
+| 4d    | 4b, 4c     | 8, 11  |
+| 4e    | 4a, 3 (partial) | 7, 14 |
 | 4g    | 4b         | 5A     |
 | 4i    | 4c         | 5A     |
-| **5A**| 2, 3, 4i   | 5B, 5C |
+| **5A**| 2, 3, 4i   | 5B, 5C, 6A |
 | **5B**| 5A         | 5C, 5D |
-| **5C**| 5B         | 5D, 7, 10 |
-| **5D**| 5A, 5B, 5C | 9, 10, 13 |
-| 6     | 2, 3, 4e, 5B | 10, 13 |
-| 7     | 4d, 5C     | 10, 13 |
-| 8     | 3, 6       | 10     |
-| 9     | 4c, 5D, 7  | 10     |
-| 10    | 5D, 6-9    | 11, 12 |
-| 11    | 10         | 12     |
-| 12    | 11         | Release |
-| 13    | 4e, 5D, 6, 7 | Future |
+| **5C**| 5B         | 5D, 8, 11 |
+| **5D**| 5A, 5B, 5C | 6C, 10, 11, 14 |
+| **6A**| 5A         | 6B, 6C, 6D |
+| **6B**| 6A         | 6D |
+| **6C**| 6A, 5D     | 6E, 10 |
+| **6D**| 6A, 6B     | 6E, 11 |
+| **6E**| 6C, 6D     | 11, 14 |
+| 7     | 2, 3, 4e, 5B, 6 | 11, 14 |
+| 8     | 4d, 5C, 6  | 11, 14 |
+| 9     | 3, 6       | 11     |
+| 10    | 4c, 5D, 6C, 8 | 11  |
+| 11    | 5D, 6-10   | 12, 13 |
+| 12    | 11         | 13     |
+| 13    | 12         | Release |
+| 14    | 4e, 5D, 6E, 7, 8 | Future |
 
 ### Team Allocation Recommendations
 
-**Ideal team size**: 6-8 developers
+**Ideal team size**: 7-9 developers
 
 - **Backend**: 3 developers
   - Developer 1: Domain model, use cases
@@ -1882,6 +2100,11 @@ Week 26+:   Phase 13 (Auto-Optimization) - Post-MVP
 - **Frontend**: 2 developers
   - Developer 1: Workflow editor, canvas
   - Developer 2: Monitoring UI, API integration
+
+- **Architecture/Integration**: 1-2 developers
+  - Phase 6 (Unified Architecture)
+  - CLI/MCP API migration
+  - Docker preparation
 
 - **Full-Stack**: 1 developer
   - SignalR integration (backend + frontend)
@@ -1969,5 +2192,5 @@ Each task in this roadmap should be converted into a GitHub issue with:
 
 ---
 
-**Last Updated**: 2025-01-27  
+**Last Updated**: 2025-01-28  
 **Maintained by**: Architecture Team

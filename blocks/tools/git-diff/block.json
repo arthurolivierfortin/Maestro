@@ -1,0 +1,24 @@
+{
+  "id": "tools/git-diff",
+  "name": "Git Diff",
+  "description": "Runs git diff --staged and returns diff text and file list",
+  "type": "tool",
+  "inputs": {
+    "type": "object",
+    "properties": {}
+  },
+  "outputs": {
+    "type": "object",
+    "properties": {
+      "diff": { "type": "string" },
+      "files": { "type": "array", "items": { "type": "string" } },
+      "stats": { "type": "object" }
+    },
+    "required": ["diff"]
+  },
+  "executable": {
+    "type": "script",
+    "unix": "script.sh",
+    "win": "script.ps1"
+  }
+}

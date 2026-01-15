@@ -2,7 +2,7 @@
   "$schema": "./docs/schemas/maestro-config.schema.json",
   "environment": "development",
   "frontend": {
-    "useMockBackend": true,
+    "useMockBackend": false,
     "apiBaseUrl": "https://localhost:5001",
     "mockLatency": {
       "min": 100,

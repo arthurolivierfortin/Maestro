@@ -15,6 +15,8 @@ namespace Maestro.Domain.Entities
         public List<ExecutionLog> Logs { get; set; } = new();
         public List<string> ActiveBranches { get; set; } = new();
         public List<string> CheckpointFiles { get; set; } = new();
+        // Persisted workflow definition snapshot (JSON) to support resume without external lookup
+        public string? WorkflowDefinitionJson { get; set; }
         public ExecutionMetrics Metrics { get; set; } = new();
         public DateTimeOffset StartedAt { get; set; }
         public DateTimeOffset? CompletedAt { get; set; }

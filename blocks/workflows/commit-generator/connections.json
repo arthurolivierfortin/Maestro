@@ -1,0 +1,5 @@
+[
+  { "from": "trigger", "fromPort": "context", "to": "describe", "toPort": "context" },
+  { "from": "git-diff", "fromPort": "diff", "to": "describe", "toPort": "diff" },
+  { "from": "describe", "fromPort": "message", "to": "validate", "toPort": "input" }
+]

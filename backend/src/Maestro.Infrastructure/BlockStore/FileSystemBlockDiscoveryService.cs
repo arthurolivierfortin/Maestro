@@ -70,6 +70,50 @@ namespace Maestro.Infrastructure.BlockStore
         {
             foreach (var basePath in _searchPaths)
             {
+                // First scan project-level .maestro folders to allow overrides
+                try
+                {
+                    var projectMaestro = Path.Combine(basePath, ".maestro");
+                    if (Directory.Exists(projectMaestro))
+                    {
+                        // If the project has a .maestro/config.json, read it and attach to metadata for discovered blocks
+                        var projectConfigPath = Path.Combine(projectMaestro, "config.json");
+                        Dictionary<string, object>? projectConfig = null;
+                        try
+                        {
+                            if (File.Exists(projectConfigPath))
+                            {
+                                var cfgTxt = File.ReadAllText(projectConfigPath);
+                                projectConfig = JsonSerializer.Deserialize<Dictionary<string, object>>(cfgTxt);
+                            }
+                        }
+                        catch { /* ignore invalid project config */ }
+
+                        foreach (var file in Directory.EnumerateFiles(projectMaestro, "block.json", SearchOption.AllDirectories))
+                        {
+                            var folder = Path.GetDirectoryName(file);
+                            if (folder == null) continue;
+                            try
+                            {
+                                var block = LoadBlockFromFolder(folder);
+                                if (block != null)
+                                {
+                                    if (projectConfig != null)
+                                    {
+                                        // merge project config into block metadata under key "projectConfig"
+                                        var meta = new Dictionary<string, object>(block.Metadata ?? new Dictionary<string, object>());
+                                        meta["projectConfig"] = projectConfig;
+                                        block.UpdateMetadata(meta);
+                                    }
+                                    _cache[block.Id] = block;
+                                }
+                            }
+                            catch { }
+                        }
+                    }
+                }
+                catch { }
+
                 if (!Directory.Exists(basePath)) continue;
                 foreach (var file in Directory.EnumerateFiles(basePath, "block.json", SearchOption.AllDirectories))
                 {

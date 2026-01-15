@@ -1,0 +1,18 @@
+{
+  "id": "validators/commit-format",
+  "name": "Commit Format Validator",
+  "type": "validator",
+  "description": "Validates Conventional Commit structure produced by the describe-commit block",
+  "inputs": {
+    "type": "object",
+    "properties": {
+      "type": { "type": "string" },
+      "scope": { "type": "string" },
+      "subject": { "type": "string" },
+      "body": { "type": "string" }
+    },
+    "required": ["type","subject"]
+  },
+  "validation": "validation-schema.json",
+  "script": "custom-rules.js"
+}

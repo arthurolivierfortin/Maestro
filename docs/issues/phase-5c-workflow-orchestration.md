@@ -11,11 +11,14 @@
 
 ## Next Steps (short-term priorities)
 
-- Persist `WorkflowDefinition` with execution or implement a background resume worker (choose one)
+- Persist `WorkflowDefinition` with execution or implement a background resume worker (choose one)  
+  - [x] Persisted `WorkflowDefinition` snapshot into `ExecutionContext` at execution start
 - Implement decision routing (5C.5) for nested branches and convergence
 - Add per-block retry policy and error strategies (5C.6)
 - Implement per-block checkpoints and cleanup policy (5C.8)
 - Expose full execution API endpoints and wire frontend SignalR (5C.10 & 5C.11)
+  - [x] `WorkflowExecutionController` scaffolded and `POST /api/workflows/{id}/execute` persists execution and enqueues background execution
+  - [x] `GET /api/executions/{id}`, `POST /api/executions/{id}/resume`, `POST /api/executions/{id}/cancel` implemented as scaffold wired to `IExecutionRepository`
 
 > Recommended first action: persist the `WorkflowDefinition` inside the `ExecutionContext` at execution start. This enables safe, automatic resume without needing an external workflow lookup. If you prefer not to persist definitions, implement a background worker that can load definitions from the workflow repository before resuming.
 

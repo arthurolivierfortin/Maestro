@@ -1,0 +1,12 @@
+{
+  "name": "maestro-cli",
+  "version": "0.1.0",
+  "private": true,
+  "bin": { "maestro": "./index.js" },
+  "dependencies": {
+    "minimist": "^1.2.8"
+  }
+  ,"scripts": {
+    "test": "node tests/validator.test.js && node tests/execute-integration.test.js"
+  }
+}
