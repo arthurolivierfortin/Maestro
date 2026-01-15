@@ -65,14 +65,20 @@ builder.Services.AddScoped<IBlockRepository>(sp =>
 });
 
 builder.Services.AddScoped<Maestro.Application.Interfaces.IBlockValidator, Maestro.Infrastructure.BlockStore.JsonSchemaBlockValidator>();
-// Add CORS for frontend development
+
+// Add CORS for frontend development and Docker
 builder.Services.AddCors(options =>
 {
+    // Read allowed origins from configuration (for Docker deployment)
+    var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
+        ?? new[] { "http://localhost:5173", "http://localhost:3000", "http://frontend:5173" };
+
     options.AddPolicy("AllowFrontend", policy =>
     {
-        policy.WithOrigins("http://localhost:5173", "http://localhost:3000")
+        policy.WithOrigins(allowedOrigins)
               .AllowAnyHeader()
-              .AllowAnyMethod();
+              .AllowAnyMethod()
+              .AllowCredentials(); // Required for SignalR
     });
 });
 

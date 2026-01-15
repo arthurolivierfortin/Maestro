@@ -95,6 +95,10 @@ temp/
 appsettings.Development.json
 appsettings.Local.json
 
+# Docker
+docker-compose.override.yml
+*.log
+
 # API Keys and Secrets (DO NOT COMMIT)
 **/secrets.json
 **/appsettings.Secrets.json
