@@ -1,6 +1,22 @@
 # Continue Phase 6 Implementation
 
-You are an AI agent working on B-One Maestro, an autonomous multi-agent workflow orchestrator. Your task is to continue implementing Phase 6: Unified Block Architecture & Single Source of Truth.
+You are an AI agent working on B-One Maestro, an autonomous multi-agent workflow orchestrator. Your task is to **IMPLEMENT CODE** for Phase 6: Unified Block Architecture & Single Source of Truth.
+
+## ⚠️ CRITICAL RULES - READ FIRST
+
+1. **YOU MUST IMPLEMENT CODE** - Do NOT just update documentation files
+2. **YOU MUST COMPLETE ALL TASKS** - Do not ask which tasks to implement
+3. **YOU MUST WRITE WORKING CODE** - Controllers, services, tests, everything
+4. **YOU MUST RUN TESTS** - Verify your implementation works
+5. **ONLY MARK [x] AFTER IMPLEMENTING** - Never add sub-items under unchecked tasks
+
+## Phase Parameter
+
+**YOU MUST BE GIVEN A PHASE**: The user will specify which phase to implement (6A, 6B, 6C, 6D, or 6E).
+
+**Example**: "Implement Phase 6B" or "Complete Phase 6A tasks"
+
+If no phase is specified, **START WITH PHASE 6A** and implement all incomplete tasks.
 
 ## Context
 
@@ -19,15 +35,19 @@ Phase 6 is **CRITICAL** for the project's future. It establishes the Backend as 
    - `code-conventions.instructions.md` - Naming and style
    - `git-workflow.instructions.md` - Commit message format
 
-## Your Task
+## Your Implementation Workflow
 
-Continue Phase 6 implementation by:
+For the specified phase (e.g., 6B):
 
-1. **Check current progress** in issue files (`docs/issues/phase-6*.md`)
-2. **Find incomplete tasks** (unchecked boxes `- [ ]`)
-3. **Complete tasks in order** (6A → 6B → 6C → 6D → 6E)
-4. **Mark tasks complete** as you finish them
-5. **Update ROADMAP.md** when completing milestones
+1. **Read the issue file** (e.g., `docs/issues/phase-6b-discovery-api.md`)
+2. **Find ALL incomplete tasks** (unchecked boxes `- [ ]`)
+3. **Implement EVERY task** in order - DO NOT SKIP ANY
+4. **Write actual code files** - Controllers, DTOs, Services, Tests
+5. **Run tests** to verify each implementation
+6. **Mark task [x] ONLY after code works**
+7. **Commit with proper message** (e.g., `feat(api): implement DiscoveryController health endpoint [6B.2]`)
+8. **Continue to next task** until ALL tasks for the phase are complete
+9. **Update ROADMAP.md** only after all phase tasks are done
 
 ## Phase 6 Issue Files
 
@@ -76,19 +96,54 @@ Continue Phase 6 implementation by:
 Frontend    CLI         MCP       Future Agents
 ```
 
+## What to Implement (Examples)
+
+### 6A: Unified Block Source
+- Complete BlocksController CRUD endpoints
+- Implement block discovery service
+- Add block validation
+- Write integration tests
+
+### 6B: Discovery API
+- Create DiscoveryController
+- Implement /health, /capabilities, /config endpoints
+- Add block discovery endpoints
+- Write API tests
+
+### 6C: CLI/MCP Migration
+- Create shared MaestroApiClient library
+- Refactor tools/maestro-cli to use API
+- Refactor tools/maestro-mcp to use API
+- Remove all direct filesystem reads
+- Add --api-url flag support
+
+### 6D: Frontend Real Integration
+- Complete realDiscoveryService.ts
+- Complete realExecutionService.ts
+- Complete realBlockService.ts
+- Wire up SignalR event handlers
+- Add error handling and loading states
+
+### 6E: Docker Preparation
+- Create Dockerfiles
+- Create docker-compose.yml
+- Add environment configuration
+- Write deployment documentation
+
 ## Success Criteria
 
-Phase 6 is complete when:
-- [ ] All clients (Frontend, CLI, MCP) use Backend API exclusively
-- [ ] No direct filesystem reads outside Backend Infrastructure
-- [ ] Docker deployment works
-- [ ] All acceptance criteria in issue files are met
-- [ ] All task checkboxes are marked complete
+The phase you implement is complete when:
+- ✅ All task checkboxes in the issue file are marked [x]
+- ✅ All code files are created and working
+- ✅ All tests pass
+- ✅ All acceptance criteria in the issue file are met
+- ✅ ROADMAP.md is updated with completion status
+- ✅ Commits follow conventional format with task references
 
 ## Start Here
 
-Begin by reading the issue file for the current sub-phase and finding the first incomplete task. Good luck!
+**DO NOT ASK WHICH TASK TO DO** - Read the issue file for the specified phase and implement ALL incomplete tasks in order until the phase is complete.
 
 ---
 
-**Prompt Usage**: Copy this prompt to give to an AI agent to continue Phase 6 work.
+**Prompt Usage**: "Follow instructions in continue-phase-6.prompt.md for Phase 6B" → Agent implements ALL Phase 6B tasks automatically.

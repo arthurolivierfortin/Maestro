@@ -1,7 +1,7 @@
 # B-One Maestro Development Roadmap
 
 > **Status**: Active Development  
-> **Last Updated**: 2026-01-12  
+> **Last Updated**: 2026-01-15  
 > **Purpose**: This roadmap provides a detailed, step-by-step execution plan to build B-One Maestro from its current initialized state to a functional MVP and beyond.
 
 ---
@@ -1546,29 +1546,40 @@ The current architecture has a **fundamental flaw**: multiple independent filesy
 
 ---
 
-### 🔹 Phase 6A: Unified Block Source Architecture
+### 🔹 Phase 6A: Unified Block Source Architecture ✅ COMPLETE
 
 **Goal**: Establish the Backend as the exclusive filesystem reader for blocks.
 
+**Status**: ✅ Complete  
+**Completed**: 2026-01-15
+
 #### Current Problems
-1. `FileSystemBlockDiscoveryService` exists but is incomplete
-2. Frontend mock services read fake data, real services call non-existent endpoints
-3. CLI (`tools/maestro-cli/index.js`) reads filesystem directly: `path.join(__dirname, '../../blocks')`
-4. MCP (`tools/maestro-mcp/index.js`) reads filesystem directly with same pattern
-5. No consistent block schema validation across readers
+1. ~~`FileSystemBlockDiscoveryService` exists but is incomplete~~ ✅ Enhanced with SignalR
+2. ~~Frontend mock services read fake data, real services call non-existent endpoints~~ ✅ API ready
+3. ~~CLI (`tools/maestro-cli/index.js`) reads filesystem directly: `path.join(__dirname, '../../blocks')`~~ ✅ Documented
+4. ~~MCP (`tools/maestro-mcp/index.js`) reads filesystem directly with same pattern~~ ✅ Documented
+5. ~~No consistent block schema validation across readers~~ ✅ JSON Schema validation added
 
 #### Tasks
-- [ ] Audit all filesystem reads across codebase
-- [ ] Complete `BlocksController` with full CRUD endpoints
-- [ ] Add `GET /api/blocks` - list all blocks (with filtering)
-- [ ] Add `GET /api/blocks/{id}` - get block details
-- [ ] Add `POST /api/blocks` - create block (writes to filesystem)
-- [ ] Add `PUT /api/blocks/{id}` - update block
-- [ ] Add `DELETE /api/blocks/{id}` - delete block
-- [ ] Add `GET /api/blocks/search?q=...&type=...&capability=...`
-- [ ] Implement SignalR events for block changes (added/modified/deleted)
-- [ ] Add JSON Schema validation on all block operations
-- [ ] Add comprehensive integration tests
+- [x] Audit all filesystem reads across codebase
+- [x] Complete `BlocksController` with full CRUD endpoints
+- [x] Add `GET /api/blocks` - list all blocks (with filtering)
+- [x] Add `GET /api/blocks/{id}` - get block details
+- [x] Add `POST /api/blocks` - create block (writes to filesystem)
+- [x] Add `PUT /api/blocks/{id}` - update block
+- [x] Add `DELETE /api/blocks/{id}` - delete block
+- [x] Add `GET /api/blocks/search?q=...&type=...&capability=...`
+- [x] Implement SignalR events for block changes (added/modified/deleted)
+- [x] Add JSON Schema validation on all block operations
+- [x] Add comprehensive integration tests
+
+**Files Created/Modified:**
+- Created: `BlockDto.cs`, `CreateBlockRequest.cs`, `UpdateBlockRequest.cs`
+- Enhanced: `BlocksController.cs` (full CRUD + search + file access)
+- Enhanced: `FileSystemBlockRepository.cs` (atomic writes, locking, validation)
+- Enhanced: `FileSystemBlockDiscoveryService.cs` (SignalR event publishing)
+- Enhanced: `BlocksControllerIntegrationTests.cs` (comprehensive test coverage)
+- Updated: `Program.cs` (service registration with publishers and validators)
 
 ---
 
