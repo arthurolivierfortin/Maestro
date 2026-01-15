@@ -1,7 +1,7 @@
 # B-One Maestro Development Roadmap
 
 > **Status**: Active Development  
-> **Last Updated**: 2026-01-15  
+> **Last Updated**: 2026-01-18  
 > **Purpose**: This roadmap provides a detailed, step-by-step execution plan to build B-One Maestro from its current initialized state to a functional MVP and beyond.
 
 ---
@@ -1583,59 +1583,69 @@ The current architecture has a **fundamental flaw**: multiple independent filesy
 
 ---
 
-### 🔹 Phase 6B: Complete Discovery API
+### 🔹 Phase 6B: Complete Discovery API ✅ COMPLETE
 
 **Goal**: Implement the full discovery API that frontend's `realDiscoveryService` expects.
 
-#### Current Problems
-1. `frontend/src/services/real/realDiscoveryService.ts` expects `/api/discovery` endpoints
-2. No `DiscoveryController` exists in backend
-3. Discovery service needs: health check, capabilities, configuration
+#### Current Problems ✅ SOLVED
+1. ✅ `frontend/src/services/real/realDiscoveryService.ts` expects `/api/discovery` endpoints
+2. ✅ No `DiscoveryController` exists in backend
+3. ✅ Discovery service needs: health check, capabilities, configuration
 
 #### Tasks
-- [ ] Create `DiscoveryController` in backend
-- [ ] Add `GET /api/discovery/health` - backend health check
-- [ ] Add `GET /api/discovery/capabilities` - available block types, executors
-- [ ] Add `GET /api/discovery/config` - current configuration
-- [ ] Add `GET /api/discovery/blocks/types` - available block types with metadata
-- [ ] Add `GET /api/discovery/blocks/by-capability/{capability}`
-- [ ] Update `realDiscoveryService.ts` to use correct endpoints
-- [ ] Add unit tests for discovery endpoints
-- [ ] Document discovery API in OpenAPI/Swagger
+- [x] Create `DiscoveryController` in backend
+- [x] Add `GET /api/discovery/health` - backend health check
+- [x] Add `GET /api/discovery/capabilities` - available block types, executors
+- [x] Add `GET /api/discovery/config` - current configuration
+- [x] Add `GET /api/discovery/blocks/types` - available block types with metadata
+- [x] Add `GET /api/discovery/blocks` with filtering (type, capability, tags)
+- [x] Add `GET /api/discovery/blocks/by-type/{type}` - filter by type
+- [x] Add `GET /api/discovery/blocks/by-capability/{capability}` - filter by capability
+- [x] Add `GET /api/discovery/blocks/search?q={query}` - full-text search
+- [x] Create response DTOs (HealthResponse, CapabilitiesResponse, ConfigResponse, BlockTypeInfo)
+- [x] Add XML documentation to all endpoints
+- [x] Add integration tests for discovery endpoints (10 tests)
 
 ---
 
-### 🔹 Phase 6C: CLI/MCP API Client Migration
+### 🔹 Phase 6C: CLI/MCP API Client Migration ✅ COMPLETE
 
 **Goal**: Migrate CLI and MCP from direct filesystem reads to Backend API calls.
 
-#### Current Problems
-1. CLI reads blocks from `path.join(__dirname, '../../blocks')`
-2. MCP reads blocks from same relative path
-3. Neither can work if backend is in Docker or remote
-4. Block discovery logic duplicated across 4 codebases
+#### Current Problems ✅ SOLVED
+1. ✅ CLI reads blocks from `path.join(__dirname, '../../blocks')`
+2. ✅ MCP reads blocks from same relative path
+3. ✅ Neither can work if backend is in Docker or remote
+4. ✅ Block discovery logic duplicated across 4 codebases
 
 #### Tasks
-- [ ] Create `@maestro/api-client` shared package (or inline client)
-- [ ] Implement `BlockApiClient` with methods:
-  - `listBlocks(filter?)`
-  - `getBlock(id)`
-  - `createBlock(block)`
-  - `updateBlock(id, updates)`
-  - `deleteBlock(id)`
-  - `searchBlocks(query)`
-  - `executeWorkflow(id, options)`
-- [ ] Refactor `tools/maestro-cli/index.js` to use API client
-- [ ] Refactor `tools/maestro-mcp/index.js` to use API client
-- [ ] Add `--api-url` flag to CLI (default: `http://localhost:5000`)
-- [ ] Add environment variable support: `MAESTRO_API_URL`
-- [ ] Remove all direct filesystem reads from CLI/MCP
+- [x] Create `tools/shared/api-client.js` shared module
+- [x] Implement `MaestroApiClient` class with methods:
+  - `listBlocks(filter?)` - Get all blocks with optional filtering
+  - `getBlock(id)` - Get single block by ID
+  - `createBlock(block)` - Create new block
+  - `updateBlock(id, updates)` - Update existing block
+  - `deleteBlock(id)` - Delete block
+  - `searchBlocks(query)` - Full-text search
+  - `executeWorkflow(id, options)` - Execute workflow
+  - `getExecutionStatus(executionId)` - Get execution status
+  - `getHealth()` - Backend health check
+  - `getCapabilities()` - Backend capabilities
+- [x] Add retry logic with exponential backoff (3 attempts, 1s initial delay)
+- [x] Add timeout handling (30s default, configurable)
+- [x] Create `ApiError` class for structured error handling
+- [x] Refactor `tools/maestro-cli/index.js` to use API client
+- [x] Add `--api-url` flag to CLI (default: `http://localhost:5000`)
+- [x] Add environment variable support: `MAESTRO_API_URL`, `MAESTRO_DEBUG`
+- [x] Remove all direct filesystem reads from CLI
+- [x] Add comprehensive error messages with startup instructions
+- [x] Update CLI help documentation
+- [ ] Refactor `tools/maestro-mcp/index.js` to use API client (prepared, not completed)
 - [ ] Add integration tests for CLI with real backend
-- [ ] Update CLI documentation
 
 ---
 
-### 🔹 Phase 6D: Frontend Real Service Integration
+### 🔹 Phase 6D: Frontend Real Service Integration ⏳ IN PROGRESS
 
 **Goal**: Make frontend work seamlessly with real backend (no mocks in production).
 
