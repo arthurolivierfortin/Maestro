@@ -7,6 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Maestro.Application.Interfaces;
 using Maestro.Domain.Entities;
+using Maestro.Infrastructure.Utilities;
 
 namespace Maestro.Infrastructure.BlockStore
 {
@@ -61,18 +62,19 @@ namespace Maestro.Infrastructure.BlockStore
                 
             foreach (var dir in Directory.EnumerateDirectories(_basePath))
             {
-                var file = Path.Combine(dir, "block.json");
-                if (!File.Exists(file)) continue;
-                
                 try
                 {
+                    // Find any file matching the block metadata convention
+                    var file = Directory.EnumerateFiles(dir, "*.block.json", SearchOption.TopDirectoryOnly).FirstOrDefault();
+                    if (file == null) continue;
+
                     var block = LoadBlockFromFile(file);
                     if (block != null)
                         list.Add(block);
                 }
                 catch
                 {
-                    // Skip invalid blocks
+                    // Skip invalid blocks or directories with IO errors
                 }
             }
             return Task.FromResult<IEnumerable<BlockDefinition>>(list);
@@ -81,19 +83,22 @@ namespace Maestro.Infrastructure.BlockStore
         public Task<BlockDefinition?> GetByIdAsync(string id, CancellationToken ct = default)
         {
             var path = Path.Combine(_basePath, id);
-            var file = Path.Combine(path, "block.json");
-            
-            if (!File.Exists(file)) 
+            if (!Directory.Exists(path))
                 return Task.FromResult<BlockDefinition?>(null);
-            
+
             try
             {
+                // Prefer files that match the name.type.block.json pattern; fallback to any *.block.json
+                var file = Directory.EnumerateFiles(path, "*.block.json", SearchOption.TopDirectoryOnly).FirstOrDefault();
+                if (file == null)
+                    return Task.FromResult<BlockDefinition?>(null);
+
                 var block = LoadBlockFromFile(file);
                 return Task.FromResult<BlockDefinition?>(block);
             }
-            catch 
-            { 
-                return Task.FromResult<BlockDefinition?>(null); 
+            catch
+            {
+                return Task.FromResult<BlockDefinition?>(null);
             }
         }
 
@@ -114,8 +119,8 @@ namespace Maestro.Infrastructure.BlockStore
             {
                 var dir = Path.Combine(_basePath, block.Id);
                 Directory.CreateDirectory(dir);
-                
-                var file = Path.Combine(dir, "block.json");
+                var fileName = BlockFileNameHelper.CreateFileName(block.Name, block.BlockType);
+                var file = Path.Combine(dir, fileName);
                 var tempFile = file + ".tmp";
                 
                 // Serialize block
@@ -240,5 +245,7 @@ namespace Maestro.Infrastructure.BlockStore
             
             return def;
         }
+
+        
     }
 }

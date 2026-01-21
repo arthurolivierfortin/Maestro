@@ -1,5 +1,5 @@
 /**
- * AtomicBlockEditPage Component Tests (renamed from BlockEditPage)
+ * AtomicBlockEditorPage Component Tests (renamed from BlockEditPage)
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
