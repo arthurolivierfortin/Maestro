@@ -4,6 +4,9 @@ using Maestro.Infrastructure.LLMGateway;
 using Maestro.Infrastructure.Monitoring;
 using Maestro.Infrastructure.Persistence;
 using Maestro.Infrastructure.BlockStore;
+using Maestro.Infrastructure.Configuration;
+using Maestro.Infrastructure.Projects;
+using Maestro.Infrastructure.Containers;
 using System.IO;
 using System;
 
@@ -41,10 +44,18 @@ builder.Services.AddScoped<Maestro.Infrastructure.BlockExecutors.BlockExecutorRe
 var execFolder = Path.Combine(AppContext.BaseDirectory, "executions");
 builder.Services.AddScoped<Maestro.Application.Interfaces.IExecutionRepository>(_ => new Maestro.Infrastructure.Persistence.FileSystemExecutionRepository(execFolder));
 
-// Phase 5A: Filesystem block discovery and repository
-var blocksGlobalPath = Path.Combine(AppContext.BaseDirectory, "blocks");
-var blocksUserPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile) ?? "", ".maestro", "blocks");
-var blocksProjectPath = Path.Combine(Directory.GetCurrentDirectory(), ".maestro", "blocks");
+// Phase 7A: Use MaestroPathConfiguration for centralized path resolution
+var pathConfig = new MaestroPathConfiguration(builder.Configuration);
+pathConfig.EnsureDirectoriesExist();
+
+// Log resolved paths for debugging
+Console.WriteLine($"[Maestro] Repository root: {pathConfig.RepoRootPath}");
+Console.WriteLine($"[Maestro] Global blocks:   {pathConfig.GlobalBlocksPath}");
+Console.WriteLine($"[Maestro] User blocks:     {pathConfig.UserBlocksPath}");
+Console.WriteLine($"[Maestro] Project blocks:  {pathConfig.ProjectBlocksPath}");
+
+// Register path configuration as singleton for other services
+builder.Services.AddSingleton(pathConfig);
 
 // Register SignalR-based publisher implementation as singleton (for FileSystemBlockDiscoveryService)
 builder.Services.AddSingleton<Maestro.Application.Interfaces.IBlockChangePublisher, Maestro.Api.Services.SignalRBlockChangePublisher>();
@@ -53,7 +64,8 @@ builder.Services.AddSingleton<Maestro.Application.Interfaces.IBlockChangePublish
 builder.Services.AddSingleton<IBlockDiscoveryService>(sp =>
 {
     var publisher = sp.GetService<Maestro.Application.Interfaces.IBlockChangePublisher>();
-    return new FileSystemBlockDiscoveryService(new[] { blocksProjectPath, blocksUserPath, blocksGlobalPath }, publisher);
+    var config = sp.GetRequiredService<MaestroPathConfiguration>();
+    return new FileSystemBlockDiscoveryService(config.GetSearchPaths(), publisher);
 });
 
 // Register block repository with publisher and validator
@@ -61,10 +73,22 @@ builder.Services.AddScoped<IBlockRepository>(sp =>
 {
     var publisher = sp.GetService<Maestro.Application.Interfaces.IBlockChangePublisher>();
     var validator = sp.GetService<Maestro.Application.Interfaces.IBlockValidator>();
-    return new FileSystemBlockRepository(blocksProjectPath, publisher, validator);
+    var config = sp.GetRequiredService<MaestroPathConfiguration>();
+    return new FileSystemBlockRepository(config.ProjectBlocksPath, publisher, validator);
 });
 
 builder.Services.AddScoped<Maestro.Application.Interfaces.IBlockValidator, Maestro.Infrastructure.BlockStore.JsonSchemaBlockValidator>();
+
+// Register project repository (Phase 7B)
+builder.Services.AddSingleton<IProjectRepository>(sp =>
+{
+    var config = sp.GetRequiredService<MaestroPathConfiguration>();
+    var logger = sp.GetService<ILogger<FileSystemProjectRepository>>();
+    return new FileSystemProjectRepository(config, logger);
+});
+
+// Register container runtime factory (Phase 7D)
+builder.Services.AddSingleton<IContainerRuntimeFactory, ContainerRuntimeFactory>();
 
 // Add CORS for frontend development and Docker
 builder.Services.AddCors(options =>

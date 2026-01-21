@@ -1,0 +1,157 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://maestro.dev/schemas/project.json",
+  "title": "Maestro Project Configuration",
+  "description": "Configuration schema for a Maestro project, defining isolated execution units with blocks, workflows, and runtime settings.",
+  "type": "object",
+  "required": ["name"],
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "Reference to this schema for validation"
+    },
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique identifier for the project (UUID v4)"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100,
+      "description": "Display name of the project"
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 500,
+      "description": "Optional description of the project"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+",
+      "default": "1.0.0",
+      "description": "Semantic version of the project configuration"
+    },
+    "runtime": {
+      "type": "object",
+      "description": "Container runtime configuration for isolated execution",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["none", "docker", "podman"],
+          "default": "none",
+          "description": "Container runtime type"
+        },
+        "image": {
+          "type": "string",
+          "description": "Container image to use (e.g., 'node:20-alpine', 'python:3.12')"
+        },
+        "workDir": {
+          "type": "string",
+          "default": "/app",
+          "description": "Working directory inside the container"
+        },
+        "env": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Environment variables to set in the container"
+        },
+        "resources": {
+          "type": "object",
+          "description": "Resource limits for container execution",
+          "properties": {
+            "cpuLimit": {
+              "type": "string",
+              "pattern": "^\\d+(\\.\\d+)?$",
+              "description": "CPU limit (e.g., '1.0' for 1 CPU, '0.5' for half)"
+            },
+            "memoryLimit": {
+              "type": "string",
+              "pattern": "^\\d+[kmg]?$",
+              "description": "Memory limit (e.g., '512m', '1g')"
+            },
+            "timeoutSeconds": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 3600,
+              "description": "Maximum execution time in seconds"
+            }
+          }
+        },
+        "network": {
+          "type": "string",
+          "enum": ["none", "bridge", "host"],
+          "default": "none",
+          "description": "Network mode for the container"
+        },
+        "mounts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["source", "target"],
+            "properties": {
+              "source": {
+                "type": "string",
+                "description": "Source path on host (relative to project root)"
+              },
+              "target": {
+                "type": "string",
+                "description": "Target path in container"
+              },
+              "readonly": {
+                "type": "boolean",
+                "default": false,
+                "description": "Mount as read-only"
+              }
+            }
+          },
+          "description": "Additional volume mounts"
+        }
+      }
+    },
+    "blocks": {
+      "type": "object",
+      "description": "Block discovery configuration",
+      "properties": {
+        "searchPaths": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": ["./blocks"],
+          "description": "Additional paths to search for blocks (relative to project root)"
+        }
+      }
+    },
+    "models": {
+      "type": "object",
+      "description": "LLM model configuration",
+      "properties": {
+        "default": {
+          "type": "string",
+          "description": "Default model to use for LLM operations (e.g., 'gpt-4', 'claude-3-opus')"
+        },
+        "overrides": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Model overrides per block type or ID"
+        }
+      }
+    },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the project was created"
+    },
+    "updatedAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the project was last updated"
+    }
+  },
+  "additionalProperties": false
+}

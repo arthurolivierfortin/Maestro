@@ -5,7 +5,6 @@
  */
 
 import { apiClient } from './api';
-import { config } from '../config';
 import { useMockBackendEffective } from '../config/config';
 import { getMockExecutionService } from './mock/mockExecutionService';
 import type {

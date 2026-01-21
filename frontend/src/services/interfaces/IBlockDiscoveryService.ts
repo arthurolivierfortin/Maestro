@@ -115,4 +115,52 @@ export interface IBlockDiscoveryService {
    * Get recent execution history for a block
    */
   getRecentExecutions(blockId: string, limit?: number): Promise<Execution[]>;
+
+  /**
+   * Get health status of the discovery service
+   */
+  getHealth(): Promise<HealthStatus>;
+
+  /**
+   * Get capabilities of the discovery service
+   */
+  getCapabilities(): Promise<Capabilities>;
+
+  /**
+   * Get configuration info
+   */
+  getConfig(): Promise<ConfigInfo>;
+}
+
+/**
+ * Health status response
+ */
+export interface HealthStatus {
+  isHealthy: boolean;
+  status: string;
+  version: string;
+  uptime: number;
+  blockCount: number;
+  services: Record<string, string>;
+}
+
+/**
+ * Service capabilities
+ */
+export interface Capabilities {
+  blockTypes: string[];
+  executors: string[];
+  llmProviders: string[];
+  features: string[];
+}
+
+/**
+ * Configuration info
+ */
+export interface ConfigInfo {
+  blockSearchPaths: string[];
+  defaultLLMProvider?: string;
+  executionTimeout?: number;
+  maxConcurrentExecutions?: number;
+  signalREnabled: boolean;
 }

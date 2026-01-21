@@ -25,6 +25,12 @@ const navigationItems: SidebarItem[] = [
     path: '/',
   },
   {
+    id: 'projects',
+    label: 'Projects',
+    icon: '📁',
+    path: '/projects',
+  },
+  {
     id: 'workflows',
     label: 'Workflows',
     icon: '≋',

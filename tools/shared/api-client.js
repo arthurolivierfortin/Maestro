@@ -189,6 +189,48 @@ class MaestroApiClient {
     return this._fetch('POST', `/api/executions/${executionId}/cancel`);
   }
 
+  // ===== PROJECTS =====
+
+  async listProjects() {
+    return this._fetch('GET', '/api/projects');
+  }
+
+  async getProject(id) {
+    if (!id) throw new Error('Project ID is required');
+    return this._fetch('GET', `/api/projects/${id}`);
+  }
+
+  async createProject(project) {
+    if (!project || !project.name || !project.rootPath) {
+      throw new Error('Project must have name and rootPath');
+    }
+    return this._fetch('POST', '/api/projects', { body: project });
+  }
+
+  async updateProject(id, updates) {
+    if (!id) throw new Error('Project ID is required');
+    return this._fetch('PUT', `/api/projects/${id}`, { body: updates });
+  }
+
+  async deleteProject(id) {
+    if (!id) throw new Error('Project ID is required');
+    return this._fetch('DELETE', `/api/projects/${id}`);
+  }
+
+  async openProject(rootPath) {
+    if (!rootPath) throw new Error('Root path is required');
+    return this._fetch('POST', '/api/projects/open', { body: { rootPath } });
+  }
+
+  async getProjectBlocks(projectId) {
+    if (!projectId) throw new Error('Project ID is required');
+    return this._fetch('GET', `/api/projects/${projectId}/blocks`);
+  }
+
+  async discoverProjects() {
+    return this._fetch('POST', '/api/projects/discover');
+  }
+
   // ===== HELPER METHODS =====
 
   async checkBackendReady() {

@@ -7,7 +7,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { getRealDiscoveryService } from '../services/real/realDiscoveryService';
-import { getErrorMessage, isConnectionError } from '../services/api/errorHandling';
+import { getErrorMessage } from '../services/api/errorHandling';
 
 /**
  * Connection state

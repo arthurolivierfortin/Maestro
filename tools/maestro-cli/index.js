@@ -174,10 +174,212 @@ async function searchBlocks(query) {
   }
 }
 
+// ============= Project Management Functions =============
+
+async function listProjects() {
+  try {
+    const projects = await client.listProjects();
+    if (projects.length === 0) {
+      console.log('\nNo projects found');
+      console.log('  Create one with: maestro projects create --name "My Project" --path /path/to/project');
+      return;
+    }
+
+    console.log('\n📁 Available Projects:\n');
+    console.table(projects.map(p => ({
+      'ID': p.id.substring(0, 8) + '...',
+      'Name': p.name,
+      'Path': p.rootPath,
+      'Runtime': p.runtime?.type || 'none',
+      'Version': p.version
+    })));
+  } catch (error) {
+    handleApiError(error, 'listing projects');
+  }
+}
+
+async function getProjectInfo(id) {
+  try {
+    const project = await client.getProject(id);
+    console.log('\n📁 Project Details:\n');
+    console.log(`  ID:           ${project.id}`);
+    console.log(`  Name:         ${project.name}`);
+    console.log(`  Description:  ${project.description || 'N/A'}`);
+    console.log(`  Path:         ${project.rootPath}`);
+    console.log(`  Version:      ${project.version}`);
+    console.log(`  Created:      ${project.createdAt}`);
+    console.log(`  Updated:      ${project.updatedAt}`);
+    
+    if (project.runtime) {
+      console.log('\n  Runtime:');
+      console.log(`    Type:       ${project.runtime.type}`);
+      if (project.runtime.image) console.log(`    Image:      ${project.runtime.image}`);
+      if (project.runtime.workDir) console.log(`    WorkDir:    ${project.runtime.workDir}`);
+      if (project.runtime.networkMode) console.log(`    Network:    ${project.runtime.networkMode}`);
+      if (project.runtime.resources) {
+        const r = project.runtime.resources;
+        if (r.cpuLimit) console.log(`    CPU:        ${r.cpuLimit}`);
+        if (r.memoryLimit) console.log(`    Memory:     ${r.memoryLimit}`);
+        if (r.timeoutSeconds) console.log(`    Timeout:    ${r.timeoutSeconds}s`);
+      }
+    }
+    
+    if (project.blockSearchPaths?.length > 0) {
+      console.log(`\n  Block Paths:  ${project.blockSearchPaths.join(', ')}`);
+    }
+    
+    if (project.defaultModel) {
+      console.log(`\n  Default Model: ${project.defaultModel}`);
+    }
+    
+    console.log('');
+  } catch (error) {
+    if (error.status === 404) {
+      console.error(`❌ Project not found: ${id}`);
+    } else {
+      handleApiError(error, 'retrieving project');
+    }
+    process.exit(1);
+  }
+}
+
+async function createProject(name, rootPath, options = {}) {
+  try {
+    const request = {
+      name,
+      rootPath: path.resolve(rootPath),
+      description: options.description,
+      runtime: options.runtime ? {
+        type: options.runtime,
+        image: options.image,
+        workDir: options.workDir
+      } : undefined,
+      blockSearchPaths: options.blockPaths ? options.blockPaths.split(',') : undefined,
+      defaultModel: options.model
+    };
+
+    const project = await client.createProject(request);
+    console.log(`\n✅ Project created successfully!\n`);
+    console.log(`  ID:   ${project.id}`);
+    console.log(`  Name: ${project.name}`);
+    console.log(`  Path: ${project.rootPath}`);
+    console.log('');
+  } catch (error) {
+    if (error.status === 400) {
+      console.error(`❌ Invalid project configuration: ${error.message}`);
+    } else if (error.status === 409) {
+      console.error(`❌ Project already exists at: ${rootPath}`);
+    } else {
+      handleApiError(error, 'creating project');
+    }
+    process.exit(1);
+  }
+}
+
+async function openProject(projectPath) {
+  try {
+    const resolvedPath = path.resolve(projectPath);
+    const project = await client.openProject(resolvedPath);
+    console.log(`\n✅ Project opened successfully!\n`);
+    console.log(`  ID:   ${project.id}`);
+    console.log(`  Name: ${project.name}`);
+    console.log(`  Path: ${project.rootPath}`);
+    console.log('');
+  } catch (error) {
+    if (error.status === 404) {
+      console.error(`❌ No project found at: ${projectPath}`);
+      console.error('   Create one with: maestro projects create --name "Name" --path ' + projectPath);
+    } else {
+      handleApiError(error, 'opening project');
+    }
+    process.exit(1);
+  }
+}
+
+async function deleteProject(id, options = {}) {
+  try {
+    if (!options.force) {
+      console.log(`\n⚠️  This will remove the project from Maestro (config file remains on disk)`);
+      console.log(`   Use --force to confirm deletion`);
+      process.exit(1);
+    }
+    
+    await client.deleteProject(id);
+    console.log(`\n✅ Project removed: ${id}`);
+    console.log('');
+  } catch (error) {
+    if (error.status === 404) {
+      console.error(`❌ Project not found: ${id}`);
+    } else {
+      handleApiError(error, 'deleting project');
+    }
+    process.exit(1);
+  }
+}
+
+async function listProjectBlocks(projectId) {
+  try {
+    const blocks = await client.getProjectBlocks(projectId);
+    if (blocks.length === 0) {
+      console.log('\nNo blocks found in project');
+      return;
+    }
+
+    console.log(`\n📦 Blocks in Project:\n`);
+    console.table(blocks.map(b => ({
+      'ID': b.id,
+      'Name': b.name,
+      'Type': b.blockType,
+      'Version': b.version
+    })));
+  } catch (error) {
+    if (error.status === 404) {
+      console.error(`❌ Project not found: ${projectId}`);
+    } else {
+      handleApiError(error, 'listing project blocks');
+    }
+    process.exit(1);
+  }
+}
+
+async function discoverProjects(searchPath) {
+  try {
+    const resolvedPath = path.resolve(searchPath);
+    console.log(`\n🔍 Discovering projects in: ${resolvedPath}\n`);
+    
+    const projects = await client.discoverProjects(resolvedPath);
+    if (projects.length === 0) {
+      console.log('No projects found');
+      console.log('  Projects require a .maestro/project.json file');
+      return;
+    }
+
+    console.log(`Found ${projects.length} project(s):\n`);
+    console.table(projects.map(p => ({
+      'ID': p.id.substring(0, 8) + '...',
+      'Name': p.name,
+      'Path': p.rootPath
+    })));
+  } catch (error) {
+    handleApiError(error, 'discovering projects');
+    process.exit(1);
+  }
+}
+
+function handleApiError(error, action) {
+  if (error.code === 'ECONNREFUSED' || error.message?.includes('ECONNREFUSED')) {
+    console.error(`❌ Cannot connect to backend at ${client.baseUrl}`);
+    console.error('   Make sure the backend is running:');
+    console.error('   $ dotnet run --project backend/src/Maestro.Api');
+  } else {
+    console.error(`❌ Error ${action}: ${error.message}`);
+  }
+}
+
 async function main() {
   const argv = minimist(process.argv.slice(2), { 
-    boolean: ['mock', 'help', 'h'],
-    string: ['api-url', 'u']
+    boolean: ['mock', 'help', 'h', 'force'],
+    string: ['api-url', 'u', 'name', 'path', 'description', 'runtime', 'image', 'work-dir', 'block-paths', 'model']
   });
 
   // Update client URL if provided
@@ -190,25 +392,47 @@ async function main() {
   // Help
   if (!cmd || argv.help || argv.h) {
     console.log(`
-Maestro CLI v1.0.0
+Maestro CLI v1.1.0
 
 Usage: maestro <command> [options]
 
-Commands:
+Block Commands:
   blocks               List all available blocks
   workflows            List all workflows
   info <block-id>      Show block details
   search <query>       Search blocks by name or description
-  health               Check backend connection
+
+Project Commands:
+  projects             List all projects
+  projects info <id>   Show project details
+  projects create      Create a new project
+  projects open <path> Open an existing project
+  projects delete <id> Remove a project (--force required)
+  projects blocks <id> List blocks in a project
+  projects discover    Discover projects in a directory
+
+Execution Commands:
   execute <workflow>   Execute a workflow (requires --mock for PoC)
   validate <workflow>  Validate workflow structure
 
+System Commands:
+  health               Check backend connection
+
 Options:
   --api-url <url>      Backend API URL (default: http://localhost:5000)
-  -u <url>            Shorthand for --api-url
-  --mock              Use mock execution (for workflows)
-  --input <key=value> Input parameters for workflow (can be repeated)
-  --help, -h          Show this help message
+  -u <url>             Shorthand for --api-url
+  --mock               Use mock execution (for workflows)
+  --input <key=value>  Input parameters for workflow (can be repeated)
+  --help, -h           Show this help message
+
+Project Create Options:
+  --name <name>        Project name (required)
+  --path <path>        Project root path (required)
+  --description <desc> Project description
+  --runtime <type>     Runtime type: none, docker, process
+  --image <image>      Docker image (if runtime=docker)
+  --model <model>      Default model for agents
+  --block-paths <paths> Comma-separated block search paths
 
 Environment Variables:
   MAESTRO_API_URL      Backend API URL (default: http://localhost:5000)
@@ -218,11 +442,15 @@ Environment Variables:
 Examples:
   maestro blocks
   maestro workflows
+  maestro projects
+  maestro projects create --name "My App" --path ./my-app
+  maestro projects open ./my-app
+  maestro projects blocks abc123
+  maestro projects discover ./workspace
   maestro search agent
   maestro health
   maestro info my-block-id
   maestro --api-url http://localhost:5000 blocks
-  MAESTRO_API_URL=http://backend:5000 maestro workflows
 `);
     return;
   }
@@ -241,6 +469,62 @@ Examples:
       return await searchBlocks(query);
     }
     if (cmd === 'health') return await checkHealth();
+    
+    // Project commands
+    if (cmd === 'projects') {
+      const subCmd = argv._[1];
+      
+      if (!subCmd) return await listProjects();
+      
+      if (subCmd === 'info') {
+        const id = argv._[2];
+        if (!id) { console.error('❌ Project ID required'); process.exit(1); }
+        return await getProjectInfo(id);
+      }
+      
+      if (subCmd === 'create') {
+        const name = argv.name;
+        const projectPath = argv.path;
+        if (!name) { console.error('❌ --name is required'); process.exit(1); }
+        if (!projectPath) { console.error('❌ --path is required'); process.exit(1); }
+        return await createProject(name, projectPath, {
+          description: argv.description,
+          runtime: argv.runtime,
+          image: argv.image,
+          workDir: argv['work-dir'],
+          blockPaths: argv['block-paths'],
+          model: argv.model
+        });
+      }
+      
+      if (subCmd === 'open') {
+        const projectPath = argv._[2];
+        if (!projectPath) { console.error('❌ Project path required'); process.exit(1); }
+        return await openProject(projectPath);
+      }
+      
+      if (subCmd === 'delete') {
+        const id = argv._[2];
+        if (!id) { console.error('❌ Project ID required'); process.exit(1); }
+        return await deleteProject(id, { force: argv.force });
+      }
+      
+      if (subCmd === 'blocks') {
+        const id = argv._[2];
+        if (!id) { console.error('❌ Project ID required'); process.exit(1); }
+        return await listProjectBlocks(id);
+      }
+      
+      if (subCmd === 'discover') {
+        const searchPath = argv._[2] || '.';
+        return await discoverProjects(searchPath);
+      }
+      
+      console.error(`❌ Unknown projects subcommand: ${subCmd}`);
+      console.error('   Run "maestro --help" for usage information');
+      process.exit(1);
+    }
+    
     if (cmd === 'validate') {
       const wf = argv._[1];
       if (!wf) { console.error('❌ Workflow ID required'); process.exit(1); }

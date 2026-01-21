@@ -21,6 +21,7 @@ const ModelsPage = lazy(() => import('@/pages/ModelsPage'));
 const BlockDemoPage = lazy(() => import('@/pages/BlockDemoPage'));
 const FoundryPage = lazy(() => import('@/pages/FoundryPage'));
 const AtomicBlockEditorPage = lazy(() => import('@/pages/AtomicBlockEditorPage'));
+const ProjectsPage = lazy(() => import('@/pages/ProjectsPage'));
 const NotFoundPage = lazy(() => import('@/pages/NotFoundPage'));
 
 /**
@@ -108,6 +109,14 @@ const routes: RouteObject[] = [
         element: (
           <LazyPage>
             <ModelsPage />
+          </LazyPage>
+        ),
+      },
+      {
+        path: 'projects',
+        element: (
+          <LazyPage>
+            <ProjectsPage />
           </LazyPage>
         ),
       },

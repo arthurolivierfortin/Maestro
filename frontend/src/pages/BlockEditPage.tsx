@@ -1,8 +1,11 @@
 /**
  * Deprecated: BlockEditPage
  *
- * This file kept for backward compatibility. Use `AtomicBlockEditPage` instead.
+ * This file kept for backward compatibility. Use `AtomicBlockEditorPage` instead.
  */
 
-export { default, AtomicBlockEditPage } from './AtomicBlockEditorPage';
+import { AtomicBlockEditorPage } from './AtomicBlockEditorPage';
+export { AtomicBlockEditorPage };
+export { AtomicBlockEditorPage as AtomicBlockEditPage };
+export default AtomicBlockEditorPage;
 

@@ -1,7 +1,7 @@
 # B-One Maestro Development Roadmap
 
 > **Status**: Active Development  
-> **Last Updated**: 2026-01-18  
+> **Last Updated**: 2026-01-20  
 > **Purpose**: This roadmap provides a detailed, step-by-step execution plan to build B-One Maestro from its current initialized state to a functional MVP and beyond.
 
 ---
@@ -230,7 +230,7 @@ Phase 4h: Canvas & Node Functionality           [░░░░░░░░░░]
 Phase 4i: Breadcrumb Navigation Fix             [░░░░░░░░░░]  0%
 Phase 5:  Workflow Engine & Execution           [░░░░░░░░░░]  0%
 Phase 6:  Agent Implementations                 [░░░░░░░░░░]  0%
-Phase 7:  Monitoring & Observability            [░░░░░░░░░░]  0%
+Phase 7:  Project Isolation & Container Runtime [██████████] 100%
 Phase 8:  Tool Executors & Integration          [░░░░░░░░░░]  0%
 Phase 9:  Terminal & CLI Integration            [░░░░░░░░░░]  0%
 Phase 10: End-to-End Integration & Testing      [░░░░░░░░░░]  0%
@@ -1717,7 +1717,167 @@ The current architecture has a **fundamental flaw**: multiple independent filesy
 
 ---
 
-## 🔷 Phase 7: Agent Implementations
+## 🔷 Phase 7: Project Isolation & Container Runtime ✅ COMPLETE
+
+**Goal**: Introduce project-based isolation with container support for secure execution.
+
+**Duration**: 2-3 weeks  
+**Team**: Backend + Frontend (3 developers)  
+**Dependencies**: Phase 6 complete  
+**Issue Files**: `docs/issues/phase-7a-*.md` through `docs/issues/phase-7e-*.md`
+
+### Overview
+
+A **Project** represents an isolated execution unit per repository:
+- Each repo can have a `.maestro/project.json` configuration
+- Projects contain their own blocks, workflows, and runtime settings
+- Execution happens inside isolated containers for security
+- Backend serves as single source of truth for all clients
+
+```
+repo/
+├── .maestro/
+│   ├── project.json          # Project configuration
+│   └── blocks/               # Project-specific blocks
+│       ├── my-agent.agent.block.json
+│       └── my-tool.tool.block.json
+├── src/
+└── ...
+```
+
+### 🔹 Phase 7A: Correctifs - Path & Convention Fixes ✅
+
+**Goal**: Fix foundational issues before implementing Project model.
+**Status**: ✅ Complete
+**Issue**: `docs/issues/phase-7a-project-correctifs.md`
+
+#### Current Problems
+1. ~~`blocksGlobalPath` uses `AppContext.BaseDirectory` → creates blocks in wrong location~~
+2. ~~`FileSystemBlockDiscoveryService` searches for `block.json`, not `*.block.json`~~
+3. ~~Hardcoded `.maestro` paths scattered throughout codebase~~
+
+#### Tasks
+- [x] Create `MaestroPathConfiguration` class for centralized path resolution
+- [x] Update discovery to use `*.block.json` glob pattern only
+- [x] Create `MaestroConstants` for path patterns
+- [x] Add path validation and directory creation on startup
+- [x] Remove legacy `block.json` support (only `*.block.json` supported)
+
+---
+
+### 🔹 Phase 7B: Project Model ✅
+
+**Goal**: Define Project as a first-class domain entity.
+**Status**: ✅ Complete
+**Issue**: `docs/issues/phase-7b-project-model.md`
+
+#### Tasks
+- [x] Create `Project` entity in Domain layer
+- [x] Create `ProjectId` value object
+- [x] Create `project.json` schema
+- [x] Implement `IProjectRepository` interface
+- [x] Implement `FileSystemProjectRepository`
+- [x] Create `ProjectsController` with CRUD endpoints
+- [x] Add `projectId` parameter to block/workflow APIs
+- [x] Create `ProjectScopedBlockDiscoveryService`
+
+#### API Endpoints
+```
+GET    /api/projects           # List all projects
+POST   /api/projects           # Create new project
+GET    /api/projects/{id}      # Get project details
+PUT    /api/projects/{id}      # Update project
+DELETE /api/projects/{id}      # Delete project
+POST   /api/projects/open      # Open project by path
+```
+
+---
+
+### 🔹 Phase 7C: Unified Filesystem ✅
+
+**Goal**: Ensure all clients use backend API exclusively.
+**Status**: ✅ Complete
+**Issue**: `docs/issues/phase-7c-unified-filesystem.md`
+
+#### Tasks
+- [x] Audit CLI for direct filesystem access
+- [x] Audit MCP Server for direct filesystem access
+- [x] Extend API for CLI/MCP needs
+- [x] Update CLI to use API only (project commands added)
+- [x] Update MCP to use API only (complete rewrite)
+- [x] Add caching layer in backend
+- [x] Update integration tests
+
+---
+
+### 🔹 Phase 7D: Container Runtime ✅
+
+**Goal**: Execute tools and scripts inside isolated containers.
+**Status**: ✅ Complete
+**Issue**: `docs/issues/phase-7d-container-runtime.md`
+
+#### Tasks
+- [x] Create `IContainerRuntime` interface
+- [x] Implement `DockerContainerRuntime` using Docker CLI
+- [x] Implement `ProcessContainerRuntime` for local development
+- [x] Implement `NullContainerRuntime` for no-op
+- [x] Create `ContainerRuntimeFactory`
+- [x] Add container configuration to `project.json`
+- [x] Create `ContainersController` with management endpoints
+- [x] Implement security boundaries (filesystem, network, resources)
+
+#### Container Configuration Example
+```json
+{
+  "runtime": {
+    "type": "docker",
+    "image": "node:20-alpine",
+    "workDir": "/app",
+    "resources": {
+      "cpuLimit": "1.0",
+      "memoryLimit": "512m"
+    },
+    "network": "none"
+  }
+}
+```
+
+---
+
+### 🔹 Phase 7E: Frontend Projects Page ✅
+
+**Goal**: Create UI for project management.
+**Status**: ✅ Complete
+**Issue**: `docs/issues/phase-7e-frontend-projects-page.md`
+
+#### Tasks
+- [x] Create `projectStore.ts` with Zustand
+- [x] Create `ProjectsPage` component
+- [x] Create `ProjectCard` component
+- [x] Create `CreateProjectModal` component
+- [x] Add project route to router
+- [x] Add Projects link to sidebar
+- [x] Update store exports
+
+---
+
+### Phase 7 Outputs
+- ✅ Project-based isolation architecture
+- ✅ Container runtime for secure execution (Docker, Process, None)
+- ✅ Frontend project management UI
+- ✅ Unified API for all clients with project context
+- ✅ Fixed block path resolution (only `*.block.json`)
+
+### Phase 7 Acceptance Criteria
+1. [x] Projects can be created, opened, and managed via UI
+2. [x] Blocks are scoped to projects when `projectId` is provided
+3. [x] Tools execute inside containers, not on host
+4. [x] Global blocks path points to repo root, not API folder
+5. [x] Only `*.block.json` format supported (legacy removed)
+
+---
+
+## 🔷 Phase 8: Agent Implementations
 
 **Goal**: Implement the core AI agents (Planner, Coder, Tester, Reviewer).
 
@@ -1741,13 +1901,13 @@ The current architecture has a **fundamental flaw**: multiple independent filesy
 
 ---
 
-## 🔷 Phase 8: Monitoring & Observability
+## 🔷 Phase 9: Monitoring & Observability
 
 **Goal**: Implement real-time monitoring UI for workflow execution.
 
 **Duration**: 1-2 weeks  
 **Team**: Frontend + Backend (2 developers)  
-**Dependencies**: Phase 4d, 5, 6 complete
+**Dependencies**: Phase 4d, 5, 6, 7 complete
 
 ### Tasks
 
@@ -1764,13 +1924,13 @@ The current architecture has a **fundamental flaw**: multiple independent filesy
 
 ---
 
-## 🔷 Phase 9: Tool Executors & Integration
+## 🔷 Phase 10: Tool Executors & Integration
 
 **Goal**: Implement tool executors for bash, git, and file operations.
 
 **Duration**: 1-2 weeks  
 **Team**: Backend (1-2 developers)  
-**Dependencies**: Phase 3, 5, 6 complete
+**Dependencies**: Phase 3, 5, 6, 7D complete
 
 ### Tasks
 
@@ -1786,13 +1946,13 @@ The current architecture has a **fundamental flaw**: multiple independent filesy
 
 ---
 
-## 🔷 Phase 10: Terminal & CLI Integration
+## 🔷 Phase 11: Terminal & CLI Integration
 
 **Goal**: Implement the integrated terminal panel for CLI interactions and log viewing.
 
 **Duration**: 2 weeks  
 **Team**: Frontend (1-2 developers)  
-**Dependencies**: Phase 4c, 6C, 8 complete
+**Dependencies**: Phase 4c, 7C, 9 complete
 
 ### Tasks
 
@@ -1830,13 +1990,13 @@ The current architecture has a **fundamental flaw**: multiple independent filesy
 
 ---
 
-## 🔷 Phase 11: End-to-End Integration & Testing
+## 🔷 Phase 12: End-to-End Integration & Testing
 
 **Goal**: Integrate all components and perform comprehensive testing.
 
 **Duration**: 2-3 weeks  
 **Team**: Full team  
-**Dependencies**: Phases 5-10 complete
+**Dependencies**: Phases 5-11 complete
 
 ### Tasks
 
