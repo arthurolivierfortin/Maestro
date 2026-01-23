@@ -231,6 +231,70 @@ class MaestroApiClient {
     return this._fetch('POST', '/api/projects/discover');
   }
 
+  // ===== PROJECT CONTAINERS =====
+
+  async getContainerStatus(projectId) {
+    if (!projectId) throw new Error('Project ID is required');
+    return this._fetch('GET', `/api/projects/${projectId}/status`);
+  }
+
+  async startContainer(projectId) {
+    if (!projectId) throw new Error('Project ID is required');
+    return this._fetch('POST', `/api/projects/${projectId}/start`);
+  }
+
+  async stopContainer(projectId) {
+    if (!projectId) throw new Error('Project ID is required');
+    return this._fetch('POST', `/api/projects/${projectId}/stop`);
+  }
+
+  async restartContainer(projectId) {
+    if (!projectId) throw new Error('Project ID is required');
+    return this._fetch('POST', `/api/projects/${projectId}/restart`);
+  }
+
+  async getContainerLogs(projectId, options = {}) {
+    if (!projectId) throw new Error('Project ID is required');
+    const params = new URLSearchParams();
+    if (options.lines) params.set('lines', options.lines);
+    if (options.since) params.set('since', options.since);
+    const queryString = params.toString();
+    return this._fetch('GET', `/api/projects/${projectId}/logs${queryString ? `?${queryString}` : ''}`);
+  }
+
+  // ===== PROJECT PERMISSIONS =====
+
+  async getFileAccessRules(projectId) {
+    if (!projectId) throw new Error('Project ID is required');
+    return this._fetch('GET', `/api/projects/${projectId}/file-rules`);
+  }
+
+  async updateFileAccessRules(projectId, rules) {
+    if (!projectId) throw new Error('Project ID is required');
+    return this._fetch('PUT', `/api/projects/${projectId}/file-rules`, { body: rules });
+  }
+
+  async getBlockPermissions(projectId) {
+    if (!projectId) throw new Error('Project ID is required');
+    return this._fetch('GET', `/api/projects/${projectId}/block-permissions`);
+  }
+
+  async updateBlockPermissions(projectId, permissions) {
+    if (!projectId) throw new Error('Project ID is required');
+    return this._fetch('PUT', `/api/projects/${projectId}/block-permissions`, { body: permissions });
+  }
+
+  // ===== FILE SYSTEM =====
+
+  async listDirectory(path) {
+    const params = path ? `?path=${encodeURIComponent(path)}` : '';
+    return this._fetch('GET', `/api/filesystem/list${params}`);
+  }
+
+  async getCommonDirectories() {
+    return this._fetch('GET', '/api/filesystem/common-directories');
+  }
+
   // ===== HELPER METHODS =====
 
   async checkBackendReady() {

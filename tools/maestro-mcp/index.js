@@ -105,6 +105,92 @@ async function handleRequestAsync(req) {
       return { projects };
     }
 
+    // ============= Container Tools =============
+
+    if (req.tool === 'get-container-status') {
+      const projectId = req.arguments?.projectId;
+      if (!projectId) return { error: 'projectId required' };
+      const status = await client.getContainerStatus(projectId);
+      return { status };
+    }
+
+    if (req.tool === 'start-container') {
+      const projectId = req.arguments?.projectId;
+      if (!projectId) return { error: 'projectId required' };
+      const status = await client.startContainer(projectId);
+      return { status, message: 'Container started' };
+    }
+
+    if (req.tool === 'stop-container') {
+      const projectId = req.arguments?.projectId;
+      if (!projectId) return { error: 'projectId required' };
+      const status = await client.stopContainer(projectId);
+      return { status, message: 'Container stopped' };
+    }
+
+    if (req.tool === 'restart-container') {
+      const projectId = req.arguments?.projectId;
+      if (!projectId) return { error: 'projectId required' };
+      const status = await client.restartContainer(projectId);
+      return { status, message: 'Container restarted' };
+    }
+
+    if (req.tool === 'get-container-logs') {
+      const projectId = req.arguments?.projectId;
+      const lines = req.arguments?.lines;
+      const since = req.arguments?.since;
+      if (!projectId) return { error: 'projectId required' };
+      const logs = await client.getContainerLogs(projectId, { lines, since });
+      return { logs };
+    }
+
+    // ============= File System Tools =============
+
+    if (req.tool === 'list-directory') {
+      const path = req.arguments?.path;
+      const entries = await client.listDirectory(path);
+      return { entries };
+    }
+
+    if (req.tool === 'get-common-directories') {
+      const directories = await client.getCommonDirectories();
+      return { directories };
+    }
+
+    // ============= Permission Tools =============
+
+    if (req.tool === 'get-file-access-rules') {
+      const projectId = req.arguments?.projectId;
+      if (!projectId) return { error: 'projectId required' };
+      const rules = await client.getFileAccessRules(projectId);
+      return { rules };
+    }
+
+    if (req.tool === 'update-file-access-rules') {
+      const projectId = req.arguments?.projectId;
+      const rules = req.arguments?.rules;
+      if (!projectId) return { error: 'projectId required' };
+      if (!rules) return { error: 'rules required' };
+      const updated = await client.updateFileAccessRules(projectId, rules);
+      return { rules: updated };
+    }
+
+    if (req.tool === 'get-block-permissions') {
+      const projectId = req.arguments?.projectId;
+      if (!projectId) return { error: 'projectId required' };
+      const permissions = await client.getBlockPermissions(projectId);
+      return { permissions };
+    }
+
+    if (req.tool === 'update-block-permissions') {
+      const projectId = req.arguments?.projectId;
+      const permissions = req.arguments?.permissions;
+      if (!projectId) return { error: 'projectId required' };
+      if (!permissions) return { error: 'permissions required' };
+      const updated = await client.updateBlockPermissions(projectId, permissions);
+      return { permissions: updated };
+    }
+
     // ============= System Tools =============
 
     if (req.tool === 'health') {
@@ -154,6 +240,29 @@ async function handleRequestAsync(req) {
         const id = res.substring('project://'.length);
         const project = await client.getProject(id);
         return { project };
+      }
+
+      // container://<projectId>
+      if (res.startsWith('container://')) {
+        const id = res.substring('container://'.length);
+        const status = await client.getContainerStatus(id);
+        return { status };
+      }
+
+      // containers://
+      if (res === 'containers://') {
+        const projects = await client.listProjects();
+        const statuses = await Promise.all(
+          projects.map(async (p) => {
+            try {
+              const status = await client.getContainerStatus(p.id);
+              return { projectId: p.id, projectName: p.name, ...status };
+            } catch {
+              return { projectId: p.id, projectName: p.name, status: 'unknown' };
+            }
+          })
+        );
+        return { containers: statuses };
       }
 
       return { error: 'invalid resource' };

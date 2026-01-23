@@ -1,5 +1,0 @@
-{
-  "diff": "diff --git a/src/Example.cs b/src/Example.cs\nindex e69de29..b6fc4c6 100644\n--- a/src/Example.cs\n+++ b/src/Example.cs\n@@ -0,0 +1,2 @@\n+public class Example { }\n",
-  "files": ["src/Example.cs"],
-  "stats": { "added": 1, "deleted": 0 }
-}

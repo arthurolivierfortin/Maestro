@@ -346,7 +346,7 @@ async function discoverProjects(searchPath) {
   try {
     const resolvedPath = path.resolve(searchPath);
     console.log(`\n🔍 Discovering projects in: ${resolvedPath}\n`);
-    
+
     const projects = await client.discoverProjects(resolvedPath);
     if (projects.length === 0) {
       console.log('No projects found');
@@ -366,6 +366,178 @@ async function discoverProjects(searchPath) {
   }
 }
 
+// ============= Container Management Functions =============
+
+function formatStatus(status) {
+  const statusColors = {
+    'running': '\x1b[32m',   // Green
+    'stopped': '\x1b[90m',   // Gray
+    'starting': '\x1b[33m',  // Yellow
+    'stopping': '\x1b[33m',  // Yellow
+    'error': '\x1b[31m',     // Red
+  };
+  const reset = '\x1b[0m';
+  const color = statusColors[status] || '';
+  return `${color}${status}${reset}`;
+}
+
+async function getContainerStatus(id) {
+  try {
+    const status = await client.getContainerStatus(id);
+    console.log('\n🐳 Container Status:\n');
+    console.log(`  Project ID:   ${status.projectId}`);
+    console.log(`  Status:       ${formatStatus(status.status)}`);
+    if (status.containerId) {
+      console.log(`  Container ID: ${status.containerId}`);
+    }
+    if (status.startedAt) {
+      const uptime = Math.round((Date.now() - new Date(status.startedAt).getTime()) / 1000);
+      console.log(`  Started At:   ${status.startedAt}`);
+      console.log(`  Uptime:       ${formatUptime(uptime)}`);
+    }
+    if (status.error) {
+      console.log(`  Error:        ${status.error}`);
+    }
+    console.log('');
+  } catch (error) {
+    if (error.status === 404) {
+      console.error(`❌ Project not found: ${id}`);
+    } else {
+      handleApiError(error, 'getting container status');
+    }
+    process.exit(1);
+  }
+}
+
+function formatUptime(seconds) {
+  if (seconds < 60) return `${seconds}s`;
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  return `${hours}h ${minutes}m`;
+}
+
+async function startContainer(id) {
+  try {
+    console.log('\n▶️  Starting container...');
+    const status = await client.startContainer(id);
+    console.log(`✅ Container started`);
+    console.log(`  Status: ${formatStatus(status.status)}`);
+    if (status.containerId) {
+      console.log(`  Container ID: ${status.containerId}`);
+    }
+    console.log('');
+  } catch (error) {
+    if (error.status === 404) {
+      console.error(`❌ Project not found: ${id}`);
+    } else if (error.status === 400) {
+      console.error(`❌ Cannot start: ${error.message}`);
+    } else {
+      handleApiError(error, 'starting container');
+    }
+    process.exit(1);
+  }
+}
+
+async function stopContainer(id) {
+  try {
+    console.log('\n⏹️  Stopping container...');
+    const status = await client.stopContainer(id);
+    console.log(`✅ Container stopped`);
+    console.log(`  Status: ${formatStatus(status.status)}`);
+    console.log('');
+  } catch (error) {
+    if (error.status === 404) {
+      console.error(`❌ Project not found: ${id}`);
+    } else if (error.status === 400) {
+      console.error(`❌ Cannot stop: ${error.message}`);
+    } else {
+      handleApiError(error, 'stopping container');
+    }
+    process.exit(1);
+  }
+}
+
+async function restartContainer(id) {
+  try {
+    console.log('\n🔄 Restarting container...');
+    const status = await client.restartContainer(id);
+    console.log(`✅ Container restarted`);
+    console.log(`  Status: ${formatStatus(status.status)}`);
+    if (status.containerId) {
+      console.log(`  Container ID: ${status.containerId}`);
+    }
+    console.log('');
+  } catch (error) {
+    if (error.status === 404) {
+      console.error(`❌ Project not found: ${id}`);
+    } else if (error.status === 400) {
+      console.error(`❌ Cannot restart: ${error.message}`);
+    } else {
+      handleApiError(error, 'restarting container');
+    }
+    process.exit(1);
+  }
+}
+
+async function getContainerLogs(id, options = {}) {
+  try {
+    const logs = await client.getContainerLogs(id, options);
+
+    if (!logs || logs.length === 0) {
+      console.log('\nNo logs available');
+      return;
+    }
+
+    console.log('\n📋 Container Logs:\n');
+    console.log('─'.repeat(60));
+    console.log(logs);
+    console.log('─'.repeat(60));
+    console.log('');
+  } catch (error) {
+    if (error.status === 404) {
+      console.error(`❌ Project not found: ${id}`);
+    } else {
+      handleApiError(error, 'getting container logs');
+    }
+    process.exit(1);
+  }
+}
+
+async function listProjectsWithStatus() {
+  try {
+    const projects = await client.listProjects();
+    if (projects.length === 0) {
+      console.log('\nNo projects found');
+      console.log('  Create one with: maestro projects create --name "My Project" --path /path/to/project');
+      return;
+    }
+
+    // Get status for each project
+    const projectsWithStatus = await Promise.all(
+      projects.map(async (p) => {
+        try {
+          const status = await client.getContainerStatus(p.id);
+          return { ...p, containerStatus: status.status };
+        } catch {
+          return { ...p, containerStatus: 'unknown' };
+        }
+      })
+    );
+
+    console.log('\n📁 Projects:\n');
+    console.table(projectsWithStatus.map(p => ({
+      'ID': p.id.substring(0, 8) + '...',
+      'Name': p.name,
+      'Status': p.containerStatus,
+      'Runtime': p.runtime?.type || 'none',
+      'Path': p.rootPath.length > 40 ? '...' + p.rootPath.slice(-37) : p.rootPath
+    })));
+  } catch (error) {
+    handleApiError(error, 'listing projects');
+  }
+}
+
 function handleApiError(error, action) {
   if (error.code === 'ECONNREFUSED' || error.message?.includes('ECONNREFUSED')) {
     console.error(`❌ Cannot connect to backend at ${client.baseUrl}`);
@@ -377,9 +549,9 @@ function handleApiError(error, action) {
 }
 
 async function main() {
-  const argv = minimist(process.argv.slice(2), { 
-    boolean: ['mock', 'help', 'h', 'force'],
-    string: ['api-url', 'u', 'name', 'path', 'description', 'runtime', 'image', 'work-dir', 'block-paths', 'model']
+  const argv = minimist(process.argv.slice(2), {
+    boolean: ['mock', 'help', 'h', 'force', 'status'],
+    string: ['api-url', 'u', 'name', 'path', 'description', 'runtime', 'image', 'work-dir', 'block-paths', 'model', 'lines', 'since']
   });
 
   // Update client URL if provided
@@ -392,7 +564,7 @@ async function main() {
   // Help
   if (!cmd || argv.help || argv.h) {
     console.log(`
-Maestro CLI v1.1.0
+Maestro CLI v1.2.0
 
 Usage: maestro <command> [options]
 
@@ -403,13 +575,20 @@ Block Commands:
   search <query>       Search blocks by name or description
 
 Project Commands:
-  projects             List all projects
+  projects             List all projects with container status
   projects info <id>   Show project details
   projects create      Create a new project
   projects open <path> Open an existing project
   projects delete <id> Remove a project (--force required)
   projects blocks <id> List blocks in a project
   projects discover    Discover projects in a directory
+
+Container Commands:
+  projects status <id>  Show container status
+  projects start <id>   Start project container
+  projects stop <id>    Stop project container
+  projects restart <id> Restart project container
+  projects logs <id>    Show container logs
 
 Execution Commands:
   execute <workflow>   Execute a workflow (requires --mock for PoC)
@@ -434,6 +613,10 @@ Project Create Options:
   --model <model>      Default model for agents
   --block-paths <paths> Comma-separated block search paths
 
+Container Log Options:
+  --lines <n>          Number of log lines to show (default: 100)
+  --since <time>       Show logs since timestamp (e.g., 2024-01-01T00:00:00Z)
+
 Environment Variables:
   MAESTRO_API_URL      Backend API URL (default: http://localhost:5000)
   MAESTRO_API_TIMEOUT  API request timeout in ms (default: 30000)
@@ -443,14 +626,13 @@ Examples:
   maestro blocks
   maestro workflows
   maestro projects
-  maestro projects create --name "My App" --path ./my-app
-  maestro projects open ./my-app
-  maestro projects blocks abc123
-  maestro projects discover ./workspace
+  maestro projects create --name "My App" --path ./my-app --runtime docker
+  maestro projects start abc123
+  maestro projects stop abc123
+  maestro projects logs abc123 --lines 50
+  maestro projects status abc123
   maestro search agent
   maestro health
-  maestro info my-block-id
-  maestro --api-url http://localhost:5000 blocks
 `);
     return;
   }
@@ -473,15 +655,15 @@ Examples:
     // Project commands
     if (cmd === 'projects') {
       const subCmd = argv._[1];
-      
-      if (!subCmd) return await listProjects();
-      
+
+      if (!subCmd) return await listProjectsWithStatus();
+
       if (subCmd === 'info') {
         const id = argv._[2];
         if (!id) { console.error('❌ Project ID required'); process.exit(1); }
         return await getProjectInfo(id);
       }
-      
+
       if (subCmd === 'create') {
         const name = argv.name;
         const projectPath = argv.path;
@@ -496,30 +678,64 @@ Examples:
           model: argv.model
         });
       }
-      
+
       if (subCmd === 'open') {
         const projectPath = argv._[2];
         if (!projectPath) { console.error('❌ Project path required'); process.exit(1); }
         return await openProject(projectPath);
       }
-      
+
       if (subCmd === 'delete') {
         const id = argv._[2];
         if (!id) { console.error('❌ Project ID required'); process.exit(1); }
         return await deleteProject(id, { force: argv.force });
       }
-      
+
       if (subCmd === 'blocks') {
         const id = argv._[2];
         if (!id) { console.error('❌ Project ID required'); process.exit(1); }
         return await listProjectBlocks(id);
       }
-      
+
       if (subCmd === 'discover') {
         const searchPath = argv._[2] || '.';
         return await discoverProjects(searchPath);
       }
-      
+
+      // Container commands
+      if (subCmd === 'status') {
+        const id = argv._[2];
+        if (!id) { console.error('❌ Project ID required'); process.exit(1); }
+        return await getContainerStatus(id);
+      }
+
+      if (subCmd === 'start') {
+        const id = argv._[2];
+        if (!id) { console.error('❌ Project ID required'); process.exit(1); }
+        return await startContainer(id);
+      }
+
+      if (subCmd === 'stop') {
+        const id = argv._[2];
+        if (!id) { console.error('❌ Project ID required'); process.exit(1); }
+        return await stopContainer(id);
+      }
+
+      if (subCmd === 'restart') {
+        const id = argv._[2];
+        if (!id) { console.error('❌ Project ID required'); process.exit(1); }
+        return await restartContainer(id);
+      }
+
+      if (subCmd === 'logs') {
+        const id = argv._[2];
+        if (!id) { console.error('❌ Project ID required'); process.exit(1); }
+        return await getContainerLogs(id, {
+          lines: argv.lines ? parseInt(argv.lines) : undefined,
+          since: argv.since
+        });
+      }
+
       console.error(`❌ Unknown projects subcommand: ${subCmd}`);
       console.error('   Run "maestro --help" for usage information');
       process.exit(1);

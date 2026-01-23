@@ -7,7 +7,7 @@
 import { useParams } from 'react-router-dom';
 import { useNavigation } from '../hooks/useNavigation';
 import { BlockCanvas } from '../components/BlockCanvas';
-import './WorkflowEditorPage.scss';
+import './MultiNodeEditorPage.scss';
 
 export function MultiNodeEditPage() {
   const { id: workflowId } = useParams<{ id: string }>();

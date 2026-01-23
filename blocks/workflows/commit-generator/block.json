@@ -1,7 +1,0 @@
-{
-  "id": "workflows/commit-generator",
-  "name": "Commit Generator Workflow",
-  "type": "workflow",
-  "description": "Assembles git-diff, describe-commit, and commit-format validator to produce a Conventional Commit message",
-  "version": "0.1.0"
-}

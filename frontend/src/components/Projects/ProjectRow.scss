@@ -1,0 +1,165 @@
+/**
+ * Project Row Styles
+ * Docker Desktop-inspired container row design
+ */
+
+.project-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  background-color: var(--background-secondary, #161b22);
+  border: 1px solid var(--border-color, #30363d);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+
+  &:hover {
+    border-color: var(--accent-color, #58a6ff);
+    background-color: rgba(88, 166, 255, 0.05);
+  }
+
+  // Status indicator bar on the left
+  &__status-indicator {
+    flex-shrink: 0;
+    width: 4px;
+    height: 100%;
+    min-height: 48px;
+    border-radius: 2px;
+    display: flex;
+    align-items: center;
+  }
+
+  &__status-dot {
+    width: 4px;
+    height: 100%;
+    min-height: 48px;
+    border-radius: 2px;
+    transition: background-color 0.2s ease;
+
+    &--stopped {
+      background-color: var(--text-muted, #6e7681);
+    }
+
+    &--starting,
+    &--stopping {
+      background-color: var(--warning-color, #d29922);
+      animation: pulse-bar 1.5s ease-in-out infinite;
+    }
+
+    &--running {
+      background-color: var(--success-color, #2ea043);
+    }
+
+    &--error {
+      background-color: var(--danger-color, #f85149);
+    }
+  }
+
+  // Main content area
+  &__content {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+  }
+
+  &__header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  &__runtime-icon {
+    font-size: 1.25rem;
+    flex-shrink: 0;
+  }
+
+  &__name {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-primary, #e6edf3);
+    margin: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  &__details {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    font-size: 0.75rem;
+    color: var(--text-muted, #6e7681);
+  }
+
+  &__path {
+    font-family: monospace;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 300px;
+  }
+
+  &__uptime,
+  &__updated {
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  &__resources {
+    display: flex;
+    gap: 1rem;
+    font-size: 0.75rem;
+    color: var(--text-secondary, #8b949e);
+
+    span {
+      display: flex;
+      align-items: center;
+      gap: 0.25rem;
+    }
+  }
+
+  // Controls area
+  &__controls {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-shrink: 0;
+  }
+
+  &__actions {
+    display: flex;
+    gap: 0.25rem;
+  }
+
+  &__action-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border: none;
+    border-radius: 6px;
+    background-color: transparent;
+    color: var(--text-muted, #6e7681);
+    cursor: pointer;
+    transition: all 0.15s ease;
+
+    &:hover {
+      background-color: var(--background-tertiary, #30363d);
+      color: var(--danger-color, #f85149);
+    }
+  }
+}
+
+@keyframes pulse-bar {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}

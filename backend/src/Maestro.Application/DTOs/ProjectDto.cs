@@ -18,6 +18,8 @@ public record ProjectDto
     public RuntimeConfigDto Runtime { get; init; } = new();
     public int BlocksCount { get; init; }
     public int WorkflowsCount { get; init; }
+    public List<FileAccessRuleDto> FileAccessRules { get; init; } = new();
+    public List<BlockPermissionDto> BlockPermissions { get; init; } = new();
     public DateTime CreatedAt { get; init; }
     public DateTime UpdatedAt { get; init; }
 
@@ -33,6 +35,8 @@ public record ProjectDto
             Runtime = RuntimeConfigDto.FromDomain(project.Runtime),
             BlocksCount = blocksCount,
             WorkflowsCount = workflowsCount,
+            FileAccessRules = project.FileAccessRules.Select(FileAccessRuleDto.FromDomain).ToList(),
+            BlockPermissions = project.BlockPermissions.Select(BlockPermissionDto.FromDomain).ToList(),
             CreatedAt = project.CreatedAt,
             UpdatedAt = project.UpdatedAt
         };

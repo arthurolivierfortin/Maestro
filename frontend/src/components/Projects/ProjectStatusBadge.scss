@@ -1,0 +1,76 @@
+/**
+ * Project Status Badge Styles
+ */
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  background-color: var(--background-tertiary, #30363d);
+
+  &__dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  &__label {
+    text-transform: capitalize;
+  }
+
+  // Status variants
+  &--stopped {
+    .status-badge__dot {
+      background-color: var(--text-muted, #6e7681);
+    }
+    .status-badge__label {
+      color: var(--text-muted, #6e7681);
+    }
+  }
+
+  &--starting,
+  &--stopping {
+    .status-badge__dot {
+      background-color: var(--warning-color, #d29922);
+      animation: pulse 1.5s ease-in-out infinite;
+    }
+    .status-badge__label {
+      color: var(--warning-color, #d29922);
+    }
+  }
+
+  &--running {
+    background-color: rgba(46, 160, 67, 0.15);
+    .status-badge__dot {
+      background-color: var(--success-color, #2ea043);
+    }
+    .status-badge__label {
+      color: var(--success-color, #2ea043);
+    }
+  }
+
+  &--error {
+    background-color: rgba(248, 81, 73, 0.15);
+    .status-badge__dot {
+      background-color: var(--danger-color, #f85149);
+    }
+    .status-badge__label {
+      color: var(--danger-color, #f85149);
+    }
+  }
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}

@@ -7,6 +7,7 @@ using Maestro.Infrastructure.BlockStore;
 using Maestro.Infrastructure.Configuration;
 using Maestro.Infrastructure.Projects;
 using Maestro.Infrastructure.Containers;
+using Maestro.Infrastructure.Services;
 using System.IO;
 using System;
 
@@ -90,6 +91,12 @@ builder.Services.AddSingleton<IProjectRepository>(sp =>
 // Register container runtime factory (Phase 7D)
 builder.Services.AddSingleton<IContainerRuntimeFactory, ContainerRuntimeFactory>();
 
+// Phase 8: Register project container service
+builder.Services.AddSingleton<IProjectContainerService, ProjectContainerService>();
+
+// Phase 8: Register file system browser
+builder.Services.AddSingleton<IFileSystemBrowser, FileSystemBrowser>();
+
 // Add CORS for frontend development and Docker
 builder.Services.AddCors(options =>
 {
@@ -117,6 +124,13 @@ app.UseCors("AllowFrontend");
 app.MapControllers();
 app.MapHub<Maestro.Api.Hubs.BlockHub>("/hubs/blocks");
 app.MapHub<Maestro.Api.Hubs.ExecutionHub>("/hubs/execution");
+app.MapHub<Maestro.Api.Hubs.ProjectHub>("/hubs/projects");
+
+// Initialize SignalR state publisher for projects
+var projectStatePublisher = new Maestro.Api.Hubs.SignalRProjectStatePublisher(
+    app.Services.GetRequiredService<Microsoft.AspNetCore.SignalR.IHubContext<Maestro.Api.Hubs.ProjectHub>>(),
+    app.Services.GetRequiredService<IProjectContainerService>(),
+    app.Services.GetRequiredService<ILogger<Maestro.Api.Hubs.SignalRProjectStatePublisher>>());
 
 app.MapGet("/", () => new
 {

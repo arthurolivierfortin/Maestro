@@ -16,15 +16,18 @@ public class ProjectsController : ControllerBase
 {
     private readonly IProjectRepository _projectRepository;
     private readonly IBlockDiscoveryService _blockDiscovery;
+    private readonly IProjectContainerService _containerService;
     private readonly ILogger<ProjectsController> _logger;
 
     public ProjectsController(
         IProjectRepository projectRepository,
         IBlockDiscoveryService blockDiscovery,
+        IProjectContainerService containerService,
         ILogger<ProjectsController> logger)
     {
         _projectRepository = projectRepository;
         _blockDiscovery = blockDiscovery;
+        _containerService = containerService;
         _logger = logger;
     }
 
@@ -249,6 +252,206 @@ public class ProjectsController : ControllerBase
 
         _logger.LogInformation("Discovered {Count} projects", dtos.Count);
 
+        return Ok(dtos);
+    }
+
+    // ==================== Container Management ====================
+
+    /// <summary>
+    /// Get container status for a project.
+    /// </summary>
+    [HttpGet("{id}/status")]
+    public async Task<ActionResult<ContainerStateDto>> GetProjectStatus(string id)
+    {
+        if (!Guid.TryParse(id, out var guid))
+            return BadRequest(new { error = "Invalid project ID format" });
+
+        var projectId = ProjectId.From(guid);
+        var state = await _containerService.GetStateAsync(projectId);
+        return Ok(ContainerStateDto.FromDomain(state));
+    }
+
+    /// <summary>
+    /// Start the container for a project.
+    /// </summary>
+    [HttpPost("{id}/start")]
+    public async Task<ActionResult<ContainerStateDto>> StartProject(string id)
+    {
+        if (!Guid.TryParse(id, out var guid))
+            return BadRequest(new { error = "Invalid project ID format" });
+
+        var projectId = ProjectId.From(guid);
+
+        try
+        {
+            var state = await _containerService.StartAsync(projectId);
+            _logger.LogInformation("Started container for project {Id}", id);
+            return Ok(ContainerStateDto.FromDomain(state));
+        }
+        catch (InvalidOperationException ex)
+        {
+            _logger.LogWarning(ex, "Failed to start container for project {Id}", id);
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Stop the container for a project.
+    /// </summary>
+    [HttpPost("{id}/stop")]
+    public async Task<ActionResult<ContainerStateDto>> StopProject(string id)
+    {
+        if (!Guid.TryParse(id, out var guid))
+            return BadRequest(new { error = "Invalid project ID format" });
+
+        var projectId = ProjectId.From(guid);
+
+        try
+        {
+            var state = await _containerService.StopAsync(projectId);
+            _logger.LogInformation("Stopped container for project {Id}", id);
+            return Ok(ContainerStateDto.FromDomain(state));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to stop container for project {Id}", id);
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Restart the container for a project.
+    /// </summary>
+    [HttpPost("{id}/restart")]
+    public async Task<ActionResult<ContainerStateDto>> RestartProject(string id)
+    {
+        if (!Guid.TryParse(id, out var guid))
+            return BadRequest(new { error = "Invalid project ID format" });
+
+        var projectId = ProjectId.From(guid);
+
+        try
+        {
+            var state = await _containerService.RestartAsync(projectId);
+            _logger.LogInformation("Restarted container for project {Id}", id);
+            return Ok(ContainerStateDto.FromDomain(state));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to restart container for project {Id}", id);
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Get container logs for a project.
+    /// </summary>
+    [HttpGet("{id}/logs")]
+    public async Task<ActionResult<LogsResponse>> GetProjectLogs(string id, [FromQuery] int? tail = 100)
+    {
+        if (!Guid.TryParse(id, out var guid))
+            return BadRequest(new { error = "Invalid project ID format" });
+
+        var projectId = ProjectId.From(guid);
+        var logs = await _containerService.GetLogsAsync(projectId, tail);
+        return Ok(new LogsResponse { Logs = logs });
+    }
+
+    // ==================== File Access Rules ====================
+
+    /// <summary>
+    /// Get file access rules for a project.
+    /// </summary>
+    [HttpGet("{id}/file-rules")]
+    public async Task<ActionResult<List<FileAccessRuleDto>>> GetFileAccessRules(string id)
+    {
+        if (!Guid.TryParse(id, out var guid))
+            return BadRequest(new { error = "Invalid project ID format" });
+
+        var projectId = ProjectId.From(guid);
+        var project = await _projectRepository.GetByIdAsync(projectId);
+
+        if (project == null)
+            return NotFound(new { error = $"Project '{id}' not found" });
+
+        var dtos = project.FileAccessRules.Select(FileAccessRuleDto.FromDomain).ToList();
+        return Ok(dtos);
+    }
+
+    /// <summary>
+    /// Update file access rules for a project.
+    /// </summary>
+    [HttpPut("{id}/file-rules")]
+    public async Task<ActionResult<List<FileAccessRuleDto>>> UpdateFileAccessRules(
+        string id,
+        [FromBody] UpdateFileAccessRulesRequest request)
+    {
+        if (!Guid.TryParse(id, out var guid))
+            return BadRequest(new { error = "Invalid project ID format" });
+
+        var projectId = ProjectId.From(guid);
+        var project = await _projectRepository.GetByIdAsync(projectId);
+
+        if (project == null)
+            return NotFound(new { error = $"Project '{id}' not found" });
+
+        project.FileAccessRules = request.Rules.Select(r => r.ToDomain()).ToList();
+        project.MarkUpdated();
+
+        await _projectRepository.SaveAsync(project);
+
+        _logger.LogInformation("Updated file access rules for project {Id}", id);
+
+        var dtos = project.FileAccessRules.Select(FileAccessRuleDto.FromDomain).ToList();
+        return Ok(dtos);
+    }
+
+    // ==================== Block Permissions ====================
+
+    /// <summary>
+    /// Get block permissions for a project.
+    /// </summary>
+    [HttpGet("{id}/block-permissions")]
+    public async Task<ActionResult<List<BlockPermissionDto>>> GetBlockPermissions(string id)
+    {
+        if (!Guid.TryParse(id, out var guid))
+            return BadRequest(new { error = "Invalid project ID format" });
+
+        var projectId = ProjectId.From(guid);
+        var project = await _projectRepository.GetByIdAsync(projectId);
+
+        if (project == null)
+            return NotFound(new { error = $"Project '{id}' not found" });
+
+        var dtos = project.BlockPermissions.Select(BlockPermissionDto.FromDomain).ToList();
+        return Ok(dtos);
+    }
+
+    /// <summary>
+    /// Update block permissions for a project.
+    /// </summary>
+    [HttpPut("{id}/block-permissions")]
+    public async Task<ActionResult<List<BlockPermissionDto>>> UpdateBlockPermissions(
+        string id,
+        [FromBody] UpdateBlockPermissionsRequest request)
+    {
+        if (!Guid.TryParse(id, out var guid))
+            return BadRequest(new { error = "Invalid project ID format" });
+
+        var projectId = ProjectId.From(guid);
+        var project = await _projectRepository.GetByIdAsync(projectId);
+
+        if (project == null)
+            return NotFound(new { error = $"Project '{id}' not found" });
+
+        project.BlockPermissions = request.Permissions.Select(p => p.ToDomain()).ToList();
+        project.MarkUpdated();
+
+        await _projectRepository.SaveAsync(project);
+
+        _logger.LogInformation("Updated block permissions for project {Id}", id);
+
+        var dtos = project.BlockPermissions.Select(BlockPermissionDto.FromDomain).ToList();
         return Ok(dtos);
     }
 }
