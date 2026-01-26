@@ -37,6 +37,12 @@ public record RuntimeConfiguration
     public string NetworkMode { get; init; } = "none";
 
     /// <summary>
+    /// Volume mounts for the container (host_path:container_path[:mode]).
+    /// Example: "/home/user/project:/app:rw"
+    /// </summary>
+    public IReadOnlyList<string> Volumes { get; init; } = Array.Empty<string>();
+
+    /// <summary>
     /// Creates a default runtime configuration with no container isolation.
     /// </summary>
     public static RuntimeConfiguration Default => new();

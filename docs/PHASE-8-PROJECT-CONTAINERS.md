@@ -371,8 +371,10 @@ January 2026
 - `get-file-access-rules` / `update-file-access-rules` - Manage file rules
 - `get-block-permissions` / `update-block-permissions` - Manage block permissions
 
-### Remaining Work (Future Phases)
-1. **Terminal Integration**: Full xterm.js implementation for interactive terminal sessions
-2. **Real Docker Integration**: Connect to actual Docker containers (current implementation uses process-based placeholders)
-3. **Resource Monitoring**: Real CPU/memory usage metrics from containers
-4. **Unit Tests**: Comprehensive test coverage for new services
+### Remaining Work Completed (January 25, 2026)
+1. **Terminal Integration**: ✅ xterm.js implemented with ProjectTerminal component and TerminalHub
+2. **Real Docker Integration**: ✅ Volume mounting added, projects mount rootPath automatically
+3. **Resource Monitoring**: ✅ GetResourceStatsAsync implemented with Docker stats parsing
+4. **Unit Tests**: ⚠️ Deferred to future phase (infrastructure in place)
+
+See `PHASE-8-COMPLETION-SUMMARY.md` for detailed implementation notes.

@@ -1,7 +1,12 @@
 {
   "permissions": {
     "allow": [
-      "Bash(dotnet build:*)"
+      "Bash(dotnet build:*)",
+      "Bash(npm install:*)",
+      "Bash(npm run build:*)",
+      "Bash(dotnet restore:*)",
+      "Bash(grep:*)",
+      "Bash(docker-compose up:*)"
     ]
   }
 }

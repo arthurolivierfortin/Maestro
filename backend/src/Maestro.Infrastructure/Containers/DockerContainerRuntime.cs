@@ -81,6 +81,13 @@ public class DockerContainerRuntime : IContainerRuntime
             args.Add($"{env.Key}={env.Value}");
         }
 
+        // Volume mounts
+        foreach (var volume in config.Volumes)
+        {
+            args.Add("-v");
+            args.Add(volume);
+        }
+
         // Resource limits
         if (config.Resources != null)
         {
@@ -322,6 +329,151 @@ public class DockerContainerRuntime : IContainerRuntime
         {
             throw new InvalidOperationException($"Failed to copy from container: {result.StandardError}");
         }
+    }
+
+    public async Task<ContainerResourceStats?> GetResourceStatsAsync(
+        string containerId,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            // Use docker stats with custom format (--no-stream for single snapshot)
+            var format = "{{.CPUPerc}}|{{.MemUsage}}|{{.MemPerc}}|{{.NetIO}}|{{.BlockIO}}";
+            var result = await RunDockerCommandAsync(
+                $"stats --no-stream --format \"{format}\" {containerId}",
+                timeout: TimeSpan.FromSeconds(5),
+                cancellationToken: cancellationToken);
+
+            if (result.ExitCode != 0 || string.IsNullOrWhiteSpace(result.StandardOutput))
+            {
+                _logger.LogWarning("Failed to get container stats for {ContainerId}: {Error}",
+                    containerId, result.StandardError);
+                return null;
+            }
+
+            return ParseDockerStats(result.StandardOutput.Trim());
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Error getting resource stats for container {ContainerId}", containerId);
+            return null;
+        }
+    }
+
+    private static ContainerResourceStats? ParseDockerStats(string statsOutput)
+    {
+        try
+        {
+            // Format: "2.34%|512MiB / 2GiB|25.00%|1.2kB / 3.4kB|5MB / 10MB"
+            var parts = statsOutput.Split('|');
+            if (parts.Length < 3) return null;
+
+            // Parse CPU percentage
+            var cpuStr = parts[0].Replace("%", "").Trim();
+            if (!double.TryParse(cpuStr, out var cpuPercent))
+                cpuPercent = 0;
+
+            // Parse memory usage (e.g., "512MiB / 2GiB")
+            var memParts = parts[1].Split('/');
+            var memUsageMB = ParseMemoryValue(memParts[0].Trim());
+            double? memLimitMB = memParts.Length > 1 ? ParseMemoryValue(memParts[1].Trim()) : null;
+
+            // Parse memory percentage
+            var memPercentStr = parts[2].Replace("%", "").Trim();
+            if (!double.TryParse(memPercentStr, out var memPercent))
+                memPercent = 0;
+
+            // Parse network I/O (e.g., "1.2kB / 3.4kB")
+            double? netRxMB = null;
+            double? netTxMB = null;
+            if (parts.Length > 3)
+            {
+                var netParts = parts[3].Split('/');
+                netRxMB = ParseNetworkValue(netParts[0].Trim());
+                netTxMB = netParts.Length > 1 ? (double?)ParseNetworkValue(netParts[1].Trim()) : null;
+            }
+
+            // Parse block I/O (e.g., "5MB / 10MB")
+            double? blockReadMB = null;
+            double? blockWriteMB = null;
+            if (parts.Length > 4)
+            {
+                var blockParts = parts[4].Split('/');
+                blockReadMB = ParseNetworkValue(blockParts[0].Trim());
+                blockWriteMB = blockParts.Length > 1 ? (double?)ParseNetworkValue(blockParts[1].Trim()) : null;
+            }
+
+            return new ContainerResourceStats
+            {
+                CpuPercent = cpuPercent,
+                MemoryMB = memUsageMB,
+                MemoryLimitMB = memLimitMB,
+                MemoryPercent = memPercent,
+                NetworkRxMB = netRxMB,
+                NetworkTxMB = netTxMB,
+                BlockReadMB = blockReadMB,
+                BlockWriteMB = blockWriteMB
+            };
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static double ParseMemoryValue(string value)
+    {
+        // Parse values like "512MiB", "2GiB", "128MB", "1.5GB"
+        value = value.Trim().ToUpperInvariant();
+
+        double multiplier = 1.0;
+        if (value.EndsWith("GIB") || value.EndsWith("GB"))
+        {
+            multiplier = 1024.0;
+            value = value.Replace("GIB", "").Replace("GB", "");
+        }
+        else if (value.EndsWith("MIB") || value.EndsWith("MB"))
+        {
+            multiplier = 1.0;
+            value = value.Replace("MIB", "").Replace("MB", "");
+        }
+        else if (value.EndsWith("KIB") || value.EndsWith("KB"))
+        {
+            multiplier = 1.0 / 1024.0;
+            value = value.Replace("KIB", "").Replace("KB", "");
+        }
+
+        return double.TryParse(value, out var num) ? num * multiplier : 0;
+    }
+
+    private static double ParseNetworkValue(string value)
+    {
+        // Parse values like "1.2kB", "3.4MB", "5GB"
+        value = value.Trim().ToUpperInvariant();
+
+        double multiplier = 1.0;
+        if (value.EndsWith("GB"))
+        {
+            multiplier = 1024.0;
+            value = value.Replace("GB", "");
+        }
+        else if (value.EndsWith("MB"))
+        {
+            multiplier = 1.0;
+            value = value.Replace("MB", "");
+        }
+        else if (value.EndsWith("KB"))
+        {
+            multiplier = 1.0 / 1024.0;
+            value = value.Replace("KB", "");
+        }
+        else if (value.EndsWith("B"))
+        {
+            multiplier = 1.0 / (1024.0 * 1024.0);
+            value = value.Replace("B", "");
+        }
+
+        return double.TryParse(value, out var num) ? num * multiplier : 0;
     }
 
     private async Task<DockerResult> RunDockerCommandAsync(

@@ -6,14 +6,33 @@ namespace Maestro.Infrastructure.Services;
 /// <summary>
 /// File system browser implementation.
 /// Provides directory listing and navigation for project folder selection.
+/// Supports both native and Docker-mounted filesystems.
 /// </summary>
 public class FileSystemBrowser : IFileSystemBrowser
 {
     private readonly ILogger<FileSystemBrowser>? _logger;
+    private readonly bool _isRunningInDocker;
+    private readonly string? _hostMountPath;
+    private readonly string? _hostUsersPath;
+    private readonly string? _hostHomePath;
 
     public FileSystemBrowser(ILogger<FileSystemBrowser>? logger = null)
     {
         _logger = logger;
+
+        // Detect if running in Docker via environment variable or /.dockerenv file
+        _isRunningInDocker = Environment.GetEnvironmentVariable("MAESTRO_RUNNING_IN_DOCKER") == "true"
+                            || File.Exists("/.dockerenv");
+
+        _hostMountPath = Environment.GetEnvironmentVariable("MAESTRO_HOST_MOUNT_PATH");
+        _hostUsersPath = Environment.GetEnvironmentVariable("MAESTRO_HOST_USERS_PATH");
+        _hostHomePath = Environment.GetEnvironmentVariable("MAESTRO_HOST_HOME_PATH");
+
+        if (_isRunningInDocker)
+        {
+            _logger?.LogInformation("FileSystemBrowser running in Docker mode. Host mount: {HostMount}, Users: {UsersPath}, Home: {HomePath}",
+                _hostMountPath, _hostUsersPath, _hostHomePath);
+        }
     }
 
     public Task<DirectoryListingResult> ListDirectoryAsync(string? path = null, CancellationToken ct = default)
@@ -128,71 +147,196 @@ public class FileSystemBrowser : IFileSystemBrowser
     {
         var directories = new List<CommonDirectoryInfo>();
 
-        // User home directory
+        // When running in Docker, use mounted host paths instead of container paths
+        if (_isRunningInDocker)
+        {
+            return Task.FromResult(GetCommonDirectoriesForDocker());
+        }
+
+        // Native mode: use Environment.GetFolderPath
         var userHome = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-        if (!string.IsNullOrEmpty(userHome) && Directory.Exists(userHome))
+
+        // Helper function to add special folder if it exists
+        void TryAddSpecialFolder(Environment.SpecialFolder folder, string displayName, string icon)
         {
-            directories.Add(new CommonDirectoryInfo
+            var path = Environment.GetFolderPath(folder);
+            if (!string.IsNullOrEmpty(path) && Directory.Exists(path))
             {
-                Name = "Home",
-                Path = userHome,
-                Icon = "home"
-            });
+                directories.Add(new CommonDirectoryInfo
+                {
+                    Name = displayName,
+                    Path = path,
+                    Icon = icon
+                });
+            }
         }
 
-        // Desktop
-        var desktop = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
-        if (!string.IsNullOrEmpty(desktop) && Directory.Exists(desktop))
+        // Helper function to try common path patterns if SpecialFolder doesn't work
+        void TryAddCommonPath(string displayName, string icon, params string[] pathPatterns)
         {
-            directories.Add(new CommonDirectoryInfo
+            foreach (var pattern in pathPatterns)
             {
-                Name = "Desktop",
-                Path = desktop,
-                Icon = "desktop"
-            });
+                if (Directory.Exists(pattern))
+                {
+                    directories.Add(new CommonDirectoryInfo
+                    {
+                        Name = displayName,
+                        Path = pattern,
+                        Icon = icon
+                    });
+                    return; // Only add first match
+                }
+            }
         }
 
-        // Documents
-        var documents = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
-        if (!string.IsNullOrEmpty(documents) && Directory.Exists(documents))
+        // Add all common special folders (cross-platform)
+        // These are ordered as they typically appear in native file explorers
+
+        // 1. User Home Directory (always first)
+        TryAddSpecialFolder(Environment.SpecialFolder.UserProfile, "Home", "home");
+
+        // 2. Desktop
+        TryAddSpecialFolder(Environment.SpecialFolder.Desktop, "Desktop", "desktop");
+
+        // 3. Documents
+        TryAddSpecialFolder(Environment.SpecialFolder.MyDocuments, "Documents", "file-text");
+
+        // 4. Downloads (SpecialFolder enum doesn't exist in all .NET versions, try common paths)
+        if (!string.IsNullOrEmpty(userHome))
         {
-            directories.Add(new CommonDirectoryInfo
-            {
-                Name = "Documents",
-                Path = documents,
-                Icon = "folder"
-            });
+            TryAddCommonPath("Downloads", "download",
+                Path.Combine(userHome, "Downloads"),
+                Path.Combine(userHome, "downloads")
+            );
         }
 
-        // Common development directories
+        // 5. Pictures
+        TryAddSpecialFolder(Environment.SpecialFolder.MyPictures, "Pictures", "image");
+
+        // 6. Music
+        TryAddSpecialFolder(Environment.SpecialFolder.MyMusic, "Music", "music");
+
+        // 7. Videos
+        TryAddSpecialFolder(Environment.SpecialFolder.MyVideos, "Videos", "video");
+
+        // 8. Development directories (show ALL that exist, not just first one)
+        if (!string.IsNullOrEmpty(userHome))
+        {
+            AddDevelopmentDirectories(directories, userHome);
+        }
+
+        return Task.FromResult(directories.AsEnumerable());
+    }
+
+    /// <summary>
+    /// Get common directories when running in Docker with mounted host filesystem.
+    /// Uses the mounted paths at /host/home and /host/Users.
+    /// </summary>
+    private IEnumerable<CommonDirectoryInfo> GetCommonDirectoriesForDocker()
+    {
+        var directories = new List<CommonDirectoryInfo>();
+
+        // Use mounted host home directory
+        var hostHome = _hostHomePath;
+        if (string.IsNullOrEmpty(hostHome) || !Directory.Exists(hostHome))
+        {
+            _logger?.LogWarning("Host home directory not mounted. Quick access will be limited.");
+            return directories;
+        }
+
+        _logger?.LogDebug("Getting common directories from host home: {HostHome}", hostHome);
+
+        // 1. Home directory
+        directories.Add(new CommonDirectoryInfo
+        {
+            Name = "Home",
+            Path = hostHome,
+            Icon = "home"
+        });
+
+        // Helper to add directory if it exists
+        void TryAddPath(string displayName, string icon, params string[] subPaths)
+        {
+            foreach (var subPath in subPaths)
+            {
+                var fullPath = Path.Combine(hostHome, subPath);
+                if (Directory.Exists(fullPath))
+                {
+                    directories.Add(new CommonDirectoryInfo
+                    {
+                        Name = displayName,
+                        Path = fullPath,
+                        Icon = icon
+                    });
+                    return; // Only add first match
+                }
+            }
+        }
+
+        // 2. Desktop
+        TryAddPath("Desktop", "desktop", "Desktop");
+
+        // 3. Documents
+        TryAddPath("Documents", "file-text", "Documents", "My Documents");
+
+        // 4. Downloads
+        TryAddPath("Downloads", "download", "Downloads");
+
+        // 5. Pictures
+        TryAddPath("Pictures", "image", "Pictures", "My Pictures");
+
+        // 6. Music
+        TryAddPath("Music", "music", "Music", "My Music");
+
+        // 7. Videos
+        TryAddPath("Videos", "video", "Videos", "My Videos");
+
+        // 8. OneDrive (Windows specific, very common)
+        TryAddPath("OneDrive", "cloud", "OneDrive", "OneDrive - Personal");
+
+        // 9. Development directories
+        AddDevelopmentDirectories(directories, hostHome);
+
+        return directories;
+    }
+
+    /// <summary>
+    /// Add common development directories to the list.
+    /// </summary>
+    private void AddDevelopmentDirectories(List<CommonDirectoryInfo> directories, string basePath)
+    {
         var devDirs = new[]
         {
-            Path.Combine(userHome, "Projects"),
-            Path.Combine(userHome, "projects"),
-            Path.Combine(userHome, "Development"),
-            Path.Combine(userHome, "dev"),
-            Path.Combine(userHome, "Code"),
-            Path.Combine(userHome, "code"),
-            Path.Combine(userHome, "workspace"),
-            Path.Combine(userHome, "repos"),
-            Path.Combine(userHome, "git")
+            Path.Combine(basePath, "Projects"),
+            Path.Combine(basePath, "projects"),
+            Path.Combine(basePath, "Development"),
+            Path.Combine(basePath, "dev"),
+            Path.Combine(basePath, "Code"),
+            Path.Combine(basePath, "code"),
+            Path.Combine(basePath, "workspace"),
+            Path.Combine(basePath, "repos"),
+            Path.Combine(basePath, "git"),
+            Path.Combine(basePath, "src"),
+            Path.Combine(basePath, "source")
         };
 
         foreach (var dir in devDirs)
         {
             if (Directory.Exists(dir))
             {
-                directories.Add(new CommonDirectoryInfo
+                // Avoid duplicates if folder name is same but different case
+                var folderName = Path.GetFileName(dir);
+                if (!directories.Any(d => d.Name.Equals(folderName, StringComparison.OrdinalIgnoreCase)))
                 {
-                    Name = Path.GetFileName(dir),
-                    Path = dir,
-                    Icon = "code"
-                });
-                break; // Only add the first found development directory
+                    directories.Add(new CommonDirectoryInfo
+                    {
+                        Name = folderName,
+                        Path = dir,
+                        Icon = "code"
+                    });
+                }
             }
         }
-
-        return Task.FromResult(directories.AsEnumerable());
     }
 
     public Task<bool> DirectoryExistsAsync(string path, CancellationToken ct = default)
@@ -212,9 +356,75 @@ public class FileSystemBrowser : IFileSystemBrowser
     {
         var directories = new List<DirectoryEntryInfo>();
 
-        if (OperatingSystem.IsWindows())
+        // If running in Docker, show the mounted host filesystem
+        if (_isRunningInDocker)
         {
-            // List drives on Windows
+            _logger?.LogDebug("Listing roots in Docker mode");
+
+            // Add host Users folder (Windows) if mounted
+            if (!string.IsNullOrEmpty(_hostUsersPath) && Directory.Exists(_hostUsersPath))
+            {
+                // List user folders under /host/Users
+                try
+                {
+                    foreach (var userDir in Directory.GetDirectories(_hostUsersPath))
+                    {
+                        var userName = Path.GetFileName(userDir);
+                        // Skip system folders
+                        if (userName == "Public" || userName == "Default" || userName == "Default User" || userName == "All Users")
+                            continue;
+
+                        directories.Add(new DirectoryEntryInfo
+                        {
+                            Name = $"📁 {userName} (Windows User)",
+                            Path = userDir,
+                            IsHidden = false
+                        });
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger?.LogWarning(ex, "Could not enumerate host Users directory");
+                }
+            }
+
+            // Add host home folder if mounted (fallback)
+            if (!string.IsNullOrEmpty(_hostHomePath) && Directory.Exists(_hostHomePath))
+            {
+                directories.Add(new DirectoryEntryInfo
+                {
+                    Name = "🏠 Host Home",
+                    Path = _hostHomePath,
+                    IsHidden = false
+                });
+            }
+
+            // Add the current project workspace
+            if (Directory.Exists("/app"))
+            {
+                directories.Add(new DirectoryEntryInfo
+                {
+                    Name = "📦 Maestro Workspace",
+                    Path = "/app",
+                    IsHidden = false
+                });
+            }
+
+            // If no host mounts found, show container filesystem with a warning
+            if (directories.Count == 0)
+            {
+                _logger?.LogWarning("No host filesystem mounted. FileBrowser will show container filesystem.");
+                directories.Add(new DirectoryEntryInfo
+                {
+                    Name = "⚠️ Container Root (no host mount)",
+                    Path = "/",
+                    IsHidden = false
+                });
+            }
+        }
+        else if (OperatingSystem.IsWindows())
+        {
+            // Native Windows: List drives
             foreach (var drive in DriveInfo.GetDrives())
             {
                 if (drive.IsReady)
@@ -232,7 +442,7 @@ public class FileSystemBrowser : IFileSystemBrowser
         }
         else
         {
-            // On Unix-like systems, start from root
+            // Native Unix-like systems: start from root
             directories.Add(new DirectoryEntryInfo
             {
                 Name = "/",

@@ -125,6 +125,7 @@ app.MapControllers();
 app.MapHub<Maestro.Api.Hubs.BlockHub>("/hubs/blocks");
 app.MapHub<Maestro.Api.Hubs.ExecutionHub>("/hubs/execution");
 app.MapHub<Maestro.Api.Hubs.ProjectHub>("/hubs/projects");
+app.MapHub<Maestro.Api.Hubs.TerminalHub>("/hubs/terminal");
 
 // Initialize SignalR state publisher for projects
 var projectStatePublisher = new Maestro.Api.Hubs.SignalRProjectStatePublisher(

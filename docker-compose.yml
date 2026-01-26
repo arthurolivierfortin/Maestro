@@ -13,6 +13,8 @@ services:
       # Mount blocks directories (read-write)
       - ./blocks:/app/blocks:rw
       - ./.maestro:/app/.maestro:rw
+      # Mount schemas for block validation
+      - ./docs/schemas:/app/docs/schemas:ro
       # Optionally mount user blocks from host (read-only for safety)
       - ${HOME}/.maestro/blocks:/root/.maestro/blocks:ro
     environment:

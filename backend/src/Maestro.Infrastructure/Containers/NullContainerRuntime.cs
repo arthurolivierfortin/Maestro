@@ -86,4 +86,12 @@ public class NullContainerRuntime : IContainerRuntime
     {
         throw new NotSupportedException("Container operations not supported with 'none' runtime");
     }
+
+    public Task<ContainerResourceStats?> GetResourceStatsAsync(
+        string containerId,
+        CancellationToken cancellationToken = default)
+    {
+        // No container, no stats
+        return Task.FromResult<ContainerResourceStats?>(null);
+    }
 }

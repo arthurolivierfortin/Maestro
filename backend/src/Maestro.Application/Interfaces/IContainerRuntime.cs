@@ -118,6 +118,16 @@ public interface IContainerRuntime
         string sourcePath,
         string destinationPath,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets real-time resource usage statistics for a container.
+    /// </summary>
+    /// <param name="containerId">Container identifier</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Resource usage statistics</returns>
+    Task<ContainerResourceStats?> GetResourceStatsAsync(
+        string containerId,
+        CancellationToken cancellationToken = default);
 }
 
 /// <summary>
@@ -256,4 +266,50 @@ public enum ContainerState
     Exited,
     Dead,
     Removing
+}
+
+/// <summary>
+/// Resource usage statistics for a container.
+/// </summary>
+public record ContainerResourceStats
+{
+    /// <summary>
+    /// CPU usage percentage (0-100 per CPU core).
+    /// </summary>
+    public double CpuPercent { get; init; }
+
+    /// <summary>
+    /// Memory usage in megabytes.
+    /// </summary>
+    public double MemoryMB { get; init; }
+
+    /// <summary>
+    /// Memory limit in megabytes (if set).
+    /// </summary>
+    public double? MemoryLimitMB { get; init; }
+
+    /// <summary>
+    /// Memory usage percentage (0-100).
+    /// </summary>
+    public double MemoryPercent { get; init; }
+
+    /// <summary>
+    /// Network I/O received in megabytes.
+    /// </summary>
+    public double? NetworkRxMB { get; init; }
+
+    /// <summary>
+    /// Network I/O transmitted in megabytes.
+    /// </summary>
+    public double? NetworkTxMB { get; init; }
+
+    /// <summary>
+    /// Block I/O read in megabytes.
+    /// </summary>
+    public double? BlockReadMB { get; init; }
+
+    /// <summary>
+    /// Block I/O write in megabytes.
+    /// </summary>
+    public double? BlockWriteMB { get; init; }
 }

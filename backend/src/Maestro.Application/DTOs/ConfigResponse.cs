@@ -14,7 +14,7 @@ public record ConfigResponse
     /// <summary>
     /// Default LLM provider name.
     /// </summary>
-    public string DefaultLLMProvider { get; init; }
+    public required string DefaultLLMProvider { get; init; }
     
     /// <summary>
     /// Execution timeout duration.

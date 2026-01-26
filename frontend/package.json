@@ -1,26 +1,39 @@
 {
-  "name": "maestro-frontend",
+  "name": "maestro",
   "version": "1.0.0",
+  "description": "Maestro - Visual Workflow Orchestration for AI Agents",
   "private": true,
   "type": "module",
+  "main": "dist-electron/main.js",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build",
+    "dev:web": "ELECTRON_DISABLE=true vite",
+    "build": "tsc && vite build && electron-builder",
+    "build:web": "tsc && vite build",
     "preview": "vite preview",
-    "lint": "eslint src --ext .ts,.tsx",
-    "lint:fix": "eslint src --ext .ts,.tsx --fix",
-    "format": "prettier --write \"src/**/*.{ts,tsx,css,scss}\"",
-    "format:check": "prettier --check \"src/**/*.{ts,tsx,css,scss}\"",
+    "lint": "eslint src electron --ext .ts,.tsx",
+    "lint:fix": "eslint src electron --ext .ts,.tsx --fix",
+    "format": "prettier --write \"src/**/*.{ts,tsx,css,scss}\" \"electron/**/*.ts\"",
+    "format:check": "prettier --check \"src/**/*.{ts,tsx,css,scss}\" \"electron/**/*.ts\"",
     "type-check": "tsc --noEmit",
     "test": "vitest",
     "test:ui": "vitest --ui",
     "test:run": "vitest run",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder",
+    "dist:win": "electron-builder --win",
+    "dist:mac": "electron-builder --mac",
+    "dist:linux": "electron-builder --linux"
   },
   "dependencies": {
     "@microsoft/signalr": "^10.0.0",
+    "@xterm/addon-fit": "^0.11.0",
+    "@xterm/addon-web-links": "^0.12.0",
+    "@xterm/xterm": "^6.0.0",
     "@xyflow/react": "^12.10.0",
     "axios": "^1.13.2",
+    "electron-updater": "^6.3.9",
     "lucide-react": "^0.562.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
@@ -42,6 +55,8 @@
     "@vitejs/plugin-react": "^4.3.4",
     "@vitest/coverage-v8": "^4.0.16",
     "@vitest/ui": "^4.0.16",
+    "electron": "^33.2.1",
+    "electron-builder": "^25.1.8",
     "eslint": "^9.16.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-prettier": "^5.5.4",
@@ -53,6 +68,37 @@
     "typescript": "^5.7.2",
     "typescript-eslint": "^8.52.0",
     "vite": "^6.0.3",
+    "vite-plugin-electron": "^0.28.8",
+    "vite-plugin-electron-renderer": "^0.14.6",
     "vitest": "^4.0.16"
+  },
+  "build": {
+    "appId": "com.maestro.app",
+    "productName": "Maestro",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "dist-electron/**/*"
+    ],
+    "win": {
+      "target": ["nsis", "portable"],
+      "icon": "public/icon.ico"
+    },
+    "mac": {
+      "target": ["dmg", "zip"],
+      "icon": "public/icon.icns",
+      "category": "public.app-category.developer-tools"
+    },
+    "linux": {
+      "target": ["AppImage", "deb"],
+      "icon": "public/icon.png",
+      "category": "Development"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
   }
 }

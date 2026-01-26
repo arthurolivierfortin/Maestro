@@ -83,9 +83,19 @@ public class ProjectContainerService : IProjectContainerService
                 throw new InvalidOperationException($"Runtime '{project.Runtime.Type}' is not available");
             }
 
+            // Prepare runtime configuration with project root mounted as volume
+            var runtimeConfig = project.Runtime with
+            {
+                Volumes = project.Runtime.Volumes.Concat(new[]
+                {
+                    $"{project.RootPath}:{project.Runtime.WorkDir}:rw"
+                }).ToList()
+            };
+
             // Create and start container
-            _logger.LogInformation("Creating container for project {ProjectId}", projectId);
-            var containerId = await runtime.CreateContainerAsync(project.Runtime, ct);
+            _logger.LogInformation("Creating container for project {ProjectId} with root path {RootPath}",
+                projectId, project.RootPath);
+            var containerId = await runtime.CreateContainerAsync(runtimeConfig, ct);
 
             _logger.LogInformation("Starting container {ContainerId} for project {ProjectId}", containerId, projectId);
             await runtime.StartContainerAsync(containerId, ct);

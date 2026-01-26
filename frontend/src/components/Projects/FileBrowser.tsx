@@ -79,7 +79,6 @@ export const FileBrowser: React.FC<FileBrowserProps> = ({ onSelect, initialPath 
   const getDirectoryIcon = (dir: DirectoryEntry): string => {
     if (dir.isMaestroProject) return '🎭';
     if (dir.isGitRepository) return '📦';
-    if (dir.isHidden) return '📁';
     return '📂';
   };
 
@@ -103,6 +102,18 @@ export const FileBrowser: React.FC<FileBrowserProps> = ({ onSelect, initialPath 
                   ? '🖥️'
                   : dir.icon === 'code'
                   ? '💻'
+                  : dir.icon === 'download'
+                  ? '⬇️'
+                  : dir.icon === 'image'
+                  ? '🖼️'
+                  : dir.icon === 'music'
+                  ? '🎵'
+                  : dir.icon === 'video'
+                  ? '🎬'
+                  : dir.icon === 'file-text'
+                  ? '📄'
+                  : dir.icon === 'cloud'
+                  ? '☁️'
                   : '📁'}
               </span>
               <span className="file-browser__quick-name">{dir.name}</span>
@@ -172,29 +183,34 @@ export const FileBrowser: React.FC<FileBrowserProps> = ({ onSelect, initialPath 
 
             {/* Directories */}
             <div className="file-browser__items">
-              {listing.directories
-                .filter((d) => !d.isHidden)
-                .map((dir) => (
-                  <button
-                    key={dir.path}
-                    className={`file-browser__item ${
-                      dir.isMaestroProject ? 'file-browser__item--maestro' : ''
-                    } ${dir.isGitRepository ? 'file-browser__item--git' : ''}`}
-                    onClick={() => handleNavigate(dir.path)}
-                    onDoubleClick={() => handleNavigate(dir.path)}
-                  >
-                    <span className="file-browser__item-icon">{getDirectoryIcon(dir)}</span>
-                    <span className="file-browser__item-name">{dir.name}</span>
-                    {dir.isMaestroProject && (
-                      <span className="file-browser__item-badge">Project</span>
-                    )}
-                    {dir.isGitRepository && !dir.isMaestroProject && (
-                      <span className="file-browser__item-badge file-browser__item-badge--git">
-                        Git
-                      </span>
-                    )}
-                  </button>
-                ))}
+              {listing.directories.map((dir) => (
+                <button
+                  key={dir.path}
+                  className={`file-browser__item ${
+                    dir.isMaestroProject ? 'file-browser__item--maestro' : ''
+                  } ${dir.isGitRepository ? 'file-browser__item--git' : ''} ${
+                    dir.isHidden ? 'file-browser__item--hidden' : ''
+                  }`}
+                  onClick={() => handleNavigate(dir.path)}
+                  onDoubleClick={() => handleNavigate(dir.path)}
+                >
+                  <span className="file-browser__item-icon">{getDirectoryIcon(dir)}</span>
+                  <span className="file-browser__item-name">{dir.name}</span>
+                  {dir.isMaestroProject && (
+                    <span className="file-browser__item-badge">Project</span>
+                  )}
+                  {dir.isGitRepository && !dir.isMaestroProject && (
+                    <span className="file-browser__item-badge file-browser__item-badge--git">
+                      Git
+                    </span>
+                  )}
+                  {dir.isHidden && (
+                    <span className="file-browser__item-badge file-browser__item-badge--hidden">
+                      Hidden
+                    </span>
+                  )}
+                </button>
+              ))}
             </div>
 
             {listing.directories.length === 0 && (

@@ -11,6 +11,7 @@ import { useProjectStore, Project, FileAccessRule, BlockPermission } from '../st
 import { ContainerState, containerService } from '../services/containerService';
 import { ProjectStatusBadge } from '../components/Projects/ProjectStatusBadge';
 import { ContainerControls } from '../components/Projects/ContainerControls';
+import { ProjectTerminal } from '../components/Terminal/ProjectTerminal';
 import './ProjectDetailPage.scss';
 
 // ============= Types =============
@@ -149,7 +150,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ project, containerState }) =>
   );
 };
 
-// Terminal Tab (placeholder for now)
+// Terminal Tab
 interface TerminalTabProps {
   project: Project;
   containerState?: ContainerState;
@@ -162,21 +163,13 @@ const TerminalTab: React.FC<TerminalTabProps> = ({ project, containerState }) =>
   return (
     <div className="terminal-tab">
       {isRunning ? (
-        <div className="terminal-tab__container">
-          <div className="terminal-tab__header">
-            <span className="terminal-tab__title">Terminal - {project.name}</span>
-            <span className="terminal-tab__status">Connected</span>
-          </div>
-          <div className="terminal-tab__output">
-            <div className="terminal-tab__placeholder">
-              <p>Terminal integration coming soon.</p>
-              <p>
-                Container ID: <code>{containerState?.containerId?.substring(0, 12)}</code>
-              </p>
-              <p>The terminal will provide interactive access to the running container.</p>
-            </div>
-          </div>
-        </div>
+        <ProjectTerminal
+          projectId={project.id}
+          containerId={containerState?.containerId}
+          onConnect={() => console.log('Terminal connected')}
+          onDisconnect={() => console.log('Terminal disconnected')}
+          onError={(error) => console.error('Terminal error:', error)}
+        />
       ) : (
         <div className="terminal-tab__not-running">
           <div className="terminal-tab__not-running-icon">💤</div>

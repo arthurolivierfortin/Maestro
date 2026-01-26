@@ -9,12 +9,12 @@ public record HealthResponse
     /// <summary>
     /// Overall health status: "healthy", "degraded", or "unhealthy".
     /// </summary>
-    public string Status { get; init; }
-    
+    public required string Status { get; init; }
+
     /// <summary>
     /// API version from assembly.
     /// </summary>
-    public string Version { get; init; }
+    public required string Version { get; init; }
     
     /// <summary>
     /// API uptime duration.

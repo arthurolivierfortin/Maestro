@@ -16,10 +16,19 @@ services:
       # Mount repository docs so schema validator can find docs/schemas
       - ./docs:/app/docs:ro
       - ${HOME}/.maestro/blocks:/root/.maestro/blocks:ro
+      # Mount host filesystem for FileBrowser access (Windows: /c/Users, Linux/Mac: /host)
+      - ${USERPROFILE:-${HOME}}:/host/home:ro
+      # On Windows with Docker Desktop, mount common locations
+      - /c/Users:/host/Users:ro
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - DOTNET_WATCH_RESTART_ON_RUDE_EDIT=1
       - DOTNET_USE_POLLING_FILE_WATCHER=true
+      # FileBrowser: Tell backend it's running in Docker and where host filesystem is mounted
+      - MAESTRO_RUNNING_IN_DOCKER=true
+      - MAESTRO_HOST_MOUNT_PATH=/host
+      - MAESTRO_HOST_USERS_PATH=/host/Users
+      - MAESTRO_HOST_HOME_PATH=/host/home
       - LLM__DefaultProvider=${LLM_DEFAULT_PROVIDER:-OpenAI}
       - LLM__Providers__OpenAI__ApiKey=${OPENAI_API_KEY:-}
       - LLM__Providers__Anthropic__ApiKey=${ANTHROPIC_API_KEY:-}

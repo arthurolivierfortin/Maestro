@@ -3,12 +3,14 @@
  *
  * Docker Desktop-style project management page.
  * Phase 8 implementation.
+ * Phase 9: Added native file picker support for Electron.
  */
 
 import React, { useEffect, useState, useMemo } from 'react';
 import { useProjectStore, selectFilteredProjects } from '../store/projectStore';
 import { ProjectRow } from '../components/Projects/ProjectRow';
 import { FileBrowser } from '../components/Projects/FileBrowser';
+import { isElectron, showDirectoryPicker, menuEvents } from '../electron/ipc';
 import './ProjectsPage.scss';
 
 // ============= Sub-Components =============
@@ -42,6 +44,7 @@ const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
     runtimeType: 'none',
     dockerImage: '',
   });
+  const [useNativePicker, setUseNativePicker] = useState(isElectron());
 
   useEffect(() => {
     if (isOpen) {
@@ -53,6 +56,11 @@ const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
         runtimeType: 'none',
         dockerImage: '',
       });
+
+      // In Electron, immediately show native picker
+      if (isElectron()) {
+        handleNativePickerClick();
+      }
     }
   }, [isOpen]);
 
@@ -69,23 +77,51 @@ const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
     setStep('details');
   };
 
+  const handleNativePickerClick = async () => {
+    const selectedPath = await showDirectoryPicker({ title: 'Select Project Folder' });
+    if (selectedPath) {
+      handlePathSelect(selectedPath);
+    } else if (!formData.rootPath) {
+      // User cancelled and no path selected, close modal
+      onClose();
+    }
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onCreate(formData);
   };
 
+  // In Electron with native picker, skip the browse step entirely
+  const showBrowseStep = step === 'browse' && (!useNativePicker || !isElectron());
+
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content modal-content--large" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>{step === 'browse' ? 'Select Project Folder' : 'Project Details'}</h2>
+          <h2>{showBrowseStep ? 'Select Project Folder' : 'Project Details'}</h2>
           <button className="modal-close" onClick={onClose}>
             &times;
           </button>
         </div>
 
-        {step === 'browse' ? (
+        {showBrowseStep ? (
           <div className="modal-body modal-body--browser">
+            {/* Option to use native picker in Electron */}
+            {isElectron() && (
+              <div className="modal-body__native-picker-option">
+                <button className="btn-primary" onClick={handleNativePickerClick}>
+                  Open Native File Picker
+                </button>
+                <span className="modal-body__or">or browse below</span>
+                <button
+                  className="btn-link"
+                  onClick={() => setUseNativePicker(false)}
+                >
+                  Use built-in browser
+                </button>
+              </div>
+            )}
             <FileBrowser onSelect={handlePathSelect} />
           </div>
         ) : (
@@ -103,7 +139,13 @@ const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
                 <button
                   type="button"
                   className="btn-secondary"
-                  onClick={() => setStep('browse')}
+                  onClick={() => {
+                    if (isElectron()) {
+                      handleNativePickerClick();
+                    } else {
+                      setStep('browse');
+                    }
+                  }}
                 >
                   Change
                 </button>
@@ -216,6 +258,33 @@ const ProjectsPage: React.FC = () => {
   useEffect(() => {
     fetchProjects();
   }, [fetchProjects]);
+
+  // Handle Electron menu events
+  useEffect(() => {
+    if (!isElectron()) return;
+
+    const unsubscribeNew = menuEvents.onNewProject(() => {
+      setShowCreateModal(true);
+    });
+
+    const unsubscribeOpen = menuEvents.onOpenProject(async (path: string) => {
+      // Create project from the path opened via menu
+      const folderName = path.split(/[/\\]/).pop() || 'New Project';
+      try {
+        await createProject({
+          name: folderName,
+          rootPath: path,
+        });
+      } catch {
+        // Error handled by store
+      }
+    });
+
+    return () => {
+      unsubscribeNew();
+      unsubscribeOpen();
+    };
+  }, [createProject]);
 
   const handleCreateProject = async (data: CreateProjectFormData) => {
     try {

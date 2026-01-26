@@ -312,6 +312,15 @@ public class ProcessContainerRuntime : IContainerRuntime
         }
     }
 
+    public Task<ContainerResourceStats?> GetResourceStatsAsync(
+        string containerId,
+        CancellationToken cancellationToken = default)
+    {
+        // Process-based containers don't have resource monitoring
+        // Could potentially use Process.TotalProcessorTime and WorkingSet64 in the future
+        return Task.FromResult<ContainerResourceStats?>(null);
+    }
+
     private static string EscapeArg(string arg)
     {
         if (arg.Contains(' ') || arg.Contains('"'))

@@ -239,6 +239,15 @@
         background-color: rgba(88, 166, 255, 0.1);
       }
     }
+
+    &--hidden {
+      opacity: 0.6;
+      font-style: italic;
+
+      .file-browser__item-name {
+        color: var(--text-muted, #6e7681);
+      }
+    }
   }
 
   &__item-icon {
@@ -265,6 +274,11 @@
     &--git {
       background-color: rgba(88, 166, 255, 0.3);
       color: #58a6ff;
+    }
+
+    &--hidden {
+      background-color: rgba(110, 118, 129, 0.3);
+      color: #6e7681;
     }
   }
 
