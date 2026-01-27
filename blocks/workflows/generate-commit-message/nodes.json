@@ -1,0 +1,20 @@
+[
+  {
+    "id": "git-diff",
+    "blockRef": "tools/git-diff",
+    "config": { "staged": true }
+  },
+  {
+    "id": "git-status",
+    "blockRef": "tools/git-status"
+  },
+  {
+    "id": "git-log",
+    "blockRef": "tools/git-log",
+    "config": { "count": 5 }
+  },
+  {
+    "id": "generate-message",
+    "blockRef": "inference/commit-message-generator"
+  }
+]

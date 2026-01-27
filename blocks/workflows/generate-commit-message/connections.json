@@ -1,0 +1,5 @@
+[
+  { "from": "git-diff", "to": "generate-message", "mapping": { "diff": "diff" } },
+  { "from": "git-status", "to": "generate-message", "mapping": { "status": "status" } },
+  { "from": "git-log", "to": "generate-message", "mapping": { "log": "recentCommits" } }
+]

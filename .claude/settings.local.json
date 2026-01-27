@@ -6,7 +6,14 @@
       "Bash(npm run build:*)",
       "Bash(dotnet restore:*)",
       "Bash(grep:*)",
-      "Bash(docker-compose up:*)"
+      "Bash(docker-compose up:*)",
+      "Bash(curl:*)",
+      "Bash(timeout 15 dotnet run:*)",
+      "Bash(node index.js:*)",
+      "Bash(taskkill:*)",
+      "Bash(pkill:*)",
+      "Bash(python -m json.tool:*)",
+      "Bash(git add:*)"
     ]
   }
 }

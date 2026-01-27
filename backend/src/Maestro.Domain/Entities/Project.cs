@@ -107,6 +107,11 @@ public class Project
     public string GetBlocksFolderPath() => Path.Combine(GetMaestroFolderPath(), "blocks");
 
     /// <summary>
+    /// Gets the path to the project's workflows folder.
+    /// </summary>
+    public string GetWorkflowsFolderPath() => Path.Combine(GetMaestroFolderPath(), "workflows");
+
+    /// <summary>
     /// Updates the project timestamp.
     /// </summary>
     public void MarkUpdated()

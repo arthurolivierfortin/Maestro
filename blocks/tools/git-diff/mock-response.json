@@ -1,0 +1,4 @@
+{
+  "diff": "diff --git a/README.md b/README.md\nnew file mode 100644\nindex 0000000..abc1234\n--- /dev/null\n+++ b/README.md\n@@ -0,0 +1,10 @@\n+# Maestro Test Repo\n+\n+This is a test repository for testing Maestro workflows.\n+\n+## Features\n+\n+- Test commit message generation\n+- Integration with LLM Provider\n+- Workflow automation",
+  "exitCode": 0
+}

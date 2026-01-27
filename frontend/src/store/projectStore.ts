@@ -157,16 +157,17 @@ export const useProjectStore = create<ProjectState>()(
         try {
           const project = await apiClient.get<Project>(`/api/projects/${id}`);
 
-          // Update cache
+          // Update cache and set as current project
           set(state => ({
             projects: state.projects.map(p => p.id === id ? project : p),
+            currentProject: project,
             isLoading: false
           }));
 
           return project;
         } catch (error) {
           const message = error instanceof Error ? error.message : 'Failed to fetch project';
-          set({ error: message, isLoading: false });
+          set({ error: message, isLoading: false, currentProject: null });
           return null;
         }
       },

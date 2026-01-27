@@ -222,6 +222,11 @@ class MaestroApiClient {
     return this._fetch('POST', '/api/projects/open', { body: { rootPath } });
   }
 
+  async bindProject(options) {
+    if (!options || !options.rootPath) throw new Error('Root path is required');
+    return this._fetch('POST', '/api/projects/bind', { body: options });
+  }
+
   async getProjectBlocks(projectId) {
     if (!projectId) throw new Error('Project ID is required');
     return this._fetch('GET', `/api/projects/${projectId}/blocks`);

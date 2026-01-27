@@ -59,11 +59,13 @@ public class FileSystemProjectRepository : IProjectRepository
 
         var maestroFolder = project.GetMaestroFolderPath();
         var blocksFolder = project.GetBlocksFolderPath();
+        var workflowsFolder = project.GetWorkflowsFolderPath();
         var configPath = project.GetConfigFilePath();
 
         // Ensure directories exist
         Directory.CreateDirectory(maestroFolder);
         Directory.CreateDirectory(blocksFolder);
+        Directory.CreateDirectory(workflowsFolder);
 
         // Serialize project to JSON
         var projectJson = new

@@ -1,0 +1,56 @@
+{
+  "$schema": "../../docs/schemas/block.schema.json",
+  "id": "commit-message-generator",
+  "name": "Commit Message Generator",
+  "blockType": "inference",
+  "version": "1.0.0",
+  "isAtomic": true,
+  "description": "Generates conventional commit messages based on git diff and status",
+  "inputs": [
+    {
+      "id": "diff",
+      "name": "Git Diff",
+      "type": "string",
+      "required": true,
+      "description": "The git diff output showing changes"
+    },
+    {
+      "id": "status",
+      "name": "Git Status",
+      "type": "string",
+      "required": false,
+      "description": "The git status output"
+    },
+    {
+      "id": "recentCommits",
+      "name": "Recent Commits",
+      "type": "string",
+      "required": false,
+      "description": "Recent commit history for style reference"
+    },
+    {
+      "id": "context",
+      "name": "Additional Context",
+      "type": "string",
+      "required": false,
+      "description": "Additional context about the changes"
+    }
+  ],
+  "outputs": [
+    {
+      "id": "content",
+      "name": "Commit Message",
+      "type": "string",
+      "description": "The generated commit message in conventional format"
+    }
+  ],
+  "config": {
+    "template": "You are an expert at writing clear, concise, and informative git commit messages following the Conventional Commits specification.\n\n## Input\n\n### Git Diff (staged changes):\n```\n{{diff}}\n```\n\n### Git Status:\n```\n{{status}}\n```\n\n### Recent Commits (for style reference):\n```\n{{recentCommits}}\n```\n\n### Additional Context:\n{{context}}\n\n## Task\n\nAnalyze the changes and generate a commit message following this exact format:\n\n```\n<type>(<scope>): <subject>\n\n<body>\n\n<footer>\n```\n\n### Format Rules:\n\n**Type** (required): One of:\n- `feat`: A new feature\n- `fix`: A bug fix\n- `docs`: Documentation only changes\n- `style`: Changes that do not affect the meaning of the code (white-space, formatting, etc.)\n- `refactor`: A code change that neither fixes a bug nor adds a feature\n- `perf`: A code change that improves performance\n- `test`: Adding missing tests or correcting existing tests\n- `build`: Changes that affect the build system or external dependencies\n- `ci`: Changes to CI configuration files and scripts\n- `chore`: Other changes that don't modify src or test files\n\n**Scope** (optional): The area of the codebase affected (e.g., `api`, `ui`, `auth`, `database`)\n\n**Subject** (required):\n- Use imperative mood (\"add\" not \"added\")\n- Don't capitalize the first letter\n- No period at the end\n- Maximum 50 characters\n\n**Body** (optional but recommended):\n- Explain the \"what\" and \"why\", not the \"how\"\n- Wrap at 72 characters\n- Use bullet points for multiple changes\n\n**Footer** (optional):\n- Reference issues: `Closes #123`, `Fixes #456`\n- Breaking changes: `BREAKING CHANGE: description`\n\n## Output\n\nGenerate ONLY the commit message, nothing else. No markdown code blocks, no explanations.",
+    "stream": false
+  },
+  "metadata": {
+    "category": "git",
+    "tags": ["git", "commit", "conventional-commits", "llm"]
+  },
+  "capabilities": ["nlp", "inference"]
+}

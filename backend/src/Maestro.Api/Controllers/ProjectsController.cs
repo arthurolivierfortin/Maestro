@@ -171,6 +171,57 @@ public class ProjectsController : ControllerBase
     }
 
     /// <summary>
+    /// Bind (initialize) an existing directory as a Maestro project.
+    /// Creates the .maestro folder structure if it doesn't exist.
+    /// </summary>
+    [HttpPost("bind")]
+    public async Task<ActionResult<ProjectDto>> BindProject([FromBody] BindProjectRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.RootPath))
+            return BadRequest(new { error = "RootPath is required" });
+
+        var fullPath = Path.GetFullPath(request.RootPath);
+
+        // Check if directory exists
+        if (!Directory.Exists(fullPath))
+            return BadRequest(new { error = $"Directory does not exist: '{fullPath}'" });
+
+        // Check if project already exists at this path
+        var existing = await _projectRepository.GetByPathAsync(fullPath);
+        if (existing != null)
+        {
+            var existingDto = ProjectDto.FromDomain(existing);
+            return Ok(existingDto);
+        }
+
+        // Determine project name from request or directory name
+        var projectName = !string.IsNullOrWhiteSpace(request.Name)
+            ? request.Name
+            : Path.GetFileName(fullPath) ?? "Unnamed Project";
+
+        // Create project entity
+        var project = Project.Create(
+            ProjectId.New(),
+            projectName,
+            fullPath,
+            request.Description);
+
+        if (request.Runtime != null)
+            project.Runtime = request.Runtime.ToDomain();
+
+        if (!string.IsNullOrEmpty(request.DefaultModel))
+            project.DefaultModel = request.DefaultModel;
+
+        // Save project (this creates .maestro folder structure and project.json)
+        await _projectRepository.SaveAsync(project);
+
+        _logger.LogInformation("Bound project {Name} at {Path}", project.Name, project.RootPath);
+
+        var dto = ProjectDto.FromDomain(project);
+        return CreatedAtAction(nameof(GetById), new { id = project.Id.ToString() }, dto);
+    }
+
+    /// <summary>
     /// Open an existing project by path.
     /// </summary>
     [HttpPost("open")]

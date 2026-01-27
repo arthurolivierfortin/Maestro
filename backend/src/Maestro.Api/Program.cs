@@ -10,6 +10,7 @@ using Maestro.Infrastructure.Containers;
 using Maestro.Infrastructure.Services;
 using System.IO;
 using System;
+using Microsoft.Extensions.Options;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -21,7 +22,16 @@ builder.Services.AddSignalR();
 // Register application services following Clean Architecture
 // Infrastructure implementations for Application interfaces
 builder.Services.AddScoped<IWorkflowRepository, JsonWorkflowRepository>();
-builder.Services.AddScoped<ILLMGateway, LLMGateway>();
+
+// Configure LLM Provider Gateway
+builder.Services.Configure<LLMProviderSettings>(
+    builder.Configuration.GetSection(LLMProviderSettings.SectionName));
+builder.Services.AddHttpClient<ILLMGateway, LLMProviderGateway>((sp, client) =>
+{
+    var settings = sp.GetRequiredService<IOptions<LLMProviderSettings>>().Value;
+    client.BaseAddress = new Uri(settings.BaseUrl);
+    client.Timeout = TimeSpan.FromSeconds(settings.TimeoutSeconds);
+});
 builder.Services.AddScoped<IExecutionMonitor, ExecutionMonitor>();
 // Prefer SignalR-backed monitor when available (scaffold). Register both if needed.
 // Prefer SignalR-backed monitor when available (scaffold). Register both if needed.

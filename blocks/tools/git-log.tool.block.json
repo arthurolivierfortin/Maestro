@@ -1,0 +1,49 @@
+{
+  "$schema": "../../../docs/schemas/block.schema.json",
+  "id": "git-log",
+  "name": "Git Log",
+  "blockType": "tool",
+  "version": "1.0.0",
+  "isAtomic": true,
+  "description": "Executes git log to get recent commit history",
+  "inputs": [
+    {
+      "id": "workingDir",
+      "name": "Working Directory",
+      "type": "string",
+      "required": false,
+      "description": "The git repository directory. Uses current directory if not specified."
+    },
+    {
+      "id": "count",
+      "name": "Commit Count",
+      "type": "number",
+      "required": false,
+      "description": "Number of commits to retrieve (default: 5)"
+    }
+  ],
+  "outputs": [
+    {
+      "id": "log",
+      "name": "Log Output",
+      "type": "string",
+      "description": "The git log output"
+    },
+    {
+      "id": "exitCode",
+      "name": "Exit Code",
+      "type": "number",
+      "description": "Command exit code"
+    }
+  ],
+  "config": {
+    "command": "git",
+    "args": ["log", "--oneline", "-n", "5"],
+    "timeout": 30000
+  },
+  "metadata": {
+    "category": "git",
+    "tags": ["git", "vcs", "log", "history"]
+  },
+  "capabilities": ["shell", "git"]
+}

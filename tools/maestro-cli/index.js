@@ -289,8 +289,46 @@ async function openProject(projectPath) {
     if (error.status === 404) {
       console.error(`❌ No project found at: ${projectPath}`);
       console.error('   Create one with: maestro projects create --name "Name" --path ' + projectPath);
+      console.error('   Or bind an existing directory: maestro projects bind --path ' + projectPath);
     } else {
       handleApiError(error, 'opening project');
+    }
+    process.exit(1);
+  }
+}
+
+async function bindProject(projectPath, options = {}) {
+  try {
+    const resolvedPath = path.resolve(projectPath);
+    const request = {
+      rootPath: resolvedPath,
+      name: options.name,
+      description: options.description,
+      runtime: options.runtime ? {
+        type: options.runtime,
+        image: options.image,
+        workDir: options.workDir
+      } : undefined,
+      defaultModel: options.model
+    };
+
+    const project = await client.bindProject(request);
+    console.log(`\n✅ Project bound successfully!\n`);
+    console.log(`  ID:   ${project.id}`);
+    console.log(`  Name: ${project.name}`);
+    console.log(`  Path: ${project.rootPath}`);
+    console.log(`\n  Created .maestro folder with:`);
+    console.log(`    - project.json`);
+    console.log(`    - blocks/`);
+    console.log(`    - workflows/`);
+    console.log('');
+  } catch (error) {
+    if (error.status === 400) {
+      console.error(`❌ Cannot bind: ${error.message}`);
+    } else if (error.status === 409) {
+      console.error(`❌ Project already exists at: ${projectPath}`);
+    } else {
+      handleApiError(error, 'binding project');
     }
     process.exit(1);
   }
@@ -578,6 +616,7 @@ Project Commands:
   projects             List all projects with container status
   projects info <id>   Show project details
   projects create      Create a new project
+  projects bind        Bind an existing directory as a Maestro project
   projects open <path> Open an existing project
   projects delete <id> Remove a project (--force required)
   projects blocks <id> List blocks in a project
@@ -605,13 +644,19 @@ Options:
   --help, -h           Show this help message
 
 Project Create Options:
-  --name <name>        Project name (required)
+  --name <name>        Project name (required for create, optional for bind)
   --path <path>        Project root path (required)
   --description <desc> Project description
   --runtime <type>     Runtime type: none, docker, process
   --image <image>      Docker image (if runtime=docker)
   --model <model>      Default model for agents
   --block-paths <paths> Comma-separated block search paths
+
+Project Bind Options:
+  --path <path>        Existing directory to bind (required)
+  --name <name>        Project name (defaults to directory name)
+  --description <desc> Project description
+  --model <model>      Default model for LLM operations
 
 Container Log Options:
   --lines <n>          Number of log lines to show (default: 100)
@@ -627,6 +672,7 @@ Examples:
   maestro workflows
   maestro projects
   maestro projects create --name "My App" --path ./my-app --runtime docker
+  maestro projects bind --path ./existing-repo --name "My Repo"
   maestro projects start abc123
   maestro projects stop abc123
   maestro projects logs abc123 --lines 50
@@ -675,6 +721,19 @@ Examples:
           image: argv.image,
           workDir: argv['work-dir'],
           blockPaths: argv['block-paths'],
+          model: argv.model
+        });
+      }
+
+      if (subCmd === 'bind') {
+        const projectPath = argv.path || argv._[2];
+        if (!projectPath) { console.error('❌ --path is required'); process.exit(1); }
+        return await bindProject(projectPath, {
+          name: argv.name,
+          description: argv.description,
+          runtime: argv.runtime,
+          image: argv.image,
+          workDir: argv['work-dir'],
           model: argv.model
         });
       }

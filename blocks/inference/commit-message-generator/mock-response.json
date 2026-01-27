@@ -1,0 +1,5 @@
+{
+  "outputs": {
+    "content": "docs(readme): add initial project documentation\n\nAdd README.md with project overview and features:\n- Test commit message generation\n- Integration with LLM Provider\n- Workflow automation"
+  }
+}
