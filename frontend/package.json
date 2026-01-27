@@ -8,6 +8,11 @@
   "scripts": {
     "dev": "vite",
     "dev:web": "ELECTRON_DISABLE=true vite",
+    "dev:docker": "docker-compose -f ../docker-compose.backend.yml up -d && vite",
+    "dev:full": "docker-compose -f ../docker-compose.dev.yml up",
+    "docker:backend": "docker-compose -f ../docker-compose.backend.yml up -d",
+    "docker:backend:stop": "docker-compose -f ../docker-compose.backend.yml down",
+    "docker:logs": "docker-compose -f ../docker-compose.backend.yml logs -f",
     "build": "tsc && vite build && electron-builder",
     "build:web": "tsc && vite build",
     "preview": "vite preview",

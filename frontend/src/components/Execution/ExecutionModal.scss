@@ -1,0 +1,305 @@
+/**
+ * Execution Modal Styles
+ */
+
+.execution-modal {
+  &__overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: 1rem;
+  }
+
+  background: var(--color-surface, #1e1e2e);
+  border-radius: 12px;
+  width: 100%;
+  max-width: 560px;
+  max-height: 90vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  border: 1px solid var(--color-border, #313244);
+
+  &__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid var(--color-border, #313244);
+    background: var(--color-surface-elevated, #262637);
+  }
+
+  &__title-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    color: var(--color-text, #cdd6f4);
+  }
+
+  &__title {
+    margin: 0;
+    font-size: 1.125rem;
+    font-weight: 600;
+  }
+
+  &__close {
+    background: none;
+    border: none;
+    color: var(--color-text-muted, #a6adc8);
+    cursor: pointer;
+    padding: 0.25rem;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s ease;
+
+    &:hover {
+      background: var(--color-surface-hover, #313244);
+      color: var(--color-text, #cdd6f4);
+    }
+  }
+
+  &__block-info {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1.25rem;
+    background: var(--color-surface-elevated, #262637);
+    border-bottom: 1px solid var(--color-border, #313244);
+  }
+
+  &__block-name {
+    font-weight: 500;
+    color: var(--color-text, #cdd6f4);
+  }
+
+  &__block-type {
+    padding: 0.125rem 0.5rem;
+    background: var(--color-primary, #89b4fa);
+    color: var(--color-surface, #1e1e2e);
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    text-transform: uppercase;
+  }
+
+  &__form {
+    padding: 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    overflow-y: auto;
+  }
+
+  &__field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  &__label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--color-text, #cdd6f4);
+  }
+
+  &__input,
+  &__textarea {
+    width: 100%;
+    padding: 0.625rem 0.75rem;
+    background: var(--color-surface-elevated, #262637);
+    border: 1px solid var(--color-border, #313244);
+    border-radius: 6px;
+    color: var(--color-text, #cdd6f4);
+    font-family: inherit;
+    font-size: 0.875rem;
+    transition: border-color 0.15s ease;
+
+    &::placeholder {
+      color: var(--color-text-muted, #a6adc8);
+    }
+
+    &:focus {
+      outline: none;
+      border-color: var(--color-primary, #89b4fa);
+    }
+
+    &:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+  }
+
+  &__textarea {
+    resize: vertical;
+    min-height: 80px;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  }
+
+  &__hint {
+    font-size: 0.75rem;
+    color: var(--color-text-muted, #a6adc8);
+  }
+
+  &__results {
+    padding: 1rem 1.25rem;
+    border-top: 1px solid var(--color-border, #313244);
+    max-height: 300px;
+    overflow-y: auto;
+
+    &--running {
+      background: var(--color-surface-elevated, #262637);
+    }
+
+    &--success {
+      background: rgba(166, 227, 161, 0.1);
+      border-top-color: var(--color-success, #a6e3a1);
+    }
+
+    &--error {
+      background: rgba(243, 139, 168, 0.1);
+      border-top-color: var(--color-error, #f38ba8);
+    }
+  }
+
+  &__status {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-weight: 500;
+    margin-bottom: 1rem;
+  }
+
+  &__status-icon {
+    &--running {
+      color: var(--color-primary, #89b4fa);
+      animation: spin 1s linear infinite;
+    }
+
+    &--success {
+      color: var(--color-success, #a6e3a1);
+    }
+
+    &--error {
+      color: var(--color-error, #f38ba8);
+    }
+  }
+
+  &__output {
+    h3 {
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: var(--color-text-muted, #a6adc8);
+      margin: 0 0 0.5rem 0;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+  }
+
+  &__json {
+    background: var(--color-surface, #1e1e2e);
+    border: 1px solid var(--color-border, #313244);
+    border-radius: 6px;
+    padding: 0.75rem;
+    margin: 0;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-size: 0.8125rem;
+    color: var(--color-text, #cdd6f4);
+    overflow-x: auto;
+    white-space: pre-wrap;
+    word-break: break-all;
+  }
+
+  &__logs {
+    background: var(--color-surface, #1e1e2e);
+    border: 1px solid var(--color-border, #313244);
+    border-radius: 6px;
+    padding: 0.5rem;
+    margin-top: 0.5rem;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-size: 0.75rem;
+    max-height: 150px;
+    overflow-y: auto;
+  }
+
+  &__log-line {
+    padding: 0.25rem 0.5rem;
+    color: var(--color-text-muted, #a6adc8);
+
+    &:nth-child(odd) {
+      background: rgba(255, 255, 255, 0.02);
+    }
+  }
+
+  &__actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.75rem;
+    padding: 1rem 1.25rem;
+    border-top: 1px solid var(--color-border, #313244);
+    background: var(--color-surface-elevated, #262637);
+  }
+
+  &__button {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.625rem 1rem;
+    border-radius: 6px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s ease;
+
+    &--secondary {
+      background: transparent;
+      border: 1px solid var(--color-border, #313244);
+      color: var(--color-text, #cdd6f4);
+
+      &:hover {
+        background: var(--color-surface-hover, #313244);
+      }
+    }
+
+    &--primary {
+      background: var(--color-primary, #89b4fa);
+      border: 1px solid var(--color-primary, #89b4fa);
+      color: var(--color-surface, #1e1e2e);
+
+      &:hover:not(:disabled) {
+        background: var(--color-primary-hover, #b4befe);
+        border-color: var(--color-primary-hover, #b4befe);
+      }
+
+      &:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+    }
+  }
+
+  &__spinner {
+    animation: spin 1s linear infinite;
+  }
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}

@@ -10,7 +10,91 @@ process.env.DIST = path.join(__dirname$1, "../dist");
 process.env.VITE_PUBLIC = app.isPackaged ? process.env.DIST : path.join(__dirname$1, "../public");
 let mainWindow = null;
 let backendProcess = null;
+let backendPort = 5e3;
 const VITE_DEV_SERVER_URL = process.env.VITE_DEV_SERVER_URL;
+function getBackendPath() {
+  const projectRoot = app.isPackaged ? path.join(process.resourcesPath, "..") : path.join(__dirname$1, "../../..");
+  return path.join(projectRoot, "backend", "src", "Maestro.Api");
+}
+async function isDotnetAvailable() {
+  return new Promise((resolve) => {
+    const proc = spawn("dotnet", ["--version"], { shell: true });
+    proc.on("close", (code) => resolve(code === 0));
+    proc.on("error", () => resolve(false));
+  });
+}
+async function isPortInUse(port) {
+  return new Promise((resolve) => {
+    const net = require("net");
+    const server = net.createServer();
+    server.once("error", () => resolve(true));
+    server.once("listening", () => {
+      server.close();
+      resolve(false);
+    });
+    server.listen(port);
+  });
+}
+async function startNativeBackend() {
+  var _a, _b;
+  const backendPath = getBackendPath();
+  const csprojPath = path.join(backendPath, "Maestro.Api.csproj");
+  if (!fs.existsSync(csprojPath)) {
+    console.error("Backend project not found at:", csprojPath);
+    return false;
+  }
+  if (await isPortInUse(backendPort)) {
+    console.log(`Port ${backendPort} already in use, assuming backend is running`);
+    return true;
+  }
+  console.log("Starting native backend from:", backendPath);
+  backendProcess = spawn("dotnet", ["run", "--project", csprojPath], {
+    shell: true,
+    env: {
+      ...process.env,
+      ASPNETCORE_URLS: `http://localhost:${backendPort}`,
+      ASPNETCORE_ENVIRONMENT: "Development"
+    }
+  });
+  (_a = backendProcess.stdout) == null ? void 0 : _a.on("data", (data) => {
+    console.log("[Backend]", data.toString());
+  });
+  (_b = backendProcess.stderr) == null ? void 0 : _b.on("data", (data) => {
+    console.error("[Backend Error]", data.toString());
+  });
+  backendProcess.on("error", (error) => {
+    console.error("Backend start error:", error);
+    mainWindow == null ? void 0 : mainWindow.webContents.send("backend:error", error.message);
+  });
+  backendProcess.on("exit", (code) => {
+    console.log("Backend exited with code:", code);
+    mainWindow == null ? void 0 : mainWindow.webContents.send("backend:status", { running: false });
+    backendProcess = null;
+  });
+  const maxAttempts = 30;
+  for (let i = 0; i < maxAttempts; i++) {
+    await new Promise((resolve) => setTimeout(resolve, 1e3));
+    try {
+      const http = require("http");
+      await new Promise((resolve, reject) => {
+        const req = http.get(`http://localhost:${backendPort}/api/discovery/health`, (res) => {
+          if (res.statusCode === 200) resolve();
+          else reject(new Error(`Status ${res.statusCode}`));
+        });
+        req.on("error", reject);
+        req.setTimeout(1e3, () => {
+          req.destroy();
+          reject(new Error("Timeout"));
+        });
+      });
+      console.log("Backend is ready!");
+      return true;
+    } catch {
+    }
+  }
+  console.error("Backend failed to start within timeout");
+  return false;
+}
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1400,
@@ -378,3 +462,7 @@ if (!gotTheLock) {
     }
   });
 }
+export {
+  isDotnetAvailable,
+  startNativeBackend
+};

@@ -67,6 +67,11 @@ namespace Maestro.Infrastructure.Configuration
         /// Environment variable to set the repository root path.
         /// </summary>
         public const string RepoRootEnvVar = "MAESTRO_REPO_ROOT";
+
+        /// <summary>
+        /// Environment variable for additional project search paths (colon or semicolon separated).
+        /// </summary>
+        public const string AdditionalProjectPathsEnvVar = "MAESTRO_ADDITIONAL_PROJECT_PATHS";
         
         // ─────────────────────────────────────────────────────────────────────
         // Configuration Keys

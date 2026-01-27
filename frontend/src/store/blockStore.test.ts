@@ -68,13 +68,15 @@ describe('useBlockStore', () => {
     });
 
     it('should not add invalid child type to parent', () => {
-      const workflowBlock = createTestBlock({ blockType: 'workflow', children: [] });
-      const promptBlock = createTestBlock({ id: 'prompt-1', blockType: 'prompt' });
+      // Agent can only contain: prompt, instruction, tool
+      // Validator is NOT allowed as a child of agent
+      const agentBlock = createTestBlock({ blockType: 'agent', children: [], isAtomic: false });
+      const validatorBlock = createTestBlock({ id: 'validator-1', blockType: 'validator' });
 
-      useBlockStore.getState().addBlock(null, workflowBlock);
-      useBlockStore.getState().addBlock(workflowBlock.id, promptBlock);
+      useBlockStore.getState().addBlock(null, agentBlock);
+      useBlockStore.getState().addBlock(agentBlock.id, validatorBlock);
 
-      const parent = useBlockStore.getState().getBlock(workflowBlock.id);
+      const parent = useBlockStore.getState().getBlock(agentBlock.id);
       expect(parent?.children).toHaveLength(0);
     });
   });

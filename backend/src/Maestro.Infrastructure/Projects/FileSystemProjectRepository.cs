@@ -260,7 +260,7 @@ public class FileSystemProjectRepository : IProjectRepository
         }
 
         ResourceLimits? resources = null;
-        if (runtimeEl.TryGetProperty("resources", out var resEl))
+        if (runtimeEl.TryGetProperty("resources", out var resEl) && resEl.ValueKind == JsonValueKind.Object)
         {
             resources = new ResourceLimits
             {

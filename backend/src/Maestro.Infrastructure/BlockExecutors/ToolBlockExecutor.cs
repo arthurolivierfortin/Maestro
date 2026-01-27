@@ -27,14 +27,28 @@ public class ToolBlockExecutor : IBlockExecutor
 
         // Basic config options
         var config = block.Config ?? new Dictionary<string, object?>();
-        config.TryGetValue("script", out var scriptObj);
-        var script = scriptObj as string ?? string.Empty;
-        // Optional script file name relative to workingDir
-        config.TryGetValue("scriptFile", out var scriptFileObj);
-        var scriptFile = scriptFileObj as string ?? string.Empty;
 
-        config.TryGetValue("timeoutMs", out var timeoutObj);
-        var timeoutMs = timeoutObj is int t ? t : 30000;
+        // Support both "script" format and "command"+"args" format
+        var script = GetConfigString(config, "script");
+
+        // Check for command + args format (more structured approach)
+        var command = GetConfigString(config, "command");
+
+        List<string>? args = null;
+        if (config.TryGetValue("args", out var argsObj))
+        {
+            args = GetConfigStringArray(argsObj);
+        }
+
+        // Optional script file name relative to workingDir
+        var scriptFile = GetConfigString(config, "scriptFile");
+
+        // Timeout: check both timeoutMs and timeout config keys
+        var timeoutMs = GetConfigInt(config, "timeoutMs", 0);
+        if (timeoutMs == 0)
+        {
+            timeoutMs = GetConfigInt(config, "timeout", 30000);
+        }
 
         // Working directory: try metadata 'path' entry, else current directory
         string? workingDir = null;
@@ -47,7 +61,8 @@ public class ToolBlockExecutor : IBlockExecutor
         var logs = new List<string>();
 
         // Determine runtime: default to pwsh on Windows, bash on Unix
-        var runtime = config.TryGetValue("runtime", out var r) && r is string rs ? rs : (OperatingSystem.IsWindows() ? "powershell" : "bash");
+        var runtimeConfig = GetConfigString(config, "runtime");
+        var runtime = !string.IsNullOrEmpty(runtimeConfig) ? runtimeConfig : (OperatingSystem.IsWindows() ? "powershell" : "bash");
 
         // If a scriptFile is provided and the block has a metadata.path, try to resolve it relative to that path
         if (!string.IsNullOrEmpty(scriptFile) && block.Metadata != null && block.Metadata.TryGetValue("path", out var metaPathObj) && metaPathObj is string metaPath)
@@ -133,6 +148,80 @@ public class ToolBlockExecutor : IBlockExecutor
 
         try
         {
+            // Handle command + args format (direct execution without shell wrapper)
+            if (!string.IsNullOrEmpty(command))
+            {
+                // Build command with args - execute directly
+                var cmdArgs = args != null ? string.Join(" ", args) : string.Empty;
+
+                // Check for workingDir input override
+                if (inputs.TryGetValue("workingDir", out var wdInput) && wdInput is string wdStr && !string.IsNullOrEmpty(wdStr))
+                {
+                    workingDir = wdStr;
+                }
+
+                var cmdPsi = new ProcessStartInfo
+                {
+                    FileName = command,
+                    Arguments = cmdArgs,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    WorkingDirectory = workingDir,
+                    CreateNoWindow = true,
+                    UseShellExecute = false,
+                };
+
+                logs.Add($"Executing: {command} {cmdArgs}");
+                logs.Add($"Working directory: {workingDir}");
+
+                using var cmdProc = new Process { StartInfo = cmdPsi };
+                cmdProc.Start();
+
+                config.TryGetValue("maxOutputBytes", out var maxOutObj2);
+                var maxOutputBytes2 = maxOutObj2 is int mb2 ? mb2 : 200 * 1024;
+
+                var outputTask2 = ReadStreamWithLimitAsync(cmdProc.StandardOutput, maxOutputBytes2, ct);
+                var errorTask2 = ReadStreamWithLimitAsync(cmdProc.StandardError, maxOutputBytes2, ct);
+
+                var completed2 = await Task.WhenAny(Task.Run(() => cmdProc.WaitForExit()), Task.Delay(timeoutMs, ct));
+                if (completed2 is Task delayTask2 && delayTask2.IsCompleted && !cmdProc.HasExited)
+                {
+                    try { cmdProc.Kill(true); } catch { }
+                    logs.Add($"Process killed after timeout {timeoutMs}ms");
+                }
+
+                var stdout2 = await outputTask2;
+                var stderr2 = await errorTask2;
+                var exitCode = cmdProc.ExitCode;
+
+                // Map outputs based on block definition
+                // For git-diff: output "diff", for git-status: output "status", etc.
+                var outputId = block.Id switch
+                {
+                    "git-diff" => "diff",
+                    "git-status" => "status",
+                    "git-log" => "log",
+                    _ => "stdout"
+                };
+
+                resultOutputs[outputId] = stdout2?.Trim() ?? string.Empty;
+                resultOutputs["exitCode"] = exitCode;
+                if (!string.IsNullOrWhiteSpace(stderr2))
+                {
+                    resultOutputs["stderr"] = stderr2.Trim();
+                    logs.Add($"stderr: {stderr2.Trim()}");
+                }
+
+                sw.Stop();
+                return new BlockExecutionResult
+                {
+                    Outputs = resultOutputs.ToDictionary(kv => kv.Key, kv => kv.Value),
+                    Logs = logs,
+                    Success = exitCode == 0,
+                    DurationMs = sw.ElapsedMilliseconds
+                };
+            }
+
             // If script points to a file path, adjust ProcessStartInfo accordingly
             var scriptIsFile = !string.IsNullOrEmpty(script) && File.Exists(script);
 
@@ -359,5 +448,71 @@ public class ToolBlockExecutor : IBlockExecutor
             System.Text.Json.JsonValueKind.Array => el.ToString(),
             _ => null,
         };
+    }
+
+    /// <summary>
+    /// Gets a string value from config, handling JsonElement conversion.
+    /// </summary>
+    private static string GetConfigString(Dictionary<string, object?> config, string key)
+    {
+        if (!config.TryGetValue(key, out var value)) return string.Empty;
+        if (value == null) return string.Empty;
+        if (value is string str) return str;
+        if (value is System.Text.Json.JsonElement jsonEl && jsonEl.ValueKind == System.Text.Json.JsonValueKind.String)
+            return jsonEl.GetString() ?? string.Empty;
+        return value.ToString() ?? string.Empty;
+    }
+
+    /// <summary>
+    /// Gets a string array from a config value, handling JsonElement conversion.
+    /// </summary>
+    private static List<string>? GetConfigStringArray(object? value)
+    {
+        if (value == null) return null;
+
+        if (value is System.Text.Json.JsonElement jsonEl)
+        {
+            if (jsonEl.ValueKind == System.Text.Json.JsonValueKind.Array)
+            {
+                return jsonEl.EnumerateArray().Select(x => x.GetString() ?? string.Empty).ToList();
+            }
+            return null;
+        }
+
+        if (value is IEnumerable<object> enumerable)
+        {
+            return enumerable.Select(x => x?.ToString() ?? string.Empty).ToList();
+        }
+
+        if (value is System.Collections.IEnumerable list)
+        {
+            var result = new List<string>();
+            foreach (var item in list)
+            {
+                result.Add(item?.ToString() ?? string.Empty);
+            }
+            return result;
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Gets an integer value from config, handling JsonElement conversion.
+    /// </summary>
+    private static int GetConfigInt(Dictionary<string, object?> config, string key, int defaultValue)
+    {
+        if (!config.TryGetValue(key, out var value)) return defaultValue;
+        if (value == null) return defaultValue;
+        if (value is int i) return i;
+        if (value is long l) return (int)l;
+        if (value is double d) return (int)d;
+        if (value is System.Text.Json.JsonElement jsonEl)
+        {
+            if (jsonEl.ValueKind == System.Text.Json.JsonValueKind.Number)
+                return jsonEl.TryGetInt32(out var intVal) ? intVal : defaultValue;
+        }
+        if (int.TryParse(value.ToString(), out var parsed)) return parsed;
+        return defaultValue;
     }
 }

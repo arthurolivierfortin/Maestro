@@ -196,33 +196,38 @@ namespace Maestro.Infrastructure.BlockStore
         private BlockDefinition? LoadBlockFromFile(string filePath)
         {
             if (!File.Exists(filePath)) return null;
-            
+
             var txt = File.ReadAllText(filePath);
             using var doc = JsonDocument.Parse(txt);
             var root = doc.RootElement;
-            
+
             var id = root.TryGetProperty("id", out var idEl) ? idEl.GetString() : null;
             var name = root.TryGetProperty("name", out var nameEl) ? nameEl.GetString() : null;
             var blockType = root.TryGetProperty("blockType", out var btEl) ? btEl.GetString() : null;
-            
+
             if (string.IsNullOrEmpty(id) || string.IsNullOrEmpty(name) || string.IsNullOrEmpty(blockType))
                 return null;
-            
+
             var def = BlockDefinition.Create(id, name, blockType);
-            
-            // Load optional properties
-            if (root.TryGetProperty("version", out var verEl))
+
+            // Load isAtomic property
+            if (root.TryGetProperty("isAtomic", out var atomicEl))
             {
-                // Version is set via Create(), so we'd need to update it differently
-                // For now, default is handled in Create()
+                def.SetIsAtomic(atomicEl.GetBoolean());
             }
-            
-            if (root.TryGetProperty("description", out var descEl))
+            else
             {
-                // Description needs to be set via property or method
-                // For now, store in metadata
+                // Default isAtomic based on block type if not specified
+                var compositeTypes = new[] { "workflow", "agent", "task" };
+                def.SetIsAtomic(!compositeTypes.Contains(blockType.ToLowerInvariant()));
             }
-            
+
+            // Load description
+            if (root.TryGetProperty("description", out var descEl) && descEl.ValueKind == JsonValueKind.String)
+            {
+                def.SetDescription(descEl.GetString() ?? string.Empty);
+            }
+
             if (root.TryGetProperty("config", out var cfg))
             {
                 var configDict = JsonSerializer.Deserialize<Dictionary<string, object>>(cfg.GetRawText());
@@ -237,12 +242,16 @@ namespace Maestro.Infrastructure.BlockStore
                     def.UpdateMetadata(metaDict);
             }
 
-            if (root.TryGetProperty("capabilities", out var capsEl))
+            // Load capabilities
+            if (root.TryGetProperty("capabilities", out var capsEl) && capsEl.ValueKind == JsonValueKind.Array)
             {
-                // Capabilities are a list, would need to add them
-                // For now, they're initialized empty
+                var capabilities = capsEl.EnumerateArray()
+                    .Where(e => e.ValueKind == JsonValueKind.String)
+                    .Select(e => e.GetString()!)
+                    .ToList();
+                def.AddCapabilities(capabilities);
             }
-            
+
             return def;
         }
 

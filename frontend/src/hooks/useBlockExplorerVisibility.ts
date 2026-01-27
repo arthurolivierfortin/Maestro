@@ -23,24 +23,26 @@ export function useBlockExplorerVisibility() {
     return { isVisible: true, contextBlockId: params.blockId || null };
   }
 
-  // Atomic block edit pages - show explorer for navigation context
-  if (location.pathname.includes('/foundry/') && location.pathname.endsWith('/edit')) {
-    const lastEntry = getLastEntry();
-    // Check if we have navigation context (not just direct URL access)
-    if (navStack.length > 1 && lastEntry?.type === 'block') {
-      return { isVisible: true, contextBlockId: lastEntry.blockId || null };
-    }
-    // Direct access to atomic block edit - hide explorer
-    return { isVisible: false, contextBlockId: null };
-  }
-
-  // Block edit pages - show only for composite blocks
+  // Block edit pages (foundry with blockId)
   if (location.pathname.includes('/foundry/') && params.blockId) {
     const block = getBlock(params.blockId);
+
     // Show explorer if block exists and is composite (not atomic)
     if (block && !block.isAtomic) {
       return { isVisible: true, contextBlockId: params.blockId };
     }
+
+    // For atomic blocks with /edit suffix, show explorer only with navigation context
+    if (location.pathname.endsWith('/edit')) {
+      const lastEntry = getLastEntry();
+      // Check if we have navigation context (not just direct URL access)
+      if (navStack.length > 1 && lastEntry?.type === 'block') {
+        return { isVisible: true, contextBlockId: lastEntry.blockId || null };
+      }
+    }
+
+    // Atomic block or no navigation context - hide explorer
+    return { isVisible: false, contextBlockId: null };
   }
 
   // All other pages - hide explorer

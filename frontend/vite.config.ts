@@ -23,6 +23,9 @@ export default defineConfig({
                   outDir: 'dist-electron',
                   rollupOptions: {
                     external: ['electron', 'electron-updater'],
+                    output: {
+                      format: 'cjs',
+                    },
                   },
                 },
               },
@@ -35,6 +38,9 @@ export default defineConfig({
                   outDir: 'dist-electron',
                   rollupOptions: {
                     external: ['electron'],
+                    output: {
+                      format: 'cjs',
+                    },
                   },
                 },
               },

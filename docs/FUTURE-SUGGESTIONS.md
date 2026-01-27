@@ -2,23 +2,45 @@
 
 Based on the current integration work, here are recommendations for future development phases.
 
-## Immediate Priorities
+## Recently Completed (Phase 1)
 
-### 1. Real Workflow Execution (High Priority)
+### 1. Real Workflow Execution - COMPLETED
 
-**Current State:** Workflows can only run in mock mode via CLI.
+**Implementation Summary:**
+- Added `POST /api/workflows/{id}/execute` endpoint in `WorkflowsController.cs`
+- Added `POST /api/blocks/{id}/execute` endpoint in `BlocksController.cs`
+- `ToolBlockExecutor` now properly executes git commands (git diff, git status, git log)
+- `InferenceBlockExecutor` is connected to LLM-Provider gateway
+- Workflow execution resolves block references and executes DAG-based workflow
+- CLI supports real execution without `--mock` flag
 
-**Suggested Actions:**
-- Implement real workflow execution in `WorkflowExecutor`
-- Add API endpoint for workflow execution: `POST /api/workflows/{id}/execute`
-- Connect `InferenceBlockExecutor` to actually call LLM-Provider
-- Implement `ToolBlockExecutor` to execute shell commands (git diff, git status, etc.)
+**Key Files Modified:**
+- `Maestro.Api/Controllers/WorkflowsController.cs` - Added execute endpoint with block resolution
+- `Maestro.Api/Controllers/BlocksController.cs` - Added execute endpoint
+- `Maestro.Infrastructure/BlockExecutors/ToolBlockExecutor.cs` - Fixed JsonElement handling, added command+args support
+- `Maestro.Application/DTOs/BlockDto.cs` - Fixed JSON serialization for JsonElement values
 
-**Files to Modify:**
-- `Maestro.Infrastructure/Orchestration/WorkflowExecutor.cs`
-- `Maestro.Infrastructure/BlockExecutors/ToolBlockExecutor.cs`
-- `Maestro.Infrastructure/BlockExecutors/InferenceBlockExecutor.cs`
-- `Maestro.Api/Controllers/WorkflowsController.cs`
+### 4. CLI Real Execution Mode - COMPLETED
+
+**Implementation Summary:**
+- CLI now supports real workflow execution via backend API
+- Added `run` command for executing individual blocks
+- Added `--working-dir` option for specifying git repository path
+- Mock mode is optional with `--mock` flag
+
+**Usage Examples:**
+```bash
+# Execute a single block
+maestro run git-status --input workingDir=/path/to/repo
+
+# Execute a workflow
+maestro execute generate-commit-message-workflow --working-dir /path/to/repo
+
+# Execute in mock mode (for testing)
+maestro execute generate-commit-message --mock
+```
+
+## Immediate Priorities (Next Phase)
 
 ### 2. Project-Scoped Block Discovery (Medium Priority)
 
@@ -38,19 +60,19 @@ Based on the current integration work, here are recommendations for future devel
 - Add real-time token streaming to frontend via SignalR
 - Update `InferenceBlockExecutor` to handle streaming properly
 
-### 4. CLI Real Execution Mode (Medium Priority)
+### 5. Frontend Workflow Execution UI (High Priority)
 
-**Current State:** CLI only supports `--mock` mode.
+**Current State:** No UI for executing workflows or viewing results.
 
 **Suggested Actions:**
-- Add `--live` or remove `--mock` requirement
-- Call backend API for real execution
-- Implement progress/status polling
-- Add streaming output support
+- Add "Execute" button on workflow detail page
+- Add input form for workflow parameters
+- Show execution progress with real-time updates via SignalR
+- Display execution results and logs
 
 ## Architecture Improvements
 
-### 5. Unified Block Format
+### 6. Unified Block Format
 
 **Current State:** Two formats exist - flat (`*.block.json`) and folder-based (`block.json` + `prompt.md`).
 
@@ -60,7 +82,7 @@ Based on the current integration work, here are recommendations for future devel
 - Update documentation and schemas
 - Update CLI mock execution to use new format
 
-### 6. Workflow Definition Standardization
+### 7. Workflow Definition Standardization
 
 **Current State:** Workflows use different structures in different places.
 
@@ -70,7 +92,7 @@ Based on the current integration work, here are recommendations for future devel
 - Add workflow validation on save
 - Implement workflow versioning
 
-### 7. Project Configuration Enhancement
+### 8. Project Configuration Enhancement
 
 **Current State:** Basic project.json with minimal fields.
 
@@ -82,7 +104,7 @@ Based on the current integration work, here are recommendations for future devel
 
 ## LLM Provider Integration
 
-### 8. Multiple Provider Support
+### 9. Multiple Provider Support
 
 **Current State:** Only LLM-Provider is supported.
 
@@ -92,7 +114,7 @@ Based on the current integration work, here are recommendations for future devel
 - Add Anthropic Claude support
 - Implement provider selection per-block or per-project
 
-### 9. Model Management
+### 10. Model Management
 
 **Current State:** Default model is configured globally.
 
@@ -102,7 +124,7 @@ Based on the current integration work, here are recommendations for future devel
 - Add token usage tracking and limits
 - Add cost estimation
 
-### 10. Context Management
+### 11. Context Management
 
 **Current State:** No context/conversation memory between blocks.
 
@@ -114,7 +136,7 @@ Based on the current integration work, here are recommendations for future devel
 
 ## Frontend Enhancements
 
-### 11. Visual Workflow Builder
+### 12. Visual Workflow Builder
 
 **Current State:** Workflows are defined via JSON.
 
@@ -124,7 +146,7 @@ Based on the current integration work, here are recommendations for future devel
 - Implement connection validation
 - Add workflow testing/debugging UI
 
-### 12. Project Dashboard
+### 13. Project Dashboard
 
 **Current State:** Basic project list.
 
@@ -134,7 +156,7 @@ Based on the current integration work, here are recommendations for future devel
 - Display block usage statistics
 - Add quick actions (run workflow, view logs)
 
-### 13. Real-time Execution Monitoring
+### 14. Real-time Execution Monitoring
 
 **Current State:** SignalR hubs exist but limited use.
 
@@ -146,7 +168,7 @@ Based on the current integration work, here are recommendations for future devel
 
 ## Security & Production Readiness
 
-### 14. Authentication & Authorization
+### 15. Authentication & Authorization
 
 **Current State:** No authentication.
 
@@ -156,7 +178,7 @@ Based on the current integration work, here are recommendations for future devel
 - Add API key management
 - Audit logging
 
-### 15. Rate Limiting & Quotas
+### 16. Rate Limiting & Quotas
 
 **Current State:** No limits on API calls.
 
@@ -166,7 +188,7 @@ Based on the current integration work, here are recommendations for future devel
 - Add execution time limits
 - Implement cost tracking
 
-### 16. Error Handling & Recovery
+### 17. Error Handling & Recovery
 
 **Current State:** Basic error handling.
 
@@ -178,7 +200,7 @@ Based on the current integration work, here are recommendations for future devel
 
 ## Developer Experience
 
-### 17. Block Development SDK
+### 18. Block Development SDK
 
 **Current State:** Blocks are created manually via JSON.
 
@@ -188,7 +210,7 @@ Based on the current integration work, here are recommendations for future devel
 - Implement block validation
 - Create block marketplace/registry
 
-### 18. Documentation & Examples
+### 19. Documentation & Examples
 
 **Current State:** Limited documentation.
 
@@ -198,7 +220,7 @@ Based on the current integration work, here are recommendations for future devel
 - Create workflow examples library
 - Add video tutorials
 
-### 19. Testing Infrastructure
+### 20. Testing Infrastructure
 
 **Current State:** Limited tests.
 
@@ -210,28 +232,35 @@ Based on the current integration work, here are recommendations for future devel
 
 ## Recommended Implementation Order
 
-1. **Phase 1 (Week 1-2):** Real workflow execution (#1, #4)
-2. **Phase 2 (Week 3-4):** Project-scoped blocks & streaming (#2, #3)
-3. **Phase 3 (Week 5-6):** Format standardization (#5, #6)
-4. **Phase 4 (Week 7-8):** Multiple providers & model management (#8, #9)
-5. **Phase 5 (Week 9-12):** Frontend visual workflow builder (#11, #12, #13)
-6. **Phase 6 (Week 13+):** Security & production features (#14, #15, #16)
+1. **Phase 1 (Completed):** Real workflow execution (#1, #4)
+2. **Phase 2 (Next):** Frontend execution UI & project-scoped blocks (#5, #2, #3)
+3. **Phase 3:** Format standardization (#6, #7)
+4. **Phase 4:** Multiple providers & model management (#9, #10)
+5. **Phase 5:** Frontend visual workflow builder (#12, #13, #14)
+6. **Phase 6:** Security & production features (#15, #16, #17)
 
-## Quick Wins
+## Quick Wins (Remaining)
 
 These can be implemented quickly with high impact:
 
-1. **Add `/api/workflows/{id}/execute` endpoint** - Enable real workflow execution
-2. **Fix ToolBlockExecutor** - Execute actual git commands
+1. ~~**Add `/api/workflows/{id}/execute` endpoint** - DONE~~
+2. ~~**Fix ToolBlockExecutor** - DONE~~
 3. **Add project blocks to search path** - Automatic project block loading
 4. **Improve CLI help** - Better documentation of available commands
 5. **Add health check with LLM status** - Show LLM-Provider connection status
+6. **Add execution button in frontend** - Allow triggering workflows from UI
 
 ## Conclusion
 
-The foundation is solid with clean architecture and good separation of concerns. The main gaps are in:
-- Real execution (currently mock-only)
-- Frontend workflow editing
-- Multi-provider LLM support
+The foundation is now functional with:
+- Real block and workflow execution via API
+- CLI support for real execution
+- LLM-Provider integration ready (requires LLM-Provider to be running)
 
-Focus on enabling real workflow execution first, then enhance the developer and user experience.
+The main remaining gaps are:
+- Frontend workflow execution UI
+- Visual workflow editing
+- Multi-provider LLM support
+- Project-scoped block discovery
+
+Focus on enabling frontend execution UI next, then enhance the developer and user experience.

@@ -5,6 +5,7 @@ using System.Text.Json;
 using Microsoft.AspNetCore.Mvc;
 using Maestro.Application.Interfaces;
 using Maestro.Application.DTOs;
+using Maestro.Infrastructure.BlockExecutors;
 
 namespace Maestro.Api.Controllers
 {
@@ -19,12 +20,18 @@ namespace Maestro.Api.Controllers
         private readonly IBlockDiscoveryService _discovery;
         private readonly IBlockRepository _repository;
         private readonly Maestro.Application.Interfaces.IBlockValidator _validator;
+        private readonly BlockExecutorRegistry _executorRegistry;
 
-        public BlocksController(IBlockDiscoveryService discovery, IBlockRepository repository, Maestro.Application.Interfaces.IBlockValidator validator)
+        public BlocksController(
+            IBlockDiscoveryService discovery,
+            IBlockRepository repository,
+            Maestro.Application.Interfaces.IBlockValidator validator,
+            BlockExecutorRegistry executorRegistry)
         {
             _discovery = discovery;
             _repository = repository;
             _validator = validator;
+            _executorRegistry = executorRegistry;
         }
 
         /// <summary>
@@ -267,5 +274,51 @@ namespace Maestro.Api.Controllers
             await System.IO.File.WriteAllTextAsync(full, content);
             return NoContent();
         }
+
+        /// <summary>
+        /// Execute a block with the given inputs.
+        /// </summary>
+        [HttpPost("{id}/execute")]
+        public async Task<ActionResult<Application.DTOs.BlockExecutionResult>> Execute(string id, [FromBody] BlockExecutionRequest request)
+        {
+            var block = await _discovery.GetByIdAsync(id);
+            if (block == null)
+                return NotFound(new { error = $"Block '{id}' not found" });
+
+            // Get the appropriate executor for this block type
+            var executor = _executorRegistry.Get(block.BlockType);
+            if (executor == null)
+                return BadRequest(new { error = $"No executor found for block type '{block.BlockType}'" });
+
+            try
+            {
+                // Create execution context
+                var context = Domain.Entities.ExecutionContext.Create($"block-{id}");
+
+                // Prepare inputs, including workingDir if provided
+                var inputs = request.Inputs ?? new Dictionary<string, object>();
+                if (!string.IsNullOrEmpty(request.WorkingDirectory))
+                {
+                    inputs["workingDir"] = request.WorkingDirectory;
+                }
+
+                var result = await executor.ExecuteAsync(block, context, inputs);
+
+                return Ok(result);
+            }
+            catch (System.Exception ex)
+            {
+                return StatusCode(500, new { error = $"Execution failed: {ex.Message}" });
+            }
+        }
+    }
+
+    /// <summary>
+    /// Request model for block execution.
+    /// </summary>
+    public class BlockExecutionRequest
+    {
+        public Dictionary<string, object>? Inputs { get; set; }
+        public string? WorkingDirectory { get; set; }
     }
 }

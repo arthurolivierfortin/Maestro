@@ -49,8 +49,9 @@ function getBackendPath(): string {
 
 /**
  * Check if dotnet is available
+ * @internal Reserved for future use
  */
-async function isDotnetAvailable(): Promise<boolean> {
+export async function isDotnetAvailable(): Promise<boolean> {
   return new Promise((resolve) => {
     const proc = spawn('dotnet', ['--version'], { shell: true });
     proc.on('close', (code) => resolve(code === 0));
@@ -76,8 +77,9 @@ async function isPortInUse(port: number): Promise<boolean> {
 
 /**
  * Start the backend as a native dotnet process
+ * @internal Reserved for future use
  */
-async function startNativeBackend(): Promise<boolean> {
+export async function startNativeBackend(): Promise<boolean> {
   const backendPath = getBackendPath();
   const csprojPath = path.join(backendPath, 'Maestro.Api.csproj');
 

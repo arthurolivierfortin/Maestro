@@ -174,6 +174,100 @@ async function searchBlocks(query) {
   }
 }
 
+// ============= Workflow Execution Functions =============
+
+async function executeWorkflowReal(workflowId, inputs, options = {}) {
+  try {
+    console.log(`\n⚙️  Executing workflow: ${workflowId}\n`);
+    console.log(`  Inputs:`, JSON.stringify(inputs, null, 2));
+    if (options.workingDir) {
+      console.log(`  Working Directory: ${options.workingDir}`);
+    }
+    console.log('');
+
+    const startTime = Date.now();
+
+    const result = await client.executeWorkflow(workflowId, {
+      inputs,
+      workingDirectory: options.workingDir
+    });
+
+    const duration = Date.now() - startTime;
+
+    if (result.success) {
+      console.log(`✅ Workflow executed successfully in ${duration}ms\n`);
+      console.log('📤 Outputs:');
+      console.log(JSON.stringify(result.outputs, null, 2));
+    } else {
+      console.error(`❌ Workflow execution failed\n`);
+      if (result.error) {
+        console.error(`  Error: ${result.error}`);
+      }
+      process.exit(1);
+    }
+    console.log('');
+  } catch (error) {
+    if (error.status === 404) {
+      console.error(`❌ Workflow not found: ${workflowId}`);
+      console.error('   Use "maestro workflows" to list available workflows');
+    } else if (error.status === 400) {
+      console.error(`❌ Invalid workflow request: ${error.message}`);
+    } else {
+      handleApiError(error, 'executing workflow');
+    }
+    process.exit(1);
+  }
+}
+
+async function executeBlockReal(blockId, inputs, options = {}) {
+  try {
+    console.log(`\n⚙️  Executing block: ${blockId}\n`);
+    console.log(`  Inputs:`, JSON.stringify(inputs, null, 2));
+    if (options.workingDir) {
+      console.log(`  Working Directory: ${options.workingDir}`);
+    }
+    console.log('');
+
+    const startTime = Date.now();
+
+    const result = await client._fetch('POST', `/api/blocks/${blockId}/execute`, {
+      body: {
+        inputs,
+        workingDirectory: options.workingDir
+      }
+    });
+
+    const duration = Date.now() - startTime;
+
+    if (result.success) {
+      console.log(`✅ Block executed successfully in ${duration}ms\n`);
+      console.log('📤 Outputs:');
+      console.log(JSON.stringify(result.outputs, null, 2));
+      if (result.logs && result.logs.length > 0) {
+        console.log('\n📋 Logs:');
+        result.logs.forEach(log => console.log(`  ${log}`));
+      }
+    } else {
+      console.error(`❌ Block execution failed\n`);
+      if (result.logs && result.logs.length > 0) {
+        console.error('📋 Logs:');
+        result.logs.forEach(log => console.error(`  ${log}`));
+      }
+      process.exit(1);
+    }
+    console.log('');
+  } catch (error) {
+    if (error.status === 404) {
+      console.error(`❌ Block not found: ${blockId}`);
+    } else if (error.status === 400) {
+      console.error(`❌ Invalid block request: ${error.message}`);
+    } else {
+      handleApiError(error, 'executing block');
+    }
+    process.exit(1);
+  }
+}
+
 // ============= Project Management Functions =============
 
 async function listProjects() {
@@ -589,7 +683,7 @@ function handleApiError(error, action) {
 async function main() {
   const argv = minimist(process.argv.slice(2), {
     boolean: ['mock', 'help', 'h', 'force', 'status'],
-    string: ['api-url', 'u', 'name', 'path', 'description', 'runtime', 'image', 'work-dir', 'block-paths', 'model', 'lines', 'since']
+    string: ['api-url', 'u', 'name', 'path', 'description', 'runtime', 'image', 'work-dir', 'block-paths', 'model', 'lines', 'since', 'working-dir', 'workdir']
   });
 
   // Update client URL if provided
@@ -630,7 +724,8 @@ Container Commands:
   projects logs <id>    Show container logs
 
 Execution Commands:
-  execute <workflow>   Execute a workflow (requires --mock for PoC)
+  execute <workflow>   Execute a workflow (use --mock for offline testing)
+  run <block-id>       Execute a single block directly
   validate <workflow>  Validate workflow structure
 
 System Commands:
@@ -639,8 +734,9 @@ System Commands:
 Options:
   --api-url <url>      Backend API URL (default: http://localhost:5000)
   -u <url>             Shorthand for --api-url
-  --mock               Use mock execution (for workflows)
-  --input <key=value>  Input parameters for workflow (can be repeated)
+  --mock               Use mock execution (for offline workflow testing)
+  --input <key=value>  Input parameters for execution (can be repeated)
+  --working-dir <path> Working directory for execution (e.g., git repo path)
   --help, -h           Show this help message
 
 Project Create Options:
@@ -800,6 +896,21 @@ Examples:
       process.exit(1);
     }
     
+    // Run single block command
+    if (cmd === 'run') {
+      const blockId = argv._[1];
+      if (!blockId) { console.error('❌ Block ID required'); process.exit(1); }
+      const inputs = {};
+      if (argv.input) {
+        const raw = Array.isArray(argv.input) ? argv.input : [argv.input];
+        for (const kv of raw) {
+          const [k,v] = kv.split('=');
+          inputs[k] = v;
+        }
+      }
+      return await executeBlockReal(blockId, inputs, { workingDir: argv['working-dir'] || argv.workdir });
+    }
+
     if (cmd === 'validate') {
       const wf = argv._[1];
       if (!wf) { console.error('❌ Workflow ID required'); process.exit(1); }
@@ -821,10 +932,11 @@ Examples:
           inputs[k] = v;
         }
       }
-      if (argv.mock) runMockWorkflow(wf, inputs);
-      else {
-        console.error('❌ Only --mock execution is supported by this CLI PoC');
-        process.exit(1);
+      if (argv.mock) {
+        runMockWorkflow(wf, inputs);
+      } else {
+        // Real workflow execution via API
+        return await executeWorkflowReal(wf, inputs, { workingDir: argv['working-dir'] || argv.workdir });
       }
       return;
     }

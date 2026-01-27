@@ -142,9 +142,23 @@ node index.js blocks -u http://localhost:5000
 node index.js workflows -u http://localhost:5000
 ```
 
-### 5. Execute Workflow (Mock Mode)
+### 5. Execute a Block
 
 ```bash
+# Execute git-status block
+node index.js run git-status --input workingDir=/c/Maestro-Test-Repo
+
+# Execute git-diff block
+node index.js run git-diff --input workingDir=/c/Maestro-Test-Repo
+```
+
+### 6. Execute Workflow
+
+```bash
+# Execute workflow with real execution (requires LLM-Provider running)
+node index.js execute generate-commit-message-workflow --working-dir /c/Maestro-Test-Repo
+
+# Execute workflow in mock mode (for testing without LLM-Provider)
 node index.js execute generate-commit-message --mock --input workingDir=/c/Maestro-Test-Repo
 ```
 

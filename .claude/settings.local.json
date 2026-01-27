@@ -13,7 +13,21 @@
       "Bash(taskkill:*)",
       "Bash(pkill:*)",
       "Bash(python -m json.tool:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(tasklist:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npm test)",
+      "Bash(npm test:*)",
+      "Bash(npm run build:web:*)",
+      "Bash(docker network rm:*)",
+      "Bash(docker network:*)",
+      "Bash(docker ps:*)",
+      "Bash(xargs:*)",
+      "Bash(docker-compose:*)",
+      "Bash(docker logs:*)",
+      "Bash(docker exec:*)",
+      "Bash(docker restart:*)",
+      "Bash(python -c:*)"
     ]
   }
 }

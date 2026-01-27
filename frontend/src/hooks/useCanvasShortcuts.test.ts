@@ -9,8 +9,8 @@ import { useBlockStore } from '../store/blockStore';
 import { useNavigationStore } from '../store/navigationStore';
 
 // Mock the stores
-vi.mock('../../store/blockStore');
-vi.mock('../../store/navigationStore');
+vi.mock('../store/blockStore');
+vi.mock('../store/navigationStore');
 
 describe('useCanvasShortcuts', () => {
   const mockRemoveBlock = vi.fn();
