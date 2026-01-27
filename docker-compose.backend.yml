@@ -25,6 +25,8 @@ services:
       - ${USERPROFILE:-${HOME}}:/host/home:ro
       # External projects (customize path as needed)
       - ${MAESTRO_PROJECTS_PATH:-../Maestro-Test-Repo}:/projects/test-repo:rw
+      # Mount Docker socket for container management (Docker-in-Docker)
+      - /var/run/docker.sock:/var/run/docker.sock:rw
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - ASPNETCORE_URLS=http://+:5000
