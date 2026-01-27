@@ -38,8 +38,12 @@ export interface BaseBlockNodeProps {
 export const BaseBlockNode = memo(({ data, selected }: BaseBlockNodeProps) => {
   const { block, isExecuting, executionStatus } = data;
   const [menuOpen, setMenuOpen] = useState(false);
-  const { duplicateBlock, removeBlock } = useBlockStore();
-  const { selectBlock, setPropertiesPanelMode, pushBlock } = useNavigationStore();
+  // Use individual selectors to prevent re-renders on unrelated state changes
+  const duplicateBlock = useBlockStore((s) => s.duplicateBlock);
+  const removeBlock = useBlockStore((s) => s.removeBlock);
+  const selectBlock = useNavigationStore((s) => s.selectBlock);
+  const setPropertiesPanelMode = useNavigationStore((s) => s.setPropertiesPanelMode);
+  const pushBlock = useNavigationStore((s) => s.pushBlock);
 
   // Handle double-click: navigate to block (drill down for composite, edit for atomic)
   const handleDoubleClick = useCallback(() => {

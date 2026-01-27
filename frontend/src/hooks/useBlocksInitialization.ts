@@ -5,10 +5,10 @@
  * This bridges the gap between backend data and frontend state.
  */
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useBlockStore } from '../store/blockStore';
 import { apiClient } from '../services/api';
-import type { Block, BlockType } from '../types/block.types';
+import type { Block, BlockType, BlockConfig } from '../types/block.types';
 
 /**
  * Backend block DTO format
@@ -39,7 +39,8 @@ function convertBackendBlock(dto: BackendBlockDto): Block {
     blockType: dto.blockType as BlockType,
     isAtomic: dto.isAtomic,
     capabilities: dto.capabilities || [],
-    config: dto.config || {},
+    // Config from backend is dynamic, cast through unknown to BlockConfig
+    config: (dto.config || {}) as unknown as BlockConfig,
     metadata: {
       description: dto.description || undefined,
       tags: dto.tags || [],
@@ -47,8 +48,11 @@ function convertBackendBlock(dto: BackendBlockDto): Block {
       updatedAt: dto.updatedAt,
       status: 'active',
       version: dto.version,
-      sourcePath: dto.metadata?._sourcePath as string | undefined,
+      createdBy: 'system',
     },
+    inputs: [],
+    outputs: [],
+    position: { x: 0, y: 0 },
     children: [],
     connections: [],
   };
@@ -72,7 +76,9 @@ export function useBlocksInitialization(): UseBlocksInitializationResult {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastFetched, setLastFetched] = useState<Date | null>(null);
-  const { setBlocks, blocks } = useBlockStore();
+  const [blocksCount, setBlocksCount] = useState(0);
+  const setBlocks = useBlockStore((state) => state.setBlocks);
+  const hasFetchedRef = useRef(false);
 
   const fetchBlocks = useCallback(async () => {
     setIsLoading(true);
@@ -93,9 +99,11 @@ export function useBlocksInitialization(): UseBlocksInitializationResult {
 
         // Update the store
         setBlocks(blocksMap, null);
+        setBlocksCount(convertedBlocks.length);
         console.log(`[BlocksInit] Loaded ${convertedBlocks.length} blocks from backend`);
       } else {
         console.log('[BlocksInit] No blocks returned from backend');
+        setBlocksCount(0);
       }
 
       setLastFetched(new Date());
@@ -108,17 +116,18 @@ export function useBlocksInitialization(): UseBlocksInitializationResult {
     }
   }, [setBlocks]);
 
-  // Auto-fetch on mount if store is empty
+  // Auto-fetch on mount - only once
   useEffect(() => {
-    if (blocks.size === 0) {
+    if (!hasFetchedRef.current) {
+      hasFetchedRef.current = true;
       fetchBlocks();
     }
-  }, [blocks.size, fetchBlocks]);
+  }, [fetchBlocks]);
 
   return {
     isLoading,
     error,
-    blocksCount: blocks.size,
+    blocksCount,
     refresh: fetchBlocks,
     lastFetched,
   };

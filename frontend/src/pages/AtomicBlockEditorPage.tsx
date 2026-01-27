@@ -15,7 +15,8 @@ import './AtomicBlockEditorPage.scss';
 export function AtomicBlockEditorPage() {
   const { blockId } = useParams<{ blockId: string }>();
   const navigate = useNavigate();
-  const { getBlock } = useBlockStore();
+  // Use individual selector to prevent re-renders on unrelated state changes
+  const getBlock = useBlockStore((s) => s.getBlock);
   const popOne = useNavigationStore((s) => s.popOne);
   const canGoUp = useNavigationStore((s) => s.canGoUp);
 

@@ -18,7 +18,7 @@ interface InferenceEditorProps {
 }
 
 export function InferenceEditor({ block }: InferenceEditorProps) {
-  const { updateBlock } = useBlockStore();
+  const updateBlock = useBlockStore((s) => s.updateBlock);
   const [config, setConfig] = useState<InferenceBlockConfig>(block.config);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 

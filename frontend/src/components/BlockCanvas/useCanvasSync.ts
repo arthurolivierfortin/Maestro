@@ -103,8 +103,10 @@ export function useCanvasSync({
   const addConnection = useBlockStore((state) => state.addConnection);
   const removeConnection = useBlockStore((state) => state.removeConnection);
 
-  const { selectedBlockId, selectBlock } = useNavigationStore();
-  const { currentExecution } = useExecutionStore();
+  // Use individual selectors to prevent re-renders on unrelated state changes
+  const selectedBlockId = useNavigationStore((state) => state.selectedBlockId);
+  const selectBlock = useNavigationStore((state) => state.selectBlock);
+  const currentExecution = useExecutionStore((state) => state.currentExecution);
 
   // React Flow hook for coordinate transformation (correct API: screenToFlowPosition)
   const { screenToFlowPosition } = useReactFlow();

@@ -15,7 +15,7 @@ export interface ValidatorEditorProps {
 }
 
 export function ValidatorEditor({ block }: ValidatorEditorProps) {
-  const { updateBlock } = useBlockStore();
+  const updateBlock = useBlockStore((s) => s.updateBlock);
   const [config, setConfig] = useState<ValidatorBlockConfig>(block.config);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [testResult, setTestResult] = useState<string>('');

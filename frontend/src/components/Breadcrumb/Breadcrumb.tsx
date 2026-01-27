@@ -15,10 +15,12 @@ import './Breadcrumb.scss';
 
 /**
  * Helper to render block segment with name and icon
+ * Uses a targeted selector to only re-render when this specific block changes
  */
 function BlockSegmentContent({ segment }: { segment: BreadcrumbSegment }) {
-  const blocks = useBlockStore((s) => s.blocks);
-  const block = segment.blockId ? blocks.get(segment.blockId) : undefined;
+  // Only subscribe to the specific block we need, not the entire blocks Map
+  const getBlock = useBlockStore((s) => s.getBlock);
+  const block = segment.blockId ? getBlock(segment.blockId) : undefined;
   const label = block ? block.name : segment.label;
   const type = block ? block.blockType : (segment.blockType as any) || 'workflow';
 

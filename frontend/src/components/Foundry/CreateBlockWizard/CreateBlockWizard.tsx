@@ -36,7 +36,7 @@ const STEP_ORDER: WizardStep[] = ['type', 'basic', 'config', 'preview'];
  */
 export function CreateBlockWizard({ isOpen, onClose }: CreateBlockWizardProps) {
   const [state, dispatch] = useReducer(wizardReducer, initialWizardState);
-  const { addBlock } = useBlockStore();
+  const addBlock = useBlockStore((s) => s.addBlock);
   const navigate = useNavigate();
 
   // Reset wizard when modal opens

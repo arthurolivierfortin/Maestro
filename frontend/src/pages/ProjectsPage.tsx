@@ -6,8 +6,8 @@
  * Phase 9: Added native file picker support for Electron.
  */
 
-import React, { useEffect, useState, useMemo } from 'react';
-import { useProjectStore, selectFilteredProjects } from '../store/projectStore';
+import React, { useEffect, useState, useMemo, useRef } from 'react';
+import { useProjectStore } from '../store/projectStore';
 import { ProjectRow } from '../components/Projects/ProjectRow';
 import { FileBrowser } from '../components/Projects/FileBrowser';
 import { isElectron, showDirectoryPicker, menuEvents } from '../electron/ipc';
@@ -235,23 +235,39 @@ const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
 // ============= Main Page =============
 
 const ProjectsPage: React.FC = () => {
-  const {
-    projects,
-    containerStates,
-    isLoading,
-    error,
-    statusFilter,
-    fetchProjects,
-    createProject,
-    deleteProject,
-    startContainer,
-    stopContainer,
-    restartContainer,
-    setStatusFilter,
-    clearError,
-  } = useProjectStore();
+  // DEBUG: Track render count
+  const renderCount = useRef(0);
+  renderCount.current++;
+  console.log(`[ProjectsPage] Render #${renderCount.current}`);
 
-  const filteredProjects = useProjectStore(selectFilteredProjects);
+  // Use individual selectors to prevent subscribing to entire store
+  const projects = useProjectStore((s) => s.projects);
+  const containerStates = useProjectStore((s) => s.containerStates);
+  const isLoading = useProjectStore((s) => s.isLoading);
+  const error = useProjectStore((s) => s.error);
+  const statusFilter = useProjectStore((s) => s.statusFilter);
+
+  // Actions are stable references
+  const fetchProjects = useProjectStore((s) => s.fetchProjects);
+  const createProject = useProjectStore((s) => s.createProject);
+  const deleteProject = useProjectStore((s) => s.deleteProject);
+  const startContainer = useProjectStore((s) => s.startContainer);
+  const stopContainer = useProjectStore((s) => s.stopContainer);
+  const restartContainer = useProjectStore((s) => s.restartContainer);
+  const setStatusFilter = useProjectStore((s) => s.setStatusFilter);
+  const clearError = useProjectStore((s) => s.clearError);
+
+  // Compute filtered projects with useMemo to avoid creating new arrays
+  const filteredProjects = useMemo(() => {
+    console.log(`[ProjectsPage] Computing filteredProjects, statusFilter=${statusFilter}, projects=${projects.length}`);
+    if (statusFilter === 'all') return projects;
+    return projects.filter(p => {
+      const containerState = containerStates[p.id];
+      const isRunning = containerState?.status === 'running';
+      return statusFilter === 'running' ? isRunning : !isRunning;
+    });
+  }, [projects, containerStates, statusFilter]);
+
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 

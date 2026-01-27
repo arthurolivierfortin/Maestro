@@ -5,7 +5,7 @@
  * Also handles discovering projects from mounted paths.
  */
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useProjectStore } from '../store/projectStore';
 
 /**
@@ -25,7 +25,10 @@ interface UseProjectsInitializationResult {
 export function useProjectsInitialization(): UseProjectsInitializationResult {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { projects, fetchProjects, discoverProjects: storeDiscoverProjects } = useProjectStore();
+  const [projectsCount, setProjectsCount] = useState(0);
+  const fetchProjects = useProjectStore((state) => state.fetchProjects);
+  const storeDiscoverProjects = useProjectStore((state) => state.discoverProjects);
+  const hasFetchedRef = useRef(false);
 
   const refresh = useCallback(async () => {
     setIsLoading(true);
@@ -33,6 +36,8 @@ export function useProjectsInitialization(): UseProjectsInitializationResult {
 
     try {
       await fetchProjects();
+      const projects = useProjectStore.getState().projects;
+      setProjectsCount(projects.length);
       console.log(`[ProjectsInit] Loaded ${projects.length} projects from backend`);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to fetch projects';
@@ -41,7 +46,7 @@ export function useProjectsInitialization(): UseProjectsInitializationResult {
     } finally {
       setIsLoading(false);
     }
-  }, [fetchProjects, projects.length]);
+  }, [fetchProjects]);
 
   const discoverProjects = useCallback(async (path: string) => {
     setIsLoading(true);
@@ -49,6 +54,8 @@ export function useProjectsInitialization(): UseProjectsInitializationResult {
 
     try {
       await storeDiscoverProjects(path);
+      const projects = useProjectStore.getState().projects;
+      setProjectsCount(projects.length);
       console.log(`[ProjectsInit] Discovered projects in ${path}`);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to discover projects';
@@ -59,17 +66,18 @@ export function useProjectsInitialization(): UseProjectsInitializationResult {
     }
   }, [storeDiscoverProjects]);
 
-  // Auto-fetch on mount if store is empty
+  // Auto-fetch on mount - only once
   useEffect(() => {
-    if (projects.length === 0) {
+    if (!hasFetchedRef.current) {
+      hasFetchedRef.current = true;
       refresh();
     }
-  }, [projects.length, refresh]);
+  }, [refresh]);
 
   return {
     isLoading,
     error,
-    projectsCount: projects.length,
+    projectsCount,
     refresh,
     discoverProjects,
   };

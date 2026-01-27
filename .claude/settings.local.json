@@ -27,7 +27,9 @@
       "Bash(docker logs:*)",
       "Bash(docker exec:*)",
       "Bash(docker restart:*)",
-      "Bash(python -c:*)"
+      "Bash(python -c:*)",
+      "Bash(timeout 15 npm run dev:*)",
+      "Bash(timeout 20 npm run dev:*)"
     ]
   }
 }

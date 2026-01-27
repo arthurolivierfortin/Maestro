@@ -15,7 +15,7 @@ export interface PromptEditorProps {
 }
 
 export function PromptEditor({ block }: PromptEditorProps) {
-  const { updateBlock } = useBlockStore();
+  const updateBlock = useBlockStore((s) => s.updateBlock);
   const [config, setConfig] = useState<PromptBlockConfig>(block.config);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 

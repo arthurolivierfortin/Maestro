@@ -21,7 +21,9 @@ interface BlockCardProps {
 export function BlockCard({ block }: BlockCardProps) {
   const [showActions, setShowActions] = useState(false);
   const [showExecuteModal, setShowExecuteModal] = useState(false);
-  const { duplicateBlock, removeBlock } = useBlockStore();
+  // Use individual selectors to prevent re-renders on unrelated state changes
+  const duplicateBlock = useBlockStore((s) => s.duplicateBlock);
+  const removeBlock = useBlockStore((s) => s.removeBlock);
   const { toggleFavorite, isFavorite } = useFavorites();
   const { navigateToBlock } = useNavigation();
 

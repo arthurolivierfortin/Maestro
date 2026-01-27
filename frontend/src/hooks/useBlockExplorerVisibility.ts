@@ -14,7 +14,8 @@ import { useNavigationStore } from '../store/navigationStore';
 export function useBlockExplorerVisibility() {
   const location = useLocation();
   const params = useParams();
-  const { getBlock } = useBlockStore();
+  // Use individual selector to prevent subscribing to entire store
+  const getBlock = useBlockStore((s) => s.getBlock);
   const navStack = useNavigationStore((s) => s.navStack);
   const getLastEntry = useNavigationStore((s) => s.getLastEntry);
 

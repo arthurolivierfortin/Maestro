@@ -4,7 +4,7 @@
  * Displays and edits properties of the selected block.
  */
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { ChevronRight, Copy, Check, Eye, Pencil } from 'lucide-react';
 import type { ImperativePanelHandle } from 'react-resizable-panels';
 import { useNavigationStore } from '../../store/navigationStore';
@@ -29,6 +29,11 @@ export function PropertiesPanel({ panelRef }: PropertiesPanelProps) {
   const [editedConfig, setEditedConfig] = useState<BlockConfig | null>(null);
   const [copiedId, setCopiedId] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
+
+  // Track original config to detect user changes vs store updates
+  const originalConfigRef = useRef<BlockConfig | null>(null);
+  // Track if we're currently updating the store to prevent feedback loop
+  const isUpdatingStoreRef = useRef(false);
 
   const isViewMode = propertiesPanelMode === 'view';
 
@@ -62,28 +67,46 @@ export function PropertiesPanel({ panelRef }: PropertiesPanelProps) {
 
   // Load block when selection changes
   useEffect(() => {
+    // Skip if we're in the middle of updating the store
+    if (isUpdatingStoreRef.current) return;
+
     if (selectedBlockId) {
       const foundBlock = getBlock(selectedBlockId);
       if (foundBlock) {
         setBlock(foundBlock);
         setEditedConfig(foundBlock.config);
+        originalConfigRef.current = foundBlock.config;
       }
     } else {
       setBlock(null);
       setEditedConfig(null);
+      originalConfigRef.current = null;
     }
   }, [selectedBlockId, getBlock]);
 
-  // Debounced update to store
+  // Debounced update to store - only when config actually changed by user
   useEffect(() => {
     if (!block || !editedConfig) return;
 
+    // Don't update if config is the same as original (no user changes)
+    if (editedConfig === originalConfigRef.current) return;
+
+    // Check if config actually changed (deep comparison)
+    const configChanged = JSON.stringify(editedConfig) !== JSON.stringify(originalConfigRef.current);
+    if (!configChanged) return;
+
     const timeoutId = setTimeout(() => {
+      isUpdatingStoreRef.current = true;
       updateBlock(block.id, { config: editedConfig });
+      originalConfigRef.current = editedConfig;
+      // Reset flag after a tick to allow store to settle
+      setTimeout(() => {
+        isUpdatingStoreRef.current = false;
+      }, 0);
     }, 300);
 
     return () => clearTimeout(timeoutId);
-  }, [editedConfig, block, updateBlock]);
+  }, [editedConfig, block?.id, updateBlock]);
 
   const handleCopyId = useCallback(() => {
     if (block) {

@@ -15,7 +15,7 @@ export interface TaskEditorProps {
 }
 
 export function TaskEditor({ block }: TaskEditorProps) {
-  const { updateBlock } = useBlockStore();
+  const updateBlock = useBlockStore((s) => s.updateBlock);
   const [config, setConfig] = useState<TaskBlockConfig>(block.config);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 

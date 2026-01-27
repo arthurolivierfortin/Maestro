@@ -15,7 +15,7 @@ export interface InstructionEditorProps {
 }
 
 export function InstructionEditor({ block }: InstructionEditorProps) {
-  const { updateBlock } = useBlockStore();
+  const updateBlock = useBlockStore((s) => s.updateBlock);
   const [config, setConfig] = useState<InstructionBlockConfig>(block.config);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
