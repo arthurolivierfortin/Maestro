@@ -8,6 +8,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useBlockStore } from '../store/blockStore';
 import { apiClient } from '../services/api';
+import { BlockTypeRegistry } from '../registry';
 import type { Block, BlockType, BlockConfig } from '../types/block.types';
 
 /**
@@ -31,13 +32,24 @@ interface BackendBlockDto {
 
 /**
  * Convert backend DTO to frontend Block type
+ *
+ * IMPORTANT: isAtomic is derived from BlockTypeRegistry, not from backend.
+ * This ensures consistent behavior regardless of what the backend sends.
+ * The registry is the single source of truth for block type metadata.
  */
 function convertBackendBlock(dto: BackendBlockDto): Block {
+  const blockType = dto.blockType as BlockType;
+
+  // Get canonical isAtomic from registry (source of truth)
+  // This prevents misrouting if backend sends incorrect isAtomic
+  const typeInfo = BlockTypeRegistry.get(blockType);
+  const isAtomic = typeInfo?.isAtomic ?? dto.isAtomic;
+
   return {
     id: dto.id,
     name: dto.name,
-    blockType: dto.blockType as BlockType,
-    isAtomic: dto.isAtomic,
+    blockType,
+    isAtomic,
     capabilities: dto.capabilities || [],
     // Config from backend is dynamic, cast through unknown to BlockConfig
     config: (dto.config || {}) as unknown as BlockConfig,

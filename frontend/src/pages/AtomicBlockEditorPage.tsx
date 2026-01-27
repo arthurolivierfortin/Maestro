@@ -3,6 +3,7 @@
  *
  * Page for editing atomic blocks with a dedicated editor.
  * Non-atomic blocks are redirected to the canvas page.
+ * Blocks without editors are also redirected to canvas.
  */
 
 import { useEffect } from 'react';
@@ -10,6 +11,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useBlockStore } from '../store';
 import { useNavigationStore } from '../store/navigationStore';
 import { EditorWrapper } from '../components/EditorWrapper';
+import { hasEditor } from '../components/BlockEditors';
 import './AtomicBlockEditorPage.scss';
 
 export function AtomicBlockEditorPage() {
@@ -36,6 +38,16 @@ export function AtomicBlockEditorPage() {
 
     // If block is composite (not atomic), redirect to canvas
     if (!block.isAtomic) {
+      navigate(`/canvas/${blockId}`, { replace: true });
+      return;
+    }
+
+    // Safety check: If no editor exists for this block type, redirect to canvas
+    // This prevents "No editor available" errors for incorrectly routed blocks
+    if (!hasEditor(block.blockType)) {
+      console.warn(
+        `[AtomicBlockEditorPage] No editor for block type "${block.blockType}", redirecting to canvas`
+      );
       navigate(`/canvas/${blockId}`, { replace: true });
       return;
     }

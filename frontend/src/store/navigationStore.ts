@@ -13,6 +13,7 @@ import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
 import type { BreadcrumbSegment } from '../types/navigation.types';
 import { useBlockStore } from './blockStore';
+import { BlockTypeRegistry } from '../registry';
 
 /**
  * Properties panel mode
@@ -144,8 +145,13 @@ export const useNavigationStore = create<NavigationState>()(
           return;
         }
 
+        // Use canonical isAtomic from BlockTypeRegistry (source of truth)
+        // This ensures correct routing even if block.isAtomic is incorrect
+        const typeInfo = BlockTypeRegistry.get(block.blockType);
+        const isAtomic = typeInfo?.isAtomic ?? block.isAtomic;
+
         // Determine URL path based on whether block is atomic
-        const path = block.isAtomic
+        const path = isAtomic
           ? `/foundry/${blockId}/edit`
           : `/canvas/${blockId}`;
 
@@ -155,7 +161,7 @@ export const useNavigationStore = create<NavigationState>()(
           label: block.name,
           path,
           blockId,
-          isAtomic: block.isAtomic,
+          isAtomic,
         };
 
         set({
@@ -197,11 +203,11 @@ export const useNavigationStore = create<NavigationState>()(
 
       initFromUrl: (pageId: string, pageLabel: string, basePath: string, blockId?: string) => {
         const state = get();
-        
+
         // Check if we're already at the right state to avoid unnecessary updates
         const currentPage = state.navStack[0];
         const currentBlockId = get().getCurrentBlockId();
-        
+
         if (currentPage?.id === pageId && currentBlockId === (blockId || null)) {
           // Already at the right state
           return;
@@ -217,7 +223,11 @@ export const useNavigationStore = create<NavigationState>()(
         if (blockId) {
           const block = useBlockStore.getState().getBlock(blockId);
           if (block) {
-            const path = block.isAtomic
+            // Use canonical isAtomic from BlockTypeRegistry (source of truth)
+            const typeInfo = BlockTypeRegistry.get(block.blockType);
+            const isAtomic = typeInfo?.isAtomic ?? block.isAtomic;
+
+            const path = isAtomic
               ? `/foundry/${blockId}/edit`
               : `/canvas/${blockId}`;
 
@@ -227,7 +237,7 @@ export const useNavigationStore = create<NavigationState>()(
               label: block.name,
               path,
               blockId,
-              isAtomic: block.isAtomic,
+              isAtomic,
             });
           }
         }
