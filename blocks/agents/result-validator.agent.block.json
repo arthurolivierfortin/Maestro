@@ -1,0 +1,68 @@
+{
+  "$schema": "../../../docs/schemas/block.schema.json",
+  "id": "result-validator",
+  "name": "Result Validator",
+  "blockType": "agent",
+  "version": "1.0.0",
+  "isAtomic": false,
+  "description": "Validates that a subtask was completed correctly according to its success criteria",
+  "inputs": [
+    {
+      "id": "subtask",
+      "name": "Original Subtask",
+      "type": "object",
+      "required": true,
+      "description": "The subtask that was executed"
+    },
+    {
+      "id": "executionResult",
+      "name": "Execution Result",
+      "type": "object",
+      "required": true,
+      "description": "The result from the executor"
+    },
+    {
+      "id": "workingDir",
+      "name": "Working Directory",
+      "type": "string",
+      "required": true,
+      "description": "Project root directory"
+    }
+  ],
+  "outputs": [
+    {
+      "id": "valid",
+      "name": "Is Valid",
+      "type": "boolean",
+      "description": "Whether the result meets the success criteria"
+    },
+    {
+      "id": "score",
+      "name": "Quality Score",
+      "type": "number",
+      "description": "Quality score from 0-100"
+    },
+    {
+      "id": "issues",
+      "name": "Issues Found",
+      "type": "array",
+      "description": "List of issues or improvements needed"
+    },
+    {
+      "id": "suggestion",
+      "name": "Fix Suggestion",
+      "type": "string",
+      "description": "Suggestion to fix issues if validation failed"
+    }
+  ],
+  "config": {
+    "maxIterations": 2,
+    "systemPrompt": "You are a code validator. Check if a task was completed correctly.\n\nYou can verify by:\n- Reading files: {\"tool\": \"file-read\", \"args\": {\"path\": \"...\"}}\n- Running tests: {\"tool\": \"shell-execute\", \"args\": {\"command\": \"...\"}}\n\nAfter verification, respond with JSON:\n{\n  \"valid\": true/false,\n  \"score\": 0-100,\n  \"issues\": [\"issue1\", \"issue2\"],\n  \"suggestion\": \"How to fix if invalid\"\n}\n\nScoring:\n- 100: Perfect, meets all criteria\n- 80-99: Good, minor issues\n- 60-79: Acceptable, some problems\n- Below 60: Failed, needs rework",
+    "tools": ["file-read", "shell-execute"]
+  },
+  "metadata": {
+    "category": "validation",
+    "tags": ["agent", "validator", "quality", "verification"]
+  },
+  "capabilities": ["llm", "tools", "validation"]
+}

@@ -156,6 +156,77 @@ public class ToolBlockExecutor : IBlockExecutor
                 return await HandleFilesystemOperationAsync(block, inputs, operation, workingDir, logs, sw, ct);
             }
 
+            // Handle shell tool type - get command from inputs
+            if (toolType == "shell")
+            {
+                var shellCmd = inputs.TryGetValue("command", out var cmdObj) ? cmdObj?.ToString() : null;
+                if (!string.IsNullOrEmpty(shellCmd))
+                {
+                    // Override working directory from inputs if provided
+                    if (inputs.TryGetValue("workingDir", out var wdInput) && wdInput is string wdStr && !string.IsNullOrEmpty(wdStr))
+                    {
+                        workingDir = wdStr;
+                    }
+
+                    // Get timeout from inputs
+                    var shellTimeout = timeoutMs;
+                    if (inputs.TryGetValue("timeout", out var toInput))
+                    {
+                        if (toInput is int toInt) shellTimeout = toInt;
+                        else if (toInput is long toLong) shellTimeout = (int)toLong;
+                        else if (int.TryParse(toInput?.ToString(), out var toParsed)) shellTimeout = toParsed;
+                    }
+
+                    logs.Add($"Executing shell command: {shellCmd}");
+                    logs.Add($"Working directory: {workingDir}");
+
+                    var shellPsi = new ProcessStartInfo
+                    {
+                        FileName = OperatingSystem.IsWindows() ? "cmd.exe" : "/bin/bash",
+                        Arguments = OperatingSystem.IsWindows() ? $"/c {shellCmd}" : $"-c \"{shellCmd}\"",
+                        RedirectStandardOutput = true,
+                        RedirectStandardError = true,
+                        WorkingDirectory = workingDir,
+                        CreateNoWindow = true,
+                        UseShellExecute = false,
+                    };
+
+                    using var shellProc = new Process { StartInfo = shellPsi };
+                    shellProc.Start();
+
+                    config.TryGetValue("maxOutputBytes", out var maxOutObjShell);
+                    var maxOutputBytesShell = maxOutObjShell is int mbShell ? mbShell : 200 * 1024;
+
+                    var outputTaskShell = ReadStreamWithLimitAsync(shellProc.StandardOutput, maxOutputBytesShell, ct);
+                    var errorTaskShell = ReadStreamWithLimitAsync(shellProc.StandardError, maxOutputBytesShell, ct);
+
+                    var completedShell = await Task.WhenAny(Task.Run(() => shellProc.WaitForExit()), Task.Delay(shellTimeout, ct));
+                    if (completedShell is Task delayTaskShell && delayTaskShell.IsCompleted && !shellProc.HasExited)
+                    {
+                        try { shellProc.Kill(true); } catch { }
+                        logs.Add($"Shell process killed after timeout {shellTimeout}ms");
+                    }
+
+                    var stdoutShell = await outputTaskShell;
+                    var stderrShell = await errorTaskShell;
+                    var exitCodeShell = shellProc.ExitCode;
+
+                    resultOutputs["stdout"] = stdoutShell?.Trim() ?? string.Empty;
+                    resultOutputs["stderr"] = stderrShell?.Trim() ?? string.Empty;
+                    resultOutputs["exitCode"] = exitCodeShell;
+                    resultOutputs["success"] = exitCodeShell == 0;
+
+                    sw.Stop();
+                    return new BlockExecutionResult
+                    {
+                        Outputs = resultOutputs.ToDictionary(kv => kv.Key, kv => kv.Value),
+                        Logs = logs,
+                        Success = exitCodeShell == 0,
+                        DurationMs = sw.ElapsedMilliseconds
+                    };
+                }
+            }
+
             // Handle command + args format (direct execution without shell wrapper)
             if (!string.IsNullOrEmpty(command))
             {
@@ -488,19 +559,16 @@ public class ToolBlockExecutor : IBlockExecutor
                 };
             }
 
+            // Override working directory from inputs if provided (check this FIRST)
+            if (inputs.TryGetValue("workingDir", out var wdObj) && wdObj is string wdStr && !string.IsNullOrEmpty(wdStr))
+            {
+                workingDir = wdStr;
+            }
+
             // Resolve path relative to working directory if not absolute
             if (!Path.IsPathRooted(filePath) && !string.IsNullOrEmpty(workingDir))
             {
                 filePath = Path.Combine(workingDir, filePath);
-            }
-
-            // Override working directory from inputs if provided
-            if (inputs.TryGetValue("workingDir", out var wdObj) && wdObj is string wdStr && !string.IsNullOrEmpty(wdStr))
-            {
-                if (!Path.IsPathRooted(filePath))
-                {
-                    filePath = Path.Combine(wdStr, filePath);
-                }
             }
 
             filePath = Path.GetFullPath(filePath);

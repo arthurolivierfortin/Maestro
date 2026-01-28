@@ -43,6 +43,14 @@ builder.Services.AddScoped<Maestro.Application.Interfaces.IExecutionMonitor, Mae
 builder.Services.AddScoped<Maestro.Application.Interfaces.IBlockExecutor, Maestro.Infrastructure.BlockExecutors.PromptBlockExecutor>();
 builder.Services.AddScoped<Maestro.Application.Interfaces.IBlockExecutor, Maestro.Infrastructure.BlockExecutors.InferenceBlockExecutor>();
 builder.Services.AddScoped<Maestro.Application.Interfaces.IBlockExecutor, Maestro.Infrastructure.BlockExecutors.ToolBlockExecutor>();
+// AgentBlockExecutor is registered separately to avoid circular dependency with BlockExecutorRegistry
+builder.Services.AddScoped<Maestro.Infrastructure.BlockExecutors.AgentBlockExecutor>(sp =>
+{
+    var llmGateway = sp.GetRequiredService<Maestro.Application.Interfaces.ILLMGateway>();
+    return new Maestro.Infrastructure.BlockExecutors.AgentBlockExecutor(llmGateway, null);
+});
+builder.Services.AddScoped<Maestro.Application.Interfaces.IBlockExecutor>(sp =>
+    sp.GetRequiredService<Maestro.Infrastructure.BlockExecutors.AgentBlockExecutor>());
 
 // Orchestration services (Phase 5C)
 builder.Services.AddScoped<Maestro.Application.Interfaces.IDataFlowManager, Maestro.Infrastructure.Orchestration.DataFlowManager>();
@@ -57,6 +65,10 @@ builder.Services.AddScoped<Maestro.Infrastructure.BlockExecutors.BlockExecutorRe
 // Register execution repository (persistence for checkpoints/executions)
 var execFolder = Path.Combine(AppContext.BaseDirectory, "executions");
 builder.Services.AddScoped<Maestro.Application.Interfaces.IExecutionRepository>(_ => new Maestro.Infrastructure.Persistence.FileSystemExecutionRepository(execFolder));
+
+// Register RunTracker for execution traceability
+var runsFolder = Path.Combine(AppContext.BaseDirectory, "runs");
+builder.Services.AddSingleton<Maestro.Infrastructure.Runs.RunTracker>(_ => new Maestro.Infrastructure.Runs.RunTracker(runsFolder));
 
 // Phase 7A: Use MaestroPathConfiguration for centralized path resolution
 var pathConfig = new MaestroPathConfiguration(builder.Configuration);
@@ -207,6 +219,14 @@ app.MapGet("/", () => new
     version = "1.0.0",
     architecture = "Clean Architecture with SOLID principles",
     status = "Hello World - Architecture Validation"
+});
+
+// Health check endpoint for service monitoring
+app.MapGet("/api/health", () => new
+{
+    status = "healthy",
+    timestamp = DateTime.UtcNow,
+    version = "1.0.0"
 });
 
 app.Run();

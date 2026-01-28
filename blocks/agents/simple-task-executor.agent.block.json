@@ -1,0 +1,68 @@
+{
+  "$schema": "../../../docs/schemas/block.schema.json",
+  "id": "simple-task-executor",
+  "name": "Simple Task Executor",
+  "blockType": "agent",
+  "version": "1.0.0",
+  "isAtomic": false,
+  "description": "Executes a single, simple coding task. Designed for small LLMs with clear, atomic instructions.",
+  "inputs": [
+    {
+      "id": "subtask",
+      "name": "Subtask",
+      "type": "object",
+      "required": true,
+      "description": "The subtask object with id, description, type, target, content"
+    },
+    {
+      "id": "workingDir",
+      "name": "Working Directory",
+      "type": "string",
+      "required": true,
+      "description": "Project root directory"
+    },
+    {
+      "id": "previousResults",
+      "name": "Previous Results",
+      "type": "array",
+      "required": false,
+      "description": "Results from previous subtasks for context"
+    }
+  ],
+  "outputs": [
+    {
+      "id": "success",
+      "name": "Success",
+      "type": "boolean",
+      "description": "Whether the subtask completed successfully"
+    },
+    {
+      "id": "result",
+      "name": "Result",
+      "type": "string",
+      "description": "Description of what was done"
+    },
+    {
+      "id": "artifacts",
+      "name": "Artifacts",
+      "type": "array",
+      "description": "Files created or modified"
+    },
+    {
+      "id": "error",
+      "name": "Error",
+      "type": "string",
+      "description": "Error message if failed"
+    }
+  ],
+  "config": {
+    "maxIterations": 2,
+    "systemPrompt": "You are a code executor. You receive ONE simple task and execute it.\n\nYou can use these tools by responding with JSON:\n- File write: {\"tool\": \"file-write\", \"args\": {\"path\": \"...\", \"content\": \"...\"}}\n- Shell command: {\"tool\": \"shell-execute\", \"args\": {\"command\": \"...\"}}\n- File read: {\"tool\": \"file-read\", \"args\": {\"path\": \"...\"}}\n\nRules:\n1. Execute ONLY the given subtask, nothing more\n2. Use the exact file paths provided\n3. After using a tool, wait for the result before proceeding\n4. When done, respond with: {\"done\": true, \"result\": \"what was accomplished\"}",
+    "tools": ["file-read", "file-write", "shell-execute"]
+  },
+  "metadata": {
+    "category": "execution",
+    "tags": ["agent", "executor", "simple", "atomic"]
+  },
+  "capabilities": ["llm", "tools"]
+}

@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 using Maestro.Application.Interfaces;
 using Maestro.Application.DTOs;
 using Maestro.Infrastructure.BlockExecutors;
+using Maestro.Infrastructure.Runs;
 
 namespace Maestro.Api.Controllers
 {
@@ -21,17 +22,20 @@ namespace Maestro.Api.Controllers
         private readonly IBlockRepository _repository;
         private readonly Maestro.Application.Interfaces.IBlockValidator _validator;
         private readonly BlockExecutorRegistry _executorRegistry;
+        private readonly RunTracker _runTracker;
 
         public BlocksController(
             IBlockDiscoveryService discovery,
             IBlockRepository repository,
             Maestro.Application.Interfaces.IBlockValidator validator,
-            BlockExecutorRegistry executorRegistry)
+            BlockExecutorRegistry executorRegistry,
+            RunTracker runTracker)
         {
             _discovery = discovery;
             _repository = repository;
             _validator = validator;
             _executorRegistry = executorRegistry;
+            _runTracker = runTracker;
         }
 
         /// <summary>
@@ -61,17 +65,18 @@ namespace Maestro.Api.Controllers
             
             if (!string.IsNullOrEmpty(search))
             {
-                blocks = blocks.Where(b => 
+                blocks = blocks.Where(b =>
                     b.Name.Contains(search, System.StringComparison.OrdinalIgnoreCase) ||
                     b.Description.Contains(search, System.StringComparison.OrdinalIgnoreCase));
             }
-            
-            var dtos = blocks.Select(b =>
+
+            var dtos = new List<BlockDto>();
+            foreach (var b in blocks)
             {
-                var path = _repository.GetBlockPathAsync(b.Id).Result;
-                return BlockDto.FromDomain(b, path);
-            }).ToList();
-            
+                var path = await _repository.GetBlockPathAsync(b.Id);
+                dtos.Add(BlockDto.FromDomain(b, path));
+            }
+
             return Ok(dtos);
         }
 
@@ -226,13 +231,14 @@ namespace Maestro.Api.Controllers
             
             // Apply limit
             blocks = blocks.Take(limit);
-            
-            var dtos = blocks.Select(b =>
+
+            var dtos = new List<BlockDto>();
+            foreach (var b in blocks)
             {
-                var path = _repository.GetBlockPathAsync(b.Id).Result;
-                return BlockDto.FromDomain(b, path);
-            }).ToList();
-            
+                var path = await _repository.GetBlockPathAsync(b.Id);
+                dtos.Add(BlockDto.FromDomain(b, path));
+            }
+
             return Ok(dtos);
         }
 
@@ -277,9 +283,10 @@ namespace Maestro.Api.Controllers
 
         /// <summary>
         /// Execute a block with the given inputs.
+        /// All executions are automatically tracked for traceability.
         /// </summary>
         [HttpPost("{id}/execute")]
-        public async Task<ActionResult<Application.DTOs.BlockExecutionResult>> Execute(string id, [FromBody] BlockExecutionRequest request)
+        public async Task<ActionResult<BlockExecutionResponse>> Execute(string id, [FromBody] BlockExecutionRequest request)
         {
             var block = await _discovery.GetByIdAsync(id);
             if (block == null)
@@ -290,25 +297,78 @@ namespace Maestro.Api.Controllers
             if (executor == null)
                 return BadRequest(new { error = $"No executor found for block type '{block.BlockType}'" });
 
+            // Prepare inputs, including workingDir if provided
+            var inputs = request.Inputs ?? new Dictionary<string, object>();
+            if (!string.IsNullOrEmpty(request.WorkingDirectory))
+            {
+                inputs["workingDir"] = request.WorkingDirectory;
+            }
+
+            // Determine project info
+            var projectId = request.ProjectId ?? "global";
+            var projectPath = request.ProjectPath;
+
+            // Create a run record for traceability
+            var run = await _runTracker.CreateRunAsync(
+                projectId,
+                id,
+                block.BlockType,
+                inputs,
+                projectPath);
+
             try
             {
                 // Create execution context
-                var context = Domain.Entities.ExecutionContext.Create($"block-{id}");
+                var context = Domain.Entities.ExecutionContext.Create($"run-{run.Id}");
 
-                // Prepare inputs, including workingDir if provided
-                var inputs = request.Inputs ?? new Dictionary<string, object>();
-                if (!string.IsNullOrEmpty(request.WorkingDirectory))
-                {
-                    inputs["workingDir"] = request.WorkingDirectory;
-                }
-
+                // Execute the block
                 var result = await executor.ExecuteAsync(block, context, inputs);
 
-                return Ok(result);
+                // Record artifacts (files created/modified) if available
+                if (result.Outputs.TryGetValue("path", out var pathObj) && pathObj is string filePath)
+                {
+                    var fileInfo = new System.IO.FileInfo(filePath);
+                    if (fileInfo.Exists)
+                    {
+                        await _runTracker.RecordArtifactAsync(run, filePath, "created", fileInfo.Length, projectPath);
+                    }
+                }
+
+                // Calculate a basic score based on success
+                var scores = new RunScores
+                {
+                    Overall = result.Success ? 100 : 0,
+                    TaskCompletion = result.Success ? 100 : 0,
+                    Efficiency = result.DurationMs < 1000 ? 100 : (result.DurationMs < 5000 ? 80 : 60)
+                };
+
+                // Complete the run
+                var outputsDict = result.Outputs.ToDictionary(kv => kv.Key, kv => kv.Value);
+                await _runTracker.CompleteRunAsync(
+                    run,
+                    result.Success ? RunStatus.Completed : RunStatus.Failed,
+                    outputsDict,
+                    scores,
+                    projectPath);
+
+                // Return result with run ID for traceability
+                return Ok(new BlockExecutionResponse
+                {
+                    RunId = run.Id,
+                    Outputs = result.Outputs,
+                    Logs = result.Logs,
+                    Success = result.Success,
+                    DurationMs = result.DurationMs,
+                    Scores = scores
+                });
             }
             catch (System.Exception ex)
             {
-                return StatusCode(500, new { error = $"Execution failed: {ex.Message}" });
+                // Record the error
+                await _runTracker.RecordErrorAsync(run, "ExecutionException", ex.Message, false, projectPath);
+                await _runTracker.CompleteRunAsync(run, RunStatus.Failed, null, null, projectPath);
+
+                return StatusCode(500, new { error = $"Execution failed: {ex.Message}", runId = run.Id });
             }
         }
     }
@@ -320,5 +380,20 @@ namespace Maestro.Api.Controllers
     {
         public Dictionary<string, object>? Inputs { get; set; }
         public string? WorkingDirectory { get; set; }
+        public string? ProjectId { get; set; }
+        public string? ProjectPath { get; set; }
+    }
+
+    /// <summary>
+    /// Response model for block execution with traceability info.
+    /// </summary>
+    public class BlockExecutionResponse
+    {
+        public string RunId { get; set; } = string.Empty;
+        public Dictionary<string, object?> Outputs { get; set; } = new();
+        public List<string> Logs { get; set; } = new();
+        public bool Success { get; set; }
+        public long DurationMs { get; set; }
+        public RunScores? Scores { get; set; }
     }
 }

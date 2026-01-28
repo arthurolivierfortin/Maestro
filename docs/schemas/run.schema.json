@@ -1,0 +1,157 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Maestro Run Schema",
+  "description": "Schema for tracking agent/workflow execution runs with full traceability",
+  "type": "object",
+  "required": ["id", "projectId", "blockId", "status", "startedAt"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Unique run identifier (UUID)"
+    },
+    "projectId": {
+      "type": "string",
+      "description": "Project this run belongs to"
+    },
+    "blockId": {
+      "type": "string",
+      "description": "Block that was executed"
+    },
+    "blockType": {
+      "type": "string",
+      "enum": ["agent", "workflow", "tool", "inference"],
+      "description": "Type of block executed"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["pending", "running", "paused", "completed", "failed", "cancelled"],
+      "description": "Current status of the run"
+    },
+    "inputs": {
+      "type": "object",
+      "description": "Input values provided to the block"
+    },
+    "outputs": {
+      "type": "object",
+      "description": "Output values produced by the block"
+    },
+    "startedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "completedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "durationMs": {
+      "type": "number",
+      "description": "Execution duration in milliseconds"
+    },
+    "steps": {
+      "type": "array",
+      "description": "Detailed execution steps with LLM interactions",
+      "items": {
+        "type": "object",
+        "properties": {
+          "stepId": { "type": "string" },
+          "timestamp": { "type": "string", "format": "date-time" },
+          "type": {
+            "type": "string",
+            "enum": ["llm-request", "llm-response", "tool-call", "tool-result", "decision", "validation", "error"]
+          },
+          "content": {
+            "type": "object",
+            "description": "Step-specific content (prompt, response, tool args, etc.)"
+          },
+          "proposal": {
+            "type": "object",
+            "description": "What the model proposed to do (for review)"
+          },
+          "approved": {
+            "type": "boolean",
+            "description": "Whether the proposal was approved (manual or automatic)"
+          },
+          "approvedBy": {
+            "type": "string",
+            "description": "Who/what approved (user, auto-validator, etc.)"
+          }
+        }
+      }
+    },
+    "decisions": {
+      "type": "array",
+      "description": "Design decisions made during execution",
+      "items": {
+        "type": "object",
+        "properties": {
+          "timestamp": { "type": "string", "format": "date-time" },
+          "question": { "type": "string", "description": "What decision was needed" },
+          "options": { "type": "array", "items": { "type": "string" } },
+          "chosen": { "type": "string", "description": "Option that was chosen" },
+          "reasoning": { "type": "string", "description": "Why this option was chosen" }
+        }
+      }
+    },
+    "scores": {
+      "type": "object",
+      "description": "Quality scores for this run",
+      "properties": {
+        "overall": { "type": "number", "minimum": 0, "maximum": 100 },
+        "codeQuality": { "type": "number", "minimum": 0, "maximum": 100 },
+        "taskCompletion": { "type": "number", "minimum": 0, "maximum": 100 },
+        "efficiency": { "type": "number", "minimum": 0, "maximum": 100 }
+      }
+    },
+    "artifacts": {
+      "type": "array",
+      "description": "Files created or modified",
+      "items": {
+        "type": "object",
+        "properties": {
+          "path": { "type": "string" },
+          "action": { "type": "string", "enum": ["created", "modified", "deleted"] },
+          "contentHash": { "type": "string" },
+          "size": { "type": "number" }
+        }
+      }
+    },
+    "errors": {
+      "type": "array",
+      "description": "Errors encountered during execution",
+      "items": {
+        "type": "object",
+        "properties": {
+          "timestamp": { "type": "string", "format": "date-time" },
+          "type": { "type": "string" },
+          "message": { "type": "string" },
+          "recoverable": { "type": "boolean" }
+        }
+      }
+    },
+    "modelInfo": {
+      "type": "object",
+      "description": "Information about the LLM used",
+      "properties": {
+        "modelId": { "type": "string" },
+        "provider": { "type": "string" },
+        "tokensUsed": {
+          "type": "object",
+          "properties": {
+            "prompt": { "type": "number" },
+            "completion": { "type": "number" },
+            "total": { "type": "number" }
+          }
+        }
+      }
+    },
+    "parentRunId": {
+      "type": "string",
+      "description": "Parent run ID if this is a subtask of a larger run"
+    },
+    "childRunIds": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Child run IDs for subtasks"
+    }
+  }
+}

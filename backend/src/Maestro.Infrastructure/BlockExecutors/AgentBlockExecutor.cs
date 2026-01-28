@@ -83,10 +83,63 @@ public class AgentBlockExecutor : IBlockExecutor
             }
         }
 
-        var userPrompt = block.Config != null && block.Config.TryGetValue("user", out var u) ? u?.ToString() ?? string.Empty : string.Empty;
+        // Get system prompt from config if not loaded from file
+        if (string.IsNullOrEmpty(systemPrompt) && block.Config != null && block.Config.TryGetValue("systemPrompt", out var sysPromptConfig) && sysPromptConfig != null)
+        {
+            systemPrompt = sysPromptConfig.ToString() ?? string.Empty;
+        }
 
-        var resolved = userPrompt;
-        if (!string.IsNullOrEmpty(systemPrompt)) resolved = systemPrompt + "\n" + resolved;
+        // Build user prompt from inputs (task, workingDir, context)
+        var taskDescription = inputs.TryGetValue("task", out var taskObj) ? taskObj?.ToString() ?? string.Empty : string.Empty;
+        var workingDir = inputs.TryGetValue("workingDir", out var wdObj) ? wdObj?.ToString() ?? string.Empty : string.Empty;
+        var additionalContext = inputs.TryGetValue("context", out var ctxObj) ? ctxObj?.ToString() ?? string.Empty : string.Empty;
+
+        // Fallback to "user" config if no task input
+        var userPrompt = string.IsNullOrEmpty(taskDescription) && block.Config != null && block.Config.TryGetValue("user", out var u)
+            ? u?.ToString() ?? string.Empty
+            : string.Empty;
+
+        // Build the full prompt
+        var promptBuilder = new System.Text.StringBuilder();
+        if (!string.IsNullOrEmpty(systemPrompt))
+        {
+            promptBuilder.AppendLine(systemPrompt);
+            promptBuilder.AppendLine();
+        }
+
+        if (!string.IsNullOrEmpty(taskDescription))
+        {
+            promptBuilder.AppendLine("## Task");
+            promptBuilder.AppendLine(taskDescription);
+            promptBuilder.AppendLine();
+        }
+
+        if (!string.IsNullOrEmpty(workingDir))
+        {
+            promptBuilder.AppendLine($"## Working Directory");
+            promptBuilder.AppendLine(workingDir);
+            promptBuilder.AppendLine();
+        }
+
+        if (!string.IsNullOrEmpty(additionalContext))
+        {
+            promptBuilder.AppendLine("## Additional Context");
+            promptBuilder.AppendLine(additionalContext);
+            promptBuilder.AppendLine();
+        }
+
+        if (!string.IsNullOrEmpty(userPrompt))
+        {
+            promptBuilder.AppendLine(userPrompt);
+        }
+
+        promptBuilder.AppendLine();
+        promptBuilder.AppendLine("Please analyze the task and provide a step-by-step plan. If you need to use a tool, respond with JSON in this format:");
+        promptBuilder.AppendLine("{\"tool\": \"tool-name\", \"args\": {\"arg1\": \"value1\"}}");
+        promptBuilder.AppendLine();
+        promptBuilder.AppendLine("Available tools: file-read, file-write, shell-execute, git-status, git-diff");
+
+        var resolved = promptBuilder.ToString();
 
         var maxIterations = 5;
         if (block.Config != null && block.Config.TryGetValue("maxIterations", out var mi) && mi is int mii) maxIterations = mii;

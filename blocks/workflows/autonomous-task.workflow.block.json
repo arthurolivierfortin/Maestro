@@ -1,0 +1,120 @@
+{
+  "$schema": "../../../docs/schemas/block.schema.json",
+  "id": "autonomous-task",
+  "name": "Autonomous Task Workflow",
+  "blockType": "workflow",
+  "version": "1.0.0",
+  "isAtomic": false,
+  "description": "Generic workflow that decomposes a task, executes subtasks, and validates results. Works with any project.",
+  "inputs": [
+    {
+      "id": "task",
+      "name": "Task Description",
+      "type": "string",
+      "required": true,
+      "description": "What you want to accomplish"
+    },
+    {
+      "id": "projectPath",
+      "name": "Project Path",
+      "type": "string",
+      "required": true,
+      "description": "Root path of the project to work on"
+    },
+    {
+      "id": "autoApprove",
+      "name": "Auto Approve",
+      "type": "boolean",
+      "required": false,
+      "description": "If false, each step requires manual approval (default: false)"
+    },
+    {
+      "id": "maxRetries",
+      "name": "Max Retries",
+      "type": "number",
+      "required": false,
+      "description": "Maximum retry attempts per subtask (default: 2)"
+    }
+  ],
+  "outputs": [
+    {
+      "id": "success",
+      "name": "Success",
+      "type": "boolean",
+      "description": "Whether all subtasks completed successfully"
+    },
+    {
+      "id": "runId",
+      "name": "Run ID",
+      "type": "string",
+      "description": "ID of the run for viewing detailed results"
+    },
+    {
+      "id": "summary",
+      "name": "Summary",
+      "type": "string",
+      "description": "Summary of what was accomplished"
+    },
+    {
+      "id": "artifacts",
+      "name": "Artifacts",
+      "type": "array",
+      "description": "All files created or modified"
+    },
+    {
+      "id": "scores",
+      "name": "Quality Scores",
+      "type": "object",
+      "description": "Quality scores for the run"
+    }
+  ],
+  "config": {
+    "nodes": [
+      {
+        "id": "decompose",
+        "blockRef": "agents/task-decomposer",
+        "inputs": {
+          "task": "{{inputs.task}}",
+          "projectContext": "{{projectContext}}"
+        }
+      },
+      {
+        "id": "execute-loop",
+        "type": "foreach",
+        "items": "{{decompose.subtasks}}",
+        "node": {
+          "id": "execute-subtask",
+          "blockRef": "agents/simple-task-executor",
+          "inputs": {
+            "subtask": "{{item}}",
+            "workingDir": "{{inputs.projectPath}}",
+            "previousResults": "{{previousResults}}"
+          }
+        }
+      },
+      {
+        "id": "validate-loop",
+        "type": "foreach",
+        "items": "{{decompose.subtasks}}",
+        "node": {
+          "id": "validate-subtask",
+          "blockRef": "agents/result-validator",
+          "inputs": {
+            "subtask": "{{item}}",
+            "executionResult": "{{execute-loop.results[index]}}",
+            "workingDir": "{{inputs.projectPath}}"
+          }
+        }
+      }
+    ],
+    "connections": [
+      { "from": "decompose", "to": "execute-loop" },
+      { "from": "execute-loop", "to": "validate-loop" }
+    ]
+  },
+  "metadata": {
+    "category": "orchestration",
+    "tags": ["workflow", "autonomous", "generic", "orchestration"]
+  },
+  "capabilities": ["orchestration", "llm", "tools", "validation"]
+}
