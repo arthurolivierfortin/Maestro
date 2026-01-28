@@ -64,7 +64,10 @@
       "Bash(npx vite build:*)",
       "Bash(cmd.exe /c \"cd C:\\\\Meastro\\\\frontend && npm run build\")",
       "Bash(powershell.exe -Command \"cd C:\\\\Meastro\\\\frontend; npm run build 2>&1 | Select-Object -First 100\")",
-      "Bash(powershell.exe -Command \"Test-Path ''C:\\\\Cantante\\\\.maestro\\\\project.json''\")"
+      "Bash(powershell.exe -Command \"Test-Path ''C:\\\\Cantante\\\\.maestro\\\\project.json''\")",
+      "Bash(powershell.exe -Command \"New-Item -ItemType Directory -Force -Path ''C:\\\\Meastro\\\\frontend\\\\src\\\\components\\\\Models''\")",
+      "Bash(powershell.exe -File C:Meastroscriptsdev-start.ps1)",
+      "Bash(npm run dev:*)"
     ]
   }
 }

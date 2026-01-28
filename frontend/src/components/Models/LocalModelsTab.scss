@@ -1,0 +1,306 @@
+/**
+ * Local Models Tab Styles
+ */
+
+.local-models-tab {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  gap: var(--spacing-md);
+
+  &__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-shrink: 0;
+
+    h3 {
+      font-size: var(--font-size-lg);
+      font-weight: var(--font-weight-semibold);
+      color: var(--text-primary);
+      margin: 0;
+    }
+  }
+
+  &__actions {
+    display: flex;
+    gap: var(--spacing-sm);
+  }
+
+  &__btn {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-sm) var(--spacing-md);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    background: var(--surface);
+    color: var(--text-primary);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+
+    &:hover {
+      background: var(--surface-hover);
+      border-color: var(--border-hover);
+    }
+
+    &--primary {
+      background: var(--color-primary);
+      border-color: var(--color-primary);
+      color: white;
+
+      &:hover {
+        background: var(--color-primary-hover);
+      }
+    }
+
+    &:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .spinning {
+      animation: spin 1s linear infinite;
+    }
+  }
+
+  &__content {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    background: var(--surface);
+  }
+
+  &__table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--font-size-sm);
+
+    th, td {
+      padding: var(--spacing-sm) var(--spacing-md);
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+
+    th {
+      background: var(--background-secondary);
+      color: var(--text-secondary);
+      font-weight: var(--font-weight-semibold);
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+
+    td {
+      color: var(--text-primary);
+    }
+
+    tbody tr {
+      transition: background var(--transition-fast);
+
+      &:hover {
+        background: var(--surface-hover);
+      }
+
+      &:last-child td {
+        border-bottom: none;
+      }
+    }
+  }
+
+  &__model-name {
+    font-weight: var(--font-weight-medium);
+  }
+
+  &__status {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    padding: 2px var(--spacing-sm);
+    border-radius: var(--radius-full);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-medium);
+
+    &--ready {
+      background: var(--color-success-subtle);
+      color: var(--color-success);
+    }
+
+    &--available {
+      background: var(--color-primary-subtle);
+      color: var(--color-primary);
+    }
+
+    &--downloading {
+      background: var(--color-warning-subtle, rgba(245, 158, 11, 0.1));
+      color: var(--color-warning, #f59e0b);
+    }
+
+    &--not_configured {
+      background: var(--background-tertiary);
+      color: var(--text-tertiary);
+    }
+  }
+
+  &__progress {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+  }
+
+  &__progress-bar {
+    flex: 1;
+    height: 4px;
+    background: var(--background-tertiary);
+    border-radius: var(--radius-full);
+    overflow: hidden;
+
+    &-fill {
+      height: 100%;
+      background: var(--color-primary);
+      transition: width var(--transition-fast);
+    }
+  }
+
+  &__progress-text {
+    font-size: var(--font-size-xs);
+    color: var(--text-secondary);
+    white-space: nowrap;
+  }
+
+  &__table-actions {
+    display: flex;
+    gap: var(--spacing-xs);
+  }
+
+  &__action-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+
+    &:hover {
+      background: var(--surface-hover);
+      border-color: var(--border-hover);
+      color: var(--text-primary);
+    }
+
+    &--primary {
+      background: var(--color-primary-subtle);
+      border-color: var(--color-primary);
+      color: var(--color-primary);
+
+      &:hover {
+        background: var(--color-primary);
+        color: white;
+      }
+    }
+
+    &--danger {
+      &:hover {
+        background: var(--color-error-subtle, rgba(239, 68, 68, 0.1));
+        border-color: var(--color-error);
+        color: var(--color-error);
+      }
+    }
+  }
+
+  &__empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    gap: var(--spacing-md);
+    color: var(--text-tertiary);
+    text-align: center;
+    padding: var(--spacing-2xl);
+
+    svg {
+      opacity: 0.5;
+    }
+
+    h3 {
+      font-size: var(--font-size-lg);
+      font-weight: var(--font-weight-semibold);
+      color: var(--text-secondary);
+      margin: 0;
+    }
+
+    p {
+      font-size: var(--font-size-sm);
+      margin: 0;
+    }
+  }
+
+  // Legend - matches All Models style
+  &__legend {
+    display: flex;
+    gap: var(--spacing-lg);
+    padding: var(--spacing-sm) var(--spacing-md);
+    border-top: 1px solid var(--border);
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  &__legend-item {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    font-size: var(--font-size-xs);
+    color: var(--text-secondary);
+
+    &::before {
+      content: '';
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+    }
+
+    &--ready::before {
+      background: var(--success, #22c55e);
+    }
+
+    &--available::before {
+      background: var(--primary, #3b82f6);
+    }
+
+    &--not-configured::before {
+      background: var(--text-tertiary);
+    }
+  }
+
+  // Status icon styling (deprecated - now using ProviderIcon)
+  &__status-icon--ready {
+    color: var(--success, #22c55e);
+  }
+
+  &__status-icon--available {
+    color: var(--primary, #3b82f6);
+  }
+
+  &__status-icon--downloading {
+    color: var(--primary, #3b82f6);
+  }
+
+  &__status-icon--error {
+    color: var(--error, #ef4444);
+  }
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}

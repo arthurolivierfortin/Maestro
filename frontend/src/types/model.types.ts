@@ -24,6 +24,7 @@ export type ModelProvider =
   | 'mistral'
   | 'groq'
   | 'local'
+  | 'llm-provider'
   | 'custom';
 
 /**
@@ -335,6 +336,7 @@ export function isModelProvider(value: unknown): value is ModelProvider {
     'mistral',
     'groq',
     'local',
+    'llm-provider',
     'custom',
   ];
   return typeof value === 'string' && validProviders.includes(value as ModelProvider);
