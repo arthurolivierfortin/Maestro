@@ -1,64 +1,72 @@
-import { contextBridge, ipcRenderer } from "electron";
-contextBridge.exposeInMainWorld("electron", {
+import { contextBridge as a, ipcRenderer as e } from "electron";
+a.exposeInMainWorld("electron", {
   // ===== File System =====
-  showDirectoryPicker: (options) => ipcRenderer.invoke("dialog:showDirectoryPicker", options),
-  showFilePicker: (options) => ipcRenderer.invoke("dialog:showFilePicker", options),
-  readDirectory: (path) => ipcRenderer.invoke("fs:readDirectory", path),
-  pathExists: (path) => ipcRenderer.invoke("fs:pathExists", path),
-  getCommonPaths: () => ipcRenderer.invoke("fs:getCommonPaths"),
+  showDirectoryPicker: (n) => e.invoke("dialog:showDirectoryPicker", n),
+  showFilePicker: (n) => e.invoke("dialog:showFilePicker", n),
+  readDirectory: (n) => e.invoke("fs:readDirectory", n),
+  pathExists: (n) => e.invoke("fs:pathExists", n),
+  getCommonPaths: () => e.invoke("fs:getCommonPaths"),
   // ===== Application =====
-  getVersion: () => ipcRenderer.invoke("app:getVersion"),
-  getPlatform: () => ipcRenderer.invoke("app:getPlatform"),
-  getAppPath: () => ipcRenderer.invoke("app:getAppPath"),
-  isPackaged: () => ipcRenderer.invoke("app:isPackaged"),
-  isElectron: true,
+  getVersion: () => e.invoke("app:getVersion"),
+  getPlatform: () => e.invoke("app:getPlatform"),
+  getAppPath: () => e.invoke("app:getAppPath"),
+  isPackaged: () => e.invoke("app:isPackaged"),
+  isElectron: !0,
   // ===== Window Controls =====
-  minimize: () => ipcRenderer.invoke("window:minimize"),
-  maximize: () => ipcRenderer.invoke("window:maximize"),
-  close: () => ipcRenderer.invoke("window:close"),
-  isMaximized: () => ipcRenderer.invoke("window:isMaximized"),
+  minimize: () => e.invoke("window:minimize"),
+  maximize: () => e.invoke("window:maximize"),
+  close: () => e.invoke("window:close"),
+  isMaximized: () => e.invoke("window:isMaximized"),
   // ===== Shell Integration =====
-  openExternal: (url) => ipcRenderer.invoke("shell:openExternal", url),
-  showItemInFolder: (path) => ipcRenderer.invoke("shell:showItemInFolder", path),
+  openExternal: (n) => e.invoke("shell:openExternal", n),
+  showItemInFolder: (n) => e.invoke("shell:showItemInFolder", n),
   // ===== Backend Management =====
   backend: {
-    getStatus: () => ipcRenderer.invoke("backend:getStatus"),
-    start: () => ipcRenderer.invoke("backend:start"),
-    stop: () => ipcRenderer.invoke("backend:stop"),
-    onStatus: (callback) => {
-      const handler = (_event, status) => callback(status);
-      ipcRenderer.on("backend:status", handler);
-      return () => ipcRenderer.removeListener("backend:status", handler);
+    getStatus: () => e.invoke("backend:getStatus"),
+    start: () => e.invoke("backend:start"),
+    stop: () => e.invoke("backend:stop"),
+    onStatus: (n) => {
+      const t = (r, o) => n(o);
+      return e.on("backend:status", t), () => e.removeListener("backend:status", t);
     },
-    onError: (callback) => {
-      const handler = (_event, error) => callback(error);
-      ipcRenderer.on("backend:error", handler);
-      return () => ipcRenderer.removeListener("backend:error", handler);
+    onError: (n) => {
+      const t = (r, o) => n(o);
+      return e.on("backend:error", t), () => e.removeListener("backend:error", t);
+    }
+  },
+  // ===== LLM Provider Management =====
+  llm: {
+    getStatus: () => e.invoke("llm:getStatus"),
+    start: () => e.invoke("llm:start"),
+    stop: () => e.invoke("llm:stop"),
+    onStatus: (n) => {
+      const t = (r, o) => n(o);
+      return e.on("llm:status", t), () => e.removeListener("llm:status", t);
+    },
+    onError: (n) => {
+      const t = (r, o) => n(o);
+      return e.on("llm:error", t), () => e.removeListener("llm:error", t);
     }
   },
   // ===== Updater =====
   updater: {
-    onUpdateAvailable: (callback) => {
-      const handler = (_event, info) => callback(info);
-      ipcRenderer.on("updater:update-available", handler);
-      return () => ipcRenderer.removeListener("updater:update-available", handler);
+    onUpdateAvailable: (n) => {
+      const t = (r, o) => n(o);
+      return e.on("updater:update-available", t), () => e.removeListener("updater:update-available", t);
     },
-    onUpdateDownloaded: (callback) => {
-      const handler = (_event, info) => callback(info);
-      ipcRenderer.on("updater:update-downloaded", handler);
-      return () => ipcRenderer.removeListener("updater:update-downloaded", handler);
+    onUpdateDownloaded: (n) => {
+      const t = (r, o) => n(o);
+      return e.on("updater:update-downloaded", t), () => e.removeListener("updater:update-downloaded", t);
     }
   },
   // ===== Menu Events =====
-  onMenuNewProject: (callback) => {
-    const handler = () => callback();
-    ipcRenderer.on("menu:new-project", handler);
-    return () => ipcRenderer.removeListener("menu:new-project", handler);
+  onMenuNewProject: (n) => {
+    const t = () => n();
+    return e.on("menu:new-project", t), () => e.removeListener("menu:new-project", t);
   },
-  onMenuOpenProject: (callback) => {
-    const handler = (_event, path) => callback(path);
-    ipcRenderer.on("menu:open-project", handler);
-    return () => ipcRenderer.removeListener("menu:open-project", handler);
+  onMenuOpenProject: (n) => {
+    const t = (r, o) => n(o);
+    return e.on("menu:open-project", t), () => e.removeListener("menu:open-project", t);
   }
 });
-contextBridge.exposeInMainWorld("isElectron", true);
+a.exposeInMainWorld("isElectron", !0);

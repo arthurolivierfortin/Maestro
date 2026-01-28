@@ -15,3 +15,7 @@ export * from './modelStore';
 
 // Project store (Phase 7E)
 export * from './projectStore';
+
+// Metrics and Training stores (Phase 9)
+export * from './metricsStore';
+export * from './trainingStore';

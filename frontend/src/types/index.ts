@@ -33,3 +33,9 @@ export type {
 } from './block.types';
 
 export type { BlockTypeInfo, ValidationResult, IBlockTypeRegistry } from './block-registry.types';
+
+// Metrics types (Phase 9)
+export * from './metrics.types';
+
+// Training types (Phase 9)
+export * from './training.types';

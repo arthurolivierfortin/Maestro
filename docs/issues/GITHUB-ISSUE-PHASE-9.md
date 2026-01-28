@@ -1,9 +1,9 @@
-# GitHub Issue - Phase 7: Training, Metrics & Workflow Optimization System
+# GitHub Issue - Phase 9: Training, Metrics & Workflow Optimization System
 
 > **Instructions**: Créer cette issue sur GitHub en copiant le contenu ci-dessous.
 >
-> **Title**: `Phase 7: Training, Metrics & Workflow Optimization System`
-> **Labels**: `enhancement`, `phase-7`, `training`, `metrics`, `optimization`
+> **Title**: `Phase 9: Training, Metrics & Workflow Optimization System`
+> **Labels**: `enhancement`, `phase-9`, `training`, `metrics`, `optimization`
 
 ---
 
@@ -16,7 +16,7 @@ This phase introduces a comprehensive **training and optimization system** for w
 - Cost/quality/speed trade-off analysis
 - Support for automated and assisted workflow refinement
 
-> **Full specification**: See [`docs/issues/phase-7-training-metrics-optimization.md`](./docs/issues/phase-7-training-metrics-optimization.md)
+> **Full specification**: See [`docs/issues/phase-9-training-metrics-optimization.md`](./docs/issues/phase-9-training-metrics-optimization.md)
 
 ---
 
@@ -65,39 +65,39 @@ This phase directly supports the Maestro vision of:
 
 ## Implementation Plan
 
-### Phase 7A: Metrics Foundation (Week 1-2)
+### Phase 9A: Metrics Foundation (Week 1-2)
 - [ ] Create domain entities: `BlockMetrics`, `ModelUsageMetrics`
 - [ ] Implement `MetricsCollector` for execution tracking
 - [ ] Modify `LLMProviderGateway` to return token/cost metrics
 - [ ] Create `MetricsController` with retrieval endpoints
 - [ ] Implement basic `MetricsDashboardPage`
 
-### Phase 7B: Training Infrastructure (Week 2-3)
+### Phase 9B: Training Infrastructure (Week 2-3)
 - [ ] Create `TrainingRun` and `TrainingConfiguration` entities
 - [ ] Implement `TrainingExecutor` with iteration management
 - [ ] Create `TrainingController` with CRUD and execution
 - [ ] Implement `TrainingPage` with configuration form and progress
 
-### Phase 7C: Quality Evaluation (Week 3-4)
+### Phase 9C: Quality Evaluation (Week 3-4)
 - [ ] Implement `IQualityEvaluator` interface
 - [ ] Create `HeuristicQualityEvaluator` (schema validation, output checks)
 - [ ] Create `LLMQualityEvaluator` (LLM-based scoring)
 - [ ] Integrate quality scoring into training pipeline
 - [ ] Add quality visualization to UI
 
-### Phase 7D: Comparison & Optimization (Week 4-5)
+### Phase 9D: Comparison & Optimization (Week 4-5)
 - [ ] Implement `ComparisonService` for multi-run comparison
 - [ ] Implement `OptimizationEngine` for suggestions
 - [ ] Create `ComparisonPage` with side-by-side view
 - [ ] Implement `BenchmarkPage` for model comparison
 
-### Phase 7E: Real-time Monitoring Enhancement (Week 5-6)
+### Phase 9E: Real-time Monitoring Enhancement (Week 5-6)
 - [ ] Complete `ExecutionMonitorPage` with live metrics
 - [ ] Add streaming metrics during execution
 - [ ] Implement execution timeline visualization
 - [ ] Add live cost accumulation display
 
-### Phase 7F: CLI & External Integration (Week 6)
+### Phase 9F: CLI & External Integration (Week 6)
 - [ ] Add CLI commands for training management
 - [ ] Document API for external agents
 - [ ] Add webhook support for training completion

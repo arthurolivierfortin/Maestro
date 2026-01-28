@@ -8,6 +8,9 @@ using Maestro.Infrastructure.Configuration;
 using Maestro.Infrastructure.Projects;
 using Maestro.Infrastructure.Containers;
 using Maestro.Infrastructure.Services;
+using Maestro.Infrastructure.Metrics;
+using Maestro.Infrastructure.Training;
+using Maestro.Infrastructure.Training.QualityEvaluators;
 using System.IO;
 using System;
 using Microsoft.Extensions.Options;
@@ -106,6 +109,61 @@ builder.Services.AddSingleton<IProjectContainerService, ProjectContainerService>
 
 // Phase 8: Register file system browser
 builder.Services.AddSingleton<IFileSystemBrowser, FileSystemBrowser>();
+
+// Phase 9: Register metrics services
+var metricsFolder = Path.Combine(AppContext.BaseDirectory, "metrics");
+builder.Services.AddSingleton<IMetricsRepository>(sp =>
+{
+    var logger = sp.GetService<ILogger<FileSystemMetricsRepository>>();
+    return new FileSystemMetricsRepository(metricsFolder, logger);
+});
+builder.Services.AddSingleton<MetricsCollector>(sp =>
+{
+    var repository = sp.GetRequiredService<IMetricsRepository>();
+    var logger = sp.GetService<ILogger<MetricsCollector>>();
+    return new MetricsCollector(repository, logger);
+});
+builder.Services.AddSingleton<IMetricsCollector>(sp => sp.GetRequiredService<MetricsCollector>());
+
+// Phase 9: Register training services
+var trainingFolder = Path.Combine(AppContext.BaseDirectory, "training");
+builder.Services.AddSingleton<ITrainingConfigurationRepository>(sp =>
+{
+    var logger = sp.GetService<ILogger<FileSystemTrainingConfigurationRepository>>();
+    return new FileSystemTrainingConfigurationRepository(trainingFolder, logger);
+});
+builder.Services.AddSingleton<ITrainingRunRepository>(sp =>
+{
+    var logger = sp.GetService<ILogger<FileSystemTrainingRunRepository>>();
+    return new FileSystemTrainingRunRepository(trainingFolder, logger);
+});
+
+// Phase 9: Register quality evaluators
+builder.Services.AddSingleton<HeuristicQualityEvaluator>();
+builder.Services.AddSingleton<LLMQualityEvaluator>(sp =>
+{
+    var llmGateway = sp.GetRequiredService<ILLMGateway>();
+    var logger = sp.GetService<ILogger<LLMQualityEvaluator>>();
+    return new LLMQualityEvaluator(llmGateway, logger);
+});
+builder.Services.AddSingleton<IQualityEvaluator, CompositeQualityEvaluator>(sp =>
+{
+    var heuristic = sp.GetRequiredService<HeuristicQualityEvaluator>();
+    var llm = sp.GetService<LLMQualityEvaluator>();
+    var logger = sp.GetService<ILogger<CompositeQualityEvaluator>>();
+    return new CompositeQualityEvaluator(heuristic, llm, logger);
+});
+
+// Phase 9: Register training service
+builder.Services.AddSingleton<ITrainingService>(sp =>
+{
+    var configRepo = sp.GetRequiredService<ITrainingConfigurationRepository>();
+    var runRepo = sp.GetRequiredService<ITrainingRunRepository>();
+    var workflowExecutor = sp.GetRequiredService<IWorkflowExecutor>();
+    var metricsCollector = sp.GetRequiredService<MetricsCollector>();
+    var logger = sp.GetService<ILogger<TrainingService>>();
+    return new TrainingService(configRepo, runRepo, workflowExecutor, metricsCollector, logger);
+});
 
 // Add CORS for frontend development and Docker
 builder.Services.AddCors(options =>

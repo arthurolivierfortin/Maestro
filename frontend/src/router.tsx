@@ -23,6 +23,8 @@ const FoundryPage = lazy(() => import('@/pages/FoundryPage'));
 const AtomicBlockEditorPage = lazy(() => import('@/pages/AtomicBlockEditorPage'));
 const ProjectsPage = lazy(() => import('@/pages/ProjectsPage'));
 const ProjectDetailPage = lazy(() => import('@/pages/ProjectDetailPage'));
+const TrainingPage = lazy(() => import('@/pages/TrainingPage'));
+const MetricsPage = lazy(() => import('@/pages/MetricsPage'));
 const NotFoundPage = lazy(() => import('@/pages/NotFoundPage'));
 
 /**
@@ -134,6 +136,22 @@ const routes: RouteObject[] = [
         element: (
           <LazyPage>
             <BlockDemoPage />
+          </LazyPage>
+        ),
+      },
+      {
+        path: 'training',
+        element: (
+          <LazyPage>
+            <TrainingPage />
+          </LazyPage>
+        ),
+      },
+      {
+        path: 'metrics',
+        element: (
+          <LazyPage>
+            <MetricsPage />
           </LazyPage>
         ),
       },

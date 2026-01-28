@@ -10,6 +10,8 @@
     "dev:web": "ELECTRON_DISABLE=true vite",
     "dev:docker": "docker-compose -f ../docker-compose.backend.yml up -d && vite",
     "dev:full": "docker-compose -f ../docker-compose.dev.yml up",
+    "start:all": "powershell -ExecutionPolicy Bypass -File ../scripts/start-all.ps1",
+    "start:all:no-llm": "powershell -ExecutionPolicy Bypass -File ../scripts/start-all.ps1 -SkipLLM",
     "docker:backend": "docker-compose -f ../docker-compose.backend.yml up -d",
     "docker:backend:stop": "docker-compose -f ../docker-compose.backend.yml down",
     "docker:logs": "docker-compose -f ../docker-compose.backend.yml logs -f",

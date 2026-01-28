@@ -51,6 +51,15 @@ export interface ElectronAPI {
     onError: (callback: (error: string) => void) => () => void;
   };
 
+  // LLM Provider
+  llm: {
+    getStatus: () => Promise<{ running: boolean; port: number }>;
+    start: () => Promise<{ success: boolean; message: string }>;
+    stop: () => Promise<{ success: boolean; message: string }>;
+    onStatus: (callback: (status: { running: boolean }) => void) => () => void;
+    onError: (callback: (error: string) => void) => () => void;
+  };
+
   // Updater
   updater: {
     onUpdateAvailable: (callback: (info: unknown) => void) => () => void;
@@ -112,6 +121,24 @@ contextBridge.exposeInMainWorld('electron', {
       const handler = (_event: Electron.IpcRendererEvent, error: string) => callback(error);
       ipcRenderer.on('backend:error', handler);
       return () => ipcRenderer.removeListener('backend:error', handler);
+    },
+  },
+
+  // ===== LLM Provider Management =====
+  llm: {
+    getStatus: () => ipcRenderer.invoke('llm:getStatus'),
+    start: () => ipcRenderer.invoke('llm:start'),
+    stop: () => ipcRenderer.invoke('llm:stop'),
+    onStatus: (callback: (status: { running: boolean }) => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, status: { running: boolean }) =>
+        callback(status);
+      ipcRenderer.on('llm:status', handler);
+      return () => ipcRenderer.removeListener('llm:status', handler);
+    },
+    onError: (callback: (error: string) => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, error: string) => callback(error);
+      ipcRenderer.on('llm:error', handler);
+      return () => ipcRenderer.removeListener('llm:error', handler);
     },
   },
 

@@ -44,12 +44,18 @@ const navigationItems: SidebarItem[] = [
     children: [{ id: 'execution-history', label: 'History', icon: '⌚', path: '/history' }],
   },
   {
+    id: 'training',
+    label: 'Training',
+    icon: '🏋️',
+    path: '/training',
+  },
+  {
     id: 'monitoring',
     label: 'Monitoring',
     icon: '◫',
     children: [
       { id: 'logs', label: 'Logs', icon: '≡', path: '#' },
-      { id: 'metrics', label: 'Metrics', icon: '□', path: '#' },
+      { id: 'metrics', label: 'Metrics', icon: '📊', path: '/metrics' },
     ],
   },
 ];
