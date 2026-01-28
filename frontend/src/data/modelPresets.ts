@@ -51,7 +51,7 @@ export const OPENAI_MODELS: Model[] = [
     supportsToolCalls: true,
     supportsVision: true,
     isLocal: false,
-    isAvailable: true,
+    isAvailable: false, // Requires API key configuration
   },
   {
     id: 'gpt-4o-mini',
@@ -92,7 +92,7 @@ export const OPENAI_MODELS: Model[] = [
     supportsToolCalls: true,
     supportsVision: true,
     isLocal: false,
-    isAvailable: true,
+    isAvailable: false, // Requires API key configuration
   },
   {
     id: 'o1',
@@ -129,7 +129,7 @@ export const OPENAI_MODELS: Model[] = [
     supportsToolCalls: false,
     supportsVision: false,
     isLocal: false,
-    isAvailable: true,
+    isAvailable: false, // Requires API key configuration
   },
   {
     id: 'o1-mini',
@@ -159,7 +159,7 @@ export const OPENAI_MODELS: Model[] = [
     supportsToolCalls: false,
     supportsVision: false,
     isLocal: false,
-    isAvailable: true,
+    isAvailable: false, // Requires API key configuration
   },
 ];
 
@@ -206,7 +206,7 @@ export const ANTHROPIC_MODELS: Model[] = [
     supportsToolCalls: true,
     supportsVision: true,
     isLocal: false,
-    isAvailable: true,
+    isAvailable: false, // Requires API key configuration
   },
   {
     id: 'claude-3-5-haiku-20241022',
@@ -244,7 +244,7 @@ export const ANTHROPIC_MODELS: Model[] = [
     supportsToolCalls: true,
     supportsVision: true,
     isLocal: false,
-    isAvailable: true,
+    isAvailable: false, // Requires API key configuration
   },
   {
     id: 'claude-3-opus-20240229',
@@ -285,7 +285,7 @@ export const ANTHROPIC_MODELS: Model[] = [
     supportsToolCalls: true,
     supportsVision: true,
     isLocal: false,
-    isAvailable: true,
+    isAvailable: false, // Requires API key configuration
   },
 ];
 
@@ -329,7 +329,7 @@ export const GOOGLE_MODELS: Model[] = [
     supportsToolCalls: true,
     supportsVision: true,
     isLocal: false,
-    isAvailable: true,
+    isAvailable: false, // Requires API key configuration
   },
   {
     id: 'gemini-1.5-pro',
@@ -367,7 +367,7 @@ export const GOOGLE_MODELS: Model[] = [
     supportsToolCalls: true,
     supportsVision: true,
     isLocal: false,
-    isAvailable: true,
+    isAvailable: false, // Requires API key configuration
   },
 ];
 
@@ -471,7 +471,7 @@ export const GROQ_MODELS: Model[] = [
     supportsToolCalls: true,
     supportsVision: false,
     isLocal: false,
-    isAvailable: true,
+    isAvailable: false, // Requires API key configuration
   },
 ];
 

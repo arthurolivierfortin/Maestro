@@ -96,8 +96,18 @@ export function ModelsPanel() {
   const [compareModels, setCompareModels] = useState<ModelCatalogEntry[]>([]);
   const [showCompareDialog, setShowCompareDialog] = useState(false);
 
-  // Build catalog with configured model IDs
-  const configuredModelIds = useMemo(() => new Set(Array.from(models.keys())), [models]);
+  // Build catalog with configured model IDs - only include models that are actually available
+  // (i.e., have valid API keys or are running locally)
+  const configuredModelIds = useMemo(() => {
+    const configured = new Set<string>();
+    models.forEach((model, id) => {
+      // Only consider a model "configured" if it's actually available
+      if (model.isAvailable) {
+        configured.add(id);
+      }
+    });
+    return configured;
+  }, [models]);
   const catalog = useMemo(() => getModelCatalog(configuredModelIds), [configuredModelIds]);
 
   // Group catalog by provider
