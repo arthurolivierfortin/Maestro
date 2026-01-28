@@ -35,7 +35,11 @@
       "Bash(gh issue create:*)",
       "Bash(where:*)",
       "Bash(dotnet test:*)",
-      "Bash(netstat:*)"
+      "Bash(netstat:*)",
+      "Bash(done)",
+      "Bash(findstr:*)",
+      "Bash(ls:*)",
+      "Bash(powershell:*)"
     ]
   }
 }

@@ -1,0 +1,82 @@
+{
+  "$schema": "../../../docs/schemas/block.schema.json",
+  "id": "shell-execute",
+  "name": "Shell Execute",
+  "blockType": "tool",
+  "version": "1.0.0",
+  "isAtomic": true,
+  "description": "Executes a shell command and returns the output",
+  "inputs": [
+    {
+      "id": "command",
+      "name": "Command",
+      "type": "string",
+      "required": true,
+      "description": "The command to execute"
+    },
+    {
+      "id": "args",
+      "name": "Arguments",
+      "type": "array",
+      "required": false,
+      "description": "Command arguments as an array"
+    },
+    {
+      "id": "workingDir",
+      "name": "Working Directory",
+      "type": "string",
+      "required": false,
+      "description": "The directory to execute the command in"
+    },
+    {
+      "id": "timeout",
+      "name": "Timeout",
+      "type": "number",
+      "required": false,
+      "description": "Timeout in milliseconds (default: 60000)"
+    },
+    {
+      "id": "env",
+      "name": "Environment Variables",
+      "type": "object",
+      "required": false,
+      "description": "Additional environment variables"
+    }
+  ],
+  "outputs": [
+    {
+      "id": "stdout",
+      "name": "Standard Output",
+      "type": "string",
+      "description": "The standard output from the command"
+    },
+    {
+      "id": "stderr",
+      "name": "Standard Error",
+      "type": "string",
+      "description": "The standard error from the command"
+    },
+    {
+      "id": "exitCode",
+      "name": "Exit Code",
+      "type": "number",
+      "description": "The exit code of the command"
+    },
+    {
+      "id": "success",
+      "name": "Success",
+      "type": "boolean",
+      "description": "Whether the command completed successfully (exit code 0)"
+    }
+  ],
+  "config": {
+    "toolType": "shell",
+    "timeout": 60000,
+    "shell": true
+  },
+  "metadata": {
+    "category": "shell",
+    "tags": ["shell", "command", "execute", "process"]
+  },
+  "capabilities": ["shell", "execute"]
+}

@@ -680,10 +680,340 @@ function handleApiError(error, action) {
   }
 }
 
+// ============= Training Commands =============
+
+async function listTrainingConfigs() {
+  try {
+    const configs = await client.listTrainingConfigs();
+    if (!configs || configs.length === 0) {
+      console.log('\nNo training configurations found');
+      console.log('  Create one with: maestro training create --name "Config" --workflow <id> --iterations 10');
+      return;
+    }
+
+    console.log('\n🏋️ Training Configurations:\n');
+    console.table(configs.map(c => ({
+      'ID': c.id.substring(0, 8) + '...',
+      'Name': c.name,
+      'Workflow': c.workflowId?.substring(0, 8) + '...',
+      'Iterations': c.iterations,
+      'Goal': c.optimizationGoal || 'quality'
+    })));
+  } catch (error) {
+    handleApiError(error, 'listing training configs');
+    process.exit(1);
+  }
+}
+
+async function getTrainingConfigInfo(id) {
+  try {
+    const config = await client.getTrainingConfig(id);
+    console.log('\n🏋️ Training Configuration:\n');
+    console.log(`  ID:             ${config.id}`);
+    console.log(`  Name:           ${config.name}`);
+    console.log(`  Description:    ${config.description || 'N/A'}`);
+    console.log(`  Workflow:       ${config.workflowId}`);
+    console.log(`  Iterations:     ${config.iterations}`);
+    console.log(`  Parallel:       ${config.parallelIterations || 1}`);
+    console.log(`  Goal:           ${config.optimizationGoal || 'quality'}`);
+    console.log(`  Created:        ${config.createdAt}`);
+    console.log('');
+  } catch (error) {
+    if (error.status === 404) {
+      console.error(`❌ Training config not found: ${id}`);
+    } else {
+      handleApiError(error, 'getting training config');
+    }
+    process.exit(1);
+  }
+}
+
+async function createTrainingConfig(options) {
+  try {
+    const config = {
+      name: options.name,
+      description: options.description,
+      workflowId: options.workflow,
+      iterations: parseInt(options.iterations) || 10,
+      parallelIterations: parseInt(options.parallel) || 1,
+      delayBetweenIterationsMs: parseInt(options.delay) || 0,
+      optimizationGoal: options.goal || 'quality',
+      tags: options.tags ? options.tags.split(',') : []
+    };
+
+    const result = await client.createTrainingConfig(config);
+    console.log('\n✅ Training configuration created!\n');
+    console.log(`  ID:   ${result.id}`);
+    console.log(`  Name: ${result.name}`);
+    console.log('');
+  } catch (error) {
+    handleApiError(error, 'creating training config');
+    process.exit(1);
+  }
+}
+
+async function listTrainingRuns(filter = {}) {
+  try {
+    const runs = await client.listTrainingRuns(filter);
+    if (!runs || runs.length === 0) {
+      console.log('\nNo training runs found');
+      return;
+    }
+
+    console.log('\n📊 Training Runs:\n');
+    console.table(runs.map(r => ({
+      'ID': r.id.substring(0, 8) + '...',
+      'Name': r.name || '-',
+      'Status': r.status,
+      'Progress': `${r.completedIterations}/${r.totalIterations}`,
+      'Quality': r.averageQualityScore?.toFixed(2) || '-',
+      'Cost': r.totalCostUsd ? `$${r.totalCostUsd.toFixed(4)}` : '-'
+    })));
+  } catch (error) {
+    handleApiError(error, 'listing training runs');
+    process.exit(1);
+  }
+}
+
+async function getTrainingRunInfo(id) {
+  try {
+    const run = await client.getTrainingRun(id);
+    console.log('\n📊 Training Run:\n');
+    console.log(`  ID:               ${run.id}`);
+    console.log(`  Name:             ${run.name || 'N/A'}`);
+    console.log(`  Status:           ${run.status}`);
+    console.log(`  Workflow:         ${run.workflowId}`);
+    console.log(`  Config:           ${run.configurationId}`);
+    console.log(`  Progress:         ${run.completedIterations}/${run.totalIterations} (${run.failedIterations} failed)`);
+    console.log(`  Started:          ${run.startedAt || 'N/A'}`);
+    console.log(`  Completed:        ${run.completedAt || 'N/A'}`);
+    if (run.averageQualityScore !== undefined) {
+      console.log(`  Avg Quality:      ${run.averageQualityScore.toFixed(2)}`);
+    }
+    if (run.totalCostUsd !== undefined) {
+      console.log(`  Total Cost:       $${run.totalCostUsd.toFixed(4)}`);
+    }
+    if (run.errorMessage) {
+      console.log(`  Error:            ${run.errorMessage}`);
+    }
+    console.log('');
+  } catch (error) {
+    if (error.status === 404) {
+      console.error(`❌ Training run not found: ${id}`);
+    } else {
+      handleApiError(error, 'getting training run');
+    }
+    process.exit(1);
+  }
+}
+
+async function startTrainingRun(configId, options = {}) {
+  try {
+    console.log(`\n▶️  Starting training run for config: ${configId}\n`);
+
+    const request = {
+      configurationId: configId,
+      name: options.name,
+      inputs: options.inputs ? JSON.parse(options.inputs) : undefined
+    };
+
+    const run = await client.startTrainingRun(request);
+    console.log(`✅ Training run started!\n`);
+    console.log(`  Run ID:    ${run.id}`);
+    console.log(`  Status:    ${run.status}`);
+    console.log(`  Iterations: ${run.totalIterations}`);
+    console.log('');
+  } catch (error) {
+    handleApiError(error, 'starting training run');
+    process.exit(1);
+  }
+}
+
+async function controlTrainingRun(id, action) {
+  try {
+    let result;
+    const actionLabel = action.charAt(0).toUpperCase() + action.slice(1);
+
+    console.log(`\n⚙️  ${actionLabel}ing training run: ${id}\n`);
+
+    switch (action) {
+      case 'pause':
+        result = await client.pauseTrainingRun(id);
+        break;
+      case 'resume':
+        result = await client.resumeTrainingRun(id);
+        break;
+      case 'cancel':
+        result = await client.cancelTrainingRun(id);
+        break;
+      default:
+        console.error(`❌ Unknown action: ${action}`);
+        process.exit(1);
+    }
+
+    console.log(`✅ Training run ${action}d`);
+    console.log(`  Status: ${result.status}`);
+    console.log('');
+  } catch (error) {
+    handleApiError(error, `${action}ing training run`);
+    process.exit(1);
+  }
+}
+
+// ============= Metrics Commands =============
+
+async function listExecutionMetrics(filter = {}) {
+  try {
+    const metrics = await client.listExecutionMetrics(filter);
+    if (!metrics || metrics.length === 0) {
+      console.log('\nNo execution metrics found');
+      return;
+    }
+
+    console.log('\n📈 Execution Metrics:\n');
+    console.table(metrics.slice(0, 20).map(m => ({
+      'Execution ID': m.executionId?.substring(0, 8) + '...' || '-',
+      'Workflow': m.workflowId?.substring(0, 8) + '...' || '-',
+      'Status': m.status || '-',
+      'Duration': m.durationMs ? `${m.durationMs}ms` : '-',
+      'Tokens': m.totalTokens || '-',
+      'Cost': m.costUsd ? `$${m.costUsd.toFixed(4)}` : '-'
+    })));
+
+    if (metrics.length > 20) {
+      console.log(`\n  ... and ${metrics.length - 20} more`);
+    }
+  } catch (error) {
+    handleApiError(error, 'listing metrics');
+    process.exit(1);
+  }
+}
+
+async function getAggregatedMetrics(filter = {}) {
+  try {
+    const metrics = await client.getAggregatedMetrics(filter);
+    console.log('\n📊 Aggregated Metrics:\n');
+    console.log(`  Total Executions:    ${metrics.totalExecutions || 0}`);
+    console.log(`  Successful:          ${metrics.successfulExecutions || 0}`);
+    console.log(`  Failed:              ${metrics.failedExecutions || 0}`);
+    console.log(`  Avg Duration:        ${metrics.averageDurationMs ? metrics.averageDurationMs.toFixed(0) + 'ms' : 'N/A'}`);
+    console.log(`  Total Tokens:        ${metrics.totalTokens || 0}`);
+    console.log(`  Total Cost:          ${metrics.totalCostUsd ? '$' + metrics.totalCostUsd.toFixed(4) : 'N/A'}`);
+    console.log('');
+  } catch (error) {
+    handleApiError(error, 'getting aggregated metrics');
+    process.exit(1);
+  }
+}
+
+// ============= Runs / Execution History Commands =============
+
+async function listRuns(filter = {}) {
+  try {
+    const runs = await client.listRuns({ ...filter, limit: filter.limit || 20 });
+    if (!runs || runs.length === 0) {
+      console.log('\nNo execution runs found');
+      return;
+    }
+
+    console.log('\n📜 Execution History:\n');
+    console.table(runs.map(r => ({
+      'ID': r.id?.substring(0, 8) + '...' || '-',
+      'Type': r.type || 'workflow',
+      'Status': r.status,
+      'Started': r.startedAt ? new Date(r.startedAt).toLocaleString() : '-',
+      'Duration': r.durationMs ? `${r.durationMs}ms` : '-'
+    })));
+  } catch (error) {
+    handleApiError(error, 'listing runs');
+    process.exit(1);
+  }
+}
+
+async function getRunInfo(id) {
+  try {
+    const run = await client.getRun(id);
+    console.log('\n📜 Execution Run:\n');
+    console.log(`  ID:           ${run.id}`);
+    console.log(`  Type:         ${run.type || 'workflow'}`);
+    console.log(`  Status:       ${run.status}`);
+    console.log(`  Started:      ${run.startedAt || 'N/A'}`);
+    console.log(`  Completed:    ${run.completedAt || 'N/A'}`);
+    console.log(`  Duration:     ${run.durationMs ? run.durationMs + 'ms' : 'N/A'}`);
+
+    if (run.inputs) {
+      console.log('\n  Inputs:');
+      console.log(JSON.stringify(run.inputs, null, 4).split('\n').map(l => '    ' + l).join('\n'));
+    }
+
+    if (run.outputs) {
+      console.log('\n  Outputs:');
+      console.log(JSON.stringify(run.outputs, null, 4).split('\n').map(l => '    ' + l).join('\n'));
+    }
+
+    if (run.error) {
+      console.log(`\n  Error: ${run.error}`);
+    }
+
+    console.log('');
+  } catch (error) {
+    if (error.status === 404) {
+      console.error(`❌ Run not found: ${id}`);
+    } else {
+      handleApiError(error, 'getting run');
+    }
+    process.exit(1);
+  }
+}
+
+// ============= LLM Commands =============
+
+async function checkLLMStatus() {
+  try {
+    // Try to get LLM health from backend
+    const health = await client.getLLMHealth().catch(() => null);
+
+    // Also try to call LLM-Provider directly
+    const llmProviderUrl = process.env.LLM_PROVIDER_URL || 'http://localhost:8000';
+    let llmProviderHealth = null;
+    try {
+      const response = await fetch(`${llmProviderUrl}/health`);
+      llmProviderHealth = await response.json();
+    } catch (e) {
+      // LLM-Provider not available
+    }
+
+    console.log('\n🤖 LLM Status:\n');
+
+    if (llmProviderHealth) {
+      console.log('  LLM-Provider (localhost:8000):');
+      console.log(`    Status:        ${llmProviderHealth.status}`);
+      console.log(`    Active Model:  ${llmProviderHealth.active_model || 'none'}`);
+      console.log(`    Models Loaded: ${llmProviderHealth.models_loaded || 0}`);
+      console.log(`    Device:        ${llmProviderHealth.device || 'N/A'}`);
+      if (llmProviderHealth.cuda_available) {
+        console.log(`    GPU:           ${llmProviderHealth.cuda_device_name || 'CUDA'}`);
+      }
+    } else {
+      console.log('  LLM-Provider:    ❌ Not available');
+    }
+
+    if (health) {
+      console.log('\n  Backend LLM Integration:');
+      console.log(`    Status:        ${health.status}`);
+    }
+
+    console.log('');
+  } catch (error) {
+    handleApiError(error, 'checking LLM status');
+    process.exit(1);
+  }
+}
+
 async function main() {
   const argv = minimist(process.argv.slice(2), {
     boolean: ['mock', 'help', 'h', 'force', 'status'],
-    string: ['api-url', 'u', 'name', 'path', 'description', 'runtime', 'image', 'work-dir', 'block-paths', 'model', 'lines', 'since', 'working-dir', 'workdir']
+    string: ['api-url', 'u', 'name', 'path', 'description', 'runtime', 'image', 'work-dir', 'block-paths', 'model', 'lines', 'since', 'working-dir', 'workdir', 'workflow', 'iterations', 'parallel', 'delay', 'goal', 'tags', 'inputs', 'config', 'from', 'to', 'limit']
   });
 
   // Update client URL if provided
@@ -692,11 +1022,11 @@ async function main() {
   }
 
   const cmd = argv._[0];
-  
+
   // Help
   if (!cmd || argv.help || argv.h) {
     console.log(`
-Maestro CLI v1.2.0
+Maestro CLI v2.0.0
 
 Usage: maestro <command> [options]
 
@@ -728,6 +1058,26 @@ Execution Commands:
   run <block-id>       Execute a single block directly
   validate <workflow>  Validate workflow structure
 
+Training Commands:
+  training             List all training configurations
+  training info <id>   Show training config details
+  training create      Create a training configuration
+  training runs        List all training runs
+  training run <id>    Show training run details
+  training start <cfg> Start a training run for a configuration
+  training pause <id>  Pause a training run
+  training resume <id> Resume a paused training run
+  training cancel <id> Cancel a training run
+
+Metrics Commands:
+  metrics              List recent execution metrics
+  metrics summary      Show aggregated metrics summary
+  runs                 List execution history
+  runs info <id>       Show run details
+
+LLM Commands:
+  llm                  Show LLM provider status
+
 System Commands:
   health               Check backend connection
 
@@ -748,20 +1098,25 @@ Project Create Options:
   --model <model>      Default model for agents
   --block-paths <paths> Comma-separated block search paths
 
-Project Bind Options:
-  --path <path>        Existing directory to bind (required)
-  --name <name>        Project name (defaults to directory name)
-  --description <desc> Project description
-  --model <model>      Default model for LLM operations
+Training Create Options:
+  --name <name>        Configuration name (required)
+  --workflow <id>      Workflow ID to train (required)
+  --iterations <n>     Number of iterations (default: 10)
+  --parallel <n>       Parallel iterations (default: 1)
+  --delay <ms>         Delay between iterations in ms (default: 0)
+  --goal <goal>        Optimization goal: quality, cost, speed (default: quality)
+  --tags <tags>        Comma-separated tags
 
-Container Log Options:
-  --lines <n>          Number of log lines to show (default: 100)
-  --since <time>       Show logs since timestamp (e.g., 2024-01-01T00:00:00Z)
+Metrics Filter Options:
+  --from <date>        Start date (ISO format)
+  --to <date>          End date (ISO format)
+  --limit <n>          Maximum results to show
 
 Environment Variables:
   MAESTRO_API_URL      Backend API URL (default: http://localhost:5000)
   MAESTRO_API_TIMEOUT  API request timeout in ms (default: 30000)
   MAESTRO_DEBUG        Enable debug logging (true/false)
+  LLM_PROVIDER_URL     LLM Provider URL (default: http://localhost:8000)
 
 Examples:
   maestro blocks
@@ -769,11 +1124,13 @@ Examples:
   maestro projects
   maestro projects create --name "My App" --path ./my-app --runtime docker
   maestro projects bind --path ./existing-repo --name "My Repo"
-  maestro projects start abc123
-  maestro projects stop abc123
-  maestro projects logs abc123 --lines 50
-  maestro projects status abc123
-  maestro search agent
+  maestro execute my-workflow --input key=value
+  maestro training create --name "Quality Test" --workflow wf-123 --iterations 100
+  maestro training start cfg-123
+  maestro training runs
+  maestro metrics summary
+  maestro runs --limit 10
+  maestro llm
   maestro health
 `);
     return;
@@ -941,6 +1298,133 @@ Examples:
       return;
     }
     
+    // Training commands
+    if (cmd === 'training') {
+      const subCmd = argv._[1];
+
+      if (!subCmd) return await listTrainingConfigs();
+
+      if (subCmd === 'info') {
+        const id = argv._[2];
+        if (!id) { console.error('❌ Configuration ID required'); process.exit(1); }
+        return await getTrainingConfigInfo(id);
+      }
+
+      if (subCmd === 'create') {
+        if (!argv.name) { console.error('❌ --name is required'); process.exit(1); }
+        if (!argv.workflow) { console.error('❌ --workflow is required'); process.exit(1); }
+        return await createTrainingConfig({
+          name: argv.name,
+          description: argv.description,
+          workflow: argv.workflow,
+          iterations: argv.iterations,
+          parallel: argv.parallel,
+          delay: argv.delay,
+          goal: argv.goal,
+          tags: argv.tags
+        });
+      }
+
+      if (subCmd === 'runs') {
+        return await listTrainingRuns({
+          configId: argv.config,
+          workflowId: argv.workflow,
+          status: argv.status
+        });
+      }
+
+      if (subCmd === 'run') {
+        const id = argv._[2];
+        if (!id) { console.error('❌ Training run ID required'); process.exit(1); }
+        return await getTrainingRunInfo(id);
+      }
+
+      if (subCmd === 'start') {
+        const configId = argv._[2];
+        if (!configId) { console.error('❌ Configuration ID required'); process.exit(1); }
+        return await startTrainingRun(configId, {
+          name: argv.name,
+          inputs: argv.inputs
+        });
+      }
+
+      if (subCmd === 'pause') {
+        const id = argv._[2];
+        if (!id) { console.error('❌ Training run ID required'); process.exit(1); }
+        return await controlTrainingRun(id, 'pause');
+      }
+
+      if (subCmd === 'resume') {
+        const id = argv._[2];
+        if (!id) { console.error('❌ Training run ID required'); process.exit(1); }
+        return await controlTrainingRun(id, 'resume');
+      }
+
+      if (subCmd === 'cancel') {
+        const id = argv._[2];
+        if (!id) { console.error('❌ Training run ID required'); process.exit(1); }
+        return await controlTrainingRun(id, 'cancel');
+      }
+
+      console.error(`❌ Unknown training subcommand: ${subCmd}`);
+      process.exit(1);
+    }
+
+    // Metrics commands
+    if (cmd === 'metrics') {
+      const subCmd = argv._[1];
+
+      if (!subCmd) {
+        return await listExecutionMetrics({
+          workflowId: argv.workflow,
+          from: argv.from,
+          to: argv.to,
+          limit: argv.limit
+        });
+      }
+
+      if (subCmd === 'summary') {
+        return await getAggregatedMetrics({
+          from: argv.from,
+          to: argv.to,
+          groupBy: argv['group-by']
+        });
+      }
+
+      console.error(`❌ Unknown metrics subcommand: ${subCmd}`);
+      process.exit(1);
+    }
+
+    // Runs / execution history commands
+    if (cmd === 'runs') {
+      const subCmd = argv._[1];
+
+      if (!subCmd) {
+        return await listRuns({
+          workflowId: argv.workflow,
+          blockId: argv.block,
+          status: argv.status,
+          from: argv.from,
+          to: argv.to,
+          limit: argv.limit ? parseInt(argv.limit) : 20
+        });
+      }
+
+      if (subCmd === 'info') {
+        const id = argv._[2];
+        if (!id) { console.error('❌ Run ID required'); process.exit(1); }
+        return await getRunInfo(id);
+      }
+
+      console.error(`❌ Unknown runs subcommand: ${subCmd}`);
+      process.exit(1);
+    }
+
+    // LLM commands
+    if (cmd === 'llm') {
+      return await checkLLMStatus();
+    }
+
     console.error(`❌ Unknown command: ${cmd}`);
     console.error('   Run "maestro --help" for usage information');
     process.exit(1);

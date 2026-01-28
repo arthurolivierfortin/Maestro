@@ -1,0 +1,63 @@
+{
+  "$schema": "../../../docs/schemas/block.schema.json",
+  "id": "code-developer",
+  "name": "Code Developer Agent",
+  "blockType": "agent",
+  "version": "1.0.0",
+  "isAtomic": false,
+  "description": "Autonomous agent that can read, analyze, and write code to accomplish development tasks",
+  "inputs": [
+    {
+      "id": "task",
+      "name": "Task Description",
+      "type": "string",
+      "required": true,
+      "description": "Description of the development task to accomplish"
+    },
+    {
+      "id": "workingDir",
+      "name": "Working Directory",
+      "type": "string",
+      "required": true,
+      "description": "The root directory of the project to work on"
+    },
+    {
+      "id": "context",
+      "name": "Additional Context",
+      "type": "string",
+      "required": false,
+      "description": "Additional context or requirements for the task"
+    }
+  ],
+  "outputs": [
+    {
+      "id": "result",
+      "name": "Result",
+      "type": "string",
+      "description": "Summary of what was accomplished"
+    },
+    {
+      "id": "filesModified",
+      "name": "Files Modified",
+      "type": "array",
+      "description": "List of files that were created or modified"
+    },
+    {
+      "id": "status",
+      "name": "Status",
+      "type": "string",
+      "description": "Status of the task: completed, partial, failed"
+    }
+  ],
+  "config": {
+    "maxIterations": 10,
+    "model": "deepseek-ai/deepseek-coder-1.3b-instruct",
+    "tools": ["file-read", "file-write", "shell-execute", "git-status", "git-diff"],
+    "systemPrompt": "You are a skilled software developer. Your goal is to complete the given task by reading and analyzing code, making necessary changes, and ensuring the code works correctly. Always explain your reasoning before making changes."
+  },
+  "metadata": {
+    "category": "development",
+    "tags": ["agent", "code", "development", "autonomous"]
+  },
+  "capabilities": ["llm", "tools", "autonomous"]
+}

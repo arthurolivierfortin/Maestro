@@ -1,0 +1,62 @@
+{
+  "$schema": "../../../docs/schemas/block.schema.json",
+  "id": "file-read",
+  "name": "File Read",
+  "blockType": "tool",
+  "version": "1.0.0",
+  "isAtomic": true,
+  "description": "Reads the contents of a file from the filesystem",
+  "inputs": [
+    {
+      "id": "path",
+      "name": "File Path",
+      "type": "string",
+      "required": true,
+      "description": "The path to the file to read (absolute or relative to working directory)"
+    },
+    {
+      "id": "workingDir",
+      "name": "Working Directory",
+      "type": "string",
+      "required": false,
+      "description": "The base directory for relative paths"
+    },
+    {
+      "id": "encoding",
+      "name": "Encoding",
+      "type": "string",
+      "required": false,
+      "description": "File encoding (default: utf-8)"
+    }
+  ],
+  "outputs": [
+    {
+      "id": "content",
+      "name": "File Content",
+      "type": "string",
+      "description": "The content of the file"
+    },
+    {
+      "id": "exists",
+      "name": "File Exists",
+      "type": "boolean",
+      "description": "Whether the file exists"
+    },
+    {
+      "id": "size",
+      "name": "File Size",
+      "type": "number",
+      "description": "Size of the file in bytes"
+    }
+  ],
+  "config": {
+    "toolType": "filesystem",
+    "operation": "read",
+    "maxSizeBytes": 10485760
+  },
+  "metadata": {
+    "category": "filesystem",
+    "tags": ["file", "read", "io"]
+  },
+  "capabilities": ["filesystem", "read"]
+}

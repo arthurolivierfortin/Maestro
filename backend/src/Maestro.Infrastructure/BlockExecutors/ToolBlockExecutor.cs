@@ -148,6 +148,14 @@ public class ToolBlockExecutor : IBlockExecutor
 
         try
         {
+            // Handle filesystem operations
+            var toolType = GetConfigString(config, "toolType");
+            if (toolType == "filesystem")
+            {
+                var operation = GetConfigString(config, "operation");
+                return await HandleFilesystemOperationAsync(block, inputs, operation, workingDir, logs, sw, ct);
+            }
+
             // Handle command + args format (direct execution without shell wrapper)
             if (!string.IsNullOrEmpty(command))
             {
@@ -447,6 +455,242 @@ public class ToolBlockExecutor : IBlockExecutor
             System.Text.Json.JsonValueKind.Object => el.ToString(),
             System.Text.Json.JsonValueKind.Array => el.ToString(),
             _ => null,
+        };
+    }
+
+    /// <summary>
+    /// Handles filesystem operations (read, write, etc.)
+    /// </summary>
+    private async Task<BlockExecutionResult> HandleFilesystemOperationAsync(
+        BlockDefinition block,
+        Dictionary<string, object> inputs,
+        string operation,
+        string? workingDir,
+        List<string> logs,
+        Stopwatch sw,
+        CancellationToken ct)
+    {
+        var resultOutputs = new Dictionary<string, object?>();
+
+        try
+        {
+            // Get file path from inputs
+            var filePath = inputs.TryGetValue("path", out var pathObj) ? pathObj?.ToString() : null;
+            if (string.IsNullOrEmpty(filePath))
+            {
+                logs.Add("Missing required input: path");
+                return new BlockExecutionResult
+                {
+                    Outputs = resultOutputs.ToDictionary(kv => kv.Key, kv => kv.Value),
+                    Logs = logs,
+                    Success = false,
+                    DurationMs = sw.ElapsedMilliseconds
+                };
+            }
+
+            // Resolve path relative to working directory if not absolute
+            if (!Path.IsPathRooted(filePath) && !string.IsNullOrEmpty(workingDir))
+            {
+                filePath = Path.Combine(workingDir, filePath);
+            }
+
+            // Override working directory from inputs if provided
+            if (inputs.TryGetValue("workingDir", out var wdObj) && wdObj is string wdStr && !string.IsNullOrEmpty(wdStr))
+            {
+                if (!Path.IsPathRooted(filePath))
+                {
+                    filePath = Path.Combine(wdStr, filePath);
+                }
+            }
+
+            filePath = Path.GetFullPath(filePath);
+
+            switch (operation.ToLowerInvariant())
+            {
+                case "read":
+                    return await HandleFileReadAsync(filePath, inputs, logs, sw, ct);
+
+                case "write":
+                    return await HandleFileWriteAsync(filePath, inputs, logs, sw, ct);
+
+                default:
+                    logs.Add($"Unknown filesystem operation: {operation}");
+                    return new BlockExecutionResult
+                    {
+                        Outputs = resultOutputs.ToDictionary(kv => kv.Key, kv => kv.Value),
+                        Logs = logs,
+                        Success = false,
+                        DurationMs = sw.ElapsedMilliseconds
+                    };
+            }
+        }
+        catch (Exception ex)
+        {
+            logs.Add($"Filesystem error: {ex.Message}");
+            return new BlockExecutionResult
+            {
+                Outputs = resultOutputs.ToDictionary(kv => kv.Key, kv => kv.Value),
+                Logs = logs,
+                Success = false,
+                DurationMs = sw.ElapsedMilliseconds
+            };
+        }
+    }
+
+    private async Task<BlockExecutionResult> HandleFileReadAsync(
+        string filePath,
+        Dictionary<string, object> inputs,
+        List<string> logs,
+        Stopwatch sw,
+        CancellationToken ct)
+    {
+        var resultOutputs = new Dictionary<string, object?>();
+        var encoding = inputs.TryGetValue("encoding", out var encObj) ? encObj?.ToString() : "utf-8";
+
+        logs.Add($"Reading file: {filePath}");
+
+        if (!File.Exists(filePath))
+        {
+            logs.Add($"File not found: {filePath}");
+            resultOutputs["content"] = string.Empty;
+            resultOutputs["exists"] = false;
+            resultOutputs["size"] = 0;
+
+            return new BlockExecutionResult
+            {
+                Outputs = resultOutputs.ToDictionary(kv => kv.Key, kv => kv.Value),
+                Logs = logs,
+                Success = false,
+                DurationMs = sw.ElapsedMilliseconds
+            };
+        }
+
+        var fileInfo = new FileInfo(filePath);
+        var enc = GetEncodingFromString(encoding);
+        var content = await File.ReadAllTextAsync(filePath, enc, ct);
+
+        resultOutputs["content"] = content;
+        resultOutputs["exists"] = true;
+        resultOutputs["size"] = fileInfo.Length;
+
+        logs.Add($"Read {fileInfo.Length} bytes");
+
+        return new BlockExecutionResult
+        {
+            Outputs = resultOutputs.ToDictionary(kv => kv.Key, kv => kv.Value),
+            Logs = logs,
+            Success = true,
+            DurationMs = sw.ElapsedMilliseconds
+        };
+    }
+
+    private async Task<BlockExecutionResult> HandleFileWriteAsync(
+        string filePath,
+        Dictionary<string, object> inputs,
+        List<string> logs,
+        Stopwatch sw,
+        CancellationToken ct)
+    {
+        var resultOutputs = new Dictionary<string, object?>();
+        var encoding = inputs.TryGetValue("encoding", out var encObj) ? encObj?.ToString() : "utf-8";
+        var mode = inputs.TryGetValue("mode", out var modeObj) ? modeObj?.ToString() : "overwrite";
+        var createDirs = !inputs.TryGetValue("createDirectories", out var cdObj) || cdObj is not bool cdBool || cdBool;
+
+        // Get content to write
+        if (!inputs.TryGetValue("content", out var contentObj) || contentObj is not string content)
+        {
+            logs.Add("Missing required input: content");
+            resultOutputs["success"] = false;
+            resultOutputs["path"] = filePath;
+            resultOutputs["bytesWritten"] = 0;
+
+            return new BlockExecutionResult
+            {
+                Outputs = resultOutputs.ToDictionary(kv => kv.Key, kv => kv.Value),
+                Logs = logs,
+                Success = false,
+                DurationMs = sw.ElapsedMilliseconds
+            };
+        }
+
+        logs.Add($"Writing to file: {filePath}");
+
+        // Create directories if needed
+        var directory = Path.GetDirectoryName(filePath);
+        if (createDirs && !string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
+        {
+            Directory.CreateDirectory(directory);
+            logs.Add($"Created directory: {directory}");
+        }
+
+        // Handle write mode
+        switch (mode?.ToLowerInvariant())
+        {
+            case "create":
+                if (File.Exists(filePath))
+                {
+                    logs.Add($"File already exists: {filePath}");
+                    resultOutputs["success"] = false;
+                    resultOutputs["path"] = filePath;
+                    resultOutputs["bytesWritten"] = 0;
+
+                    return new BlockExecutionResult
+                    {
+                        Outputs = resultOutputs.ToDictionary(kv => kv.Key, kv => kv.Value),
+                        Logs = logs,
+                        Success = false,
+                        DurationMs = sw.ElapsedMilliseconds
+                    };
+                }
+                break;
+
+            case "append":
+                var enc = GetEncodingFromString(encoding);
+                await File.AppendAllTextAsync(filePath, content, enc, ct);
+                var appendedBytes = enc.GetByteCount(content);
+                logs.Add($"Appended {appendedBytes} bytes");
+
+                resultOutputs["success"] = true;
+                resultOutputs["path"] = filePath;
+                resultOutputs["bytesWritten"] = appendedBytes;
+
+                return new BlockExecutionResult
+                {
+                    Outputs = resultOutputs.ToDictionary(kv => kv.Key, kv => kv.Value),
+                    Logs = logs,
+                    Success = true,
+                    DurationMs = sw.ElapsedMilliseconds
+                };
+        }
+
+        // Default: overwrite
+        var writeEnc = GetEncodingFromString(encoding);
+        await File.WriteAllTextAsync(filePath, content, writeEnc, ct);
+        var bytesWritten = writeEnc.GetByteCount(content);
+        logs.Add($"Wrote {bytesWritten} bytes");
+
+        resultOutputs["success"] = true;
+        resultOutputs["path"] = filePath;
+        resultOutputs["bytesWritten"] = bytesWritten;
+
+        return new BlockExecutionResult
+        {
+            Outputs = resultOutputs.ToDictionary(kv => kv.Key, kv => kv.Value),
+            Logs = logs,
+            Success = true,
+            DurationMs = sw.ElapsedMilliseconds
+        };
+    }
+
+    private static System.Text.Encoding GetEncodingFromString(string? encoding)
+    {
+        return encoding?.ToLowerInvariant() switch
+        {
+            "utf-8" or "utf8" => System.Text.Encoding.UTF8,
+            "utf-16" or "utf16" or "unicode" => System.Text.Encoding.Unicode,
+            "ascii" => System.Text.Encoding.ASCII,
+            "utf-32" or "utf32" => System.Text.Encoding.UTF32,
+            _ => System.Text.Encoding.UTF8
         };
     }
 

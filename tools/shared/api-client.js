@@ -300,6 +300,135 @@ class MaestroApiClient {
     return this._fetch('GET', '/api/filesystem/common-directories');
   }
 
+  // ===== TRAINING =====
+
+  async listTrainingConfigs() {
+    return this._fetch('GET', '/api/training/configurations');
+  }
+
+  async getTrainingConfig(id) {
+    if (!id) throw new Error('Configuration ID is required');
+    return this._fetch('GET', `/api/training/configurations/${id}`);
+  }
+
+  async createTrainingConfig(config) {
+    if (!config) throw new Error('Configuration is required');
+    return this._fetch('POST', '/api/training/configurations', { body: config });
+  }
+
+  async updateTrainingConfig(id, updates) {
+    if (!id) throw new Error('Configuration ID is required');
+    return this._fetch('PUT', `/api/training/configurations/${id}`, { body: updates });
+  }
+
+  async deleteTrainingConfig(id) {
+    if (!id) throw new Error('Configuration ID is required');
+    return this._fetch('DELETE', `/api/training/configurations/${id}`);
+  }
+
+  async listTrainingRuns(filter = {}) {
+    const params = new URLSearchParams();
+    if (filter.configId) params.set('configId', filter.configId);
+    if (filter.workflowId) params.set('workflowId', filter.workflowId);
+    if (filter.status) params.set('status', filter.status);
+    const queryString = params.toString();
+    return this._fetch('GET', `/api/training/runs${queryString ? `?${queryString}` : ''}`);
+  }
+
+  async getTrainingRun(id) {
+    if (!id) throw new Error('Run ID is required');
+    return this._fetch('GET', `/api/training/runs/${id}`);
+  }
+
+  async startTrainingRun(request) {
+    if (!request || !request.configurationId) throw new Error('Configuration ID is required');
+    return this._fetch('POST', '/api/training/runs', { body: request });
+  }
+
+  async pauseTrainingRun(id) {
+    if (!id) throw new Error('Run ID is required');
+    return this._fetch('POST', `/api/training/runs/${id}/pause`);
+  }
+
+  async resumeTrainingRun(id) {
+    if (!id) throw new Error('Run ID is required');
+    return this._fetch('POST', `/api/training/runs/${id}/resume`);
+  }
+
+  async cancelTrainingRun(id) {
+    if (!id) throw new Error('Run ID is required');
+    return this._fetch('POST', `/api/training/runs/${id}/cancel`);
+  }
+
+  // ===== METRICS =====
+
+  async listExecutionMetrics(filter = {}) {
+    const params = new URLSearchParams();
+    if (filter.workflowId) params.set('workflowId', filter.workflowId);
+    if (filter.from) params.set('from', filter.from);
+    if (filter.to) params.set('to', filter.to);
+    if (filter.limit) params.set('limit', filter.limit);
+    const queryString = params.toString();
+    return this._fetch('GET', `/api/metrics/executions${queryString ? `?${queryString}` : ''}`);
+  }
+
+  async getExecutionMetrics(executionId) {
+    if (!executionId) throw new Error('Execution ID is required');
+    return this._fetch('GET', `/api/metrics/executions/${executionId}`);
+  }
+
+  async getWorkflowMetrics(workflowId) {
+    if (!workflowId) throw new Error('Workflow ID is required');
+    return this._fetch('GET', `/api/metrics/workflows/${workflowId}`);
+  }
+
+  async getAggregatedMetrics(filter = {}) {
+    const params = new URLSearchParams();
+    if (filter.from) params.set('from', filter.from);
+    if (filter.to) params.set('to', filter.to);
+    if (filter.groupBy) params.set('groupBy', filter.groupBy);
+    const queryString = params.toString();
+    return this._fetch('GET', `/api/metrics/aggregated${queryString ? `?${queryString}` : ''}`);
+  }
+
+  async getTrainingRunMetrics(runId) {
+    if (!runId) throw new Error('Training run ID is required');
+    return this._fetch('GET', `/api/metrics/training-runs/${runId}`);
+  }
+
+  // ===== LLM PROVIDER =====
+
+  async getLLMHealth() {
+    return this._fetch('GET', '/api/llm/health');
+  }
+
+  async listLLMModels() {
+    return this._fetch('GET', '/api/llm/models');
+  }
+
+  async getLLMStatus() {
+    return this._fetch('GET', '/api/llm/status');
+  }
+
+  // ===== RUNS / EXECUTION HISTORY =====
+
+  async listRuns(filter = {}) {
+    const params = new URLSearchParams();
+    if (filter.workflowId) params.set('workflowId', filter.workflowId);
+    if (filter.blockId) params.set('blockId', filter.blockId);
+    if (filter.status) params.set('status', filter.status);
+    if (filter.from) params.set('from', filter.from);
+    if (filter.to) params.set('to', filter.to);
+    if (filter.limit) params.set('limit', filter.limit.toString());
+    const queryString = params.toString();
+    return this._fetch('GET', `/api/execution${queryString ? `?${queryString}` : ''}`);
+  }
+
+  async getRun(id) {
+    if (!id) throw new Error('Run ID is required');
+    return this._fetch('GET', `/api/execution/${id}`);
+  }
+
   // ===== HELPER METHODS =====
 
   async checkBackendReady() {
