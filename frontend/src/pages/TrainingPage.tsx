@@ -265,22 +265,22 @@ const RunRow: React.FC<RunRowProps> = ({ run, onPause, onResume, onCancel, onDel
       <div className="run-row__actions">
         {run.status === 'Running' && (
           <button className="btn-icon" onClick={() => onPause(run.id)} title="Pause">
-            ⏸
+            ||
           </button>
         )}
         {run.status === 'Paused' && (
           <button className="btn-icon" onClick={() => onResume(run.id)} title="Resume">
-            ▶
+            &gt;
           </button>
         )}
         {(run.status === 'Running' || run.status === 'Paused') && (
           <button className="btn-icon btn-icon--danger" onClick={() => onCancel(run.id)} title="Cancel">
-            ⏹
+            x
           </button>
         )}
         {(run.status === 'Completed' || run.status === 'Failed' || run.status === 'Cancelled') && (
           <button className="btn-icon btn-icon--danger" onClick={() => onDelete(run.id)} title="Delete">
-            🗑
+            x
           </button>
         )}
       </div>
@@ -388,7 +388,6 @@ const TrainingPage: React.FC = () => {
         ) : activeTab === 'configurations' ? (
           configurations.length === 0 ? (
             <div className="empty-state">
-              <div className="empty-state__icon">🏋️</div>
               <h2>No Training Configurations</h2>
               <p>Create your first training configuration to start optimizing workflows.</p>
               <button className="btn-primary" onClick={() => setShowCreateModal(true)}>
@@ -409,7 +408,6 @@ const TrainingPage: React.FC = () => {
           )
         ) : runs.length === 0 ? (
           <div className="empty-state">
-            <div className="empty-state__icon">📊</div>
             <h2>No Training Runs</h2>
             <p>Start a training run from one of your configurations.</p>
           </div>

@@ -180,16 +180,8 @@ builder.Services.AddSingleton<IQualityEvaluator, CompositeQualityEvaluator>(sp =
     return new CompositeQualityEvaluator(heuristic, llm, logger);
 });
 
-// Phase 9: Register training service
-builder.Services.AddSingleton<ITrainingService>(sp =>
-{
-    var configRepo = sp.GetRequiredService<ITrainingConfigurationRepository>();
-    var runRepo = sp.GetRequiredService<ITrainingRunRepository>();
-    var workflowExecutor = sp.GetRequiredService<IWorkflowExecutor>();
-    var metricsCollector = sp.GetRequiredService<MetricsCollector>();
-    var logger = sp.GetService<ILogger<TrainingService>>();
-    return new TrainingService(configRepo, runRepo, workflowExecutor, metricsCollector, logger);
-});
+// Phase 9: Register training service (Scoped because IWorkflowExecutor is Scoped)
+builder.Services.AddScoped<ITrainingService, TrainingService>();
 
 // Add CORS for frontend development and Docker
 builder.Services.AddCors(options =>

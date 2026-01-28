@@ -1,11 +1,19 @@
 /**
  * Foundry Page
  *
- * Unified interface for creating, managing, and discovering all block types.
- * Replaces separate pages for agents, tools, prompts, workflows, etc.
+ * Unified interface for creating, managing, and discovering all block types,
+ * agents, tools, and templates.
+ *
+ * Tab structure:
+ * - Blocks: Atomic blocks (prompt, instruction, command, decision, etc.)
+ * - Agents: AgentDefinition entities
+ * - Tools: ToolDefinition entities (reusable workflows)
+ * - Templates: Pre-built configurations
  */
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { Bot, Wrench, GitBranch } from 'lucide-react';
 import { useBlockStore } from '../store';
 import type { BlockType } from '../types/block.types';
 import { FoundrySidebar } from '../components/Foundry/FoundrySidebar';
@@ -15,11 +23,57 @@ import { CreateBlockWizard } from '../components/Foundry/CreateBlockWizard';
 import { useFavorites } from '../hooks/useFavorites';
 import './FoundryPage.scss';
 
+type FoundryTab = 'blocks' | 'agents' | 'tools' | 'templates';
+
+// Mock data for agents (to be replaced with real API calls)
+interface AgentDefinition {
+  id: string;
+  name: string;
+  description: string;
+  version: string;
+  capabilities: string[];
+  status: 'active' | 'inactive';
+}
+
+// Mock data for tools
+interface ToolDefinition {
+  id: string;
+  name: string;
+  description: string;
+  category: string;
+  version: string;
+}
+
+// Mock data for templates
+interface Template {
+  id: string;
+  name: string;
+  description: string;
+  type: 'workflow' | 'agent' | 'tool';
+  tags: string[];
+}
+
 export function FoundryPage() {
+  const { tab } = useParams<{ tab?: string }>();
+  const navigate = useNavigate();
+
+  const [activeTab, setActiveTab] = useState<FoundryTab>('blocks');
   const [selectedCategory, setSelectedCategory] = useState<BlockType | 'all' | 'favorites'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCapability, setSelectedCapability] = useState<string | null>(null);
   const [isWizardOpen, setIsWizardOpen] = useState(false);
+
+  // Mock data for agents, tools, templates
+  const [agents] = useState<AgentDefinition[]>([]);
+  const [tools] = useState<ToolDefinition[]>([]);
+  const [templates] = useState<Template[]>([]);
+
+  // Sync tab from URL
+  useEffect(() => {
+    if (tab && ['blocks', 'agents', 'tools', 'templates'].includes(tab)) {
+      setActiveTab(tab as FoundryTab);
+    }
+  }, [tab]);
 
   // Use individual selectors to prevent re-renders on unrelated state changes
   const getAllBlocks = useBlockStore((s) => s.getAllBlocks);
@@ -59,6 +113,14 @@ export function FoundryPage() {
   }, [selectedCategory, selectedCapability, searchQuery, getAllBlocks, searchBlocks, getFavorites]);
 
   /**
+   * Handle tab change
+   */
+  const handleTabChange = (newTab: FoundryTab) => {
+    setActiveTab(newTab);
+    navigate(`/foundry/${newTab}`);
+  };
+
+  /**
    * Handle category selection from sidebar
    */
   const handleCategorySelect = (category: BlockType | 'all' | 'favorites') => {
@@ -93,37 +155,210 @@ export function FoundryPage() {
     setIsWizardOpen(false);
   };
 
+  /**
+   * Render content based on active tab
+   */
+  const renderTabContent = () => {
+    switch (activeTab) {
+      case 'blocks':
+        return (
+          <div className="foundry-page__layout">
+            {/* Sidebar - Category filters */}
+            <FoundrySidebar
+              selectedCategory={selectedCategory}
+              onCategorySelect={handleCategorySelect}
+              onCreateBlock={handleCreateBlock}
+            />
+
+            {/* Main content area */}
+            <div className="foundry-page__main">
+              {/* Search bar with filters */}
+              <FoundrySearchBar
+                searchQuery={searchQuery}
+                onSearchChange={handleSearch}
+                selectedCapability={selectedCapability}
+                onCapabilityChange={handleCapabilityFilter}
+              />
+
+              {/* Block grid */}
+              <BlockGrid blocks={filteredBlocks} />
+            </div>
+          </div>
+        );
+
+      case 'agents':
+        return (
+          <div className="foundry-page__content">
+            <div className="foundry-page__content-header">
+              <h2>Agents</h2>
+              <p>Manage AI agents that can execute complex tasks autonomously.</p>
+              <button className="btn-primary" onClick={handleCreateBlock}>
+                + New Agent
+              </button>
+            </div>
+            {agents.length === 0 ? (
+              <div className="foundry-page__empty">
+                <h3>No Agents</h3>
+                <p>Create your first agent to get started with autonomous task execution.</p>
+                <button className="btn-primary" onClick={handleCreateBlock}>
+                  Create Agent
+                </button>
+              </div>
+            ) : (
+              <div className="foundry-page__grid">
+                {agents.map((agent) => (
+                  <div key={agent.id} className="foundry-card">
+                    <div className="foundry-card__header">
+                      <span className="foundry-card__icon"><Bot size={18} /></span>
+                      <h3>{agent.name}</h3>
+                      <span className={`foundry-card__status foundry-card__status--${agent.status}`}>
+                        {agent.status}
+                      </span>
+                    </div>
+                    <p className="foundry-card__description">{agent.description}</p>
+                    <div className="foundry-card__tags">
+                      {agent.capabilities.slice(0, 3).map((cap) => (
+                        <span key={cap} className="tag">{cap}</span>
+                      ))}
+                    </div>
+                    <div className="foundry-card__footer">
+                      <span className="foundry-card__version">v{agent.version}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+
+      case 'tools':
+        return (
+          <div className="foundry-page__content">
+            <div className="foundry-page__content-header">
+              <h2>Tools</h2>
+              <p>Reusable tool definitions that agents can use to interact with external systems.</p>
+              <button className="btn-primary" onClick={handleCreateBlock}>
+                + New Tool
+              </button>
+            </div>
+            {tools.length === 0 ? (
+              <div className="foundry-page__empty">
+                <h3>No Tools</h3>
+                <p>Create your first tool to extend agent capabilities.</p>
+                <button className="btn-primary" onClick={handleCreateBlock}>
+                  Create Tool
+                </button>
+              </div>
+            ) : (
+              <div className="foundry-page__grid">
+                {tools.map((tool) => (
+                  <div key={tool.id} className="foundry-card">
+                    <div className="foundry-card__header">
+                      <span className="foundry-card__icon"><Wrench size={18} /></span>
+                      <h3>{tool.name}</h3>
+                    </div>
+                    <p className="foundry-card__description">{tool.description}</p>
+                    <div className="foundry-card__tags">
+                      <span className="tag tag--category">{tool.category}</span>
+                    </div>
+                    <div className="foundry-card__footer">
+                      <span className="foundry-card__version">v{tool.version}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+
+      case 'templates':
+        return (
+          <div className="foundry-page__content">
+            <div className="foundry-page__content-header">
+              <h2>Templates</h2>
+              <p>Pre-built configurations for common workflows, agents, and tools.</p>
+            </div>
+            {templates.length === 0 ? (
+              <div className="foundry-page__empty">
+                <h3>No Templates</h3>
+                <p>Templates will appear here once they are available.</p>
+              </div>
+            ) : (
+              <div className="foundry-page__grid">
+                {templates.map((template) => (
+                  <div key={template.id} className="foundry-card">
+                    <div className="foundry-card__header">
+                      <span className="foundry-card__icon">
+                        {template.type === 'workflow' ? <GitBranch size={18} /> : template.type === 'agent' ? <Bot size={18} /> : <Wrench size={18} />}
+                      </span>
+                      <h3>{template.name}</h3>
+                    </div>
+                    <p className="foundry-card__description">{template.description}</p>
+                    <div className="foundry-card__tags">
+                      {template.tags.slice(0, 3).map((tag) => (
+                        <span key={tag} className="tag">{tag}</span>
+                      ))}
+                    </div>
+                    <div className="foundry-card__footer">
+                      <span className="foundry-card__type">{template.type}</span>
+                      <button className="btn-secondary btn-sm">Use Template</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+
+      default:
+        return null;
+    }
+  };
+
   return (
     <div className="foundry-page">
       <div className="foundry-page__header">
-        <h1 className="foundry-page__title">Foundry</h1>
+        <div className="foundry-page__title-row">
+          <h1 className="foundry-page__title">Foundry</h1>
+          <button className="btn-primary" onClick={handleCreateBlock}>
+            + New
+          </button>
+        </div>
         <p className="foundry-page__subtitle">
-          Discover and manage all reusable blocks: agents, tools, prompts, workflows, and more.
+          Discover and manage all reusable components: blocks, agents, tools, and templates.
         </p>
       </div>
 
-      <div className="foundry-page__layout">
-        {/* Sidebar - Category filters */}
-        <FoundrySidebar
-          selectedCategory={selectedCategory}
-          onCategorySelect={handleCategorySelect}
-          onCreateBlock={handleCreateBlock}
-        />
-
-        {/* Main content area */}
-        <div className="foundry-page__main">
-          {/* Search bar with filters */}
-          <FoundrySearchBar
-            searchQuery={searchQuery}
-            onSearchChange={handleSearch}
-            selectedCapability={selectedCapability}
-            onCapabilityChange={handleCapabilityFilter}
-          />
-
-          {/* Block grid */}
-          <BlockGrid blocks={filteredBlocks} />
-        </div>
+      {/* Tab Navigation */}
+      <div className="foundry-page__tabs">
+        <button
+          className={`foundry-page__tab ${activeTab === 'blocks' ? 'foundry-page__tab--active' : ''}`}
+          onClick={() => handleTabChange('blocks')}
+        >
+          Blocks
+        </button>
+        <button
+          className={`foundry-page__tab ${activeTab === 'agents' ? 'foundry-page__tab--active' : ''}`}
+          onClick={() => handleTabChange('agents')}
+        >
+          Agents
+        </button>
+        <button
+          className={`foundry-page__tab ${activeTab === 'tools' ? 'foundry-page__tab--active' : ''}`}
+          onClick={() => handleTabChange('tools')}
+        >
+          Tools
+        </button>
+        <button
+          className={`foundry-page__tab ${activeTab === 'templates' ? 'foundry-page__tab--active' : ''}`}
+          onClick={() => handleTabChange('templates')}
+        >
+          Templates
+        </button>
       </div>
+
+      {/* Tab Content */}
+      {renderTabContent()}
 
       {/* Create Block Wizard Modal */}
       <CreateBlockWizard isOpen={isWizardOpen} onClose={handleCloseWizard} />

@@ -5,19 +5,59 @@
  * Phase 8 implementation.
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, ReactNode } from 'react';
 import {
   DirectoryEntry,
   DirectoryListing,
   CommonDirectory,
   fileSystemService,
 } from '../../services/fileSystemService';
+import {
+  Home,
+  Monitor,
+  Code2,
+  Download,
+  Image,
+  Music,
+  Video,
+  FileText,
+  Cloud,
+  Folder,
+  FolderGit,
+  FolderKanban,
+  ChevronUp,
+} from 'lucide-react';
 import './FileBrowser.scss';
 
 interface FileBrowserProps {
   onSelect: (path: string) => void;
   initialPath?: string;
 }
+
+const getQuickAccessIcon = (icon?: string): ReactNode => {
+  switch (icon) {
+    case 'home':
+      return <Home size={16} />;
+    case 'desktop':
+      return <Monitor size={16} />;
+    case 'code':
+      return <Code2 size={16} />;
+    case 'download':
+      return <Download size={16} />;
+    case 'image':
+      return <Image size={16} />;
+    case 'music':
+      return <Music size={16} />;
+    case 'video':
+      return <Video size={16} />;
+    case 'file-text':
+      return <FileText size={16} />;
+    case 'cloud':
+      return <Cloud size={16} />;
+    default:
+      return <Folder size={16} />;
+  }
+};
 
 export const FileBrowser: React.FC<FileBrowserProps> = ({ onSelect, initialPath }) => {
   const [currentPath, setCurrentPath] = useState<string>(initialPath || '');
@@ -76,10 +116,10 @@ export const FileBrowser: React.FC<FileBrowserProps> = ({ onSelect, initialPath 
     }
   };
 
-  const getDirectoryIcon = (dir: DirectoryEntry): string => {
-    if (dir.isMaestroProject) return '🎭';
-    if (dir.isGitRepository) return '📦';
-    return '📂';
+  const getDirectoryIcon = (dir: DirectoryEntry): ReactNode => {
+    if (dir.isMaestroProject) return <FolderKanban size={16} />;
+    if (dir.isGitRepository) return <FolderGit size={16} />;
+    return <Folder size={16} />;
   };
 
   return (
@@ -96,25 +136,7 @@ export const FileBrowser: React.FC<FileBrowserProps> = ({ onSelect, initialPath 
               title={dir.path}
             >
               <span className="file-browser__quick-icon">
-                {dir.icon === 'home'
-                  ? '🏠'
-                  : dir.icon === 'desktop'
-                  ? '🖥️'
-                  : dir.icon === 'code'
-                  ? '💻'
-                  : dir.icon === 'download'
-                  ? '⬇️'
-                  : dir.icon === 'image'
-                  ? '🖼️'
-                  : dir.icon === 'music'
-                  ? '🎵'
-                  : dir.icon === 'video'
-                  ? '🎬'
-                  : dir.icon === 'file-text'
-                  ? '📄'
-                  : dir.icon === 'cloud'
-                  ? '☁️'
-                  : '📁'}
+                {getQuickAccessIcon(dir.icon)}
               </span>
               <span className="file-browser__quick-name">{dir.name}</span>
             </button>
@@ -144,12 +166,7 @@ export const FileBrowser: React.FC<FileBrowserProps> = ({ onSelect, initialPath 
           disabled={!listing?.parentPath}
           title="Go up"
         >
-          <svg viewBox="0 0 16 16" fill="currentColor" width="16" height="16">
-            <path
-              fillRule="evenodd"
-              d="M8 12a.5.5 0 0 0 .5-.5V5.707l2.146 2.147a.5.5 0 0 0 .708-.708l-3-3a.5.5 0 0 0-.708 0l-3 3a.5.5 0 1 0 .708.708L7.5 5.707V11.5a.5.5 0 0 0 .5.5z"
-            />
-          </svg>
+          <ChevronUp size={16} />
         </button>
         <span className="file-browser__current-path" title={currentPath}>
           {currentPath || 'Select a folder'}
@@ -172,12 +189,12 @@ export const FileBrowser: React.FC<FileBrowserProps> = ({ onSelect, initialPath 
             {/* Project indicator */}
             {listing.isMaestroProject && (
               <div className="file-browser__project-indicator file-browser__project-indicator--maestro">
-                <span>🎭</span> This is a Maestro project
+                <span>[M]</span> This is a Maestro project
               </div>
             )}
             {listing.isGitRepository && !listing.isMaestroProject && (
               <div className="file-browser__project-indicator file-browser__project-indicator--git">
-                <span>📦</span> Git repository
+                <span>[G]</span> Git repository
               </div>
             )}
 

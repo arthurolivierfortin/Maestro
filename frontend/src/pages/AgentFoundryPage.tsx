@@ -8,6 +8,7 @@
 
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Bot, Wrench, Play, Star } from 'lucide-react';
 import './AgentFoundryPage.scss';
 
 // Types
@@ -132,28 +133,28 @@ export function AgentFoundryPage() {
         {/* Stats Cards */}
         <div className="stats-grid">
           <div className="stat-card">
-            <div className="stat-card__icon">🤖</div>
+            <div className="stat-card__icon"><Bot size={24} /></div>
             <div className="stat-card__content">
               <div className="stat-card__value">{overview.agentCount}</div>
               <div className="stat-card__label">Agents</div>
             </div>
           </div>
           <div className="stat-card">
-            <div className="stat-card__icon">🔧</div>
+            <div className="stat-card__icon"><Wrench size={24} /></div>
             <div className="stat-card__content">
               <div className="stat-card__value">{overview.toolCount}</div>
               <div className="stat-card__label">Tools</div>
             </div>
           </div>
           <div className="stat-card">
-            <div className="stat-card__icon">▶️</div>
+            <div className="stat-card__icon"><Play size={24} /></div>
             <div className="stat-card__content">
               <div className="stat-card__value">{overview.totalAgentRuns + overview.totalToolRuns}</div>
               <div className="stat-card__label">Total Runs</div>
             </div>
           </div>
           <div className="stat-card">
-            <div className="stat-card__icon">⭐</div>
+            <div className="stat-card__icon"><Star size={24} /></div>
             <div className="stat-card__content">
               <div className="stat-card__value">
                 {((overview.avgAgentScore + overview.avgToolScore) / 2).toFixed(0)}
@@ -205,7 +206,7 @@ export function AgentFoundryPage() {
             {overview.recentActivity.map((item) => (
               <div key={`${item.id}-${item.timestamp}`} className="activity-item">
                 <span className={`activity-item__icon activity-item__icon--${item.type}`}>
-                  {item.type === 'agent' ? '🤖' : '🔧'}
+                  {item.type === 'agent' ? <Bot size={16} /> : <Wrench size={16} />}
                 </span>
                 <span className="activity-item__name">{item.name}</span>
                 <span className="activity-item__action">{item.action}</span>
@@ -229,7 +230,7 @@ export function AgentFoundryPage() {
       {agents.map((agent) => (
         <div key={agent.id} className="item-card item-card--agent" onClick={() => navigate(`/foundry/agents/${agent.id}`)}>
           <div className="item-card__header">
-            <span className="item-card__icon">🤖</span>
+            <span className="item-card__icon"><Bot size={20} /></span>
             <div className="item-card__title-group">
               <h3 className="item-card__name">{agent.name}</h3>
               <span className="item-card__version">v{agent.version}</span>
@@ -277,7 +278,7 @@ export function AgentFoundryPage() {
       {tools.map((tool) => (
         <div key={tool.id} className="item-card item-card--tool" onClick={() => navigate(`/foundry/tools/${tool.id}`)}>
           <div className="item-card__header">
-            <span className="item-card__icon">🔧</span>
+            <span className="item-card__icon"><Wrench size={20} /></span>
             <div className="item-card__title-group">
               <h3 className="item-card__name">{tool.name}</h3>
               <span className="item-card__version">v{tool.version}</span>

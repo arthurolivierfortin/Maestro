@@ -4,7 +4,8 @@
  * Page for viewing workflow execution metrics and analytics.
  */
 
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, ReactNode } from 'react';
+import { Hash, DollarSign, Type, Clock, CheckCircle2 } from 'lucide-react';
 import { useMetricsStore } from '../store/metricsStore';
 import type { WorkflowExecutionMetrics } from '../types';
 import './MetricsPage.scss';
@@ -15,7 +16,7 @@ interface MetricCardProps {
   title: string;
   value: string | number;
   subtitle?: string;
-  icon?: string;
+  icon?: ReactNode;
   trend?: 'up' | 'down' | 'neutral';
   trendValue?: string;
 }
@@ -234,31 +235,31 @@ const MetricsPage: React.FC = () => {
       {/* Summary Cards */}
       <div className="metrics-page__summary">
         <MetricCard
-          icon="📊"
+          icon={<Hash size={18} />}
           title="Total Executions"
           value={summaryStats.totalExecutions}
           subtitle="Last 20 executions"
         />
         <MetricCard
-          icon="💰"
+          icon={<DollarSign size={18} />}
           title="Total Cost"
           value={`$${summaryStats.totalCost.toFixed(4)}`}
           subtitle="API usage costs"
         />
         <MetricCard
-          icon="🔤"
+          icon={<Type size={18} />}
           title="Total Tokens"
           value={summaryStats.totalTokens.toLocaleString()}
           subtitle="Input + Output"
         />
         <MetricCard
-          icon="⏱️"
+          icon={<Clock size={18} />}
           title="Avg Duration"
           value={`${(summaryStats.avgDuration / 1000).toFixed(2)}s`}
           subtitle="Per execution"
         />
         <MetricCard
-          icon="✅"
+          icon={<CheckCircle2 size={18} />}
           title="Success Rate"
           value={`${summaryStats.successRate.toFixed(0)}%`}
           trend={summaryStats.successRate >= 90 ? 'up' : summaryStats.successRate >= 70 ? 'neutral' : 'down'}
@@ -335,7 +336,6 @@ const MetricsPage: React.FC = () => {
             </div>
           ) : recentMetrics.length === 0 ? (
             <div className="empty-state">
-              <div className="empty-state__icon">📈</div>
               <h2>No Metrics Yet</h2>
               <p>Execute some workflows to see metrics here.</p>
             </div>

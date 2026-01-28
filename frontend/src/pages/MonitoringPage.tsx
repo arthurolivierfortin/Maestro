@@ -393,7 +393,6 @@ const MonitoringPage: React.FC = () => {
           </div>
         ) : !selectedProjectId ? (
           <div className="empty-state">
-            <div className="empty-state__icon">📊</div>
             <h2>No Projects Found</h2>
             <p>Add a project to start monitoring agent activity.</p>
           </div>
