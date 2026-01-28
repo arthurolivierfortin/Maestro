@@ -1,46 +1,47 @@
 /**
  * Project Terminal Styles
+ * Unified with app design system
  */
 
 .project-terminal {
   display: flex;
   flex-direction: column;
   height: 100%;
-  background-color: var(--background-primary, #0d1117);
-  border-radius: 8px;
+  background-color: var(--background);
+  border-radius: var(--radius-lg);
   overflow: hidden;
 
   &__status {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
-    padding: 0.5rem 0.75rem;
-    background-color: var(--background-secondary, #161b22);
-    border-bottom: 1px solid var(--border-color, #30363d);
-    font-size: 0.75rem;
-    color: var(--text-muted, #6e7681);
+    gap: var(--spacing-sm);
+    padding: var(--spacing-sm);
+    background-color: var(--background-secondary);
+    border-bottom: 1px solid var(--border);
+    font-size: var(--font-size-xs);
+    color: var(--text-tertiary);
   }
 
   &__status-indicator {
     width: 8px;
     height: 8px;
     border-radius: 50%;
-    background-color: var(--text-muted, #6e7681);
+    background-color: var(--text-tertiary);
     animation: pulse 2s ease-in-out infinite;
 
     &--connected {
-      background-color: var(--success-color, #56d364);
+      background-color: var(--color-success);
       animation: none;
     }
   }
 
   &__status-text {
-    font-weight: 500;
+    font-weight: var(--font-weight-medium);
   }
 
   &__container {
     flex: 1;
-    padding: 0.5rem;
+    padding: var(--spacing-sm);
     overflow: hidden;
   }
 }

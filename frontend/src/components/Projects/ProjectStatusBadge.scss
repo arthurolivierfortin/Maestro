@@ -1,16 +1,17 @@
 /**
  * Project Status Badge Styles
+ * Unified with app design system
  */
 
 .status-badge {
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.25rem 0.75rem;
-  border-radius: 12px;
-  font-size: 0.75rem;
-  font-weight: 500;
-  background-color: var(--background-tertiary, #30363d);
+  gap: var(--spacing-sm);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  background-color: var(--background-tertiary);
 
   &__dot {
     width: 8px;
@@ -26,41 +27,42 @@
   // Status variants
   &--stopped {
     .status-badge__dot {
-      background-color: var(--text-muted, #6e7681);
+      background-color: var(--text-tertiary);
     }
     .status-badge__label {
-      color: var(--text-muted, #6e7681);
+      color: var(--text-tertiary);
     }
   }
 
   &--starting,
   &--stopping {
+    background-color: var(--color-warning-subtle);
     .status-badge__dot {
-      background-color: var(--warning-color, #d29922);
+      background-color: var(--color-warning);
       animation: pulse 1.5s ease-in-out infinite;
     }
     .status-badge__label {
-      color: var(--warning-color, #d29922);
+      color: var(--color-warning);
     }
   }
 
   &--running {
-    background-color: rgba(46, 160, 67, 0.15);
+    background-color: var(--color-success-subtle);
     .status-badge__dot {
-      background-color: var(--success-color, #2ea043);
+      background-color: var(--color-success);
     }
     .status-badge__label {
-      color: var(--success-color, #2ea043);
+      color: var(--color-success);
     }
   }
 
   &--error {
-    background-color: rgba(248, 81, 73, 0.15);
+    background-color: var(--color-error-subtle);
     .status-badge__dot {
-      background-color: var(--danger-color, #f85149);
+      background-color: var(--color-error);
     }
     .status-badge__label {
-      color: var(--danger-color, #f85149);
+      color: var(--color-error);
     }
   }
 }

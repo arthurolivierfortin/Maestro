@@ -1,22 +1,22 @@
 /**
  * Project Row Styles
- * Docker Desktop-inspired container row design
+ * Unified with app design system
  */
 
 .project-row {
   display: flex;
   align-items: center;
-  gap: 1rem;
-  padding: 1rem 1.25rem;
-  background-color: var(--background-secondary, #161b22);
-  border: 1px solid var(--border-color, #30363d);
-  border-radius: 8px;
+  gap: var(--spacing-md);
+  padding: var(--spacing-md);
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: all var(--transition-fast);
 
   &:hover {
-    border-color: var(--accent-color, #58a6ff);
-    background-color: rgba(88, 166, 255, 0.05);
+    border-color: var(--color-primary);
+    box-shadow: var(--shadow-md);
   }
 
   // Status indicator bar on the left
@@ -35,24 +35,24 @@
     height: 100%;
     min-height: 48px;
     border-radius: 2px;
-    transition: background-color 0.2s ease;
+    transition: background-color var(--transition-fast);
 
     &--stopped {
-      background-color: var(--text-muted, #6e7681);
+      background-color: var(--text-tertiary);
     }
 
     &--starting,
     &--stopping {
-      background-color: var(--warning-color, #d29922);
+      background-color: var(--color-warning);
       animation: pulse-bar 1.5s ease-in-out infinite;
     }
 
     &--running {
-      background-color: var(--success-color, #2ea043);
+      background-color: var(--color-success);
     }
 
     &--error {
-      background-color: var(--danger-color, #f85149);
+      background-color: var(--color-error);
     }
   }
 
@@ -62,24 +62,24 @@
     min-width: 0;
     display: flex;
     flex-direction: column;
-    gap: 0.375rem;
+    gap: var(--spacing-xs);
   }
 
   &__header {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: var(--spacing-sm);
   }
 
   &__runtime-icon {
-    font-size: 1.25rem;
+    font-size: var(--font-size-xl);
     flex-shrink: 0;
   }
 
   &__name {
-    font-size: 1rem;
-    font-weight: 600;
-    color: var(--text-primary, #e6edf3);
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-semibold);
+    color: var(--text-primary);
     margin: 0;
     white-space: nowrap;
     overflow: hidden;
@@ -89,13 +89,13 @@
   &__details {
     display: flex;
     align-items: center;
-    gap: 1rem;
-    font-size: 0.75rem;
-    color: var(--text-muted, #6e7681);
+    gap: var(--spacing-md);
+    font-size: var(--font-size-xs);
+    color: var(--text-tertiary);
   }
 
   &__path {
-    font-family: monospace;
+    font-family: var(--font-family-mono);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -110,14 +110,14 @@
 
   &__resources {
     display: flex;
-    gap: 1rem;
-    font-size: 0.75rem;
-    color: var(--text-secondary, #8b949e);
+    gap: var(--spacing-md);
+    font-size: var(--font-size-xs);
+    color: var(--text-secondary);
 
     span {
       display: flex;
       align-items: center;
-      gap: 0.25rem;
+      gap: var(--spacing-xs);
     }
   }
 
@@ -125,13 +125,13 @@
   &__controls {
     display: flex;
     align-items: center;
-    gap: 0.75rem;
+    gap: var(--spacing-sm);
     flex-shrink: 0;
   }
 
   &__actions {
     display: flex;
-    gap: 0.25rem;
+    gap: var(--spacing-xs);
   }
 
   &__action-btn {
@@ -141,15 +141,15 @@
     width: 32px;
     height: 32px;
     border: none;
-    border-radius: 6px;
+    border-radius: var(--radius-md);
     background-color: transparent;
-    color: var(--text-muted, #6e7681);
+    color: var(--text-tertiary);
     cursor: pointer;
-    transition: all 0.15s ease;
+    transition: all var(--transition-fast);
 
     &:hover {
-      background-color: var(--background-tertiary, #30363d);
-      color: var(--danger-color, #f85149);
+      background-color: var(--color-error-subtle);
+      color: var(--color-error);
     }
   }
 }
