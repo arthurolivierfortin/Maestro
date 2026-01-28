@@ -564,12 +564,12 @@ export const useBlockStore = create<BlockState>()(
             }
 
             // Search in description
-            if (block.metadata.description?.toLowerCase().includes(normalizedQuery)) {
+            if (block.metadata?.description?.toLowerCase().includes(normalizedQuery)) {
               return true;
             }
 
             // Search in tags
-            if (block.metadata.tags.some((tag) => tag.toLowerCase().includes(normalizedQuery))) {
+            if (block.metadata?.tags?.some((tag) => tag.toLowerCase().includes(normalizedQuery))) {
               return true;
             }
 

@@ -7,14 +7,15 @@
 
 /**
  * Core block types - hardcoded for MVP
+ * Note: 'agent' block type removed to avoid confusion with AgentFoundry Agents
+ * Note: 'tool' renamed to 'command' to avoid confusion with AgentFoundry Tools
  */
 export type BlockType =
   | 'workflow' // Top-level container
-  | 'agent' // AI agent (can contain prompts, instructions, sub-agents)
-  | 'task' // Task with validation (contains agents, validators)
+  | 'task' // Task with validation (contains validators, commands)
   | 'prompt' // Reusable prompt template (atomic)
   | 'instruction' // Instruction file reference (atomic)
-  | 'tool' // Executable tool (atomic)
+  | 'command' // Executable command (bash, git, file ops) - formerly 'tool' (atomic)
   | 'decision' // Conditional branching (atomic)
   | 'validator' // Output validation (atomic)
   | 'trigger' // Workflow trigger (atomic)
@@ -107,11 +108,12 @@ export interface Block<TConfig = BlockConfig> {
 
 /**
  * Base config type - all configs extend this
+ * Note: AgentBlockConfig removed (use AgentFoundry Agents instead)
+ * Note: ToolBlockConfig renamed to CommandBlockConfig
  */
 export type BlockConfig =
-  | AgentBlockConfig
   | TaskBlockConfig
-  | ToolBlockConfig
+  | CommandBlockConfig
   | PromptBlockConfig
   | InstructionBlockConfig
   | DecisionBlockConfig
@@ -150,21 +152,6 @@ export interface WorkflowVariable {
 }
 
 /**
- * Agent block configuration
- */
-export interface AgentBlockConfig {
-  type: 'agent';
-  agentType: 'Planner' | 'Coder' | 'Tester' | 'Reviewer' | 'Debugger' | 'Custom';
-  model?: string; // Legacy: Model name string (deprecated, use modelId)
-  modelId?: string; // Primary model ID from model registry
-  fallbackModelId?: string; // Fallback model if primary is unavailable
-  temperature?: number;
-  maxTokens?: number;
-  systemPrompt?: string;
-  tools?: string[]; // Tool IDs this agent can use
-}
-
-/**
  * Task block configuration
  */
 export interface TaskBlockConfig {
@@ -176,17 +163,23 @@ export interface TaskBlockConfig {
 }
 
 /**
- * Tool block configuration
+ * Command block configuration (formerly ToolBlockConfig)
+ * Renamed to avoid confusion with AgentFoundry Tools
  */
-export interface ToolBlockConfig {
-  type: 'tool';
-  toolType: 'Bash' | 'Git' | 'FileSystem' | 'HTTP' | 'Custom';
+export interface CommandBlockConfig {
+  type: 'command';
+  commandType: 'Bash' | 'Git' | 'FileSystem' | 'HTTP' | 'Custom';
   command?: string;
   script?: string;
   arguments?: string[];
   workingDirectory?: string;
   environment?: Record<string, string>;
 }
+
+/**
+ * @deprecated Use CommandBlockConfig instead. Alias for backward compatibility.
+ */
+export type ToolBlockConfig = CommandBlockConfig;
 
 /**
  * Prompt block configuration
@@ -290,16 +283,19 @@ export interface InferenceBlockConfig {
 /**
  * Type guards for block configs
  */
-export function isAgentConfig(config: BlockConfig): config is AgentBlockConfig {
-  return config.type === 'agent';
-}
-
 export function isTaskConfig(config: BlockConfig): config is TaskBlockConfig {
   return config.type === 'task';
 }
 
-export function isToolConfig(config: BlockConfig): config is ToolBlockConfig {
-  return config.type === 'tool';
+export function isCommandConfig(config: BlockConfig): config is CommandBlockConfig {
+  return config.type === 'command';
+}
+
+/**
+ * @deprecated Use isCommandConfig instead. Alias for backward compatibility.
+ */
+export function isToolConfig(config: BlockConfig): config is CommandBlockConfig {
+  return config.type === 'command';
 }
 
 export function isPromptConfig(config: BlockConfig): config is PromptBlockConfig {

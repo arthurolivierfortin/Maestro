@@ -16,7 +16,7 @@ export function StepConfiguration({ blockType, config, onUpdateConfig }: StepCon
   // Render type-specific configuration fields
   const renderConfigFields = () => {
     switch (blockType) {
-      case 'agent':
+      case 'inference':
         return (
           <div className="config-fields">
             <div className="form-group">
@@ -26,9 +26,22 @@ export function StepConfiguration({ blockType, config, onUpdateConfig }: StepCon
               <textarea
                 id="systemPrompt"
                 className="form-textarea"
-                placeholder="Enter system prompt for the agent"
+                placeholder="Enter system prompt for the LLM"
                 value={config.systemPrompt || ''}
                 onChange={(e) => onUpdateConfig({ systemPrompt: e.target.value })}
+                rows={5}
+              />
+            </div>
+            <div className="form-group">
+              <label htmlFor="userPrompt" className="form-label">
+                User Prompt
+              </label>
+              <textarea
+                id="userPrompt"
+                className="form-textarea"
+                placeholder="Enter user prompt (use {{variable}} for inputs)"
+                value={config.userPrompt || ''}
+                onChange={(e) => onUpdateConfig({ userPrompt: e.target.value })}
                 rows={5}
               />
             </div>
@@ -51,9 +64,26 @@ export function StepConfiguration({ blockType, config, onUpdateConfig }: StepCon
           </div>
         );
 
-      case 'tool':
+      case 'command':
         return (
           <div className="config-fields">
+            <div className="form-group">
+              <label htmlFor="commandType" className="form-label">
+                Command Type
+              </label>
+              <select
+                id="commandType"
+                className="form-select"
+                value={config.commandType || 'Bash'}
+                onChange={(e) => onUpdateConfig({ commandType: e.target.value })}
+              >
+                <option value="Bash">Bash</option>
+                <option value="Git">Git</option>
+                <option value="FileSystem">File System</option>
+                <option value="HTTP">HTTP</option>
+                <option value="Custom">Custom</option>
+              </select>
+            </div>
             <div className="form-group">
               <label htmlFor="command" className="form-label">
                 Command
@@ -133,7 +163,7 @@ export function StepConfiguration({ blockType, config, onUpdateConfig }: StepCon
               >
                 <option value="global">Global</option>
                 <option value="workflow">Workflow</option>
-                <option value="agent">Agent</option>
+                <option value="task">Task</option>
               </select>
             </div>
           </div>
@@ -256,6 +286,51 @@ export function StepConfiguration({ blockType, config, onUpdateConfig }: StepCon
               Workflow blocks are composite blocks. Configuration will be done in the Canvas editor
               after creation.
             </p>
+          </div>
+        );
+
+      case 'script':
+        return (
+          <div className="config-fields">
+            <div className="form-group">
+              <label htmlFor="language" className="form-label">
+                Language
+              </label>
+              <select
+                id="language"
+                className="form-select"
+                value={config.language || 'javascript'}
+                onChange={(e) => onUpdateConfig({ language: e.target.value })}
+              >
+                <option value="javascript">JavaScript</option>
+                <option value="python">Python</option>
+                <option value="bash">Bash</option>
+              </select>
+            </div>
+            <div className="form-group">
+              <label htmlFor="code" className="form-label">
+                Code
+              </label>
+              <textarea
+                id="code"
+                className="form-textarea"
+                placeholder="// Enter your script code"
+                value={config.code || ''}
+                onChange={(e) => onUpdateConfig({ code: e.target.value })}
+                rows={10}
+                style={{ fontFamily: 'monospace' }}
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-checkbox-label">
+                <input
+                  type="checkbox"
+                  checked={config.runInSandbox !== false}
+                  onChange={(e) => onUpdateConfig({ runInSandbox: e.target.checked })}
+                />
+                Run in Sandbox
+              </label>
+            </div>
           </div>
         );
 

@@ -26,15 +26,16 @@ describe('FoundrySidebar', () => {
     render(<FoundrySidebar {...defaultProps} />);
 
     expect(screen.getByText('All Blocks')).toBeInTheDocument();
-    expect(screen.getByText('Agents')).toBeInTheDocument();
     expect(screen.getByText('Tasks')).toBeInTheDocument();
-    expect(screen.getByText('Tools')).toBeInTheDocument();
+    expect(screen.getByText('Commands')).toBeInTheDocument();
     expect(screen.getByText('Prompts')).toBeInTheDocument();
     expect(screen.getByText('Instructions')).toBeInTheDocument();
     expect(screen.getByText('Triggers')).toBeInTheDocument();
     expect(screen.getByText('Workflows')).toBeInTheDocument();
     expect(screen.getByText('Validators')).toBeInTheDocument();
     expect(screen.getByText('Decisions')).toBeInTheDocument();
+    expect(screen.getByText('Inference')).toBeInTheDocument();
+    expect(screen.getByText('Scripts')).toBeInTheDocument();
   });
 
   it('should render Lucide icons instead of emoji', () => {
@@ -54,20 +55,20 @@ describe('FoundrySidebar', () => {
   });
 
   it('should mark selected category as active', () => {
-    render(<FoundrySidebar {...defaultProps} selectedCategory="agent" />);
+    render(<FoundrySidebar {...defaultProps} selectedCategory="task" />);
 
-    const agentButton = screen.getByRole('button', { name: /filter by agents/i });
-    expect(agentButton).toHaveClass('foundry-sidebar__category--active');
+    const taskButton = screen.getByRole('button', { name: /filter by tasks/i });
+    expect(taskButton).toHaveClass('foundry-sidebar__category--active');
   });
 
   it('should call onCategorySelect when category is clicked', async () => {
     const user = userEvent.setup();
     render(<FoundrySidebar {...defaultProps} />);
 
-    const agentButton = screen.getByRole('button', { name: /filter by agents/i });
-    await user.click(agentButton);
+    const taskButton = screen.getByRole('button', { name: /filter by tasks/i });
+    await user.click(taskButton);
 
-    expect(mockOnCategorySelect).toHaveBeenCalledWith('agent');
+    expect(mockOnCategorySelect).toHaveBeenCalledWith('task');
   });
 
   it('should call onCreateBlock when create button is clicked', async () => {
@@ -81,13 +82,13 @@ describe('FoundrySidebar', () => {
   });
 
   it('should have proper aria attributes for accessibility', () => {
-    render(<FoundrySidebar {...defaultProps} selectedCategory="agent" />);
+    render(<FoundrySidebar {...defaultProps} selectedCategory="task" />);
 
     const nav = screen.getByRole('navigation', { name: /block categories/i });
     expect(nav).toBeInTheDocument();
 
-    const agentButton = screen.getByRole('button', { name: /filter by agents/i });
-    expect(agentButton).toHaveAttribute('aria-current', 'true');
+    const taskButton = screen.getByRole('button', { name: /filter by tasks/i });
+    expect(taskButton).toHaveAttribute('aria-current', 'true');
   });
 
   it('should render all block type categories', () => {
@@ -95,15 +96,16 @@ describe('FoundrySidebar', () => {
 
     const blockTypes: Array<BlockType | 'all'> = [
       'all',
-      'agent',
       'task',
-      'tool',
+      'command',
       'prompt',
       'instruction',
       'trigger',
       'workflow',
       'validator',
       'decision',
+      'inference',
+      'script',
     ];
 
     blockTypes.forEach((type) => {

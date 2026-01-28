@@ -6,7 +6,6 @@
 
 import {
   Workflow,
-  Bot,
   ListChecks,
   MessageSquare,
   FileText,
@@ -22,14 +21,14 @@ import type { BlockType } from '../../types/block.types';
 
 /**
  * Icon mapping for block types
+ * Note: 'agent' removed, 'tool' renamed to 'command'
  */
 const iconMap: Record<BlockType, LucideIcon> = {
   workflow: Workflow,
-  agent: Bot,
   task: ListChecks,
   prompt: MessageSquare,
   instruction: FileText,
-  tool: Terminal,
+  command: Terminal,
   decision: GitBranch,
   validator: ShieldCheck,
   trigger: Zap,
@@ -39,14 +38,14 @@ const iconMap: Record<BlockType, LucideIcon> = {
 
 /**
  * Color mapping for block types
+ * Note: 'agent' removed, 'tool' renamed to 'command'
  */
 export const blockColorMap: Record<BlockType, string> = {
   workflow: '#2563eb',
-  agent: '#7c3aed',
   task: '#10b981',
   prompt: '#f59e0b',
   instruction: '#f97316',
-  tool: '#6b7280',
+  command: '#6b7280',
   decision: '#06b6d4',
   validator: '#ec4899',
   trigger: '#ef4444',

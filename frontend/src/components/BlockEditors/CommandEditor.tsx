@@ -1,22 +1,22 @@
 /**
- * Tool Editor
+ * Command Editor
  *
- * Type-specific editor for tool blocks.
- * Includes tool type, command/script, arguments, and environment variables.
+ * Type-specific editor for command blocks (formerly tool blocks).
+ * Includes command type, command/script, arguments, and environment variables.
  */
 
 import { useState, useEffect, useCallback } from 'react';
 import { BaseBlockEditor } from './BaseBlockEditor';
-import type { Block, ToolBlockConfig } from '../../types/block.types';
+import type { Block, CommandBlockConfig } from '../../types/block.types';
 import { useBlockStore } from '../../store';
 
-export interface ToolEditorProps {
-  block: Block<ToolBlockConfig>;
+export interface CommandEditorProps {
+  block: Block<CommandBlockConfig>;
 }
 
-export function ToolEditor({ block }: ToolEditorProps) {
+export function CommandEditor({ block }: CommandEditorProps) {
   const updateBlock = useBlockStore((s) => s.updateBlock);
-  const [config, setConfig] = useState<ToolBlockConfig>(block.config);
+  const [config, setConfig] = useState<CommandBlockConfig>(block.config);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
   useEffect(() => {
@@ -24,13 +24,13 @@ export function ToolEditor({ block }: ToolEditorProps) {
   }, [config, block.config]);
 
   const handleSave = useCallback(
-    (updatedConfig: ToolBlockConfig) => {
+    (updatedConfig: CommandBlockConfig) => {
       updateBlock(block.id, { config: updatedConfig });
     },
     [block.id, updateBlock]
   );
 
-  const handleFieldChange = useCallback((field: keyof ToolBlockConfig, value: unknown) => {
+  const handleFieldChange = useCallback((field: keyof CommandBlockConfig, value: unknown) => {
     setConfig((prev) => ({ ...prev, [field]: value }));
   }, []);
 
@@ -41,17 +41,17 @@ export function ToolEditor({ block }: ToolEditorProps) {
       hasUnsavedChanges={hasUnsavedChanges}
     >
       <div className="base-block-editor__section">
-        <h2 className="base-block-editor__section-title">Tool Configuration</h2>
+        <h2 className="base-block-editor__section-title">Command Configuration</h2>
 
         <div className="base-block-editor__field">
-          <label className="base-block-editor__label" htmlFor="toolType">
-            Tool Type
+          <label className="base-block-editor__label" htmlFor="commandType">
+            Command Type
           </label>
           <select
-            id="toolType"
+            id="commandType"
             className="base-block-editor__select"
-            value={config.toolType}
-            onChange={(e) => handleFieldChange('toolType', e.target.value)}
+            value={config.commandType}
+            onChange={(e) => handleFieldChange('commandType', e.target.value)}
           >
             <option value="Bash">Bash</option>
             <option value="Git">Git</option>
@@ -61,7 +61,7 @@ export function ToolEditor({ block }: ToolEditorProps) {
           </select>
         </div>
 
-        {config.toolType !== 'Custom' && (
+        {config.commandType !== 'Custom' && (
           <div className="base-block-editor__field">
             <label className="base-block-editor__label" htmlFor="command">
               Command
@@ -112,3 +112,8 @@ export function ToolEditor({ block }: ToolEditorProps) {
     </BaseBlockEditor>
   );
 }
+
+/**
+ * @deprecated Use CommandEditor instead. Alias for backward compatibility.
+ */
+export const ToolEditor = CommandEditor;

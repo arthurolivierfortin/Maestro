@@ -10,7 +10,6 @@ import type { ImperativePanelHandle } from 'react-resizable-panels';
 import { useNavigationStore } from '../../store/navigationStore';
 import { useBlockStore } from '../../store/blockStore';
 import { BlockTypeRegistry } from '../../registry';
-import { ModelSelector } from '../ModelSelector';
 import type { Block, BlockConfig } from '../../types/block.types';
 import './PropertiesPanel.scss';
 
@@ -232,13 +231,13 @@ export function PropertiesPanel({ panelRef }: PropertiesPanelProps) {
               <div className="properties-panel__metadata-row">
                 <span className="properties-panel__metadata-label">Created:</span>
                 <span className="properties-panel__metadata-value">
-                  {new Date(block.metadata.createdAt).toLocaleString()}
+                  {block.metadata?.createdAt ? new Date(block.metadata.createdAt).toLocaleString() : 'N/A'}
                 </span>
               </div>
               <div className="properties-panel__metadata-row">
                 <span className="properties-panel__metadata-label">Updated:</span>
                 <span className="properties-panel__metadata-value">
-                  {new Date(block.metadata.updatedAt).toLocaleString()}
+                  {block.metadata?.updatedAt ? new Date(block.metadata.updatedAt).toLocaleString() : 'N/A'}
                 </span>
               </div>
             </div>
@@ -271,72 +270,6 @@ function renderConfigFields(
 
   // Common fields based on block type
   switch (blockType) {
-    case 'agent':
-      if ('agentType' in config) {
-        fields.push(
-          <div key="agentType" className="properties-panel__field">
-            <label className="properties-panel__field-label">Agent Type</label>
-            <select
-              value={config.agentType}
-              onChange={(e) => onChange('agentType', e.target.value)}
-              className="properties-panel__select"
-            >
-              <option value="Planner">Planner</option>
-              <option value="Coder">Coder</option>
-              <option value="Tester">Tester</option>
-              <option value="Reviewer">Reviewer</option>
-              <option value="Debugger">Debugger</option>
-              <option value="Custom">Custom</option>
-            </select>
-          </div>
-        );
-      }
-      if ('modelId' in config) {
-        fields.push(
-          <div key="modelId" className="properties-panel__field">
-            <label className="properties-panel__field-label">Model</label>
-            <ModelSelector
-              value={config.modelId || ''}
-              onChange={(modelId) => onChange('modelId', modelId)}
-              onlyAvailable={true}
-              placeholder="Select a model..."
-            />
-          </div>
-        );
-      }
-      if ('model' in config && !('modelId' in config)) {
-        // Legacy model field - show text input for backward compatibility
-        fields.push(
-          <div key="model" className="properties-panel__field">
-            <label className="properties-panel__field-label">Model (Legacy)</label>
-            <input
-              type="text"
-              value={config.model || ''}
-              onChange={(e) => onChange('model', e.target.value)}
-              className="properties-panel__input"
-              placeholder="e.g., gpt-4"
-            />
-          </div>
-        );
-      }
-      if ('temperature' in config) {
-        fields.push(
-          <div key="temperature" className="properties-panel__field">
-            <label className="properties-panel__field-label">Temperature</label>
-            <input
-              type="number"
-              value={config.temperature || 0.7}
-              onChange={(e) => onChange('temperature', parseFloat(e.target.value))}
-              className="properties-panel__input"
-              min="0"
-              max="2"
-              step="0.1"
-            />
-          </div>
-        );
-      }
-      break;
-
     case 'task':
       if ('description' in config) {
         fields.push(
@@ -354,14 +287,14 @@ function renderConfigFields(
       }
       break;
 
-    case 'tool':
-      if ('toolType' in config) {
+    case 'command':
+      if ('commandType' in config) {
         fields.push(
-          <div key="toolType" className="properties-panel__field">
-            <label className="properties-panel__field-label">Tool Type</label>
+          <div key="commandType" className="properties-panel__field">
+            <label className="properties-panel__field-label">Command Type</label>
             <select
-              value={config.toolType}
-              onChange={(e) => onChange('toolType', e.target.value)}
+              value={config.commandType}
+              onChange={(e) => onChange('commandType', e.target.value)}
               className="properties-panel__select"
             >
               <option value="Bash">Bash</option>

@@ -253,4 +253,450 @@ public class TrainingController : ControllerBase
     }
 
     #endregion
+
+    #region Sessions (Workflow Comparison)
+
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, Domain.Entities.TrainingSession> _sessions = new();
+
+    /// <summary>
+    /// Create a new training session for comparing workflows
+    /// </summary>
+    [HttpPost("sessions")]
+    public ActionResult<TrainingSessionResponse> CreateSession([FromBody] CreateSessionRequest request)
+    {
+        var session = Domain.Entities.TrainingSession.Create(
+            request.Name,
+            request.Description,
+            request.CreatedBy);
+
+        if (request.WorkflowIds != null)
+        {
+            foreach (var workflowId in request.WorkflowIds)
+            {
+                session.AddWorkflow(workflowId);
+            }
+        }
+
+        if (request.Configuration != null)
+        {
+            session.SetConfiguration(request.Configuration);
+        }
+
+        _sessions[session.Id] = session;
+
+        _logger.LogInformation("Created training session {SessionId}: {Name}", session.Id, session.Name);
+
+        return CreatedAtAction(nameof(GetSession), new { id = session.Id }, MapSessionToResponse(session));
+    }
+
+    /// <summary>
+    /// Get all training sessions
+    /// </summary>
+    [HttpGet("sessions")]
+    public ActionResult<IEnumerable<TrainingSessionResponse>> GetSessions(
+        [FromQuery] string? status = null,
+        [FromQuery] int limit = 50)
+    {
+        var sessions = _sessions.Values.AsEnumerable();
+
+        if (!string.IsNullOrEmpty(status) && Enum.TryParse<Domain.Entities.TrainingStatus>(status, true, out var statusEnum))
+        {
+            sessions = sessions.Where(s => s.Status == statusEnum);
+        }
+
+        return Ok(sessions
+            .OrderByDescending(s => s.CreatedAt)
+            .Take(limit)
+            .Select(MapSessionToResponse)
+            .ToList());
+    }
+
+    /// <summary>
+    /// Get a training session by ID
+    /// </summary>
+    [HttpGet("sessions/{id}")]
+    public ActionResult<TrainingSessionResponse> GetSession(string id)
+    {
+        if (!_sessions.TryGetValue(id, out var session))
+        {
+            return NotFound(new { error = "Training session not found" });
+        }
+
+        return Ok(MapSessionToResponse(session));
+    }
+
+    /// <summary>
+    /// Add a task to a training session
+    /// </summary>
+    [HttpPost("sessions/{id}/tasks")]
+    public ActionResult<TrainingTaskResponse> AddTask(string id, [FromBody] AddTaskRequest request)
+    {
+        if (!_sessions.TryGetValue(id, out var session))
+        {
+            return NotFound(new { error = "Training session not found" });
+        }
+
+        if (session.Status != Domain.Entities.TrainingStatus.Draft)
+        {
+            return BadRequest(new { error = "Can only add tasks to draft sessions" });
+        }
+
+        var task = session.AddTask(request.Description, request.ExpectedOutcome);
+
+        return Ok(new TrainingTaskResponse
+        {
+            Id = task.Id,
+            SessionId = task.SessionId,
+            Description = task.Description,
+            ExpectedOutcome = task.ExpectedOutcome,
+            WorkflowRuns = new List<WorkflowRunResponse>(),
+            CreatedAt = task.CreatedAt
+        });
+    }
+
+    /// <summary>
+    /// Add a workflow to compare in the session
+    /// </summary>
+    [HttpPost("sessions/{id}/workflows/{workflowId}")]
+    public ActionResult AddWorkflowToSession(string id, string workflowId)
+    {
+        if (!_sessions.TryGetValue(id, out var session))
+        {
+            return NotFound(new { error = "Training session not found" });
+        }
+
+        if (session.Status != Domain.Entities.TrainingStatus.Draft)
+        {
+            return BadRequest(new { error = "Can only add workflows to draft sessions" });
+        }
+
+        session.AddWorkflow(workflowId);
+
+        return Ok(new { message = "Workflow added to session" });
+    }
+
+    /// <summary>
+    /// Set session ready for running
+    /// </summary>
+    [HttpPost("sessions/{id}/ready")]
+    public ActionResult SetSessionReady(string id)
+    {
+        if (!_sessions.TryGetValue(id, out var session))
+        {
+            return NotFound(new { error = "Training session not found" });
+        }
+
+        try
+        {
+            session.SetReady();
+            return Ok(MapSessionToResponse(session));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Run the training session (executes all workflows against all tasks)
+    /// </summary>
+    [HttpPost("sessions/{id}/run")]
+    public ActionResult<TrainingSessionResponse> RunSession(string id)
+    {
+        if (!_sessions.TryGetValue(id, out var session))
+        {
+            return NotFound(new { error = "Training session not found" });
+        }
+
+        if (session.Status != Domain.Entities.TrainingStatus.Ready &&
+            session.Status != Domain.Entities.TrainingStatus.Draft)
+        {
+            return BadRequest(new { error = $"Session cannot be run in status: {session.Status}" });
+        }
+
+        // Set ready if still in draft
+        if (session.Status == Domain.Entities.TrainingStatus.Draft)
+        {
+            try
+            {
+                session.SetReady();
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { error = ex.Message });
+            }
+        }
+
+        session.SetRunning();
+
+        // Simulate running workflows in background
+        Task.Run(async () =>
+        {
+            foreach (var task in session.Tasks)
+            {
+                foreach (var workflowId in session.WorkflowIds)
+                {
+                    var run = task.AddRun(workflowId, $"Workflow-{workflowId}");
+                    run.Status = "running";
+
+                    // Simulate execution
+                    await Task.Delay(1000 + new Random().Next(2000));
+
+                    run.Status = "completed";
+                    run.CompletedAt = DateTime.UtcNow;
+                    run.DurationSeconds = (run.CompletedAt.Value - run.StartedAt).TotalSeconds;
+                    run.Output = $"Completed task: {task.Description}";
+                    run.Metrics = new Dictionary<string, double>
+                    {
+                        { "quality", 0.7 + new Random().NextDouble() * 0.3 },
+                        { "speed", new Random().NextDouble() },
+                        { "cost", new Random().NextDouble() * 10 }
+                    };
+                }
+            }
+
+            // Generate comparison
+            var comparison = GenerateComparison(session);
+            session.SetCompleted(comparison);
+        });
+
+        return Ok(MapSessionToResponse(session));
+    }
+
+    /// <summary>
+    /// Get comparison results for a completed session
+    /// </summary>
+    [HttpGet("sessions/{id}/compare")]
+    public ActionResult<TrainingComparisonResponse> GetComparison(string id)
+    {
+        if (!_sessions.TryGetValue(id, out var session))
+        {
+            return NotFound(new { error = "Training session not found" });
+        }
+
+        if (session.ComparisonResult == null)
+        {
+            if (session.Status != Domain.Entities.TrainingStatus.Completed)
+            {
+                return BadRequest(new { error = "Session has not completed yet" });
+            }
+            return NotFound(new { error = "No comparison result available" });
+        }
+
+        return Ok(new TrainingComparisonResponse
+        {
+            SessionId = session.Id,
+            TaskId = session.ComparisonResult.TaskId,
+            Results = session.ComparisonResult.Results.Select(r => new WorkflowResultResponse
+            {
+                WorkflowId = r.WorkflowId,
+                WorkflowName = r.WorkflowName,
+                OverallScore = r.OverallScore,
+                Metrics = r.Metrics,
+                Output = r.Output,
+                Success = r.Success,
+                DurationSeconds = r.DurationSeconds
+            }).ToList(),
+            BestPerformerId = session.ComparisonResult.BestPerformerId,
+            BestPerformerName = session.ComparisonResult.BestPerformerName,
+            AggregateMetrics = session.ComparisonResult.AggregateMetrics,
+            Summary = session.ComparisonResult.Summary
+        });
+    }
+
+    /// <summary>
+    /// Cancel a training session
+    /// </summary>
+    [HttpDelete("sessions/{id}")]
+    public ActionResult CancelSession(string id)
+    {
+        if (!_sessions.TryGetValue(id, out var session))
+        {
+            return NotFound(new { error = "Training session not found" });
+        }
+
+        session.SetCancelled();
+
+        return Ok(new { message = "Session cancelled" });
+    }
+
+    private static Domain.Entities.TrainingComparison GenerateComparison(Domain.Entities.TrainingSession session)
+    {
+        var results = new List<Domain.Entities.WorkflowResult>();
+        var workflowScores = new Dictionary<string, List<double>>();
+
+        foreach (var task in session.Tasks)
+        {
+            foreach (var run in task.WorkflowRuns)
+            {
+                if (!workflowScores.ContainsKey(run.WorkflowId))
+                {
+                    workflowScores[run.WorkflowId] = new List<double>();
+                }
+
+                var score = run.Metrics.GetValueOrDefault("quality", 0.5);
+                workflowScores[run.WorkflowId].Add(score);
+            }
+        }
+
+        foreach (var kvp in workflowScores)
+        {
+            var avgScore = kvp.Value.Any() ? kvp.Value.Average() : 0;
+            results.Add(new Domain.Entities.WorkflowResult
+            {
+                WorkflowId = kvp.Key,
+                WorkflowName = $"Workflow-{kvp.Key}",
+                OverallScore = avgScore,
+                Success = true,
+                DurationSeconds = session.Tasks
+                    .SelectMany(t => t.WorkflowRuns)
+                    .Where(r => r.WorkflowId == kvp.Key)
+                    .Sum(r => r.DurationSeconds ?? 0),
+                Metrics = new Dictionary<string, double>
+                {
+                    { "average_quality", avgScore },
+                    { "task_count", session.Tasks.Count }
+                }
+            });
+        }
+
+        var best = results.OrderByDescending(r => r.OverallScore).FirstOrDefault();
+
+        return new Domain.Entities.TrainingComparison
+        {
+            TaskId = session.Tasks.FirstOrDefault()?.Id ?? "",
+            Results = results,
+            BestPerformerId = best?.WorkflowId,
+            BestPerformerName = best?.WorkflowName,
+            AggregateMetrics = new Dictionary<string, double>
+            {
+                { "total_tasks", session.Tasks.Count },
+                { "total_workflows", session.WorkflowIds.Count },
+                { "best_score", best?.OverallScore ?? 0 }
+            },
+            Summary = $"Best performer: {best?.WorkflowName} with score {best?.OverallScore:F2}"
+        };
+    }
+
+    private static TrainingSessionResponse MapSessionToResponse(Domain.Entities.TrainingSession session)
+    {
+        return new TrainingSessionResponse
+        {
+            Id = session.Id,
+            Name = session.Name,
+            Description = session.Description,
+            WorkflowIds = session.WorkflowIds,
+            Tasks = session.Tasks.Select(t => new TrainingTaskResponse
+            {
+                Id = t.Id,
+                SessionId = t.SessionId,
+                Description = t.Description,
+                ExpectedOutcome = t.ExpectedOutcome,
+                WorkflowRuns = t.WorkflowRuns.Select(r => new WorkflowRunResponse
+                {
+                    Id = r.Id,
+                    WorkflowId = r.WorkflowId,
+                    WorkflowName = r.WorkflowName,
+                    Status = r.Status,
+                    StartedAt = r.StartedAt,
+                    CompletedAt = r.CompletedAt,
+                    DurationSeconds = r.DurationSeconds,
+                    Output = r.Output,
+                    ErrorMessage = r.ErrorMessage,
+                    Metrics = r.Metrics
+                }).ToList(),
+                CreatedAt = t.CreatedAt
+            }).ToList(),
+            Status = session.Status.ToString().ToLower(),
+            CreatedBy = session.CreatedBy,
+            CreatedAt = session.CreatedAt,
+            StartedAt = session.StartedAt,
+            CompletedAt = session.CompletedAt,
+            Configuration = session.Configuration,
+            HasComparison = session.ComparisonResult != null
+        };
+    }
+
+    #endregion
 }
+
+#region Session DTOs
+
+public class CreateSessionRequest
+{
+    public string Name { get; set; } = "";
+    public string? Description { get; set; }
+    public List<string>? WorkflowIds { get; set; }
+    public string? CreatedBy { get; set; }
+    public Dictionary<string, object>? Configuration { get; set; }
+}
+
+public class AddTaskRequest
+{
+    public string Description { get; set; } = "";
+    public string? ExpectedOutcome { get; set; }
+}
+
+public class TrainingSessionResponse
+{
+    public string Id { get; set; } = "";
+    public string Name { get; set; } = "";
+    public string? Description { get; set; }
+    public List<string> WorkflowIds { get; set; } = new();
+    public List<TrainingTaskResponse> Tasks { get; set; } = new();
+    public string Status { get; set; } = "";
+    public string? CreatedBy { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public DateTime? StartedAt { get; set; }
+    public DateTime? CompletedAt { get; set; }
+    public Dictionary<string, object> Configuration { get; set; } = new();
+    public bool HasComparison { get; set; }
+}
+
+public class TrainingTaskResponse
+{
+    public string Id { get; set; } = "";
+    public string SessionId { get; set; } = "";
+    public string Description { get; set; } = "";
+    public string? ExpectedOutcome { get; set; }
+    public List<WorkflowRunResponse> WorkflowRuns { get; set; } = new();
+    public DateTime CreatedAt { get; set; }
+}
+
+public class WorkflowRunResponse
+{
+    public string Id { get; set; } = "";
+    public string WorkflowId { get; set; } = "";
+    public string WorkflowName { get; set; } = "";
+    public string Status { get; set; } = "";
+    public DateTime StartedAt { get; set; }
+    public DateTime? CompletedAt { get; set; }
+    public double? DurationSeconds { get; set; }
+    public string? Output { get; set; }
+    public string? ErrorMessage { get; set; }
+    public Dictionary<string, double> Metrics { get; set; } = new();
+}
+
+public class TrainingComparisonResponse
+{
+    public string SessionId { get; set; } = "";
+    public string TaskId { get; set; } = "";
+    public List<WorkflowResultResponse> Results { get; set; } = new();
+    public string? BestPerformerId { get; set; }
+    public string? BestPerformerName { get; set; }
+    public Dictionary<string, double> AggregateMetrics { get; set; } = new();
+    public string? Summary { get; set; }
+}
+
+public class WorkflowResultResponse
+{
+    public string WorkflowId { get; set; } = "";
+    public string WorkflowName { get; set; } = "";
+    public double OverallScore { get; set; }
+    public Dictionary<string, double> Metrics { get; set; } = new();
+    public string? Output { get; set; }
+    public bool Success { get; set; }
+    public double DurationSeconds { get; set; }
+}
+
+#endregion

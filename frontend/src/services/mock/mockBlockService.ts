@@ -202,18 +202,18 @@ class MockBlockService implements IBlockService {
       }
     });
 
-    // Find tool references in agent configs
+    // Find command references in inference configs (if any have tool references)
     allBlocks
-      .filter((b) => b.blockType === 'agent')
-      .forEach((agent) => {
-        const config = agent.config as any;
+      .filter((b) => b.blockType === 'inference')
+      .forEach((inference) => {
+        const config = inference.config as any;
         if (config.tools?.includes(blockId)) {
           usages.push({
-            blockId: agent.id,
-            blockName: agent.name,
-            blockType: agent.blockType,
+            blockId: inference.id,
+            blockName: inference.name,
+            blockType: inference.blockType,
             usageType: 'reference',
-            context: `Used as a tool in agent ${agent.name}`,
+            context: `Used as a command in inference ${inference.name}`,
           });
         }
       });

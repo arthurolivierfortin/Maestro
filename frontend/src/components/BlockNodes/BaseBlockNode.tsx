@@ -13,11 +13,10 @@ import { useBlockStore } from '../../store/blockStore';
 import { useNavigationStore } from '../../store/navigationStore';
 import type { Block } from '../../types/block.types';
 import {
-  isAgentConfig,
   isTaskConfig,
   isPromptConfig,
   isDecisionConfig,
-  isToolConfig,
+  isCommandConfig,
   isValidatorConfig,
   isTriggerConfig,
   isInstructionConfig,
@@ -176,25 +175,6 @@ BaseBlockNode.displayName = 'BaseBlockNode';
  */
 function renderBlockContent(block: Block) {
   switch (block.blockType) {
-    case 'agent':
-      if (isAgentConfig(block.config)) {
-        return (
-          <div className="base-block-node__preview">
-            <div className="base-block-node__preview-label">Agent Type:</div>
-            <div className="base-block-node__preview-value">
-              {block.config.agentType || 'Custom'}
-            </div>
-            {block.config.model && (
-              <>
-                <div className="base-block-node__preview-label">Model:</div>
-                <div className="base-block-node__preview-value">{block.config.model}</div>
-              </>
-            )}
-          </div>
-        );
-      }
-      return null;
-
     case 'task':
       if (isTaskConfig(block.config)) {
         return (
@@ -232,13 +212,13 @@ function renderBlockContent(block: Block) {
       }
       return null;
 
-    case 'tool':
-      if (isToolConfig(block.config)) {
+    case 'command':
+      if (isCommandConfig(block.config)) {
         return (
           <div className="base-block-node__preview">
-            <div className="base-block-node__preview-label">Tool Type:</div>
+            <div className="base-block-node__preview-label">Command Type:</div>
             <div className="base-block-node__preview-value">
-              {block.config.toolType || 'Custom'}
+              {block.config.commandType || 'Custom'}
             </div>
           </div>
         );

@@ -2,6 +2,11 @@
  * Application Router Configuration
  *
  * Defines all routes and navigation structure.
+ *
+ * Consolidated pages:
+ * - FoundryPage now handles both blocks and AgentFoundry content via tabs
+ * - DemoPage removed (development only)
+ * - CanvasPage and MultiNodeEditorPage merged into single editor experience
  */
 
 import { createBrowserRouter, RouteObject } from 'react-router-dom';
@@ -13,22 +18,28 @@ import { LazyPage } from '@/utils/LazyPage';
 
 // Lazy-loaded pages
 const HomePage = lazy(() => import('@/pages/HomePage'));
-const MultiNodeEditorPage = lazy(() => import('@/pages/MultiNodeEditorPage'));
 const CanvasPage = lazy(() => import('@/pages/CanvasPage'));
 const ExecutionMonitorPage = lazy(() => import('@/pages/ExecutionMonitorPage'));
 const HistoryPage = lazy(() => import('@/pages/HistoryPage'));
 const ModelsPage = lazy(() => import('@/pages/ModelsPage'));
-const BlockDemoPage = lazy(() => import('@/pages/BlockDemoPage'));
 const FoundryPage = lazy(() => import('@/pages/FoundryPage'));
 const AtomicBlockEditorPage = lazy(() => import('@/pages/AtomicBlockEditorPage'));
 const ProjectsPage = lazy(() => import('@/pages/ProjectsPage'));
 const ProjectDetailPage = lazy(() => import('@/pages/ProjectDetailPage'));
 const TrainingPage = lazy(() => import('@/pages/TrainingPage'));
 const MetricsPage = lazy(() => import('@/pages/MetricsPage'));
+const MonitoringPage = lazy(() => import('@/pages/MonitoringPage'));
 const NotFoundPage = lazy(() => import('@/pages/NotFoundPage'));
 
 /**
  * Route definitions
+ *
+ * Consolidated structure:
+ * - /foundry - Main Foundry hub with tabs for Blocks, Agents, Tools, Templates
+ * - /canvas/:blockId - Visual workflow editor
+ * - /projects - Project management
+ * - /training - Training sessions and comparison
+ * - /models - LLM configuration
  */
 const routes: RouteObject[] = [
   {
@@ -43,14 +54,7 @@ const routes: RouteObject[] = [
           </LazyPage>
         ),
       },
-      {
-        path: 'workflows/:id/edit',
-        element: (
-          <LazyPage>
-            <MultiNodeEditorPage />
-          </LazyPage>
-        ),
-      },
+      // Canvas/Editor routes
       {
         path: 'canvas',
         element: (
@@ -68,6 +72,15 @@ const routes: RouteObject[] = [
         ),
       },
       {
+        path: 'workflows/:id/edit',
+        element: (
+          <LazyPage>
+            <CanvasPage />
+          </LazyPage>
+        ),
+      },
+      // Foundry routes - unified hub for blocks, agents, tools
+      {
         path: 'foundry',
         element: (
           <LazyPage>
@@ -76,7 +89,7 @@ const routes: RouteObject[] = [
         ),
       },
       {
-        path: 'foundry/:blockType',
+        path: 'foundry/:tab',
         element: (
           <LazyPage>
             <FoundryPage />
@@ -91,30 +104,24 @@ const routes: RouteObject[] = [
           </LazyPage>
         ),
       },
+      // Redirect old agent-foundry routes to foundry
       {
-        path: 'executions/:id',
+        path: 'agent-foundry',
         element: (
           <LazyPage>
-            <ExecutionMonitorPage />
+            <FoundryPage />
           </LazyPage>
         ),
       },
       {
-        path: 'history',
+        path: 'agent-foundry/*',
         element: (
           <LazyPage>
-            <HistoryPage />
+            <FoundryPage />
           </LazyPage>
         ),
       },
-      {
-        path: 'models',
-        element: (
-          <LazyPage>
-            <ModelsPage />
-          </LazyPage>
-        ),
-      },
+      // Project routes
       {
         path: 'projects',
         element: (
@@ -131,14 +138,7 @@ const routes: RouteObject[] = [
           </LazyPage>
         ),
       },
-      {
-        path: 'demo',
-        element: (
-          <LazyPage>
-            <BlockDemoPage />
-          </LazyPage>
-        ),
-      },
+      // Training & Metrics
       {
         path: 'training',
         element: (
@@ -155,6 +155,42 @@ const routes: RouteObject[] = [
           </LazyPage>
         ),
       },
+      // Monitoring
+      {
+        path: 'monitoring',
+        element: (
+          <LazyPage>
+            <MonitoringPage />
+          </LazyPage>
+        ),
+      },
+      // Configuration
+      {
+        path: 'models',
+        element: (
+          <LazyPage>
+            <ModelsPage />
+          </LazyPage>
+        ),
+      },
+      // Execution & History
+      {
+        path: 'executions/:id',
+        element: (
+          <LazyPage>
+            <ExecutionMonitorPage />
+          </LazyPage>
+        ),
+      },
+      {
+        path: 'history',
+        element: (
+          <LazyPage>
+            <HistoryPage />
+          </LazyPage>
+        ),
+      },
+      // Catch-all
       {
         path: '*',
         element: (

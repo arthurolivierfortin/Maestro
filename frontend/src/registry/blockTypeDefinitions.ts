@@ -6,9 +6,8 @@
 
 import type { BlockTypeInfo } from '../types/block-registry.types';
 import type {
-  AgentBlockConfig,
   TaskBlockConfig,
-  ToolBlockConfig,
+  CommandBlockConfig,
   PromptBlockConfig,
   InstructionBlockConfig,
   DecisionBlockConfig,
@@ -29,14 +28,13 @@ export const workflowTypeInfo: BlockTypeInfo = {
   icon: 'Workflow',
   color: '#2563eb',
   isAtomic: false,
-  // Allow any block type inside a workflow
+  // Allow any block type inside a workflow (agent block removed, tool renamed to command)
   allowedChildren: [
     'workflow',
-    'agent',
     'task',
     'prompt',
     'instruction',
-    'tool',
+    'command',
     'decision',
     'validator',
     'trigger',
@@ -55,44 +53,6 @@ export const workflowTypeInfo: BlockTypeInfo = {
 };
 
 /**
- * Agent block type
- */
-export const agentTypeInfo: BlockTypeInfo = {
-  type: 'agent',
-  label: 'Agent',
-  description: 'AI agent that can execute tasks',
-  icon: 'Bot',
-  color: '#7c3aed',
-  isAtomic: false,
-  allowedChildren: ['prompt', 'instruction', 'tool'],
-  allowedParents: ['workflow', 'task'],
-  defaultConfig: {
-    type: 'agent',
-    agentType: 'Custom',
-    temperature: 0.7,
-    maxTokens: 2000,
-  } as AgentBlockConfig,
-  defaultInputs: [
-    {
-      id: 'input',
-      name: 'Input',
-      dataType: 'any',
-      required: false,
-      multiple: false,
-    },
-  ],
-  defaultOutputs: [
-    {
-      id: 'output',
-      name: 'Output',
-      dataType: 'any',
-      required: false,
-      multiple: false,
-    },
-  ],
-};
-
-/**
  * Task block type
  */
 export const taskTypeInfo: BlockTypeInfo = {
@@ -102,7 +62,7 @@ export const taskTypeInfo: BlockTypeInfo = {
   icon: 'ListChecks',
   color: '#10b981',
   isAtomic: false,
-  allowedChildren: ['agent', 'tool', 'validator', 'decision'],
+  allowedChildren: ['command', 'validator', 'decision', 'inference', 'script'],
   allowedParents: ['workflow'],
   defaultConfig: {
     type: 'task',
@@ -142,7 +102,7 @@ export const promptTypeInfo: BlockTypeInfo = {
   color: '#f59e0b',
   isAtomic: true,
   allowedChildren: [],
-  allowedParents: ['agent'],
+  allowedParents: ['workflow', 'task', 'inference'],
   defaultConfig: {
     type: 'prompt',
     template: '',
@@ -171,7 +131,7 @@ export const instructionTypeInfo: BlockTypeInfo = {
   color: '#f97316',
   isAtomic: true,
   allowedChildren: [],
-  allowedParents: ['agent'],
+  allowedParents: ['workflow', 'task', 'inference'],
   defaultConfig: {
     type: 'instruction',
     filePath: '',
@@ -189,23 +149,24 @@ export const instructionTypeInfo: BlockTypeInfo = {
 };
 
 /**
- * Tool block type
+ * Command block type (formerly 'tool')
+ * Renamed to avoid confusion with AgentFoundry Tools
  */
-export const toolTypeInfo: BlockTypeInfo = {
-  type: 'tool',
-  label: 'Tool',
-  description: 'Executable tool (bash, git, file ops)',
+export const commandTypeInfo: BlockTypeInfo = {
+  type: 'command',
+  label: 'Command',
+  description: 'Executable command (bash, git, file ops)',
   icon: 'Terminal',
   color: '#6b7280',
   isAtomic: true,
   allowedChildren: [],
-  allowedParents: ['workflow', 'task', 'agent'],
+  allowedParents: ['workflow', 'task'],
   defaultConfig: {
-    type: 'tool',
-    toolType: 'Bash',
+    type: 'command',
+    commandType: 'Bash',
     command: '',
     arguments: [],
-  } as ToolBlockConfig,
+  } as CommandBlockConfig,
   defaultInputs: [
     {
       id: 'input',
@@ -353,7 +314,7 @@ export const inferenceTypeInfo: BlockTypeInfo = {
   color: '#8b5cf6',
   isAtomic: true,
   allowedChildren: [],
-  allowedParents: ['workflow', 'task', 'agent'],
+  allowedParents: ['workflow', 'task'],
   defaultConfig: {
     type: 'inference',
     systemPrompt: '',
@@ -394,7 +355,7 @@ export const scriptTypeInfo: BlockTypeInfo = {
   color: '#f43f5e',
   isAtomic: true,
   allowedChildren: [],
-  allowedParents: ['workflow', 'task', 'agent'],
+  allowedParents: ['workflow', 'task'],
   defaultConfig: {
     type: 'script',
     language: 'javascript',
@@ -424,14 +385,14 @@ export const scriptTypeInfo: BlockTypeInfo = {
 
 /**
  * All block type definitions
+ * Note: agentTypeInfo removed, toolTypeInfo renamed to commandTypeInfo
  */
 export const blockTypeDefinitions: BlockTypeInfo[] = [
   workflowTypeInfo,
-  agentTypeInfo,
   taskTypeInfo,
   promptTypeInfo,
   instructionTypeInfo,
-  toolTypeInfo,
+  commandTypeInfo,
   decisionTypeInfo,
   validatorTypeInfo,
   triggerTypeInfo,

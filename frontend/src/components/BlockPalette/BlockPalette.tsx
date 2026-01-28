@@ -13,7 +13,7 @@ import './BlockPalette.scss';
 
 export interface BlockPaletteProps {
   /** Filter by category */
-  category?: 'all' | 'agents' | 'tools' | 'flow' | 'data';
+  category?: 'all' | 'commands' | 'flow' | 'data';
   /** Search filter */
   searchQuery?: string;
   /** Callback when drag starts */
@@ -31,11 +31,10 @@ interface PaletteCategory {
 
 // PALETTE_CATEGORIES supports nested categories (subcategories).
 // Add subcategories in-code by adding a `subcategories` array to any category.
-// Preserve the previous top-level organization: Multi-node and Atomic groups.
-// Subcategories can still be added inside these categories if needed.
+// Note: 'agent' block removed, 'tool' renamed to 'command'
 const PALETTE_CATEGORIES: PaletteCategory[] = [
   // Multi-node containers (can contain other nodes)
-  { id: 'multi-node', label: 'Multi-Node', blockTypes: ['workflow', 'agent'] },
+  { id: 'multi-node', label: 'Containers', blockTypes: ['workflow', 'task'] },
 
   // Atomic blocks grouped under a single top-level category with subcategories
   {
@@ -43,13 +42,12 @@ const PALETTE_CATEGORIES: PaletteCategory[] = [
     label: 'Atomic Blocks',
     blockTypes: [],
     subcategories: [
-      { id: 'tasks', label: 'Tasks', blockTypes: ['task'] },
       { id: 'inference', label: 'Inference / LLM', blockTypes: ['inference'] },
       {
-        id: 'tools_prompts',
-        label: 'Tools & Prompts',
+        id: 'commands_prompts',
+        label: 'Commands & Prompts',
         subcategories: [
-          { id: 'tools', label: 'Tools', blockTypes: ['tool'] },
+          { id: 'commands', label: 'Commands', blockTypes: ['command'] },
           { id: 'prompts', label: 'Prompts', blockTypes: ['prompt', 'instruction'] },
         ],
       },

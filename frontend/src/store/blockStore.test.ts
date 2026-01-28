@@ -15,10 +15,10 @@ describe('useBlockStore', () => {
   const createTestBlock = (overrides?: Partial<Block>): Block => ({
     id: `block-${Date.now()}`,
     name: 'Test Block',
-    blockType: 'agent',
+    blockType: 'task',
     isAtomic: false,
     parentId: null,
-    config: { type: 'agent', agentType: 'Custom' },
+    config: { type: 'task', description: 'Test task' },
     inputs: [],
     outputs: [],
     position: { x: 0, y: 0 },
@@ -44,7 +44,7 @@ describe('useBlockStore', () => {
 
     it('should add child block to parent', () => {
       const parentBlock = createTestBlock({ blockType: 'workflow', children: [] });
-      const childBlock = createTestBlock({ id: 'child-1', blockType: 'agent' });
+      const childBlock = createTestBlock({ id: 'child-1', blockType: 'task' });
 
       useBlockStore.getState().addBlock(null, parentBlock);
       useBlockStore.getState().addBlock(parentBlock.id, childBlock);
@@ -56,7 +56,7 @@ describe('useBlockStore', () => {
 
     it('should not add child to atomic parent', () => {
       const atomicBlock = createTestBlock({ blockType: 'prompt', isAtomic: true });
-      const childBlock = createTestBlock({ id: 'child-1', blockType: 'agent' });
+      const childBlock = createTestBlock({ id: 'child-1', blockType: 'command' });
 
       useBlockStore.getState().addBlock(null, atomicBlock);
       useBlockStore.getState().addBlock(atomicBlock.id, childBlock);
@@ -68,15 +68,15 @@ describe('useBlockStore', () => {
     });
 
     it('should not add invalid child type to parent', () => {
-      // Agent can only contain: prompt, instruction, tool
-      // Validator is NOT allowed as a child of agent
-      const agentBlock = createTestBlock({ blockType: 'agent', children: [], isAtomic: false });
-      const validatorBlock = createTestBlock({ id: 'validator-1', blockType: 'validator' });
+      // Task can contain: command, validator, decision, inference, script
+      // Workflow is NOT allowed as a child of task
+      const taskBlock = createTestBlock({ blockType: 'task', children: [], isAtomic: false });
+      const workflowBlock = createTestBlock({ id: 'workflow-1', blockType: 'workflow' });
 
-      useBlockStore.getState().addBlock(null, agentBlock);
-      useBlockStore.getState().addBlock(agentBlock.id, validatorBlock);
+      useBlockStore.getState().addBlock(null, taskBlock);
+      useBlockStore.getState().addBlock(taskBlock.id, workflowBlock);
 
-      const parent = useBlockStore.getState().getBlock(agentBlock.id);
+      const parent = useBlockStore.getState().getBlock(taskBlock.id);
       expect(parent?.children).toHaveLength(0);
     });
   });
@@ -84,7 +84,7 @@ describe('useBlockStore', () => {
   describe('removeBlock', () => {
     it('should remove block and update parent', () => {
       const parentBlock = createTestBlock({ blockType: 'workflow', children: [] });
-      const childBlock = createTestBlock({ id: 'child-1', blockType: 'agent' });
+      const childBlock = createTestBlock({ id: 'child-1', blockType: 'task' });
 
       useBlockStore.getState().addBlock(null, parentBlock);
       useBlockStore.getState().addBlock(parentBlock.id, childBlock);
@@ -98,8 +98,8 @@ describe('useBlockStore', () => {
 
     it('should remove block and all descendants', () => {
       const rootBlock = createTestBlock({ blockType: 'workflow', children: [] });
-      const childBlock = createTestBlock({ id: 'child-1', blockType: 'agent', children: [] });
-      const grandchildBlock = createTestBlock({ id: 'grandchild-1', blockType: 'prompt' });
+      const childBlock = createTestBlock({ id: 'child-1', blockType: 'task', children: [] });
+      const grandchildBlock = createTestBlock({ id: 'grandchild-1', blockType: 'command' });
 
       useBlockStore.getState().addBlock(null, rootBlock);
       useBlockStore.getState().addBlock(rootBlock.id, childBlock);
@@ -139,8 +139,8 @@ describe('useBlockStore', () => {
   describe('getBlockPath', () => {
     it('should return path from root to block', () => {
       const rootBlock = createTestBlock({ blockType: 'workflow', children: [] });
-      const childBlock = createTestBlock({ id: 'child-1', blockType: 'agent', children: [] });
-      const grandchildBlock = createTestBlock({ id: 'grandchild-1', blockType: 'prompt' });
+      const childBlock = createTestBlock({ id: 'child-1', blockType: 'task', children: [] });
+      const grandchildBlock = createTestBlock({ id: 'grandchild-1', blockType: 'command' });
 
       useBlockStore.getState().addBlock(null, rootBlock);
       useBlockStore.getState().addBlock(rootBlock.id, childBlock);
@@ -162,8 +162,8 @@ describe('useBlockStore', () => {
   describe('getBlockChildren', () => {
     it('should return direct children', () => {
       const parentBlock = createTestBlock({ blockType: 'workflow', children: [] });
-      const child1 = createTestBlock({ id: 'child-1', blockType: 'agent' });
-      const child2 = createTestBlock({ id: 'child-2', blockType: 'task' });
+      const child1 = createTestBlock({ id: 'child-1', blockType: 'task' });
+      const child2 = createTestBlock({ id: 'child-2', blockType: 'inference' });
 
       useBlockStore.getState().addBlock(null, parentBlock);
       useBlockStore.getState().addBlock(parentBlock.id, child1);
@@ -230,7 +230,7 @@ describe('useBlockStore', () => {
   describe('duplicateBlock', () => {
     it('should create a copy with new IDs', () => {
       const parentBlock = createTestBlock({ blockType: 'workflow', children: [] });
-      const originalBlock = createTestBlock({ id: 'original', blockType: 'agent' });
+      const originalBlock = createTestBlock({ id: 'original', blockType: 'task' });
 
       useBlockStore.getState().addBlock(null, parentBlock);
       useBlockStore.getState().addBlock(parentBlock.id, originalBlock);

@@ -15,11 +15,11 @@ describe('NodeContextMenu', () => {
   const mockBlock: Block = {
     id: 'test-block',
     name: 'Test Block',
-    blockType: 'agent',
+    blockType: 'command',
     isAtomic: true,
     config: {
-      type: 'agent',
-      agentType: 'Custom',
+      type: 'command',
+      commandType: 'Bash',
     },
     inputs: [],
     outputs: [],

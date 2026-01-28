@@ -21,9 +21,9 @@ export type {
   Block,
   BlockConfig,
   WorkflowBlockConfig,
-  AgentBlockConfig,
   TaskBlockConfig,
-  ToolBlockConfig,
+  CommandBlockConfig,
+  ToolBlockConfig, // Deprecated alias for CommandBlockConfig
   PromptBlockConfig,
   InstructionBlockConfig,
   DecisionBlockConfig,
