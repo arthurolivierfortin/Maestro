@@ -1,3 +1,76 @@
+🏗️ Architecture : MAESTRO-6A – Unified Block Source Architecture
+
+# 🎯 Purpose
+This PR consolidates the backend into a single source-of-truth for block data (Phase 6A). It centralizes block discovery and reading in the backend, exposes a CRUD HTTP API for blocks, and updates tests and documentation to reflect the unified block-source architecture.
+
+# 📋 Changes Summary
+- Backend: Implemented BlocksController CRUD API and supporting repository to treat the backend as the single filesystem-backed block source.
+- Testing: Added/updated integration tests validating BlocksController and block discovery behavior (see backend tests).
+- Docs: Updated Phase 6A issue and completion summary documents to reflect implementation and acceptance of the unified block source approach.
+- Build/CI: No breaking build changes expected; tests added to existing test projects.
+
+# 🏗️ Technical Details
+- Centralized block access via a backend repository (filesystem reader) so the API is the canonical source for blocks rather than ad-hoc CLI or multiple readers.
+- `BlocksController` exposes standard CRUD: GET (list & single), POST (create/import), PUT (update), DELETE (remove).
+- Domain and DTO boundaries preserved: controller maps to application DTOs; repository implements filesystem reading and mapping to domain objects.
+- Integration tests exercise the full stack (controller → application → repository) to ensure the filesystem-backed approach behaves as expected across environments.
+
+# 🧪 Testing
+Run backend tests (runs unit + integration tests):
+
+```powershell
+dotnet test backend/tests
+```
+
+Run frontend tests (if validating UI changes):
+
+```bash
+npm test --prefix frontend
+```
+
+Key tests to check:
+- `backend/tests/*BlocksControllerIntegrationTests*` — validates CRUD and discovery behavior.
+- Any updated test fixtures that point to the unified blocks filesystem.
+
+# 📖 Documentation
+- Updated: `docs/issues/phase-6a-unified-block-source.md` — task list and acceptance criteria updated.
+- Updated: `PHASE-6ABC-COMPLETION-SUMMARY.md` — marks Phase 6A as implemented.
+- README / Unified Block Architecture section updated to describe the backend-as-source approach.
+
+# 🚀 Deployment Notes
+- No database migrations required.
+- Deployment must ensure the backend service has access to the blocks filesystem (permissions, mount path). Validate any environment-specific file paths used by the repository.
+- If CI creates test fixtures that mount a blocks folder, ensure those mounts exist in the target environment.
+
+# 🔄 Migration Guide
+Clients that previously read blocks directly from multiple sources should be migrated to use the Blocks API endpoints. Recommended steps:
+1. Stop relying on local CLI filesystem reads in downstream integrations.
+2. Replace direct reads with `GET /api/blocks` and `GET /api/blocks/{id}` calls.
+3. If you previously wrote to local block files, use `POST /api/blocks` or the import endpoint instead.
+
+# 📸 Screenshots / Examples
+N/A for backend-only architecture changes.
+
+# 🔗 Related Issues
+- `docs/issues/phase-6a-unified-block-source.md` (Phase 6A tasks)
+- `PHASE-6ABC-COMPLETION-SUMMARY.md`
+- Branch: `feat/MAESTRO-6A-unified-block-source-architecture`
+
+# 👥 Review Notes
+- Focus on API contract stability: verify DTO shapes and HTTP status codes.
+- Verify error handling for missing/malformed block files.
+- Validate test fixtures are deterministic and do not depend on developer-local state.
+- Performance: check that large block directories are paginated or streamed appropriately.
+
+# ✅ Reviewer Checklist
+- [ ] Run `dotnet test backend/tests` and confirm all tests pass
+- [ ] Validate `BlocksController` endpoints (manual or via integration test)
+- [ ] Confirm `docs/issues/phase-6a-unified-block-source.md` reflects the final acceptance state
+- [ ] Confirm deployment environment provides access to the blocks filesystem
+
+---
+
+This file is generated to create the PR body for branch `feat/MAESTRO-6A-unified-block-source-architecture` against `development`.
 ⚙️ Feature : MAESTRO-5C – Implement Workflow Execution Engine and API
 
 # 🎯 Purpose

@@ -1,0 +1,78 @@
+/**
+ * Project Status Badge Styles
+ * Unified with app design system
+ */
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  background-color: var(--background-tertiary);
+
+  &__dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  &__label {
+    text-transform: capitalize;
+  }
+
+  // Status variants
+  &--stopped {
+    .status-badge__dot {
+      background-color: var(--text-tertiary);
+    }
+    .status-badge__label {
+      color: var(--text-tertiary);
+    }
+  }
+
+  &--starting,
+  &--stopping {
+    background-color: var(--color-warning-subtle);
+    .status-badge__dot {
+      background-color: var(--color-warning);
+      animation: pulse 1.5s ease-in-out infinite;
+    }
+    .status-badge__label {
+      color: var(--color-warning);
+    }
+  }
+
+  &--running {
+    background-color: var(--color-success-subtle);
+    .status-badge__dot {
+      background-color: var(--color-success);
+    }
+    .status-badge__label {
+      color: var(--color-success);
+    }
+  }
+
+  &--error {
+    background-color: var(--color-error-subtle);
+    .status-badge__dot {
+      background-color: var(--color-error);
+    }
+    .status-badge__label {
+      color: var(--color-error);
+    }
+  }
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}

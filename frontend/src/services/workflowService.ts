@@ -5,7 +5,7 @@
  */
 
 import { apiClient } from './api';
-import { config } from '../config';
+import { useMockBackendEffective } from '../config/config';
 import { getMockExecutionService } from './mock/mockExecutionService';
 import type {
   Workflow,
@@ -98,7 +98,7 @@ export const executionService = {
    * Execute workflow
    */
   async execute(workflowId: string): Promise<WorkflowExecution> {
-    const useMock = config.useMockBackend();
+    const useMock = useMockBackendEffective();
 
     if (useMock) {
       const mockService = getMockExecutionService();
@@ -112,7 +112,7 @@ export const executionService = {
    * Get execution by ID
    */
   async getExecution(executionId: string): Promise<WorkflowExecution> {
-    const useMock = config.useMockBackend();
+    const useMock = useMockBackendEffective();
 
     if (useMock) {
       const mockService = getMockExecutionService();
@@ -126,7 +126,7 @@ export const executionService = {
    * Pause execution
    */
   async pause(executionId: string): Promise<void> {
-    const useMock = config.useMockBackend();
+    const useMock = useMockBackendEffective();
 
     if (useMock) {
       const mockService = getMockExecutionService();
@@ -140,7 +140,7 @@ export const executionService = {
    * Resume execution
    */
   async resume(executionId: string): Promise<void> {
-    const useMock = config.useMockBackend();
+    const useMock = useMockBackendEffective();
 
     if (useMock) {
       const mockService = getMockExecutionService();
@@ -154,7 +154,7 @@ export const executionService = {
    * Cancel execution
    */
   async cancel(executionId: string): Promise<void> {
-    const useMock = config.useMockBackend();
+    const useMock = useMockBackendEffective();
 
     if (useMock) {
       const mockService = getMockExecutionService();
@@ -168,7 +168,7 @@ export const executionService = {
    * Get execution history
    */
   async getHistory(filters?: ExecutionFilters): Promise<ExecutionSummary[]> {
-    const useMock = config.useMockBackend();
+    const useMock = useMockBackendEffective();
 
     if (useMock) {
       const mockService = getMockExecutionService();
@@ -190,7 +190,7 @@ export const executionService = {
    * Get execution logs
    */
   async getLogs(executionId: string): Promise<string> {
-    const useMock = config.useMockBackend();
+    const useMock = useMockBackendEffective();
 
     if (useMock) {
       const mockService = getMockExecutionService();

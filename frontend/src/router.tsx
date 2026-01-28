@@ -13,15 +13,16 @@ import { LazyPage } from '@/utils/LazyPage';
 
 // Lazy-loaded pages
 const HomePage = lazy(() => import('@/pages/HomePage'));
-const WorkflowsPage = lazy(() => import('@/pages/WorkflowsPage'));
-const WorkflowEditorPage = lazy(() => import('@/pages/WorkflowEditorPage'));
+const MultiNodeEditorPage = lazy(() => import('@/pages/MultiNodeEditorPage'));
 const CanvasPage = lazy(() => import('@/pages/CanvasPage'));
 const ExecutionMonitorPage = lazy(() => import('@/pages/ExecutionMonitorPage'));
 const HistoryPage = lazy(() => import('@/pages/HistoryPage'));
 const ModelsPage = lazy(() => import('@/pages/ModelsPage'));
 const BlockDemoPage = lazy(() => import('@/pages/BlockDemoPage'));
 const FoundryPage = lazy(() => import('@/pages/FoundryPage'));
-const BlockEditPage = lazy(() => import('@/pages/BlockEditPage'));
+const AtomicBlockEditorPage = lazy(() => import('@/pages/AtomicBlockEditorPage'));
+const ProjectsPage = lazy(() => import('@/pages/ProjectsPage'));
+const ProjectDetailPage = lazy(() => import('@/pages/ProjectDetailPage'));
 const NotFoundPage = lazy(() => import('@/pages/NotFoundPage'));
 
 /**
@@ -41,26 +42,10 @@ const routes: RouteObject[] = [
         ),
       },
       {
-        path: 'workflows',
-        element: (
-          <LazyPage>
-            <WorkflowsPage />
-          </LazyPage>
-        ),
-      },
-      {
         path: 'workflows/:id/edit',
         element: (
           <LazyPage>
-            <WorkflowEditorPage />
-          </LazyPage>
-        ),
-      },
-      {
-        path: 'workflows/new',
-        element: (
-          <LazyPage>
-            <WorkflowEditorPage />
+            <MultiNodeEditorPage />
           </LazyPage>
         ),
       },
@@ -100,7 +85,7 @@ const routes: RouteObject[] = [
         path: 'foundry/:blockId/edit',
         element: (
           <LazyPage>
-            <BlockEditPage />
+            <AtomicBlockEditorPage />
           </LazyPage>
         ),
       },
@@ -125,6 +110,22 @@ const routes: RouteObject[] = [
         element: (
           <LazyPage>
             <ModelsPage />
+          </LazyPage>
+        ),
+      },
+      {
+        path: 'projects',
+        element: (
+          <LazyPage>
+            <ProjectsPage />
+          </LazyPage>
+        ),
+      },
+      {
+        path: 'projects/:id',
+        element: (
+          <LazyPage>
+            <ProjectDetailPage />
           </LazyPage>
         ),
       },

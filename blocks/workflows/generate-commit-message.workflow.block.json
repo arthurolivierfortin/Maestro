@@ -1,0 +1,67 @@
+{
+  "$schema": "../../docs/schemas/block.schema.json",
+  "id": "generate-commit-message-workflow",
+  "name": "Generate Commit Message Workflow",
+  "blockType": "workflow",
+  "version": "1.0.0",
+  "isAtomic": false,
+  "description": "Analyzes git changes and generates a conventional commit message using LLM",
+  "inputs": [
+    {
+      "id": "workingDir",
+      "name": "Working Directory",
+      "type": "string",
+      "required": true,
+      "description": "Git repository directory path"
+    },
+    {
+      "id": "context",
+      "name": "Additional Context",
+      "type": "string",
+      "required": false,
+      "description": "Additional context about the changes"
+    }
+  ],
+  "outputs": [
+    {
+      "id": "commitMessage",
+      "name": "Commit Message",
+      "type": "string",
+      "description": "The generated commit message in conventional format"
+    }
+  ],
+  "config": {
+    "nodes": [
+      {
+        "id": "git-diff",
+        "blockRef": "tools/git-diff",
+        "config": { "staged": true }
+      },
+      {
+        "id": "git-status",
+        "blockRef": "tools/git-status"
+      },
+      {
+        "id": "git-log",
+        "blockRef": "tools/git-log",
+        "config": { "count": 5 }
+      },
+      {
+        "id": "generate-message",
+        "blockRef": "inference/commit-message-generator"
+      }
+    ],
+    "connections": [
+      { "from": "git-diff", "to": "generate-message", "mapping": { "diff": "diff" } },
+      { "from": "git-status", "to": "generate-message", "mapping": { "status": "status" } },
+      { "from": "git-log", "to": "generate-message", "mapping": { "log": "recentCommits" } }
+    ]
+  },
+  "metadata": {
+    "category": "git",
+    "tags": ["git", "commit", "automation", "llm"],
+    "estimatedDuration": "PT1M",
+    "requiredTools": ["git"]
+  },
+  "capabilities": ["workflow", "git", "llm"]
+}

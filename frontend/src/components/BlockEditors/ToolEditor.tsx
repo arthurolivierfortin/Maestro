@@ -15,7 +15,7 @@ export interface ToolEditorProps {
 }
 
 export function ToolEditor({ block }: ToolEditorProps) {
-  const { updateBlock } = useBlockStore();
+  const updateBlock = useBlockStore((s) => s.updateBlock);
   const [config, setConfig] = useState<ToolBlockConfig>(block.config);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 

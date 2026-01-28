@@ -32,7 +32,7 @@ export async function initBlockHub(baseUrl: string) {
 
   const del = (id: string) => {
     try {
-      useBlockStore.getState().deleteBlock(id);
+      useBlockStore.getState().removeBlock(id);
     } catch (e) {
       console.error('blockHub delete error', e);
     }

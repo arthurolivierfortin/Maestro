@@ -21,7 +21,9 @@ export function FoundryPage() {
   const [selectedCapability, setSelectedCapability] = useState<string | null>(null);
   const [isWizardOpen, setIsWizardOpen] = useState(false);
 
-  const { getAllBlocks, searchBlocks } = useBlockStore();
+  // Use individual selectors to prevent re-renders on unrelated state changes
+  const getAllBlocks = useBlockStore((s) => s.getAllBlocks);
+  const searchBlocks = useBlockStore((s) => s.searchBlocks);
   const { getFavorites } = useFavorites();
 
   /**

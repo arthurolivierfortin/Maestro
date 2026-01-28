@@ -1,0 +1,43 @@
+# Development Dockerfile with hot reload
+FROM mcr.microsoft.com/dotnet/sdk:10.0.101 AS development
+WORKDIR /app
+
+# Install curl for health checks and Docker CLI for container management
+RUN apt-get update && apt-get install -y curl ca-certificates gnupg && \
+    install -m 0755 -d /etc/apt/keyrings && \
+    curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg && \
+    chmod a+r /etc/apt/keyrings/docker.gpg && \
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian bookworm stable" > /etc/apt/sources.list.d/docker.list && \
+    apt-get update && apt-get install -y docker-ce-cli && \
+    rm -rf /var/lib/apt/lists/*
+
+# Copy project files for dependency restore
+COPY src/Maestro.Domain/*.csproj src/Maestro.Domain/
+COPY src/Maestro.Application/*.csproj src/Maestro.Application/
+COPY src/Maestro.Infrastructure/*.csproj src/Maestro.Infrastructure/
+COPY src/Maestro.Api/*.csproj src/Maestro.Api/
+COPY src/Maestro.Agents/*.csproj src/Maestro.Agents/
+
+# Restore NuGet packages
+RUN dotnet restore src/Maestro.Api/Maestro.Api.csproj
+
+# Copy all source code
+COPY src/ src/
+
+# Create directories for blocks
+RUN mkdir -p /app/blocks /app/.maestro/blocks
+
+# Expose port 5000
+EXPOSE 5000
+
+# Set environment variables for development
+ENV ASPNETCORE_URLS=http://+:5000
+ENV ASPNETCORE_ENVIRONMENT=Development
+ENV DOTNET_ENVIRONMENT=Development
+ENV DOTNET_WATCH_RESTART_ON_RUDE_EDIT=1
+ENV DOTNET_USE_POLLING_FILE_WATCHER=true
+
+WORKDIR /app/src/Maestro.Api
+
+# Use dotnet watch for hot reload
+CMD ["dotnet", "watch", "run", "--no-launch-profile"]

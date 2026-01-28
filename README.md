@@ -711,6 +711,70 @@ Create environment-specific config files:
 
 ---
 
+## 🐳 Docker Deployment
+
+Maestro can be deployed in Docker containers for isolated execution, consistent environments, and multi-user deployments.
+
+### Quick Start
+
+```bash
+# 1. Create .env file from template
+cp .env.example .env
+
+# 2. Add your API keys to .env
+# Edit .env and set OPENAI_API_KEY or other provider keys
+
+# 3. Start backend in Docker
+docker-compose up -d backend
+
+# 4. Verify health
+curl http://localhost:5000/api/discovery/health
+
+# 5. Connect CLI/MCP/Frontend
+export MAESTRO_API_URL=http://localhost:5000
+node tools/maestro-cli/index.js blocks
+```
+
+### Development Mode with Hot Reload
+
+```bash
+# Start backend with hot reload
+docker-compose -f docker-compose.yml -f docker-compose.dev.yml up
+
+# Backend will reload on code changes
+# Frontend runs at http://localhost:5173
+# Backend API at http://localhost:5000
+```
+
+### Benefits of Docker Deployment
+
+- ✅ **Isolated Execution**: Safe environment for tool execution
+- ✅ **Consistent Environment**: Same configuration across machines
+- ✅ **Block Persistence**: Blocks persist via volume mounts
+- ✅ **Multi-Client**: CLI, MCP, Frontend all connect via HTTP
+- ✅ **Future Ready**: Foundation for multi-user and auto-training features
+
+### Volume Mounts
+
+Blocks are persisted through volume mounts:
+
+| Host Path | Container Path | Purpose |
+|-----------|----------------|---------|
+| `./blocks` | `/app/blocks` | Global project blocks |
+| `./.maestro` | `/app/.maestro` | Project-specific blocks |
+| `~/.maestro/blocks` | `/root/.maestro/blocks` | User blocks (read-only) |
+
+### Complete Documentation
+
+See [Docker Deployment Guide](./docs/DOCKER-DEPLOYMENT.md) for comprehensive documentation including:
+- Environment variables
+- Troubleshooting
+- CLI/MCP/Frontend integration
+- Security best practices
+- CI/CD integration
+
+---
+
 ## 🧪 Development Status
 
 **Current Phase**: Architecture and Foundation

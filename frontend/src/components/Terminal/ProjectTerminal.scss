@@ -1,0 +1,57 @@
+/**
+ * Project Terminal Styles
+ * Unified with app design system
+ */
+
+.project-terminal {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background-color: var(--background);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+
+  &__status {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-sm);
+    background-color: var(--background-secondary);
+    border-bottom: 1px solid var(--border);
+    font-size: var(--font-size-xs);
+    color: var(--text-tertiary);
+  }
+
+  &__status-indicator {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: var(--text-tertiary);
+    animation: pulse 2s ease-in-out infinite;
+
+    &--connected {
+      background-color: var(--color-success);
+      animation: none;
+    }
+  }
+
+  &__status-text {
+    font-weight: var(--font-weight-medium);
+  }
+
+  &__container {
+    flex: 1;
+    padding: var(--spacing-sm);
+    overflow: hidden;
+  }
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}

@@ -6,7 +6,7 @@
 **Team**: Backend (1 developer)  
 **Dependencies**: Phase 6A complete  
 **Blocks**: Phase 6D  
-**Status**: Not Started
+**Status**: Complete
 
 ---
 
@@ -41,13 +41,13 @@ export const realDiscoveryService: IDiscoveryService = {
 
 ### 6B.1 Create DiscoveryController
 
-- [ ] Create `DiscoveryController.cs` in `Maestro.Api/Controllers/`
-- [ ] Add route prefix `[Route("api/discovery")]`
-- [ ] Inject necessary services (`IBlockDiscoveryService`, `IConfiguration`)
+- [x] Create `DiscoveryController.cs` in `Maestro.Api/Controllers/`
+- [x] Add route prefix `[Route("api/discovery")]`
+- [x] Inject necessary services (`IBlockDiscoveryService`, `IConfiguration`)
 
 ### 6B.2 Health Check Endpoint
 
-- [ ] Implement `GET /api/discovery/health`
+- [x] Implement `GET /api/discovery/health`
   ```csharp
   [HttpGet("health")]
   public ActionResult<HealthResponse> GetHealth()
@@ -69,7 +69,7 @@ export const realDiscoveryService: IDiscoveryService = {
 
 ### 6B.3 Capabilities Endpoint
 
-- [ ] Implement `GET /api/discovery/capabilities`
+- [x] Implement `GET /api/discovery/capabilities`
   ```csharp
   [HttpGet("capabilities")]
   public ActionResult<CapabilitiesResponse> GetCapabilities()
@@ -93,7 +93,7 @@ export const realDiscoveryService: IDiscoveryService = {
 
 ### 6B.4 Configuration Endpoint
 
-- [ ] Implement `GET /api/discovery/config`
+- [x] Implement `GET /api/discovery/config`
   ```csharp
   [HttpGet("config")]
   public ActionResult<ConfigResponse> GetConfig()
@@ -111,7 +111,7 @@ export const realDiscoveryService: IDiscoveryService = {
 
 ### 6B.5 Block Types Endpoint
 
-- [ ] Implement `GET /api/discovery/blocks/types`
+- [x] Implement `GET /api/discovery/blocks/types`
   ```csharp
   [HttpGet("blocks/types")]
   public ActionResult<List<BlockTypeInfo>> GetBlockTypes()
@@ -133,14 +133,17 @@ export const realDiscoveryService: IDiscoveryService = {
 
 ### 6B.6 Block Discovery Endpoints
 
-- [ ] Implement `GET /api/discovery/blocks` - List all discoverable blocks
-- [ ] Implement `GET /api/discovery/blocks/by-type/{type}` - Filter by type
-- [ ] Implement `GET /api/discovery/blocks/by-capability/{capability}` - Filter by capability
-- [ ] Implement `GET /api/discovery/blocks/search?q={query}` - Search blocks
+- [x] Implement `GET /api/discovery/blocks` - List all discoverable blocks
+- [x] Implement `GET /api/discovery/blocks/by-type/{type}` - Filter by type
+- [x] Implement `GET /api/discovery/blocks/by-capability/{capability}` - Filter by capability
+- [x] Implement `GET /api/discovery/blocks/search?q={query}` - Search blocks
 
 ### 6B.7 Response DTOs
 
-Create DTOs for all responses:
+- [x] Create HealthResponse DTO
+- [x] Create CapabilitiesResponse DTO
+- [x] Create ConfigResponse DTO
+- [x] Create BlockTypeInfo DTO
 
 ```csharp
 public record HealthResponse
@@ -193,17 +196,18 @@ public record BlockTypeInfo
 
 ### 6B.9 OpenAPI Documentation
 
-- [ ] Add XML documentation to all endpoints
-- [ ] Configure Swagger/OpenAPI generation
+- [x] Add XML documentation to all endpoints
+- [x] Configure response types in controller attributes
+- [x] Document endpoint descriptions
 - [ ] Create `docs/api/discovery-api.md` with examples
 - [ ] Add Postman collection for testing
 
 ### 6B.10 Unit Tests
 
-- [ ] Test all discovery endpoints
-- [ ] Test error cases (no blocks, service unavailable)
-- [ ] Test response DTO serialization
-- [ ] Mock dependencies properly
+- [x] Test all discovery endpoints
+- [x] Test error cases (no blocks, service unavailable)
+- [x] Test response DTO serialization
+- [x] Mock dependencies properly
 
 ## API Specification
 

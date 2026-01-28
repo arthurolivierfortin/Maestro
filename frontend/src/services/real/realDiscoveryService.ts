@@ -60,6 +60,87 @@ class RealDiscoveryService implements IBlockDiscoveryService {
       `${this.basePath}/blocks/${blockId}/executions?limit=${limit}`
     );
   }
+
+  async getHealth(): Promise<HealthStatus> {
+    const response = await apiClient.get<HealthResponse>(`${this.basePath}/health`);
+    return {
+      isHealthy: response.status === 'healthy',
+      status: response.status,
+      version: response.version,
+      uptime: response.uptime,
+      blockCount: response.blockCount,
+      services: response.services || {},
+    };
+  }
+
+  async getCapabilities(): Promise<Capabilities> {
+    const response = await apiClient.get<CapabilitiesResponse>(`${this.basePath}/capabilities`);
+    return {
+      blockTypes: response.blockTypes || [],
+      executors: response.executors || [],
+      llmProviders: response.llmProviders || [],
+      features: response.features || [],
+    };
+  }
+
+  async getConfig(): Promise<ConfigInfo> {
+    const response = await apiClient.get<ConfigResponse>(`${this.basePath}/config`);
+    return {
+      blockSearchPaths: response.blockSearchPaths || [],
+      defaultLLMProvider: response.defaultLLMProvider,
+      executionTimeout: response.executionTimeout,
+      maxConcurrentExecutions: response.maxConcurrentExecutions,
+      signalREnabled: response.signalREnabled ?? false,
+    };
+  }
+}
+
+// Type definitions for health/capabilities
+export interface HealthStatus {
+  isHealthy: boolean;
+  status: string;
+  version: string;
+  uptime: number;
+  blockCount: number;
+  services: Record<string, string>;
+}
+
+export interface HealthResponse {
+  status: string;
+  version: string;
+  uptime: number;
+  blockCount: number;
+  services?: Record<string, string>;
+}
+
+export interface Capabilities {
+  blockTypes: string[];
+  executors: string[];
+  llmProviders: string[];
+  features: string[];
+}
+
+export interface CapabilitiesResponse {
+  blockTypes?: string[];
+  executors?: string[];
+  llmProviders?: string[];
+  features?: string[];
+}
+
+export interface ConfigInfo {
+  blockSearchPaths: string[];
+  defaultLLMProvider: string;
+  executionTimeout: number;
+  maxConcurrentExecutions: number;
+  signalREnabled: boolean;
+}
+
+export interface ConfigResponse {
+  blockSearchPaths?: string[];
+  defaultLLMProvider: string;
+  executionTimeout: number;
+  maxConcurrentExecutions: number;
+  signalREnabled?: boolean;
 }
 
 // Singleton instance

@@ -19,7 +19,9 @@ import './CanvasPage.scss';
 export function CanvasPage() {
   const { blockId } = useParams<{ blockId: string }>();
   const { navigateToBlock } = useNavigation();
-  const { addBlock, getRootBlock } = useBlockStore();
+  // Use individual selectors to prevent re-renders on unrelated state changes
+  const addBlock = useBlockStore((s) => s.addBlock);
+  const getRootBlock = useBlockStore((s) => s.getRootBlock);
 
   // Current parent is the block we're viewing the canvas of
   const currentParentId = blockId || null;

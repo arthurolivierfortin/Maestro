@@ -1,0 +1,49 @@
+{
+  "$schema": "../../../docs/schemas/block.schema.json",
+  "id": "git-diff",
+  "name": "Git Diff",
+  "blockType": "tool",
+  "version": "1.0.0",
+  "isAtomic": true,
+  "description": "Executes git diff to get staged and unstaged changes",
+  "inputs": [
+    {
+      "id": "workingDir",
+      "name": "Working Directory",
+      "type": "string",
+      "required": false,
+      "description": "The git repository directory. Uses current directory if not specified."
+    },
+    {
+      "id": "staged",
+      "name": "Staged Only",
+      "type": "boolean",
+      "required": false,
+      "description": "If true, only show staged changes (--cached)"
+    }
+  ],
+  "outputs": [
+    {
+      "id": "diff",
+      "name": "Diff Output",
+      "type": "string",
+      "description": "The git diff output"
+    },
+    {
+      "id": "exitCode",
+      "name": "Exit Code",
+      "type": "number",
+      "description": "Command exit code"
+    }
+  ],
+  "config": {
+    "command": "git",
+    "args": ["diff", "--cached"],
+    "timeout": 30000
+  },
+  "metadata": {
+    "category": "git",
+    "tags": ["git", "vcs", "diff"]
+  },
+  "capabilities": ["shell", "git"]
+}

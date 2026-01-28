@@ -1,0 +1,42 @@
+{
+  "$schema": "../../../docs/schemas/block.schema.json",
+  "id": "git-status",
+  "name": "Git Status",
+  "blockType": "tool",
+  "version": "1.0.0",
+  "isAtomic": true,
+  "description": "Executes git status to get repository state",
+  "inputs": [
+    {
+      "id": "workingDir",
+      "name": "Working Directory",
+      "type": "string",
+      "required": false,
+      "description": "The git repository directory. Uses current directory if not specified."
+    }
+  ],
+  "outputs": [
+    {
+      "id": "status",
+      "name": "Status Output",
+      "type": "string",
+      "description": "The git status output"
+    },
+    {
+      "id": "exitCode",
+      "name": "Exit Code",
+      "type": "number",
+      "description": "Command exit code"
+    }
+  ],
+  "config": {
+    "command": "git",
+    "args": ["status", "--porcelain"],
+    "timeout": 30000
+  },
+  "metadata": {
+    "category": "git",
+    "tags": ["git", "vcs", "status"]
+  },
+  "capabilities": ["shell", "git"]
+}

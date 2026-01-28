@@ -4,8 +4,13 @@ using Maestro.Infrastructure.LLMGateway;
 using Maestro.Infrastructure.Monitoring;
 using Maestro.Infrastructure.Persistence;
 using Maestro.Infrastructure.BlockStore;
+using Maestro.Infrastructure.Configuration;
+using Maestro.Infrastructure.Projects;
+using Maestro.Infrastructure.Containers;
+using Maestro.Infrastructure.Services;
 using System.IO;
 using System;
+using Microsoft.Extensions.Options;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -17,7 +22,16 @@ builder.Services.AddSignalR();
 // Register application services following Clean Architecture
 // Infrastructure implementations for Application interfaces
 builder.Services.AddScoped<IWorkflowRepository, JsonWorkflowRepository>();
-builder.Services.AddScoped<ILLMGateway, LLMGateway>();
+
+// Configure LLM Provider Gateway
+builder.Services.Configure<LLMProviderSettings>(
+    builder.Configuration.GetSection(LLMProviderSettings.SectionName));
+builder.Services.AddHttpClient<ILLMGateway, LLMProviderGateway>((sp, client) =>
+{
+    var settings = sp.GetRequiredService<IOptions<LLMProviderSettings>>().Value;
+    client.BaseAddress = new Uri(settings.BaseUrl);
+    client.Timeout = TimeSpan.FromSeconds(settings.TimeoutSeconds);
+});
 builder.Services.AddScoped<IExecutionMonitor, ExecutionMonitor>();
 // Prefer SignalR-backed monitor when available (scaffold). Register both if needed.
 // Prefer SignalR-backed monitor when available (scaffold). Register both if needed.
@@ -40,28 +54,72 @@ builder.Services.AddScoped<Maestro.Infrastructure.BlockExecutors.BlockExecutorRe
 // Register execution repository (persistence for checkpoints/executions)
 var execFolder = Path.Combine(AppContext.BaseDirectory, "executions");
 builder.Services.AddScoped<Maestro.Application.Interfaces.IExecutionRepository>(_ => new Maestro.Infrastructure.Persistence.FileSystemExecutionRepository(execFolder));
-// Phase 5A: Filesystem block discovery and repository
-var blocksGlobalPath = Path.Combine(AppContext.BaseDirectory, "blocks");
-var blocksUserPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile) ?? "", ".maestro", "blocks");
-var blocksProjectPath = Path.Combine(Directory.GetCurrentDirectory(), ".maestro", "blocks");
 
-builder.Services.AddSingleton<IBlockDiscoveryService>(_ => new FileSystemBlockDiscoveryService(new[] { blocksProjectPath, blocksUserPath, blocksGlobalPath }));
+// Phase 7A: Use MaestroPathConfiguration for centralized path resolution
+var pathConfig = new MaestroPathConfiguration(builder.Configuration);
+pathConfig.EnsureDirectoriesExist();
+
+// Log resolved paths for debugging
+Console.WriteLine($"[Maestro] Repository root: {pathConfig.RepoRootPath}");
+Console.WriteLine($"[Maestro] Global blocks:   {pathConfig.GlobalBlocksPath}");
+Console.WriteLine($"[Maestro] User blocks:     {pathConfig.UserBlocksPath}");
+Console.WriteLine($"[Maestro] Project blocks:  {pathConfig.ProjectBlocksPath}");
+
+// Register path configuration as singleton for other services
+builder.Services.AddSingleton(pathConfig);
+
+// Register SignalR-based publisher implementation as singleton (for FileSystemBlockDiscoveryService)
+builder.Services.AddSingleton<Maestro.Application.Interfaces.IBlockChangePublisher, Maestro.Api.Services.SignalRBlockChangePublisher>();
+
+// Register block discovery service with change publisher
+builder.Services.AddSingleton<IBlockDiscoveryService>(sp =>
+{
+    var publisher = sp.GetService<Maestro.Application.Interfaces.IBlockChangePublisher>();
+    var config = sp.GetRequiredService<MaestroPathConfiguration>();
+    return new FileSystemBlockDiscoveryService(config.GetSearchPaths(), publisher);
+});
+
+// Register block repository with publisher and validator
 builder.Services.AddScoped<IBlockRepository>(sp =>
 {
     var publisher = sp.GetService<Maestro.Application.Interfaces.IBlockChangePublisher>();
-    return new FileSystemBlockRepository(blocksProjectPath, publisher);
+    var validator = sp.GetService<Maestro.Application.Interfaces.IBlockValidator>();
+    var config = sp.GetRequiredService<MaestroPathConfiguration>();
+    return new FileSystemBlockRepository(config.ProjectBlocksPath, publisher, validator);
 });
-// Register SignalR-based publisher implementation
-builder.Services.AddScoped<Maestro.Application.Interfaces.IBlockChangePublisher, Maestro.Api.Services.SignalRBlockChangePublisher>();
+
 builder.Services.AddScoped<Maestro.Application.Interfaces.IBlockValidator, Maestro.Infrastructure.BlockStore.JsonSchemaBlockValidator>();
-// Add CORS for frontend development
+
+// Register project repository (Phase 7B)
+builder.Services.AddSingleton<IProjectRepository>(sp =>
+{
+    var config = sp.GetRequiredService<MaestroPathConfiguration>();
+    var logger = sp.GetService<ILogger<FileSystemProjectRepository>>();
+    return new FileSystemProjectRepository(config, logger);
+});
+
+// Register container runtime factory (Phase 7D)
+builder.Services.AddSingleton<IContainerRuntimeFactory, ContainerRuntimeFactory>();
+
+// Phase 8: Register project container service
+builder.Services.AddSingleton<IProjectContainerService, ProjectContainerService>();
+
+// Phase 8: Register file system browser
+builder.Services.AddSingleton<IFileSystemBrowser, FileSystemBrowser>();
+
+// Add CORS for frontend development and Docker
 builder.Services.AddCors(options =>
 {
+    // Read allowed origins from configuration (for Docker deployment)
+    var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
+        ?? new[] { "http://localhost:5173", "http://localhost:3000", "http://frontend:5173" };
+
     options.AddPolicy("AllowFrontend", policy =>
     {
-        policy.WithOrigins("http://localhost:5173", "http://localhost:3000")
+        policy.WithOrigins(allowedOrigins)
               .AllowAnyHeader()
-              .AllowAnyMethod();
+              .AllowAnyMethod()
+              .AllowCredentials(); // Required for SignalR
     });
 });
 
@@ -76,6 +134,14 @@ app.UseCors("AllowFrontend");
 app.MapControllers();
 app.MapHub<Maestro.Api.Hubs.BlockHub>("/hubs/blocks");
 app.MapHub<Maestro.Api.Hubs.ExecutionHub>("/hubs/execution");
+app.MapHub<Maestro.Api.Hubs.ProjectHub>("/hubs/projects");
+app.MapHub<Maestro.Api.Hubs.TerminalHub>("/hubs/terminal");
+
+// Initialize SignalR state publisher for projects
+var projectStatePublisher = new Maestro.Api.Hubs.SignalRProjectStatePublisher(
+    app.Services.GetRequiredService<Microsoft.AspNetCore.SignalR.IHubContext<Maestro.Api.Hubs.ProjectHub>>(),
+    app.Services.GetRequiredService<IProjectContainerService>(),
+    app.Services.GetRequiredService<ILogger<Maestro.Api.Hubs.SignalRProjectStatePublisher>>());
 
 app.MapGet("/", () => new
 {

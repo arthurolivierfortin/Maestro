@@ -1,0 +1,56 @@
+# Backend-only configuration for use with Electron or web dev server
+# Usage: docker-compose -f docker-compose.backend.yml up
+#
+# Then run frontend with: cd frontend && npm run dev
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    container_name: maestro-backend
+    ports:
+      - "5000:5000"
+    volumes:
+      # Mount source code for hot reload
+      - ./backend/src:/app/src:rw
+      # Mount blocks directories
+      - ./blocks:/app/blocks:rw
+      - ./.maestro:/app/.maestro:rw
+      # Mount schemas for validation
+      - ./docs:/app/docs:ro
+      # User blocks
+      - ${HOME}/.maestro/blocks:/root/.maestro/blocks:ro
+      # Host filesystem for FileBrowser
+      - ${USERPROFILE:-${HOME}}:/host/home:ro
+      # External projects (customize path as needed)
+      - ${MAESTRO_PROJECTS_PATH:-../Maestro-Test-Repo}:/projects/test-repo:rw
+      # Mount Docker socket for container management (Docker-in-Docker)
+      - /var/run/docker.sock:/var/run/docker.sock:rw
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:5000
+      - DOTNET_WATCH_RESTART_ON_RUDE_EDIT=1
+      - DOTNET_USE_POLLING_FILE_WATCHER=true
+      - MAESTRO_RUNNING_IN_DOCKER=true
+      - MAESTRO_HOST_MOUNT_PATH=/host
+      - MAESTRO_HOST_HOME_PATH=/host/home
+      # Path configuration for block discovery
+      - MAESTRO_GLOBAL_BLOCKS_PATH=/app/blocks
+      - MAESTRO_PROJECT_BLOCKS_PATH=/app/.maestro/blocks
+      # Additional paths to search for projects
+      - MAESTRO_ADDITIONAL_PROJECT_PATHS=/projects
+      - LLM__DefaultProvider=${LLM_DEFAULT_PROVIDER:-OpenAI}
+      - LLM__Providers__OpenAI__ApiKey=${OPENAI_API_KEY:-}
+      - LLM__Providers__Anthropic__ApiKey=${ANTHROPIC_API_KEY:-}
+      - LLM__Providers__Ollama__BaseUrl=${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      - Cors__AllowedOrigins=http://localhost:5173,http://localhost:3000,app://maestro
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/api/discovery/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+
+# Using default network to avoid label conflicts

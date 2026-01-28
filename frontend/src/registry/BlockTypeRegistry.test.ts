@@ -24,10 +24,13 @@ describe('BlockTypeRegistry', () => {
   describe('getAll', () => {
     it('should return all registered types', () => {
       const allTypes = BlockTypeRegistry.getAll();
-      expect(allTypes).toHaveLength(9);
+      // 11 types: workflow, agent, task, prompt, instruction, tool, decision, validator, trigger, inference, script
+      expect(allTypes).toHaveLength(11);
       expect(allTypes.map((t) => t.type)).toContain('workflow');
       expect(allTypes.map((t) => t.type)).toContain('agent');
       expect(allTypes.map((t) => t.type)).toContain('task');
+      expect(allTypes.map((t) => t.type)).toContain('inference');
+      expect(allTypes.map((t) => t.type)).toContain('script');
     });
   });
 
@@ -48,8 +51,9 @@ describe('BlockTypeRegistry', () => {
       expect(BlockTypeRegistry.canContain('prompt', 'agent')).toBe(false);
     });
 
-    it('should not allow workflow to contain prompt directly', () => {
-      expect(BlockTypeRegistry.canContain('workflow', 'prompt')).toBe(false);
+    it('should allow workflow to contain prompt directly', () => {
+      // Workflow allows any block type as children for flexibility
+      expect(BlockTypeRegistry.canContain('workflow', 'prompt')).toBe(true);
     });
 
     it('should return false for unknown types', () => {

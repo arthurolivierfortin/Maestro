@@ -2,22 +2,48 @@
  * useBlockActions Hook
  *
  * Convenience hook for block CRUD operations with common patterns.
+ * Uses individual selectors to avoid re-renders on unrelated state changes.
  */
 
+import { useCallback } from 'react';
 import { useBlockStore } from '../store/blockStore';
 import { BlockTypeRegistry } from '../registry';
 import type { Block, BlockType } from '../types/block.types';
 
 /**
- * Block actions hook
+ * Block actions hook - uses stable selectors to prevent infinite re-renders
  */
 export function useBlockActions() {
-  const store = useBlockStore();
+  // Select individual actions (these are stable references)
+  const addBlock = useBlockStore((state) => state.addBlock);
+  const removeBlock = useBlockStore((state) => state.removeBlock);
+  const updateBlock = useBlockStore((state) => state.updateBlock);
+  const moveBlock = useBlockStore((state) => state.moveBlock);
+  const duplicateBlock = useBlockStore((state) => state.duplicateBlock);
+  const getBlock = useBlockStore((state) => state.getBlock);
+  const getBlockPath = useBlockStore((state) => state.getBlockPath);
+  const getBlockChildren = useBlockStore((state) => state.getBlockChildren);
+  const getRootBlock = useBlockStore((state) => state.getRootBlock);
+  const addConnection = useBlockStore((state) => state.addConnection);
+  const removeConnection = useBlockStore((state) => state.removeConnection);
+  const getBlockConnections = useBlockStore((state) => state.getBlockConnections);
+  const undo = useBlockStore((state) => state.undo);
+  const redo = useBlockStore((state) => state.redo);
+  const canUndo = useBlockStore((state) => state.canUndo);
+  const canRedo = useBlockStore((state) => state.canRedo);
+  const clear = useBlockStore((state) => state.clear);
+  const setBlocks = useBlockStore((state) => state.setBlocks);
+  const getAllBlocks = useBlockStore((state) => state.getAllBlocks);
+  const getBlocksByType = useBlockStore((state) => state.getBlocksByType);
+  const getBlocksByCapability = useBlockStore((state) => state.getBlocksByCapability);
+  const searchBlocks = useBlockStore((state) => state.searchBlocks);
+  const exportBlock = useBlockStore((state) => state.exportBlock);
+  const importBlock = useBlockStore((state) => state.importBlock);
 
   /**
    * Create a new block with defaults
    */
-  const createBlock = (
+  const createBlock = useCallback((
     type: BlockType,
     parentId: string | null,
     overrides?: Partial<Block>
@@ -37,48 +63,71 @@ export function useBlockActions() {
       ...overrides,
     } as Block;
 
-    store.addBlock(parentId, block);
+    addBlock(parentId, block);
     return block;
-  };
+  }, [addBlock]);
 
   /**
    * Update block name
    */
-  const renameBlock = (id: string, name: string) => {
-    store.updateBlock(id, { name });
-  };
+  const renameBlock = useCallback((id: string, name: string) => {
+    updateBlock(id, { name });
+  }, [updateBlock]);
 
   /**
    * Update block position
    */
-  const updateBlockPosition = (id: string, x: number, y: number) => {
-    store.updateBlock(id, { position: { x, y } });
-  };
+  const updateBlockPosition = useCallback((id: string, x: number, y: number) => {
+    updateBlock(id, { position: { x, y } });
+  }, [updateBlock]);
 
   /**
    * Update block config
    */
-  const updateBlockConfig = (id: string, config: Partial<Record<string, unknown>>) => {
-    const block = store.getBlock(id);
+  const updateBlockConfig = useCallback((id: string, config: Partial<Record<string, unknown>>) => {
+    const block = getBlock(id);
     if (!block) return;
 
-    store.updateBlock(id, {
+    updateBlock(id, {
       config: { ...block.config, ...config } as Block['config'],
     });
-  };
+  }, [getBlock, updateBlock]);
 
   /**
    * Check if a block can be deleted
    */
-  const canDeleteBlock = (id: string): boolean => {
-    const rootBlock = store.getRootBlock();
+  const canDeleteBlock = useCallback((id: string): boolean => {
+    const rootBlock = getRootBlock();
     // Can't delete root block
     return id !== rootBlock?.id;
-  };
+  }, [getRootBlock]);
 
   return {
-    // Store methods
-    ...store,
+    // Store methods (individually selected for stability)
+    addBlock,
+    removeBlock,
+    updateBlock,
+    moveBlock,
+    duplicateBlock,
+    getBlock,
+    getBlockPath,
+    getBlockChildren,
+    getRootBlock,
+    addConnection,
+    removeConnection,
+    getBlockConnections,
+    undo,
+    redo,
+    canUndo,
+    canRedo,
+    clear,
+    setBlocks,
+    getAllBlocks,
+    getBlocksByType,
+    getBlocksByCapability,
+    searchBlocks,
+    exportBlock,
+    importBlock,
     // Custom methods
     createBlock,
     renameBlock,

@@ -1,0 +1,88 @@
+/**
+ * Container Controls Styles
+ * Unified with app design system
+ */
+
+.container-controls {
+  display: flex;
+  gap: var(--spacing-sm);
+  align-items: center;
+
+  &--compact {
+    gap: var(--spacing-xs);
+  }
+
+  &--no-runtime {
+    opacity: 0.6;
+  }
+
+  &__no-runtime-label {
+    font-size: var(--font-size-xs);
+    color: var(--text-tertiary);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    background-color: var(--background-tertiary);
+    border-radius: var(--radius-sm);
+  }
+
+  &__btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    background-color: var(--background-secondary);
+    color: var(--text-secondary);
+    font-size: var(--font-size-xs);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+
+    svg {
+      flex-shrink: 0;
+    }
+
+    &:hover:not(:disabled) {
+      background-color: var(--background-tertiary);
+      color: var(--text-primary);
+    }
+
+    &:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    &--start {
+      &:hover:not(:disabled) {
+        border-color: var(--color-success);
+        color: var(--color-success);
+        background-color: var(--color-success-subtle);
+      }
+    }
+
+    &--stop {
+      &:hover:not(:disabled) {
+        border-color: var(--color-error);
+        color: var(--color-error);
+        background-color: var(--color-error-subtle);
+      }
+    }
+
+    &--restart {
+      &:hover:not(:disabled) {
+        border-color: var(--color-warning);
+        color: var(--color-warning);
+        background-color: var(--color-warning-subtle);
+      }
+    }
+  }
+
+  // Compact mode
+  &--compact &__btn {
+    padding: var(--spacing-xs);
+
+    span {
+      display: none;
+    }
+  }
+}

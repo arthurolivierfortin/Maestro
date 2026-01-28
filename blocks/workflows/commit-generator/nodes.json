@@ -1,6 +1,0 @@
-[
-  { "id": "trigger", "blockRef": "triggers/manual", "position": { "x": 100, "y": 200 } },
-  { "id": "git-diff", "blockRef": "tools/git-diff", "position": { "x": 300, "y": 200 } },
-  { "id": "describe", "blockRef": "inference/describe-commit", "position": { "x": 500, "y": 200 } },
-  { "id": "validate", "blockRef": "validators/commit-format", "position": { "x": 700, "y": 200 } }
-]

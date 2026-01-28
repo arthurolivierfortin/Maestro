@@ -208,6 +208,37 @@ class MockDiscoveryService implements IBlockDiscoveryService {
 
     return executions;
   }
+
+  async getHealth(): Promise<import('../interfaces/IBlockDiscoveryService').HealthStatus> {
+    const blocksMap = useBlockStore.getState().blocks;
+    return {
+      isHealthy: true,
+      status: 'healthy',
+      version: '1.0.0-mock',
+      uptime: 3600,
+      blockCount: blocksMap.size,
+      services: { mock: 'running' },
+    };
+  }
+
+  async getCapabilities(): Promise<import('../interfaces/IBlockDiscoveryService').Capabilities> {
+    return {
+      blockTypes: ['prompts', 'tools', 'validators', 'inference', 'workflows'],
+      executors: ['local', 'docker'],
+      llmProviders: ['openai', 'anthropic', 'ollama'],
+      features: ['mock-mode'],
+    };
+  }
+
+  async getConfig(): Promise<import('../interfaces/IBlockDiscoveryService').ConfigInfo> {
+    return {
+      blockSearchPaths: ['./blocks'],
+      defaultLLMProvider: 'openai',
+      executionTimeout: 30000,
+      maxConcurrentExecutions: 5,
+      signalREnabled: false,
+    };
+  }
 }
 
 // Singleton instance

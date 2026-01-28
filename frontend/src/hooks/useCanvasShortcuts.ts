@@ -15,10 +15,18 @@ export interface UseCanvasShortcutsOptions {
 
 /**
  * Hook for canvas keyboard shortcuts
+ * Uses individual selectors to prevent re-renders on unrelated state changes
  */
 export function useCanvasShortcuts({ enabled = true, parentId }: UseCanvasShortcutsOptions) {
-  const { removeBlock, duplicateBlock, undo, redo, canUndo, canRedo } = useBlockStore();
-  const { selectedBlockId, selectBlock } = useNavigationStore();
+  // Use individual selectors instead of destructuring entire store
+  const removeBlock = useBlockStore((s) => s.removeBlock);
+  const duplicateBlock = useBlockStore((s) => s.duplicateBlock);
+  const undo = useBlockStore((s) => s.undo);
+  const redo = useBlockStore((s) => s.redo);
+  const canUndo = useBlockStore((s) => s.canUndo);
+  const canRedo = useBlockStore((s) => s.canRedo);
+  const selectedBlockId = useNavigationStore((s) => s.selectedBlockId);
+  const selectBlock = useNavigationStore((s) => s.selectBlock);
 
   useEffect(() => {
     if (!enabled) return;

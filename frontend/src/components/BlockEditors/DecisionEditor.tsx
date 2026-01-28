@@ -15,7 +15,7 @@ export interface DecisionEditorProps {
 }
 
 export function DecisionEditor({ block }: DecisionEditorProps) {
-  const { updateBlock } = useBlockStore();
+  const updateBlock = useBlockStore((s) => s.updateBlock);
   const [config, setConfig] = useState<DecisionBlockConfig>(block.config);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 

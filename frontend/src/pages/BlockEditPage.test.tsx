@@ -1,5 +1,5 @@
 /**
- * BlockEditPage Component Tests
+ * AtomicBlockEditPage Component Tests (renamed from BlockEditPage)
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
@@ -7,7 +7,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createElement } from 'react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
-import { BlockEditPage } from './BlockEditPage';
+import { AtomicBlockEditorPage } from './AtomicBlockEditorPage';
 import { useBlockStore } from '../store';
 import type { Block } from '../types/block.types';
 
@@ -34,10 +34,10 @@ function renderWithRouter(path: string) {
       )
     );
 
-  return render(createElement(BlockEditPage), { wrapper });
+  return render(createElement(AtomicBlockEditorPage), { wrapper });
 }
 
-describe('BlockEditPage', () => {
+describe('AtomicBlockEditorPage', () => {
   beforeEach(() => {
     // Clear the block store and navigate mock
     useBlockStore.setState({ blocks: new Map(), rootId: null });

@@ -2,12 +2,16 @@
  * NodeContextMenu Component Tests
  */
 
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { NodeContextMenu } from '../NodeContextMenu';
 import type { Block } from '../../types/block.types';
 
 describe('NodeContextMenu', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
   const mockBlock: Block = {
     id: 'test-block',
     name: 'Test Block',

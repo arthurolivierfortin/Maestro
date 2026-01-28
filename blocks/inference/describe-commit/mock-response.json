@@ -1,6 +1,0 @@
-{
-  "type": "feat",
-  "scope": "commit-generator",
-  "subject": "add commit description workflow",
-  "body": "Introduce a commit-generator workflow that creates conventional commit messages from staged diffs. Includes prompt, inference, and validator blocks."
-}

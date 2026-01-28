@@ -1,0 +1,149 @@
+{
+  "$schema": "../../../docs/schemas/workflow-schema.json",
+  "id": "generate-commit-message",
+  "name": "Generate Commit Message",
+  "description": "Analyzes git changes and generates a conventional commit message using LLM",
+  "version": "1.0.0",
+  "author": "maestro",
+  "createdAt": "2025-01-27T00:00:00Z",
+  "updatedAt": "2025-01-27T00:00:00Z",
+  "nodes": [
+    {
+      "id": "trigger",
+      "type": "TriggerNode",
+      "name": "Manual Trigger",
+      "position": { "x": 50, "y": 200 },
+      "config": {
+        "triggerType": "manual",
+        "inputSchema": {
+          "workingDir": {
+            "type": "string",
+            "description": "Git repository directory path",
+            "required": true
+          },
+          "context": {
+            "type": "string",
+            "description": "Additional context about the changes",
+            "required": false
+          }
+        }
+      }
+    },
+    {
+      "id": "git-diff",
+      "type": "ToolNode",
+      "blockId": "git-diff",
+      "name": "Get Git Diff",
+      "position": { "x": 250, "y": 100 },
+      "config": {
+        "staged": true
+      }
+    },
+    {
+      "id": "git-status",
+      "type": "ToolNode",
+      "blockId": "git-status",
+      "name": "Get Git Status",
+      "position": { "x": 250, "y": 200 },
+      "config": {}
+    },
+    {
+      "id": "git-log",
+      "type": "ToolNode",
+      "blockId": "git-log",
+      "name": "Get Recent Commits",
+      "position": { "x": 250, "y": 300 },
+      "config": {
+        "count": 5
+      }
+    },
+    {
+      "id": "generate-message",
+      "type": "InferenceNode",
+      "blockId": "commit-message-generator",
+      "name": "Generate Commit Message",
+      "position": { "x": 500, "y": 200 },
+      "config": {
+        "stream": false
+      }
+    },
+    {
+      "id": "output",
+      "type": "OutputNode",
+      "name": "Commit Message Output",
+      "position": { "x": 700, "y": 200 },
+      "config": {
+        "outputSchema": {
+          "commitMessage": {
+            "type": "string",
+            "description": "The generated commit message"
+          }
+        }
+      }
+    }
+  ],
+  "connections": [
+    {
+      "id": "conn-trigger-diff",
+      "from": "trigger",
+      "to": "git-diff",
+      "fromOutput": "workingDir",
+      "toInput": "workingDir"
+    },
+    {
+      "id": "conn-trigger-status",
+      "from": "trigger",
+      "to": "git-status",
+      "fromOutput": "workingDir",
+      "toInput": "workingDir"
+    },
+    {
+      "id": "conn-trigger-log",
+      "from": "trigger",
+      "to": "git-log",
+      "fromOutput": "workingDir",
+      "toInput": "workingDir"
+    },
+    {
+      "id": "conn-diff-generate",
+      "from": "git-diff",
+      "to": "generate-message",
+      "fromOutput": "diff",
+      "toInput": "diff"
+    },
+    {
+      "id": "conn-status-generate",
+      "from": "git-status",
+      "to": "generate-message",
+      "fromOutput": "status",
+      "toInput": "status"
+    },
+    {
+      "id": "conn-log-generate",
+      "from": "git-log",
+      "to": "generate-message",
+      "fromOutput": "log",
+      "toInput": "recentCommits"
+    },
+    {
+      "id": "conn-trigger-context",
+      "from": "trigger",
+      "to": "generate-message",
+      "fromOutput": "context",
+      "toInput": "context"
+    },
+    {
+      "id": "conn-generate-output",
+      "from": "generate-message",
+      "to": "output",
+      "fromOutput": "content",
+      "toInput": "commitMessage"
+    }
+  ],
+  "metadata": {
+    "tags": ["git", "commit", "automation", "llm"],
+    "estimatedDuration": "PT1M",
+    "requiredTools": ["git"],
+    "category": "version-control"
+  }
+}

@@ -16,7 +16,7 @@ export interface AgentEditorProps {
 }
 
 export function AgentEditor({ block }: AgentEditorProps) {
-  const { updateBlock } = useBlockStore();
+  const updateBlock = useBlockStore((s) => s.updateBlock);
   const [config, setConfig] = useState<AgentBlockConfig>(block.config);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 

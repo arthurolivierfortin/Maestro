@@ -1,0 +1,39 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dotnet build:*)",
+      "Bash(npm install:*)",
+      "Bash(npm run build:*)",
+      "Bash(dotnet restore:*)",
+      "Bash(grep:*)",
+      "Bash(docker-compose up:*)",
+      "Bash(curl:*)",
+      "Bash(timeout 15 dotnet run:*)",
+      "Bash(node index.js:*)",
+      "Bash(taskkill:*)",
+      "Bash(pkill:*)",
+      "Bash(python -m json.tool:*)",
+      "Bash(git add:*)",
+      "Bash(tasklist:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npm test)",
+      "Bash(npm test:*)",
+      "Bash(npm run build:web:*)",
+      "Bash(docker network rm:*)",
+      "Bash(docker network:*)",
+      "Bash(docker ps:*)",
+      "Bash(xargs:*)",
+      "Bash(docker-compose:*)",
+      "Bash(docker logs:*)",
+      "Bash(docker exec:*)",
+      "Bash(docker restart:*)",
+      "Bash(python -c:*)",
+      "Bash(timeout 15 npm run dev:*)",
+      "Bash(timeout 20 npm run dev:*)",
+      "Bash(npm run typecheck:*)",
+      "Bash(npm run type-check:*)",
+      "Bash(gh issue create:*)",
+      "Bash(where:*)"
+    ]
+  }
+}

@@ -15,7 +15,7 @@ export interface TriggerEditorProps {
 }
 
 export function TriggerEditor({ block }: TriggerEditorProps) {
-  const { updateBlock } = useBlockStore();
+  const updateBlock = useBlockStore((s) => s.updateBlock);
   const [config, setConfig] = useState<TriggerBlockConfig>(block.config);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 

@@ -11,7 +11,7 @@ interface ScriptEditorProps {
 }
 
 export function ScriptEditor({ block }: ScriptEditorProps) {
-  const { updateBlock } = useBlockStore();
+  const updateBlock = useBlockStore((s) => s.updateBlock);
   const navigate = useNavigate();
   const [config, setConfig] = useState<ScriptBlockConfig>(block.config);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);

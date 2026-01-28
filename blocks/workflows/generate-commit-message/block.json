@@ -1,0 +1,7 @@
+{
+  "id": "generate-commit-message",
+  "name": "Generate Commit Message",
+  "blockType": "workflow",
+  "version": "1.0.0",
+  "description": "Analyzes git changes and generates a conventional commit message using LLM"
+}

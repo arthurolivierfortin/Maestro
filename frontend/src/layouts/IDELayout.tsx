@@ -11,6 +11,8 @@ import type { ImperativePanelHandle } from 'react-resizable-panels';
 import { BlockExplorer } from '../components/BlockExplorer';
 import { Breadcrumb } from '../components/Breadcrumb';
 import { useRouteSync } from '../hooks/useRouteSync';
+import { useBlocksInitialization } from '../hooks/useBlocksInitialization';
+import { useProjectsInitialization } from '../hooks/useProjectsInitialization';
 import { TopBar } from '../components/layout/TopBar';
 import { PanelLayout, PanelItem, PanelDivider } from '../components/panels';
 import { PropertiesPanel } from '../components/panels/PropertiesPanel';
@@ -29,6 +31,28 @@ export function IDELayout() {
 
   // Sync router <-> navigation store
   useRouteSync();
+
+  // Initialize blocks and projects from backend API
+  const { isLoading: blocksLoading, error: blocksError } = useBlocksInitialization();
+  const { isLoading: projectsLoading, error: projectsError } = useProjectsInitialization();
+
+  // Log initialization status in dev mode
+  useEffect(() => {
+    if (import.meta.env.DEV) {
+      if (blocksLoading) {
+        console.log('[IDELayout] Loading blocks from backend...');
+      }
+      if (blocksError) {
+        console.error('[IDELayout] Failed to load blocks:', blocksError);
+      }
+      if (projectsLoading) {
+        console.log('[IDELayout] Loading projects from backend...');
+      }
+      if (projectsError) {
+        console.error('[IDELayout] Failed to load projects:', projectsError);
+      }
+    }
+  }, [blocksLoading, blocksError, projectsLoading, projectsError]);
 
   // Command palette and shortcuts state (now in router context)
   const { isOpen, close, open } = useCommandPalette();
@@ -127,7 +151,13 @@ export function IDELayout() {
               )}
 
               {/* Center - Main workspace */}
-              <PanelItem id="main" defaultSize={showExplorer ? 60 : 80} minSize={40}>
+              <PanelItem
+                id="main"
+                defaultSize={
+                  showExplorer && showProperties ? 60 : showExplorer || showProperties ? 80 : 100
+                }
+                minSize={40}
+              >
                 <div className="ide-layout__main-area">
                   <main className="ide-layout__workspace" tabIndex={0}>
                     <Outlet />

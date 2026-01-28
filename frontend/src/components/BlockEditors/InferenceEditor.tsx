@@ -18,8 +18,18 @@ interface InferenceEditorProps {
 }
 
 export function InferenceEditor({ block }: InferenceEditorProps) {
-  const { updateBlock } = useBlockStore();
-  const [config, setConfig] = useState<InferenceBlockConfig>(block.config);
+  const updateBlock = useBlockStore((s) => s.updateBlock);
+
+  // Ensure config has all required fields with defaults
+  // Spread first, then override with guaranteed non-undefined values
+  const safeConfig: InferenceBlockConfig = {
+    ...block.config,
+    type: 'inference',
+    userPrompt: block.config?.userPrompt ?? '',
+    inputs: block.config?.inputs ?? [],
+  };
+
+  const [config, setConfig] = useState<InferenceBlockConfig>(safeConfig);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
   useEffect(() => {

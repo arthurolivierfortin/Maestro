@@ -5,12 +5,13 @@
  */
 
 import { useState } from 'react';
-import { MoreVertical, Edit, Copy, Trash2, Star } from 'lucide-react';
+import { MoreVertical, Edit, Copy, Trash2, Star, Play } from 'lucide-react';
 import { BlockIcon } from '../icons';
 import type { Block } from '../../types/block.types';
 import { useBlockStore } from '../../store';
 import { useNavigation } from '../../hooks/useNavigation';
 import { useFavorites } from '../../hooks/useFavorites';
+import { ExecutionModal } from '../Execution/ExecutionModal';
 import './BlockCard.scss';
 
 interface BlockCardProps {
@@ -19,9 +20,15 @@ interface BlockCardProps {
 
 export function BlockCard({ block }: BlockCardProps) {
   const [showActions, setShowActions] = useState(false);
-  const { duplicateBlock, removeBlock } = useBlockStore();
+  const [showExecuteModal, setShowExecuteModal] = useState(false);
+  // Use individual selectors to prevent re-renders on unrelated state changes
+  const duplicateBlock = useBlockStore((s) => s.duplicateBlock);
+  const removeBlock = useBlockStore((s) => s.removeBlock);
   const { toggleFavorite, isFavorite } = useFavorites();
   const { navigateToBlock } = useNavigation();
+
+  // Check if block is executable (tool or workflow)
+  const isExecutable = ['tool', 'workflow'].includes(block.blockType.toLowerCase());
 
   /**
    * Handle card click - navigate to block detail or canvas
@@ -63,6 +70,15 @@ export function BlockCard({ block }: BlockCardProps) {
     if (confirm(`Are you sure you want to delete "${block.name}"?`)) {
       removeBlock(block.id);
     }
+  };
+
+  /**
+   * Handle execute action
+   */
+  const handleExecute = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setShowActions(false);
+    setShowExecuteModal(true);
   };
 
   /**
@@ -124,6 +140,12 @@ export function BlockCard({ block }: BlockCardProps) {
 
         {showActions && (
           <div className="block-card__actions">
+            {isExecutable && (
+              <button className="block-card__action block-card__action--execute" onClick={handleExecute} aria-label="Execute">
+                <Play size={16} />
+                <span>Execute</span>
+              </button>
+            )}
             <button className="block-card__action" onClick={handleEdit} aria-label="Edit">
               <Edit size={16} />
               <span>Edit</span>
@@ -199,6 +221,16 @@ export function BlockCard({ block }: BlockCardProps) {
           </div>
         )}
       </div>
+
+      {/* Execution Modal */}
+      <ExecutionModal
+        isOpen={showExecuteModal}
+        onClose={() => setShowExecuteModal(false)}
+        blockId={block.id}
+        blockName={block.name}
+        blockType={block.blockType}
+        isWorkflow={block.blockType.toLowerCase() === 'workflow'}
+      />
     </div>
   );
 }

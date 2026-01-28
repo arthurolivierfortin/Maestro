@@ -42,5 +42,23 @@ namespace Maestro.Domain.Entities
         {
             Config = config ?? new();
         }
+
+        public void SetIsAtomic(bool isAtomic)
+        {
+            IsAtomic = isAtomic;
+        }
+
+        public void SetDescription(string description)
+        {
+            Description = description ?? string.Empty;
+        }
+
+        public void AddCapabilities(IEnumerable<string> capabilities)
+        {
+            if (capabilities != null)
+            {
+                Capabilities.AddRange(capabilities);
+            }
+        }
     }
 }

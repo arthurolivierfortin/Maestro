@@ -8,6 +8,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Maestro.Application.Interfaces;
 using Maestro.Domain.Entities;
+using Maestro.Infrastructure.Configuration;
 
 namespace Maestro.Infrastructure.BlockStore
 {
@@ -16,10 +17,12 @@ namespace Maestro.Infrastructure.BlockStore
         private readonly string[] _searchPaths;
         private readonly ConcurrentDictionary<string, BlockDefinition> _cache = new();
         private readonly List<FileSystemWatcher> _watchers = new();
+        private readonly IBlockChangePublisher? _changePublisher;
 
-        public FileSystemBlockDiscoveryService(string[] searchPaths)
+        public FileSystemBlockDiscoveryService(string[] searchPaths, IBlockChangePublisher? changePublisher = null)
         {
             _searchPaths = searchPaths ?? Array.Empty<string>();
+            _changePublisher = changePublisher;
             InitializeWatchers();
             ScanAll();
         }
@@ -52,96 +55,140 @@ namespace Maestro.Infrastructure.BlockStore
 
         private void OnFileChanged(object sender, FileSystemEventArgs e)
         {
-            if (string.IsNullOrEmpty(e.Name) || !e.Name.Equals("block.json", StringComparison.OrdinalIgnoreCase)) return;
-            var folder = Path.GetDirectoryName(e.FullPath);
-            if (folder == null) return;
+            // Only support new *.block.json format
+            if (string.IsNullOrEmpty(e.Name)) return;
+            
+            if (!e.Name.EndsWith(MaestroConstants.BlockFileExtension, StringComparison.OrdinalIgnoreCase))
+                return;
+            
             try
             {
-                var block = LoadBlockFromFolder(folder);
+                var block = LoadBlockFromFile(e.FullPath);
+                
                 if (block != null)
                 {
+                    var isNew = !_cache.ContainsKey(block.Id);
                     _cache[block.Id] = block;
+                    
+                    // Publish SignalR event
+                    if (_changePublisher != null)
+                    {
+                        if (isNew)
+                        {
+                            _ = _changePublisher.PublishBlockAddedAsync(new { id = block.Id, name = block.Name, blockType = block.BlockType });
+                        }
+                        else
+                        {
+                            _ = _changePublisher.PublishBlockUpdatedAsync(new { id = block.Id, name = block.Name, blockType = block.BlockType });
+                        }
+                    }
+                }
+                else if (e.ChangeType == WatcherChangeTypes.Deleted)
+                {
+                    // Block was deleted - extract ID from filename
+                    var blockId = ExtractBlockIdFromPath(e.FullPath);
+                    if (!string.IsNullOrEmpty(blockId) && _cache.TryRemove(blockId, out _))
+                    {
+                        if (_changePublisher != null)
+                        {
+                            _ = _changePublisher.PublishBlockDeletedAsync(blockId);
+                        }
+                    }
                 }
             }
             catch { /* swallow errors for watcher */ }
+        }
+        
+        /// <summary>
+        /// Extracts the block ID from a file path.
+        /// Format: name.type.block.json -> extracts "name.type" as ID.
+        /// </summary>
+        private static string? ExtractBlockIdFromPath(string filePath)
+        {
+            var fileName = Path.GetFileName(filePath);
+            
+            if (!fileName.EndsWith(MaestroConstants.BlockFileExtension, StringComparison.OrdinalIgnoreCase))
+                return null;
+            
+            // Remove .block.json to get "name.type"
+            var withoutBlockJson = fileName.Substring(0, fileName.Length - MaestroConstants.BlockFileExtension.Length);
+            // Remove .type to get just the name portion, or keep full if no type
+            var parts = withoutBlockJson.Split('.');
+            return parts.Length > 1 ? withoutBlockJson : parts[0];
         }
 
         private void ScanAll()
         {
             foreach (var basePath in _searchPaths)
             {
-                // First scan project-level .maestro folders to allow overrides
+                if (!Directory.Exists(basePath)) continue;
+                
+                // Load project config if available (for .maestro folders)
+                Dictionary<string, object>? projectConfig = null;
                 try
                 {
-                    var projectMaestro = Path.Combine(basePath, ".maestro");
-                    if (Directory.Exists(projectMaestro))
+                    var projectConfigPath = Path.Combine(basePath, MaestroConstants.ProjectConfigFileName);
+                    if (File.Exists(projectConfigPath))
                     {
-                        // If the project has a .maestro/config.json, read it and attach to metadata for discovered blocks
-                        var projectConfigPath = Path.Combine(projectMaestro, "config.json");
-                        Dictionary<string, object>? projectConfig = null;
+                        var cfgTxt = File.ReadAllText(projectConfigPath);
+                        projectConfig = JsonSerializer.Deserialize<Dictionary<string, object>>(cfgTxt);
+                    }
+                }
+                catch { /* ignore invalid project config */ }
+                
+                // Scan for *.block.json files
+                try
+                {
+                    foreach (var file in Directory.EnumerateFiles(basePath, MaestroConstants.BlockFileGlobPattern, SearchOption.AllDirectories))
+                    {
                         try
                         {
-                            if (File.Exists(projectConfigPath))
+                            var block = LoadBlockFromFile(file);
+                            if (block != null)
                             {
-                                var cfgTxt = File.ReadAllText(projectConfigPath);
-                                projectConfig = JsonSerializer.Deserialize<Dictionary<string, object>>(cfgTxt);
+                                AttachProjectConfig(block, projectConfig);
+                                _cache[block.Id] = block;
                             }
                         }
-                        catch { /* ignore invalid project config */ }
-
-                        foreach (var file in Directory.EnumerateFiles(projectMaestro, "block.json", SearchOption.AllDirectories))
-                        {
-                            var folder = Path.GetDirectoryName(file);
-                            if (folder == null) continue;
-                            try
-                            {
-                                var block = LoadBlockFromFolder(folder);
-                                if (block != null)
-                                {
-                                    if (projectConfig != null)
-                                    {
-                                        // merge project config into block metadata under key "projectConfig"
-                                        var meta = new Dictionary<string, object>(block.Metadata ?? new Dictionary<string, object>());
-                                        meta["projectConfig"] = projectConfig;
-                                        block.UpdateMetadata(meta);
-                                    }
-                                    _cache[block.Id] = block;
-                                }
-                            }
-                            catch { }
-                        }
+                        catch { }
                     }
                 }
                 catch { }
-
-                if (!Directory.Exists(basePath)) continue;
-                foreach (var file in Directory.EnumerateFiles(basePath, "block.json", SearchOption.AllDirectories))
-                {
-                    var folder = Path.GetDirectoryName(file);
-                    if (folder == null) continue;
-                    try
-                    {
-                        var block = LoadBlockFromFolder(folder);
-                        if (block != null)
-                        {
-                            _cache[block.Id] = block;
-                        }
-                    }
-                    catch { }
-                }
             }
         }
-
-        private BlockDefinition? LoadBlockFromFolder(string folder)
+        
+        private static void AttachProjectConfig(BlockDefinition block, Dictionary<string, object>? projectConfig)
         {
-            var file = Path.Combine(folder, "block.json");
-            if (!File.Exists(file)) return null;
-            var txt = File.ReadAllText(file);
+            if (projectConfig == null) return;
+            
+            var meta = new Dictionary<string, object>(block.Metadata ?? new Dictionary<string, object>());
+            meta["projectConfig"] = projectConfig;
+            block.UpdateMetadata(meta);
+        }
+        
+        /// <summary>
+        /// Loads a block from a flat file (new format: name.type.block.json).
+        /// </summary>
+        private BlockDefinition? LoadBlockFromFile(string filePath)
+        {
+            if (!File.Exists(filePath)) return null;
+            
+            var txt = File.ReadAllText(filePath);
             using var doc = JsonDocument.Parse(txt);
             var root = doc.RootElement;
+            
+            // Get ID from file content, or derive from filename
             var id = root.TryGetProperty("id", out var idEl) ? idEl.GetString() : null;
-            id ??= Path.GetFileName(folder);
-
+            var fileName = Path.GetFileName(filePath);
+            
+            // Parse name.type.block.json -> name = first part
+            if (string.IsNullOrEmpty(id))
+            {
+                // Remove .block.json extension twice to get "name.type"
+                var nameWithType = Path.GetFileNameWithoutExtension(Path.GetFileNameWithoutExtension(fileName));
+                id = nameWithType; // Use full "name.type" as fallback ID
+            }
+            
             var name = root.TryGetProperty("name", out var nameEl) ? nameEl.GetString() : id;
             var blockType = root.TryGetProperty("blockType", out var btEl) ? btEl.GetString() : "unknown";
 
@@ -156,22 +203,30 @@ namespace Maestro.Infrastructure.BlockStore
             {
                 def.UpdateMetadata(JsonSerializer.Deserialize<Dictionary<string, object>>(meta.GetRawText()) ?? new());
             }
+            
+            // Store the source file path in metadata for reference
+            var blockMeta = new Dictionary<string, object>(def.Metadata ?? new Dictionary<string, object>());
+            blockMeta["_sourcePath"] = filePath;
+            def.UpdateMetadata(blockMeta);
 
             // Try to enrich using a specific handler
-
             try
             {
-                Maestro.Infrastructure.BlockStore.Handlers.IBlockTypeHandler? handler = blockType?.ToLowerInvariant() switch
+                var folder = Path.GetDirectoryName(filePath);
+                if (folder != null)
                 {
-                    "prompt" => new Maestro.Infrastructure.BlockStore.Handlers.PromptBlockHandler(),
-                    "tool" => new Maestro.Infrastructure.BlockStore.Handlers.ToolBlockHandler(),
-                    "agent" => new Maestro.Infrastructure.BlockStore.Handlers.AgentBlockHandler(),
-                    "workflow" => new Maestro.Infrastructure.BlockStore.Handlers.WorkflowBlockHandler(),
-                    _ => null
-                };
+                    Maestro.Infrastructure.BlockStore.Handlers.IBlockTypeHandler? handler = blockType?.ToLowerInvariant() switch
+                    {
+                        "prompt" => new Maestro.Infrastructure.BlockStore.Handlers.PromptBlockHandler(),
+                        "tool" => new Maestro.Infrastructure.BlockStore.Handlers.ToolBlockHandler(),
+                        "agent" => new Maestro.Infrastructure.BlockStore.Handlers.AgentBlockHandler(),
+                        "workflow" => new Maestro.Infrastructure.BlockStore.Handlers.WorkflowBlockHandler(),
+                        _ => null
+                    };
 
-                var enriched = handler?.Load(folder);
-                if (enriched != null) return enriched;
+                    var enriched = handler?.Load(folder);
+                    if (enriched != null) return enriched;
+                }
             }
             catch { /* swallow handler errors */ }
 
@@ -195,11 +250,11 @@ namespace Maestro.Infrastructure.BlockStore
             return Task.FromResult(b);
         }
 
-        public Task<BlockDefinition?> GetByPathAsync(string folderPath, CancellationToken ct = default)
+        public Task<BlockDefinition?> GetByPathAsync(string filePath, CancellationToken ct = default)
         {
             try
             {
-                var block = LoadBlockFromFolder(folderPath);
+                var block = LoadBlockFromFile(filePath);
                 return Task.FromResult(block);
             }
             catch { return Task.FromResult<BlockDefinition?>(null); }
