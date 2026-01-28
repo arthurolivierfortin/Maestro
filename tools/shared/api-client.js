@@ -429,6 +429,174 @@ class MaestroApiClient {
     return this._fetch('GET', `/api/execution/${id}`);
   }
 
+  // ===== AGENT FOUNDRY =====
+
+  async getFoundryOverview(projectPath = null) {
+    const params = new URLSearchParams();
+    if (projectPath) params.set('projectPath', projectPath);
+    const queryString = params.toString();
+    return this._fetch('GET', `/api/foundry/overview${queryString ? `?${queryString}` : ''}`);
+  }
+
+  async getFoundryLeaderboard(limit = 10, projectPath = null) {
+    const params = new URLSearchParams();
+    params.set('limit', limit.toString());
+    if (projectPath) params.set('projectPath', projectPath);
+    return this._fetch('GET', `/api/foundry/leaderboard?${params.toString()}`);
+  }
+
+  async getFoundryRelationships(projectPath = null) {
+    const params = new URLSearchParams();
+    if (projectPath) params.set('projectPath', projectPath);
+    const queryString = params.toString();
+    return this._fetch('GET', `/api/foundry/relationships${queryString ? `?${queryString}` : ''}`);
+  }
+
+  async promoteToFoundry(request, projectPath = null) {
+    const params = new URLSearchParams();
+    if (projectPath) params.set('projectPath', projectPath);
+    const queryString = params.toString();
+    return this._fetch('POST', `/api/foundry/promote${queryString ? `?${queryString}` : ''}`, { body: request });
+  }
+
+  // ===== AGENTS =====
+
+  async listAgents(filter = {}) {
+    const params = new URLSearchParams();
+    if (filter.projectPath) params.set('projectPath', filter.projectPath);
+    if (filter.category) params.set('category', filter.category);
+    const queryString = params.toString();
+    return this._fetch('GET', `/api/agents${queryString ? `?${queryString}` : ''}`);
+  }
+
+  async getAgent(id, projectPath = null) {
+    if (!id) throw new Error('Agent ID is required');
+    const params = new URLSearchParams();
+    if (projectPath) params.set('projectPath', projectPath);
+    const queryString = params.toString();
+    return this._fetch('GET', `/api/agents/${id}${queryString ? `?${queryString}` : ''}`);
+  }
+
+  async createAgent(agent, projectPath = null) {
+    if (!agent || !agent.name) throw new Error('Agent must have a name');
+    const params = new URLSearchParams();
+    if (projectPath) params.set('projectPath', projectPath);
+    const queryString = params.toString();
+    return this._fetch('POST', `/api/agents${queryString ? `?${queryString}` : ''}`, { body: agent });
+  }
+
+  async updateAgent(id, updates, projectPath = null) {
+    if (!id) throw new Error('Agent ID is required');
+    const params = new URLSearchParams();
+    if (projectPath) params.set('projectPath', projectPath);
+    const queryString = params.toString();
+    return this._fetch('PUT', `/api/agents/${id}${queryString ? `?${queryString}` : ''}`, { body: updates });
+  }
+
+  async deleteAgent(id, projectPath = null) {
+    if (!id) throw new Error('Agent ID is required');
+    const params = new URLSearchParams();
+    if (projectPath) params.set('projectPath', projectPath);
+    const queryString = params.toString();
+    return this._fetch('DELETE', `/api/agents/${id}${queryString ? `?${queryString}` : ''}`);
+  }
+
+  async getAgentMetrics(id, projectPath = null) {
+    if (!id) throw new Error('Agent ID is required');
+    const params = new URLSearchParams();
+    if (projectPath) params.set('projectPath', projectPath);
+    const queryString = params.toString();
+    return this._fetch('GET', `/api/agents/${id}/metrics${queryString ? `?${queryString}` : ''}`);
+  }
+
+  async recordAgentRun(id, result, projectPath = null) {
+    if (!id) throw new Error('Agent ID is required');
+    const params = new URLSearchParams();
+    if (projectPath) params.set('projectPath', projectPath);
+    const queryString = params.toString();
+    return this._fetch('POST', `/api/agents/${id}/runs${queryString ? `?${queryString}` : ''}`, { body: result });
+  }
+
+  async getAgentTools(id, projectPath = null) {
+    if (!id) throw new Error('Agent ID is required');
+    const params = new URLSearchParams();
+    if (projectPath) params.set('projectPath', projectPath);
+    const queryString = params.toString();
+    return this._fetch('GET', `/api/agents/${id}/tools${queryString ? `?${queryString}` : ''}`);
+  }
+
+  async getTopAgents(limit = 10, projectPath = null) {
+    const params = new URLSearchParams();
+    params.set('limit', limit.toString());
+    if (projectPath) params.set('projectPath', projectPath);
+    return this._fetch('GET', `/api/agents/top?${params.toString()}`);
+  }
+
+  // ===== TOOLS =====
+
+  async listTools(filter = {}) {
+    const params = new URLSearchParams();
+    if (filter.projectPath) params.set('projectPath', filter.projectPath);
+    if (filter.category) params.set('category', filter.category);
+    const queryString = params.toString();
+    return this._fetch('GET', `/api/tools${queryString ? `?${queryString}` : ''}`);
+  }
+
+  async getTool(id, projectPath = null) {
+    if (!id) throw new Error('Tool ID is required');
+    const params = new URLSearchParams();
+    if (projectPath) params.set('projectPath', projectPath);
+    const queryString = params.toString();
+    return this._fetch('GET', `/api/tools/${id}${queryString ? `?${queryString}` : ''}`);
+  }
+
+  async createTool(tool, projectPath = null) {
+    if (!tool || !tool.name) throw new Error('Tool must have a name');
+    const params = new URLSearchParams();
+    if (projectPath) params.set('projectPath', projectPath);
+    const queryString = params.toString();
+    return this._fetch('POST', `/api/tools${queryString ? `?${queryString}` : ''}`, { body: tool });
+  }
+
+  async updateTool(id, updates, projectPath = null) {
+    if (!id) throw new Error('Tool ID is required');
+    const params = new URLSearchParams();
+    if (projectPath) params.set('projectPath', projectPath);
+    const queryString = params.toString();
+    return this._fetch('PUT', `/api/tools/${id}${queryString ? `?${queryString}` : ''}`, { body: updates });
+  }
+
+  async deleteTool(id, projectPath = null) {
+    if (!id) throw new Error('Tool ID is required');
+    const params = new URLSearchParams();
+    if (projectPath) params.set('projectPath', projectPath);
+    const queryString = params.toString();
+    return this._fetch('DELETE', `/api/tools/${id}${queryString ? `?${queryString}` : ''}`);
+  }
+
+  async getToolMetrics(id, projectPath = null) {
+    if (!id) throw new Error('Tool ID is required');
+    const params = new URLSearchParams();
+    if (projectPath) params.set('projectPath', projectPath);
+    const queryString = params.toString();
+    return this._fetch('GET', `/api/tools/${id}/metrics${queryString ? `?${queryString}` : ''}`);
+  }
+
+  async recordToolRun(id, result, projectPath = null) {
+    if (!id) throw new Error('Tool ID is required');
+    const params = new URLSearchParams();
+    if (projectPath) params.set('projectPath', projectPath);
+    const queryString = params.toString();
+    return this._fetch('POST', `/api/tools/${id}/runs${queryString ? `?${queryString}` : ''}`, { body: result });
+  }
+
+  async getTopTools(limit = 10, projectPath = null) {
+    const params = new URLSearchParams();
+    params.set('limit', limit.toString());
+    if (projectPath) params.set('projectPath', projectPath);
+    return this._fetch('GET', `/api/tools/top?${params.toString()}`);
+  }
+
   // ===== HELPER METHODS =====
 
   async checkBackendReady() {

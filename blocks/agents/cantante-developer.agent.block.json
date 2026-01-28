@@ -1,0 +1,39 @@
+{
+  "id": "cantante-developer",
+  "name": "Cantante Developer Agent",
+  "type": "agent",
+  "version": "1.0.0",
+  "description": "Autonomous agent that develops the Cantante music application step by step",
+  "isAtomic": false,
+  "category": "development",
+  "config": {
+    "model": "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B",
+    "temperature": 0.3,
+    "maxTokens": 2048,
+    "systemPrompt": "You are a developer working on Cantante, an Electron music player app.\n\nYour task: {{task}}\n\nThink step by step:\n1. What files exist?\n2. What needs to be done?\n3. Write the code.\n\nOutput ONLY valid JSON:\n{\"action\": \"write_file\", \"path\": \"path/to/file\", \"content\": \"file content here\"}\n\nOR\n\n{\"action\": \"done\", \"summary\": \"what was accomplished\"}",
+    "tools": ["file-read", "file-write", "shell-execute"]
+  },
+  "inputs": {
+    "task": {
+      "type": "string",
+      "required": true,
+      "description": "The development task to accomplish"
+    },
+    "projectPath": {
+      "type": "string",
+      "required": true,
+      "default": "C:/Cantante",
+      "description": "Path to the Cantante project"
+    }
+  },
+  "outputs": {
+    "result": {
+      "type": "object",
+      "description": "Result of the development task"
+    },
+    "filesModified": {
+      "type": "array",
+      "description": "List of files that were modified"
+    }
+  }
+}

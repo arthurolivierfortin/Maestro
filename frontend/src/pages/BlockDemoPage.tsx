@@ -36,23 +36,15 @@ export function BlockDemoPage() {
 
     if (!task) return;
 
-    // Add planner agent to task
-    const plannerAgent = createBlock('agent', task.id, {
-      name: 'Planner Agent',
+    // Add inference block for planning
+    createBlock('inference', task.id, {
+      name: 'Planning Inference',
       position: { x: 100, y: 50 },
     });
 
-    if (plannerAgent) {
-      // Add prompt to planner agent
-      createBlock('prompt', plannerAgent.id, {
-        name: 'Planning Prompt',
-        position: { x: 50, y: 50 },
-      });
-    }
-
-    // Add coder agent to task
-    createBlock('agent', task.id, {
-      name: 'Coder Agent',
+    // Add command to run code generation
+    createBlock('command', task.id, {
+      name: 'Code Generator',
       position: { x: 300, y: 50 },
     });
 

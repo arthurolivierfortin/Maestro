@@ -966,6 +966,383 @@ async function getRunInfo(id) {
   }
 }
 
+// ============= Agent Foundry Commands =============
+
+async function listAgents(filter = {}) {
+  try {
+    const agents = await client.listAgents(filter);
+    if (!agents || agents.length === 0) {
+      console.log('\nNo agents found');
+      console.log('  Create one with: maestro agents create --name "Agent" --block <block-id>');
+      return;
+    }
+
+    console.log('\n🤖 Agents:\n');
+    console.table(agents.map(a => ({
+      'ID': a.id,
+      'Name': a.name,
+      'Category': a.category || 'general',
+      'Score': a.overallScore?.toFixed(0) || '-',
+      'Runs': a.totalRuns || 0,
+      'Completion': a.completionRate ? `${a.completionRate.toFixed(0)}%` : '-'
+    })));
+  } catch (error) {
+    handleApiError(error, 'listing agents');
+    process.exit(1);
+  }
+}
+
+async function getAgentInfo(id) {
+  try {
+    const agent = await client.getAgent(id);
+    console.log('\n🤖 Agent Details:\n');
+    console.log(`  ID:           ${agent.id}`);
+    console.log(`  Name:         ${agent.name}`);
+    console.log(`  Description:  ${agent.description || 'N/A'}`);
+    console.log(`  Version:      ${agent.version}`);
+    console.log(`  Category:     ${agent.category || 'general'}`);
+    console.log(`  Block ID:     ${agent.blockId}`);
+    console.log(`  Capabilities: ${agent.capabilities?.join(', ') || 'None'}`);
+    console.log(`  Tools:        ${agent.availableTools?.join(', ') || 'None'}`);
+    console.log(`  Sub-agents:   ${agent.availableAgents?.join(', ') || 'None'}`);
+    console.log(`  Tags:         ${agent.tags?.join(', ') || 'None'}`);
+    console.log(`  Author:       ${agent.author || 'N/A'}`);
+    console.log(`  Created:      ${agent.createdAt}`);
+    console.log(`  Updated:      ${agent.updatedAt}`);
+
+    if (agent.metrics) {
+      console.log('\n  Metrics:');
+      console.log(`    Total Runs:       ${agent.metrics.totalRuns || 0}`);
+      console.log(`    Successful:       ${agent.metrics.successfulRuns || 0}`);
+      console.log(`    Completion Rate:  ${agent.metrics.completionRate?.toFixed(1) || 0}%`);
+      console.log(`    Overall Score:    ${agent.metrics.overallScore?.toFixed(1) || 0}`);
+      if (agent.metrics.lastRunAt) {
+        console.log(`    Last Run:         ${new Date(agent.metrics.lastRunAt).toLocaleString()}`);
+      }
+    }
+
+    if (agent.toolDetails && agent.toolDetails.length > 0) {
+      console.log('\n  Tool Details:');
+      agent.toolDetails.forEach(t => {
+        console.log(`    - ${t.name} (${t.id}): Score ${t.overallScore?.toFixed(0) || '-'}`);
+      });
+    }
+
+    console.log('');
+  } catch (error) {
+    if (error.status === 404) {
+      console.error(`❌ Agent not found: ${id}`);
+    } else {
+      handleApiError(error, 'getting agent');
+    }
+    process.exit(1);
+  }
+}
+
+async function createAgent(options) {
+  try {
+    const agent = {
+      name: options.name,
+      description: options.description,
+      blockId: options.block,
+      version: options.version || '1.0.0',
+      category: options.category || 'general',
+      capabilities: options.capabilities ? options.capabilities.split(',') : [],
+      availableTools: options.tools ? options.tools.split(',') : [],
+      availableAgents: options.agents ? options.agents.split(',') : [],
+      tags: options.tags ? options.tags.split(',') : [],
+      author: options.author
+    };
+
+    const result = await client.createAgent(agent);
+    console.log('\n✅ Agent created!\n');
+    console.log(`  ID:   ${result.id}`);
+    console.log(`  Name: ${result.name}`);
+    console.log('');
+  } catch (error) {
+    handleApiError(error, 'creating agent');
+    process.exit(1);
+  }
+}
+
+async function deleteAgentCmd(id, options = {}) {
+  try {
+    if (!options.force) {
+      console.log(`\n⚠️  This will delete the agent '${id}'`);
+      console.log('   Use --force to confirm deletion');
+      process.exit(1);
+    }
+    await client.deleteAgent(id);
+    console.log(`\n✅ Agent deleted: ${id}`);
+    console.log('');
+  } catch (error) {
+    if (error.status === 404) {
+      console.error(`❌ Agent not found: ${id}`);
+    } else {
+      handleApiError(error, 'deleting agent');
+    }
+    process.exit(1);
+  }
+}
+
+async function getAgentMetricsCmd(id) {
+  try {
+    const metrics = await client.getAgentMetrics(id);
+    console.log('\n📊 Agent Metrics:\n');
+    console.log(`  Total Runs:       ${metrics.totalRuns || 0}`);
+    console.log(`  Successful:       ${metrics.successfulRuns || 0}`);
+    console.log(`  Failed:           ${metrics.failedRuns || 0}`);
+    console.log(`  Completion Rate:  ${metrics.completionRate?.toFixed(1) || 0}%`);
+    console.log(`  Avg Exec Time:    ${metrics.averageExecutionTimeMs?.toFixed(0) || 0}ms`);
+    console.log(`  Avg Token Cost:   ${metrics.averageTokenCost?.toFixed(0) || 0}`);
+    console.log(`  Avg Task Score:   ${metrics.averageTaskCompletionScore?.toFixed(1) || 0}`);
+    console.log(`  Avg Efficiency:   ${metrics.averageEfficiencyScore?.toFixed(1) || 0}`);
+    console.log(`  Avg Quality:      ${metrics.averageQualityScore?.toFixed(1) || 0}`);
+    console.log(`  Overall Score:    ${metrics.overallScore?.toFixed(1) || 0}`);
+    if (metrics.lastRunAt) {
+      console.log(`  Last Run:         ${new Date(metrics.lastRunAt).toLocaleString()}`);
+    }
+    console.log('');
+  } catch (error) {
+    if (error.status === 404) {
+      console.error(`❌ Agent not found: ${id}`);
+    } else {
+      handleApiError(error, 'getting agent metrics');
+    }
+    process.exit(1);
+  }
+}
+
+async function listTools(filter = {}) {
+  try {
+    const tools = await client.listTools(filter);
+    if (!tools || tools.length === 0) {
+      console.log('\nNo tools found');
+      console.log('  Create one with: maestro tools create --name "Tool" --block <block-id>');
+      return;
+    }
+
+    console.log('\n🔧 Tools:\n');
+    console.table(tools.map(t => ({
+      'ID': t.id,
+      'Name': t.name,
+      'Category': t.category || 'general',
+      'Score': t.overallScore?.toFixed(0) || '-',
+      'Runs': t.totalRuns || 0,
+      'Success': t.successRate ? `${t.successRate.toFixed(0)}%` : '-'
+    })));
+  } catch (error) {
+    handleApiError(error, 'listing tools');
+    process.exit(1);
+  }
+}
+
+async function getToolInfo(id) {
+  try {
+    const tool = await client.getTool(id);
+    console.log('\n🔧 Tool Details:\n');
+    console.log(`  ID:           ${tool.id}`);
+    console.log(`  Name:         ${tool.name}`);
+    console.log(`  Description:  ${tool.description || 'N/A'}`);
+    console.log(`  Version:      ${tool.version}`);
+    console.log(`  Category:     ${tool.category || 'general'}`);
+    console.log(`  Block ID:     ${tool.blockId}`);
+    console.log(`  Tags:         ${tool.tags?.join(', ') || 'None'}`);
+    console.log(`  Author:       ${tool.author || 'N/A'}`);
+    console.log(`  Created:      ${tool.createdAt}`);
+    console.log(`  Updated:      ${tool.updatedAt}`);
+
+    if (tool.metrics) {
+      console.log('\n  Metrics:');
+      console.log(`    Total Runs:       ${tool.metrics.totalRuns || 0}`);
+      console.log(`    Successful:       ${tool.metrics.successfulRuns || 0}`);
+      console.log(`    Success Rate:     ${tool.metrics.successRate?.toFixed(1) || 0}%`);
+      console.log(`    Overall Score:    ${tool.metrics.overallScore?.toFixed(1) || 0}`);
+      console.log(`    Used by Agents:   ${tool.metrics.usedByAgents?.length || 0}`);
+      if (tool.metrics.lastRunAt) {
+        console.log(`    Last Run:         ${new Date(tool.metrics.lastRunAt).toLocaleString()}`);
+      }
+    }
+    console.log('');
+  } catch (error) {
+    if (error.status === 404) {
+      console.error(`❌ Tool not found: ${id}`);
+    } else {
+      handleApiError(error, 'getting tool');
+    }
+    process.exit(1);
+  }
+}
+
+async function createTool(options) {
+  try {
+    const tool = {
+      name: options.name,
+      description: options.description,
+      blockId: options.block,
+      version: options.version || '1.0.0',
+      category: options.category || 'general',
+      tags: options.tags ? options.tags.split(',') : [],
+      author: options.author
+    };
+
+    const result = await client.createTool(tool);
+    console.log('\n✅ Tool created!\n');
+    console.log(`  ID:   ${result.id}`);
+    console.log(`  Name: ${result.name}`);
+    console.log('');
+  } catch (error) {
+    handleApiError(error, 'creating tool');
+    process.exit(1);
+  }
+}
+
+async function deleteToolCmd(id, options = {}) {
+  try {
+    if (!options.force) {
+      console.log(`\n⚠️  This will delete the tool '${id}'`);
+      console.log('   Use --force to confirm deletion');
+      process.exit(1);
+    }
+    await client.deleteTool(id);
+    console.log(`\n✅ Tool deleted: ${id}`);
+    console.log('');
+  } catch (error) {
+    if (error.status === 404) {
+      console.error(`❌ Tool not found: ${id}`);
+    } else {
+      handleApiError(error, 'deleting tool');
+    }
+    process.exit(1);
+  }
+}
+
+async function getToolMetricsCmd(id) {
+  try {
+    const metrics = await client.getToolMetrics(id);
+    console.log('\n📊 Tool Metrics:\n');
+    console.log(`  Total Runs:       ${metrics.totalRuns || 0}`);
+    console.log(`  Successful:       ${metrics.successfulRuns || 0}`);
+    console.log(`  Success Rate:     ${metrics.successRate?.toFixed(1) || 0}%`);
+    console.log(`  Avg Exec Time:    ${metrics.averageExecutionTimeMs?.toFixed(0) || 0}ms`);
+    console.log(`  Avg Token Cost:   ${metrics.averageTokenCost?.toFixed(0) || 0}`);
+    console.log(`  Avg Score:        ${metrics.averageScore?.toFixed(1) || 0}`);
+    console.log(`  Overall Score:    ${metrics.overallScore?.toFixed(1) || 0}`);
+    console.log(`  Used by Agents:   ${metrics.usedByAgents?.length || 0}`);
+    if (metrics.usedByAgents?.length > 0) {
+      console.log(`    Agents:         ${metrics.usedByAgents.join(', ')}`);
+    }
+    if (metrics.lastRunAt) {
+      console.log(`  Last Run:         ${new Date(metrics.lastRunAt).toLocaleString()}`);
+    }
+    console.log('');
+  } catch (error) {
+    if (error.status === 404) {
+      console.error(`❌ Tool not found: ${id}`);
+    } else {
+      handleApiError(error, 'getting tool metrics');
+    }
+    process.exit(1);
+  }
+}
+
+async function getFoundryOverview() {
+  try {
+    const overview = await client.getFoundryOverview();
+    console.log('\n🏭 Agent Foundry Overview:\n');
+    console.log(`  Agents:          ${overview.agentCount || 0}`);
+    console.log(`  Tools:           ${overview.toolCount || 0}`);
+    console.log(`  Agent Runs:      ${overview.totalAgentRuns || 0}`);
+    console.log(`  Tool Runs:       ${overview.totalToolRuns || 0}`);
+    console.log(`  Avg Agent Score: ${overview.avgAgentScore?.toFixed(1) || 0}`);
+    console.log(`  Avg Tool Score:  ${overview.avgToolScore?.toFixed(1) || 0}`);
+
+    if (overview.topAgents?.length > 0) {
+      console.log('\n  Top Agents:');
+      overview.topAgents.forEach((a, i) => {
+        console.log(`    ${i + 1}. ${a.name} - Score: ${a.score?.toFixed(0) || '-'} (${a.runs} runs)`);
+      });
+    }
+
+    if (overview.topTools?.length > 0) {
+      console.log('\n  Top Tools:');
+      overview.topTools.forEach((t, i) => {
+        console.log(`    ${i + 1}. ${t.name} - Score: ${t.score?.toFixed(0) || '-'} (${t.runs} runs)`);
+      });
+    }
+
+    if (overview.recentActivity?.length > 0) {
+      console.log('\n  Recent Activity:');
+      overview.recentActivity.slice(0, 5).forEach(a => {
+        const icon = a.type === 'agent' ? '🤖' : '🔧';
+        console.log(`    ${icon} ${a.name} - ${a.action} (Score: ${a.score?.toFixed(0) || '-'})`);
+      });
+    }
+
+    console.log('');
+  } catch (error) {
+    handleApiError(error, 'getting foundry overview');
+    process.exit(1);
+  }
+}
+
+async function getFoundryLeaderboard(limit = 10) {
+  try {
+    const leaderboard = await client.getFoundryLeaderboard(limit);
+    console.log('\n🏆 Agent Foundry Leaderboard:\n');
+
+    if (leaderboard.agents?.length > 0) {
+      console.log('  Top Agents:');
+      console.table(leaderboard.agents.map((a, i) => ({
+        'Rank': i + 1,
+        'Name': a.name,
+        'Category': a.category || 'general',
+        'Score': a.score?.toFixed(0) || '-',
+        'Runs': a.runs || 0,
+        'Success': a.successRate ? `${a.successRate.toFixed(0)}%` : '-'
+      })));
+    }
+
+    if (leaderboard.tools?.length > 0) {
+      console.log('\n  Top Tools:');
+      console.table(leaderboard.tools.map((t, i) => ({
+        'Rank': i + 1,
+        'Name': t.name,
+        'Category': t.category || 'general',
+        'Score': t.score?.toFixed(0) || '-',
+        'Runs': t.runs || 0,
+        'Success': t.successRate ? `${t.successRate.toFixed(0)}%` : '-'
+      })));
+    }
+  } catch (error) {
+    handleApiError(error, 'getting foundry leaderboard');
+    process.exit(1);
+  }
+}
+
+async function promoteBlock(options) {
+  try {
+    const request = {
+      blockId: options.block,
+      name: options.name,
+      description: options.description,
+      designationType: options.type, // 'tool' or 'agent'
+      category: options.category,
+      tags: options.tags ? options.tags.split(',') : [],
+      availableTools: options.tools ? options.tools.split(',') : []
+    };
+
+    const result = await client.promoteToFoundry(request);
+    console.log(`\n✅ ${result.message}\n`);
+    console.log(`  Type: ${result.type}`);
+    console.log(`  ID:   ${result.id}`);
+    console.log('');
+  } catch (error) {
+    handleApiError(error, 'promoting block');
+    process.exit(1);
+  }
+}
+
 // ============= LLM Commands =============
 
 async function checkLLMStatus() {
@@ -1013,7 +1390,7 @@ async function checkLLMStatus() {
 async function main() {
   const argv = minimist(process.argv.slice(2), {
     boolean: ['mock', 'help', 'h', 'force', 'status'],
-    string: ['api-url', 'u', 'name', 'path', 'description', 'runtime', 'image', 'work-dir', 'block-paths', 'model', 'lines', 'since', 'working-dir', 'workdir', 'workflow', 'iterations', 'parallel', 'delay', 'goal', 'tags', 'inputs', 'config', 'from', 'to', 'limit']
+    string: ['api-url', 'u', 'name', 'path', 'description', 'runtime', 'image', 'work-dir', 'block-paths', 'model', 'lines', 'since', 'working-dir', 'workdir', 'workflow', 'iterations', 'parallel', 'delay', 'goal', 'tags', 'inputs', 'config', 'from', 'to', 'limit', 'block', 'category', 'version', 'author', 'capabilities', 'tools', 'agents', 'type']
   });
 
   // Update client URL if provided
@@ -1075,6 +1452,25 @@ Metrics Commands:
   runs                 List execution history
   runs info <id>       Show run details
 
+Agent Foundry Commands:
+  foundry              Show foundry overview dashboard
+  foundry leaderboard  Show top agents and tools by score
+  foundry promote      Promote a block to agent or tool
+
+Agent Commands:
+  agents               List all agents
+  agents info <id>     Show agent details
+  agents create        Create a new agent
+  agents delete <id>   Delete an agent (--force required)
+  agents metrics <id>  Show agent metrics
+
+Tool Commands:
+  tools                List all tools
+  tools info <id>      Show tool details
+  tools create         Create a new tool
+  tools delete <id>    Delete a tool (--force required)
+  tools metrics <id>   Show tool metrics
+
 LLM Commands:
   llm                  Show LLM provider status
 
@@ -1107,6 +1503,27 @@ Training Create Options:
   --goal <goal>        Optimization goal: quality, cost, speed (default: quality)
   --tags <tags>        Comma-separated tags
 
+Agent/Tool Create Options:
+  --name <name>        Name (required)
+  --block <id>         Block ID (required for create)
+  --description <desc> Description
+  --category <cat>     Category (default: general)
+  --version <ver>      Version (default: 1.0.0)
+  --tags <tags>        Comma-separated tags
+  --author <author>    Author name
+  --capabilities <caps> Comma-separated capabilities (agents only)
+  --tools <ids>        Comma-separated tool IDs (agents only)
+  --agents <ids>       Comma-separated sub-agent IDs (agents only)
+
+Foundry Promote Options:
+  --block <id>         Block ID to promote (required)
+  --name <name>        Name for the promoted item (required)
+  --type <type>        Designation type: tool or agent (required)
+  --description <desc> Description
+  --category <cat>     Category
+  --tags <tags>        Comma-separated tags
+  --tools <ids>        Comma-separated tool IDs (for agents)
+
 Metrics Filter Options:
   --from <date>        Start date (ISO format)
   --to <date>          End date (ISO format)
@@ -1132,6 +1549,17 @@ Examples:
   maestro runs --limit 10
   maestro llm
   maestro health
+
+  # Agent Foundry
+  maestro foundry
+  maestro foundry leaderboard --limit 5
+  maestro agents
+  maestro agents info my-agent
+  maestro agents create --name "Code Review Agent" --block review-workflow --tools lint,test
+  maestro tools
+  maestro tools info commit-helper
+  maestro tools create --name "Git Diff" --block git-diff-block
+  maestro foundry promote --block my-workflow --name "My Tool" --type tool
 `);
     return;
   }
@@ -1423,6 +1851,125 @@ Examples:
     // LLM commands
     if (cmd === 'llm') {
       return await checkLLMStatus();
+    }
+
+    // Agent Foundry commands
+    if (cmd === 'foundry') {
+      const subCmd = argv._[1];
+
+      if (!subCmd) return await getFoundryOverview();
+
+      if (subCmd === 'leaderboard') {
+        return await getFoundryLeaderboard(argv.limit ? parseInt(argv.limit) : 10);
+      }
+
+      if (subCmd === 'promote') {
+        if (!argv.block) { console.error('❌ --block is required'); process.exit(1); }
+        if (!argv.name) { console.error('❌ --name is required'); process.exit(1); }
+        if (!argv.type || (argv.type !== 'tool' && argv.type !== 'agent')) {
+          console.error('❌ --type must be "tool" or "agent"');
+          process.exit(1);
+        }
+        return await promoteBlock({
+          block: argv.block,
+          name: argv.name,
+          description: argv.description,
+          type: argv.type,
+          category: argv.category,
+          tags: argv.tags,
+          tools: argv.tools
+        });
+      }
+
+      console.error(`❌ Unknown foundry subcommand: ${subCmd}`);
+      process.exit(1);
+    }
+
+    // Agent commands
+    if (cmd === 'agents') {
+      const subCmd = argv._[1];
+
+      if (!subCmd) return await listAgents({ category: argv.category });
+
+      if (subCmd === 'info') {
+        const id = argv._[2];
+        if (!id) { console.error('❌ Agent ID required'); process.exit(1); }
+        return await getAgentInfo(id);
+      }
+
+      if (subCmd === 'create') {
+        if (!argv.name) { console.error('❌ --name is required'); process.exit(1); }
+        if (!argv.block) { console.error('❌ --block is required'); process.exit(1); }
+        return await createAgent({
+          name: argv.name,
+          block: argv.block,
+          description: argv.description,
+          version: argv.version,
+          category: argv.category,
+          capabilities: argv.capabilities,
+          tools: argv.tools,
+          agents: argv.agents,
+          tags: argv.tags,
+          author: argv.author
+        });
+      }
+
+      if (subCmd === 'delete') {
+        const id = argv._[2];
+        if (!id) { console.error('❌ Agent ID required'); process.exit(1); }
+        return await deleteAgentCmd(id, { force: argv.force });
+      }
+
+      if (subCmd === 'metrics') {
+        const id = argv._[2];
+        if (!id) { console.error('❌ Agent ID required'); process.exit(1); }
+        return await getAgentMetricsCmd(id);
+      }
+
+      console.error(`❌ Unknown agents subcommand: ${subCmd}`);
+      process.exit(1);
+    }
+
+    // Tool commands
+    if (cmd === 'tools') {
+      const subCmd = argv._[1];
+
+      if (!subCmd) return await listTools({ category: argv.category });
+
+      if (subCmd === 'info') {
+        const id = argv._[2];
+        if (!id) { console.error('❌ Tool ID required'); process.exit(1); }
+        return await getToolInfo(id);
+      }
+
+      if (subCmd === 'create') {
+        if (!argv.name) { console.error('❌ --name is required'); process.exit(1); }
+        if (!argv.block) { console.error('❌ --block is required'); process.exit(1); }
+        return await createTool({
+          name: argv.name,
+          block: argv.block,
+          description: argv.description,
+          version: argv.version,
+          category: argv.category,
+          tags: argv.tags,
+          author: argv.author
+        });
+      }
+
+      if (subCmd === 'delete') {
+        const id = argv._[2];
+        if (!id) { console.error('❌ Tool ID required'); process.exit(1); }
+        return await deleteToolCmd(id, { force: argv.force });
+      }
+
+      if (subCmd === 'metrics') {
+        const id = argv._[2];
+        if (!id) { console.error('❌ Tool ID required'); process.exit(1); }
+        return await getToolMetricsCmd(id);
+      }
+
+      console.error(`❌ Unknown tools subcommand: ${subCmd}`);
+      process.exit(1);
     }
 
     console.error(`❌ Unknown command: ${cmd}`);

@@ -137,6 +137,20 @@ builder.Services.AddSingleton<MetricsCollector>(sp =>
 });
 builder.Services.AddSingleton<IMetricsCollector>(sp => sp.GetRequiredService<MetricsCollector>());
 
+// Phase 10: Register Agent Foundry services (Tools & Agents registries)
+var toolsFolder = Path.Combine(pathConfig.GlobalBlocksPath, "tools");
+var agentsFolder = Path.Combine(pathConfig.GlobalBlocksPath, "agents");
+builder.Services.AddSingleton<Maestro.Infrastructure.Foundry.ToolRegistry>(sp =>
+{
+    return new Maestro.Infrastructure.Foundry.ToolRegistry(toolsFolder);
+});
+builder.Services.AddSingleton<Maestro.Infrastructure.Foundry.AgentRegistry>(sp =>
+{
+    return new Maestro.Infrastructure.Foundry.AgentRegistry(agentsFolder);
+});
+Console.WriteLine($"[Maestro] Tools registry:  {toolsFolder}");
+Console.WriteLine($"[Maestro] Agents registry: {agentsFolder}");
+
 // Phase 9: Register training services
 var trainingFolder = Path.Combine(AppContext.BaseDirectory, "training");
 builder.Services.AddSingleton<ITrainingConfigurationRepository>(sp =>

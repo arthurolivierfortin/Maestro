@@ -81,7 +81,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose 
         name: block.name,
         type: 'block' as const,
         data: block,
-        description: block.metadata.description,
+        description: block.metadata?.description,
       }));
 
     // Quick actions

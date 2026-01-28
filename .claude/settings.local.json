@@ -55,7 +55,13 @@
       "Bash(cmd /c \"taskkill /F /PID 22036\")",
       "Bash(python -m uvicorn:*)",
       "Bash(dir \"C:\\\\LLM-Provider\\\\api\\\\__pycache__\")",
-      "Bash(python \"C:\\\\LLM-Provider\\\\api\\\\model_discovery.py\" -c \"\nimport json\nwith open\\(r''C:\\\\Meastro\\\\compat.json''\\) as f:\n    data = json.load\\(f\\)\nprint\\(data[''summary'']\\)\n\")"
+      "Bash(python \"C:\\\\LLM-Provider\\\\api\\\\model_discovery.py\" -c \"\nimport json\nwith open\\(r''C:\\\\Meastro\\\\compat.json''\\) as f:\n    data = json.load\\(f\\)\nprint\\(data[''summary'']\\)\n\")",
+      "Bash(dir:*)",
+      "Bash(python:*)",
+      "Bash(cmd.exe /c \"cd /d C:\\\\Meastro\\\\frontend && npm run build\")",
+      "Bash(cmd.exe /c \"taskkill /F /IM Maestro.Api.exe\")",
+      "Bash(env)",
+      "Bash(npx vite build:*)"
     ]
   }
 }

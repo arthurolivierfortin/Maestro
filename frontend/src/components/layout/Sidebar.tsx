@@ -31,6 +31,18 @@ const navigationItems: SidebarItem[] = [
     path: '/projects',
   },
   {
+    id: 'foundry',
+    label: 'Foundry',
+    icon: '🔨',
+    path: '/foundry',
+  },
+  {
+    id: 'agent-foundry',
+    label: 'Agent Foundry',
+    icon: '🤖',
+    path: '/agent-foundry',
+  },
+  {
     id: 'workflows',
     label: 'Workflows',
     icon: '≋',
