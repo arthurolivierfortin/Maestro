@@ -47,7 +47,15 @@
       "Bash(powershell.exe -File \"C:\\\\Meastro\\\\scripts\\\\dev-start.ps1\" -Stop)",
       "Bash(powershell.exe -File \"C:\\\\Meastro\\\\scripts\\\\dev-start.ps1\" -BackendOnly)",
       "Bash(powershell.exe -Command \"Stop-Process -Id 56244 -Force\")",
-      "Bash(python3:*)"
+      "Bash(python3:*)",
+      "Bash(python -m py_compile:*)",
+      "Bash(dir \"C:\\\\LLM-Provider\")",
+      "Bash(cmd /c \"taskkill /F /PID 54788\")",
+      "Bash(timeout /t 10 /nobreak)",
+      "Bash(cmd /c \"taskkill /F /PID 22036\")",
+      "Bash(python -m uvicorn:*)",
+      "Bash(dir \"C:\\\\LLM-Provider\\\\api\\\\__pycache__\")",
+      "Bash(python \"C:\\\\LLM-Provider\\\\api\\\\model_discovery.py\" -c \"\nimport json\nwith open\\(r''C:\\\\Meastro\\\\compat.json''\\) as f:\n    data = json.load\\(f\\)\nprint\\(data[''summary'']\\)\n\")"
     ]
   }
 }
