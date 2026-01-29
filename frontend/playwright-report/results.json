@@ -126,7 +126,7 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 14963,
+                      "duration": 22673,
                       "errors": [],
                       "stdout": [
                         {
@@ -143,11 +143,17 @@
                         },
                         {
                           "text": "Captured: foundry-tools.png\n"
+                        },
+                        {
+                          "text": "Captured: agent-detail.png\n"
+                        },
+                        {
+                          "text": "Captured: tool-detail.png\n"
                         }
                       ],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-29T14:25:31.445Z",
+                      "startTime": "2026-01-29T15:49:46.655Z",
                       "annotations": [],
                       "attachments": [
                         {
@@ -173,8 +179,8 @@
   ],
   "errors": [],
   "stats": {
-    "startTime": "2026-01-29T14:25:29.674Z",
-    "duration": 16988.009,
+    "startTime": "2026-01-29T15:49:45.130Z",
+    "duration": 24432.413,
     "expected": 1,
     "skipped": 0,
     "unexpected": 0,

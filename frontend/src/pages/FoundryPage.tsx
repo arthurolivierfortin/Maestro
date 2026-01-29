@@ -269,7 +269,7 @@ export function FoundryPage() {
                     key={agent.id}
                     className="foundry-card foundry-card--clickable"
                     data-testid={`agent-card-${agent.id}`}
-                    onClick={() => navigate(`/foundry/agents/${agent.id}`)}
+                    onClick={() => navigate(`/agent/${agent.id}`)}
                   >
                     <div className="foundry-card__header">
                       <span className="foundry-card__icon"><Bot size={18} /></span>
@@ -322,7 +322,7 @@ export function FoundryPage() {
                     key={tool.id}
                     className="foundry-card foundry-card--clickable"
                     data-testid={`tool-card-${tool.id}`}
-                    onClick={() => navigate(`/foundry/tools/${tool.id}`)}
+                    onClick={() => navigate(`/tool/${tool.id}`)}
                   >
                     <div className="foundry-card__header">
                       <span className="foundry-card__icon"><Wrench size={18} /></span>

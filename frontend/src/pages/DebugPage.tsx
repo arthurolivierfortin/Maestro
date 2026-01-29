@@ -12,7 +12,7 @@
  * 3. The frontend state matches what the backend returns
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { RefreshCw, CheckCircle, XCircle, AlertCircle, Download, Copy } from 'lucide-react';
 import './DebugPage.scss';
 
@@ -172,7 +172,7 @@ export function DebugPage() {
     setJsonExport(JSON.stringify(exportData, null, 2));
   }, [debugState]);
 
-  const getStatusIcon = (status: ApiCheckResult['status']) => {
+  const getStatusIcon = (status: ApiCheckResult['status']): React.ReactNode => {
     switch (status) {
       case 'success':
         return <CheckCircle className="status-icon status-icon--success" size={20} />;
@@ -184,6 +184,8 @@ export function DebugPage() {
         return <AlertCircle className="status-icon status-icon--pending" size={20} />;
     }
   };
+
+  const debugStateKeys: (keyof DebugState)[] = ['health', 'agents', 'tools', 'foundryOverview', 'blocks'];
 
   const copyToClipboard = async () => {
     try {
@@ -350,28 +352,31 @@ export function DebugPage() {
         <div className="debug-section">
           <h2>API Status</h2>
           <div className="api-checks" data-testid="api-checks">
-            {Object.entries(debugState).map(([key, check]) => (
-              <div key={key} className={`api-check api-check--${check.status}`} data-testid={`api-check-${key}`}>
-                {getStatusIcon(check.status)}
-                <div className="api-check__info">
-                  <span className="api-check__endpoint">{check.endpoint}</span>
-                  {check.statusCode && (
-                    <span className="api-check__status-code">HTTP {check.statusCode}</span>
-                  )}
-                  {check.duration !== undefined && (
-                    <span className="api-check__duration">{check.duration}ms</span>
-                  )}
-                  {check.error && (
-                    <span className="api-check__error">{check.error}</span>
-                  )}
+            {debugStateKeys.map((key): React.ReactElement => {
+              const check: ApiCheckResult = debugState[key];
+              return (
+                <div key={key} className={`api-check api-check--${check.status}`} data-testid={`api-check-${key}`}>
+                  {getStatusIcon(check.status)}
+                  <div className="api-check__info">
+                    <span className="api-check__endpoint">{check.endpoint}</span>
+                    {check.statusCode !== undefined && check.statusCode > 0 ? (
+                      <span className="api-check__status-code">HTTP {check.statusCode}</span>
+                    ) : null}
+                    {check.duration !== undefined ? (
+                      <span className="api-check__duration">{check.duration}ms</span>
+                    ) : null}
+                    {check.error !== undefined ? (
+                      <span className="api-check__error">{check.error}</span>
+                    ) : null}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
 
         {/* Health Details */}
-        {debugState.health.status === 'success' && debugState.health.data && (
+        {debugState.health.status === 'success' && debugState.health.data !== undefined ? (
           <div className="debug-section">
             <h3>Health Details</h3>
             <div className="debug-stats" data-testid="health-details">
@@ -389,7 +394,7 @@ export function DebugPage() {
               </div>
             </div>
           </div>
-        )}
+        ) : null}
 
         {/* Foundry Overview */}
         {renderFoundryOverview()}

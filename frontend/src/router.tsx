@@ -84,6 +84,7 @@ const routes: RouteObject[] = [
         ),
       },
       // Foundry routes - unified hub for blocks, agents, tools
+      // IMPORTANT: Specific routes must come BEFORE generic routes
       {
         path: 'foundry',
         element: (
@@ -92,25 +93,9 @@ const routes: RouteObject[] = [
           </LazyPage>
         ),
       },
-      {
-        path: 'foundry/:tab',
-        element: (
-          <LazyPage>
-            <FoundryPage />
-          </LazyPage>
-        ),
-      },
-      {
-        path: 'foundry/:blockId/edit',
-        element: (
-          <LazyPage>
-            <AtomicBlockEditorPage />
-          </LazyPage>
-        ),
-      },
       // Agent detail page
       {
-        path: 'foundry/agents/:agentId',
+        path: 'agent/:agentId',
         element: (
           <LazyPage>
             <AgentDetailPage />
@@ -119,10 +104,28 @@ const routes: RouteObject[] = [
       },
       // Tool detail page
       {
-        path: 'foundry/tools/:toolId',
+        path: 'tool/:toolId',
         element: (
           <LazyPage>
             <ToolDetailPage />
+          </LazyPage>
+        ),
+      },
+      // Block edit page (must be before foundry/:tab)
+      {
+        path: 'foundry/:blockId/edit',
+        element: (
+          <LazyPage>
+            <AtomicBlockEditorPage />
+          </LazyPage>
+        ),
+      },
+      // Tab navigation (generic - must come after specific routes)
+      {
+        path: 'foundry/:tab',
+        element: (
+          <LazyPage>
+            <FoundryPage />
           </LazyPage>
         ),
       },

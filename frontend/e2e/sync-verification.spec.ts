@@ -182,5 +182,19 @@ test.describe('Screenshots for Visual Verification', () => {
     await page.waitForTimeout(3000); // Wait for tools to load from API
     await page.screenshot({ path: 'playwright-results/screenshots/foundry-tools.png', fullPage: true });
     console.log('Captured: foundry-tools.png');
+
+    // Capture Agent Detail page
+    await page.goto('/agent/autonomous-programmer');
+    await page.waitForLoadState('networkidle');
+    await page.waitForTimeout(3000);
+    await page.screenshot({ path: 'playwright-results/screenshots/agent-detail.png', fullPage: true });
+    console.log('Captured: agent-detail.png');
+
+    // Capture Tool Detail page
+    await page.goto('/tool/code-search');
+    await page.waitForLoadState('networkidle');
+    await page.waitForTimeout(3000);
+    await page.screenshot({ path: 'playwright-results/screenshots/tool-detail.png', fullPage: true });
+    console.log('Captured: tool-detail.png');
   });
 });

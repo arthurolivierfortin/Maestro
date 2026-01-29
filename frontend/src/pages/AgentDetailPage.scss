@@ -263,3 +263,59 @@
 .runs-placeholder {
   color: var(--text-secondary, #888);
 }
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+
+  h2 {
+    margin: 0;
+  }
+}
+
+.workflow-preview {
+  position: relative;
+  height: 300px;
+  border: 1px solid var(--border-color, #333);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--bg-tertiary, #1a1a1a);
+
+  .react-flow {
+    background: var(--bg-tertiary, #1a1a1a);
+  }
+
+  &__overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.4);
+    opacity: 0;
+    transition: opacity 0.2s;
+    cursor: pointer;
+
+    span {
+      padding: 12px 24px;
+      background: var(--primary, #3b82f6);
+      border-radius: 6px;
+      color: white;
+      font-weight: 500;
+    }
+  }
+
+  &:hover &__overlay {
+    opacity: 1;
+  }
+}
+
+.btn-sm {
+  padding: 6px 12px;
+  font-size: 13px;
+}

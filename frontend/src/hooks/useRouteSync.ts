@@ -19,6 +19,13 @@ const PAGE_CONFIG: Record<string, { label: string; path: string }> = {
   workflows: { label: 'Workflows', path: '/workflows' },
   models: { label: 'Models', path: '/models' },
   history: { label: 'History', path: '/history' },
+  debug: { label: 'Debug', path: '/debug' },
+  agent: { label: 'Agent', path: '/agent' },
+  tool: { label: 'Tool', path: '/tool' },
+  training: { label: 'Training', path: '/training' },
+  monitoring: { label: 'Monitoring', path: '/monitoring' },
+  projects: { label: 'Projects', path: '/projects' },
+  metrics: { label: 'Metrics', path: '/metrics' },
 };
 
 /**
@@ -61,7 +68,37 @@ function parseUrl(pathname: string, params: Record<string, string | undefined>):
     return { pageId: 'history' };
   }
 
-  return { pageId: 'home' };
+  if (pathname.startsWith('/debug')) {
+    return { pageId: 'debug' };
+  }
+
+  if (pathname.startsWith('/agent')) {
+    return { pageId: 'agent' };
+  }
+
+  if (pathname.startsWith('/tool')) {
+    return { pageId: 'tool' };
+  }
+
+  if (pathname.startsWith('/training')) {
+    return { pageId: 'training' };
+  }
+
+  if (pathname.startsWith('/monitoring')) {
+    return { pageId: 'monitoring' };
+  }
+
+  if (pathname.startsWith('/projects')) {
+    return { pageId: 'projects' };
+  }
+
+  if (pathname.startsWith('/metrics')) {
+    return { pageId: 'metrics' };
+  }
+
+  // For unknown routes, don't redirect - let React Router handle it
+  // Return null to indicate this route should not be tracked in nav store
+  return { pageId: pathname.split('/')[1] || 'home' };
 }
 
 /**
@@ -90,8 +127,12 @@ export function useRouteSync() {
       return;
     }
 
+    // For detail pages with dynamic segments, use the actual pathname instead of static path
+    // This prevents redirect loops for /agent/:id, /tool/:id, etc.
+    const actualPath = location.pathname;
+
     isSyncingRef.current = true;
-    initFromUrl(pageId, pageConfig.label, pageConfig.path, blockId);
+    initFromUrl(pageId, pageConfig.label, actualPath, blockId);
     isSyncingRef.current = false;
   }, [location.pathname, JSON.stringify(params)]);
 

@@ -2,6 +2,7 @@
  * Agent Detail Page
  *
  * Displays detailed information about a specific agent including:
+ * - Visual preview of agent workflow
  * - Configuration
  * - Available tools
  * - Execution history
@@ -10,10 +11,12 @@
 
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { ReactFlowProvider } from 'reactflow';
 import {
   Bot, ArrowLeft, Play, Settings, Wrench,
-  BarChart3, Clock, CheckCircle, XCircle, AlertCircle
+  BarChart3, Clock, AlertCircle, Maximize2, Layers
 } from 'lucide-react';
+import { BlockCanvas } from '../components/BlockCanvas';
 import './AgentDetailPage.scss';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
@@ -23,6 +26,7 @@ interface AgentDetail {
   name: string;
   description: string;
   version: string;
+  blockId: string;
   category: string;
   tags: string[];
   capabilities: string[];
@@ -92,6 +96,11 @@ export function AgentDetailPage() {
     console.log('Execute agent:', agentId);
   };
 
+  const handleConfigure = () => {
+    // Navigate to the visual editor for this agent
+    navigate(`/canvas/${agent?.blockId || agentId}`);
+  };
+
   if (loading) {
     return (
       <div className="agent-detail-page">
@@ -134,7 +143,7 @@ export function AgentDetailPage() {
           </div>
         </div>
         <div className="agent-detail-page__actions">
-          <button className="btn-secondary">
+          <button className="btn-secondary" onClick={handleConfigure}>
             <Settings size={18} />
             Configure
           </button>
@@ -148,6 +157,28 @@ export function AgentDetailPage() {
       {/* Description */}
       <div className="agent-detail-page__section">
         <p className="agent-detail-page__description">{agent.description}</p>
+      </div>
+
+      {/* Workflow Preview */}
+      <div className="agent-detail-page__section">
+        <div className="section-header">
+          <h2><Layers size={20} /> Agent Workflow</h2>
+          <button className="btn-secondary btn-sm" onClick={handleConfigure}>
+            <Maximize2 size={16} />
+            Open Editor
+          </button>
+        </div>
+        <div className="workflow-preview">
+          <ReactFlowProvider>
+            <BlockCanvas
+              parentId={agent.blockId || agent.id}
+              readOnly={true}
+            />
+          </ReactFlowProvider>
+          <div className="workflow-preview__overlay" onClick={handleConfigure}>
+            <span>Click to edit workflow</span>
+          </div>
+        </div>
       </div>
 
       {/* Metrics Summary */}
