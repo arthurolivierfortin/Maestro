@@ -125,9 +125,13 @@ public class PerformanceController : ControllerBase
                     totalTokens = result?.Usage?.TotalTokens ?? 50;
                     success = true;
                 }
+                else if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+                {
+                    error = $"Model '{modelId}' is not available. Configure the model with an API key or ensure it's running locally.";
+                }
                 else
                 {
-                    error = $"API returned {response.StatusCode}";
+                    error = $"LLM Provider returned {response.StatusCode}";
                 }
             }
             else

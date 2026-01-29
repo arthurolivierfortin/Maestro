@@ -18,7 +18,6 @@ import {
   ChevronDown,
   ChevronRight,
   Layers,
-  Server,
   Cpu,
   BarChart3,
   GitCompare,
@@ -28,26 +27,25 @@ import { useModelStore } from '../../store/modelStore';
 import { loadPresetModels } from '../../data/modelPresets';
 import { ModelListItem } from './ModelListItem';
 import type { ModelItemStatus } from './ModelListItem';
-import { ModelDetailView } from './ModelDetailView';
 import { ModelConfigForm } from '../ModelConfigForm';
 import { modelService } from '../../services/modelService';
-import { getModelCatalog, getProviderDisplayName } from '../../data/modelCatalog';
+import { getProviderDisplayName } from '../../data/modelCatalog';
+import { useModelStatus } from '../../hooks/useModelStatus';
 import { ProviderIcon } from '../icons/ProviderIcons';
-import { LocalModelsTab } from '../Models/LocalModelsTab';
 import { SystemInfoTab } from '../Models/SystemInfoTab';
 import { PerformanceTab } from '../Models/PerformanceTab';
 import { ModelCompareDialog } from '../Models/ModelCompareDialog';
 import type { Model, ModelProvider } from '../../types/model.types';
+import { useNavigate } from 'react-router-dom';
 import type { ModelCatalogEntry } from '../../types/modelStatus.types';
 import type { CreateModelDto } from '../../services/interfaces/IModelService';
 import './ModelsPanel.scss';
 
-type TabId = 'all' | 'local' | 'system' | 'performance';
+type TabId = 'all' | 'system' | 'performance';
 type StatusFilter = 'all' | 'ready' | 'available' | 'not_configured';
 
 const TABS: { id: TabId; label: string; icon: typeof Layers }[] = [
   { id: 'all', label: 'All Models', icon: Layers },
-  { id: 'local', label: 'Local', icon: Server },
   { id: 'system', label: 'System Info', icon: Cpu },
   { id: 'performance', label: 'Performance', icon: BarChart3 },
 ];
@@ -76,13 +74,17 @@ function groupByProvider(catalog: ModelCatalogEntry[]): ProviderGroup[] {
 }
 
 export function ModelsPanel() {
+  const navigate = useNavigate();
   const models = useModelStore((state) => state.models);
   const selectedModelId = useModelStore((state) => state.selectedModelId);
   const setSelectedModel = useModelStore((state) => state.setSelectedModel);
   const addModel = useModelStore((state) => state.addModel);
 
+  // Use the shared model status hook for consistent status logic
+  const { catalog, isLoading: isDetectingModels, refresh: refreshModels } = useModelStatus();
+
   const [activeTab, setActiveTab] = useState<TabId>('all');
-  const [selectedCatalogEntry, setSelectedCatalogEntry] = useState<ModelCatalogEntry | null>(null);
+  const [expandedModelId, setExpandedModelId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -95,20 +97,6 @@ export function ModelsPanel() {
   // Comparison state
   const [compareModels, setCompareModels] = useState<ModelCatalogEntry[]>([]);
   const [showCompareDialog, setShowCompareDialog] = useState(false);
-
-  // Build catalog with configured model IDs - only include models that are actually available
-  // (i.e., have valid API keys or are running locally)
-  const configuredModelIds = useMemo(() => {
-    const configured = new Set<string>();
-    models.forEach((model, id) => {
-      // Only consider a model "configured" if it's actually available
-      if (model.isAvailable) {
-        configured.add(id);
-      }
-    });
-    return configured;
-  }, [models]);
-  const catalog = useMemo(() => getModelCatalog(configuredModelIds), [configuredModelIds]);
 
   // Group catalog by provider
   const groupedCatalog = useMemo(() => groupByProvider(catalog), [catalog]);
@@ -151,16 +139,12 @@ export function ModelsPanel() {
     }
   }, []);
 
-  // Sync selected model from store
+  // Sync expanded model from store
   useEffect(() => {
     if (selectedModelId) {
-      // Find in catalog
-      const catalogEntry = catalog.find((c) => c.id === selectedModelId);
-      setSelectedCatalogEntry(catalogEntry || null);
-    } else {
-      setSelectedCatalogEntry(null);
+      setExpandedModelId(selectedModelId);
     }
-  }, [selectedModelId, models, catalog]);
+  }, [selectedModelId]);
 
   const toggleProvider = (provider: string) => {
     setExpandedProviders((prev) => {
@@ -174,18 +158,30 @@ export function ModelsPanel() {
     });
   };
 
-  const handleSelectCatalogEntry = (entry: ModelCatalogEntry) => {
-    // If it's a configured model, select it in the store
-    if (entry.status === 'ready' && models.has(entry.id)) {
-      setSelectedModel(entry.id);
+  // Single click - toggle inline details
+  const handleModelClick = (entry: ModelCatalogEntry) => {
+    if (expandedModelId === entry.id) {
+      setExpandedModelId(null);
+    } else {
+      setExpandedModelId(entry.id);
+      // If it's a configured model, also select it in the store
+      if (entry.status === 'ready' && models.has(entry.id)) {
+        setSelectedModel(entry.id);
+      }
     }
-    setSelectedCatalogEntry(entry);
   };
 
-  const handleResetToDefaults = () => {
+  // Double click - navigate to model detail page
+  const handleModelDoubleClick = (entry: ModelCatalogEntry) => {
+    navigate(`/models/${entry.id}`);
+  };
+
+  const handleResetToDefaults = async () => {
     setIsLoading(true);
     const existingIds = new Set<string>();
     loadPresetModels(addModel, existingIds);
+    // Refresh to detect local models
+    await refreshModels();
     setIsLoading(false);
   };
 
@@ -237,10 +233,9 @@ export function ModelsPanel() {
     }
   };
 
-  // Handle configure for local models
-  const handleConfigureLocalModel = (entry: ModelCatalogEntry) => {
-    setSelectedCatalogEntry(entry);
-    // Could open add modal pre-filled, or navigate to config
+  // Handle configure model
+  const handleConfigureModel = (entry: ModelCatalogEntry) => {
+    setExpandedModelId(entry.id);
     setShowAddModal(true);
   };
 
@@ -351,15 +346,76 @@ export function ModelsPanel() {
                 <div className="models-panel__provider-models">
                   {group.models.map((entry) => {
                     const model = catalogEntryToModel(entry);
+                    const isExpanded = expandedModelId === entry.id;
 
                     return (
-                      <ModelListItem
-                        key={entry.id}
-                        model={model}
-                        isSelected={selectedCatalogEntry?.id === entry.id}
-                        onSelect={() => handleSelectCatalogEntry(entry)}
-                        status={entry.status as ModelItemStatus}
-                      />
+                      <div key={entry.id} className="models-panel__model-wrapper">
+                        <ModelListItem
+                          model={model}
+                          isSelected={isExpanded}
+                          onSelect={() => handleModelClick(entry)}
+                          onDoubleClick={() => handleModelDoubleClick(entry)}
+                          status={entry.status as ModelItemStatus}
+                        />
+                        {/* Inline detail panel */}
+                        {isExpanded && (
+                          <div className="models-panel__inline-detail">
+                            <div className="models-panel__inline-detail-content">
+                              <p className="models-panel__inline-description">
+                                {entry.description || 'No description available.'}
+                              </p>
+                              <div className="models-panel__inline-specs">
+                                <span>
+                                  Context: {entry.specs.contextWindow >= 1000000
+                                    ? `${(entry.specs.contextWindow / 1000000).toFixed(1)}M`
+                                    : `${Math.round(entry.specs.contextWindow / 1000)}K`} tokens
+                                </span>
+                                <span>
+                                  Input: {entry.specs.inputPricePerMillion === 0
+                                    ? 'Free'
+                                    : `$${entry.specs.inputPricePerMillion}/1M`}
+                                </span>
+                                <span>
+                                  Output: {entry.specs.outputPricePerMillion === 0
+                                    ? 'Free'
+                                    : `$${entry.specs.outputPricePerMillion}/1M`}
+                                </span>
+                              </div>
+                              <div className="models-panel__inline-capabilities">
+                                {entry.specs.supportsVision && <span className="models-panel__inline-cap">Vision</span>}
+                                {entry.specs.supportsToolUse && <span className="models-panel__inline-cap">Tools</span>}
+                                {entry.specs.supportsStreaming && <span className="models-panel__inline-cap">Streaming</span>}
+                              </div>
+                            </div>
+                            <div className="models-panel__inline-actions">
+                              <button
+                                className="models-panel__inline-btn"
+                                onClick={() => handleModelDoubleClick(entry)}
+                              >
+                                View Details
+                              </button>
+                              {!compareModels.find((m) => m.id === entry.id) && (
+                                <button
+                                  className="models-panel__inline-btn"
+                                  onClick={() => handleAddToCompare(entry)}
+                                  disabled={compareModels.length >= 4}
+                                >
+                                  <GitCompare size={12} />
+                                  Compare
+                                </button>
+                              )}
+                              {entry.status !== 'ready' && (
+                                <button
+                                  className="models-panel__inline-btn models-panel__inline-btn--primary"
+                                  onClick={() => handleConfigureModel(entry)}
+                                >
+                                  Configure
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     );
                   })}
                 </div>
@@ -373,26 +429,6 @@ export function ModelsPanel() {
             </div>
           )}
         </div>
-
-        {/* Detail Panel */}
-        {selectedCatalogEntry && (
-          <div className="models-panel__detail">
-            <ModelDetailView
-              model={catalogEntryToModel(selectedCatalogEntry)}
-            />
-            {/* Add to Compare button */}
-            {!compareModels.find((m) => m.id === selectedCatalogEntry.id) && (
-              <button
-                className="models-panel__add-compare-btn"
-                onClick={() => handleAddToCompare(selectedCatalogEntry)}
-                disabled={compareModels.length >= 4}
-              >
-                <GitCompare size={14} />
-                Add to Compare
-              </button>
-            )}
-          </div>
-        )}
       </div>
 
       {/* Legend */}
@@ -448,12 +484,11 @@ export function ModelsPanel() {
       </div>
 
       <div className="models-panel__body">
-        {isLoading ? (
+        {isLoading || isDetectingModels ? (
           <div className="models-panel__loading">Loading models...</div>
         ) : (
           <>
             {activeTab === 'all' && renderAllModelsTab()}
-            {activeTab === 'local' && <LocalModelsTab catalog={catalog} onConfigure={handleConfigureLocalModel} />}
             {activeTab === 'system' && <SystemInfoTab />}
             {activeTab === 'performance' && <PerformanceTab catalog={catalog} />}
           </>

@@ -22,11 +22,13 @@ export interface ModelListItemProps {
   model: Model;
   isSelected: boolean;
   onSelect: () => void;
+  /** Double-click handler for navigation */
+  onDoubleClick?: () => void;
   /** Status affects icon styling: ready=color, available=grayscale, not_configured=faded */
   status?: ModelItemStatus;
 }
 
-export function ModelListItem({ model, isSelected, onSelect, status }: ModelListItemProps) {
+export function ModelListItem({ model, isSelected, onSelect, onDoubleClick, status }: ModelListItemProps) {
   const costTier = getCostTier(model);
 
   // Determine status from model if not explicitly provided
@@ -64,6 +66,7 @@ export function ModelListItem({ model, isSelected, onSelect, status }: ModelList
     <div
       className={`model-list-item model-list-item--${effectiveStatus} ${isSelected ? 'model-list-item--selected' : ''}`}
       onClick={onSelect}
+      onDoubleClick={onDoubleClick}
     >
       <div className="model-list-item__header">
         <ProviderIcon
