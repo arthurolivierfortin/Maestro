@@ -14,12 +14,20 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { ReactFlowProvider } from 'reactflow';
 import {
   Bot, ArrowLeft, Play, Settings, Wrench,
-  BarChart3, Clock, AlertCircle, Maximize2, Layers
+  BarChart3, Clock, AlertCircle, Layers, Maximize2
 } from 'lucide-react';
-import { BlockCanvas } from '../components/BlockCanvas';
+import { AgentToolsPreview } from '../components/AgentToolsPreview';
 import './AgentDetailPage.scss';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
+
+interface ToolDetail {
+  id: string;
+  name: string;
+  description: string;
+  version: string;
+  category: string;
+}
 
 interface AgentDetail {
   id: string;
@@ -31,6 +39,7 @@ interface AgentDetail {
   tags: string[];
   capabilities: string[];
   availableTools: string[];
+  toolDetails?: ToolDetail[];
   config: {
     model?: string;
     maxSteps: number;
@@ -97,7 +106,7 @@ export function AgentDetailPage() {
   };
 
   const handleConfigure = () => {
-    // Navigate to the visual editor for this agent
+    // Navigate to canvas editor using blockId if available, otherwise agentId
     navigate(`/canvas/${agent?.blockId || agentId}`);
   };
 
@@ -159,26 +168,35 @@ export function AgentDetailPage() {
         <p className="agent-detail-page__description">{agent.description}</p>
       </div>
 
-      {/* Workflow Preview */}
+      {/* Agent Tools Preview */}
       <div className="agent-detail-page__section">
         <div className="section-header">
-          <h2><Layers size={20} /> Agent Workflow</h2>
+          <h2><Layers size={20} /> Available Tools</h2>
           <button className="btn-secondary btn-sm" onClick={handleConfigure}>
             <Maximize2 size={16} />
             Open Editor
           </button>
         </div>
-        <div className="workflow-preview">
-          <ReactFlowProvider>
-            <BlockCanvas
-              parentId={agent.blockId || agent.id}
-              readOnly={true}
-            />
-          </ReactFlowProvider>
-          <div className="workflow-preview__overlay" onClick={handleConfigure}>
-            <span>Click to edit workflow</span>
-          </div>
-        </div>
+        <ReactFlowProvider>
+          <AgentToolsPreview
+            agentId={agent.id}
+            agentName={agent.name}
+            tools={
+              agent.toolDetails?.map(t => ({
+                id: t.id,
+                name: t.name,
+                description: t.description,
+                category: t.category,
+              })) ||
+              agent.availableTools?.map(id => ({
+                id,
+                name: id.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '),
+              })) ||
+              []
+            }
+            onToolClick={(toolId) => navigate(`/tool/${toolId}`)}
+          />
+        </ReactFlowProvider>
       </div>
 
       {/* Metrics Summary */}

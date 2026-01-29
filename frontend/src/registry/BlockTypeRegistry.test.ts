@@ -24,10 +24,12 @@ describe('BlockTypeRegistry', () => {
   describe('getAll', () => {
     it('should return all registered types', () => {
       const allTypes = BlockTypeRegistry.getAll();
-      // 10 types: workflow, task, prompt, instruction, command, decision, validator, trigger, inference, script
-      expect(allTypes).toHaveLength(10);
+      // 12 types: workflow, task, agent, tool, prompt, instruction, command, decision, validator, trigger, inference, script
+      expect(allTypes).toHaveLength(12);
       expect(allTypes.map((t) => t.type)).toContain('workflow');
       expect(allTypes.map((t) => t.type)).toContain('task');
+      expect(allTypes.map((t) => t.type)).toContain('agent');
+      expect(allTypes.map((t) => t.type)).toContain('tool');
       expect(allTypes.map((t) => t.type)).toContain('command');
       expect(allTypes.map((t) => t.type)).toContain('inference');
       expect(allTypes.map((t) => t.type)).toContain('script');

@@ -77,7 +77,8 @@
       "Bash(timeout /t 15 /nobreak)",
       "Bash(timeout:*)",
       "Bash(git rm:*)",
-      "Bash(npx playwright test:*)"
+      "Bash(npx playwright test:*)",
+      "Bash(cmd //c \"taskkill /PID 25572 /F\")"
     ]
   }
 }

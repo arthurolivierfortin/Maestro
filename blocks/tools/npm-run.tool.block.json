@@ -1,0 +1,79 @@
+{
+  "$schema": "../../../docs/schemas/block.schema.json",
+  "id": "npm-run",
+  "name": "NPM Run",
+  "blockType": "tool",
+  "version": "1.0.0",
+  "isAtomic": true,
+  "description": "Executes npm scripts in a Node.js project",
+  "inputs": [
+    {
+      "id": "script",
+      "name": "Script Name",
+      "type": "string",
+      "required": true,
+      "description": "The npm script to run (e.g., 'dev', 'build', 'test', 'lint')"
+    },
+    {
+      "id": "projectPath",
+      "name": "Project Path",
+      "type": "string",
+      "required": true,
+      "description": "Path to the Node.js project directory"
+    },
+    {
+      "id": "args",
+      "name": "Additional Arguments",
+      "type": "string",
+      "required": false,
+      "description": "Additional arguments to pass to the script"
+    },
+    {
+      "id": "timeout",
+      "name": "Timeout",
+      "type": "number",
+      "required": false,
+      "default": 120000,
+      "description": "Timeout in milliseconds"
+    }
+  ],
+  "outputs": [
+    {
+      "id": "stdout",
+      "name": "Standard Output",
+      "type": "string",
+      "description": "The output from npm run"
+    },
+    {
+      "id": "stderr",
+      "name": "Standard Error",
+      "type": "string",
+      "description": "Any error output"
+    },
+    {
+      "id": "exitCode",
+      "name": "Exit Code",
+      "type": "number",
+      "description": "The exit code (0 = success)"
+    },
+    {
+      "id": "success",
+      "name": "Success",
+      "type": "boolean",
+      "description": "Whether the script completed successfully"
+    }
+  ],
+  "config": {
+    "command": "powershell",
+    "args": [
+      "-Command",
+      "cd '{{projectPath}}'; npm run {{script}} {{args}}"
+    ],
+    "timeout": 120000
+  },
+  "metadata": {
+    "category": "development",
+    "tags": ["npm", "node", "script", "build", "development"]
+  },
+  "capabilities": ["npm", "node", "build"]
+}

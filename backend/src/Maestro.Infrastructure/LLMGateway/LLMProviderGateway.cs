@@ -44,17 +44,27 @@ public class LLMProviderGateway : ILLMGateway, IDisposable
     {
         var providerRequest = new LLMProviderRequest
         {
-            Prompt = request.Prompt,
-            ModelId = _settings.DefaultModel,
-            MaxNewTokens = _settings.MaxNewTokens,
-            Temperature = _settings.Temperature,
+            Prompt = request.Prompt ?? string.Empty,
+            ModelId = request.ModelId ?? _settings.DefaultModel,
+            MaxNewTokens = request.MaxNewTokens ?? _settings.MaxNewTokens,
+            Temperature = request.Temperature ?? _settings.Temperature,
             DoSample = _settings.DoSample,
             TopP = _settings.TopP,
-            SystemPrompt = _settings.SystemPrompt
+            SystemPrompt = request.SystemPrompt ?? _settings.SystemPrompt
         };
 
-        _logger?.LogDebug("Sending LLM request to {BaseUrl} with model {Model}",
-            _settings.BaseUrl, _settings.DefaultModel);
+        // Convert messages if provided (preferred for chat models)
+        if (request.Messages != null && request.Messages.Count > 0)
+        {
+            providerRequest.Messages = request.Messages
+                .Select(m => new LLMProviderMessage { Role = m.Role, Content = m.Content })
+                .ToList();
+            // When using messages, prompt can be empty - LLM-Provider handles formatting
+            providerRequest.Prompt = string.Empty;
+        }
+
+        _logger?.LogDebug("Sending LLM request to {BaseUrl} with model {Model}, messages: {HasMessages}",
+            _settings.BaseUrl, providerRequest.ModelId, providerRequest.Messages != null);
 
         var response = await SendWithRetryAsync(providerRequest, cancellationToken);
 
@@ -70,14 +80,23 @@ public class LLMProviderGateway : ILLMGateway, IDisposable
     {
         var providerRequest = new LLMProviderRequest
         {
-            Prompt = request.Prompt,
-            ModelId = _settings.DefaultModel,
-            MaxNewTokens = _settings.MaxNewTokens,
-            Temperature = _settings.Temperature,
+            Prompt = request.Prompt ?? string.Empty,
+            ModelId = request.ModelId ?? _settings.DefaultModel,
+            MaxNewTokens = request.MaxNewTokens ?? _settings.MaxNewTokens,
+            Temperature = request.Temperature ?? _settings.Temperature,
             DoSample = _settings.DoSample,
             TopP = _settings.TopP,
-            SystemPrompt = _settings.SystemPrompt
+            SystemPrompt = request.SystemPrompt ?? _settings.SystemPrompt
         };
+
+        // Convert messages if provided
+        if (request.Messages != null && request.Messages.Count > 0)
+        {
+            providerRequest.Messages = request.Messages
+                .Select(m => new LLMProviderMessage { Role = m.Role, Content = m.Content })
+                .ToList();
+            providerRequest.Prompt = string.Empty;
+        }
 
         _logger?.LogDebug("Starting streaming LLM request to {BaseUrl}", _settings.BaseUrl);
 
@@ -242,6 +261,21 @@ internal class LLMProviderRequest
 
     [JsonPropertyName("system_prompt")]
     public string? SystemPrompt { get; set; }
+
+    [JsonPropertyName("messages")]
+    public List<LLMProviderMessage>? Messages { get; set; }
+}
+
+/// <summary>
+/// Message model for LLM-Provider chat format.
+/// </summary>
+internal class LLMProviderMessage
+{
+    [JsonPropertyName("role")]
+    public string Role { get; set; } = string.Empty;
+
+    [JsonPropertyName("content")]
+    public string Content { get; set; } = string.Empty;
 }
 
 /// <summary>

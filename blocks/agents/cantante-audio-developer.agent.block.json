@@ -1,0 +1,90 @@
+{
+  "$schema": "../../../docs/schemas/block.schema.json",
+  "id": "cantante-audio-developer",
+  "name": "Cantante Audio Developer",
+  "blockType": "agent",
+  "version": "1.0.0",
+  "isAtomic": false,
+  "description": "Specialized agent for developing audio playback features for Cantante. Handles Web Audio API, audio processing, and playback controls.",
+  "position": { "x": 0, "y": 0 },
+  "inputs": [
+    {
+      "id": "feature",
+      "name": "Audio Feature",
+      "type": "string",
+      "required": true,
+      "description": "The audio feature to implement (e.g., 'Add equalizer', 'Implement gapless playback')"
+    },
+    {
+      "id": "projectPath",
+      "name": "Project Path",
+      "type": "string",
+      "required": false,
+      "default": "C:/Cantante",
+      "description": "Path to the Cantante project"
+    },
+    {
+      "id": "technicalSpec",
+      "name": "Technical Specification",
+      "type": "string",
+      "required": false,
+      "description": "Technical details about the audio feature"
+    }
+  ],
+  "outputs": [
+    {
+      "id": "success",
+      "name": "Success",
+      "type": "boolean",
+      "description": "Whether the audio feature was implemented successfully"
+    },
+    {
+      "id": "filesModified",
+      "name": "Files Modified",
+      "type": "array",
+      "description": "List of files modified"
+    },
+    {
+      "id": "audioAPIsUsed",
+      "name": "Audio APIs Used",
+      "type": "array",
+      "description": "Web Audio APIs or libraries used"
+    },
+    {
+      "id": "summary",
+      "name": "Summary",
+      "type": "string",
+      "description": "Summary of the implementation"
+    }
+  ],
+  "config": {
+    "type": "agent",
+    "model": "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B",
+    "maxSteps": 20,
+    "maxTokens": 4096,
+    "temperature": 0.3,
+    "timeoutMs": 480000,
+    "requireApproval": false,
+    "tools": [
+      "file-read",
+      "file-write",
+      "directory-list",
+      "project-structure",
+      "typescript-check",
+      "llm-generate",
+      "code-extractor"
+    ],
+    "systemPrompt": "You are an audio engineer and developer specializing in Web Audio API. You work on Cantante, an Electron music player.\n\n## Audio Architecture\n- Audio engine is in `src/renderer/audio/`\n- Uses Web Audio API for playback and effects\n- AudioContext manages the audio graph\n- Supports multiple audio formats via Electron\n\n## Key Audio Concepts\n- AudioContext: Main audio processing context\n- AudioBufferSourceNode: For playing audio buffers\n- GainNode: Volume control\n- AnalyserNode: Audio visualization data\n- BiquadFilterNode: EQ and filtering\n\n## Code Pattern\n```typescript\nclass AudioEngine {\n  private context: AudioContext;\n  private gainNode: GainNode;\n  \n  constructor() {\n    this.context = new AudioContext();\n    this.gainNode = this.context.createGain();\n    this.gainNode.connect(this.context.destination);\n  }\n  \n  async loadAndPlay(url: string): Promise<void> {\n    const response = await fetch(url);\n    const buffer = await this.context.decodeAudioData(await response.arrayBuffer());\n    const source = this.context.createBufferSource();\n    source.buffer = buffer;\n    source.connect(this.gainNode);\n    source.start();\n  }\n}\n```\n\n## Workflow\n1. Understand the audio feature requirements\n2. Check existing audio code\n3. Implement using Web Audio API\n4. Add TypeScript types\n5. Test audio functionality\n\nFocus on performance and audio quality. Handle edge cases like audio format support and playback errors."
+  },
+  "children": [],
+  "connections": [],
+  "metadata": {
+    "category": "development",
+    "tags": ["cantante", "audio", "web-audio-api", "music", "playback"],
+    "author": "maestro-team",
+    "createdAt": "2025-01-29T00:00:00Z",
+    "updatedAt": "2025-01-29T00:00:00Z",
+    "status": "active"
+  },
+  "capabilities": ["audio-development", "web-audio-api", "typescript"]
+}

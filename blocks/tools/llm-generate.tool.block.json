@@ -3,9 +3,9 @@
   "id": "llm-generate",
   "name": "LLM Generate",
   "blockType": "tool",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "isAtomic": true,
-  "description": "Generates text using the LLM Provider API.",
+  "description": "Generates text using the local LLM Provider API with proper instruction formatting.",
 
   "inputs": [
     {
@@ -13,14 +13,14 @@
       "name": "Prompt",
       "type": "string",
       "required": true,
-      "description": "The prompt to send to the model"
+      "description": "The prompt/instruction to send to the model"
     },
     {
       "id": "maxTokens",
       "name": "Max Tokens",
       "type": "number",
       "required": false,
-      "default": 800,
+      "default": 500,
       "description": "Maximum tokens to generate"
     },
     {
@@ -28,8 +28,8 @@
       "name": "Temperature",
       "type": "number",
       "required": false,
-      "default": 0.7,
-      "description": "Sampling temperature (0.0-2.0)"
+      "default": 0.1,
+      "description": "Sampling temperature (0.0-2.0). Use 0.0-0.3 for deterministic code generation."
     }
   ],
 
@@ -39,6 +39,12 @@
       "name": "Generated Text",
       "type": "string",
       "description": "The generated text from the model"
+    },
+    {
+      "id": "stderr",
+      "name": "Error Output",
+      "type": "string",
+      "description": "Error messages if any"
     },
     {
       "id": "exitCode",
@@ -51,15 +57,18 @@
   "config": {
     "command": "powershell",
     "args": [
-      "-Command",
-      "$body = @{ prompt = '{{prompt}}'; max_new_tokens = 800; temperature = 0.7 } | ConvertTo-Json -Compress; $response = Invoke-RestMethod -Uri 'http://localhost:8000/v1/generate' -Method Post -Body $body -ContentType 'application/json'; $response.generated_text"
+      "-ExecutionPolicy", "Bypass",
+      "-File", "C:/Meastro/scripts/llm-generate.ps1",
+      "-Prompt", "\"{{prompt}}\"",
+      "-MaxTokens", "{{maxTokens}}",
+      "-Temperature", "{{temperature}}"
     ],
     "timeout": 120000
   },
 
   "metadata": {
     "category": "llm",
-    "tags": ["llm", "generation", "inference"],
+    "tags": ["llm", "generation", "inference", "local", "deepseek"],
     "author": "maestro-team"
   },
 

@@ -15,17 +15,20 @@ import {
   Zap,
   Brain,
   Code,
+  Bot,
+  Wrench,
   type LucideIcon,
 } from 'lucide-react';
 import type { BlockType } from '../../types/block.types';
 
 /**
  * Icon mapping for block types
- * Note: 'agent' removed, 'tool' renamed to 'command'
  */
 const iconMap: Record<BlockType, LucideIcon> = {
   workflow: Workflow,
   task: ListChecks,
+  agent: Bot,
+  tool: Wrench,
   prompt: MessageSquare,
   instruction: FileText,
   command: Terminal,
@@ -38,11 +41,12 @@ const iconMap: Record<BlockType, LucideIcon> = {
 
 /**
  * Color mapping for block types
- * Note: 'agent' removed, 'tool' renamed to 'command'
  */
 export const blockColorMap: Record<BlockType, string> = {
   workflow: '#2563eb',
   task: '#10b981',
+  agent: '#7c3aed',
+  tool: '#0891b2',
   prompt: '#f59e0b',
   instruction: '#f97316',
   command: '#6b7280',

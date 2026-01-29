@@ -37,6 +37,8 @@ export const EditorRegistry: Record<BlockType, ComponentType<BlockEditorProps> |
   inference: InferenceEditor as ComponentType<BlockEditorProps>,
   script: ScriptEditor as ComponentType<BlockEditorProps>,
   workflow: null, // Workflows use Canvas editor, not a form editor
+  agent: null, // Agents use Canvas editor, not a form editor
+  tool: null, // Tools use Canvas editor, not a form editor
 };
 
 /**

@@ -7,15 +7,17 @@
 
 /**
  * Core block types - hardcoded for MVP
- * Note: 'agent' block type removed to avoid confusion with AgentFoundry Agents
- * Note: 'tool' renamed to 'command' to avoid confusion with AgentFoundry Tools
+ * Note: 'agent' and 'tool' are composite blocks that can be edited on canvas
+ * Note: 'command' is the atomic command block (bash, git, file ops)
  */
 export type BlockType =
   | 'workflow' // Top-level container
   | 'task' // Task with validation (contains validators, commands)
+  | 'agent' // Autonomous orchestrator using tools (composite)
+  | 'tool' // Reusable capability with strict I/O (composite)
   | 'prompt' // Reusable prompt template (atomic)
   | 'instruction' // Instruction file reference (atomic)
-  | 'command' // Executable command (bash, git, file ops) - formerly 'tool' (atomic)
+  | 'command' // Executable command (bash, git, file ops) (atomic)
   | 'decision' // Conditional branching (atomic)
   | 'validator' // Output validation (atomic)
   | 'trigger' // Workflow trigger (atomic)
@@ -107,9 +109,34 @@ export interface Block<TConfig = BlockConfig> {
 }
 
 /**
+ * Agent block configuration - autonomous orchestrator
+ */
+export interface AgentBlockConfig {
+  type: 'agent';
+  description?: string;
+  model?: string;
+  maxSteps?: number;
+  maxTokens?: number;
+  temperature?: number;
+  timeoutMs?: number;
+  requireApproval?: boolean;
+  systemPrompt?: string;
+  tools?: string[]; // IDs of available tools
+}
+
+/**
+ * Tool block configuration (composite) - reusable capability with strict I/O
+ */
+export interface FoundryToolBlockConfig {
+  type: 'tool';
+  description?: string;
+  inputSchema?: object;
+  outputSchema?: object;
+  category?: string;
+}
+
+/**
  * Base config type - all configs extend this
- * Note: AgentBlockConfig removed (use AgentFoundry Agents instead)
- * Note: ToolBlockConfig renamed to CommandBlockConfig
  */
 export type BlockConfig =
   | TaskBlockConfig
@@ -121,7 +148,9 @@ export type BlockConfig =
   | TriggerBlockConfig
   | WorkflowBlockConfig
   | InferenceBlockConfig
-  | ScriptBlockConfig;
+  | ScriptBlockConfig
+  | AgentBlockConfig
+  | FoundryToolBlockConfig;
 
 /**
  * Script block configuration - allows storing code in any language
@@ -328,6 +357,14 @@ export function isInferenceConfig(config: BlockConfig): config is InferenceBlock
 
 export function isScriptConfig(config: BlockConfig): config is ScriptBlockConfig {
   return config.type === 'script';
+}
+
+export function isAgentConfig(config: BlockConfig): config is AgentBlockConfig {
+  return config.type === 'agent';
+}
+
+export function isFoundryToolConfig(config: BlockConfig): config is FoundryToolBlockConfig {
+  return config.type === 'tool';
 }
 
 /**

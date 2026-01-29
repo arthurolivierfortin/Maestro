@@ -22,6 +22,8 @@ import {
   isInstructionConfig,
   isWorkflowConfig,
   isScriptConfig,
+  isAgentConfig,
+  isFoundryToolConfig,
 } from '../../types/block.types';
 import type { BlockNodeData } from '../BlockCanvas/BlockCanvas';
 import './BaseBlockNode.scss';
@@ -281,6 +283,40 @@ function renderBlockContent(block: Block) {
           <div className="base-block-node__preview">
             <div className="base-block-node__preview-label">Language:</div>
             <div className="base-block-node__preview-value">{block.config.language}</div>
+          </div>
+        );
+      }
+      return null;
+
+    case 'agent':
+      if (isAgentConfig(block.config)) {
+        return (
+          <div className="base-block-node__preview">
+            <div className="base-block-node__preview-text">
+              {block.config.description || 'Autonomous agent'}
+            </div>
+            {block.config.tools && block.config.tools.length > 0 && (
+              <div className="base-block-node__preview-label">
+                {block.config.tools.length} tool{block.config.tools.length !== 1 ? 's' : ''}
+              </div>
+            )}
+          </div>
+        );
+      }
+      return null;
+
+    case 'tool':
+      if (isFoundryToolConfig(block.config)) {
+        return (
+          <div className="base-block-node__preview">
+            <div className="base-block-node__preview-text">
+              {block.config.description || 'Reusable tool'}
+            </div>
+            {block.config.category && (
+              <div className="base-block-node__preview-label">
+                {block.config.category}
+              </div>
+            )}
           </div>
         );
       }

@@ -93,7 +93,7 @@ const routes: RouteObject[] = [
           </LazyPage>
         ),
       },
-      // Agent detail page
+      // Agent routes
       {
         path: 'agent/:agentId',
         element: (
@@ -102,7 +102,7 @@ const routes: RouteObject[] = [
           </LazyPage>
         ),
       },
-      // Tool detail page
+      // Tool routes
       {
         path: 'tool/:toolId',
         element: (

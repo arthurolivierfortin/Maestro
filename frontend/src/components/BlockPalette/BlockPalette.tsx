@@ -31,10 +31,9 @@ interface PaletteCategory {
 
 // PALETTE_CATEGORIES supports nested categories (subcategories).
 // Add subcategories in-code by adding a `subcategories` array to any category.
-// Note: 'agent' block removed, 'tool' renamed to 'command'
 const PALETTE_CATEGORIES: PaletteCategory[] = [
   // Multi-node containers (can contain other nodes)
-  { id: 'multi-node', label: 'Containers', blockTypes: ['workflow', 'task'] },
+  { id: 'multi-node', label: 'Containers', blockTypes: ['workflow', 'task', 'agent', 'tool'] },
 
   // Atomic blocks grouped under a single top-level category with subcategories
   {

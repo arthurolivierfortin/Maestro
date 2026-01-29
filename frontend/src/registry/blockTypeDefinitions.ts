@@ -16,6 +16,8 @@ import type {
   WorkflowBlockConfig,
   InferenceBlockConfig,
   ScriptBlockConfig,
+  AgentBlockConfig,
+  FoundryToolBlockConfig,
 } from '../types/block.types';
 
 /**
@@ -28,10 +30,12 @@ export const workflowTypeInfo: BlockTypeInfo = {
   icon: 'Workflow',
   color: '#2563eb',
   isAtomic: false,
-  // Allow any block type inside a workflow (agent block removed, tool renamed to command)
+  // Allow any block type inside a workflow
   allowedChildren: [
     'workflow',
     'task',
+    'agent',
+    'tool',
     'prompt',
     'instruction',
     'command',
@@ -86,6 +90,81 @@ export const taskTypeInfo: BlockTypeInfo = {
       name: 'Output',
       dataType: 'any',
       required: false,
+      multiple: false,
+    },
+  ],
+};
+
+/**
+ * Agent block type - autonomous orchestrator
+ */
+export const agentTypeInfo: BlockTypeInfo = {
+  type: 'agent',
+  label: 'Agent',
+  description: 'Autonomous orchestrator using tools',
+  icon: 'Bot',
+  color: '#7c3aed',
+  isAtomic: false, // COMPOSITE - can contain children
+  allowedChildren: ['inference', 'decision', 'prompt', 'validator', 'script', 'tool'],
+  allowedParents: ['workflow'],
+  defaultConfig: {
+    type: 'agent',
+    maxSteps: 50,
+    temperature: 0.7,
+    tools: [],
+  } as AgentBlockConfig,
+  defaultInputs: [
+    {
+      id: 'goal',
+      name: 'Goal',
+      dataType: 'string',
+      required: true,
+      multiple: false,
+    },
+  ],
+  defaultOutputs: [
+    {
+      id: 'result',
+      name: 'Result',
+      dataType: 'any',
+      required: false,
+      multiple: false,
+    },
+  ],
+};
+
+/**
+ * Tool block type - reusable capability with strict I/O
+ */
+export const toolTypeInfo: BlockTypeInfo = {
+  type: 'tool',
+  label: 'Tool',
+  description: 'Reusable capability with strict I/O',
+  icon: 'Wrench',
+  color: '#0891b2',
+  isAtomic: false, // COMPOSITE - can contain children
+  allowedChildren: ['command', 'inference', 'validator', 'script', 'prompt'],
+  allowedParents: ['workflow', 'agent'],
+  defaultConfig: {
+    type: 'tool',
+    inputSchema: {},
+    outputSchema: {},
+  } as FoundryToolBlockConfig,
+  defaultInputs: [
+    {
+      id: 'input',
+      name: 'Input',
+      dataType: 'any',
+      required: true,
+      multiple: false,
+    },
+  ],
+  defaultOutputs: [
+    {
+      id: 'output',
+      name: 'Output',
+      dataType: 'any',
+      required: true,
       multiple: false,
     },
   ],
@@ -385,11 +464,12 @@ export const scriptTypeInfo: BlockTypeInfo = {
 
 /**
  * All block type definitions
- * Note: agentTypeInfo removed, toolTypeInfo renamed to commandTypeInfo
  */
 export const blockTypeDefinitions: BlockTypeInfo[] = [
   workflowTypeInfo,
   taskTypeInfo,
+  agentTypeInfo,
+  toolTypeInfo,
   promptTypeInfo,
   instructionTypeInfo,
   commandTypeInfo,

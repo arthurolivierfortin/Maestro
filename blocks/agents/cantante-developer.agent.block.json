@@ -1,39 +1,94 @@
 {
+  "$schema": "../../../docs/schemas/block.schema.json",
   "id": "cantante-developer",
-  "name": "Cantante Developer Agent",
-  "type": "agent",
-  "version": "1.0.0",
-  "description": "Autonomous agent that develops the Cantante music application step by step",
+  "name": "Cantante Developer",
+  "blockType": "agent",
+  "version": "2.0.0",
   "isAtomic": false,
-  "category": "development",
-  "config": {
-    "model": "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B",
-    "temperature": 0.3,
-    "maxTokens": 2048,
-    "systemPrompt": "You are a developer working on Cantante, an Electron music player app.\n\nYour task: {{task}}\n\nThink step by step:\n1. What files exist?\n2. What needs to be done?\n3. Write the code.\n\nOutput ONLY valid JSON:\n{\"action\": \"write_file\", \"path\": \"path/to/file\", \"content\": \"file content here\"}\n\nOR\n\n{\"action\": \"done\", \"summary\": \"what was accomplished\"}",
-    "tools": ["file-read", "file-write", "shell-execute"]
-  },
-  "inputs": {
-    "task": {
+  "description": "Autonomous agent that develops features for the Cantante music player. Works with local LLMs via LLM-Provider.",
+  "position": { "x": 0, "y": 0 },
+  "inputs": [
+    {
+      "id": "task",
+      "name": "Development Task",
       "type": "string",
       "required": true,
-      "description": "The development task to accomplish"
+      "description": "The development task to accomplish (e.g., 'Add volume slider to player')"
     },
-    "projectPath": {
+    {
+      "id": "projectPath",
+      "name": "Project Path",
       "type": "string",
-      "required": true,
+      "required": false,
       "default": "C:/Cantante",
       "description": "Path to the Cantante project"
-    }
-  },
-  "outputs": {
-    "result": {
-      "type": "object",
-      "description": "Result of the development task"
     },
-    "filesModified": {
-      "type": "array",
-      "description": "List of files that were modified"
+    {
+      "id": "context",
+      "name": "Additional Context",
+      "type": "string",
+      "required": false,
+      "description": "Additional context about the task or codebase"
     }
-  }
+  ],
+  "outputs": [
+    {
+      "id": "success",
+      "name": "Success",
+      "type": "boolean",
+      "description": "Whether the task was completed successfully"
+    },
+    {
+      "id": "filesModified",
+      "name": "Files Modified",
+      "type": "array",
+      "description": "List of files that were created or modified"
+    },
+    {
+      "id": "summary",
+      "name": "Summary",
+      "type": "string",
+      "description": "Summary of what was accomplished"
+    },
+    {
+      "id": "errors",
+      "name": "Errors",
+      "type": "array",
+      "description": "Any errors encountered during development"
+    }
+  ],
+  "config": {
+    "type": "agent",
+    "model": "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B",
+    "maxSteps": 25,
+    "maxTokens": 4096,
+    "temperature": 0.3,
+    "timeoutMs": 600000,
+    "requireApproval": false,
+    "tools": [
+      "file-read",
+      "file-write",
+      "directory-list",
+      "project-structure",
+      "typescript-check",
+      "npm-run",
+      "shell-execute",
+      "llm-generate",
+      "code-extractor",
+      "git-status",
+      "git-diff"
+    ],
+    "systemPrompt": "You are an expert developer working on Cantante, an Electron-based music player application built with TypeScript.\n\n## Project Structure\n- `src/main/` - Electron main process\n- `src/renderer/` - React frontend\n- `src/preload/` - Preload scripts\n- `src/shared/` - Shared types and utilities\n\n## Your Capabilities\nYou can read files, write code, check TypeScript errors, run npm scripts, and execute shell commands.\n\n## Development Workflow\n1. First, understand the task and explore relevant files\n2. Plan your changes\n3. Implement the changes\n4. Verify with TypeScript check\n5. Summarize what was done\n\n## Important Guidelines\n- Always check existing code before writing new code\n- Follow the existing code style and patterns\n- Use TypeScript strictly - no 'any' types unless necessary\n- Test your changes with typescript-check before finishing\n- Keep changes minimal and focused on the task\n\n## Output Format\nFor each action, output valid JSON:\n- Read: {\"action\": \"read\", \"path\": \"relative/path\"}\n- Write: {\"action\": \"write\", \"path\": \"relative/path\", \"content\": \"...\"}\n- Check: {\"action\": \"typecheck\"}\n- Done: {\"action\": \"done\", \"summary\": \"...\", \"files\": [\"...\"]}"
+  },
+  "children": [],
+  "connections": [],
+  "metadata": {
+    "category": "development",
+    "tags": ["cantante", "electron", "typescript", "music-player", "autonomous"],
+    "author": "maestro-team",
+    "createdAt": "2025-01-29T00:00:00Z",
+    "updatedAt": "2025-01-29T00:00:00Z",
+    "status": "active"
+  },
+  "capabilities": ["code-generation", "file-ops", "typescript", "electron"]
 }

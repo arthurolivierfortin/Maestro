@@ -44,10 +44,11 @@ builder.Services.AddScoped<Maestro.Application.Interfaces.IBlockExecutor, Maestr
 builder.Services.AddScoped<Maestro.Application.Interfaces.IBlockExecutor, Maestro.Infrastructure.BlockExecutors.InferenceBlockExecutor>();
 builder.Services.AddScoped<Maestro.Application.Interfaces.IBlockExecutor, Maestro.Infrastructure.BlockExecutors.ToolBlockExecutor>();
 // AgentBlockExecutor is registered separately to avoid circular dependency with BlockExecutorRegistry
+// Uses lazy resolution of registry via IServiceProvider
 builder.Services.AddScoped<Maestro.Infrastructure.BlockExecutors.AgentBlockExecutor>(sp =>
 {
     var llmGateway = sp.GetRequiredService<Maestro.Application.Interfaces.ILLMGateway>();
-    return new Maestro.Infrastructure.BlockExecutors.AgentBlockExecutor(llmGateway, null);
+    return new Maestro.Infrastructure.BlockExecutors.AgentBlockExecutor(llmGateway, sp);
 });
 builder.Services.AddScoped<Maestro.Application.Interfaces.IBlockExecutor>(sp =>
     sp.GetRequiredService<Maestro.Infrastructure.BlockExecutors.AgentBlockExecutor>());

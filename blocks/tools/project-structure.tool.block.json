@@ -1,0 +1,67 @@
+{
+  "$schema": "../../../docs/schemas/block.schema.json",
+  "id": "project-structure",
+  "name": "Project Structure",
+  "blockType": "tool",
+  "version": "1.0.0",
+  "isAtomic": true,
+  "description": "Lists the directory structure of a project, useful for understanding codebase layout",
+  "inputs": [
+    {
+      "id": "projectPath",
+      "name": "Project Path",
+      "type": "string",
+      "required": true,
+      "description": "Path to the project directory"
+    },
+    {
+      "id": "depth",
+      "name": "Depth",
+      "type": "number",
+      "required": false,
+      "default": 3,
+      "description": "Maximum depth to traverse"
+    },
+    {
+      "id": "excludePatterns",
+      "name": "Exclude Patterns",
+      "type": "string",
+      "required": false,
+      "default": "node_modules,dist,.git,coverage",
+      "description": "Comma-separated patterns to exclude"
+    }
+  ],
+  "outputs": [
+    {
+      "id": "structure",
+      "name": "Directory Structure",
+      "type": "string",
+      "description": "Tree-like representation of the project structure"
+    },
+    {
+      "id": "fileCount",
+      "name": "File Count",
+      "type": "number",
+      "description": "Total number of files found"
+    },
+    {
+      "id": "dirCount",
+      "name": "Directory Count",
+      "type": "number",
+      "description": "Total number of directories found"
+    }
+  ],
+  "config": {
+    "command": "powershell",
+    "args": [
+      "-Command",
+      "$exclude = '{{excludePatterns}}' -split ','; Get-ChildItem -Path '{{projectPath}}' -Recurse -Depth {{depth}} | Where-Object { $item = $_; -not ($exclude | Where-Object { $item.FullName -like \"*$_*\" }) } | ForEach-Object { $indent = '  ' * ($_.FullName.Split([IO.Path]::DirectorySeparatorChar).Count - '{{projectPath}}'.Split([IO.Path]::DirectorySeparatorChar).Count); \"$indent$($_.Name)\" }"
+    ],
+    "timeout": 30000
+  },
+  "metadata": {
+    "category": "filesystem",
+    "tags": ["structure", "tree", "directory", "exploration"]
+  },
+  "capabilities": ["filesystem", "exploration"]
+}
