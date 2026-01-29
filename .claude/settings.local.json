@@ -75,7 +75,8 @@
       "Bash(set:*)",
       "Bash(dotnet run:*)",
       "Bash(timeout /t 15 /nobreak)",
-      "Bash(timeout:*)"
+      "Bash(timeout:*)",
+      "Bash(git rm:*)"
     ]
   }
 }
