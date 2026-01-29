@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Text.Json;
 using Maestro.Domain.Entities;
 
@@ -10,7 +11,7 @@ public class AgentRegistry
 {
     private readonly string _globalAgentsPath;
     private readonly JsonSerializerOptions _jsonOptions;
-    private readonly Dictionary<string, AgentDefinition> _cache = new();
+    private readonly ConcurrentDictionary<string, AgentDefinition> _cache = new();
 
     public AgentRegistry(string globalAgentsPath)
     {
@@ -113,7 +114,7 @@ public class AgentRegistry
         if (File.Exists(filePath))
         {
             File.Delete(filePath);
-            _cache.Remove(id);
+            _cache.TryRemove(id, out _);
             return true;
         }
 

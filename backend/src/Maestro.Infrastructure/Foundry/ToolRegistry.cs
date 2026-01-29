@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Text.Json;
 using Maestro.Domain.Entities;
 
@@ -10,7 +11,7 @@ public class ToolRegistry
 {
     private readonly string _globalToolsPath;
     private readonly JsonSerializerOptions _jsonOptions;
-    private readonly Dictionary<string, ToolDefinition> _cache = new();
+    private readonly ConcurrentDictionary<string, ToolDefinition> _cache = new();
 
     public ToolRegistry(string globalToolsPath)
     {
@@ -112,7 +113,7 @@ public class ToolRegistry
         if (File.Exists(filePath))
         {
             File.Delete(filePath);
-            _cache.Remove(id);
+            _cache.TryRemove(id, out _);
             return true;
         }
 

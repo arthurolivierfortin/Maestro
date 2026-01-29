@@ -32,6 +32,8 @@ const MetricsPage = lazy(() => import('@/pages/MetricsPage'));
 const MonitoringPage = lazy(() => import('@/pages/MonitoringPage'));
 const NotFoundPage = lazy(() => import('@/pages/NotFoundPage'));
 const DebugPage = lazy(() => import('@/pages/DebugPage'));
+const AgentDetailPage = lazy(() => import('@/pages/AgentDetailPage'));
+const ToolDetailPage = lazy(() => import('@/pages/ToolDetailPage'));
 
 /**
  * Route definitions
@@ -103,6 +105,24 @@ const routes: RouteObject[] = [
         element: (
           <LazyPage>
             <AtomicBlockEditorPage />
+          </LazyPage>
+        ),
+      },
+      // Agent detail page
+      {
+        path: 'foundry/agents/:agentId',
+        element: (
+          <LazyPage>
+            <AgentDetailPage />
+          </LazyPage>
+        ),
+      },
+      // Tool detail page
+      {
+        path: 'foundry/tools/:toolId',
+        element: (
+          <LazyPage>
+            <ToolDetailPage />
           </LazyPage>
         ),
       },
