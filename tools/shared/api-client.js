@@ -597,6 +597,65 @@ class MaestroApiClient {
     return this._fetch('GET', `/api/tools/top?${params.toString()}`);
   }
 
+  // ===== BLOCK TESTING (Generic for all block types: tool, agent, workflow, task) =====
+
+  async listBlockTestRuns(filter = {}) {
+    const params = new URLSearchParams();
+    if (filter.blockId) params.set('blockId', filter.blockId);
+    if (filter.blockType) params.set('blockType', filter.blockType);
+    if (filter.status) params.set('status', filter.status);
+    const queryString = params.toString();
+    return this._fetch('GET', `/api/blocktest/runs${queryString ? `?${queryString}` : ''}`);
+  }
+
+  async getBlockTestRun(id) {
+    if (!id) throw new Error('Test run ID is required');
+    return this._fetch('GET', `/api/blocktest/runs/${id}`);
+  }
+
+  async createBlockTestRun(request) {
+    if (!request || !request.blockId) throw new Error('Block ID is required');
+    return this._fetch('POST', '/api/blocktest/runs', { body: request });
+  }
+
+  async submitBlockTestEvaluation(runId, evaluation) {
+    if (!runId) throw new Error('Run ID is required');
+    return this._fetch('POST', `/api/blocktest/runs/${runId}/evaluate`, { body: evaluation });
+  }
+
+  async submitBulkBlockTestEvaluation(runId, evaluations) {
+    if (!runId) throw new Error('Run ID is required');
+    return this._fetch('POST', `/api/blocktest/runs/${runId}/evaluate/bulk`, { body: { evaluations } });
+  }
+
+  async getBlockTestPendingEvaluations(runId) {
+    if (!runId) throw new Error('Run ID is required');
+    return this._fetch('GET', `/api/blocktest/runs/${runId}/pending`);
+  }
+
+  async submitBlockImprovement(runId, suggestions) {
+    if (!runId) throw new Error('Run ID is required');
+    return this._fetch('POST', `/api/blocktest/runs/${runId}/improve`, { body: { suggestions } });
+  }
+
+  async compareBlockTestRuns(runIds) {
+    if (!runIds || runIds.length === 0) throw new Error('Run IDs are required');
+    return this._fetch('GET', `/api/blocktest/compare?runIds=${runIds.join(',')}`);
+  }
+
+  async deleteBlockTestRun(id) {
+    if (!id) throw new Error('Test run ID is required');
+    return this._fetch('DELETE', `/api/blocktest/runs/${id}`);
+  }
+
+  // Legacy aliases (deprecated - use block* methods instead)
+  async listToolTestRuns(filter = {}) { return this.listBlockTestRuns(filter); }
+  async getToolTestRun(id) { return this.getBlockTestRun(id); }
+  async createToolTestRun(request) { return this.createBlockTestRun(request); }
+  async submitToolTestEvaluation(runId, evaluation) { return this.submitBlockTestEvaluation(runId, evaluation); }
+  async getPendingEvaluations(runId) { return this.getBlockTestPendingEvaluations(runId); }
+  async deleteToolTestRun(id) { return this.deleteBlockTestRun(id); }
+
   // ===== HELPER METHODS =====
 
   async checkBackendReady() {

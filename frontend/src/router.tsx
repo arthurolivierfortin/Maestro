@@ -30,6 +30,8 @@ const ProjectDetailPage = lazy(() => import('@/pages/ProjectDetailPage'));
 const TrainingPage = lazy(() => import('@/pages/TrainingPage'));
 const MetricsPage = lazy(() => import('@/pages/MetricsPage'));
 const MonitoringPage = lazy(() => import('@/pages/MonitoringPage'));
+const TestingPage = lazy(() => import('@/pages/TestingPage'));
+const TestRunDetailPage = lazy(() => import('@/pages/TestRunDetailPage'));
 const NotFoundPage = lazy(() => import('@/pages/NotFoundPage'));
 const DebugPage = lazy(() => import('@/pages/DebugPage'));
 const AgentDetailPage = lazy(() => import('@/pages/AgentDetailPage'));
@@ -186,6 +188,23 @@ const routes: RouteObject[] = [
         element: (
           <LazyPage>
             <MonitoringPage />
+          </LazyPage>
+        ),
+      },
+      // Testing
+      {
+        path: 'testing',
+        element: (
+          <LazyPage>
+            <TestingPage />
+          </LazyPage>
+        ),
+      },
+      {
+        path: 'testing/:runId',
+        element: (
+          <LazyPage>
+            <TestRunDetailPage />
           </LazyPage>
         ),
       },

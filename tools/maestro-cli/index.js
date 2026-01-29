@@ -1217,6 +1217,250 @@ async function deleteToolCmd(id, options = {}) {
   }
 }
 
+// ============= Block Testing Commands (Generic for all block types) =============
+
+async function startBlockTest(blockId, options = {}) {
+  try {
+    console.log(`\n🧪 Starting test for block: ${blockId}\n`);
+
+    const request = {
+      blockId,
+      iterations: options.iterations || 5,
+      variantId: options.variant,
+      variantDescription: options.variantDescription,
+      evaluatorType: options.evaluator || 'manual',
+      evaluatorModelId: options.evaluatorModel,
+      tags: options.tags ? options.tags.split(',') : []
+    };
+
+    const run = await client.createBlockTestRun(request);
+
+    console.log(`✅ Test run created!\n`);
+    console.log(`  Run ID:       ${run.id}`);
+    console.log(`  Block:        ${run.blockId} (${run.blockType})`);
+    console.log(`  Status:       ${run.status}`);
+    console.log(`  Iterations:   ${run.completedIterations}/${run.totalIterations}`);
+    console.log(`  Evaluator:    ${run.evaluatorType}`);
+
+    if (run.criteria && run.criteria.length > 0) {
+      console.log(`\n  Evaluation Criteria:`);
+      run.criteria.forEach(c => {
+        console.log(`    - ${c.name} (weight: ${c.weight})`);
+      });
+    }
+
+    if (run.status === 'AwaitingEvaluation') {
+      console.log(`\n⏳ Iterations complete. Awaiting evaluation.`);
+      console.log(`   View pending: maestro test pending ${run.id}`);
+      console.log(`   Evaluate:     maestro test evaluate ${run.id} --iteration <id> --score <0-100>`);
+    }
+
+    console.log('');
+    return run;
+  } catch (error) {
+    handleApiError(error, 'starting block test');
+    process.exit(1);
+  }
+}
+
+async function listBlockTestRuns(filter = {}) {
+  try {
+    const runs = await client.listBlockTestRuns(filter);
+
+    if (!runs || runs.length === 0) {
+      console.log('\nNo test runs found');
+      console.log('  Start one with: maestro test start <block-id> --iterations 5');
+      return;
+    }
+
+    console.log('\n🧪 Block Test Runs:\n');
+    console.table(runs.map(r => ({
+      'ID': r.id.substring(0, 8) + '...',
+      'Block': r.blockId,
+      'Type': r.blockType,
+      'Variant': r.variantId,
+      'Status': r.status,
+      'Progress': `${r.evaluatedIterations}/${r.totalIterations}`,
+      'Score': r.metrics?.overallScore || '-',
+      'Created': new Date(r.createdAt).toLocaleString()
+    })));
+  } catch (error) {
+    handleApiError(error, 'listing test runs');
+    process.exit(1);
+  }
+}
+
+async function getBlockTestRunInfo(id) {
+  try {
+    const run = await client.getBlockTestRun(id);
+
+    console.log('\n🧪 Test Run Details:\n');
+    console.log(`  ID:           ${run.id}`);
+    console.log(`  Block:        ${run.blockId} (${run.blockType})`);
+    console.log(`  Variant:      ${run.variantId}`);
+    console.log(`  Description:  ${run.variantDescription || 'N/A'}`);
+    console.log(`  Status:       ${run.status}`);
+    console.log(`  Progress:     ${run.completedIterations} executed, ${run.evaluatedIterations} evaluated`);
+    console.log(`  Evaluator:    ${run.evaluatorType}`);
+    console.log(`  Created:      ${new Date(run.createdAt).toLocaleString()}`);
+
+    if (run.metrics) {
+      console.log('\n  📊 Metrics:');
+      console.log(`    Overall Score:  ${run.metrics.overallScore}`);
+      console.log(`    Min/Max:        ${run.metrics.minScore} - ${run.metrics.maxScore}`);
+      console.log(`    Variance:       ${run.metrics.scoreVariance.toFixed(2)}`);
+
+      if (Object.keys(run.metrics.criterionAverages || {}).length > 0) {
+        console.log('\n    Criterion Averages:');
+        for (const [name, score] of Object.entries(run.metrics.criterionAverages)) {
+          console.log(`      ${name}: ${score.toFixed(1)}`);
+        }
+      }
+    }
+
+    if (run.iterations && run.iterations.length > 0) {
+      console.log('\n  📝 Iterations:');
+      for (const iter of run.iterations) {
+        const status = iter.evaluation ? `✓ Score: ${iter.evaluation.score}` : '⏳ Pending';
+        console.log(`    #${iter.iterationNumber} [${iter.id.substring(0, 8)}] - ${status}`);
+        if (iter.outputContent) {
+          const preview = iter.outputContent.length > 80
+            ? iter.outputContent.substring(0, 80) + '...'
+            : iter.outputContent;
+          console.log(`       Output: ${preview}`);
+        }
+      }
+    }
+
+    if (run.improvementSuggestions && run.improvementSuggestions.length > 0) {
+      console.log('\n  💡 Improvement Suggestions:');
+      run.improvementSuggestions.forEach((s, i) => console.log(`    ${i + 1}. ${s}`));
+    }
+
+    console.log('');
+  } catch (error) {
+    if (error.status === 404) {
+      console.error(`❌ Test run not found: ${id}`);
+    } else {
+      handleApiError(error, 'getting test run');
+    }
+    process.exit(1);
+  }
+}
+
+async function showBlockTestPendingEvaluations(runId) {
+  try {
+    const pending = await client.getBlockTestPendingEvaluations(runId);
+
+    if (!pending || pending.length === 0) {
+      console.log('\n✅ No pending evaluations for this run');
+      return;
+    }
+
+    console.log(`\n⏳ Pending Evaluations (${pending.length}):\n`);
+
+    for (const iter of pending) {
+      console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+      console.log(`  Iteration #${iter.iterationNumber} [ID: ${iter.id}]`);
+      console.log(`  Duration:    ${iter.durationMs}ms`);
+      console.log(`  Success:     ${iter.success ? 'Yes' : 'No'}`);
+
+      if (iter.outputContent) {
+        console.log(`\n  Output:`);
+        console.log(`  ${'-'.repeat(50)}`);
+        console.log(`  ${iter.outputContent}`);
+        console.log(`  ${'-'.repeat(50)}`);
+      }
+
+      console.log(`\n  To evaluate: maestro test evaluate ${runId} --iteration ${iter.id} --score <0-100>`);
+      console.log('');
+    }
+  } catch (error) {
+    handleApiError(error, 'getting pending evaluations');
+    process.exit(1);
+  }
+}
+
+async function evaluateBlockTestRun(runId, options) {
+  try {
+    if (!options.iteration) {
+      // Show pending evaluations if no iteration specified
+      return await showBlockTestPendingEvaluations(runId);
+    }
+
+    const score = parseInt(options.score);
+    if (isNaN(score) || score < 0 || score > 100) {
+      console.error('❌ Score must be between 0 and 100');
+      process.exit(1);
+    }
+
+    const evaluation = {
+      iterationId: options.iteration,
+      overallScore: score,
+      explanation: options.explanation || options.comment,
+      evaluatorType: options.evaluator || 'claude-code',
+      confidence: options.confidence ? parseFloat(options.confidence) : 1.0
+    };
+
+    const run = await client.submitBlockTestEvaluation(runId, evaluation);
+
+    console.log(`\n✅ Evaluation submitted!`);
+    console.log(`  Iteration:  ${options.iteration}`);
+    console.log(`  Score:      ${score}`);
+    console.log(`  Progress:   ${run.evaluatedIterations}/${run.totalIterations} evaluated`);
+
+    if (run.status === 'Completed' && run.metrics) {
+      console.log(`\n🎉 Test run complete!`);
+      console.log(`  Overall Score: ${run.metrics.overallScore}`);
+    }
+
+    console.log('');
+  } catch (error) {
+    handleApiError(error, 'submitting evaluation');
+    process.exit(1);
+  }
+}
+
+async function compareBlockTestRuns(runIds) {
+  try {
+    const comparison = await client.compareBlockTestRuns(runIds);
+
+    console.log('\n📊 Test Run Comparison:\n');
+
+    if (comparison.bestRunId) {
+      console.log(`  🏆 Best Run: ${comparison.bestRunId} (Score: ${comparison.bestScore})`);
+    }
+
+    console.log('\n  Scores by Variant:');
+    for (const [variant, score] of Object.entries(comparison.scoresByVariant)) {
+      console.log(`    ${variant}: ${score}`);
+    }
+
+    if (comparison.runs && comparison.runs.length > 0) {
+      console.log('\n  Run Details:');
+      console.table(comparison.runs.map(r => ({
+        'ID': r.id.substring(0, 8) + '...',
+        'Variant': r.variantId,
+        'Score': r.metrics?.overallScore || '-',
+        'Status': r.status
+      })));
+    }
+
+    console.log('');
+  } catch (error) {
+    handleApiError(error, 'comparing test runs');
+    process.exit(1);
+  }
+}
+
+// Legacy aliases for backward compatibility
+async function startToolTest(blockId, options) { return startBlockTest(blockId, options); }
+async function listToolTestRuns(filter) { return listBlockTestRuns(filter); }
+async function getToolTestRunInfo(id) { return getBlockTestRunInfo(id); }
+async function showPendingEvaluations(runId) { return showBlockTestPendingEvaluations(runId); }
+async function evaluateToolTestRun(runId, options) { return evaluateBlockTestRun(runId, options); }
+async function compareToolTestRuns(runIds) { return compareBlockTestRuns(runIds); }
+
 async function getToolMetricsCmd(id) {
   try {
     const metrics = await client.getToolMetrics(id);
@@ -1470,6 +1714,15 @@ Tool Commands:
   tools create         Create a new tool
   tools delete <id>    Delete a tool (--force required)
   tools metrics <id>   Show tool metrics
+
+Block Testing Commands (works with any block type: tool, agent, workflow, task):
+  test start <block-id>  Start a test run for any block
+  test runs              List all test runs
+  test runs <id>         Show test run details
+  test pending <id>      Show iterations awaiting evaluation
+  test evaluate <id>     Submit evaluation for a test run
+  test compare <ids>     Compare multiple test runs
+  test improve <id>      Submit improvement suggestions
 
 LLM Commands:
   llm                  Show LLM provider status
@@ -1968,7 +2221,122 @@ Examples:
         return await getToolMetricsCmd(id);
       }
 
+      // Tool testing commands
+      if (subCmd === 'test') {
+        const blockId = argv._[2];
+        if (!blockId) { console.error('❌ Block ID required'); process.exit(1); }
+        return await startToolTest(blockId, {
+          iterations: argv.iterations ? parseInt(argv.iterations) : 5,
+          variant: argv.variant,
+          variantDescription: argv['variant-desc'],
+          evaluator: argv.evaluator || 'manual',
+          evaluatorModel: argv['evaluator-model'],
+          tags: argv.tags
+        });
+      }
+
+      if (subCmd === 'testruns') {
+        const id = argv._[2];
+        if (id) {
+          return await getToolTestRunInfo(id);
+        }
+        return await listToolTestRuns({ blockId: argv.block, status: argv.status });
+      }
+
+      if (subCmd === 'evaluate') {
+        const runId = argv._[2];
+        if (!runId) { console.error('❌ Test run ID required'); process.exit(1); }
+        return await evaluateToolTestRun(runId, argv);
+      }
+
+      if (subCmd === 'pending') {
+        const runId = argv._[2];
+        if (!runId) { console.error('❌ Test run ID required'); process.exit(1); }
+        return await showPendingEvaluations(runId);
+      }
+
       console.error(`❌ Unknown tools subcommand: ${subCmd}`);
+      process.exit(1);
+    }
+
+    // Block Testing commands (generic for all block types)
+    if (cmd === 'test') {
+      const subCmd = argv._[1];
+
+      if (!subCmd) {
+        console.log('Usage: maestro test <command>');
+        console.log('  start <block-id>  Start a test run for any block');
+        console.log('  runs              List all test runs');
+        console.log('  runs <id>         Show test run details');
+        console.log('  pending <id>      Show iterations awaiting evaluation');
+        console.log('  evaluate <id>     Submit evaluation for a test run');
+        console.log('  compare <ids>     Compare multiple test runs');
+        return;
+      }
+
+      if (subCmd === 'start') {
+        const blockId = argv._[2];
+        if (!blockId) { console.error('❌ Block ID required'); process.exit(1); }
+        return await startBlockTest(blockId, {
+          iterations: argv.iterations ? parseInt(argv.iterations) : 5,
+          variant: argv.variant,
+          variantDescription: argv['variant-desc'],
+          evaluator: argv.evaluator || 'manual',
+          evaluatorModel: argv['evaluator-model'],
+          tags: argv.tags
+        });
+      }
+
+      if (subCmd === 'runs') {
+        const id = argv._[2];
+        if (id) {
+          return await getBlockTestRunInfo(id);
+        }
+        return await listBlockTestRuns({
+          blockId: argv.block,
+          blockType: argv.type,
+          status: argv.status
+        });
+      }
+
+      if (subCmd === 'pending') {
+        const runId = argv._[2];
+        if (!runId) { console.error('❌ Test run ID required'); process.exit(1); }
+        return await showBlockTestPendingEvaluations(runId);
+      }
+
+      if (subCmd === 'evaluate') {
+        const runId = argv._[2];
+        if (!runId) { console.error('❌ Test run ID required'); process.exit(1); }
+        return await evaluateBlockTestRun(runId, argv);
+      }
+
+      if (subCmd === 'compare') {
+        const runIds = argv._[2];
+        if (!runIds) { console.error('❌ Run IDs required (comma-separated)'); process.exit(1); }
+        return await compareBlockTestRuns(runIds.split(','));
+      }
+
+      if (subCmd === 'improve') {
+        const runId = argv._[2];
+        if (!runId) { console.error('❌ Test run ID required'); process.exit(1); }
+        const suggestions = argv.suggestions ? argv.suggestions.split(',') : [];
+        if (suggestions.length === 0) {
+          console.error('❌ --suggestions required (comma-separated)');
+          process.exit(1);
+        }
+        try {
+          const run = await client.submitBlockImprovement(runId, suggestions);
+          console.log(`\n✅ Improvement suggestions added to run ${runId}`);
+          console.log(`   Total suggestions: ${run.improvementSuggestions?.length || 0}`);
+        } catch (error) {
+          handleApiError(error, 'submitting improvements');
+          process.exit(1);
+        }
+        return;
+      }
+
+      console.error(`❌ Unknown test subcommand: ${subCmd}`);
       process.exit(1);
     }
 

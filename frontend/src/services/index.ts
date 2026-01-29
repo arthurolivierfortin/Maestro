@@ -12,3 +12,6 @@ export * from './discoveryService';
 // Metrics and Training services (Phase 9)
 export { metricsService } from './metricsService';
 export { trainingService } from './trainingService';
+
+// Block Testing service
+export { testService } from './testService';

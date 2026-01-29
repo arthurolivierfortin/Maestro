@@ -1,0 +1,79 @@
+.score-trend-chart {
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 16px;
+
+  &--empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 200px;
+
+    p {
+      color: var(--color-text-tertiary);
+      font-size: 14px;
+    }
+  }
+
+  &__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+
+    h4 {
+      margin: 0;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--color-text-primary);
+    }
+  }
+
+  &__trend {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 500;
+    padding: 4px 10px;
+    border-radius: 12px;
+
+    &--improving {
+      background: rgba(34, 197, 94, 0.1);
+      color: #22c55e;
+    }
+
+    &--declining {
+      background: rgba(239, 68, 68, 0.1);
+      color: #ef4444;
+    }
+
+    &--stable {
+      background: rgba(107, 114, 128, 0.1);
+      color: #6b7280;
+    }
+  }
+
+  &__avg {
+    margin-left: 8px;
+    padding-left: 8px;
+    border-left: 1px solid currentColor;
+    opacity: 0.7;
+  }
+
+  &__svg {
+    width: 100%;
+    height: auto;
+    max-height: 250px;
+  }
+
+  &__point {
+    cursor: pointer;
+    transition: r 0.2s ease;
+
+    &:hover {
+      r: 7;
+    }
+  }
+}

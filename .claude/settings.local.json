@@ -78,7 +78,10 @@
       "Bash(timeout:*)",
       "Bash(git rm:*)",
       "Bash(npx playwright test:*)",
-      "Bash(cmd //c \"taskkill /PID 25572 /F\")"
+      "Bash(cmd //c \"taskkill /PID 25572 /F\")",
+      "Bash(cmd /c \"taskkill /F /IM dotnet.exe\")",
+      "Bash(MAESTRO_API_URL=http://localhost:5125 node:*)",
+      "Bash(Select-Object -First 30 -ExpandProperty FullName)"
     ]
   }
 }

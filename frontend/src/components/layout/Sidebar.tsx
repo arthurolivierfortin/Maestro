@@ -16,6 +16,7 @@ import {
   Play,
   Clock,
   Dumbbell,
+  FlaskConical,
   Activity,
   FileText,
   BarChart3,
@@ -75,6 +76,12 @@ const navigationItems: SidebarItem[] = [
     label: 'Training',
     icon: <Dumbbell size={16} />,
     path: '/training',
+  },
+  {
+    id: 'testing',
+    label: 'Testing',
+    icon: <FlaskConical size={16} />,
+    path: '/testing',
   },
   {
     id: 'monitoring',

@@ -58,6 +58,12 @@ export function TopBar() {
             Training
           </Link>
           <Link
+            to="/testing"
+            className={`top-bar__nav-link ${isActive('/testing') ? 'top-bar__nav-link--active' : ''}`}
+          >
+            Testing
+          </Link>
+          <Link
             to="/monitoring"
             className={`top-bar__nav-link ${isActive('/monitoring') ? 'top-bar__nav-link--active' : ''}`}
           >
