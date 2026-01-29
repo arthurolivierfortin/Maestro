@@ -70,7 +70,11 @@
       "Bash(npm run dev:*)",
       "Bash(cd:*)",
       "Bash(npm run test:*)",
-      "Bash(powershell.exe:*)"
+      "Bash(powershell.exe:*)",
+      "Bash(cmd /c \"cd /d C:\\\\Meastro\\\\frontend && npm test -- --run src/services/__tests__/localModelService.test.ts src/hooks/__tests__/useModelStatus.test.ts src/data/__tests__/modelCatalog.test.ts\")",
+      "Bash(set:*)",
+      "Bash(dotnet run:*)",
+      "Bash(timeout /t 15 /nobreak)"
     ]
   }
 }

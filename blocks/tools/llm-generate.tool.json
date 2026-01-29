@@ -1,0 +1,27 @@
+{
+  "id": "llm-generate",
+  "name": "LLM Generate",
+  "description": "G\u00E9n\u00E9ration de texte via LLM",
+  "version": "1.0.0",
+  "designation": "tool",
+  "blockId": "llm-generate",
+  "inputSchema": {},
+  "outputSchema": {},
+  "category": "llm",
+  "tags": [],
+  "author": null,
+  "metrics": {
+    "totalRuns": 0,
+    "successfulRuns": 0,
+    "failedRuns": 0,
+    "successRate": 0,
+    "avgExecutionTimeMs": 0,
+    "avgTokenCost": 0,
+    "avgScore": 0,
+    "overallScore": 20,
+    "lastRunAt": null,
+    "usedByAgents": []
+  },
+  "createdAt": "2026-01-29T01:29:22.5229365Z",
+  "updatedAt": "2026-01-29T01:29:22.5229377Z"
+}

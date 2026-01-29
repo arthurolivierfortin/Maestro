@@ -56,18 +56,6 @@ export function useModelStatus(): UseModelStatusResult {
   const catalog = useMemo(() => {
     const result = getModelCatalog(configuredModelIds, availableLocalModels);
 
-    // Debug logging
-    const readyModels = result.filter(m => m.status === 'ready');
-    const availableModels = result.filter(m => m.status === 'available');
-    console.log('[useModelStatus] Catalog rebuilt:', {
-      total: result.length,
-      ready: readyModels.length,
-      available: availableModels.length,
-      readyNames: readyModels.map(m => m.displayName),
-      configuredIds: Array.from(configuredModelIds),
-      availableLocalNames: Array.from(availableLocalModels),
-    });
-
     return result;
   }, [configuredModelIds, availableLocalModels]);
 
@@ -86,15 +74,6 @@ export function useModelStatus(): UseModelStatusResult {
     setIsLoading(true);
     try {
       const { providers, availableModels } = await detectLocalModels();
-
-      // Debug logging
-      console.log('[useModelStatus] Detected providers:', providers.map(p => ({
-        provider: p.provider,
-        available: p.available,
-        modelCount: p.models.length,
-        models: p.models.map(m => m.name),
-      })));
-      console.log('[useModelStatus] Available models:', Array.from(availableModels));
 
       setLocalProviders(providers);
       setAvailableLocalModels(availableModels);

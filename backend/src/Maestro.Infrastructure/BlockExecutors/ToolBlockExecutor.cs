@@ -231,7 +231,9 @@ public class ToolBlockExecutor : IBlockExecutor
             if (!string.IsNullOrEmpty(command))
             {
                 // Build command with args - execute directly
-                var cmdArgs = args != null ? string.Join(" ", args) : string.Empty;
+                // Support template substitution in args: {{inputName}} -> input value
+                var processedArgs = args?.Select(arg => SubstituteTemplates(arg, inputs)).ToList();
+                var cmdArgs = processedArgs != null ? string.Join(" ", processedArgs) : string.Empty;
 
                 // Check for workingDir input override
                 if (inputs.TryGetValue("workingDir", out var wdInput) && wdInput is string wdStr && !string.IsNullOrEmpty(wdStr))
@@ -826,5 +828,23 @@ public class ToolBlockExecutor : IBlockExecutor
         }
         if (int.TryParse(value.ToString(), out var parsed)) return parsed;
         return defaultValue;
+    }
+
+    /// <summary>
+    /// Substitutes {{inputName}} templates in a string with actual input values.
+    /// </summary>
+    private static string SubstituteTemplates(string template, Dictionary<string, object> inputs)
+    {
+        if (string.IsNullOrEmpty(template) || !template.Contains("{{"))
+            return template;
+
+        var result = template;
+        foreach (var kvp in inputs)
+        {
+            var placeholder = "{{" + kvp.Key + "}}";
+            var value = kvp.Value?.ToString() ?? string.Empty;
+            result = result.Replace(placeholder, value);
+        }
+        return result;
     }
 }

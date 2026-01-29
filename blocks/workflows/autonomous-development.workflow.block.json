@@ -1,0 +1,208 @@
+{
+  "$schema": "../../../docs/schemas/block.schema.json",
+  "id": "autonomous-development",
+  "name": "Autonomous Development Workflow",
+  "blockType": "workflow",
+  "version": "1.0.0",
+  "isAtomic": false,
+  "description": "Workflow complet pour le développement autonome: analyse → planification → implémentation → validation → commit. Utilise l'agent autonomous-programmer avec des étapes de validation.",
+
+  "inputs": [
+    {
+      "id": "task",
+      "name": "Development Task",
+      "type": "string",
+      "required": true,
+      "description": "La tâche de développement à accomplir"
+    },
+    {
+      "id": "projectPath",
+      "name": "Project Path",
+      "type": "string",
+      "required": true,
+      "description": "Chemin vers le projet"
+    },
+    {
+      "id": "context",
+      "name": "Context",
+      "type": "string",
+      "required": false,
+      "description": "Contexte additionnel pour la tâche"
+    },
+    {
+      "id": "runTests",
+      "name": "Run Tests",
+      "type": "boolean",
+      "required": false,
+      "default": true,
+      "description": "Exécuter les tests après l'implémentation"
+    },
+    {
+      "id": "createCommit",
+      "name": "Create Commit",
+      "type": "boolean",
+      "required": false,
+      "default": false,
+      "description": "Créer un commit avec les changements"
+    },
+    {
+      "id": "maxRetries",
+      "name": "Max Retries",
+      "type": "number",
+      "required": false,
+      "default": 3,
+      "description": "Nombre maximum de tentatives si les tests échouent"
+    }
+  ],
+
+  "outputs": [
+    {
+      "id": "success",
+      "name": "Success",
+      "type": "boolean"
+    },
+    {
+      "id": "summary",
+      "name": "Summary",
+      "type": "string"
+    },
+    {
+      "id": "filesChanged",
+      "name": "Files Changed",
+      "type": "array"
+    },
+    {
+      "id": "testResults",
+      "name": "Test Results",
+      "type": "object"
+    },
+    {
+      "id": "commitId",
+      "name": "Commit ID",
+      "type": "string"
+    }
+  ],
+
+  "config": {
+    "variables": {
+      "retryCount": 0
+    },
+
+    "nodes": [
+      {
+        "id": "initial-status",
+        "name": "Check Initial State",
+        "blockRef": "tools/git-status",
+        "inputs": {
+          "workingDir": "{{inputs.projectPath}}"
+        },
+        "description": "Vérifie l'état git initial du projet"
+      },
+      {
+        "id": "explore-project",
+        "name": "Explore Project Structure",
+        "blockRef": "tools/directory-list",
+        "inputs": {
+          "path": "{{inputs.projectPath}}",
+          "recursive": true,
+          "maxDepth": 3,
+          "excludePatterns": ["node_modules", ".git", "dist", "build"]
+        },
+        "description": "Explore la structure du projet pour contexte"
+      },
+      {
+        "id": "programmer-agent",
+        "name": "Autonomous Programmer",
+        "blockRef": "agents/autonomous-programmer",
+        "inputs": {
+          "task": "{{inputs.task}}",
+          "projectPath": "{{inputs.projectPath}}",
+          "context": "{{inputs.context}}\n\nStructure du projet:\n{{explore-project.tree}}",
+          "testAfterChange": "{{inputs.runTests}}",
+          "maxIterations": "{{inputs.maxRetries}}"
+        },
+        "description": "Agent principal qui effectue le développement"
+      },
+      {
+        "id": "final-diff",
+        "name": "Review Changes",
+        "blockRef": "tools/git-diff",
+        "inputs": {
+          "workingDir": "{{inputs.projectPath}}"
+        },
+        "description": "Revue des changements effectués"
+      },
+      {
+        "id": "final-tests",
+        "name": "Final Test Run",
+        "blockRef": "tools/test-runner",
+        "inputs": {
+          "workingDir": "{{inputs.projectPath}}",
+          "verbose": true
+        },
+        "condition": "{{inputs.runTests}}",
+        "description": "Exécution finale des tests"
+      },
+      {
+        "id": "validate-result",
+        "name": "Validate Result",
+        "type": "decision",
+        "condition": "{{programmer-agent.success}} && ({{!inputs.runTests}} || {{final-tests.success}})",
+        "outputs": {
+          "true": "commit-changes",
+          "false": "handle-failure"
+        },
+        "description": "Valide si tout a réussi"
+      },
+      {
+        "id": "commit-changes",
+        "name": "Commit Changes",
+        "blockRef": "tools/shell-execute",
+        "inputs": {
+          "command": "git add -A && git commit -m \"{{inputs.task}}\"",
+          "workingDir": "{{inputs.projectPath}}"
+        },
+        "condition": "{{inputs.createCommit}}",
+        "description": "Commit les changements si demandé"
+      },
+      {
+        "id": "handle-failure",
+        "name": "Handle Failure",
+        "type": "script",
+        "config": {
+          "language": "javascript",
+          "code": "return { success: false, reason: 'Tests failed or implementation incomplete', agentResult: inputs.agentResult, testResult: inputs.testResult };"
+        },
+        "inputs": {
+          "agentResult": "{{programmer-agent}}",
+          "testResult": "{{final-tests}}"
+        },
+        "description": "Gère les cas d'échec"
+      }
+    ],
+
+    "connections": [
+      { "from": "initial-status", "to": "explore-project" },
+      { "from": "explore-project", "to": "programmer-agent" },
+      { "from": "programmer-agent", "to": "final-diff" },
+      { "from": "final-diff", "to": "final-tests" },
+      { "from": "final-tests", "to": "validate-result" }
+    ],
+
+    "outputMapping": {
+      "success": "{{validate-result.true ? true : false}}",
+      "summary": "{{programmer-agent.summary}}",
+      "filesChanged": "{{programmer-agent.filesModified}}",
+      "testResults": "{{final-tests}}",
+      "commitId": "{{commit-changes.stdout}}"
+    }
+  },
+
+  "metadata": {
+    "category": "development",
+    "tags": ["workflow", "autonomous", "development", "full-pipeline"],
+    "author": "maestro-team",
+    "createdAt": "2026-01-28T00:00:00Z",
+    "updatedAt": "2026-01-28T00:00:00Z"
+  }
+}

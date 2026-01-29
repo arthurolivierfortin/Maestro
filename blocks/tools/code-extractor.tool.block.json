@@ -1,0 +1,59 @@
+{
+  "$schema": "../../../docs/schemas/block.schema.json",
+  "id": "code-extractor",
+  "name": "Code Extractor",
+  "blockType": "tool",
+  "version": "1.0.0",
+  "isAtomic": true,
+  "description": "Extracts code blocks from text (typically LLM output). Finds content between ```language and ``` markers.",
+
+  "inputs": [
+    {
+      "id": "text",
+      "name": "Input Text",
+      "type": "string",
+      "required": true,
+      "description": "The text containing code to extract"
+    },
+    {
+      "id": "language",
+      "name": "Language",
+      "type": "string",
+      "required": false,
+      "default": "typescript",
+      "description": "Expected language (typescript, javascript, python, html, css, etc.)"
+    }
+  ],
+
+  "outputs": [
+    {
+      "id": "stdout",
+      "name": "Extracted Code",
+      "type": "string",
+      "description": "The extracted code block"
+    },
+    {
+      "id": "exitCode",
+      "name": "Exit Code",
+      "type": "number",
+      "description": "0 if code was found, 1 if not"
+    }
+  ],
+
+  "config": {
+    "command": "powershell",
+    "args": [
+      "-Command",
+      "$text = '{{text}}' -replace '</think>', ''; $pattern = '(?s)```(?:{{language}})?\\s*(.+?)```'; if ($text -match $pattern) { $matches[1].Trim() } else { $text.Trim() }"
+    ],
+    "timeout": 10000
+  },
+
+  "metadata": {
+    "category": "parsing",
+    "tags": ["code", "extraction", "parsing"],
+    "author": "maestro-team"
+  },
+
+  "capabilities": ["parsing", "text"]
+}
