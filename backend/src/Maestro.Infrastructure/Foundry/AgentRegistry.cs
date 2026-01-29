@@ -61,25 +61,25 @@ public class AgentRegistry
         // Try project path first
         if (!string.IsNullOrEmpty(projectPath))
         {
-            var projectAgentPath = Path.Combine(projectPath, ".maestro", "agents", $"{id}.agent.json");
+            var projectAgentPath = Path.Combine(projectPath, ".maestro", "agents", $"{id}.agent.block.json");
             if (File.Exists(projectAgentPath))
             {
-                return await LoadAgentAsync(projectAgentPath);
+                return await LoadAgentFromBlockFileAsync(projectAgentPath);
             }
         }
 
         // Try global path
-        var globalAgentPath = Path.Combine(_globalAgentsPath, $"{id}.agent.json");
+        var globalAgentPath = Path.Combine(_globalAgentsPath, $"{id}.agent.block.json");
         if (File.Exists(globalAgentPath))
         {
-            return await LoadAgentAsync(globalAgentPath);
+            return await LoadAgentFromBlockFileAsync(globalAgentPath);
         }
 
         return null;
     }
 
     /// <summary>
-    /// Create or update an agent.
+    /// Create or update an agent. Saves in .agent.block.json format.
     /// </summary>
     public async Task<AgentDefinition> SaveAsync(AgentDefinition agent, string? projectPath = null)
     {
@@ -91,9 +91,10 @@ public class AgentRegistry
 
         Directory.CreateDirectory(targetPath);
 
-        var filePath = Path.Combine(targetPath, $"{agent.Id}.agent.json");
-        var json = JsonSerializer.Serialize(agent, _jsonOptions);
-        await File.WriteAllTextAsync(filePath, json);
+        // Save as .agent.block.json format
+        var filePath = Path.Combine(targetPath, $"{agent.Id}.agent.block.json");
+        var blockJson = ConvertToBlockFormat(agent);
+        await File.WriteAllTextAsync(filePath, blockJson);
 
         _cache[agent.Id] = agent;
 
@@ -106,8 +107,8 @@ public class AgentRegistry
     public async Task<bool> DeleteAsync(string id, string? projectPath = null)
     {
         var filePath = !string.IsNullOrEmpty(projectPath)
-            ? Path.Combine(projectPath, ".maestro", "agents", $"{id}.agent.json")
-            : Path.Combine(_globalAgentsPath, $"{id}.agent.json");
+            ? Path.Combine(projectPath, ".maestro", "agents", $"{id}.agent.block.json")
+            : Path.Combine(_globalAgentsPath, $"{id}.agent.block.json");
 
         if (File.Exists(filePath))
         {
@@ -117,6 +118,54 @@ public class AgentRegistry
         }
 
         return false;
+    }
+
+    /// <summary>
+    /// Convert AgentDefinition to Block format JSON.
+    /// </summary>
+    private string ConvertToBlockFormat(AgentDefinition agent)
+    {
+        var block = new
+        {
+            id = agent.Id,
+            name = agent.Name,
+            blockType = "agent",
+            version = agent.Version,
+            isAtomic = false,
+            description = agent.Description,
+            inputs = new[]
+            {
+                new { id = "task", name = "Task", type = "string", required = true, description = "The task to accomplish" },
+                new { id = "workingDir", name = "Working Directory", type = "string", required = true, description = "The working directory" },
+                new { id = "context", name = "Context", type = "string", required = false, description = "Additional context" }
+            },
+            outputs = new[]
+            {
+                new { id = "result", name = "Result", type = "string", description = "Task result" },
+                new { id = "filesModified", name = "Files Modified", type = "array", description = "Modified files" },
+                new { id = "status", name = "Status", type = "string", description = "Task status" }
+            },
+            config = new
+            {
+                maxIterations = agent.Config.MaxSteps,
+                maxTokens = agent.Config.MaxTokens,
+                temperature = agent.Config.Temperature,
+                timeoutMs = agent.Config.TimeoutMs,
+                requireApproval = agent.Config.RequireApproval,
+                model = agent.Config.Model,
+                systemPrompt = agent.Config.SystemPrompt,
+                tools = agent.AvailableTools
+            },
+            metadata = new
+            {
+                category = agent.Category,
+                tags = agent.Tags,
+                author = agent.Author
+            },
+            capabilities = agent.Capabilities
+        };
+
+        return JsonSerializer.Serialize(block, _jsonOptions);
     }
 
     /// <summary>
@@ -176,11 +225,12 @@ public class AgentRegistry
 
         if (!Directory.Exists(path)) return agents;
 
-        foreach (var file in Directory.EnumerateFiles(path, "*.agent.json"))
+        // Load only .agent.block.json files (Block format) and convert to AgentDefinition
+        foreach (var file in Directory.EnumerateFiles(path, "*.agent.block.json"))
         {
             try
             {
-                var agent = await LoadAgentAsync(file);
+                var agent = await LoadAgentFromBlockFileAsync(file);
                 if (agent != null)
                 {
                     agents.Add(agent);
@@ -188,29 +238,102 @@ public class AgentRegistry
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error loading agent from {file}: {ex.Message}");
+                Console.WriteLine($"Error loading agent block from {file}: {ex.Message}");
             }
         }
 
         return agents;
     }
 
-    private async Task<AgentDefinition?> LoadAgentAsync(string filePath)
+    /// <summary>
+    /// Load an agent from a .agent.block.json file (Block format) and convert to AgentDefinition.
+    /// </summary>
+    private async Task<AgentDefinition?> LoadAgentFromBlockFileAsync(string filePath)
     {
         try
         {
             var json = await File.ReadAllTextAsync(filePath);
-            var agent = JsonSerializer.Deserialize<AgentDefinition>(json, _jsonOptions);
+            using var doc = JsonDocument.Parse(json);
+            var root = doc.RootElement;
 
-            if (agent != null)
+            // Extract fields from Block format
+            var id = root.GetProperty("id").GetString() ?? Path.GetFileNameWithoutExtension(filePath).Replace(".agent.block", "");
+            var name = root.TryGetProperty("name", out var nameProp) ? nameProp.GetString() ?? id : id;
+            var description = root.TryGetProperty("description", out var descProp) ? descProp.GetString() ?? "" : "";
+            var version = root.TryGetProperty("version", out var verProp) ? verProp.GetString() ?? "1.0.0" : "1.0.0";
+
+            // Extract category from metadata
+            var category = "general";
+            if (root.TryGetProperty("metadata", out var metadata) && metadata.TryGetProperty("category", out var catProp))
             {
-                _cache[agent.Id] = agent;
+                category = catProp.GetString() ?? "general";
             }
 
+            // Extract tags from metadata
+            var tags = new List<string>();
+            if (root.TryGetProperty("metadata", out var meta2) && meta2.TryGetProperty("tags", out var tagsProp))
+            {
+                foreach (var tag in tagsProp.EnumerateArray())
+                {
+                    if (tag.GetString() is string t) tags.Add(t);
+                }
+            }
+
+            // Extract capabilities
+            var capabilities = new List<string>();
+            if (root.TryGetProperty("capabilities", out var capsProp))
+            {
+                foreach (var cap in capsProp.EnumerateArray())
+                {
+                    if (cap.GetString() is string c) capabilities.Add(c);
+                }
+            }
+
+            // Extract tools from config
+            var availableTools = new List<string>();
+            if (root.TryGetProperty("config", out var config) && config.TryGetProperty("tools", out var toolsProp))
+            {
+                foreach (var tool in toolsProp.EnumerateArray())
+                {
+                    if (tool.GetString() is string t) availableTools.Add(t);
+                }
+            }
+
+            // Create AgentDefinition
+            var agent = new AgentDefinition
+            {
+                Id = id,
+                Name = name,
+                Description = description,
+                Version = version,
+                Designation = "agent",
+                BlockId = id,
+                Category = category,
+                Tags = tags,
+                Capabilities = capabilities,
+                AvailableTools = availableTools,
+                AvailableAgents = new List<string>(),
+                Config = new AgentConfig
+                {
+                    MaxSteps = config.TryGetProperty("maxIterations", out var maxIter) ? maxIter.GetInt32() : 50,
+                    MaxTokens = config.TryGetProperty("maxTokens", out var maxTok) ? maxTok.GetInt32() : 10000,
+                    Temperature = config.TryGetProperty("temperature", out var temp) ? temp.GetDouble() : 0.7,
+                    TimeoutMs = config.TryGetProperty("timeoutMs", out var timeout) ? timeout.GetInt32() : 300000,
+                    RequireApproval = config.TryGetProperty("requireApproval", out var reqAppr) && reqAppr.GetBoolean(),
+                    Model = config.TryGetProperty("model", out var model) ? model.GetString() : null,
+                    SystemPrompt = config.TryGetProperty("systemPrompt", out var sysPr) ? sysPr.GetString() : null
+                },
+                Metrics = new AgentMetrics(),
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
+
+            _cache[agent.Id] = agent;
             return agent;
         }
-        catch
+        catch (Exception ex)
         {
+            Console.WriteLine($"Error parsing agent block file {filePath}: {ex.Message}");
             return null;
         }
     }

@@ -31,6 +31,7 @@ const TrainingPage = lazy(() => import('@/pages/TrainingPage'));
 const MetricsPage = lazy(() => import('@/pages/MetricsPage'));
 const MonitoringPage = lazy(() => import('@/pages/MonitoringPage'));
 const NotFoundPage = lazy(() => import('@/pages/NotFoundPage'));
+const DebugPage = lazy(() => import('@/pages/DebugPage'));
 
 /**
  * Route definitions
@@ -196,6 +197,15 @@ const routes: RouteObject[] = [
         element: (
           <LazyPage>
             <HistoryPage />
+          </LazyPage>
+        ),
+      },
+      // Debug page for frontend verification
+      {
+        path: 'debug',
+        element: (
+          <LazyPage>
+            <DebugPage />
           </LazyPage>
         ),
       },

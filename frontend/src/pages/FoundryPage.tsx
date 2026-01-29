@@ -25,26 +25,36 @@ import './FoundryPage.scss';
 
 type FoundryTab = 'blocks' | 'agents' | 'tools' | 'templates';
 
-// Mock data for agents (to be replaced with real API calls)
+const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
+
+// Agent from API
 interface AgentDefinition {
   id: string;
   name: string;
   description: string;
   version: string;
+  category: string;
   capabilities: string[];
-  status: 'active' | 'inactive';
+  tags: string[];
+  totalRuns: number;
+  completionRate: number;
+  overallScore: number;
 }
 
-// Mock data for tools
+// Tool from API
 interface ToolDefinition {
   id: string;
   name: string;
   description: string;
   category: string;
   version: string;
+  tags: string[];
+  totalRuns: number;
+  successRate: number;
+  overallScore: number;
 }
 
-// Mock data for templates
+// Template placeholder
 interface Template {
   id: string;
   name: string;
@@ -57,23 +67,69 @@ export function FoundryPage() {
   const { tab } = useParams<{ tab?: string }>();
   const navigate = useNavigate();
 
-  const [activeTab, setActiveTab] = useState<FoundryTab>('blocks');
+  // Initialize from URL parameter or default to 'blocks'
+  const getInitialTab = (): FoundryTab => {
+    if (tab && ['blocks', 'agents', 'tools', 'templates'].includes(tab)) {
+      return tab as FoundryTab;
+    }
+    return 'blocks';
+  };
+
+  const [activeTab, setActiveTab] = useState<FoundryTab>(getInitialTab);
   const [selectedCategory, setSelectedCategory] = useState<BlockType | 'all' | 'favorites'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCapability, setSelectedCapability] = useState<string | null>(null);
   const [isWizardOpen, setIsWizardOpen] = useState(false);
 
-  // Mock data for agents, tools, templates
-  const [agents] = useState<AgentDefinition[]>([]);
-  const [tools] = useState<ToolDefinition[]>([]);
+  // Data loaded from API
+  const [agents, setAgents] = useState<AgentDefinition[]>([]);
+  const [tools, setTools] = useState<ToolDefinition[]>([]);
   const [templates] = useState<Template[]>([]);
+  const [loadingAgents, setLoadingAgents] = useState(false);
+  const [loadingTools, setLoadingTools] = useState(false);
 
-  // Sync tab from URL
+  // Load agents from API
+  useEffect(() => {
+    if (activeTab === 'agents' && agents.length === 0 && !loadingAgents) {
+      setLoadingAgents(true);
+      fetch(`${API_BASE}/api/agents`)
+        .then(res => res.json())
+        .then(data => {
+          setAgents(data);
+          setLoadingAgents(false);
+        })
+        .catch(err => {
+          console.error('Failed to load agents:', err);
+          setLoadingAgents(false);
+        });
+    }
+  }, [activeTab, agents.length, loadingAgents]);
+
+  // Load tools from API
+  useEffect(() => {
+    if (activeTab === 'tools' && tools.length === 0 && !loadingTools) {
+      setLoadingTools(true);
+      fetch(`${API_BASE}/api/tools`)
+        .then(res => res.json())
+        .then(data => {
+          setTools(data);
+          setLoadingTools(false);
+        })
+        .catch(err => {
+          console.error('Failed to load tools:', err);
+          setLoadingTools(false);
+        });
+    }
+  }, [activeTab, tools.length, loadingTools]);
+
+  // Sync tab from URL - always update when tab param changes
   useEffect(() => {
     if (tab && ['blocks', 'agents', 'tools', 'templates'].includes(tab)) {
-      setActiveTab(tab as FoundryTab);
+      if (activeTab !== tab) {
+        setActiveTab(tab as FoundryTab);
+      }
     }
-  }, [tab]);
+  }, [tab, activeTab]);
 
   // Use individual selectors to prevent re-renders on unrelated state changes
   const getAllBlocks = useBlockStore((s) => s.getAllBlocks);
@@ -196,7 +252,9 @@ export function FoundryPage() {
                 + New Agent
               </button>
             </div>
-            {agents.length === 0 ? (
+            {loadingAgents ? (
+              <div className="foundry-page__loading">Loading agents...</div>
+            ) : agents.length === 0 ? (
               <div className="foundry-page__empty">
                 <h3>No Agents</h3>
                 <p>Create your first agent to get started with autonomous task execution.</p>
@@ -207,22 +265,23 @@ export function FoundryPage() {
             ) : (
               <div className="foundry-page__grid">
                 {agents.map((agent) => (
-                  <div key={agent.id} className="foundry-card">
+                  <div key={agent.id} className="foundry-card" data-testid={`agent-card-${agent.id}`}>
                     <div className="foundry-card__header">
                       <span className="foundry-card__icon"><Bot size={18} /></span>
                       <h3>{agent.name}</h3>
-                      <span className={`foundry-card__status foundry-card__status--${agent.status}`}>
-                        {agent.status}
-                      </span>
+                      <span className="foundry-card__category">{agent.category}</span>
                     </div>
                     <p className="foundry-card__description">{agent.description}</p>
                     <div className="foundry-card__tags">
-                      {agent.capabilities.slice(0, 3).map((cap) => (
+                      {(agent.capabilities || []).slice(0, 3).map((cap) => (
                         <span key={cap} className="tag">{cap}</span>
                       ))}
                     </div>
                     <div className="foundry-card__footer">
                       <span className="foundry-card__version">v{agent.version}</span>
+                      <span className="foundry-card__stats">
+                        {agent.totalRuns} runs | Score: {agent.overallScore?.toFixed(0) || 0}
+                      </span>
                     </div>
                   </div>
                 ))}
@@ -241,7 +300,9 @@ export function FoundryPage() {
                 + New Tool
               </button>
             </div>
-            {tools.length === 0 ? (
+            {loadingTools ? (
+              <div className="foundry-page__loading">Loading tools...</div>
+            ) : tools.length === 0 ? (
               <div className="foundry-page__empty">
                 <h3>No Tools</h3>
                 <p>Create your first tool to extend agent capabilities.</p>
@@ -252,7 +313,7 @@ export function FoundryPage() {
             ) : (
               <div className="foundry-page__grid">
                 {tools.map((tool) => (
-                  <div key={tool.id} className="foundry-card">
+                  <div key={tool.id} className="foundry-card" data-testid={`tool-card-${tool.id}`}>
                     <div className="foundry-card__header">
                       <span className="foundry-card__icon"><Wrench size={18} /></span>
                       <h3>{tool.name}</h3>
@@ -263,6 +324,9 @@ export function FoundryPage() {
                     </div>
                     <div className="foundry-card__footer">
                       <span className="foundry-card__version">v{tool.version}</span>
+                      <span className="foundry-card__stats">
+                        {tool.totalRuns} runs | Score: {tool.overallScore?.toFixed(0) || 0}
+                      </span>
                     </div>
                   </div>
                 ))}
