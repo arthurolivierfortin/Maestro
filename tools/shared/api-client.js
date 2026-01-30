@@ -156,6 +156,11 @@ class MaestroApiClient {
     return this._fetch('DELETE', `/api/blocks/${id}`);
   }
 
+  async getBlockChildren(id, recursive = true) {
+    if (!id) throw new Error('Block ID is required');
+    return this._fetch('GET', `/api/blocks/${id}/children?recursive=${recursive}`);
+  }
+
   async getBlockContent(id, filePath) {
     if (!id) throw new Error('Block ID is required');
     const path = filePath ? `/api/blocks/${id}/content/${filePath}` : `/api/blocks/${id}/content`;

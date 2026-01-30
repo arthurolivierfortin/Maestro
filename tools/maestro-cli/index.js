@@ -134,6 +134,47 @@ async function getBlockInfo(id) {
   }
 }
 
+async function getBlockChildren(id, recursive = true) {
+  try {
+    const result = await client.getBlockChildren(id, recursive);
+
+    if (result.isAtomic) {
+      console.log(`\n📄 Block '${id}' is atomic (no children)\n`);
+      return;
+    }
+
+    console.log(`\n📂 Block '${id}' Children (${recursive ? 'recursive' : 'direct only'}):\n`);
+    console.log(`  Total Children: ${result.totalChildren}`);
+    console.log(`  Atomic Blocks:  ${result.atomicCount}`);
+    console.log(`  Composite Blocks: ${result.compositeCount}\n`);
+
+    if (result.children && result.children.length > 0) {
+      const formatChild = (child, indent = '') => {
+        const icon = child.isAtomic ? '📄' : '📂';
+        // Use resolved block info if available, otherwise use node info
+        const displayId = child.resolvedBlockId || child.nodeId || child.blockRef || 'unknown';
+        const displayName = child.resolvedBlockName || child.nodeName || '';
+        const displayType = child.resolvedBlockType || child.nodeType || 'unknown';
+        const nameStr = displayName && displayName !== displayId ? ` "${displayName}"` : '';
+        console.log(`${indent}${icon} ${displayId}${nameStr} [${displayType}]`);
+        if (child.children && child.children.length > 0) {
+          child.children.forEach(c => formatChild(c, indent + '  '));
+        }
+      };
+
+      result.children.forEach(child => formatChild(child, '  '));
+    }
+    console.log('');
+  } catch (error) {
+    if (error.status === 404) {
+      console.error(`❌ Block not found: ${id}`);
+    } else {
+      console.error(`❌ Error retrieving block children: ${error.message}`);
+    }
+    process.exit(1);
+  }
+}
+
 async function checkHealth() {
   try {
     const health = await client.getHealth();
@@ -1949,6 +1990,7 @@ Block Commands:
   blocks               List all available blocks
   workflows            List all workflows
   info <block-id>      Show block details
+  children <block-id>  List children of a composite block (--recursive=false for direct only)
   search <query>       Search blocks by name or description
 
 Project Commands:
@@ -2181,6 +2223,12 @@ Examples:
       const blockId = argv._[1];
       if (!blockId) { console.error('❌ Block ID required'); process.exit(1); }
       return await getBlockInfo(blockId);
+    }
+    if (cmd === 'children') {
+      const blockId = argv._[1];
+      if (!blockId) { console.error('❌ Block ID required'); process.exit(1); }
+      const recursive = argv.recursive !== false; // default true
+      return await getBlockChildren(blockId, recursive);
     }
     if (cmd === 'search') {
       const query = argv._[1];

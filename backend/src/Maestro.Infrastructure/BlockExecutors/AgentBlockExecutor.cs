@@ -141,7 +141,7 @@ public class AgentBlockExecutor : IBlockExecutor
         }
 
         // Get generation parameters from config
-        int maxTokens = 256;
+        int maxTokens = 1024;  // Increased default for proper JSON tool call responses
         float temperature = 0.0f;
         if (block.Config != null)
         {
@@ -169,8 +169,28 @@ public class AgentBlockExecutor : IBlockExecutor
             catch { /* keep defaults */ }
         }
 
-        // Build user prompt from inputs (task, workingDir, context)
-        var taskDescription = inputs.TryGetValue("task", out var taskObj) ? taskObj?.ToString() ?? string.Empty : string.Empty;
+        // Build user prompt from inputs (task/subtask, workingDir, context)
+        // Support both "task" and "subtask" input names for flexibility
+        var taskDescription = string.Empty;
+        if (inputs.TryGetValue("task", out var taskObj) && taskObj != null)
+        {
+            taskDescription = taskObj.ToString() ?? string.Empty;
+        }
+        else if (inputs.TryGetValue("subtask", out var subtaskObj) && subtaskObj != null)
+        {
+            // Handle subtask as object or string
+            if (subtaskObj is System.Text.Json.JsonElement jsonEl)
+            {
+                if (jsonEl.TryGetProperty("description", out var descProp))
+                    taskDescription = descProp.GetString() ?? jsonEl.ToString();
+                else
+                    taskDescription = jsonEl.ToString();
+            }
+            else
+            {
+                taskDescription = subtaskObj.ToString() ?? string.Empty;
+            }
+        }
         var workingDir = inputs.TryGetValue("workingDir", out var wdObj) ? wdObj?.ToString() ?? string.Empty : string.Empty;
         var additionalContext = inputs.TryGetValue("context", out var ctxObj) ? ctxObj?.ToString() ?? string.Empty : string.Empty;
 

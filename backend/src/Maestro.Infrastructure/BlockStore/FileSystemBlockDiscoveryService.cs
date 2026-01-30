@@ -194,6 +194,30 @@ namespace Maestro.Infrastructure.BlockStore
 
             var def = BlockDefinition.Create(id ?? Guid.NewGuid().ToString(), name ?? id ?? string.Empty, blockType ?? string.Empty);
 
+            // Load isAtomic property
+            if (root.TryGetProperty("isAtomic", out var atomicEl))
+            {
+                def.SetIsAtomic(atomicEl.GetBoolean());
+            }
+            else
+            {
+                // Default isAtomic based on block type if not specified
+                var compositeTypes = new[] { "workflow", "agent", "task" };
+                def.SetIsAtomic(!compositeTypes.Contains((blockType ?? string.Empty).ToLowerInvariant()));
+            }
+
+            // Load description
+            if (root.TryGetProperty("description", out var descEl) && descEl.ValueKind == JsonValueKind.String)
+            {
+                def.SetDescription(descEl.GetString() ?? string.Empty);
+            }
+
+            // Load version
+            if (root.TryGetProperty("version", out var verEl) && verEl.ValueKind == JsonValueKind.String)
+            {
+                def.SetVersion(verEl.GetString() ?? "1.0.0");
+            }
+
             if (root.TryGetProperty("config", out var cfg))
             {
                 def.UpdateConfig(JsonSerializer.Deserialize<Dictionary<string, object>>(cfg.GetRawText()) ?? new());

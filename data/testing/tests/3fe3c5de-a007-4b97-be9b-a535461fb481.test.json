@@ -1,0 +1,143 @@
+{
+  "id": "3fe3c5de-a007-4b97-be9b-a535461fb481",
+  "name": "Test Directory List - 2026-01-30 14:12",
+  "blockId": "directory-list",
+  "blockType": "tool",
+  "variantId": "v1",
+  "variantDescription": null,
+  "status": 2,
+  "totalIterations": 5,
+  "completedIterations": 5,
+  "evaluatedIterations": 0,
+  "evaluatorType": "manual",
+  "evaluatorModelId": null,
+  "criteria": [
+    {
+      "id": "correctness",
+      "name": "Correctness",
+      "description": "Does the output achieve the intended goal?",
+      "weight": 0.4
+    },
+    {
+      "id": "quality",
+      "name": "Quality",
+      "description": "Is the output well-formed and high quality?",
+      "weight": 0.3
+    },
+    {
+      "id": "efficiency",
+      "name": "Efficiency",
+      "description": "Was the execution efficient?",
+      "weight": 0.2
+    },
+    {
+      "id": "reliability",
+      "name": "Reliability",
+      "description": "Did it work consistently?",
+      "weight": 0.1
+    }
+  ],
+  "createdAt": "2026-01-30T19:12:47.8504257+00:00",
+  "startedAt": "2026-01-30T19:12:47.8520266+00:00",
+  "completedAt": null,
+  "iterations": [
+    {
+      "id": "77a98179-281b-4858-bc09-1935c441a4d0",
+      "iterationNumber": 1,
+      "inputs": {},
+      "outputs": {
+        "stdout": "[Iteration 1] Simulated output for tool block directory-list. Inputs: {}"
+      },
+      "outputContent": "[Iteration 1] Simulated output for tool block directory-list. Inputs: {}",
+      "logs": [
+        "Executed tool block directory-list"
+      ],
+      "success": true,
+      "errorMessage": null,
+      "durationMs": 105,
+      "startedAt": "2026-01-30T19:12:47.8702266+00:00",
+      "completedAt": "2026-01-30T19:12:47.9759648+00:00",
+      "evaluation": null,
+      "evaluatedAt": null
+    },
+    {
+      "id": "718fa7ef-2108-41e4-b703-a6a8ffec21da",
+      "iterationNumber": 2,
+      "inputs": {},
+      "outputs": {
+        "stdout": "[Iteration 2] Simulated output for tool block directory-list. Inputs: {}"
+      },
+      "outputContent": "[Iteration 2] Simulated output for tool block directory-list. Inputs: {}",
+      "logs": [
+        "Executed tool block directory-list"
+      ],
+      "success": true,
+      "errorMessage": null,
+      "durationMs": 111,
+      "startedAt": "2026-01-30T19:12:47.9763411+00:00",
+      "completedAt": "2026-01-30T19:12:48.08779+00:00",
+      "evaluation": null,
+      "evaluatedAt": null
+    },
+    {
+      "id": "489bd187-b08c-44f2-8c26-ca7f143316b9",
+      "iterationNumber": 3,
+      "inputs": {},
+      "outputs": {
+        "stdout": "[Iteration 3] Simulated output for tool block directory-list. Inputs: {}"
+      },
+      "outputContent": "[Iteration 3] Simulated output for tool block directory-list. Inputs: {}",
+      "logs": [
+        "Executed tool block directory-list"
+      ],
+      "success": true,
+      "errorMessage": null,
+      "durationMs": 105,
+      "startedAt": "2026-01-30T19:12:48.0878212+00:00",
+      "completedAt": "2026-01-30T19:12:48.1934414+00:00",
+      "evaluation": null,
+      "evaluatedAt": null
+    },
+    {
+      "id": "cf6b30ce-c00d-4874-9cb8-722ed702b479",
+      "iterationNumber": 4,
+      "inputs": {},
+      "outputs": {
+        "stdout": "[Iteration 4] Simulated output for tool block directory-list. Inputs: {}"
+      },
+      "outputContent": "[Iteration 4] Simulated output for tool block directory-list. Inputs: {}",
+      "logs": [
+        "Executed tool block directory-list"
+      ],
+      "success": true,
+      "errorMessage": null,
+      "durationMs": 101,
+      "startedAt": "2026-01-30T19:12:48.1934551+00:00",
+      "completedAt": "2026-01-30T19:12:48.2948455+00:00",
+      "evaluation": null,
+      "evaluatedAt": null
+    },
+    {
+      "id": "77090657-7593-44be-8a8c-64a2a4330be9",
+      "iterationNumber": 5,
+      "inputs": {},
+      "outputs": {
+        "stdout": "[Iteration 5] Simulated output for tool block directory-list. Inputs: {}"
+      },
+      "outputContent": "[Iteration 5] Simulated output for tool block directory-list. Inputs: {}",
+      "logs": [
+        "Executed tool block directory-list"
+      ],
+      "success": true,
+      "errorMessage": null,
+      "durationMs": 102,
+      "startedAt": "2026-01-30T19:12:48.2948696+00:00",
+      "completedAt": "2026-01-30T19:12:48.3969589+00:00",
+      "evaluation": null,
+      "evaluatedAt": null
+    }
+  ],
+  "metrics": null,
+  "improvementSuggestions": [],
+  "tags": []
+}

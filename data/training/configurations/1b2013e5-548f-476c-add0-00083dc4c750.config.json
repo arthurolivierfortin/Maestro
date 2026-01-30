@@ -1,0 +1,33 @@
+{
+  "id": "1b2013e5-548f-476c-add0-00083dc4c750",
+  "name": "Config Test Run2",
+  "description": "Configuration pour validation pipeline Run 2",
+  "workflowId": "simple-task-executor",
+  "iterations": 3,
+  "parallelIterations": 1,
+  "delayBetweenIterationsMs": 0,
+  "optimizationGoal": 1,
+  "goalWeights": null,
+  "inputVariation": {
+    "type": 0,
+    "fixedInputs": null,
+    "datasetPath": null,
+    "generator": null
+  },
+  "qualityEvaluation": {
+    "enabled": false,
+    "method": "none",
+    "heuristics": null,
+    "llmEvaluation": null,
+    "customEvaluator": null
+  },
+  "constraints": null,
+  "modelOverrides": {},
+  "environmentVariables": {},
+  "containerRuntimeType": null,
+  "createdAt": "2026-01-30T20:02:09.9016733+00:00",
+  "updatedAt": "2026-01-30T20:02:09.902485+00:00",
+  "createdBy": null,
+  "tags": [],
+  "isActive": true
+}

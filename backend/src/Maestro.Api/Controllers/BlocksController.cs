@@ -190,11 +190,132 @@ namespace Maestro.Api.Controllers
         public async Task<IActionResult> Delete(string id)
         {
             var existing = await _repository.GetByIdAsync(id);
-            if (existing == null) 
+            if (existing == null)
                 return NotFound(new { error = $"Block '{id}' not found" });
-            
+
             await _repository.DeleteAsync(id);
             return NoContent();
+        }
+
+        /// <summary>
+        /// Get children of a composite (non-atomic) block.
+        /// Returns the hierarchy of child blocks down to the most atomic level.
+        /// </summary>
+        [HttpGet("{id}/children")]
+        public async Task<ActionResult<BlockChildrenResponse>> GetChildren(string id, [FromQuery] bool recursive = true)
+        {
+            var block = await _discovery.GetByIdAsync(id);
+            if (block == null)
+                return NotFound(new { error = $"Block '{id}' not found" });
+
+            if (block.IsAtomic)
+                return Ok(new BlockChildrenResponse
+                {
+                    BlockId = id,
+                    BlockName = block.Name,
+                    BlockType = block.BlockType,
+                    IsAtomic = true,
+                    Children = new List<BlockChildInfo>()
+                });
+
+            var children = await GetBlockChildrenAsync(block, recursive);
+            var (total, atomic, composite) = CountChildren(children);
+            return Ok(new BlockChildrenResponse
+            {
+                BlockId = id,
+                BlockName = block.Name,
+                BlockType = block.BlockType,
+                IsAtomic = false,
+                TotalChildren = total,
+                AtomicCount = atomic,
+                CompositeCount = composite,
+                Children = children
+            });
+        }
+
+        private async Task<List<BlockChildInfo>> GetBlockChildrenAsync(Domain.Entities.BlockDefinition block, bool recursive)
+        {
+            var children = new List<BlockChildInfo>();
+
+            // Extract node references from config
+            if (block.Config != null && block.Config.TryGetValue("nodes", out var nodesObj))
+            {
+                IEnumerable<System.Text.Json.JsonElement>? nodes = null;
+
+                if (nodesObj is System.Text.Json.JsonElement jsonElement && jsonElement.ValueKind == System.Text.Json.JsonValueKind.Array)
+                {
+                    nodes = jsonElement.EnumerateArray();
+                }
+
+                if (nodes != null)
+                {
+                    foreach (var node in nodes)
+                    {
+                        var nodeId = node.TryGetProperty("id", out var idProp) ? idProp.GetString() : null;
+                        var nodeName = node.TryGetProperty("name", out var nameProp) ? nameProp.GetString() : nodeId;
+                        var blockRef = node.TryGetProperty("blockRef", out var refProp) ? refProp.GetString() : null;
+                        var nodeType = node.TryGetProperty("type", out var typeProp) ? typeProp.GetString() : null;
+
+                        var childInfo = new BlockChildInfo
+                        {
+                            NodeId = nodeId ?? "unknown",
+                            NodeName = nodeName ?? "unknown",
+                            BlockRef = blockRef,
+                            NodeType = nodeType ?? (blockRef != null ? "block-reference" : "inline")
+                        };
+
+                        // If it's a block reference, try to resolve it
+                        if (!string.IsNullOrEmpty(blockRef))
+                        {
+                            // Parse blockRef (format: "category/block-id" or just "block-id")
+                            var refId = blockRef.Contains('/') ? blockRef.Split('/').Last() : blockRef;
+                            var referencedBlock = await _discovery.GetByIdAsync(refId);
+
+                            if (referencedBlock != null)
+                            {
+                                childInfo.ResolvedBlockId = referencedBlock.Id;
+                                childInfo.ResolvedBlockName = referencedBlock.Name;
+                                childInfo.ResolvedBlockType = referencedBlock.BlockType;
+                                childInfo.IsAtomic = referencedBlock.IsAtomic;
+
+                                // Recursively get children if not atomic and recursive is true
+                                if (recursive && !referencedBlock.IsAtomic)
+                                {
+                                    childInfo.Children = await GetBlockChildrenAsync(referencedBlock, recursive);
+                                }
+                            }
+                        }
+
+                        children.Add(childInfo);
+                    }
+                }
+            }
+
+            return children;
+        }
+
+        private (int total, int atomic, int composite) CountChildren(List<BlockChildInfo> children)
+        {
+            int total = 0, atomic = 0, composite = 0;
+
+            foreach (var child in children)
+            {
+                total++;
+                if (child.IsAtomic)
+                    atomic++;
+                else
+                    composite++;
+
+                if (child.Children != null && child.Children.Count > 0)
+                {
+                    var (subTotal, subAtomic, subComposite) = CountChildren(child.Children);
+                    total += subTotal;
+                    atomic += subAtomic;
+                    composite += subComposite;
+                }
+            }
+
+            return (total, atomic, composite);
         }
 
         /// <summary>
@@ -395,5 +516,36 @@ namespace Maestro.Api.Controllers
         public bool Success { get; set; }
         public long DurationMs { get; set; }
         public RunScores? Scores { get; set; }
+    }
+
+    /// <summary>
+    /// Response model for block children hierarchy.
+    /// </summary>
+    public class BlockChildrenResponse
+    {
+        public string BlockId { get; set; } = string.Empty;
+        public string BlockName { get; set; } = string.Empty;
+        public string BlockType { get; set; } = string.Empty;
+        public bool IsAtomic { get; set; }
+        public int TotalChildren { get; set; }
+        public int AtomicCount { get; set; }
+        public int CompositeCount { get; set; }
+        public List<BlockChildInfo> Children { get; set; } = new();
+    }
+
+    /// <summary>
+    /// Information about a child node within a composite block.
+    /// </summary>
+    public class BlockChildInfo
+    {
+        public string NodeId { get; set; } = string.Empty;
+        public string NodeName { get; set; } = string.Empty;
+        public string? BlockRef { get; set; }
+        public string NodeType { get; set; } = string.Empty;
+        public string? ResolvedBlockId { get; set; }
+        public string? ResolvedBlockName { get; set; }
+        public string? ResolvedBlockType { get; set; }
+        public bool IsAtomic { get; set; } = true;
+        public List<BlockChildInfo>? Children { get; set; }
     }
 }

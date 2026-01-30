@@ -1,541 +1,1061 @@
 # Maestro Pipeline Test Plan Template
 
-## Overview
-
-This document serves as a template for testing the complete Maestro pipeline. It is designed to be executed step-by-step by a tester (referred to as "Authority") who will validate each feature manually using the CLI.
-
-**Important Notes:**
-- All tests must be executed via CLI or API calls - NO mocks
-- Each step should be documented with actual results
-- This template should be copied and filled out for each test session
-- Replace `{PROJECT_PATH}` with the actual path to your test repository
-- Replace `{PROJECT_NAME}` with your project name
-
----
-
-## Test Session Information
-
-| Field | Value |
-|-------|-------|
-| **Test Date** | |
-| **Tester (Authority)** | |
-| **Repository Path** | |
-| **Backend URL** | http://localhost:5000 |
-| **LLM-Provider URL** | http://localhost:8000 |
-| **Frontend URL** | http://localhost:5173 |
+> **IMPORTANT - Lecture Préalable Requise**
+>
+> Avant d'exécuter ce test plan, le testeur DOIT lire et comprendre :
+>
+> 1. **[MAESTRO-PHILOSOPHY.md](../MAESTRO-PHILOSOPHY.md)** - La vision et l'idéologie du système
+>    - Spécialisation vs LLM monolithique
+>    - Hiérarchie des blocks (Tool → Agent → Workflow)
+>    - Le cycle d'entraînement et d'amélioration
+>
+> 2. **[AGENT-TOOL-CREATION-GUIDE.md](../guides/AGENT-TOOL-CREATION-GUIDE.md)** - Guide pratique
+>    - Comment créer des tools atomiques
+>    - Comment créer des agents spécialisés
+>    - Comment composer des workflows
+>
+> **Rappel de la Vision** : Maestro vise à remplacer l'utilisation d'un seul gros LLM coûteux
+> par un réseau orchestré de blocks spécialisés utilisant des petits LLMs économiques.
+> L'ensemble des petites tâches spécialisées accomplit autant (voire plus) qu'un gros LLM,
+> à une fraction du coût.
 
 ---
 
-## Pre-Test Checklist
+## Information de Session
 
-- [ ] Backend service is running (`http://localhost:5000/health`)
-- [ ] LLM-Provider service is running (`http://localhost:8000/health`)
-- [ ] Test repository exists and is accessible
-- [ ] CLI tool is available (`node C:\Meastro\tools\maestro-cli\index.js --help`)
+**Date du test :** _______________
+**Testeur (Authority) :** _______________
+**Repository de test :** _______________
+**Version Maestro :** _______________
 
----
-
-## Phase 1: Service Health Verification
-
-### Test 1.1: Check Services Health
-
-**Objective:** Verify all Maestro services are running and healthy.
-
-| Item | Value |
-|------|-------|
-| **CLI Command** | `node C:\Meastro\tools\maestro-cli\index.js health` |
-| **Expected Response** | All services show "healthy" status |
-| **Actual Response** | |
-| **Status** | [ ] Pass  [ ] Fail |
-| **Notes/Issues** | |
-
-### Test 1.2: Check LLM Status
-
-**Objective:** Verify LLM-Provider is accessible and has models loaded.
-
-| Item | Value |
-|------|-------|
-| **CLI Command** | `node C:\Meastro\tools\maestro-cli\index.js llm` |
-| **Expected Response** | LLM-Provider status with available models |
-| **Actual Response** | |
-| **Status** | [ ] Pass  [ ] Fail |
-| **Notes/Issues** | |
+**URLs des services :**
+- Backend : http://localhost:5000
+- LLM-Provider : http://localhost:8000
+- Frontend : http://localhost:5173
 
 ---
 
-## Phase 2: Block Management
+## Checklist Pré-Test
 
-### Test 2.1: List All Blocks
-
-**Objective:** Verify the system can list all available blocks.
-
-| Item | Value |
-|------|-------|
-| **CLI Command** | `node C:\Meastro\tools\maestro-cli\index.js list-blocks` |
-| **Expected Response** | List of blocks with IDs, names, and types |
-| **Actual Response** | |
-| **Status** | [ ] Pass  [ ] Fail |
-| **Notes/Issues** | |
-
-### Test 2.2: Get Block Details
-
-**Objective:** Verify block details can be retrieved.
-
-| Item | Value |
-|------|-------|
-| **Block ID to Test** | (use any block ID from 2.1) |
-| **CLI Command** | `node C:\Meastro\tools\maestro-cli\index.js get-block {BLOCK_ID}` |
-| **Expected Response** | Block details with config, inputs, outputs |
-| **Actual Response** | |
-| **Status** | [ ] Pass  [ ] Fail |
-| **Notes/Issues** | |
-
-### Test 2.3: Execute a Simple Block
-
-**Objective:** Verify block execution works.
-
-| Item | Value |
-|------|-------|
-| **Block ID to Test** | (use a simple tool block like `directory-list`) |
-| **CLI Command** | `node C:\Meastro\tools\maestro-cli\index.js execute {BLOCK_ID} --input path="{PROJECT_PATH}"` |
-| **Expected Response** | Block execution result with outputs |
-| **Actual Response** | |
-| **Status** | [ ] Pass  [ ] Fail |
-| **Notes/Issues** | |
+- [ ] Services démarrés via `powershell.exe -File C:\Meastro\scripts\dev-start.ps1`
+- [ ] Backend service accessible
+- [ ] LLM-Provider service accessible
+- [ ] Repository de test existe et accessible
+- [ ] CLI disponible dans `C:\Meastro\tools\maestro-cli\index.js`
 
 ---
 
-## Phase 3: Agent Creation
+# PHASE 1 : Vérification des Services
 
-### Test 3.1: Create Agent Block via API
+---
 
-**Objective:** Create a new agent block for the test project.
+## Test 1.1 : Santé des Services
 
-| Item | Value |
-|------|-------|
-| **API Endpoint** | `POST http://localhost:5000/api/blocks` |
-| **Request Body** | See below |
-| **Expected Response** | 201 Created with agent block details |
-| **Actual Response** | |
-| **Status** | [ ] Pass  [ ] Fail |
-| **Notes/Issues** | |
+**Objectif :** Vérifier que tous les services Maestro sont opérationnels.
 
-**Request Body:**
-```json
-{
-  "name": "test-agent",
-  "blockType": "agent",
-  "description": "Test agent for pipeline validation",
-  "config": {
-    "model": "deepseek-ai/deepseek-coder-1.3b-instruct",
-    "maxTokens": 512,
-    "maxSteps": 5,
-    "tools": ["file-read", "file-write", "directory-list", "shell-execute"]
-  },
-  "inputs": [
-    { "name": "task", "type": "string", "required": true },
-    { "name": "workingDir", "type": "string", "required": false }
-  ],
-  "outputs": [
-    { "name": "result", "type": "string" },
-    { "name": "content", "type": "string" }
-  ]
-}
+**Commande exécutée :**
+```
+node C:\Meastro\tools\maestro-cli\index.js health
 ```
 
-**CLI Alternative:**
-```bash
-curl -X POST http://localhost:5000/api/blocks \
-  -H "Content-Type: application/json" \
-  -d '{"name":"test-agent","blockType":"agent","description":"Test agent","config":{"model":"deepseek-ai/deepseek-coder-1.3b-instruct","maxTokens":512,"maxSteps":5,"tools":["file-read","file-write","directory-list"]}}'
+**Résultat attendu :**
+Tous les services affichent un statut "healthy"
+
+**Résultat obtenu :**
 ```
 
-### Test 3.2: Verify Agent Block Created
-
-**Objective:** Confirm the agent appears in the block list.
-
-| Item | Value |
-|------|-------|
-| **CLI Command** | `node C:\Meastro\tools\maestro-cli\index.js list-blocks --type agent` |
-| **Expected Response** | List includes the newly created agent |
-| **Actual Response** | |
-| **Agent ID** | (record for later use) |
-| **Status** | [ ] Pass  [ ] Fail |
-| **Notes/Issues** | |
-
----
-
-## Phase 4: Agent Execution
-
-### Test 4.1: Execute Agent (Simple Task)
-
-**Objective:** Execute the agent with a simple task.
-
-| Item | Value |
-|------|-------|
-| **Agent ID** | (from Test 3.2) |
-| **CLI Command** | `node C:\Meastro\tools\maestro-cli\index.js execute {AGENT_ID} --input task="List the files in the current directory" --input workingDir="{PROJECT_PATH}"` |
-| **Expected Response** | Agent execution with tool calls and final result |
-| **Actual Response** | |
-| **Status** | [ ] Pass  [ ] Fail |
-| **Notes/Issues** | |
-
-### Test 4.2: Execute Agent (File Reading Task)
-
-**Objective:** Verify agent can read files.
-
-| Item | Value |
-|------|-------|
-| **Agent ID** | (from Test 3.2) |
-| **CLI Command** | `node C:\Meastro\tools\maestro-cli\index.js execute {AGENT_ID} --input task="Read the README.md file and summarize it" --input workingDir="{PROJECT_PATH}"` |
-| **Expected Response** | Agent reads file and provides summary |
-| **Actual Response** | |
-| **Status** | [ ] Pass  [ ] Fail |
-| **Notes/Issues** | |
-
----
-
-## Phase 5: Block Testing API
-
-### Test 5.1: Create Block Test Case
-
-**Objective:** Create a test case for the agent block.
-
-| Item | Value |
-|------|-------|
-| **API Endpoint** | `POST http://localhost:5000/api/block-tests` |
-| **Request Body** | See below |
-| **Expected Response** | 201 Created with test case ID |
-| **Actual Response** | |
-| **Test Case ID** | (record for later use) |
-| **Status** | [ ] Pass  [ ] Fail |
-| **Notes/Issues** | |
-
-**Request Body:**
-```json
-{
-  "blockId": "{AGENT_ID}",
-  "name": "Basic file listing test",
-  "description": "Verify agent can list files",
-  "inputs": {
-    "task": "List all files in the current directory",
-    "workingDir": "{PROJECT_PATH}"
-  },
-  "expectedOutputs": {
-    "result": "Files listed successfully"
-  },
-  "tags": ["smoke-test", "file-operations"]
-}
 ```
 
-### Test 5.2: Run Block Test
+**Statut :** [ ] SUCCES  [ ] ECHEC
 
-**Objective:** Execute the test case and verify results.
-
-| Item | Value |
-|------|-------|
-| **API Endpoint** | `POST http://localhost:5000/api/block-tests/{TEST_CASE_ID}/run` |
-| **Expected Response** | Test run result with pass/fail status |
-| **Actual Response** | |
-| **Status** | [ ] Pass  [ ] Fail |
-| **Notes/Issues** | |
-
-### Test 5.3: List Test Results
-
-**Objective:** Retrieve test run history.
-
-| Item | Value |
-|------|-------|
-| **API Endpoint** | `GET http://localhost:5000/api/block-tests/{TEST_CASE_ID}/runs` |
-| **Expected Response** | List of test runs with results |
-| **Actual Response** | |
-| **Status** | [ ] Pass  [ ] Fail |
-| **Notes/Issues** | |
-
----
-
-## Phase 6: Training Configuration
-
-### Test 6.1: Create Training Configuration
-
-**Objective:** Set up training configuration for the agent.
-
-| Item | Value |
-|------|-------|
-| **API Endpoint** | `POST http://localhost:5000/api/training/configurations` |
-| **Request Body** | See below |
-| **Expected Response** | 201 Created with configuration ID |
-| **Actual Response** | |
-| **Config ID** | (record for later use) |
-| **Status** | [ ] Pass  [ ] Fail |
-| **Notes/Issues** | |
-
-**Request Body:**
-```json
-{
-  "name": "Test Agent Training Config",
-  "description": "Training configuration for pipeline validation",
-  "workflowId": "{AGENT_ID}",
-  "iterations": 3,
-  "parallelIterations": 1,
-  "optimizationGoal": "quality",
-  "qualityEvaluation": {
-    "method": "heuristic",
-    "criteria": [
-      { "name": "completion", "weight": 0.5 },
-      { "name": "accuracy", "weight": 0.5 }
-    ],
-    "minScore": 60
-  },
-  "inputVariation": {
-    "type": "fixed",
-    "fixedInputs": {
-      "task": "List files in the directory",
-      "workingDir": "{PROJECT_PATH}"
-    }
-  },
-  "tags": ["test", "validation"]
-}
+**Problèmes/Notes :**
 ```
 
-### Test 6.2: List Training Configurations
-
-**Objective:** Verify configuration is listed.
-
-| Item | Value |
-|------|-------|
-| **API Endpoint** | `GET http://localhost:5000/api/training/configurations` |
-| **Expected Response** | List includes the new configuration |
-| **Actual Response** | |
-| **Status** | [ ] Pass  [ ] Fail |
-| **Notes/Issues** | |
-
----
-
-## Phase 7: Training Execution
-
-### Test 7.1: Start Training Run
-
-**Objective:** Execute a training run.
-
-| Item | Value |
-|------|-------|
-| **API Endpoint** | `POST http://localhost:5000/api/training/configurations/{CONFIG_ID}/runs` |
-| **Request Body** | `{"name": "Test Run 1", "initiatedBy": "tester"}` |
-| **Expected Response** | 201 Created with run ID |
-| **Actual Response** | |
-| **Run ID** | (record for later use) |
-| **Status** | [ ] Pass  [ ] Fail |
-| **Notes/Issues** | |
-
-### Test 7.2: Monitor Training Run
-
-**Objective:** Check training run progress.
-
-| Item | Value |
-|------|-------|
-| **API Endpoint** | `GET http://localhost:5000/api/training/runs/{RUN_ID}` |
-| **Expected Response** | Run status with iteration details |
-| **Actual Response** | |
-| **Status** | [ ] Pass  [ ] Fail |
-| **Notes/Issues** | |
-
-**Polling Note:** The training run executes asynchronously. Poll this endpoint every 5 seconds until status is "Completed" or "Failed".
-
-### Test 7.3: Verify Training Iterations
-
-**Objective:** Confirm iterations executed successfully.
-
-| Item | Value |
-|------|-------|
-| **API Endpoint** | `GET http://localhost:5000/api/training/runs/{RUN_ID}` |
-| **Expected Response** | Run with iterations array populated |
-| **Actual Response** | |
-| **Iterations Completed** | |
-| **Iterations Succeeded** | |
-| **Status** | [ ] Pass  [ ] Fail |
-| **Notes/Issues** | |
-
----
-
-## Phase 8: Metrics Verification
-
-### Test 8.1: List Execution Metrics
-
-**Objective:** Verify metrics are being collected.
-
-| Item | Value |
-|------|-------|
-| **API Endpoint** | `GET http://localhost:5000/api/metrics/executions` |
-| **Expected Response** | List of execution metrics |
-| **Actual Response** | |
-| **Status** | [ ] Pass  [ ] Fail |
-| **Notes/Issues** | |
-
-### Test 8.2: Get Aggregated Metrics
-
-**Objective:** Retrieve aggregated metrics for the workflow.
-
-| Item | Value |
-|------|-------|
-| **API Endpoint** | `GET http://localhost:5000/api/metrics/aggregate?workflowId={AGENT_ID}` |
-| **Expected Response** | Aggregated metrics (total executions, avg cost, etc.) |
-| **Actual Response** | |
-| **Status** | [ ] Pass  [ ] Fail |
-| **Notes/Issues** | |
-
-### Test 8.3: Get Training Run Metrics
-
-**Objective:** Retrieve metrics specific to the training run.
-
-| Item | Value |
-|------|-------|
-| **API Endpoint** | `GET http://localhost:5000/api/metrics/runs/{TRAINING_RUN_ID}` |
-| **Expected Response** | Metrics for all iterations in the run |
-| **Actual Response** | |
-| **Status** | [ ] Pass  [ ] Fail |
-| **Notes/Issues** | |
-
----
-
-## Phase 9: Project Sessions (Optional)
-
-### Test 9.1: Create Project Session
-
-**Objective:** Create an interactive project session.
-
-| Item | Value |
-|------|-------|
-| **API Endpoint** | `POST http://localhost:5000/api/sessions` |
-| **Request Body** | See below |
-| **Expected Response** | 201 Created with session ID |
-| **Actual Response** | |
-| **Session ID** | (record for later use) |
-| **Status** | [ ] Pass  [ ] Fail |
-| **Notes/Issues** | |
-
-**Request Body:**
-```json
-{
-  "name": "Test Session",
-  "authority": "human",
-  "config": {
-    "projectId": "{PROJECT_ID}",
-    "access": { "level": "full" }
-  }
-}
 ```
 
-### Test 9.2: Start Session
+---
 
-**Objective:** Start the project session.
+## Test 1.2 : Statut du LLM
 
-| Item | Value |
-|------|-------|
-| **API Endpoint** | `POST http://localhost:5000/api/sessions/{SESSION_ID}/start` |
-| **Expected Response** | Session status changed to "Running" |
-| **Actual Response** | |
-| **Status** | [ ] Pass  [ ] Fail |
-| **Notes/Issues** | |
+**Objectif :** Vérifier que le LLM-Provider est accessible et a des modèles chargés.
 
-### Test 9.3: Execute Command in Session
+**Commande exécutée :**
+```
+node C:\Meastro\tools\maestro-cli\index.js llm
+```
 
-**Objective:** Execute a command within the session.
+**Résultat attendu :**
+Statut du LLM-Provider avec liste des modèles disponibles
 
-| Item | Value |
-|------|-------|
-| **API Endpoint** | `POST http://localhost:5000/api/sessions/{SESSION_ID}/commands` |
-| **Request Body** | `{"command": "status"}` |
-| **Expected Response** | Command execution result |
-| **Actual Response** | |
-| **Status** | [ ] Pass  [ ] Fail |
-| **Notes/Issues** | |
+**Résultat obtenu :**
+```
 
-### Test 9.4: Stop Session
+```
 
-**Objective:** Properly stop the session.
+**Statut :** [ ] SUCCES  [ ] ECHEC
 
-| Item | Value |
-|------|-------|
-| **API Endpoint** | `POST http://localhost:5000/api/sessions/{SESSION_ID}/stop` |
-| **Expected Response** | Session status changed to "Stopped" |
-| **Actual Response** | |
-| **Status** | [ ] Pass  [ ] Fail |
-| **Notes/Issues** | |
+**Problèmes/Notes :**
+```
+
+```
 
 ---
 
-## Phase 10: Cleanup (Optional)
-
-### Test 10.1: Delete Training Run
-
-| Item | Value |
-|------|-------|
-| **API Endpoint** | `DELETE http://localhost:5000/api/training/runs/{RUN_ID}` |
-| **Expected Response** | 200 OK or 204 No Content |
-| **Actual Response** | |
-| **Status** | [ ] Pass  [ ] Fail |
-| **Notes/Issues** | |
-
-### Test 10.2: Delete Training Configuration
-
-| Item | Value |
-|------|-------|
-| **API Endpoint** | `DELETE http://localhost:5000/api/training/configurations/{CONFIG_ID}` |
-| **Expected Response** | 204 No Content |
-| **Actual Response** | |
-| **Status** | [ ] Pass  [ ] Fail |
-| **Notes/Issues** | |
-
-### Test 10.3: Delete Agent Block
-
-| Item | Value |
-|------|-------|
-| **API Endpoint** | `DELETE http://localhost:5000/api/blocks/{AGENT_ID}` |
-| **Expected Response** | 204 No Content |
-| **Actual Response** | |
-| **Status** | [ ] Pass  [ ] Fail |
-| **Notes/Issues** | |
+# PHASE 2 : Gestion des Blocks
 
 ---
 
-## Test Summary
+## Test 2.1 : Lister tous les Blocks
 
-| Phase | Tests Passed | Tests Failed | Notes |
-|-------|--------------|--------------|-------|
-| Phase 1: Service Health | /2 | | |
-| Phase 2: Block Management | /3 | | |
-| Phase 3: Agent Creation | /2 | | |
-| Phase 4: Agent Execution | /2 | | |
-| Phase 5: Block Testing | /3 | | |
-| Phase 6: Training Config | /2 | | |
-| Phase 7: Training Execution | /3 | | |
-| Phase 8: Metrics | /3 | | |
-| Phase 9: Project Sessions | /4 | | |
-| Phase 10: Cleanup | /3 | | |
-| **TOTAL** | /27 | | |
+**Objectif :** Vérifier que le système peut lister tous les blocks disponibles.
 
----
+**Commande exécutée :**
+```
+node C:\Meastro\tools\maestro-cli\index.js blocks
+```
 
-## Issues Encountered
+**Résultat attendu :**
+Liste des blocks avec IDs, noms et types
 
-| Issue # | Phase | Test | Description | Severity | Resolution |
-|---------|-------|------|-------------|----------|------------|
-| 1 | | | | | |
-| 2 | | | | | |
-| 3 | | | | | |
+**Résultat obtenu :**
+```
+
+```
+
+**Statut :** [ ] SUCCES  [ ] ECHEC
+
+**Problèmes/Notes :**
+```
+
+```
 
 ---
 
-## Recommendations
+## Test 2.2 : Détails d'un Block
 
-_Space for tester recommendations based on test results_
+**Objectif :** Vérifier qu'on peut récupérer les détails d'un block.
+
+**Block ID utilisé :** _______________
+
+**Commande exécutée :**
+```
+node C:\Meastro\tools\maestro-cli\index.js info {BLOCK_ID}
+```
+
+**Résultat attendu :**
+Détails du block avec config, inputs, outputs
+
+**Résultat obtenu :**
+```
+
+```
+
+**Statut :** [ ] SUCCES  [ ] ECHEC
+
+**Problèmes/Notes :**
+```
+
+```
 
 ---
 
-## Sign-Off
+## Test 2.3 : Exécuter un Block Simple
 
-| Role | Name | Date | Signature |
-|------|------|------|-----------|
-| Tester | | | |
-| Reviewer | | | |
+**Objectif :** Vérifier que l'exécution de block fonctionne.
+
+**Block ID utilisé :** _______________ (ex: `directory-list`)
+
+**Commande exécutée :**
+```
+node C:\Meastro\tools\maestro-cli\index.js run {BLOCK_ID} --input path="{PROJECT_PATH}"
+```
+
+**Résultat attendu :**
+Résultat d'exécution du block avec outputs
+
+**Résultat obtenu :**
+```
+
+```
+
+**Statut :** [ ] SUCCES  [ ] ECHEC
+
+**Problèmes/Notes :**
+```
+
+```
+
+---
+
+# PHASE 3 : Sélection/Vérification d'Agent
+
+> **Référence** : Consulter [AGENT-TOOL-CREATION-GUIDE.md](../guides/AGENT-TOOL-CREATION-GUIDE.md)
+> pour comprendre la structure des agents et comment en créer de nouveaux.
+>
+> **Note sur la philosophie** : Un agent est un block composite qui combine un LLM spécialisé
+> avec des tools atomiques. Le but est d'avoir des agents focalisés sur des tâches précises
+> plutôt qu'un agent généraliste. Voir [MAESTRO-PHILOSOPHY.md](../MAESTRO-PHILOSOPHY.md).
+
+---
+
+## Test 3.1 : Lister les Agents Disponibles
+
+**Objectif :** Identifier les agents existants dans le système pour comprendre les spécialisations disponibles.
+
+**Commande exécutée :**
+```
+node C:\Meastro\tools\maestro-cli\index.js agents
+```
+
+**Résultat attendu :**
+Liste des agents avec leurs catégories et métriques
+
+**Résultat obtenu :**
+```
+
+```
+
+**Agent sélectionné pour les tests :** _______________
+**Raison de la sélection (basée sur la spécialisation) :** _______________
+
+**Statut :** [ ] SUCCES  [ ] ECHEC
+
+**Problèmes/Notes :**
+```
+
+```
+
+---
+
+## Test 3.2 : Vérifier les Détails de l'Agent
+
+**Objectif :** Confirmer la configuration de l'agent (tools, modèle, capabilities).
+
+**Agent ID utilisé :** _______________ (ex: `simple-task-executor`)
+
+**Commande exécutée :**
+```
+node C:\Meastro\tools\maestro-cli\index.js info {AGENT_ID}
+```
+
+**Résultat attendu :**
+Détails complets incluant:
+- Type: agent
+- Tools associés
+- Capabilities
+
+**Résultat obtenu :**
+```
+
+```
+
+**Statut :** [ ] SUCCES  [ ] ECHEC
+
+**Problèmes/Notes :**
+```
+
+```
+
+---
+
+# PHASE 4 : Exécution d'Agent
+
+> **Contexte Philosophique** : L'exécution d'un agent teste sa capacité à accomplir une tâche
+> en utilisant ses tools. Un agent bien spécialisé devrait accomplir des tâches dans son domaine
+> avec un petit LLM de manière aussi efficace qu'un gros LLM généraliste.
+>
+> **Observation importante** : Noter le nombre de tokens utilisés, le temps d'exécution, et la qualité.
+> Ces métriques serviront de baseline pour l'entraînement (Phase 6-7).
+
+---
+
+## Test 4.1 : Exécuter Agent (Tâche Simple)
+
+**Objectif :** Exécuter l'agent avec une tâche simple.
+
+**Agent ID utilisé :** _______________
+
+**Commande exécutée :**
+```
+node C:\Meastro\tools\maestro-cli\index.js run {AGENT_ID} --input task="List the files in the current directory" --input workingDir="{PROJECT_PATH}"
+```
+
+**Résultat attendu :**
+Exécution de l'agent avec appels d'outils et résultat final
+
+**Résultat obtenu :**
+```
+
+```
+
+**Statut :** [ ] SUCCES  [ ] ECHEC
+
+**Problèmes/Notes :**
+```
+
+```
+
+---
+
+## Test 4.2 : Exécuter Agent (Lecture de Fichier)
+
+**Objectif :** Vérifier que l'agent peut lire des fichiers.
+
+**Agent ID utilisé :** _______________
+
+**Commande exécutée :**
+```
+node C:\Meastro\tools\maestro-cli\index.js run {AGENT_ID} --input task="Read the README.md file and summarize it" --input workingDir="{PROJECT_PATH}"
+```
+
+**Résultat attendu :**
+L'agent lit le fichier et fournit un résumé
+
+**Résultat obtenu :**
+```
+
+```
+
+**Statut :** [ ] SUCCES  [ ] ECHEC
+
+**Problèmes/Notes :**
+```
+
+```
+
+---
+
+# PHASE 5 : API de Test de Blocks
+
+---
+
+## Test 5.1 : Démarrer un Test Run
+
+**Objectif :** Démarrer un test run pour un block.
+
+**Block ID utilisé :** _______________ (ex: directory-list, simple-task-executor)
+
+**Commande exécutée :**
+```
+node C:\Meastro\tools\maestro-cli\index.js test start {BLOCK_ID}
+```
+
+**Résultat attendu :**
+Test run créé avec ID et statut
+
+**Résultat obtenu :**
+```
+
+```
+
+**Test Run ID créé :** _______________
+
+**Statut :** [ ] SUCCES  [ ] ECHEC
+
+**Problèmes/Notes :**
+```
+
+```
+
+---
+
+## Test 5.2 : Voir les Détails du Test Run
+
+**Objectif :** Récupérer les détails d'un test run.
+
+**Test Run ID utilisé :** _______________
+
+**Commande exécutée :**
+```
+node C:\Meastro\tools\maestro-cli\index.js test info {TEST_RUN_ID}
+```
+
+**Résultat attendu :**
+Détails du test avec itérations et scores
+
+**Résultat obtenu :**
+```
+
+```
+
+**Statut :** [ ] SUCCES  [ ] ECHEC
+
+**Problèmes/Notes :**
+```
+
+```
+
+---
+
+## Test 5.3 : Lister tous les Test Runs
+
+**Objectif :** Récupérer l'historique de tous les tests.
+
+**Commande exécutée :**
+```
+node C:\Meastro\tools\maestro-cli\index.js test runs
+```
+
+**Résultat attendu :**
+Liste des exécutions de test avec résultats
+
+**Résultat obtenu :**
+```
+
+```
+
+**Statut :** [ ] SUCCES  [ ] ECHEC
+
+**Problèmes/Notes :**
+```
+
+```
+
+---
+
+# PHASE 6 : Configuration d'Entraînement
+
+> **Le Cœur de Maestro** : Le système d'entraînement est ce qui permet la vision de
+> spécialisation. En exécutant un agent de multiples fois avec variations, en évaluant
+> les résultats, et en itérant, on transforme un agent générique en expert spécialisé.
+>
+> **Cycle d'amélioration** :
+> 1. LLM puissant (comme Claude) évalue et fournit du feedback
+> 2. L'agent s'améliore itération après itération
+> 3. Éventuellement, des agents spécialisés feront ce travail d'évaluation
+>
+> Voir [MAESTRO-PHILOSOPHY.md](../MAESTRO-PHILOSOPHY.md) - Section "Le Cycle d'Entraînement"
+
+---
+
+## Test 6.1 : Créer Configuration d'Entraînement
+
+**Objectif :** Configurer l'entraînement pour l'agent.
+
+**Agent ID utilisé :** _______________
+
+**Commande exécutée :**
+```
+node C:\Meastro\tools\maestro-cli\index.js training configs create --name "Config Test Agent" --description "Configuration pour validation pipeline" --workflow {AGENT_ID} --iterations 3 --goal quality
+```
+
+**Résultat attendu :**
+Configuration créée avec ID affiché
+
+**Résultat obtenu :**
+```
+
+```
+
+**Config ID créé :** _______________
+
+**Statut :** [ ] SUCCES  [ ] ECHEC
+
+**Problèmes/Notes :**
+```
+
+```
+
+---
+
+## Test 6.2 : Lister Configurations d'Entraînement
+
+**Objectif :** Vérifier que la configuration est listée.
+
+**Commande exécutée :**
+```
+node C:\Meastro\tools\maestro-cli\index.js training configs
+```
+
+**Résultat attendu :**
+Liste contenant la nouvelle configuration
+
+**Résultat obtenu :**
+```
+
+```
+
+**Statut :** [ ] SUCCES  [ ] ECHEC
+
+**Problèmes/Notes :**
+```
+
+```
+
+---
+
+# PHASE 7 : Exécution d'Entraînement
+
+---
+
+## Test 7.1 : Démarrer un Run d'Entraînement
+
+**Objectif :** Exécuter un run d'entraînement.
+
+**Config ID utilisé :** _______________
+
+**Commande exécutée :**
+```
+node C:\Meastro\tools\maestro-cli\index.js training start {CONFIG_ID} --name "Test Run 1"
+```
+
+**Résultat attendu :**
+Run démarré avec ID affiché
+
+**Résultat obtenu :**
+```
+
+```
+
+**Run ID créé :** _______________
+
+**Statut :** [ ] SUCCES  [ ] ECHEC
+
+**Problèmes/Notes :**
+```
+
+```
+
+---
+
+## Test 7.2 : Surveiller le Run d'Entraînement
+
+**Objectif :** Vérifier la progression du run.
+
+**Run ID utilisé :** _______________
+
+**Commande exécutée :**
+```
+node C:\Meastro\tools\maestro-cli\index.js training runs {RUN_ID}
+```
+
+**Résultat attendu :**
+Statut du run avec détails des itérations
+
+**Résultat obtenu :**
+```
+
+```
+
+**Statut du Run :** _______________
+**Itérations complétées :** _____ / _____
+
+**Statut :** [ ] SUCCES  [ ] ECHEC
+
+**Problèmes/Notes :**
+```
+
+```
+
+**Note :** Le run s'exécute de façon asynchrone. Répéter cette commande toutes les 5 secondes jusqu'à ce que le statut soit "Completed" ou "Failed".
+
+---
+
+## Test 7.3 : Vérifier les Itérations d'Entraînement
+
+**Objectif :** Confirmer que les itérations se sont exécutées avec succès.
+
+**Run ID utilisé :** _______________
+
+**Commande exécutée :**
+```
+node C:\Meastro\tools\maestro-cli\index.js training runs {RUN_ID}
+```
+
+**Résultat attendu :**
+Run avec tableau d'itérations rempli, statut "Completed"
+
+**Résultat obtenu :**
+```
+
+```
+
+**Résumé des itérations :**
+- Itération 1 : [ ] Succès  [ ] Échec
+- Itération 2 : [ ] Succès  [ ] Échec
+- Itération 3 : [ ] Succès  [ ] Échec
+
+**Statut :** [ ] SUCCES  [ ] ECHEC
+
+**Problèmes/Notes :**
+```
+
+```
+
+---
+
+# PHASE 8 : Vérification des Métriques
+
+---
+
+## Test 8.1 : Lister les Métriques d'Exécution
+
+**Objectif :** Vérifier que les métriques sont collectées.
+
+**Commande exécutée :**
+```
+node C:\Meastro\tools\maestro-cli\index.js metrics
+```
+
+**Résultat attendu :**
+Liste des métriques d'exécution
+
+**Résultat obtenu :**
+```
+
+```
+
+**Statut :** [ ] SUCCES  [ ] ECHEC
+
+**Problèmes/Notes :**
+```
+
+```
+
+---
+
+## Test 8.2 : Métriques Agrégées
+
+**Objectif :** Récupérer les métriques agrégées pour le workflow.
+
+**Agent ID utilisé :** _______________
+
+**Commande exécutée :**
+```
+node C:\Meastro\tools\maestro-cli\index.js metrics aggregate --workflow {AGENT_ID}
+```
+
+**Résultat attendu :**
+Métriques agrégées (total exécutions, coût moyen, etc.)
+
+**Résultat obtenu :**
+```
+
+```
+
+**Statut :** [ ] SUCCES  [ ] ECHEC
+
+**Problèmes/Notes :**
+```
+
+```
+
+---
+
+## Test 8.3 : Métriques du Run d'Entraînement
+
+**Objectif :** Récupérer les métriques spécifiques au run d'entraînement.
+
+**Run ID utilisé :** _______________
+
+**Commande exécutée :**
+```
+node C:\Meastro\tools\maestro-cli\index.js metrics training-run {RUN_ID}
+```
+
+**Résultat attendu :**
+Métriques pour toutes les itérations du run
+
+**Résultat obtenu :**
+```
+
+```
+
+**Statut :** [ ] SUCCES  [ ] ECHEC
+
+**Problèmes/Notes :**
+```
+
+```
+
+---
+
+# PHASE 9 : Sessions de Projet
+
+---
+
+## Test 9.1 : Créer une Session de Projet
+
+**Objectif :** Créer une session interactive de projet.
+
+**Project ID utilisé :** _______________
+
+**Commande exécutée :**
+```
+node C:\Meastro\tools\maestro-cli\index.js session create --project {PROJECT_ID} --name "Session Test" --authority human --access full
+```
+
+**Résultat attendu :**
+Session créée avec ID affiché
+
+**Résultat obtenu :**
+```
+
+```
+
+**Session ID créé :** _______________
+
+**Statut :** [ ] SUCCES  [ ] ECHEC
+
+**Problèmes/Notes :**
+```
+
+```
+
+---
+
+## Test 9.2 : Démarrer la Session
+
+**Objectif :** Démarrer la session de projet.
+
+**Session ID utilisé :** _______________
+
+**Commande exécutée :**
+```
+node C:\Meastro\tools\maestro-cli\index.js session start {SESSION_ID}
+```
+
+**Résultat attendu :**
+Statut de session changé à "Running"
+
+**Résultat obtenu :**
+```
+
+```
+
+**Statut :** [ ] SUCCES  [ ] ECHEC
+
+**Problèmes/Notes :**
+```
+
+```
+
+---
+
+## Test 9.3 : Exécuter une Commande dans la Session
+
+**Objectif :** Exécuter une commande dans la session.
+
+**Session ID utilisé :** _______________
+
+**Commande exécutée :**
+```
+node C:\Meastro\tools\maestro-cli\index.js session exec {SESSION_ID} "status"
+```
+
+**Résultat attendu :**
+Résultat d'exécution de la commande
+
+**Résultat obtenu :**
+```
+
+```
+
+**Statut :** [ ] SUCCES  [ ] ECHEC
+
+**Problèmes/Notes :**
+```
+
+```
+
+---
+
+## Test 9.4 : Arrêter la Session
+
+**Objectif :** Arrêter proprement la session.
+
+**Session ID utilisé :** _______________
+
+**Commande exécutée :**
+```
+node C:\Meastro\tools\maestro-cli\index.js session stop {SESSION_ID}
+```
+
+**Résultat attendu :**
+Statut de session changé à "Stopped"
+
+**Résultat obtenu :**
+```
+
+```
+
+**Statut :** [ ] SUCCES  [ ] ECHEC
+
+**Problèmes/Notes :**
+```
+
+```
+
+---
+
+# PHASE 10 : Nettoyage (Optionnel)
+
+---
+
+## Test 10.1 : Supprimer le Run d'Entraînement
+
+**Run ID à supprimer :** _______________
+
+**Commande exécutée :**
+```
+node C:\Meastro\tools\maestro-cli\index.js training runs delete {RUN_ID}
+```
+
+**Résultat attendu :**
+Run supprimé avec succès
+
+**Résultat obtenu :**
+```
+
+```
+
+**Statut :** [ ] SUCCES  [ ] ECHEC
+
+---
+
+## Test 10.2 : Supprimer la Configuration d'Entraînement
+
+**Config ID à supprimer :** _______________
+
+**Commande exécutée :**
+```
+node C:\Meastro\tools\maestro-cli\index.js training configs delete {CONFIG_ID}
+```
+
+**Résultat attendu :**
+Configuration supprimée avec succès
+
+**Résultat obtenu :**
+```
+
+```
+
+**Statut :** [ ] SUCCES  [ ] ECHEC
+
+---
+
+## Test 10.3 : Supprimer le Block Agent
+
+**Agent ID à supprimer :** _______________
+
+**Commande exécutée :**
+```
+node C:\Meastro\tools\maestro-cli\index.js agents delete {AGENT_ID}
+```
+
+**Résultat attendu :**
+Agent supprimé avec succès
+
+**Résultat obtenu :**
+```
+
+```
+
+**Statut :** [ ] SUCCES  [ ] ECHEC
+
+---
+
+# PHASE 11 : Vérification des Blocks Composites
+
+> **Concept Clé : Interface vs Implémentation**
+>
+> Le type d'un block (tool, agent, workflow) définit son **interface**, pas son contenu.
+> Un tool peut contenir des agents. Un agent peut contenir des workflows.
+> Tout block est une **boîte noire**.
+>
+> ```
+> Tool "smart-commit"          ← Interface simple (input → output)
+>    └── Workflow interne
+>           ├── Agent analyzer
+>           ├── Agent writer
+>           └── Validator
+>                              ← Implémentation complexe cachée
+> ```
+>
+> Cette phase vérifie que le système expose correctement cette composition,
+> permettant de comprendre les architectures de blocks sans imposer de hiérarchie rigide.
+>
+> **Important** : Un block "atomique" signifie qu'il n'expose pas d'enfants dans sa config,
+> pas qu'il est simple. Un tool atomique pourrait appeler une API qui elle-même orchestre
+> 100 services - c'est toujours atomique du point de vue de Maestro.
+>
+> Voir [MAESTRO-PHILOSOPHY.md](../MAESTRO-PHILOSOPHY.md) - "Interface vs Implémentation"
+
+---
+
+## Test 11.1 : Identifier un Block Composite
+
+**Objectif :** Vérifier qu'il existe des blocks non-atomiques (composites) dans le système.
+
+**Commande exécutée :**
+```
+node C:\Meastro\tools\maestro-cli\index.js blocks
+```
+
+**Résultat attendu :**
+Liste contenant des blocks de type `workflow`, `agent`, ou `task` (blocks composites)
+
+**Résultat obtenu :**
+```
+
+```
+
+**Block Composite ID identifié :** _______________
+**Type :** _______________
+
+**Statut :** [ ] SUCCES  [ ] ECHEC
+
+**Problèmes/Notes :**
+```
+
+```
+
+---
+
+## Test 11.2 : Lister les Enfants d'un Block Composite
+
+**Objectif :** Vérifier qu'un block composite contient bien plusieurs blocks enfants.
+
+**Block ID utilisé :** _______________
+
+**Commande exécutée :**
+```
+node C:\Meastro\tools\maestro-cli\index.js children {BLOCK_ID}
+```
+
+**Résultat attendu :**
+Liste hiérarchique des blocks enfants avec types et compteurs
+
+**Résultat obtenu :**
+```
+
+```
+
+**Total Children :** _______________
+**Atomic Count :** _______________
+**Composite Count :** _______________
+
+**Statut :** [ ] SUCCES  [ ] ECHEC
+
+**Problèmes/Notes :**
+```
+
+```
+
+---
+
+## Test 11.3 : Vérifier la Hiérarchie Récursive
+
+**Objectif :** Confirmer que la commande affiche les enfants jusqu'au niveau atomique.
+
+**Block ID utilisé :** _______________ (un workflow contenant des agents ou tasks)
+
+**Commande exécutée :**
+```
+node C:\Meastro\tools\maestro-cli\index.js children {BLOCK_ID}
+```
+
+**Résultat attendu :**
+- Arborescence complète affichée
+- Tous les niveaux jusqu'aux blocks atomiques visibles
+- Chaque block a son type affiché
+
+**Résultat obtenu :**
+```
+
+```
+
+**Structure observée :**
+- Niveau 1 (composite) : _______________
+  - Niveau 2 : _______________
+    - Niveau 3 (atomique) : _______________
+
+**Statut :** [ ] SUCCES  [ ] ECHEC
+
+**Problèmes/Notes :**
+```
+
+```
+
+---
+
+## Test 11.4 : Vérifier un Block Atomique n'a pas d'Enfants
+
+**Objectif :** Confirmer qu'un block atomique (tool, prompt, etc.) ne retourne pas d'enfants.
+
+**Block ID utilisé :** _______________ (un block de type `tool` ou `prompt`)
+
+**Commande exécutée :**
+```
+node C:\Meastro\tools\maestro-cli\index.js children {BLOCK_ID}
+```
+
+**Résultat attendu :**
+Message indiquant que le block est atomique (pas d'enfants)
+
+**Résultat obtenu :**
+```
+
+```
+
+**Statut :** [ ] SUCCES  [ ] ECHEC
+
+**Problèmes/Notes :**
+```
+
+```
+
+---
+
+# RÉSUMÉ DES TESTS
+
+| Phase | Description | Succès | Échecs |
+|-------|-------------|--------|--------|
+| 1 | Vérification Services | /2 | |
+| 2 | Gestion Blocks | /3 | |
+| 3 | Création Agent | /2 | |
+| 4 | Exécution Agent | /2 | |
+| 5 | API Tests Blocks | /3 | |
+| 6 | Config Entraînement | /2 | |
+| 7 | Exécution Entraînement | /3 | |
+| 8 | Métriques | /3 | |
+| 9 | Sessions Projet | /4 | |
+| 10 | Nettoyage | /3 | |
+| 11 | Blocks Composites | /4 | |
+| **TOTAL** | | **/31** | |
+
+---
+
+# PROBLÈMES RENCONTRÉS
+
+| # | Phase | Test | Description du Problème | Sévérité | Résolution |
+|---|-------|------|------------------------|----------|------------|
+| 1 | | | | [ ] Critique [ ] Majeur [ ] Mineur | |
+| 2 | | | | [ ] Critique [ ] Majeur [ ] Mineur | |
+| 3 | | | | [ ] Critique [ ] Majeur [ ] Mineur | |
+| 4 | | | | [ ] Critique [ ] Majeur [ ] Mineur | |
+| 5 | | | | [ ] Critique [ ] Majeur [ ] Mineur | |
+
+---
+
+# RECOMMANDATIONS
+
+_Espace pour les recommandations du testeur basées sur les résultats_
+
+```
+
+```
+
+---
+
+# APPROBATION
+
+**Testeur :**
+Nom : _______________
+Date : _______________
+Signature : _______________
+
+**Réviseur :**
+Nom : _______________
+Date : _______________
+Signature : _______________

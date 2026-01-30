@@ -53,6 +53,11 @@ namespace Maestro.Domain.Entities
             Description = description ?? string.Empty;
         }
 
+        public void SetVersion(string version)
+        {
+            Version = version ?? "1.0.0";
+        }
+
         public void AddCapabilities(IEnumerable<string> capabilities)
         {
             if (capabilities != null)
