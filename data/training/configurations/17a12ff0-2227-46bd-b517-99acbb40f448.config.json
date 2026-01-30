@@ -1,0 +1,33 @@
+{
+  "id": "17a12ff0-2227-46bd-b517-99acbb40f448",
+  "name": "Test Config",
+  "description": null,
+  "workflowId": "test-workflow-123",
+  "iterations": 5,
+  "parallelIterations": 1,
+  "delayBetweenIterationsMs": 0,
+  "optimizationGoal": 3,
+  "goalWeights": null,
+  "inputVariation": {
+    "type": 0,
+    "fixedInputs": null,
+    "datasetPath": null,
+    "generator": null
+  },
+  "qualityEvaluation": {
+    "enabled": false,
+    "method": "none",
+    "heuristics": null,
+    "llmEvaluation": null,
+    "customEvaluator": null
+  },
+  "constraints": null,
+  "modelOverrides": {},
+  "environmentVariables": {},
+  "containerRuntimeType": null,
+  "createdAt": "2026-01-30T12:59:46.6374997+00:00",
+  "updatedAt": "2026-01-30T12:59:46.6384751+00:00",
+  "createdBy": null,
+  "tags": [],
+  "isActive": true
+}

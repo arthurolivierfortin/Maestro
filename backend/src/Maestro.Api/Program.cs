@@ -153,7 +153,10 @@ Console.WriteLine($"[Maestro] Tools registry:  {toolsFolder}");
 Console.WriteLine($"[Maestro] Agents registry: {agentsFolder}");
 
 // Phase 9: Register training services
-var trainingFolder = Path.Combine(AppContext.BaseDirectory, "training");
+// Use repo root for persistent storage (not bin directory which is cleared on rebuild)
+var trainingFolder = Path.Combine(pathConfig.RepoRootPath, "data", "training");
+Directory.CreateDirectory(trainingFolder);
+Console.WriteLine($"[Maestro] Training data:   {trainingFolder}");
 builder.Services.AddSingleton<ITrainingConfigurationRepository>(sp =>
 {
     var logger = sp.GetService<ILogger<FileSystemTrainingConfigurationRepository>>();
@@ -163,6 +166,16 @@ builder.Services.AddSingleton<ITrainingRunRepository>(sp =>
 {
     var logger = sp.GetService<ILogger<FileSystemTrainingRunRepository>>();
     return new FileSystemTrainingRunRepository(trainingFolder, logger);
+});
+
+// Block Testing: Register test repository for persistent storage
+var testingFolder = Path.Combine(pathConfig.RepoRootPath, "data", "testing");
+Directory.CreateDirectory(testingFolder);
+Console.WriteLine($"[Maestro] Testing data:    {testingFolder}");
+builder.Services.AddSingleton<Maestro.Infrastructure.Testing.FileSystemBlockTestRepository>(sp =>
+{
+    var logger = sp.GetService<ILogger<Maestro.Infrastructure.Testing.FileSystemBlockTestRepository>>();
+    return new Maestro.Infrastructure.Testing.FileSystemBlockTestRepository(testingFolder, logger);
 });
 
 // Phase 9: Register quality evaluators

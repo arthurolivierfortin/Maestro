@@ -14,6 +14,7 @@ public class TrainingService : ITrainingService
 {
     private readonly ITrainingConfigurationRepository _configRepository;
     private readonly ITrainingRunRepository _runRepository;
+    private readonly IBlockDiscoveryService _blockDiscoveryService;
     private readonly IWorkflowExecutor _workflowExecutor;
     private readonly MetricsCollector _metricsCollector;
     private readonly ILogger<TrainingService>? _logger;
@@ -25,12 +26,14 @@ public class TrainingService : ITrainingService
     public TrainingService(
         ITrainingConfigurationRepository configRepository,
         ITrainingRunRepository runRepository,
+        IBlockDiscoveryService blockDiscoveryService,
         IWorkflowExecutor workflowExecutor,
         MetricsCollector metricsCollector,
         ILogger<TrainingService>? logger = null)
     {
         _configRepository = configRepository;
         _runRepository = runRepository;
+        _blockDiscoveryService = blockDiscoveryService;
         _workflowExecutor = workflowExecutor;
         _metricsCollector = metricsCollector;
         _logger = logger;
@@ -235,11 +238,18 @@ public class TrainingService : ITrainingService
             // Prepare inputs based on config
             var iterationInputs = PrepareIterationInputs(config, iterationNumber, inputs);
 
-            // Create workflow definition for execution
-            // Note: This is simplified - in real implementation, load the actual workflow
+            // Load the actual workflow from block discovery service
+            var workflowBlock = await _blockDiscoveryService.GetByIdAsync(config.WorkflowId, ct);
+            if (workflowBlock == null)
+            {
+                throw new InvalidOperationException($"Workflow {config.WorkflowId} not found");
+            }
+
+            // Build workflow definition from block
+            // For training purposes, we execute the workflow block directly
             var workflow = new WorkflowDefinition(
                 config.WorkflowId,
-                new List<Domain.Entities.BlockDefinition>(),
+                new List<Domain.Entities.BlockDefinition> { workflowBlock },
                 new List<ConnectionDefinition>()
             );
 

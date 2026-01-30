@@ -94,7 +94,10 @@ export const trainingService = {
    * Start a new training run
    */
   async startRun(request: StartTrainingRunRequest): Promise<TrainingRun> {
-    return apiClient.post<TrainingRun>(`${TRAINING_BASE}/runs`, request);
+    return apiClient.post<TrainingRun>(
+      `${TRAINING_BASE}/configurations/${request.configurationId}/runs`,
+      request
+    );
   },
 
   /**

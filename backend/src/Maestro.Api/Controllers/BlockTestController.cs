@@ -5,6 +5,7 @@ using Maestro.Application.DTOs;
 using Maestro.Application.Interfaces;
 using Maestro.Domain.Entities;
 using Maestro.Domain.ValueObjects;
+using Maestro.Infrastructure.Testing;
 
 namespace Maestro.Api.Controllers;
 
@@ -16,14 +17,16 @@ namespace Maestro.Api.Controllers;
 [Route("api/[controller]")]
 public class BlockTestController : ControllerBase
 {
-    private static readonly ConcurrentDictionary<string, BlockTestRun> _testRuns = new();
+    private readonly FileSystemBlockTestRepository _testRepository;
     private readonly IBlockDiscoveryService _discoveryService;
     private readonly ILogger<BlockTestController> _logger;
 
     public BlockTestController(
+        FileSystemBlockTestRepository testRepository,
         IBlockDiscoveryService discoveryService,
         ILogger<BlockTestController> logger)
     {
+        _testRepository = testRepository;
         _discoveryService = discoveryService;
         _logger = logger;
     }
@@ -37,7 +40,7 @@ public class BlockTestController : ControllerBase
         [FromQuery] string? blockType = null,
         [FromQuery] string? status = null)
     {
-        var runs = _testRuns.Values.AsEnumerable();
+        var runs = _testRepository.GetAll().Values.AsEnumerable();
 
         if (!string.IsNullOrEmpty(blockId))
             runs = runs.Where(r => r.BlockId == blockId);
@@ -60,7 +63,8 @@ public class BlockTestController : ControllerBase
     [HttpGet("runs/{id}")]
     public ActionResult<BlockTestRunDto> GetTestRun(string id)
     {
-        if (!_testRuns.TryGetValue(id, out var run))
+        var run = _testRepository.GetById(id);
+        if (run == null)
             return NotFound(new { message = $"Test run {id} not found" });
 
         return BlockTestRunDto.FromDomain(run);
@@ -123,7 +127,7 @@ public class BlockTestController : ControllerBase
         };
 
         run.Start();
-        _testRuns[run.Id] = run;
+        _testRepository.Save(run);
 
         _logger.LogInformation("Created test run {RunId} for {BlockType} block {BlockId} with {Iterations} iterations",
             run.Id, block.BlockType, request.BlockId, request.Iterations);
@@ -131,6 +135,7 @@ public class BlockTestController : ControllerBase
         // Execute iterations (in a real implementation, this would be async/background)
         await ExecuteIterations(run, block, request.InputOverrides, ct);
 
+        _testRepository.Save(run);
         return CreatedAtAction(nameof(GetTestRun), new { id = run.Id }, BlockTestRunDto.FromDomain(run));
     }
 
@@ -142,7 +147,8 @@ public class BlockTestController : ControllerBase
         string runId,
         [FromBody] SubmitBlockEvaluationRequest request)
     {
-        if (!_testRuns.TryGetValue(runId, out var run))
+        var run = _testRepository.GetById(runId);
+        if (run == null)
             return NotFound(new { message = $"Test run {runId} not found" });
 
         var iteration = run.Iterations.FirstOrDefault(i => i.Id == request.IterationId);
@@ -191,6 +197,7 @@ public class BlockTestController : ControllerBase
                 runId, run.Metrics?.OverallScore);
         }
 
+        _testRepository.Save(run);
         return BlockTestRunDto.FromDomain(run);
     }
 
@@ -202,7 +209,8 @@ public class BlockTestController : ControllerBase
         string runId,
         [FromBody] SubmitBulkBlockEvaluationRequest request)
     {
-        if (!_testRuns.TryGetValue(runId, out var run))
+        var run = _testRepository.GetById(runId);
+        if (run == null)
             return NotFound(new { message = $"Test run {runId} not found" });
 
         foreach (var eval in request.Evaluations)
@@ -233,6 +241,7 @@ public class BlockTestController : ControllerBase
         if (run.EvaluatedIterations >= run.TotalIterations)
             run.Complete();
 
+        _testRepository.Save(run);
         return BlockTestRunDto.FromDomain(run);
     }
 
@@ -244,7 +253,8 @@ public class BlockTestController : ControllerBase
         string runId,
         [FromBody] SubmitBlockImprovementRequest request)
     {
-        if (!_testRuns.TryGetValue(runId, out var run))
+        var run = _testRepository.GetById(runId);
+        if (run == null)
             return NotFound(new { message = $"Test run {runId} not found" });
 
         run.ImprovementSuggestions.AddRange(request.Suggestions);
@@ -252,6 +262,7 @@ public class BlockTestController : ControllerBase
         _logger.LogInformation("Added {Count} improvement suggestions to run {RunId}",
             request.Suggestions.Count, runId);
 
+        _testRepository.Save(run);
         return BlockTestRunDto.FromDomain(run);
     }
 
@@ -263,7 +274,7 @@ public class BlockTestController : ControllerBase
     {
         var ids = runIds.Split(',', StringSplitOptions.RemoveEmptyEntries);
         var runs = ids
-            .Select(id => _testRuns.TryGetValue(id, out var r) ? r : null)
+            .Select(id => _testRepository.GetById(id))
             .Where(r => r != null)
             .ToList();
 
@@ -294,7 +305,8 @@ public class BlockTestController : ControllerBase
     [HttpGet("runs/{runId}/pending")]
     public ActionResult<List<BlockTestIterationDto>> GetPendingEvaluations(string runId)
     {
-        if (!_testRuns.TryGetValue(runId, out var run))
+        var run = _testRepository.GetById(runId);
+        if (run == null)
             return NotFound(new { message = $"Test run {runId} not found" });
 
         return run.Iterations
@@ -309,7 +321,7 @@ public class BlockTestController : ControllerBase
     [HttpDelete("runs/{id}")]
     public ActionResult DeleteTestRun(string id)
     {
-        if (!_testRuns.TryRemove(id, out _))
+        if (!_testRepository.Delete(id))
             return NotFound(new { message = $"Test run {id} not found" });
 
         return NoContent();

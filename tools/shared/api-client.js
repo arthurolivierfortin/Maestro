@@ -342,7 +342,7 @@ class MaestroApiClient {
 
   async startTrainingRun(request) {
     if (!request || !request.configurationId) throw new Error('Configuration ID is required');
-    return this._fetch('POST', '/api/training/runs', { body: request });
+    return this._fetch('POST', `/api/training/configurations/${request.configurationId}/runs`, { body: request });
   }
 
   async pauseTrainingRun(id) {

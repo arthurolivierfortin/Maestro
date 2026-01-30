@@ -1,0 +1,37 @@
+{
+  "id": "777702bc-3ab4-4d21-9126-65f780dd859b",
+  "name": "Autonomous Agent Training",
+  "description": null,
+  "workflowId": "autonomous-task",
+  "iterations": 5,
+  "parallelIterations": 1,
+  "delayBetweenIterationsMs": 0,
+  "optimizationGoal": 1,
+  "goalWeights": null,
+  "inputVariation": {
+    "type": 0,
+    "fixedInputs": null,
+    "datasetPath": null,
+    "generator": null
+  },
+  "qualityEvaluation": {
+    "enabled": false,
+    "method": "none",
+    "heuristics": null,
+    "llmEvaluation": null,
+    "customEvaluator": null
+  },
+  "constraints": null,
+  "modelOverrides": {},
+  "environmentVariables": {},
+  "containerRuntimeType": null,
+  "createdAt": "2026-01-30T13:21:03.8261952+00:00",
+  "updatedAt": "2026-01-30T13:21:03.827086+00:00",
+  "createdBy": null,
+  "tags": [
+    "agent",
+    "autonomous",
+    "test"
+  ],
+  "isActive": true
+}

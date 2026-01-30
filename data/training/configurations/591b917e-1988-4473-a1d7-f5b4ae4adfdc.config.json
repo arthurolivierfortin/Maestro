@@ -1,0 +1,33 @@
+{
+  "id": "591b917e-1988-4473-a1d7-f5b4ae4adfdc",
+  "name": "Commit Message Training",
+  "description": null,
+  "workflowId": "generate-commit-message-workflow",
+  "iterations": 3,
+  "parallelIterations": 1,
+  "delayBetweenIterationsMs": 0,
+  "optimizationGoal": 1,
+  "goalWeights": null,
+  "inputVariation": {
+    "type": 0,
+    "fixedInputs": null,
+    "datasetPath": null,
+    "generator": null
+  },
+  "qualityEvaluation": {
+    "enabled": false,
+    "method": "none",
+    "heuristics": null,
+    "llmEvaluation": null,
+    "customEvaluator": null
+  },
+  "constraints": null,
+  "modelOverrides": {},
+  "environmentVariables": {},
+  "containerRuntimeType": null,
+  "createdAt": "2026-01-30T13:23:01.5005462+00:00",
+  "updatedAt": "2026-01-30T13:23:01.5005678+00:00",
+  "createdBy": null,
+  "tags": [],
+  "isActive": true
+}
