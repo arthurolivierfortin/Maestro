@@ -321,14 +321,94 @@ Tu dois TOUJOURS utiliser l'outil git-diff pour voir les changements avant de g�
 
 ### Choix du Modèle
 
+#### Comment Fonctionne la Sélection de Modèle
+
+**Architecture clé** : L'utilisateur spécifie le modèle dans la configuration du block (agent ou inference). Le **LLM-Provider charge automatiquement** le modèle lors de l'exécution - pas besoin de le charger manuellement.
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│ 1. L'utilisateur crée un block avec config.model                   │
+│                                                                     │
+│    {                                                                │
+│      "config": {                                                    │
+│        "model": "HuggingFaceTB/SmolLM2-1.7B-Instruct"              │
+│      }                                                              │
+│    }                                                                │
+│                                                                     │
+│ 2. Lors de l'exécution, le block envoie la requête au LLM-Provider │
+│    avec le model_id spécifié                                        │
+│                                                                     │
+│ 3. Le LLM-Provider (automatiquement):                               │
+│    - Vérifie si le modèle est compatible avec le hardware          │
+│    - Le télécharge depuis HuggingFace (si pas en cache local)      │
+│    - Le charge en mémoire GPU/CPU                                   │
+│    - Exécute l'inférence                                           │
+│    - Gère la VRAM (décharge d'autres modèles si nécessaire)        │
+│                                                                     │
+│ 4. Tout est automatique et transparent pour l'utilisateur          │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+#### Vérifier le Statut LLM via CLI
+
+```bash
+# Voir le statut du LLM-Provider et le modèle actuellement chargé
+node C:\Meastro\tools\maestro-cli\index.js llm
+```
+
+Exemple de sortie :
+```
+🤖 LLM Status:
+
+  LLM-Provider (localhost:8000):
+    Status:        healthy
+    Active Model:  deepseek-ai/deepseek-coder-1.3b-instruct
+    Models Loaded: 1
+    Device:        cuda
+    GPU:           NVIDIA RTX A1000 6GB Laptop GPU
+```
+
+#### Modèles avec Capacité Tool Calling
+
+**CRITIQUE**: Tous les modèles ne supportent pas les appels d'outils (tool calling). Vérifiez les capacités!
+
+| Modèle | Taille | Capacités | Notes |
+|--------|--------|-----------|-------|
+| `HuggingFaceTB/SmolLM2-1.7B-Instruct` | 1.7B | tool-use | **Recommandé** - Petit, rapide, supporte tools |
+| `HuggingFaceTB/SmolLM2-360M-Instruct` | 360M | tool-use | Ultra léger, bon pour tests |
+| `NousResearch/Hermes-3-Llama-3.1-8B` | 8B | tool-use, function-calling, json-output | Excellent pour tools, nécessite INT4 |
+| `meetkai/functionary-small-v3.2` | ~7B | tool-use, function-calling | **Spécialisé** function calling |
+| `mistralai/Ministral-8B-Instruct-2410` | 8B | tool-use, function-calling, json-output | Polyvalent |
+| `deepseek-ai/deepseek-coder-1.3b-instruct` | 1.3B | code-generation | ⚠️ PAS de function calling natif |
+
+**Note importante sur deepseek-coder**: Le modèle de base `deepseek-coder-1.3b-instruct` **ne supporte PAS** le function calling natif. Pour cette capacité, utilisez soit:
+- `SmolLM2-1.7B-Instruct` (même taille, supporte tools)
+- La version fine-tunée `Trelis/deepseek-coder-1.3b-instruct-function-calling-v2`
+
+#### Capacités Importantes pour les Agents
+
+Les capacités de chaque modèle déterminent ce qu'il peut faire :
+
+| Capacité | Description | Nécessaire pour |
+|----------|-------------|-----------------|
+| `tool-use` | Peut appeler des outils via JSON | Agents avec tools |
+| `function-calling` | Supporte le format function calling | Agents avec tools |
+| `json-output` | Produit des sorties JSON structurées | Blocks inference structurés |
+| `structured-output` | Supporte les schémas de sortie | Validation de format |
+| `code-generation` | Optimisé pour génération de code | Tools/agents de développement |
+
+#### Guide de Sélection par Tâche
+
 | Tâche | Modèle Recommandé | Raison |
 |-------|-------------------|--------|
-| Code simple | deepseek-coder-1.3b | Léger, rapide, bon pour code |
+| Agent avec tools | SmolLM2-1.7B | Léger, supporte tool-use |
+| Code simple (sans tools) | deepseek-coder-1.3b | Léger, rapide, bon pour code |
 | Raisonnement | phi-3-mini | Bon pour logique |
 | Texte général | llama-3.2-3b | Polyvalent |
-| Tâches complexes | mistral-7b | Plus de capacité |
+| Tâches complexes avec tools | Hermes-3 (INT4) | Excellent tool calling |
+| Function calling intensif | functionary-small | Spécialisé pour ça |
 
-**Principe** : Commencer avec le plus petit modèle possible, augmenter seulement si nécessaire.
+**Principe** : Commencer avec le plus petit modèle **qui a les capacités requises**, augmenter seulement si nécessaire.
 
 ### Exemple : Agent Générateur de Commit
 

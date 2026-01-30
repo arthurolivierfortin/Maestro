@@ -101,6 +101,56 @@ Statut du LLM-Provider avec liste des modèles disponibles
 
 ---
 
+## Test 1.3 : Vérifier le Modèle Actif pour Tool Calling
+
+> **IMPORTANT** : Avant de tester des agents, vérifiez que le modèle configuré dans les blocks
+> supporte le "tool calling" (appels d'outils). Tous les modèles ne supportent pas cette capacité!
+>
+> **Architecture** : Le modèle est spécifié dans la configuration de chaque block (agent/inference).
+> Le LLM-Provider charge automatiquement le modèle lors de l'exécution.
+>
+> **Modèles recommandés pour les agents avec tools** :
+> - `HuggingFaceTB/SmolLM2-1.7B-Instruct` (léger, supporte tool-use)
+> - `NousResearch/Hermes-3-Llama-3.1-8B` (excellent tool calling)
+> - `meetkai/functionary-small-v3.2` (spécialisé function calling)
+>
+> **Note** : `deepseek-coder-1.3b-instruct` est bon pour le code mais **ne supporte PAS**
+> le function calling natif. Pour les agents avec tools, utilisez un autre modèle.
+
+**Objectif :** Vérifier quel modèle est actuellement chargé et s'il convient aux tests.
+
+**Commande exécutée :**
+```
+node C:\Meastro\tools\maestro-cli\index.js llm
+```
+
+**Résultat obtenu :**
+```
+
+```
+
+**Modèle actif :** _______________
+**Supporte tool-use ?:** [ ] Oui  [ ] Non  [ ] Inconnu
+
+**Action requise (si le modèle ne supporte pas tool-use) :**
+Modifier la config des agents de test pour utiliser un modèle compatible, par exemple :
+```json
+{
+  "config": {
+    "model": "HuggingFaceTB/SmolLM2-1.7B-Instruct"
+  }
+}
+```
+
+**Statut :** [ ] SUCCES  [ ] ECHEC
+
+**Problèmes/Notes :**
+```
+
+```
+
+---
+
 # PHASE 2 : Gestion des Blocks
 
 ---
@@ -672,6 +722,28 @@ Métriques pour toutes les itérations du run
 
 # PHASE 9 : Sessions de Projet
 
+> **Architecture Recommandée pour les Tests en Contexte**
+>
+> Les sessions de projet permettent d'exécuter des agents/blocks dans un **contexte projet persistant**.
+> C'est la méthode recommandée pour :
+>
+> - Tester des agents sur un projet réel (ex: Cantante)
+> - Exécuter des séquences de commandes avec état partagé
+> - Simuler une utilisation réelle par un développeur
+>
+> **Flux recommandé** :
+> ```
+> 1. Créer session pour un projet (Phase 9.1)
+> 2. Démarrer la session (Phase 9.2)
+> 3. Exécuter agents/blocks dans la session (Phase 9.3)
+>    → Les agents ont accès au contexte projet
+>    → Les résultats persistent entre les appels
+> 4. Arrêter la session (Phase 9.4)
+> ```
+>
+> **Note** : Pour des tests isolés de blocks (Phase 2-4), les sessions ne sont pas nécessaires.
+> Pour des tests réalistes avec contexte projet (ex: Foundry), utilisez les sessions.
+
 ---
 
 ## Test 9.1 : Créer une Session de Projet
@@ -1011,9 +1083,9 @@ Message indiquant que le block est atomique (pas d'enfants)
 
 | Phase | Description | Succès | Échecs |
 |-------|-------------|--------|--------|
-| 1 | Vérification Services | /2 | |
+| 1 | Vérification Services + LLM | /3 | |
 | 2 | Gestion Blocks | /3 | |
-| 3 | Création Agent | /2 | |
+| 3 | Sélection Agent | /2 | |
 | 4 | Exécution Agent | /2 | |
 | 5 | API Tests Blocks | /3 | |
 | 6 | Config Entraînement | /2 | |
@@ -1022,7 +1094,7 @@ Message indiquant que le block est atomique (pas d'enfants)
 | 9 | Sessions Projet | /4 | |
 | 10 | Nettoyage | /3 | |
 | 11 | Blocks Composites | /4 | |
-| **TOTAL** | | **/31** | |
+| **TOTAL** | | **/32** | |
 
 ---
 

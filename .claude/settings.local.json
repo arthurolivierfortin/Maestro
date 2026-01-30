@@ -84,7 +84,8 @@
       "Bash(Select-Object -First 30 -ExpandProperty FullName)",
       "Bash(move \"C:\\\\Meastro\\\\docs\\\\FOUNDRY-WORKFLOW.md\" \"C:\\\\Meastro\\\\docs\\\\guides\\\\FOUNDRY-DETAILED-GUIDE.md\")",
       "Bash(dotnet clean:*)",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "WebSearch"
     ]
   }
 }

@@ -70,11 +70,70 @@ Ce document résume toutes les runs de test effectuées pour valider le pipeline
 
 ## Recommandations Globales
 
-1. **Priorité Haute**: Remplacer ou configurer un modèle LLM plus capable pour les agents qui nécessitent des appels d'outils JSON structurés. Candidats: mistral-7b, llama-3.2-8b, ou un modèle fine-tuné pour tool calling.
+### 1. **Priorité Haute**: Utiliser un Modèle avec Tool Calling
 
-2. **Priorité Moyenne**: Implémenter la commande `metrics training-run` dans le CLI.
+**Analyse Approfondie du Problème LLM (2026-01-30)**:
 
-3. **Priorité Basse**: Finaliser le template de test avec toutes les commandes CLI correctes.
+Le modèle `deepseek-coder-1.3b-instruct` BASE **n'a pas été entraîné pour le function calling**. Ce n'est PAS une limitation de Maestro mais du modèle lui-même.
+
+**Solutions disponibles**:
+
+| Solution | Effort | Recommandation |
+|----------|--------|----------------|
+| Utiliser `SmolLM2-1.7B-Instruct` | Aucun | **Recommandé** - Même taille, supporte tools |
+| Utiliser `Hermes-3-Llama-3.1-8B` (INT4) | Configuration | Excellent pour tools, si VRAM suffisante |
+| Utiliser `meetkai/functionary-small-v3.2` | Configuration | Spécialisé function calling |
+| Fine-tuner deepseek | Élevé | Non recommandé |
+
+**Comment utiliser un modèle avec tool-use**:
+
+Le modèle est spécifié dans la configuration du block. Le LLM-Provider le charge automatiquement lors de l'exécution.
+
+```json
+// Dans le fichier .block.json de l'agent
+{
+  "config": {
+    "model": "HuggingFaceTB/SmolLM2-1.7B-Instruct"
+  }
+}
+```
+
+**Vérifier le statut LLM actuel**:
+```bash
+node C:\Meastro\tools\maestro-cli\index.js llm
+```
+
+### 2. **Priorité Moyenne**: Implémenter la commande `metrics training-run` dans le CLI.
+
+### 3. **Priorité Basse**: Finaliser le template de test avec toutes les commandes CLI correctes.
+
+---
+
+## Analyse LLM-Provider (2026-01-30)
+
+### Architecture
+- Service Python FastAPI sur port 8000
+- Registre de 58+ modèles avec métadonnées de capacités
+- Chargement à la demande (on-demand)
+- Gestion automatique VRAM (décharge autres modèles lors du switch)
+- Support quantization 8-bit et 4-bit
+
+### Modèles Compatibles avec Tool Calling (6GB VRAM)
+
+| Modèle | Capacités | VRAM FP16 |
+|--------|-----------|-----------|
+| SmolLM2-1.7B-Instruct | tool-use | ~4GB |
+| SmolLM2-360M-Instruct | tool-use | ~1GB |
+| Hermes-3-Llama-3.1-8B | tool-use, function-calling, json-output | ~4GB (INT4) |
+| Functionary-small-v3.2 | tool-use, function-calling, structured-output | ~4GB (INT4) |
+| Ministral-8B | tool-use, function-calling | ~4GB (INT4) |
+
+### Endpoints Clés
+
+- `GET /v1/models/compatible` - Modèles compatibles avec le hardware
+- `GET /v1/models/registry` - Tous les modèles disponibles
+- `POST /v1/switch-model` - Changer de modèle actif
+- `GET /v1/models/local` - Modèles déjà téléchargés
 
 ---
 
