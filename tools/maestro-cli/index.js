@@ -680,6 +680,300 @@ function handleApiError(error, action) {
   }
 }
 
+// ============= Interactive Session Commands (Session Server Architecture) =============
+
+async function listSessions(filter = {}) {
+  try {
+    const sessions = await client.listSessions(filter);
+    if (!sessions || sessions.length === 0) {
+      console.log('\nNo interactive sessions found');
+      console.log('  Create one with: maestro session create --project <id> --authority human');
+      return;
+    }
+
+    console.log('\n📋 Interactive Sessions:\n');
+    console.table(sessions.map(s => ({
+      'ID': s.id.substring(0, 12) + '...',
+      'Name': s.name || '-',
+      'Status': s.status,
+      'Authority': s.authority || 'human',
+      'Project': s.config?.projectId?.substring(0, 8) + '...' || '-',
+      'Commands': s.commandCount || 0,
+      'Created': new Date(s.createdAt).toLocaleDateString()
+    })));
+  } catch (error) {
+    handleApiError(error, 'listing sessions');
+    process.exit(1);
+  }
+}
+
+async function getSessionInfo(id) {
+  try {
+    const session = await client.getSession(id);
+    console.log('\n📋 Session Details:\n');
+    console.log(`  ID:           ${session.id}`);
+    console.log(`  Name:         ${session.name || 'N/A'}`);
+    console.log(`  Status:       ${session.status}`);
+    console.log(`  Authority:    ${session.authority || 'human'}`);
+    console.log(`  Project ID:   ${session.config?.projectId || 'N/A'}`);
+    console.log(`  Workflow ID:  ${session.config?.workflowId || 'N/A'}`);
+    console.log(`  Task:         ${session.config?.task || 'N/A'}`);
+    console.log(`  Access Level: ${session.config?.access?.level || 'controlled'}`);
+    console.log(`  Working Dir:  ${session.workingDirectory || 'N/A'}`);
+    console.log(`  Commands:     ${session.commandCount || 0}`);
+    console.log(`  Created:      ${session.createdAt}`);
+    console.log(`  Started:      ${session.startedAt || 'Not started'}`);
+    console.log(`  Completed:    ${session.completedAt || 'Not completed'}`);
+    if (session.errorMessage) {
+      console.log(`  Error:        ${session.errorMessage}`);
+    }
+    console.log('');
+    console.log('  Commands:');
+    console.log('    maestro session exec ' + id + ' "ls -la"');
+    console.log('    maestro session exec ' + id + ' "blocks list"');
+    console.log('    maestro session exec ' + id + ' "diff"');
+    console.log('');
+  } catch (error) {
+    if (error.status === 404) {
+      console.error(`❌ Session not found: ${id}`);
+    } else {
+      handleApiError(error, 'getting session');
+    }
+    process.exit(1);
+  }
+}
+
+async function createSession(options) {
+  try {
+    if (!options.projectId) { console.error('❌ --project is required'); process.exit(1); }
+
+    const request = {
+      projectId: options.projectId,
+      authority: options.authority || 'human',
+      name: options.name,
+      workflowId: options.workflowId,
+      task: options.task,
+      context: options.context,
+      access: options.access || 'controlled',
+      allowedPaths: options.allowedPaths ? options.allowedPaths.split(',') : undefined,
+      deniedPaths: options.deniedPaths ? options.deniedPaths.split(',') : undefined,
+      runTests: options.runTests || false,
+      testCommand: options.testCommand,
+      runLinter: options.runLinter || false,
+      linterCommand: options.linterCommand,
+      maxSteps: options.maxSteps ? parseInt(options.maxSteps) : 50,
+      timeoutMs: options.timeout ? parseInt(options.timeout) : 600000
+    };
+
+    const session = await client.createSession(request);
+    console.log('\n✅ Session created!\n');
+    console.log(`  ID:        ${session.id}`);
+    console.log(`  Name:      ${session.name}`);
+    console.log(`  Status:    ${session.status}`);
+    console.log(`  Authority: ${session.authority || 'human'}`);
+    console.log('');
+    console.log('  Start it with: maestro session start ' + session.id);
+    console.log('  Execute cmd:   maestro session exec ' + session.id + ' "ls -la"');
+    console.log('');
+  } catch (error) {
+    handleApiError(error, 'creating session');
+    process.exit(1);
+  }
+}
+
+async function startSession(id) {
+  try {
+    console.log(`\n▶️  Starting session: ${id}\n`);
+    const session = await client.startSession(id);
+    console.log(`✅ Session ${session.status}\n`);
+    console.log(`  Authority:    ${session.authority || 'human'}`);
+    console.log(`  Working Dir:  ${session.workingDirectory || 'N/A'}`);
+    console.log('');
+    console.log('  Execute commands with: maestro session exec ' + id + ' "<command>"');
+    console.log('  Stop session with:     maestro session stop ' + id);
+    console.log('');
+  } catch (error) {
+    handleApiError(error, 'starting session');
+    process.exit(1);
+  }
+}
+
+async function pauseSession(id) {
+  try {
+    console.log(`\n⏸️  Pausing session: ${id}\n`);
+    const session = await client.pauseSession(id);
+    console.log(`✅ Session ${session.status}\n`);
+    console.log('  Resume with: maestro session resume ' + id);
+    console.log('');
+  } catch (error) {
+    handleApiError(error, 'pausing session');
+    process.exit(1);
+  }
+}
+
+async function resumeSession(id) {
+  try {
+    console.log(`\n▶️  Resuming session: ${id}\n`);
+    const session = await client.resumeSession(id);
+    console.log(`✅ Session ${session.status}\n`);
+    console.log('');
+  } catch (error) {
+    handleApiError(error, 'resuming session');
+    process.exit(1);
+  }
+}
+
+async function stopSession(id) {
+  try {
+    console.log(`\n🛑 Stopping session: ${id}\n`);
+    const session = await client.stopSession(id);
+    console.log(`✅ Session ${session.status}\n`);
+    console.log('');
+  } catch (error) {
+    handleApiError(error, 'stopping session');
+    process.exit(1);
+  }
+}
+
+async function takeControlSession(id, authority) {
+  try {
+    console.log(`\n🔄 Transferring session control to: ${authority}\n`);
+    const session = await client.takeControlSession(id, authority);
+    console.log(`✅ Control transferred!\n`);
+    console.log(`  New Authority: ${session.authority}`);
+    console.log(`  Status:        ${session.status}`);
+    console.log('');
+  } catch (error) {
+    handleApiError(error, 'transferring session control');
+    process.exit(1);
+  }
+}
+
+async function executeSessionCommand(id, command, args = null) {
+  try {
+    const result = await client.executeSessionCommand(id, command, args);
+
+    if (result.success) {
+      console.log(`✅ ${result.commandType || 'shell'} [${result.commandId?.substring(0, 8) || ''}]`);
+      if (result.output) {
+        console.log(result.output);
+      }
+    } else {
+      console.log(`❌ ${result.commandType || 'shell'} [${result.commandId?.substring(0, 8) || ''}]`);
+      if (result.error) {
+        console.error(result.error);
+      }
+      if (result.output) {
+        console.log(result.output);
+      }
+      process.exitCode = result.exitCode || 1;
+    }
+  } catch (error) {
+    handleApiError(error, 'executing command');
+    process.exit(1);
+  }
+}
+
+async function getSessionEvents(id, options = {}) {
+  try {
+    const events = await client.getSessionEvents(id, options);
+    if (!events || events.length === 0) {
+      console.log('\nNo events found for this session');
+      return;
+    }
+
+    console.log(`\n📜 Session Events (${events.length}):\n`);
+    for (const evt of events) {
+      const time = new Date(evt.timestamp).toLocaleTimeString();
+      const icon = evt.type === 'error' ? '❌' : evt.type === 'warning' ? '⚠️' : evt.type === 'command' ? '💻' : '📝';
+      console.log(`  ${icon} [${time}] ${evt.type}: ${evt.message}`);
+      if (evt.data && Object.keys(evt.data).length > 0) {
+        console.log(`     Data: ${JSON.stringify(evt.data)}`);
+      }
+    }
+    console.log('');
+  } catch (error) {
+    handleApiError(error, 'getting session events');
+    process.exit(1);
+  }
+}
+
+async function deleteSession(id) {
+  try {
+    console.log(`\n🗑️  Deleting session: ${id}\n`);
+    await client.deleteSession(id);
+    console.log(`✅ Session deleted\n`);
+  } catch (error) {
+    handleApiError(error, 'deleting session');
+    process.exit(1);
+  }
+}
+
+// Legacy session commands (for backward compatibility)
+async function getSessionDiff(id) {
+  try {
+    const result = await client.executeSessionCommand(id, 'diff');
+    if (result.output) {
+      console.log(`\n📝 Session Diff:\n`);
+      console.log(result.output);
+    } else {
+      console.log('\nNo changes detected');
+    }
+  } catch (error) {
+    handleApiError(error, 'getting session diff');
+    process.exit(1);
+  }
+}
+
+async function runSessionTests(id, testCommand) {
+  try {
+    console.log(`\n🧪 Running tests for session: ${id}\n`);
+    const command = testCommand ? `test ${testCommand}` : 'test';
+    const result = await client.executeSessionCommand(id, command);
+
+    if (result.output) {
+      console.log(result.output);
+    }
+
+    if (!result.success) {
+      process.exit(1);
+    }
+  } catch (error) {
+    handleApiError(error, 'running tests');
+    process.exit(1);
+  }
+}
+
+async function commitSession(id, options) {
+  try {
+    if (!options.message) { console.error('❌ --message is required'); process.exit(1); }
+
+    console.log(`\n📦 Committing session: ${id}\n`);
+    const command = `commit -m "${options.message}"`;
+    const result = await client.executeSessionCommand(id, command);
+
+    if (result.success) {
+      console.log(`✅ Changes committed!\n`);
+      if (result.output) {
+        console.log(result.output);
+      }
+    } else {
+      console.error(`❌ Commit failed\n`);
+      if (result.error) {
+        console.error(result.error);
+      }
+      process.exit(1);
+    }
+  } catch (error) {
+    handleApiError(error, 'committing session');
+    process.exit(1);
+  }
+}
+
+async function cancelSession(id) {
+  return stopSession(id);
+}
+
 // ============= Training Commands =============
 
 async function listTrainingConfigs() {
@@ -1633,8 +1927,8 @@ async function checkLLMStatus() {
 
 async function main() {
   const argv = minimist(process.argv.slice(2), {
-    boolean: ['mock', 'help', 'h', 'force', 'status'],
-    string: ['api-url', 'u', 'name', 'path', 'description', 'runtime', 'image', 'work-dir', 'block-paths', 'model', 'lines', 'since', 'working-dir', 'workdir', 'workflow', 'iterations', 'parallel', 'delay', 'goal', 'tags', 'inputs', 'config', 'from', 'to', 'limit', 'block', 'category', 'version', 'author', 'capabilities', 'tools', 'agents', 'type']
+    boolean: ['mock', 'help', 'h', 'force', 'status', 'push', 'run-tests', 'run-linter', 'keep-changes'],
+    string: ['api-url', 'u', 'name', 'path', 'description', 'runtime', 'image', 'work-dir', 'block-paths', 'model', 'lines', 'since', 'working-dir', 'workdir', 'workflow', 'iterations', 'parallel', 'delay', 'goal', 'tags', 'inputs', 'config', 'from', 'to', 'limit', 'block', 'category', 'version', 'author', 'capabilities', 'tools', 'agents', 'type', 'project', 'task', 'context', 'access', 'test-command', 'linter-command', 'max-steps', 'timeout', 'message', 'branch', 'scope', 'authority', 'allowed-paths', 'denied-paths', 'filter', 'offset', 'command']
   });
 
   // Update client URL if provided
@@ -1678,6 +1972,23 @@ Execution Commands:
   execute <workflow>   Execute a workflow (use --mock for offline testing)
   run <block-id>       Execute a single block directly
   validate <workflow>  Validate workflow structure
+
+Interactive Session Commands (Session Server Architecture):
+  session              List all interactive sessions
+  session list         List sessions with filters (--status, --project, --limit)
+  session info <id>    Show session details
+  session create       Create a new session (--project required, --authority optional)
+  session start <id>   Start a session
+  session pause <id>   Pause a running session
+  session resume <id>  Resume a paused session
+  session stop <id>    Stop a session
+  session take-control <id> Transfer session authority (--authority)
+  session exec <id> "<cmd>"  Execute command in session (shell, maestro, or control)
+  session events <id>  Show session event history
+  session delete <id>  Delete a session
+  session diff <id>    Show changes made in session (legacy)
+  session test <id>    Run tests for session (legacy)
+  session commit <id>  Commit session changes (legacy)
 
 Training Commands:
   training             List all training configurations
@@ -1747,6 +2058,38 @@ Project Create Options:
   --model <model>      Default model for agents
   --block-paths <paths> Comma-separated block search paths
 
+Session Create Options:
+  --project <id>        Project ID (required)
+  --authority <auth>    Authority type: human, ai:<name>, agent:<id> (default: human)
+  --workflow <id>       Workflow ID (optional, for automated sessions)
+  --task <desc>         Task description (optional)
+  --name <name>         Session name (optional)
+  --context <ctx>       Additional context (optional)
+  --access <level>      Access level: readonly, sandbox, controlled, full (default: controlled)
+  --allowed-paths <p>   Comma-separated allowed file paths
+  --denied-paths <p>    Comma-separated denied file paths
+  --run-tests           Run tests on commit
+  --test-command <cmd>  Custom test command
+  --run-linter          Run linter on commit
+  --linter-command <cmd> Custom linter command
+  --max-steps <n>       Maximum steps (default: 50)
+  --timeout <ms>        Timeout in ms (default: 600000)
+
+Session Take-Control Options:
+  --authority <auth>    New authority: human, ai:<name>, agent:<id> (default: human)
+
+Session Events Options:
+  --limit <n>           Maximum events to show
+  --offset <n>          Offset for pagination
+  --filter <type>       Filter by event type
+
+Session Commit Options:
+  --message <msg>      Commit message (required)
+  --branch <name>      Branch name (optional, uses current if not specified)
+  --push               Push to remote after commit
+  --type <type>        Commit type (feat, fix, etc.)
+  --scope <scope>      Commit scope
+
 Training Create Options:
   --name <name>        Configuration name (required)
   --workflow <id>      Workflow ID to train (required)
@@ -1798,6 +2141,20 @@ Examples:
   maestro training create --name "Quality Test" --workflow wf-123 --iterations 100
   maestro training start cfg-123
   maestro training runs
+  maestro session
+  maestro session create --project proj-123 --authority human
+  maestro session create --project proj-123 --authority "ai:claude-code" --task "Fix login bug"
+  maestro session start sess-123
+  maestro session exec sess-123 "ls -la"
+  maestro session exec sess-123 "blocks list"
+  maestro session exec sess-123 "diff"
+  maestro session take-control sess-123 --authority human
+  maestro session pause sess-123
+  maestro session resume sess-123
+  maestro session stop sess-123
+  maestro session events sess-123 --limit 50
+  maestro sessions test sess-123
+  maestro sessions commit sess-123 --message "Fix login validation" --push
   maestro metrics summary
   maestro runs --limit 10
   maestro llm
@@ -1978,7 +2335,138 @@ Examples:
       }
       return;
     }
-    
+
+    // Session commands (both 'session' and 'sessions' for convenience)
+    if (cmd === 'session' || cmd === 'sessions') {
+      const subCmd = argv._[1];
+
+      if (!subCmd) return await listSessions();
+
+      if (subCmd === 'list') {
+        return await listSessions({
+          status: argv.status,
+          projectId: argv.project,
+          limit: argv.limit
+        });
+      }
+
+      if (subCmd === 'info') {
+        const id = argv._[2];
+        if (!id) { console.error('❌ Session ID required'); process.exit(1); }
+        return await getSessionInfo(id);
+      }
+
+      if (subCmd === 'create') {
+        return await createSession({
+          projectId: argv.project,
+          authority: argv.authority,
+          workflowId: argv.workflow,
+          task: argv.task,
+          name: argv.name,
+          context: argv.context,
+          access: argv.access,
+          allowedPaths: argv['allowed-paths'],
+          deniedPaths: argv['denied-paths'],
+          runTests: argv['run-tests'],
+          testCommand: argv['test-command'],
+          runLinter: argv['run-linter'],
+          linterCommand: argv['linter-command'],
+          maxSteps: argv['max-steps'],
+          timeout: argv.timeout
+        });
+      }
+
+      if (subCmd === 'start') {
+        const id = argv._[2];
+        if (!id) { console.error('❌ Session ID required'); process.exit(1); }
+        return await startSession(id);
+      }
+
+      if (subCmd === 'pause') {
+        const id = argv._[2];
+        if (!id) { console.error('❌ Session ID required'); process.exit(1); }
+        return await pauseSession(id);
+      }
+
+      if (subCmd === 'resume') {
+        const id = argv._[2];
+        if (!id) { console.error('❌ Session ID required'); process.exit(1); }
+        return await resumeSession(id);
+      }
+
+      if (subCmd === 'stop') {
+        const id = argv._[2];
+        if (!id) { console.error('❌ Session ID required'); process.exit(1); }
+        return await stopSession(id);
+      }
+
+      if (subCmd === 'take-control') {
+        const id = argv._[2];
+        if (!id) { console.error('❌ Session ID required'); process.exit(1); }
+        const authority = argv.authority || argv._[3] || 'human';
+        return await takeControlSession(id, authority);
+      }
+
+      if (subCmd === 'exec') {
+        const id = argv._[2];
+        const command = argv._[3] || argv.command;
+        if (!id) { console.error('❌ Session ID required'); process.exit(1); }
+        if (!command) { console.error('❌ Command required'); process.exit(1); }
+        return await executeSessionCommand(id, command);
+      }
+
+      if (subCmd === 'events') {
+        const id = argv._[2];
+        if (!id) { console.error('❌ Session ID required'); process.exit(1); }
+        return await getSessionEvents(id, {
+          limit: argv.limit,
+          offset: argv.offset,
+          filter: argv.filter
+        });
+      }
+
+      if (subCmd === 'delete') {
+        const id = argv._[2];
+        if (!id) { console.error('❌ Session ID required'); process.exit(1); }
+        return await deleteSession(id);
+      }
+
+      // Legacy commands for backward compatibility
+      if (subCmd === 'diff') {
+        const id = argv._[2];
+        if (!id) { console.error('❌ Session ID required'); process.exit(1); }
+        return await getSessionDiff(id);
+      }
+
+      if (subCmd === 'test') {
+        const id = argv._[2];
+        if (!id) { console.error('❌ Session ID required'); process.exit(1); }
+        return await runSessionTests(id, argv['test-command']);
+      }
+
+      if (subCmd === 'commit') {
+        const id = argv._[2];
+        if (!id) { console.error('❌ Session ID required'); process.exit(1); }
+        return await commitSession(id, {
+          message: argv.message,
+          branch: argv.branch,
+          push: argv.push,
+          type: argv.type,
+          scope: argv.scope
+        });
+      }
+
+      if (subCmd === 'cancel') {
+        const id = argv._[2];
+        if (!id) { console.error('❌ Session ID required'); process.exit(1); }
+        return await cancelSession(id);
+      }
+
+      console.error(`❌ Unknown session command: ${subCmd}`);
+      console.error('   Available commands: list, info, create, start, pause, resume, stop, take-control, exec, events, delete');
+      process.exit(1);
+    }
+
     // Training commands
     if (cmd === 'training') {
       const subCmd = argv._[1];

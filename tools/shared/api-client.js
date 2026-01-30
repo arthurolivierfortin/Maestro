@@ -384,11 +384,11 @@ class MaestroApiClient {
 
   async getAggregatedMetrics(filter = {}) {
     const params = new URLSearchParams();
-    if (filter.from) params.set('from', filter.from);
-    if (filter.to) params.set('to', filter.to);
-    if (filter.groupBy) params.set('groupBy', filter.groupBy);
+    if (filter.workflowId) params.set('workflowId', filter.workflowId);
+    if (filter.startDate) params.set('startDate', filter.startDate);
+    if (filter.endDate) params.set('endDate', filter.endDate);
     const queryString = params.toString();
-    return this._fetch('GET', `/api/metrics/aggregated${queryString ? `?${queryString}` : ''}`);
+    return this._fetch('GET', `/api/metrics/aggregate${queryString ? `?${queryString}` : ''}`);
   }
 
   async getTrainingRunMetrics(runId) {
@@ -414,19 +414,20 @@ class MaestroApiClient {
 
   async listRuns(filter = {}) {
     const params = new URLSearchParams();
-    if (filter.workflowId) params.set('workflowId', filter.workflowId);
-    if (filter.blockId) params.set('blockId', filter.blockId);
+    if (filter.projectId) params.set('projectId', filter.projectId);
+    if (filter.projectPath) params.set('projectPath', filter.projectPath);
     if (filter.status) params.set('status', filter.status);
-    if (filter.from) params.set('from', filter.from);
-    if (filter.to) params.set('to', filter.to);
     if (filter.limit) params.set('limit', filter.limit.toString());
     const queryString = params.toString();
-    return this._fetch('GET', `/api/execution${queryString ? `?${queryString}` : ''}`);
+    return this._fetch('GET', `/api/runs${queryString ? `?${queryString}` : ''}`);
   }
 
-  async getRun(id) {
+  async getRun(id, projectPath = null) {
     if (!id) throw new Error('Run ID is required');
-    return this._fetch('GET', `/api/execution/${id}`);
+    const params = new URLSearchParams();
+    if (projectPath) params.set('projectPath', projectPath);
+    const queryString = params.toString();
+    return this._fetch('GET', `/api/runs/${id}${queryString ? `?${queryString}` : ''}`);
   }
 
   // ===== AGENT FOUNDRY =====
@@ -655,6 +656,170 @@ class MaestroApiClient {
   async submitToolTestEvaluation(runId, evaluation) { return this.submitBlockTestEvaluation(runId, evaluation); }
   async getPendingEvaluations(runId) { return this.getBlockTestPendingEvaluations(runId); }
   async deleteToolTestRun(id) { return this.deleteBlockTestRun(id); }
+
+  // ===== INTERACTIVE SESSIONS (Session Server Architecture) =====
+
+  /**
+   * List all sessions with optional filtering.
+   * @param {Object} filter - Optional filters: status, projectId, limit
+   */
+  async listSessions(filter = {}) {
+    const params = new URLSearchParams();
+    if (filter.status) params.set('status', filter.status);
+    if (filter.projectId) params.set('projectId', filter.projectId);
+    if (filter.limit) params.set('limit', filter.limit.toString());
+    const queryString = params.toString();
+    return this._fetch('GET', `/api/sessions${queryString ? `?${queryString}` : ''}`);
+  }
+
+  /**
+   * Get a session by ID.
+   * @param {string} id - Session ID
+   */
+  async getSession(id) {
+    if (!id) throw new Error('Session ID is required');
+    return this._fetch('GET', `/api/sessions/${id}`);
+  }
+
+  /**
+   * Create a new interactive session.
+   * @param {Object} request - Session creation request
+   * @param {string} request.projectId - Project ID (required)
+   * @param {string} request.authority - Authority type: "human", "ai:<name>", "agent:<id>" (default: "human")
+   * @param {string} request.name - Session name (optional)
+   * @param {string} request.workflowId - Workflow ID (optional)
+   * @param {string} request.task - Task description (optional)
+   * @param {string} request.context - Additional context (optional)
+   * @param {string} request.access - Access level: "readonly", "sandbox", "controlled", "full" (default: "controlled")
+   * @param {string[]} request.allowedPaths - Allowed file paths (optional)
+   * @param {string[]} request.deniedPaths - Denied file paths (optional)
+   * @param {boolean} request.runTests - Whether to run tests on commit (default: false)
+   * @param {string} request.testCommand - Custom test command (optional)
+   * @param {boolean} request.runLinter - Whether to run linter on commit (default: false)
+   * @param {string} request.linterCommand - Custom linter command (optional)
+   * @param {number} request.maxSteps - Maximum execution steps (default: 50)
+   * @param {number} request.timeoutMs - Timeout in milliseconds (default: 600000)
+   * @param {Object} request.inputs - Input variables for the session (optional)
+   */
+  async createSession(request) {
+    if (!request || !request.projectId) {
+      throw new Error('Session requires projectId');
+    }
+    return this._fetch('POST', '/api/sessions', { body: request });
+  }
+
+  /**
+   * Start a session.
+   * @param {string} id - Session ID
+   */
+  async startSession(id) {
+    if (!id) throw new Error('Session ID is required');
+    return this._fetch('POST', `/api/sessions/${id}/start`);
+  }
+
+  /**
+   * Pause a running session.
+   * @param {string} id - Session ID
+   */
+  async pauseSession(id) {
+    if (!id) throw new Error('Session ID is required');
+    return this._fetch('POST', `/api/sessions/${id}/pause`);
+  }
+
+  /**
+   * Resume a paused session.
+   * @param {string} id - Session ID
+   */
+  async resumeSession(id) {
+    if (!id) throw new Error('Session ID is required');
+    return this._fetch('POST', `/api/sessions/${id}/resume`);
+  }
+
+  /**
+   * Stop a session.
+   * @param {string} id - Session ID
+   */
+  async stopSession(id) {
+    if (!id) throw new Error('Session ID is required');
+    return this._fetch('POST', `/api/sessions/${id}/stop`);
+  }
+
+  /**
+   * Take control of a session (transfer authority).
+   * @param {string} id - Session ID
+   * @param {string} authority - New authority: "human", "ai:<name>", "agent:<id>" (default: "human")
+   */
+  async takeControlSession(id, authority = 'human') {
+    if (!id) throw new Error('Session ID is required');
+    return this._fetch('POST', `/api/sessions/${id}/take-control`, {
+      body: { authority }
+    });
+  }
+
+  /**
+   * Execute a command within a session.
+   * Commands can be:
+   * - Shell commands: ls, cd, git, etc.
+   * - Maestro commands: blocks, agents, monitor, permissions, diff, test, lint, commit
+   * - Control commands: /pause, /resume, /exit, /status, /history, /help
+   * @param {string} id - Session ID
+   * @param {string} command - Command to execute
+   * @param {Object} args - Optional command arguments
+   */
+  async executeSessionCommand(id, command, args = null) {
+    if (!id) throw new Error('Session ID is required');
+    if (!command) throw new Error('Command is required');
+    const body = { command };
+    if (args) body.args = args;
+    return this._fetch('POST', `/api/sessions/${id}/exec`, { body });
+  }
+
+  /**
+   * Get session events with pagination.
+   * @param {string} id - Session ID
+   * @param {Object} options - Pagination options: limit, offset, filter
+   */
+  async getSessionEvents(id, options = {}) {
+    if (!id) throw new Error('Session ID is required');
+    const params = new URLSearchParams();
+    if (options.limit) params.set('limit', options.limit.toString());
+    if (options.offset) params.set('offset', options.offset.toString());
+    if (options.filter) params.set('filter', options.filter);
+    const queryString = params.toString();
+    return this._fetch('GET', `/api/sessions/${id}/events${queryString ? `?${queryString}` : ''}`);
+  }
+
+  /**
+   * Delete a session.
+   * @param {string} id - Session ID
+   */
+  async deleteSession(id) {
+    if (!id) throw new Error('Session ID is required');
+    return this._fetch('DELETE', `/api/sessions/${id}`);
+  }
+
+  // Legacy session methods (deprecated - use new session server methods)
+  async getSessionDiff(id) {
+    // Use executeSessionCommand with 'diff' command
+    return this.executeSessionCommand(id, 'diff');
+  }
+
+  async runSessionTests(id, testCommand = null) {
+    // Use executeSessionCommand with 'test' command
+    const command = testCommand ? `test ${testCommand}` : 'test';
+    return this.executeSessionCommand(id, command);
+  }
+
+  async commitSession(id, request) {
+    if (!request || !request.message) throw new Error('Commit message is required');
+    // Use executeSessionCommand with 'commit' command
+    return this.executeSessionCommand(id, `commit -m "${request.message}"`);
+  }
+
+  async cancelSession(id) {
+    // Use stopSession
+    return this.stopSession(id);
+  }
 
   // ===== HELPER METHODS =====
 

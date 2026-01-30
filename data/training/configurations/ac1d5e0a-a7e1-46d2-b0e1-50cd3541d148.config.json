@@ -1,9 +1,9 @@
 {
-  "id": "777702bc-3ab4-4d21-9126-65f780dd859b",
-  "name": "Autonomous Agent Training",
+  "id": "ac1d5e0a-a7e1-46d2-b0e1-50cd3541d148",
+  "name": "cantante-developer-v1",
   "description": null,
-  "workflowId": "autonomous-task",
-  "iterations": 5,
+  "workflowId": "cantante-developer",
+  "iterations": 10,
   "parallelIterations": 1,
   "delayBetweenIterationsMs": 0,
   "optimizationGoal": 1,
@@ -25,13 +25,9 @@
   "modelOverrides": {},
   "environmentVariables": {},
   "containerRuntimeType": null,
-  "createdAt": "2026-01-30T13:21:03.8261952+00:00",
-  "updatedAt": "2026-01-30T13:21:03.827086+00:00",
+  "createdAt": "2026-01-30T17:46:56.8668844+00:00",
+  "updatedAt": "2026-01-30T17:46:56.8675131+00:00",
   "createdBy": null,
-  "tags": [
-    "agent",
-    "autonomous",
-    "test"
-  ],
+  "tags": [],
   "isActive": true
 }

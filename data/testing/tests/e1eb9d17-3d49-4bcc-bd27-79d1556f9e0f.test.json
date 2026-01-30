@@ -1,0 +1,191 @@
+{
+  "id": "e1eb9d17-3d49-4bcc-bd27-79d1556f9e0f",
+  "name": "Test Git Describe \u0026 Commit - 2026-01-30 12:44",
+  "blockId": "git-describe-commit",
+  "blockType": "tool",
+  "variantId": "v1",
+  "variantDescription": null,
+  "status": 3,
+  "totalIterations": 5,
+  "completedIterations": 5,
+  "evaluatedIterations": 5,
+  "evaluatorType": "manual",
+  "evaluatorModelId": null,
+  "criteria": [
+    {
+      "id": "correctness",
+      "name": "Correctness",
+      "description": "Does the output achieve the intended goal?",
+      "weight": 0.4
+    },
+    {
+      "id": "quality",
+      "name": "Quality",
+      "description": "Is the output well-formed and high quality?",
+      "weight": 0.3
+    },
+    {
+      "id": "efficiency",
+      "name": "Efficiency",
+      "description": "Was the execution efficient?",
+      "weight": 0.2
+    },
+    {
+      "id": "reliability",
+      "name": "Reliability",
+      "description": "Did it work consistently?",
+      "weight": 0.1
+    }
+  ],
+  "createdAt": "2026-01-30T17:44:22.4611216+00:00",
+  "startedAt": "2026-01-30T17:44:22.4611417+00:00",
+  "completedAt": "2026-01-30T17:46:42.3200762+00:00",
+  "iterations": [
+    {
+      "id": "c1e910b4-6bfd-4eae-9002-7835b45b85f0",
+      "iterationNumber": 1,
+      "inputs": {},
+      "outputs": {
+        "stdout": "[Iteration 1] Simulated output for tool block git-describe-commit. Inputs: {}"
+      },
+      "outputContent": "[Iteration 1] Simulated output for tool block git-describe-commit. Inputs: {}",
+      "logs": [
+        "Executed tool block git-describe-commit"
+      ],
+      "success": true,
+      "errorMessage": null,
+      "durationMs": 102,
+      "startedAt": "2026-01-30T17:44:22.4618566+00:00",
+      "completedAt": "2026-01-30T17:44:22.5642098+00:00",
+      "evaluation": {
+        "score": 86,
+        "method": 3,
+        "criteria": [],
+        "explanation": null,
+        "evaluatedAt": "2026-01-30T17:46:41.7596547+00:00",
+        "evaluatorModelId": null,
+        "confidence": 1
+      },
+      "evaluatedAt": "2026-01-30T17:46:41.7596552+00:00"
+    },
+    {
+      "id": "d1b8929b-688c-47e5-87d4-b0cb790b2ae4",
+      "iterationNumber": 2,
+      "inputs": {},
+      "outputs": {
+        "stdout": "[Iteration 2] Simulated output for tool block git-describe-commit. Inputs: {}"
+      },
+      "outputContent": "[Iteration 2] Simulated output for tool block git-describe-commit. Inputs: {}",
+      "logs": [
+        "Executed tool block git-describe-commit"
+      ],
+      "success": true,
+      "errorMessage": null,
+      "durationMs": 114,
+      "startedAt": "2026-01-30T17:44:22.5642218+00:00",
+      "completedAt": "2026-01-30T17:44:22.6792206+00:00",
+      "evaluation": {
+        "score": 88,
+        "method": 3,
+        "criteria": [],
+        "explanation": null,
+        "evaluatedAt": "2026-01-30T17:46:41.9029526+00:00",
+        "evaluatorModelId": null,
+        "confidence": 1
+      },
+      "evaluatedAt": "2026-01-30T17:46:41.9029535+00:00"
+    },
+    {
+      "id": "595fa366-0161-47c3-948b-a888640cb600",
+      "iterationNumber": 3,
+      "inputs": {},
+      "outputs": {
+        "stdout": "[Iteration 3] Simulated output for tool block git-describe-commit. Inputs: {}"
+      },
+      "outputContent": "[Iteration 3] Simulated output for tool block git-describe-commit. Inputs: {}",
+      "logs": [
+        "Executed tool block git-describe-commit"
+      ],
+      "success": true,
+      "errorMessage": null,
+      "durationMs": 101,
+      "startedAt": "2026-01-30T17:44:22.6792332+00:00",
+      "completedAt": "2026-01-30T17:44:22.7808593+00:00",
+      "evaluation": {
+        "score": 85,
+        "method": 3,
+        "criteria": [],
+        "explanation": null,
+        "evaluatedAt": "2026-01-30T17:46:42.041969+00:00",
+        "evaluatorModelId": null,
+        "confidence": 1
+      },
+      "evaluatedAt": "2026-01-30T17:46:42.0419694+00:00"
+    },
+    {
+      "id": "a5f8947c-1f19-445d-90f7-9ab5d1902910",
+      "iterationNumber": 4,
+      "inputs": {},
+      "outputs": {
+        "stdout": "[Iteration 4] Simulated output for tool block git-describe-commit. Inputs: {}"
+      },
+      "outputContent": "[Iteration 4] Simulated output for tool block git-describe-commit. Inputs: {}",
+      "logs": [
+        "Executed tool block git-describe-commit"
+      ],
+      "success": true,
+      "errorMessage": null,
+      "durationMs": 104,
+      "startedAt": "2026-01-30T17:44:22.7808742+00:00",
+      "completedAt": "2026-01-30T17:44:22.8858759+00:00",
+      "evaluation": {
+        "score": 87,
+        "method": 3,
+        "criteria": [],
+        "explanation": null,
+        "evaluatedAt": "2026-01-30T17:46:42.1846804+00:00",
+        "evaluatorModelId": null,
+        "confidence": 1
+      },
+      "evaluatedAt": "2026-01-30T17:46:42.1846809+00:00"
+    },
+    {
+      "id": "15f826a9-0a97-470d-9fe8-fa8bc07a1197",
+      "iterationNumber": 5,
+      "inputs": {},
+      "outputs": {
+        "stdout": "[Iteration 5] Simulated output for tool block git-describe-commit. Inputs: {}"
+      },
+      "outputContent": "[Iteration 5] Simulated output for tool block git-describe-commit. Inputs: {}",
+      "logs": [
+        "Executed tool block git-describe-commit"
+      ],
+      "success": true,
+      "errorMessage": null,
+      "durationMs": 105,
+      "startedAt": "2026-01-30T17:44:22.8859124+00:00",
+      "completedAt": "2026-01-30T17:44:22.9916794+00:00",
+      "evaluation": {
+        "score": 89,
+        "method": 3,
+        "criteria": [],
+        "explanation": null,
+        "evaluatedAt": "2026-01-30T17:46:42.3200497+00:00",
+        "evaluatorModelId": null,
+        "confidence": 1
+      },
+      "evaluatedAt": "2026-01-30T17:46:42.3200502+00:00"
+    }
+  ],
+  "metrics": {
+    "overallScore": 87,
+    "minScore": 85,
+    "maxScore": 89,
+    "scoreVariance": 2.5,
+    "criterionAverages": {},
+    "evaluatedCount": 5,
+    "totalCount": 5
+  },
+  "improvementSuggestions": [],
+  "tags": []
+}

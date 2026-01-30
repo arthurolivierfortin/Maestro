@@ -23,6 +23,11 @@ namespace Maestro.Infrastructure.Configuration
         /// The workflows subfolder within .maestro.
         /// </summary>
         public const string WorkflowsFolderName = "workflows";
+
+        /// <summary>
+        /// The sessions subfolder within .maestro for storing session data.
+        /// </summary>
+        public const string SessionsFolderName = "sessions";
         
         // ─────────────────────────────────────────────────────────────────────
         // File Names & Patterns

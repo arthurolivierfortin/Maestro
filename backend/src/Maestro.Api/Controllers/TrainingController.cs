@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Mvc;
 using Maestro.Application.Interfaces;
 using Maestro.Application.DTOs;
+using Maestro.Domain.Entities;
+using Maestro.Infrastructure.Metrics;
 
 namespace Maestro.Api.Controllers;
 
@@ -12,11 +14,22 @@ namespace Maestro.Api.Controllers;
 public class TrainingController : ControllerBase
 {
     private readonly ITrainingService _trainingService;
+    private readonly IBlockDiscoveryService _blockDiscoveryService;
+    private readonly IWorkflowExecutor _workflowExecutor;
+    private readonly MetricsCollector _metricsCollector;
     private readonly ILogger<TrainingController> _logger;
 
-    public TrainingController(ITrainingService trainingService, ILogger<TrainingController> logger)
+    public TrainingController(
+        ITrainingService trainingService,
+        IBlockDiscoveryService blockDiscoveryService,
+        IWorkflowExecutor workflowExecutor,
+        MetricsCollector metricsCollector,
+        ILogger<TrainingController> logger)
     {
         _trainingService = trainingService;
+        _blockDiscoveryService = blockDiscoveryService;
+        _workflowExecutor = workflowExecutor;
+        _metricsCollector = metricsCollector;
         _logger = logger;
     }
 
@@ -429,8 +442,15 @@ public class TrainingController : ControllerBase
 
         session.SetRunning();
 
-        // Simulate running workflows in background
-        Task.Run(async () =>
+        // Run actual workflows in background
+        _ = ExecuteSessionAsync(session);
+
+        return Ok(MapSessionToResponse(session));
+    }
+
+    private async Task ExecuteSessionAsync(Domain.Entities.TrainingSession session)
+    {
+        try
         {
             foreach (var task in session.Tasks)
             {
@@ -439,28 +459,85 @@ public class TrainingController : ControllerBase
                     var run = task.AddRun(workflowId, $"Workflow-{workflowId}");
                     run.Status = "running";
 
-                    // Simulate execution
-                    await Task.Delay(1000 + new Random().Next(2000));
-
-                    run.Status = "completed";
-                    run.CompletedAt = DateTime.UtcNow;
-                    run.DurationSeconds = (run.CompletedAt.Value - run.StartedAt).TotalSeconds;
-                    run.Output = $"Completed task: {task.Description}";
-                    run.Metrics = new Dictionary<string, double>
+                    try
                     {
-                        { "quality", 0.7 + new Random().NextDouble() * 0.3 },
-                        { "speed", new Random().NextDouble() },
-                        { "cost", new Random().NextDouble() * 10 }
-                    };
+                        // Load the workflow block
+                        var workflowBlock = await _blockDiscoveryService.GetByIdAsync(workflowId);
+                        if (workflowBlock == null)
+                        {
+                            run.Status = "failed";
+                            run.ErrorMessage = $"Workflow {workflowId} not found";
+                            run.CompletedAt = DateTime.UtcNow;
+                            run.DurationSeconds = (run.CompletedAt.Value - run.StartedAt).TotalSeconds;
+                            continue;
+                        }
+
+                        // Build workflow definition
+                        var workflow = new WorkflowDefinition(
+                            workflowId,
+                            new List<BlockDefinition> { workflowBlock },
+                            new List<Maestro.Domain.Entities.ConnectionDefinition>()
+                        );
+
+                        // Create execution ID and start metrics tracking
+                        var executionId = $"session-{session.Id}-task-{task.Id}-{workflowId}";
+                        await _metricsCollector.BeginExecutionAsync(executionId, workflowId);
+
+                        // Execute workflow with task description as input
+                        var inputs = new Dictionary<string, object>
+                        {
+                            { "task", task.Description },
+                            { "expectedOutcome", task.ExpectedOutcome ?? "" }
+                        };
+
+                        _logger.LogInformation("Executing workflow {WorkflowId} for session task {TaskId}", workflowId, task.Id);
+
+                        var result = await _workflowExecutor.ExecuteAsync(
+                            workflow,
+                            inputs,
+                            new ExecutionOptions { MaxRetries = 2 });
+
+                        // Complete metrics
+                        var metrics = await _metricsCollector.CompleteExecutionAsync(
+                            executionId,
+                            result.Success ? "Completed" : "Failed",
+                            result.Error);
+
+                        run.Status = result.Success ? "completed" : "failed";
+                        run.CompletedAt = DateTime.UtcNow;
+                        run.DurationSeconds = (run.CompletedAt.Value - run.StartedAt).TotalSeconds;
+                        run.Output = result.Outputs != null ? string.Join(", ", result.Outputs.Values) : "";
+                        run.ErrorMessage = result.Error;
+                        run.Metrics = new Dictionary<string, double>
+                        {
+                            { "quality", metrics.Quality?.Score ?? 0 },
+                            { "cost", (double)metrics.TotalCostUsd },
+                            { "tokens", metrics.TotalInputTokens + metrics.TotalOutputTokens },
+                            { "duration_ms", (double)metrics.TotalDurationMs }
+                        };
+
+                        _logger.LogInformation("Workflow {WorkflowId} completed: Success={Success}", workflowId, result.Success);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Error executing workflow {WorkflowId} for session {SessionId}", workflowId, session.Id);
+                        run.Status = "failed";
+                        run.ErrorMessage = ex.Message;
+                        run.CompletedAt = DateTime.UtcNow;
+                        run.DurationSeconds = (run.CompletedAt.Value - run.StartedAt).TotalSeconds;
+                    }
                 }
             }
 
             // Generate comparison
             var comparison = GenerateComparison(session);
             session.SetCompleted(comparison);
-        });
-
-        return Ok(MapSessionToResponse(session));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Training session {SessionId} failed", session.Id);
+            session.SetCancelled();
+        }
     }
 
     /// <summary>

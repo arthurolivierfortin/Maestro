@@ -1,0 +1,191 @@
+{
+  "id": "88ef954a-eac5-4e6e-94ea-13fd191bec1f",
+  "name": "Test File Write - 2026-01-30 12:43",
+  "blockId": "file-write",
+  "blockType": "tool",
+  "variantId": "v1",
+  "variantDescription": null,
+  "status": 3,
+  "totalIterations": 5,
+  "completedIterations": 5,
+  "evaluatedIterations": 5,
+  "evaluatorType": "manual",
+  "evaluatorModelId": null,
+  "criteria": [
+    {
+      "id": "correctness",
+      "name": "Correctness",
+      "description": "Does the output achieve the intended goal?",
+      "weight": 0.4
+    },
+    {
+      "id": "quality",
+      "name": "Quality",
+      "description": "Is the output well-formed and high quality?",
+      "weight": 0.3
+    },
+    {
+      "id": "efficiency",
+      "name": "Efficiency",
+      "description": "Was the execution efficient?",
+      "weight": 0.2
+    },
+    {
+      "id": "reliability",
+      "name": "Reliability",
+      "description": "Did it work consistently?",
+      "weight": 0.1
+    }
+  ],
+  "createdAt": "2026-01-30T17:43:23.7703936+00:00",
+  "startedAt": "2026-01-30T17:43:23.7704293+00:00",
+  "completedAt": "2026-01-30T17:43:54.3973328+00:00",
+  "iterations": [
+    {
+      "id": "bb44d72b-db65-4ff9-b14b-1b7f2536a9cf",
+      "iterationNumber": 1,
+      "inputs": {},
+      "outputs": {
+        "stdout": "[Iteration 1] Simulated output for tool block file-write. Inputs: {}"
+      },
+      "outputContent": "[Iteration 1] Simulated output for tool block file-write. Inputs: {}",
+      "logs": [
+        "Executed tool block file-write"
+      ],
+      "success": true,
+      "errorMessage": null,
+      "durationMs": 112,
+      "startedAt": "2026-01-30T17:43:23.7711504+00:00",
+      "completedAt": "2026-01-30T17:43:23.8835661+00:00",
+      "evaluation": {
+        "score": 93,
+        "method": 3,
+        "criteria": [],
+        "explanation": null,
+        "evaluatedAt": "2026-01-30T17:43:53.8508344+00:00",
+        "evaluatorModelId": null,
+        "confidence": 1
+      },
+      "evaluatedAt": "2026-01-30T17:43:53.8508371+00:00"
+    },
+    {
+      "id": "5925b16d-75c0-4f7d-8db2-f54d60594dd5",
+      "iterationNumber": 2,
+      "inputs": {},
+      "outputs": {
+        "stdout": "[Iteration 2] Simulated output for tool block file-write. Inputs: {}"
+      },
+      "outputContent": "[Iteration 2] Simulated output for tool block file-write. Inputs: {}",
+      "logs": [
+        "Executed tool block file-write"
+      ],
+      "success": true,
+      "errorMessage": null,
+      "durationMs": 110,
+      "startedAt": "2026-01-30T17:43:23.8835996+00:00",
+      "completedAt": "2026-01-30T17:43:23.9943389+00:00",
+      "evaluation": {
+        "score": 95,
+        "method": 3,
+        "criteria": [],
+        "explanation": null,
+        "evaluatedAt": "2026-01-30T17:43:53.9932647+00:00",
+        "evaluatorModelId": null,
+        "confidence": 1
+      },
+      "evaluatedAt": "2026-01-30T17:43:53.9932653+00:00"
+    },
+    {
+      "id": "8158b584-4ead-41a8-b73c-9e5c2a056e58",
+      "iterationNumber": 3,
+      "inputs": {},
+      "outputs": {
+        "stdout": "[Iteration 3] Simulated output for tool block file-write. Inputs: {}"
+      },
+      "outputContent": "[Iteration 3] Simulated output for tool block file-write. Inputs: {}",
+      "logs": [
+        "Executed tool block file-write"
+      ],
+      "success": true,
+      "errorMessage": null,
+      "durationMs": 106,
+      "startedAt": "2026-01-30T17:43:23.994358+00:00",
+      "completedAt": "2026-01-30T17:43:24.1004059+00:00",
+      "evaluation": {
+        "score": 91,
+        "method": 3,
+        "criteria": [],
+        "explanation": null,
+        "evaluatedAt": "2026-01-30T17:43:54.1307232+00:00",
+        "evaluatorModelId": null,
+        "confidence": 1
+      },
+      "evaluatedAt": "2026-01-30T17:43:54.130724+00:00"
+    },
+    {
+      "id": "25bcfa7f-a915-4993-9733-e39e215ac31f",
+      "iterationNumber": 4,
+      "inputs": {},
+      "outputs": {
+        "stdout": "[Iteration 4] Simulated output for tool block file-write. Inputs: {}"
+      },
+      "outputContent": "[Iteration 4] Simulated output for tool block file-write. Inputs: {}",
+      "logs": [
+        "Executed tool block file-write"
+      ],
+      "success": true,
+      "errorMessage": null,
+      "durationMs": 116,
+      "startedAt": "2026-01-30T17:43:24.1004315+00:00",
+      "completedAt": "2026-01-30T17:43:24.2167712+00:00",
+      "evaluation": {
+        "score": 94,
+        "method": 3,
+        "criteria": [],
+        "explanation": null,
+        "evaluatedAt": "2026-01-30T17:43:54.2626882+00:00",
+        "evaluatorModelId": null,
+        "confidence": 1
+      },
+      "evaluatedAt": "2026-01-30T17:43:54.2626888+00:00"
+    },
+    {
+      "id": "0a72de77-8c64-4221-928e-ff2f34434ce7",
+      "iterationNumber": 5,
+      "inputs": {},
+      "outputs": {
+        "stdout": "[Iteration 5] Simulated output for tool block file-write. Inputs: {}"
+      },
+      "outputContent": "[Iteration 5] Simulated output for tool block file-write. Inputs: {}",
+      "logs": [
+        "Executed tool block file-write"
+      ],
+      "success": true,
+      "errorMessage": null,
+      "durationMs": 103,
+      "startedAt": "2026-01-30T17:43:24.2167868+00:00",
+      "completedAt": "2026-01-30T17:43:24.3199139+00:00",
+      "evaluation": {
+        "score": 92,
+        "method": 3,
+        "criteria": [],
+        "explanation": null,
+        "evaluatedAt": "2026-01-30T17:43:54.397285+00:00",
+        "evaluatorModelId": null,
+        "confidence": 1
+      },
+      "evaluatedAt": "2026-01-30T17:43:54.3972859+00:00"
+    }
+  ],
+  "metrics": {
+    "overallScore": 93,
+    "minScore": 91,
+    "maxScore": 95,
+    "scoreVariance": 2.5,
+    "criterionAverages": {},
+    "evaluatedCount": 5,
+    "totalCount": 5
+  },
+  "improvementSuggestions": [],
+  "tags": []
+}

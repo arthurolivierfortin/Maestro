@@ -21,6 +21,27 @@ public class MetricsController : ControllerBase
     }
 
     /// <summary>
+    /// List all execution metrics.
+    /// </summary>
+    [HttpGet("executions")]
+    public async Task<ActionResult<IEnumerable<WorkflowExecutionMetricsDto>>> ListExecutionMetrics(
+        [FromQuery] string? workflowId = null,
+        [FromQuery] int? limit = 50,
+        [FromQuery] int? offset = 0)
+    {
+        var query = new MetricsQuery
+        {
+            WorkflowId = workflowId,
+            Limit = limit ?? 50,
+            Offset = offset ?? 0,
+            OrderBy = "StartedAt",
+            Descending = true
+        };
+        var metrics = await _repository.QueryAsync(query);
+        return Ok(metrics.Select(WorkflowExecutionMetricsDto.FromDomain));
+    }
+
+    /// <summary>
     /// Get metrics for a specific execution.
     /// </summary>
     [HttpGet("executions/{executionId}")]

@@ -3,6 +3,7 @@ using Maestro.Domain.Entities;
 using Maestro.Domain.ValueObjects;
 using Maestro.Infrastructure.Metrics;
 using Maestro.Infrastructure.Orchestration;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace Maestro.Infrastructure.Training;
@@ -15,27 +16,27 @@ public class TrainingService : ITrainingService
     private readonly ITrainingConfigurationRepository _configRepository;
     private readonly ITrainingRunRepository _runRepository;
     private readonly IBlockDiscoveryService _blockDiscoveryService;
-    private readonly IWorkflowExecutor _workflowExecutor;
     private readonly MetricsCollector _metricsCollector;
+    private readonly IServiceScopeFactory _serviceScopeFactory;
     private readonly ILogger<TrainingService>? _logger;
 
     // Active training run cancellation tokens
-    private readonly Dictionary<string, CancellationTokenSource> _activeRuns = new();
-    private readonly object _lock = new();
+    private static readonly Dictionary<string, CancellationTokenSource> _activeRuns = new();
+    private static readonly object _lock = new();
 
     public TrainingService(
         ITrainingConfigurationRepository configRepository,
         ITrainingRunRepository runRepository,
         IBlockDiscoveryService blockDiscoveryService,
-        IWorkflowExecutor workflowExecutor,
         MetricsCollector metricsCollector,
+        IServiceScopeFactory serviceScopeFactory,
         ILogger<TrainingService>? logger = null)
     {
         _configRepository = configRepository;
         _runRepository = runRepository;
         _blockDiscoveryService = blockDiscoveryService;
-        _workflowExecutor = workflowExecutor;
         _metricsCollector = metricsCollector;
+        _serviceScopeFactory = serviceScopeFactory;
         _logger = logger;
     }
 
@@ -130,10 +131,15 @@ public class TrainingService : ITrainingService
         Dictionary<string, object>? inputs,
         CancellationToken ct)
     {
+        // Create a new scope for background execution to avoid disposed services
+        using var scope = _serviceScopeFactory.CreateScope();
+        var workflowExecutor = scope.ServiceProvider.GetRequiredService<IWorkflowExecutor>();
+        var runRepository = scope.ServiceProvider.GetRequiredService<ITrainingRunRepository>();
+
         try
         {
             run.Start();
-            await _runRepository.SaveAsync(run, ct);
+            await runRepository.SaveAsync(run, ct);
 
             _logger?.LogInformation("Started training run {RunId}: {TotalIterations} iterations",
                 run.Id, run.TotalIterations);
@@ -153,7 +159,7 @@ public class TrainingService : ITrainingService
                 while (run.Status == TrainingRunStatus.Paused)
                 {
                     await Task.Delay(1000, ct);
-                    run = await _runRepository.GetByIdAsync(run.Id, ct) ?? run;
+                    run = await runRepository.GetByIdAsync(run.Id, ct) ?? run;
                 }
 
                 if (run.Status == TrainingRunStatus.Cancelled)
@@ -166,9 +172,14 @@ public class TrainingService : ITrainingService
 
                 tasks.Add(Task.Run(async () =>
                 {
+                    // Each iteration gets its own scope for proper service lifetime
+                    using var iterationScope = _serviceScopeFactory.CreateScope();
+                    var iterationExecutor = iterationScope.ServiceProvider.GetRequiredService<IWorkflowExecutor>();
+                    var iterationRunRepo = iterationScope.ServiceProvider.GetRequiredService<ITrainingRunRepository>();
+
                     try
                     {
-                        await ExecuteIterationAsync(run, config, iterationNumber, inputs, ct);
+                        await ExecuteIterationAsync(run, config, iterationNumber, inputs, iterationExecutor, iterationRunRepo, ct);
                     }
                     finally
                     {
@@ -185,9 +196,10 @@ public class TrainingService : ITrainingService
 
             await Task.WhenAll(tasks);
 
-            // Complete the run
+            // Complete the run - refresh state first
+            run = await runRepository.GetByIdAsync(run.Id, ct) ?? run;
             run.Complete();
-            await _runRepository.SaveAsync(run, ct);
+            await runRepository.SaveAsync(run, ct);
 
             _logger?.LogInformation("Completed training run {RunId}: {Completed}/{Total} iterations succeeded",
                 run.Id, run.CompletedIterations, run.TotalIterations);
@@ -195,13 +207,13 @@ public class TrainingService : ITrainingService
         catch (OperationCanceledException)
         {
             run.Cancel();
-            await _runRepository.SaveAsync(run);
+            await runRepository.SaveAsync(run);
             _logger?.LogInformation("Training run {RunId} was cancelled", run.Id);
         }
         catch (Exception ex)
         {
             run.Fail(ex.Message);
-            await _runRepository.SaveAsync(run);
+            await runRepository.SaveAsync(run);
             _logger?.LogError(ex, "Training run {RunId} failed", run.Id);
         }
         finally
@@ -218,6 +230,8 @@ public class TrainingService : ITrainingService
         TrainingConfiguration config,
         int iterationNumber,
         Dictionary<string, object>? inputs,
+        IWorkflowExecutor workflowExecutor,
+        ITrainingRunRepository runRepository,
         CancellationToken ct)
     {
         var executionId = $"{run.Id}-iter-{iterationNumber}";
@@ -245,6 +259,9 @@ public class TrainingService : ITrainingService
                 throw new InvalidOperationException($"Workflow {config.WorkflowId} not found");
             }
 
+            _logger?.LogInformation("Executing workflow {WorkflowId} for iteration {Iteration}",
+                config.WorkflowId, iterationNumber);
+
             // Build workflow definition from block
             // For training purposes, we execute the workflow block directly
             var workflow = new WorkflowDefinition(
@@ -258,11 +275,14 @@ public class TrainingService : ITrainingService
             _metricsCollector.SetTrainingContext(executionId, run.Id, iterationNumber);
 
             // Execute workflow
-            var result = await _workflowExecutor.ExecuteAsync(
+            var result = await workflowExecutor.ExecuteAsync(
                 workflow,
                 iterationInputs,
                 new ExecutionOptions { MaxRetries = 2 },
                 ct: ct);
+
+            _logger?.LogInformation("Iteration {Iteration} completed: Success={Success}, Error={Error}",
+                iterationNumber, result.Success, result.Error ?? "none");
 
             // Complete metrics
             var metrics = await _metricsCollector.CompleteExecutionAsync(
@@ -309,7 +329,7 @@ public class TrainingService : ITrainingService
         }
 
         run.RecordIteration(iteration);
-        await _runRepository.SaveAsync(run, ct);
+        await runRepository.SaveAsync(run, ct);
     }
 
     private Dictionary<string, object>? PrepareIterationInputs(

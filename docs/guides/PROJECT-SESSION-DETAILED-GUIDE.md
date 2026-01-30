@@ -2,768 +2,769 @@
 
 ## Overview
 
-A **Project Session** allows executing workflows from the catalog on a **real project**, with access to the file system, Git integration, and access control.
+A **Project Session** is an **interactive server environment** attached to a real Git repository. The **Authority** (human, AI, or agent) manages the project through shell commands and Maestro commands, can launch sub-agents with restricted permissions, and monitors all activity.
 
-### Characteristics
+### Key Characteristics
 
 | Aspect | Description |
 |--------|-------------|
-| **Environment** | Real project (Git repository) |
-| **Access** | Configurable (ReadOnly → Full) |
-| **Validation** | Tests, linter, review |
-| **Persistence** | Git commits |
-| **Risk** | Controlled by access level |
+| **Architecture** | Session Server with API + Event Stream |
+| **Environment** | Real Git repository (isolated access) |
+| **Authority** | Human, AI (Claude Code), or Agent |
+| **Clients** | Monitor (Terminal), CLI, SDK/API |
+| **Sub-agents** | Launched with restricted permissions |
+| **Persistence** | Git commits, session logs |
 
 ---
 
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                      PROJECT SESSION                             │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                  │
-│  ┌──────────┐   ┌──────────┐   ┌──────────┐   ┌──────────┐     │
-│  │ SELECT   │ → │ EXECUTE  │ → │ VALIDATE │ → │  COMMIT  │     │
-│  │ Workflow │   │ On Proj  │   │  Tests   │   │   Git    │     │
-│  └──────────┘   └──────────┘   └──────────┘   └──────────┘     │
-│       │              │               │              │           │
-│       ▼              ▼               ▼              ▼           │
-│   Catalog        Container      Test Runner     Git Commit      │
-│   Query          Execution       Linter         Push (opt)      │
-│                                                                  │
-│  Access Control: ──────────────────────────────────────────     │
-│  │ ReadOnly │ Sandbox │ Controlled │ Full │                    │
-│  └──────────┴─────────┴────────────┴──────┘                    │
-│                                                                  │
-└─────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────┐
+│                      PROJECT SESSION SERVER                              │
+│                                                                          │
+│  ┌────────────────────────────────────────────────────────────────────┐│
+│  │                         SESSION STATE                               ││
+│  │                                                                     ││
+│  │  ID: sess-abc123                   Status: running                  ││
+│  │  Project: my-app                   Authority: human                 ││
+│  │  Created: 2026-01-30 10:00:00      Uptime: 00:15:23                ││
+│  └────────────────────────────────────────────────────────────────────┘│
+│                                                                          │
+│  ┌──────────────────────┐  ┌──────────────────────┐                    │
+│  │   BLOCK REGISTRY     │  │    PERMISSIONS       │                    │
+│  │                      │  │                      │                    │
+│  │ • code-developer     │  │ Paths:               │                    │
+│  │ • code-reviewer      │  │  ✓ src/**            │                    │
+│  │ • file-read          │  │  ✓ tests/**          │                    │
+│  │ • file-write         │  │  ✗ .env              │                    │
+│  │ • git-diff           │  │  ✗ secrets/**        │                    │
+│  │ • git-commit         │  │                      │                    │
+│  └──────────────────────┘  └──────────────────────┘                    │
+│                                                                          │
+│  ┌──────────────────────────────────────────────────────────────────┐  │
+│  │                    RUNNING EXECUTIONS                             │  │
+│  │                                                                   │  │
+│  │  exec-001: code-reviewer (running) - "Review auth module"         │  │
+│  │  exec-002: test-runner (completed) - "Run unit tests"            │  │
+│  └──────────────────────────────────────────────────────────────────┘  │
+│                                                                          │
+│  ┌──────────────────────────────────────────────────────────────────┐  │
+│  │                    EVENT STREAM (WebSocket)                       │  │
+│  │                                                                   │  │
+│  │  [10:15:20] CMD     ls src/                                       │  │
+│  │  [10:15:21] OUTPUT  components/ utils/ index.ts                   │  │
+│  │  [10:15:25] CMD     agents run code-reviewer --task "..."         │  │
+│  │  [10:15:25] EVENT   Agent code-reviewer started                   │  │
+│  │  [10:15:28] AGENT   Reading src/auth/login.ts                     │  │
+│  └──────────────────────────────────────────────────────────────────┘  │
+│                                                                          │
+└───────────────────────────────┬─────────────────────────────────────────┘
+                                │
+                          API Layer
+                    (REST + WebSocket)
+                                │
+            ┌───────────────────┼───────────────────┐
+            │                   │                   │
+     ┌──────▼──────┐     ┌──────▼──────┐     ┌──────▼──────┐
+     │  TERMINAL   │     │    CLI      │     │   AI/SDK    │
+     │  (Monitor)  │     │  Maestro    │     │ Claude Code │
+     └─────────────┘     └─────────────┘     └─────────────┘
 ```
 
 ---
 
-## Prerequisites
+## Getting Started
 
-### 1. Configured Maestro Project
-
-```bash
-# Check that the project exists
-maestro projects
-
-# If not, create or open
-maestro projects create --name "my-app" --path "C:/dev/my-app"
-# or
-maestro projects open "C:/dev/my-app"
-```
-
-### 2. Workflow Available in Catalog
+### 1. Create a Project Session
 
 ```bash
-# Check published workflows
-maestro foundry catalog --type workflow
-maestro foundry catalog --type agent
+# Human authority (interactive)
+maestro session create \
+  --project my-app \
+  --authority human
 
-# View details
-maestro foundry catalog show code-developer
+# AI authority (Claude Code, Cursor, etc.)
+maestro session create \
+  --project my-app \
+  --authority ai:claude-code
+
+# Agent authority (autonomous)
+maestro session create \
+  --project my-app \
+  --authority agent:orchestrator-agent
 ```
 
-### 3. Active Services
-
-```bash
-# Check the system
-maestro health
-maestro llm
-```
-
----
-
-## Complete Commands
-
-### Create a Session
-
-```bash
-maestro project session create [options]
-```
-
-#### Required Options
+#### Creation Options
 
 | Option | Description | Example |
 |--------|-------------|---------|
 | `--project <id>` | Project ID or name | `my-app` |
-| `--workflow <id>` | Catalog workflow | `code-developer@1.0.0` |
-| `--task <description>` | Task to accomplish | `"Add email validation"` |
-
-#### Access Options
-
-| Option | Description | Values |
-|--------|-------------|--------|
+| `--authority <type>` | Who controls | `human`, `ai:claude-code`, `agent:my-agent` |
 | `--access <level>` | Access level | `readonly`, `sandbox`, `controlled`, `full` |
-| `--allowed-paths <paths>` | Allowed paths | `"src/**,tests/**"` |
-| `--denied-paths <paths>` | Denied paths | `".env,secrets/**"` |
-| `--require-approval <paths>` | Paths requiring approval | `"package.json,*.config.js"` |
+| `--allowed-paths` | Allowed paths | `"src/**,tests/**"` |
+| `--denied-paths` | Denied paths | `".env,secrets/**"` |
+| `--blocks` | Initial blocks to load | `"code-developer,file-read"` |
+| `--name` | Session name | `"Feature development"` |
 
-#### Execution Options
-
-| Option | Description | Default |
-|--------|-------------|---------|
-| `--context <text>` | Additional context | - |
-| `--max-steps <n>` | Maximum number of steps | `50` |
-| `--timeout <ms>` | Timeout in ms | `600000` |
-
-#### Validation Options
-
-| Option | Description | Default |
-|--------|-------------|---------|
-| `--run-tests` | Run tests | `false` |
-| `--test-command <cmd>` | Test command | `npm test` |
-| `--run-linter` | Run linter | `false` |
-| `--linter-command <cmd>` | Linter command | `npm run lint` |
-| `--require-clean-diff` | Diff must be clean | `false` |
-
-#### Output Options
-
-| Option | Description |
-|--------|-------------|
-| `--json` | JSON output |
-| `--quiet` | Minimal output |
-
-### Creation Examples
+### 2. Connect to the Session
 
 ```bash
-# Basic session
-maestro project session create \
+# Interactive terminal (authority)
+maestro session connect sess-abc123
+
+# Monitor only (read-only view)
+maestro session monitor sess-abc123
+
+# Execute single command
+maestro session exec sess-abc123 "blocks list"
+```
+
+### 3. Work Within the Session
+
+Once connected, you have access to shell commands and Maestro commands:
+
+```bash
+# Shell commands
+session> ls src/
+components/  utils/  index.ts
+
+session> cat src/index.ts
+// ... file content ...
+
+session> git status
+On branch main
+nothing to commit
+
+# Maestro commands
+session> blocks list
+Available blocks:
+  • code-developer (agent)
+  • code-reviewer (agent)
+  • file-read (tool)
+  • file-write (tool)
+
+session> agents run code-developer --task "Add input validation"
+Agent code-developer started (exec-001)
+
+session> monitor
+[Watching execution exec-001...]
+```
+
+---
+
+## Commands Reference
+
+### Shell Commands
+
+Standard Linux-like commands for navigating and inspecting the project:
+
+```bash
+# Navigation
+ls [path]              # List directory contents
+cd <path>              # Change directory
+pwd                    # Print working directory
+
+# File inspection
+cat <file>             # Show file content
+head [-n N] <file>     # Show first N lines
+tail [-n N] <file>     # Show last N lines
+less <file>            # Paginated view
+
+# Search
+find <pattern>         # Find files
+grep <pattern> [path]  # Search in files
+
+# Git (read operations always allowed)
+git status             # Repository status
+git diff [file]        # Show changes
+git log [--oneline]    # Commit history
+git branch             # List branches
+
+# Project commands (if allowed by permissions)
+npm/yarn/pnpm ...      # Node.js
+dotnet ...             # .NET
+python ...             # Python
+cargo ...              # Rust
+```
+
+### Maestro Commands
+
+#### Block Management
+
+```bash
+# List available blocks in session
+blocks list
+blocks list --type agent
+blocks list --type tool
+
+# Show block details
+blocks info <block-id>
+
+# Add block from catalog to session
+blocks add <catalog-id>
+blocks add code-developer@1.2.0
+
+# Remove block from session
+blocks remove <block-id>
+
+# Search catalog
+blocks search "code review"
+```
+
+#### Agent Management
+
+```bash
+# List available agents
+agents list
+
+# Run an agent
+agents run <agent-id> --task "Task description"
+agents run <agent-id> --task "..." --context "Additional context"
+
+# With permission restrictions for the agent
+agents run <agent-id> --task "..." \
+  --allowed-paths "src/auth/**" \
+  --allowed-blocks "file-read,file-write"
+
+# Control running agents
+agents status <exec-id>        # Check status
+agents pause <exec-id>         # Pause execution
+agents resume <exec-id>        # Resume execution
+agents stop <exec-id>          # Stop execution
+
+# List running executions
+agents running
+```
+
+#### Monitoring
+
+```bash
+# Watch all session activity
+monitor
+
+# Watch specific execution
+monitor --exec <exec-id>
+
+# View event history
+events
+events --limit 50
+events --filter agent
+events --filter command
+events --since "10 minutes ago"
+
+# Real-time logs for an execution
+logs <exec-id>
+logs <exec-id> --follow
+```
+
+#### Permissions
+
+```bash
+# Show current session permissions
+permissions show
+
+# Show permissions for a specific agent
+permissions show --agent <agent-id>
+
+# Set permissions for sub-agents
+permissions set \
+  --agent code-developer \
+  --paths "src/**,tests/**" \
+  --blocks "file-read,file-write,git-diff"
+
+# Restrict all sub-agents
+permissions set \
+  --all-agents \
+  --deny-paths ".env,secrets/**,*.key"
+```
+
+#### Validation & Commit
+
+```bash
+# Show all changes
+diff
+diff --stat
+
+# Show specific file diff
+diff <file>
+
+# Run tests
+test
+test --command "npm test -- --coverage"
+test --verbose
+
+# Run linter
+lint
+lint --command "npm run lint"
+
+# Commit changes
+commit --message "feat: add validation"
+commit --message "fix: bug" --push
+commit --message "feat: feature" --branch feature/my-feature --push
+```
+
+#### Session Control
+
+```bash
+# Pause the session
+pause
+
+# Resume the session
+resume
+
+# Take control from AI/agent authority
+take-control
+
+# Exit the session
+exit
+exit --keep          # Keep session running
+exit --stop          # Stop session
+```
+
+---
+
+## Authority Types
+
+### Human Authority
+
+The human interacts directly via the terminal:
+
+```bash
+# Create session
+maestro session create --project my-app --authority human
+
+# Connect
+maestro session connect sess-abc123
+
+# Work interactively
+session> ls
+session> agents run code-developer --task "Add feature"
+session> monitor
+session> diff
+session> commit --message "feat: new feature"
+session> exit
+```
+
+### AI Authority (Claude Code, Cursor, etc.)
+
+An external AI system controls the session via API:
+
+```bash
+# Create session
+maestro session create --project my-app --authority ai:claude-code
+# Returns: sess-abc123
+
+# AI executes commands via API
+POST /api/sessions/sess-abc123/exec
+Content-Type: application/json
+
+{ "command": "blocks list" }
+```
+
+```bash
+# Human can monitor what the AI is doing
+maestro session monitor sess-abc123
+
+# Human can take control if needed
+maestro session take-control sess-abc123
+```
+
+### Agent Authority
+
+A Maestro agent autonomously controls the session:
+
+```bash
+# Create session with agent authority
+maestro session create \
   --project my-app \
-  --workflow code-developer \
-  --task "Add an email validation function"
+  --authority agent:orchestrator-agent \
+  --task "Implement user authentication feature"
 
-# Session with access control
-maestro project session create \
-  --project my-app \
-  --workflow code-developer \
-  --task "Refactor the auth module" \
-  --access controlled \
-  --allowed-paths "src/auth/**,tests/auth/**" \
-  --denied-paths ".env,secrets/**"
+# The agent receives the session and works autonomously
+# Human can monitor
+maestro session monitor sess-abc123
 
-# Session with complete validation
-maestro project session create \
-  --project my-app \
-  --workflow code-developer \
-  --task "Implement pagination" \
-  --context "Use cursor-based pagination, not offset" \
-  --access controlled \
-  --run-tests \
-  --test-command "npm test -- --coverage" \
-  --run-linter \
-  --max-steps 30
-
-# Session with specific workflow version
-maestro project session create \
-  --project my-app \
-  --workflow code-developer@1.2.0 \
-  --task "Optimize SQL queries"
+# Human can intervene
+maestro session take-control sess-abc123
 ```
 
 ---
 
-### Start a Session
-
-```bash
-maestro project session start <session-id> [options]
-```
-
-#### Options
-
-| Option | Description |
-|--------|-------------|
-| `--wait` | Wait for completion |
-| `--follow` | Follow logs in real-time |
-| `--timeout <ms>` | Override timeout |
-
-#### Examples
-
-```bash
-# Start and return immediately
-maestro project session start sess-abc123
-
-# Start and wait for completion
-maestro project session start sess-abc123 --wait
-
-# Start and follow logs
-maestro project session start sess-abc123 --follow
-```
-
----
-
-### View Status
-
-```bash
-maestro project session status <session-id> [options]
-```
-
-#### Options
-
-| Option | Description |
-|--------|-------------|
-| `--json` | JSON output |
-| `--watch` | Auto-refresh |
-
-#### Example Output
-
-```
-Project Session: sess-abc123
-Status: completed
-Project: my-app
-Workflow: code-developer@1.2.0
-Task: Add an email validation function
-
-Progress:
-  Steps: 12/30
-  Duration: 45.2s
-  Files Modified: 3
-
-Modified Files:
-  • src/utils/validation.ts (created)
-  • src/components/SignupForm.tsx (modified)
-  • tests/utils/validation.test.ts (created)
-
-Validation:
-  Tests: ✓ Passed (12/12)
-  Linter: ✓ Clean
-```
-
----
-
-### View Changes (Diff)
-
-```bash
-maestro project session diff <session-id> [options]
-```
-
-#### Options
-
-| Option | Description |
-|--------|-------------|
-| `--file <path>` | Specific file diff |
-| `--stat` | Statistics only |
-| `--unified <n>` | Context lines |
-| `--color` | Syntax highlighting |
-
-#### Examples
-
-```bash
-# View entire diff
-maestro project session diff sess-abc123
-
-# Statistics only
-maestro project session diff sess-abc123 --stat
-
-# Specific file diff
-maestro project session diff sess-abc123 --file src/utils/validation.ts
-```
-
-#### Example Output
-
-```diff
-diff --git a/src/utils/validation.ts b/src/utils/validation.ts
-new file mode 100644
---- /dev/null
-+++ b/src/utils/validation.ts
-@@ -0,0 +1,15 @@
-+export function validateEmail(email: string): boolean {
-+  const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-+  return regex.test(email);
-+}
-+
-+export function validatePassword(password: string): boolean {
-+  return password.length >= 8;
-+}
-```
-
----
-
-### Run Tests
-
-```bash
-maestro project session test <session-id> [options]
-```
-
-#### Options
-
-| Option | Description |
-|--------|-------------|
-| `--command <cmd>` | Override test command |
-| `--coverage` | Include coverage |
-| `--verbose` | Detailed output |
-
-#### Examples
-
-```bash
-# Standard tests
-maestro project session test sess-abc123
-
-# With custom command
-maestro project session test sess-abc123 --command "npm test -- --coverage"
-
-# Verbose mode
-maestro project session test sess-abc123 --verbose
-```
-
-#### Example Output
-
-```
-Running tests for session sess-abc123...
-
-Command: npm test
-
- PASS  tests/utils/validation.test.ts
-  ✓ validateEmail returns true for valid email (3ms)
-  ✓ validateEmail returns false for invalid email (1ms)
-  ✓ validatePassword returns true for valid password (1ms)
-  ✓ validatePassword returns false for short password (1ms)
-
-Test Suites: 1 passed, 1 total
-Tests:       4 passed, 4 total
-Time:        1.234s
-
-Result: ✓ All tests passed
-```
-
----
-
-### Commit Changes
-
-```bash
-maestro project session commit <session-id> [options]
-```
-
-#### Options
-
-| Option | Description | Example |
-|--------|-------------|---------|
-| `--message <msg>` | Commit message | `"feat: add email validation"` |
-| `--type <type>` | Conventional type | `feat`, `fix`, `refactor`, etc. |
-| `--scope <scope>` | Commit scope | `auth`, `api`, etc. |
-| `--push` | Push after commit | - |
-| `--branch <name>` | Target branch | `feature/validation` |
-| `--force` | Force even if tests fail | - |
-
-#### Examples
-
-```bash
-# Simple commit
-maestro project session commit sess-abc123 \
-  --message "feat: add email validation"
-
-# Commit with type and scope
-maestro project session commit sess-abc123 \
-  --type feat \
-  --scope auth \
-  --message "add email validation to signup form"
-
-# Commit and push
-maestro project session commit sess-abc123 \
-  --message "feat: add validation" \
-  --push
-
-# Commit on a new branch
-maestro project session commit sess-abc123 \
-  --branch feature/email-validation \
-  --message "feat: add email validation" \
-  --push
-```
-
-#### Example Output
-
-```
-Committing changes for session sess-abc123...
-
-Files to commit:
-  A  src/utils/validation.ts
-  M  src/components/SignupForm.tsx
-  A  tests/utils/validation.test.ts
-
-Commit: abc1234
-Author: Maestro Agent <maestro@local>
-Message: feat(auth): add email validation to signup form
-
-✓ Committed successfully
-```
-
----
-
-### Cancel a Session
-
-```bash
-maestro project session cancel <session-id> [options]
-```
-
-#### Options
-
-| Option | Description |
-|--------|-------------|
-| `--discard` | Delete changes |
-| `--keep` | Keep uncommitted changes |
-
-#### Examples
-
-```bash
-# Cancel and delete changes
-maestro project session cancel sess-abc123 --discard
-
-# Cancel but keep changes
-maestro project session cancel sess-abc123 --keep
-```
-
----
-
-### List Sessions
-
-```bash
-maestro project session list [options]
-```
-
-#### Options
-
-| Option | Description |
-|--------|-------------|
-| `--project <id>` | Filter by project |
-| `--status <status>` | Filter by status |
-| `--workflow <id>` | Filter by workflow |
-| `--limit <n>` | Max number of results |
-| `--json` | JSON output |
-
-#### Examples
-
-```bash
-# All project sessions
-maestro project session list --project my-app
-
-# Running sessions
-maestro project session list --project my-app --status running
-
-# Recent sessions with specific workflow
-maestro project session list --workflow code-developer --limit 10
-```
-
----
-
-## Detailed Access Levels
+## Access Levels
 
 ### ReadOnly
 
 ```bash
-maestro project session create \
-  --project my-app \
-  --workflow analyzer \
-  --task "Analyze code structure" \
-  --access readonly
+maestro session create --project my-app --authority human --access readonly
 ```
 
 | Permission | Allowed |
 |------------|---------|
-| Read files | ✓ |
-| Write files | ✗ |
-| Execute commands | Limited (read-only) |
-| Create commit | ✗ |
+| Read files | Yes |
+| Write files | No |
+| Shell commands | Read-only (ls, cat, git status) |
+| Run agents | Yes (read-only agents only) |
+| Commit | No |
 
-**Use case**: Analysis, audit, documentation
+**Use case**: Code review, analysis, documentation
 
 ### Sandbox
 
 ```bash
-maestro project session create \
-  --project my-app \
-  --workflow code-developer \
-  --task "Test a refactoring" \
-  --access sandbox
+maestro session create --project my-app --authority human --access sandbox
 ```
 
 | Permission | Allowed |
 |------------|---------|
-| Read files | ✓ (original project) |
-| Write files | ✓ (temporary copy) |
-| Execute commands | ✓ (in sandbox) |
-| Create commit | ✗ |
+| Read files | Yes (original) |
+| Write files | Yes (temporary copy) |
+| Shell commands | Yes (in sandbox) |
+| Run agents | Yes (in sandbox) |
+| Commit | No (changes discarded) |
 
-**Use case**: Experimentation, risky tests
+**Use case**: Experimentation, testing dangerous operations
 
 ### Controlled (Recommended)
 
 ```bash
-maestro project session create \
-  --project my-app \
-  --workflow code-developer \
-  --task "Add feature" \
-  --access controlled \
-  --run-tests
+maestro session create --project my-app --authority human --access controlled \
+  --allowed-paths "src/**,tests/**" \
+  --denied-paths ".env,secrets/**"
 ```
 
 | Permission | Allowed |
 |------------|---------|
-| Read files | ✓ |
-| Write files | ✓ (with restrictions) |
-| Execute commands | ✓ |
-| Create commit | ✓ (after validation) |
+| Read files | Yes |
+| Write files | Yes (within allowed paths) |
+| Shell commands | Yes (with restrictions) |
+| Run agents | Yes (with restrictions) |
+| Commit | Yes (after validation) |
 
-**Use case**: Normal development with review
+**Use case**: Normal development with safety guardrails
 
 ### Full
 
 ```bash
-maestro project session create \
-  --project my-app \
-  --workflow code-developer \
-  --task "Urgent fix" \
-  --access full
+maestro session create --project my-app --authority human --access full
 ```
 
 | Permission | Allowed |
 |------------|---------|
-| Read files | ✓ |
-| Write files | ✓ (without restriction) |
-| Execute commands | ✓ |
-| Create commit | ✓ (direct) |
+| Read files | Yes |
+| Write files | Yes (no restrictions) |
+| Shell commands | Yes |
+| Run agents | Yes |
+| Commit | Yes (direct) |
 
-**Use case**: Hotfix, CI/CD automation (with caution!)
+**Use case**: Trusted automation, CI/CD (use with caution!)
 
 ---
 
-## Complete Workflows
+## Sub-Agent Permissions
 
-### Standard Workflow: Feature Development
+When the authority launches an agent, it can restrict what the agent can do:
+
+```bash
+# Launch agent with full session permissions
+session> agents run code-developer --task "Add validation"
+
+# Launch agent with restricted permissions
+session> agents run code-developer \
+  --task "Fix auth bug" \
+  --allowed-paths "src/auth/**,tests/auth/**" \
+  --allowed-blocks "file-read,file-write" \
+  --deny-commands "rm,git push"
+```
+
+### Permission Inheritance
+
+```
+Session Permissions (set at creation)
+         │
+         │  Agent inherits session permissions
+         │  BUT can be further restricted
+         ▼
+Agent Permissions (set at launch)
+         │
+         │  Cannot exceed session permissions
+         │  Can only be equal or more restrictive
+         ▼
+Agent Execution
+```
+
+---
+
+## Workflow Examples
+
+### Interactive Development
+
+```bash
+# 1. Create session
+maestro session create --project my-app --authority human --access controlled
+
+# 2. Connect
+maestro session connect sess-abc123
+
+# 3. Explore the codebase
+session> ls
+session> cat src/index.ts
+session> git log --oneline -5
+
+# 4. Add blocks needed for the task
+session> blocks add code-developer
+session> blocks add test-generator
+
+# 5. Run an agent
+session> agents run code-developer --task "Add email validation to signup form"
+Agent started: exec-001
+
+# 6. Monitor the agent
+session> monitor --exec exec-001
+[10:15:28] Reading src/components/SignupForm.tsx
+[10:15:30] Analyzing validation requirements
+[10:15:35] Creating src/utils/validation.ts
+[10:15:40] Modifying SignupForm.tsx
+[10:15:45] Creating tests/validation.test.ts
+[10:15:48] Execution completed
+
+# 7. Review changes
+session> diff --stat
+ src/utils/validation.ts     | 25 +++++++
+ src/components/SignupForm.tsx | 8 ++-
+ tests/validation.test.ts     | 40 +++++++++++
+ 3 files changed, 71 insertions(+), 2 deletions(-)
+
+session> diff src/utils/validation.ts
+
+# 8. Run tests
+session> test
+✓ All tests passed (15/15)
+
+# 9. Commit
+session> commit --message "feat(auth): add email validation to signup form" --push
+
+# 10. Exit
+session> exit
+```
+
+### AI-Controlled Session
+
+```bash
+# Human creates session for AI
+maestro session create \
+  --project my-app \
+  --authority ai:claude-code \
+  --access controlled \
+  --allowed-paths "src/**,tests/**"
+
+# Session ID: sess-xyz789
+
+# Human monitors in another terminal
+maestro session monitor sess-xyz789
+```
+
+The AI (Claude Code) then controls via API:
+
+```http
+POST /api/sessions/sess-xyz789/exec
+Content-Type: application/json
+
+{"command": "blocks list"}
+---
+{"command": "agents run code-developer --task \"Implement feature X\""}
+---
+{"command": "monitor --exec exec-001"}
+---
+{"command": "diff"}
+---
+{"command": "test"}
+---
+{"command": "commit --message \"feat: implement feature X\""}
+```
+
+### Automated Pipeline
 
 ```bash
 #!/bin/bash
-# develop-feature.sh
+# automated-task.sh
 
 PROJECT="my-app"
-WORKFLOW="code-developer"
 TASK="$1"
-BRANCH="feature/$(echo $TASK | tr ' ' '-' | tr '[:upper:]' '[:lower:]')"
+AGENT="code-developer"
 
-# 1. Create the session
-echo "Creating session..."
-SESSION=$(maestro project session create \
+# 1. Create session with agent authority
+SESSION=$(maestro session create \
   --project $PROJECT \
-  --workflow $WORKFLOW \
-  --task "$TASK" \
+  --authority agent:$AGENT \
   --access controlled \
-  --run-tests \
   --json | jq -r '.id')
 
 echo "Session: $SESSION"
 
-# 2. Execute
-echo "Executing..."
-maestro project session start $SESSION --wait
+# 2. Start monitoring in background
+maestro session monitor $SESSION &
+MONITOR_PID=$!
 
-# 3. Check status
-STATUS=$(maestro project session status $SESSION --json | jq -r '.status')
-if [ "$STATUS" != "completed" ]; then
-  echo "Session failed: $STATUS"
-  exit 1
-fi
+# 3. Wait for completion
+maestro session wait $SESSION --timeout 600
 
-# 4. View diff
-echo "Changes:"
-maestro project session diff $SESSION --stat
+# 4. Check result
+STATUS=$(maestro session info $SESSION --json | jq -r '.status')
 
-# 5. Run tests
-echo "Running tests..."
-maestro project session test $SESSION
-
-# 6. Ask for confirmation
-read -p "Commit these changes? (y/n) " confirm
-if [ "$confirm" != "y" ]; then
-  echo "Cancelled"
-  maestro project session cancel $SESSION --discard
-  exit 0
-fi
-
-# 7. Commit on a branch
-echo "Committing..."
-maestro project session commit $SESSION \
-  --branch $BRANCH \
-  --message "feat: $TASK" \
-  --push
-
-echo "Done! Branch: $BRANCH"
-```
-
-**Usage:**
-```bash
-./develop-feature.sh "Add email validation to signup form"
-```
-
-### Automated Workflow: CI/CD
-
-```bash
-#!/bin/bash
-# ci-auto-fix.sh
-
-PROJECT="$1"
-TASK="$2"
-
-# Create and execute in full mode for CI
-SESSION=$(maestro project session create \
-  --project $PROJECT \
-  --workflow code-fixer \
-  --task "$TASK" \
-  --access full \
-  --run-tests \
-  --require-clean-diff \
-  --json | jq -r '.id')
-
-maestro project session start $SESSION --wait
-
-# Check success
-STATUS=$(maestro project session status $SESSION --json | jq -r '.status')
-TESTS=$(maestro project session status $SESSION --json | jq -r '.validation.testsPass')
-
-if [ "$STATUS" = "completed" ] && [ "$TESTS" = "true" ]; then
-  maestro project session commit $SESSION \
-    --message "fix: $TASK [auto]" \
-    --push
-  echo "SUCCESS"
-  exit 0
+if [ "$STATUS" = "completed" ]; then
+  echo "Task completed successfully"
 else
-  echo "FAILED"
-  exit 1
+  echo "Task failed: $STATUS"
 fi
+
+# 5. Cleanup
+kill $MONITOR_PID 2>/dev/null
 ```
 
-### Review Workflow: Code Analysis
+---
 
-```bash
-#!/bin/bash
-# analyze-code.sh
+## API Reference
 
-PROJECT="$1"
-FOCUS="${2:-src/}"
+### REST Endpoints
 
-# Readonly session for analysis
-SESSION=$(maestro project session create \
-  --project $PROJECT \
-  --workflow code-analyzer \
-  --task "Analyze code quality and suggest improvements" \
-  --context "Focus on: $FOCUS" \
-  --access readonly \
-  --json | jq -r '.id')
+```
+# Session management
+POST   /api/sessions                    Create session
+GET    /api/sessions                    List sessions
+GET    /api/sessions/{id}               Get session info
+DELETE /api/sessions/{id}               Delete session
 
-maestro project session start $SESSION --wait
+# Session control
+POST   /api/sessions/{id}/start         Start session
+POST   /api/sessions/{id}/pause         Pause session
+POST   /api/sessions/{id}/resume        Resume session
+POST   /api/sessions/{id}/stop          Stop session
+POST   /api/sessions/{id}/take-control  Take control
 
-# Display the report
-maestro project session status $SESSION
+# Command execution
+POST   /api/sessions/{id}/exec          Execute command
+GET    /api/sessions/{id}/events        Get events (with pagination)
+
+# WebSocket
+WS     /api/sessions/{id}/stream        Real-time event stream
+```
+
+### WebSocket Events
+
+```typescript
+interface SessionEvent {
+  type: 'command' | 'output' | 'agent' | 'error' | 'status';
+  timestamp: string;
+  data: {
+    command?: string;
+    output?: string;
+    agentId?: string;
+    execId?: string;
+    message?: string;
+    status?: string;
+  };
+}
 ```
 
 ---
 
 ## Best Practices
 
-### 1. Always Use `--access controlled`
+### 1. Always Use Controlled Access
 
 ```bash
-# GOOD ✓
---access controlled
+# Recommended
+--access controlled --allowed-paths "src/**,tests/**"
 
-# RISKY ✗
---access full  # Only if really necessary
+# Avoid unless necessary
+--access full
 ```
 
-### 2. Always Enable Tests
+### 2. Restrict Sub-Agent Permissions
 
 ```bash
-# GOOD ✓
---run-tests --test-command "npm test"
-
-# RISKY ✗
-# No tests = unvalidated changes
+# Give agents only what they need
+agents run code-developer \
+  --task "Fix auth bug" \
+  --allowed-paths "src/auth/**" \
+  --allowed-blocks "file-read,file-write"
 ```
 
-### 3. Restrict Paths
+### 3. Monitor AI/Agent Sessions
 
 ```bash
-# GOOD ✓
---allowed-paths "src/feature/**" --denied-paths ".env,secrets/**"
-
-# RISKY ✗
-# No restriction = access to everything
+# Always monitor autonomous sessions
+maestro session monitor sess-abc123
 ```
 
-### 4. Use Branches
+### 4. Review Before Commit
 
 ```bash
-# GOOD ✓
-maestro project session commit $SESSION \
-  --branch feature/my-feature \
-  --push
-
-# RISKY ✗
-# Direct commit on main
+session> diff
+session> test
+# Review the output...
+session> commit --message "..."
 ```
 
-### 5. Review Before Commit
+### 5. Use Branches for Safety
 
 ```bash
-# GOOD ✓
-maestro project session diff $SESSION
-maestro project session test $SESSION
-# ... review ...
-maestro project session commit $SESSION
-
-# RISKY ✗
-# Automatic commit without review
+session> commit --message "feat: new feature" --branch feature/my-feature --push
+# Then create PR for review
 ```
 
 ---
 
 ## Troubleshooting
 
-### Session fails immediately
+### Cannot Connect to Session
 
 ```bash
-# Check the workflow
-maestro foundry catalog show <workflow-id>
+# Check session status
+maestro session info sess-abc123
 
-# Check the project
-maestro projects info <project-id>
-
-# Check permissions
-maestro project session status <session-id> --json
+# If stopped, cannot connect
+# Create a new session
 ```
 
-### Access denied to a file
+### Permission Denied
 
 ```bash
-# Check allowed-paths and denied-paths
-maestro project session status <session-id> --json | jq '.config.access'
+# Check session permissions
+session> permissions show
 
-# Recreate with correct paths
-maestro project session create \
-  --allowed-paths "path/to/file/**"
+# Check if path is allowed
+session> permissions check src/secret/file.ts
+# Path denied by rule: deny secrets/**
 ```
 
-### Tests fail
+### Agent Stuck
 
 ```bash
-# View test details
-maestro project session test <session-id> --verbose
+# Check agent status
+session> agents status exec-001
 
-# Check the test command
-maestro project session status <session-id> --json | jq '.config.validation'
+# Pause and inspect
+session> agents pause exec-001
+session> events --filter exec-001
+
+# Resume or stop
+session> agents resume exec-001
+# or
+session> agents stop exec-001
 ```
 
-### Commit refused
+### Take Control from AI
 
 ```bash
-# Check validations
-maestro project session status <session-id> --json | jq '.validation'
+# If AI is misbehaving
+maestro session take-control sess-abc123
 
-# If tests required but failed
-maestro project session test <session-id>
-
-# Force if necessary (with caution!)
-maestro project session commit <session-id> --force
+# You now have authority
+session> agents stop-all
+session> diff
+session> # ... fix things ...
 ```
 
 ---
@@ -771,38 +772,44 @@ maestro project session commit <session-id> --force
 ## Quick Reference
 
 ```bash
-# === CREATION ===
-maestro project session create \
-  --project <id> \
-  --workflow <id> \
-  --task "<description>" \
-  [--access <level>] \
-  [--run-tests] \
-  [--context "<context>"]
+# ===== SESSION LIFECYCLE =====
+maestro session create --project <id> --authority <type> [options]
+maestro session connect <id>          # Interactive mode
+maestro session monitor <id>          # Watch only
+maestro session exec <id> "command"   # Single command
+maestro session take-control <id>     # Take over
+maestro session stop <id>             # End session
 
-# === EXECUTION ===
-maestro project session start <id> [--wait] [--follow]
-maestro project session status <id>
-maestro project session cancel <id> [--discard]
+# ===== WITHIN SESSION =====
+# Shell
+ls, cd, cat, grep, git status, git diff, ...
 
-# === REVIEW ===
-maestro project session diff <id> [--stat]
-maestro project session test <id> [--verbose]
+# Blocks
+blocks list | add <id> | remove <id> | info <id>
 
-# === COMMIT ===
-maestro project session commit <id> \
-  --message "<msg>" \
-  [--branch <name>] \
-  [--push]
+# Agents
+agents list | run <id> --task "..." | status <id> | stop <id>
 
-# === LISTING ===
-maestro project session list [--project <id>] [--status <status>]
+# Monitoring
+monitor | events | logs <exec-id>
+
+# Permissions
+permissions show | set --agent <id> --paths "..." --blocks "..."
+
+# Validation
+diff | test | lint
+
+# Commit
+commit --message "..." [--branch <name>] [--push]
+
+# Control
+pause | resume | exit
 ```
 
 ---
 
 ## Related Documents
 
-- [GUIDE-SESSION-TYPES.md](GUIDE-SESSION-TYPES.md) - Foundry vs Project comparison
-- [FOUNDRY-DETAILED-GUIDE.md](FOUNDRY-DETAILED-GUIDE.md) - Foundry Guide
-- [FULL-PIPELINE-GUIDE.md](FULL-PIPELINE-GUIDE.md) - Complete pipeline
+- [GUIDE-SESSION-TYPES.md](GUIDE-SESSION-TYPES.md) - Session architecture overview
+- [FOUNDRY-DETAILED-GUIDE.md](FOUNDRY-DETAILED-GUIDE.md) - Foundry sessions for block development
+- [FULL-PIPELINE-GUIDE.md](FULL-PIPELINE-GUIDE.md) - Complete end-to-end workflow

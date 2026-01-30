@@ -11,6 +11,7 @@ using Maestro.Infrastructure.Services;
 using Maestro.Infrastructure.Metrics;
 using Maestro.Infrastructure.Training;
 using Maestro.Infrastructure.Training.QualityEvaluators;
+using Maestro.Infrastructure.Sessions;
 using System.IO;
 using System;
 using Microsoft.Extensions.Options;
@@ -120,6 +121,43 @@ builder.Services.AddSingleton<IContainerRuntimeFactory, ContainerRuntimeFactory>
 // Phase 8: Register project container service
 builder.Services.AddSingleton<IProjectContainerService, ProjectContainerService>();
 
+// Phase 10: Register project session services (Unified Session System)
+builder.Services.AddSingleton<IProjectSessionRepository>(sp =>
+{
+    var projectRepo = sp.GetRequiredService<IProjectRepository>();
+    var logger = sp.GetService<ILogger<FileSystemProjectSessionRepository>>();
+    return new FileSystemProjectSessionRepository(projectRepo, logger);
+});
+builder.Services.AddScoped<IProjectSessionService>(sp =>
+{
+    var sessionRepo = sp.GetRequiredService<IProjectSessionRepository>();
+    var projectRepo = sp.GetRequiredService<IProjectRepository>();
+    var workflowExecutor = sp.GetRequiredService<IWorkflowExecutor>();
+    var blockRepo = sp.GetRequiredService<IBlockRepository>();
+    var logger = sp.GetRequiredService<ILogger<ProjectSessionService>>();
+    return new ProjectSessionService(sessionRepo, projectRepo, workflowExecutor, blockRepo, logger);
+});
+
+// Phase 10: Register session context storage (Singleton to persist across requests)
+builder.Services.AddSingleton<Maestro.Infrastructure.Sessions.SessionContextStorage>();
+
+// Phase 10: Register command executors for session server
+builder.Services.AddScoped<ICommandExecutor, Maestro.Infrastructure.Sessions.CommandExecutors.ShellCommandExecutor>();
+builder.Services.AddScoped<ICommandExecutor, Maestro.Infrastructure.Sessions.CommandExecutors.MaestroCommandExecutor>();
+builder.Services.AddScoped<ICommandExecutor, Maestro.Infrastructure.Sessions.CommandExecutors.ControlCommandExecutor>();
+
+// Phase 10: Register Project Session Server
+builder.Services.AddScoped<IProjectSessionServer>(sp =>
+{
+    var sessionRepo = sp.GetRequiredService<IProjectSessionRepository>();
+    var projectRepo = sp.GetRequiredService<IProjectRepository>();
+    var blockRepo = sp.GetRequiredService<IBlockRepository>();
+    var commandExecutors = sp.GetServices<ICommandExecutor>();
+    var contextStorage = sp.GetRequiredService<Maestro.Infrastructure.Sessions.SessionContextStorage>();
+    var logger = sp.GetRequiredService<ILogger<ProjectSessionServer>>();
+    return new ProjectSessionServer(sessionRepo, projectRepo, blockRepo, commandExecutors, contextStorage, logger);
+});
+
 // Phase 8: Register file system browser
 builder.Services.AddSingleton<IFileSystemBrowser, FileSystemBrowser>();
 
@@ -226,6 +264,7 @@ app.MapHub<Maestro.Api.Hubs.BlockHub>("/hubs/blocks");
 app.MapHub<Maestro.Api.Hubs.ExecutionHub>("/hubs/execution");
 app.MapHub<Maestro.Api.Hubs.ProjectHub>("/hubs/projects");
 app.MapHub<Maestro.Api.Hubs.TerminalHub>("/hubs/terminal");
+app.MapHub<Maestro.Api.Hubs.SessionHub>("/hubs/sessions");
 
 // Initialize SignalR state publisher for projects
 var projectStatePublisher = new Maestro.Api.Hubs.SignalRProjectStatePublisher(

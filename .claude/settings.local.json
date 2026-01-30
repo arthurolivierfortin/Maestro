@@ -82,7 +82,8 @@
       "Bash(cmd /c \"taskkill /F /IM dotnet.exe\")",
       "Bash(MAESTRO_API_URL=http://localhost:5125 node:*)",
       "Bash(Select-Object -First 30 -ExpandProperty FullName)",
-      "Bash(move \"C:\\\\Meastro\\\\docs\\\\FOUNDRY-WORKFLOW.md\" \"C:\\\\Meastro\\\\docs\\\\guides\\\\FOUNDRY-DETAILED-GUIDE.md\")"
+      "Bash(move \"C:\\\\Meastro\\\\docs\\\\FOUNDRY-WORKFLOW.md\" \"C:\\\\Meastro\\\\docs\\\\guides\\\\FOUNDRY-DETAILED-GUIDE.md\")",
+      "Bash(dotnet clean:*)"
     ]
   }
 }

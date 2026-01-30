@@ -9,39 +9,84 @@
 
 ## Overview
 
-Unify Testing and Training into **Foundry Sessions**, and add **Project Sessions** for real-world execution. Replace the separate Training/Testing systems with a cohesive session architecture.
+Implement a **Unified Session System** where sessions act as **interactive server environments** controlled by an **Authority** (human, AI, or agent). This replaces the simple workflow execution model with a rich command-based interaction model.
+
+### Core Concept: Session as Server
+
+A **Session** is an interactive server environment where:
+- An **Authority** (human, AI agent, or external AI like Claude Code) controls the session
+- Multiple **Clients** (Monitor, CLI, SDK) can connect and interact
+- **Commands** (shell + Maestro) are executed within the session context
+- **Events** are streamed in real-time to all connected clients
+- **Sub-agents** can be launched with restricted permissions
 
 ### Goals
 
-1. **Foundry Sessions** - Forge, test, improve blocks with automatic evaluation
-2. **Project Sessions** - Execute workflows on real projects with access control
-3. **Evaluation at Creation** - Configure how sessions are evaluated upfront
-4. **Publish Workflow** - Draft → Forge → Validate → Publish to Catalog
-5. **Full CLI Support** - External AIs can automate the entire workflow
+1. **Session Server Architecture** - Sessions as interactive command servers
+2. **Authority Types** - Support human, agent, and AI authorities
+3. **Client Connectivity** - Monitor (terminal), CLI, SDK/API access
+4. **Block Registry** - Per-session registry of available blocks
+5. **Permission Hierarchy** - Authority configures sub-agent permissions
+6. **Foundry Sessions** - Develop, test, train, and publish blocks
+7. **Project Sessions** - Execute on real projects with access control
+8. **Full CLI Support** - External AIs can automate the entire workflow
 
 ---
 
 ## Architecture Summary
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                         FOUNDRY                                  │
-│  ┌─────────────────────────────────────────────────────────┐   │
-│  │  WORKSHOP: Drafts → Sessions → Improvements → Publish   │   │
-│  └─────────────────────────────────────────────────────────┘   │
-│  ┌─────────────────────────────────────────────────────────┐   │
-│  │  CATALOG: Published tools, agents, workflows            │   │
-│  └─────────────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────────┘
-
-┌─────────────────────────────────────────────────────────────────┐
-│                      PROJECT SESSIONS                            │
-│  Execute workflows from Catalog on real projects with:          │
-│  - Access control (readonly/sandbox/controlled/full)            │
-│  - Validation (tests, linter)                                   │
-│  - Commit workflow                                              │
-└─────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────┐
+│                           SESSION SERVER                                  │
+│                   (Foundry Session OR Project Session)                    │
+│                                                                          │
+│  ┌────────────────────────────────────────────────────────────────────┐ │
+│  │                         SESSION STATE                               │ │
+│  │                                                                     │ │
+│  │  • Authority: Who controls (human, agent, AI)                       │ │
+│  │  • Block Registry: Available blocks in this session                 │ │
+│  │  • Permissions: What's allowed (paths, commands, blocks)           │ │
+│  │  • Executions: Running agents/workflows                            │ │
+│  │  • Event History: Full audit log                                   │ │
+│  └────────────────────────────────────────────────────────────────────┘ │
+│                                                                          │
+│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────────────┐ │
+│  │  Command Queue  │  │  Event Stream   │  │  File System Access     │ │
+│  │  (REST API)     │  │  (WebSocket)    │  │  (Isolated/Controlled)  │ │
+│  └────────┬────────┘  └────────┬────────┘  └─────────────────────────┘ │
+│           │                    │                                        │
+└───────────┼────────────────────┼────────────────────────────────────────┘
+            │                    │
+            │    API Layer       │
+┌───────────┴────────────────────┴────────────────────────────────────────┐
+│                              CLIENTS                                      │
+│                                                                          │
+│  ┌──────────────┐    ┌──────────────┐    ┌──────────────────────────┐  │
+│  │   MONITOR    │    │     CLI      │    │      AGENT / IA          │  │
+│  │  (Terminal)  │    │   Maestro    │    │   (Claude Code, etc)     │  │
+│  │              │    │              │    │                          │  │
+│  │ • View events│    │ • Send cmds  │    │ • Send commands via API  │  │
+│  │ • Read-only  │    │ • Connect to │    │ • Subscribe to events    │  │
+│  │   or interact│    │   session    │    │ • Autonomous operation   │  │
+│  └──────────────┘    └──────────────┘    └──────────────────────────┘  │
+│                                                                          │
+└──────────────────────────────────────────────────────────────────────────┘
 ```
+
+### Authority Types
+
+| Authority Type | Description | Example |
+|---------------|-------------|---------|
+| `human` | Interactive human control | Developer using CLI |
+| `agent:<id>` | Maestro agent as controller | `orchestrator-agent` managing sub-agents |
+| `ai:<name>` | External AI system | `ai:claude-code`, `ai:cursor` |
+
+### Session Types
+
+| Type | Purpose | Environment |
+|------|---------|-------------|
+| **Project Session** | Execute on real projects | Git repository with access control |
+| **Foundry Session** | Develop and train blocks | Isolated sandbox |
 
 ---
 
@@ -49,549 +94,403 @@ Unify Testing and Training into **Foundry Sessions**, and add **Project Sessions
 
 ### Phase 10A: Core Domain Models (Week 1)
 
-**Objective**: Create unified session models with evaluation configuration.
+**Objective**: Create unified session models with the Session Server architecture.
 
 #### Tasks
 
-- [ ] **10A-1**: Create Session entity
-  ```
-  Session.cs
-  - Id, Name, Type (Foundry/Project), Status
-  - FoundryConfig / ProjectConfig (type-specific)
-  - Iterations, Metrics, Improvements
+- [x] **10A-1**: Create SessionEnums (SessionType, SessionStatus, AccessLevel)
+- [x] **10A-2**: Create SessionId value object
+- [x] **10A-3**: Create AccessConfig for permission management
+- [x] **10A-4**: Create ValidationConfig for tests/linter
+- [x] **10A-5**: Create ProjectSessionConfig with full session configuration
+- [x] **10A-6**: Create ProjectSession entity with lifecycle management
+
+**Additional Domain Models:**
+
+- [x] **10A-7**: Create AuthorityType enum and Authority class
+  ```csharp
+  public enum AuthorityType { Human, Agent, AI }
+  public class Authority { Type, Identifier, Metadata }
   ```
 
-- [ ] **10A-2**: Create FoundrySessionConfig
-  ```
-  FoundrySessionConfig.cs
-  - Iterations, Parallel, DelayMs, TimeoutMs
-  - Inputs, Tags
-  - Evaluation (configured at creation!)
+- [x] **10A-8**: Create SessionCommand model
+  ```csharp
+  public class SessionCommand { Type, Command, Args, Timestamp }
   ```
 
-- [ ] **10A-3**: Create EvaluationConfig
-  ```
-  EvaluationConfig.cs
-  - Mode (Manual/Auto/Hybrid)
-  - AutoEvaluator (LLM/Agent/Heuristic)
-  - Criteria, PassThreshold
-  - HumanReviewTrigger (for Hybrid mode)
+- [x] **10A-9**: Create SessionEvent model for event streaming
+  ```csharp
+  public class SessionEvent { Type, Source, Message, Data, Timestamp }
   ```
 
-- [ ] **10A-4**: Create ProjectSessionConfig
-  ```
-  ProjectSessionConfig.cs
-  - ProjectId, Task, Context
-  - Access (Level, AllowedPaths, DeniedPaths)
-  - Validation (RunTests, RunLinter)
+- [x] **10A-10**: Create BlockRegistry per-session model
+  ```csharp
+  public class SessionBlockRegistry { Available, Restricted, Add(), Remove() }
   ```
 
-- [ ] **10A-5**: Create SessionIteration
-  ```
-  SessionIteration.cs
-  - Inputs, Outputs, Metrics
-  - Evaluation (score, criteria, explanation)
-  - NeedsHumanReview flag
+- [x] **10A-11**: Create FoundrySession entity
+  ```csharp
+  public class FoundrySession : BaseSession { DraftId, TrainingConfig, Iterations }
   ```
 
-- [ ] **10A-6**: Create Draft model
-  ```
-  Draft.cs
-  - Id, Name, Type (tool/agent/workflow)
-  - Status (draft/forging/validated/published)
-  - Definition (block JSON)
-  - Sessions, CurrentScore, Improvements
+- [x] **10A-12**: Create repositories interfaces
+  ```csharp
+  ISessionRepository<T>
+  IProjectSessionRepository
+  IFoundrySessionRepository
   ```
 
-- [ ] **10A-7**: Create repositories
-  ```
-  ISessionRepository.cs
-  IDraftRepository.cs
-  FileSystemSessionRepository.cs
-  FileSystemDraftRepository.cs
-  ```
-
-**Files to Create:**
+**Files Created:**
 ```
 backend/src/Maestro.Domain/
 ├── Entities/
-│   ├── Session.cs
-│   ├── SessionIteration.cs
-│   ├── Draft.cs
-│   └── ImprovementSuggestion.cs
+│   ├── ProjectSession.cs          [DONE]
+│   ├── FoundrySession.cs          [DONE]
+│   └── SessionBlockRegistry.cs    [DONE]
 ├── Configuration/
-│   ├── FoundrySessionConfig.cs
-│   ├── ProjectSessionConfig.cs
-│   ├── EvaluationConfig.cs
-│   ├── AutoEvaluatorConfig.cs
-│   └── AccessConfig.cs
+│   ├── AccessConfig.cs            [DONE]
+│   ├── ValidationConfig.cs        [DONE]
+│   ├── ProjectSessionConfig.cs    [DONE]
+│   └── FoundrySessionConfig.cs    [DONE]
+├── ValueObjects/
+│   ├── SessionId.cs               [DONE]
+│   ├── Authority.cs               [DONE]
+│   ├── SessionCommand.cs          [DONE]
+│   └── SessionEvent.cs            [DONE]
 └── Enums/
-    ├── SessionType.cs
-    ├── SessionStatus.cs
-    ├── EvaluationMode.cs
-    ├── EvaluatorType.cs
-    └── AccessLevel.cs
-
-backend/src/Maestro.Application/
-├── Interfaces/
-│   ├── ISessionRepository.cs
-│   └── IDraftRepository.cs
-└── DTOs/
-    ├── SessionDto.cs
-    ├── DraftDto.cs
-    └── CreateFoundrySessionRequest.cs
-
-backend/src/Maestro.Infrastructure/
-└── Foundry/
-    ├── FileSystemSessionRepository.cs
-    └── FileSystemDraftRepository.cs
+    └── SessionEnums.cs            [DONE]
 ```
-
-**Acceptance Criteria:**
-- [ ] All models compile without errors
-- [ ] EvaluationConfig supports Manual/Auto/Hybrid modes
-- [ ] Repositories can persist to file system
 
 ---
 
-### Phase 10B: Foundry Service (Week 2)
+### Phase 10B: Session Server Infrastructure (Week 2) ✅ COMPLETED
 
-**Objective**: Implement core Foundry logic with automatic evaluation.
+**Objective**: Implement the core session server with command execution.
 
 #### Tasks
 
-- [ ] **10B-1**: Create IFoundryService interface
-  - Draft CRUD
-  - Session lifecycle (create, start, pause, resume, cancel)
-  - Evaluation management
-  - Improvement workflow
-  - Publication
+- [x] **10B-1**: Create ISessionServer interface
+  ```csharp
+  interface IProjectSessionServer
+  {
+      Task<ProjectSession> CreateAsync(name, authority, config);
+      Task<ProjectSession> StartAsync(sessionId);
+      Task<CommandResult> ExecuteCommandAsync(sessionId, command);
+      IAsyncEnumerable<SessionEvent> SubscribeAsync(sessionId);
+      Task<ProjectSession> PauseAsync(sessionId);
+      Task<ProjectSession> ResumeAsync(sessionId);
+      Task<ProjectSession> StopAsync(sessionId);
+      Task<ProjectSession> TakeControlAsync(sessionId, authority);
+  }
+  ```
 
-- [ ] **10B-2**: Implement FoundryService
-  - Session execution loop
-  - **Automatic evaluation** after each iteration (based on config)
-  - Parallel execution support
-  - Metrics aggregation
+- [x] **10B-2**: Create CommandExecutor abstraction
+  ```csharp
+  interface ICommandExecutor
+  {
+      bool CanHandle(command);
+      Task<CommandResult> ExecuteAsync(command, context);
+  }
+  ```
 
-- [ ] **10B-3**: Implement LLM Evaluator
-  - Send iteration to LLM model
-  - Parse evaluation response
-  - Map to EvaluationResult
+- [x] **10B-3**: Implement ShellCommandExecutor
+  - Execute shell commands (ls, cd, cat, git, etc.)
+  - Respect session permissions
+  - Handle working directory state
 
-- [ ] **10B-4**: Implement Agent Evaluator
-  - Execute evaluator agent
-  - Pass iteration as input
-  - Get structured evaluation output
+- [x] **10B-4**: Implement MaestroCommandExecutor
+  - Handle blocks/agents/monitor/permissions commands
+  - Dispatch to appropriate services
 
-- [ ] **10B-5**: Implement Heuristic Evaluator
-  - Rule-based evaluation
-  - Success/failure checks
-  - Duration/token metrics
+- [x] **10B-5**: Implement ControlCommandExecutor
+  - Handle /pause, /resume, /exit, /stop, /status, /help
 
-- [ ] **10B-6**: Implement Hybrid Mode Logic
-  - Auto-evaluate first
-  - Flag for human review based on triggers
-  - Track pending reviews
+- [x] **10B-6**: Create ProjectSessionServer implementation
+- [ ] **10B-7**: Create FoundrySessionServer implementation (deferred)
 
-- [ ] **10B-7**: Implement Improvement Generator
-  - Analyze low-scoring iterations
-  - Generate suggestions via LLM
-  - Store with session
-
-**Files to Create:**
+**Files Created:**
 ```
 backend/src/Maestro.Application/Interfaces/
-└── IFoundryService.cs
+├── ISessionServer.cs              [DONE]
 
-backend/src/Maestro.Infrastructure/Foundry/
-├── FoundryService.cs
-├── Evaluators/
-│   ├── LLMIterationEvaluator.cs
-│   ├── AgentIterationEvaluator.cs
-│   └── HeuristicIterationEvaluator.cs
-└── ImprovementGenerator.cs
+backend/src/Maestro.Infrastructure/Sessions/
+├── ProjectSessionServer.cs        [DONE]
+├── FileSystemProjectSessionRepository.cs [DONE]
+└── CommandExecutors/
+    ├── ShellCommandExecutor.cs    [DONE]
+    ├── MaestroCommandExecutor.cs  [DONE]
+    └── ControlCommandExecutor.cs  [DONE]
 ```
-
-**Acceptance Criteria:**
-- [ ] Sessions execute with automatic evaluation
-- [ ] All three evaluation modes work
-- [ ] Improvements are generated after session completion
 
 ---
 
-### Phase 10C: Publication & Catalog (Week 2-3)
+### Phase 10C: Project Session Commands (Week 2-3) ✅ COMPLETED
 
-**Objective**: Implement publish workflow and catalog management.
+**Objective**: Implement all Project Session commands.
 
-#### Tasks
+#### Shell Commands
+- [x] **10C-1**: `ls`, `cd`, `pwd`, `cat`, `head`, `tail`
+- [x] **10C-2**: `find`, `grep` (with permission checks)
+- [x] **10C-3**: `git status`, `git diff`, `git log`, `git branch`
 
-- [ ] **10C-1**: Create PublishedBlock model
-  ```
-  PublishedBlock.cs
-  - BlockId, Name, Type, Version
-  - Definition, Metrics, Category, Tags
-  ```
+#### Maestro Commands
+- [x] **10C-4**: `blocks list|info` (add/remove basic)
+- [x] **10C-5**: `agents list|run|stop|status` (basic)
+- [x] **10C-6**: `monitor [--agent <id>]`
+- [x] **10C-7**: `permissions show`
+- [x] **10C-8**: `diff [file]`
+- [x] **10C-9**: `test [--command]`, `lint [--command]`
+- [x] **10C-10**: `commit --message "..." [--push]`
 
-- [ ] **10C-2**: Create ICatalogRepository
-  - Save published blocks with versions
-  - Query by type, category, tags
-  - Get specific version or latest
+**Files Created:**
+```
+backend/src/Maestro.Infrastructure/Sessions/CommandExecutors/
+├── ShellCommandExecutor.cs      [DONE] - All shell commands
+├── MaestroCommandExecutor.cs    [DONE] - blocks, agents, monitor, permissions, diff, test, lint, commit
+└── ControlCommandExecutor.cs    [DONE] - /status, /help, /pause, /resume, /exit
+```
 
-- [ ] **10C-3**: Implement publish workflow
-  - Validate draft is ready (score >= threshold)
-  - Create versioned entry in catalog
-  - Update draft status
+---
 
-- [ ] **10C-4**: Implement unpublish
-  - Remove specific version
-  - Keep history for audit
+### Phase 10D: Foundry Session Commands (Week 3)
 
-- [ ] **10C-5**: Implement catalog search
-  - Filter by type, category
-  - Search by name/description
-  - Sort by score, usage
+**Objective**: Implement all Foundry Session commands.
+
+#### Draft Commands
+- [ ] **10D-1**: `draft load|list|edit|test|save`
+
+#### Training Commands
+- [ ] **10D-2**: `train start|status|pause|resume|stop`
+
+#### Evaluation Commands
+- [ ] **10D-3**: `eval pending|show|submit|auto`
+
+#### Improvement Commands
+- [ ] **10D-4**: `improve suggest|show|apply|apply-all`
+- [ ] **10D-5**: `metrics [compare <session>]`
+
+#### Publication Commands
+- [ ] **10D-6**: `publish [--version] [--dry-run]`
 
 **Files to Create:**
 ```
-backend/src/Maestro.Domain/Entities/
-└── PublishedBlock.cs
-
-backend/src/Maestro.Application/Interfaces/
-└── ICatalogRepository.cs
-
-backend/src/Maestro.Infrastructure/Foundry/
-├── FileSystemCatalogRepository.cs
-└── PublishService.cs
+backend/src/Maestro.Infrastructure/Sessions/Commands/
+├── Foundry/
+│   ├── DraftCommands.cs
+│   ├── TrainingCommands.cs
+│   ├── EvaluationCommands.cs
+│   ├── ImprovementCommands.cs
+│   └── PublishCommands.cs
 ```
-
-**Acceptance Criteria:**
-- [ ] Drafts can be published with versions
-- [ ] Catalog can be queried and searched
-- [ ] Published blocks can be used in Project Sessions
 
 ---
 
-### Phase 10D: Project Sessions (Week 3)
+### Phase 10E: REST API & WebSocket (Week 3-4) ✅ COMPLETED
 
-**Objective**: Implement project-attached session execution.
+**Objective**: Expose session server via REST API and WebSocket.
 
 #### Tasks
 
-- [ ] **10D-1**: Create IProjectSessionService interface
-  - Create/start/cancel sessions
-  - Get diff, run tests
-  - Commit changes
+- [x] **10E-1**: Create unified SessionController
+  ```
+  POST   /api/sessions                    Create session
+  GET    /api/sessions                    List sessions (with filters)
+  GET    /api/sessions/{id}               Get session details
+  DELETE /api/sessions/{id}               Delete session
+  ```
 
-- [ ] **10D-2**: Implement ProjectSessionService
-  - Load workflow from catalog
-  - Execute in project context
-  - Track file changes
+- [x] **10E-2**: Create session command endpoint
+  ```
+  POST   /api/sessions/{id}/exec          Execute command
+  {
+    "command": "blocks list",
+    "args": {}
+  }
+  ```
 
-- [ ] **10D-3**: Implement Access Control
-  - Enforce allowed/denied paths
-  - Handle require-approval paths
-  - Implement access levels
+- [x] **10E-3**: Create session control endpoints
+  ```
+  POST   /api/sessions/{id}/start         Start session
+  POST   /api/sessions/{id}/pause         Pause session
+  POST   /api/sessions/{id}/resume        Resume session
+  POST   /api/sessions/{id}/stop          Stop session
+  POST   /api/sessions/{id}/take-control  Take control from AI
+  ```
 
-- [ ] **10D-4**: Implement Diff Generation
-  - Track modified files
-  - Generate unified diff
-  - Show before/after
+- [x] **10E-4**: Create WebSocket hub for events
+  ```csharp
+  SessionHub
+  - JoinSession(sessionId)
+  - LeaveSession(sessionId)
+  - ExecuteCommand(sessionId, command)
+  - OnEvent(sessionId, event)
+  - OnStateChange(sessionId, state)
+  - OnCommandOutput(sessionId, output)
+  - OnAgentEvent(sessionId, event)
+  ```
 
-- [ ] **10D-5**: Implement Validation
-  - Run test command
-  - Run linter (optional)
-  - Check clean diff
+- [x] **10E-5**: Register services in Program.cs
 
-- [ ] **10D-6**: Implement Commit Workflow
-  - Validate all checks pass
-  - Create Git commit
-  - Return commit info
-
-**Files to Create:**
+**Files Created:**
 ```
-backend/src/Maestro.Application/Interfaces/
-└── IProjectSessionService.cs
-
-backend/src/Maestro.Infrastructure/Projects/
-├── ProjectSessionService.cs
-├── AccessControlService.cs
-├── DiffService.cs
-└── CommitService.cs
+backend/src/Maestro.Api/
+├── Controllers/
+│   └── SessionsController.cs       [DONE]
+└── Hubs/
+    ├── SessionHub.cs               [DONE]
+    └── ISessionClient.cs           [DONE]
 ```
-
-**Acceptance Criteria:**
-- [ ] Sessions can execute on real projects
-- [ ] Access control is enforced
-- [ ] Changes can be validated and committed
 
 ---
 
-### Phase 10E: Foundry API (Week 3-4)
+### Phase 10F: CLI Implementation (Week 4) ✅ COMPLETED
 
-**Objective**: REST API for Foundry operations.
-
-#### Tasks
-
-- [ ] **10E-1**: Create FoundryController
-  ```
-  /api/foundry/drafts/*           Draft CRUD
-  /api/foundry/sessions/*         Session lifecycle
-  /api/foundry/sessions/*/evaluate   Evaluation
-  /api/foundry/sessions/*/improve    Improvements
-  /api/foundry/publish            Publication
-  /api/foundry/catalog/*          Catalog queries
-  ```
-
-- [ ] **10E-2**: Create ProjectSessionController
-  ```
-  /api/projects/{pid}/sessions/*  Session CRUD
-  /api/projects/{pid}/sessions/*/diff
-  /api/projects/{pid}/sessions/*/test
-  /api/projects/{pid}/sessions/*/commit
-  ```
-
-- [ ] **10E-3**: Create SignalR Hubs
-  - FoundryHub (session events, evaluation events)
-  - Integrate with existing ProjectHub
-
-- [ ] **10E-4**: Register services in Program.cs
-
-**Files to Create:**
-```
-backend/src/Maestro.Api/Controllers/
-├── FoundryController.cs
-└── ProjectSessionController.cs
-
-backend/src/Maestro.Api/Hubs/
-└── FoundryHub.cs
-```
-
-**Acceptance Criteria:**
-- [ ] All endpoints documented in Swagger
-- [ ] Real-time updates via SignalR
-- [ ] Proper error handling
-
----
-
-### Phase 10F: CLI Implementation (Week 4)
-
-**Objective**: Full CLI support for Foundry and Project Sessions.
+**Objective**: Full CLI support for session management.
 
 #### Tasks
 
-- [ ] **10F-1**: Add Foundry draft commands
-  ```
-  maestro foundry draft create/list/show/edit/delete/ready
-  ```
-
-- [ ] **10F-2**: Add Foundry session commands
-  ```
-  maestro foundry session create/start/status/metrics/follow
-  maestro foundry session pause/resume/cancel
-  maestro foundry session pending/evaluate
-  maestro foundry session improvements/improve
-  maestro foundry session compare
+- [x] **10F-1**: Session management commands
+  ```bash
+  maestro session create --project <id> --authority <type>
+  maestro session list [--status <status>] [--project <id>]
+  maestro session info <id>
+  maestro session delete <id>
   ```
 
-- [ ] **10F-3**: Add publication commands
-  ```
-  maestro foundry publish/unpublish/versions
-  maestro foundry catalog/search
-  ```
-
-- [ ] **10F-4**: Add Project session commands
-  ```
-  maestro project session create/start/status
-  maestro project session diff/test/commit/cancel
+- [x] **10F-2**: Session execution commands
+  ```bash
+  maestro session exec <id> "<cmd>"   # Single command execution
+  maestro session events <id>         # View event history
   ```
 
-- [ ] **10F-5**: Update API client
-  - Add all Foundry methods
-  - Add all Project session methods
+- [x] **10F-3**: Session control commands
+  ```bash
+  maestro session start <id>
+  maestro session pause <id>
+  maestro session resume <id>
+  maestro session stop <id>
+  maestro session take-control <id> [--authority <type>]
+  ```
 
-**Files to Modify:**
+- [x] **10F-4**: Update api-client.js with session methods
+  - listSessions(), getSession(), createSession(), deleteSession()
+  - startSession(), pauseSession(), resumeSession(), stopSession()
+  - takeControlSession(), executeSessionCommand(), getSessionEvents()
+
+- [ ] **10F-5**: Implement interactive terminal mode (deferred - exec provides same functionality)
+
+**Files Modified:**
 ```
 tools/maestro-cli/
-├── index.js (register new commands)
-└── commands/
-    ├── foundry.js (new)
-    └── project-session.js (new)
+└── index.js                    [UPDATED]
 
 tools/shared/
-└── api-client.js (add methods)
+└── api-client.js               [UPDATED]
 ```
-
-**Acceptance Criteria:**
-- [ ] All commands have help text
-- [ ] Commands support JSON output
-- [ ] External AIs can run full automation loops
 
 ---
 
 ### Phase 10G: Frontend Integration (Week 5)
 
-**Objective**: UI for Foundry and Project Sessions.
+**Objective**: UI for session management and monitoring.
 
 #### Tasks
 
-- [ ] **10G-1**: Create Foundry page
-  - Drafts list
-  - Sessions list
-  - Catalog view
-
-- [ ] **10G-2**: Create Draft detail view
-  - Edit definition
-  - View sessions history
-  - View current score
-
-- [ ] **10G-3**: Create Session detail view
-  - Iteration list with evaluations
-  - Metrics charts
-  - Improvements panel
-
-- [ ] **10G-4**: Create evaluation UI
-  - Manual evaluation form
-  - Pending evaluations list
-
-- [ ] **10G-5**: Create Project session UI
-  - Create session dialog
-  - Diff viewer
-  - Commit confirmation
-
-- [ ] **10G-6**: Add real-time updates
-  - SignalR integration
-  - Live session progress
+- [ ] **10G-1**: Create Sessions list page
+- [ ] **10G-2**: Create Session detail/monitor view
+- [ ] **10G-3**: Create command terminal component
+- [ ] **10G-4**: Create event stream component
+- [ ] **10G-5**: WebSocket integration for real-time updates
+- [ ] **10G-6**: Create agent execution monitor
 
 **Files to Create:**
 ```
 frontend/src/pages/
-├── Foundry.tsx
-├── FoundryDraft.tsx
-├── FoundrySession.tsx
-└── ProjectSession.tsx
+├── Sessions.tsx
+└── SessionDetail.tsx
 
-frontend/src/components/foundry/
-├── DraftList.tsx
-├── DraftEditor.tsx
+frontend/src/components/sessions/
 ├── SessionList.tsx
-├── SessionDetail.tsx
-├── IterationList.tsx
-├── EvaluationForm.tsx
-├── ImprovementsPanel.tsx
-├── MetricsCharts.tsx
-└── CatalogBrowser.tsx
+├── SessionTerminal.tsx
+├── EventStream.tsx
+└── AgentMonitor.tsx
 
 frontend/src/services/
-└── foundryService.ts
+└── sessionService.ts
 
 frontend/src/store/
-└── foundryStore.ts
+└── sessionStore.ts
 ```
-
-**Acceptance Criteria:**
-- [ ] Foundry workflow usable from UI
-- [ ] Real-time session updates
-- [ ] Consistent with existing UI patterns
 
 ---
 
 ### Phase 10H: Migration & Cleanup (Week 5-6)
 
-**Objective**: Migrate existing data and deprecate old systems.
+**Objective**: Migrate existing data and update documentation.
 
 #### Tasks
 
-- [ ] **10H-1**: Create migration service
-  - Migrate TrainingConfiguration → Draft
-  - Migrate TrainingRun → Session (type=Foundry)
-  - Migrate BlockTestRun → Session (type=Foundry)
-
-- [ ] **10H-2**: Run migration on startup
-  - One-time migration flag
-  - Preserve all data
-  - Log results
-
-- [ ] **10H-3**: Deprecate old APIs
-  - Add deprecation headers
-  - Log usage warnings
-  - Plan removal timeline
-
-- [ ] **10H-4**: Update documentation
-  - Update CLAUDE.md
-  - Update all guides
-  - Remove old Training/Testing references
-
-- [ ] **10H-5**: Update frontend routing
-  - Redirect /training → /foundry
-  - Redirect /testing → /foundry
-  - Update navigation
-
-**Files to Create/Modify:**
-```
-backend/src/Maestro.Infrastructure/Foundry/
-└── MigrationService.cs
-
-backend/src/Maestro.Api/Controllers/
-├── TrainingController.cs (add deprecation)
-└── BlockTestController.cs (add deprecation)
-
-docs/
-├── CLAUDE.md (update)
-├── guides/* (update)
-└── MIGRATION-FOUNDRY.md (new)
-```
-
-**Acceptance Criteria:**
-- [ ] All existing data migrated
-- [ ] Old APIs show deprecation warnings
-- [ ] Documentation reflects new system
+- [ ] **10H-1**: Migrate TrainingConfiguration → FoundrySession drafts
+- [ ] **10H-2**: Migrate TrainingRun → FoundrySession iterations
+- [ ] **10H-3**: Update CLAUDE.md with session documentation
+- [ ] **10H-4**: Update all guides
+- [ ] **10H-5**: Deprecate old Training/Testing APIs
 
 ---
 
-## Testing Requirements
+## Command Reference
 
-### Unit Tests
+### Project Session Commands
 
-```
-backend/tests/Maestro.Tests/
-├── Domain/
-│   ├── SessionTests.cs
-│   └── DraftTests.cs
-├── Infrastructure/
-│   ├── FoundryServiceTests.cs
-│   ├── EvaluatorTests.cs
-│   └── ProjectSessionServiceTests.cs
-└── Api/
-    ├── FoundryControllerTests.cs
-    └── ProjectSessionControllerTests.cs
-```
+```bash
+# Shell (within permissions)
+ls, cd, pwd, cat, head, tail
+find, grep
+git status|diff|log|branch
 
-### Integration Tests
-
-```
-backend/tests/Maestro.IntegrationTests/
-├── FoundryIntegrationTests.cs
-└── ProjectSessionIntegrationTests.cs
+# Maestro
+blocks list|info|add|remove
+agents list|run|stop|status
+monitor [--agent <id>]
+permissions show|set
+diff [file]
+test [--command]
+lint [--command]
+commit --message "..." [--push]
+pause|resume|exit
 ```
 
-### CLI Tests
+### Foundry Session Commands
 
-```
-tools/maestro-cli/tests/
-├── foundry.test.js
-└── project-session.test.js
+```bash
+# Draft
+draft load|list|edit|test|save
+
+# Training
+train start|status|pause|resume|stop
+
+# Evaluation
+eval pending|show|submit|auto
+
+# Improvements
+improve suggest|show|apply|apply-all
+metrics [compare]
+
+# Publication
+publish [--version] [--dry-run]
+pause|resume|exit
 ```
 
 ---
 
 ## Success Metrics
 
-1. **Foundry Sessions** can execute with automatic evaluation
-2. **All evaluation modes** (Manual/Auto/Hybrid) work correctly
-3. **Publish workflow** completes successfully
-4. **Project Sessions** can execute and commit
-5. **CLI coverage** - Full automation possible
-6. **Migration** - 100% data preserved
+1. **Session Server** - Both session types work as interactive servers
+2. **Authority Support** - Human, agent, and AI authorities work correctly
+3. **Command Execution** - All commands work within permissions
+4. **Event Streaming** - WebSocket delivers real-time events
+5. **CLI Coverage** - Full automation possible via CLI
+6. **Monitoring** - Human can always monitor and take control
 
 ---
 
@@ -599,25 +498,37 @@ tools/maestro-cli/tests/
 
 | Week | Phase | Deliverable |
 |------|-------|-------------|
-| 1 | 10A | Domain models, repositories |
-| 2 | 10B, 10C | Foundry service, evaluators, catalog |
-| 3 | 10D, 10E | Project sessions, APIs |
+| 1 | 10A | Domain models, session entities |
+| 2 | 10B | Session server infrastructure |
+| 2-3 | 10C | Project session commands |
+| 3 | 10D | Foundry session commands |
+| 3-4 | 10E | REST API & WebSocket |
 | 4 | 10F | CLI implementation |
-| 5-6 | 10G, 10H | Frontend, migration, cleanup |
+| 5 | 10G | Frontend integration |
+| 5-6 | 10H | Migration & cleanup |
 
 ---
 
 ## Checklist
 
-- [ ] Phase 10A complete
-- [ ] Phase 10B complete
-- [ ] Phase 10C complete
-- [ ] Phase 10D complete
-- [ ] Phase 10E complete
-- [ ] Phase 10F complete
-- [ ] Phase 10G complete
-- [ ] Phase 10H complete
-- [ ] All tests passing
-- [ ] Documentation updated
-- [ ] Migration verified
-- [ ] Old system deprecated
+- [x] Phase 10A complete (all session models) ✅
+- [x] Phase 10B complete (session server for Project Sessions) ✅
+- [x] Phase 10C complete (project commands) ✅
+- [ ] Phase 10D pending (foundry commands - lower priority)
+- [x] Phase 10E complete (API & WebSocket) ✅
+- [x] Phase 10F complete (CLI) ✅
+- [ ] Phase 10G pending (frontend integration)
+- [ ] Phase 10H pending (migration)
+
+## Completion Status
+
+**Project Session Pipeline is COMPLETE** (both CLI and API):
+
+1. **Create Session**: `POST /api/sessions` or `maestro session create --project <id> --authority human`
+2. **Start Session**: `POST /api/sessions/{id}/start` or `maestro session start <id>`
+3. **Execute Commands**: `POST /api/sessions/{id}/exec` or `maestro session exec <id> "<cmd>"`
+4. **Monitor Events**: `GET /api/sessions/{id}/events` or `maestro session events <id>`
+5. **Control Session**: pause, resume, stop, take-control via API or CLI
+6. **Delete Session**: `DELETE /api/sessions/{id}` or `maestro session delete <id>`
+
+**WebSocket Support**: Connect to `/hubs/sessions` for real-time events.

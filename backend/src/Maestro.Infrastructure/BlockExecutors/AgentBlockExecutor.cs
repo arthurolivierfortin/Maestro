@@ -260,7 +260,37 @@ Respond with ONLY the JSON object. No explanations. No markdown. Just JSON.";
                 MaxNewTokens = maxTokens,
                 Temperature = temperature
             };
-            response = await _llmGateway.SendAsync(request, ct);
+
+            try
+            {
+                response = await _llmGateway.SendAsync(request, ct);
+            }
+            catch (Exception ex)
+            {
+                result.Logs.Add($"LLM request failed: {ex.Message}");
+                result.Success = false;
+                result.Outputs["error"] = $"LLM request failed: {ex.Message}";
+                result.DurationMs = sw.ElapsedMilliseconds;
+                return result;
+            }
+
+            // Check for empty response
+            if (response == null || string.IsNullOrWhiteSpace(response.Content))
+            {
+                result.Logs.Add("LLM returned empty response. This may indicate LLM-Provider is not running or returned an error.");
+
+                // If this is the first iteration, mark as failure
+                if (iteration == 1)
+                {
+                    result.Success = false;
+                    result.Outputs["error"] = "LLM returned empty response. Check if LLM-Provider service is running and accessible.";
+                    result.DurationMs = sw.ElapsedMilliseconds;
+                    return result;
+                }
+
+                // On subsequent iterations, use the last valid response
+                break;
+            }
 
             result.Logs.Add($"LLM response: {(response.Content.Length > 100 ? response.Content.Substring(0, 100) + "..." : response.Content)}");
 
@@ -382,31 +412,44 @@ Respond with ONLY the JSON object. No explanations. No markdown. Just JSON.";
         }
 
         // Try to parse structured outputs if defined
-        if (block.Config != null && block.Config.TryGetValue("outputKey", out var ok) && ok is string outKey && !string.IsNullOrEmpty(outKey))
+        if (response != null && !string.IsNullOrWhiteSpace(response.Content))
         {
-            try
+            if (block.Config != null && block.Config.TryGetValue("outputKey", out var ok) && ok is string outKey && !string.IsNullOrEmpty(outKey))
             {
-                using var doc = JsonDocument.Parse(response.Content);
-                if (doc.RootElement.ValueKind == JsonValueKind.Object && doc.RootElement.TryGetProperty(outKey, out var prop))
+                try
                 {
-                    result.Outputs[outKey] = prop.GetString() ?? prop.ToString();
+                    using var doc = JsonDocument.Parse(response.Content);
+                    if (doc.RootElement.ValueKind == JsonValueKind.Object && doc.RootElement.TryGetProperty(outKey, out var prop))
+                    {
+                        result.Outputs[outKey] = prop.GetString() ?? prop.ToString();
+                    }
+                    else
+                    {
+                        result.Outputs["content"] = response.Content;
+                    }
                 }
-                else
+                catch
                 {
                     result.Outputs["content"] = response.Content;
                 }
             }
-            catch
+            else
             {
                 result.Outputs["content"] = response.Content;
             }
+            result.Logs.Add("Agent LLM response received");
         }
         else
         {
-            result.Outputs["content"] = response.Content;
+            // If we get here with no response, it means the loop exited without getting a valid response
+            if (!result.Outputs.ContainsKey("result") && !result.Outputs.ContainsKey("content"))
+            {
+                result.Success = false;
+                result.Outputs["error"] = "Agent completed without producing output";
+                result.Logs.Add("Warning: Agent completed but no valid output was produced");
+            }
         }
 
-        result.Logs.Add("Agent LLM response received");
         result.DurationMs = sw.ElapsedMilliseconds;
         return result;
     }
