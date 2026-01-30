@@ -18,6 +18,7 @@ Ce document résume toutes les runs de test effectuées pour valider le pipeline
 |-------|------|--------|--------------|---------------|---------------------|----------|
 | 1 | 2026-01-30 | Complété | 20/22 | 2 | 4 (2 corrigés, 1 majeur, 1 mineur) | [RUN-001.md](./runs/RUN-001.md) |
 | 2 | 2026-01-30 | Complété | 25/28 | 3 | 4 (2 corrigés pendant run) | [RUN-002.md](./runs/RUN-002.md) |
+| 3 | 2026-01-30 | Partiel | 5/7 | 2 | **Tool calling FONCTIONNE avec SmolLM2!** | [RUN-003.md](./runs/RUN-003.md) |
 
 ---
 
@@ -38,9 +39,18 @@ Ce document résume toutes les runs de test effectuées pour valider le pipeline
 
 ## Progression Globale
 
-**Dernière Run Complète :** RUN-002 (2026-01-30)
-**Statut Global :** 89% des tests passent (25/28)
-**Problème Majeur Restant :** Le modèle LLM (deepseek-coder-1.3b) ne fait pas d'appels d'outils structurés
+**Dernière Run :** RUN-003 (2026-01-30)
+**Statut Global :** Tool calling validé avec SmolLM2-1.7B-Instruct
+
+### ✅ PROBLÈME MAJEUR RÉSOLU (Run #003)
+
+Le modèle `SmolLM2-1.7B-Instruct` **produit du JSON structuré correct** pour les tool calls :
+```
+LLM response: {"tool":"list_files","args":{"path":"C:/Meastro"}}
+Tool call detected: list_files ← Détecté et exécuté!
+```
+
+**Conclusion :** Le problème des runs #001 et #002 était le choix du modèle (`deepseek-coder-1.3b`), pas Maestro.
 
 ---
 
@@ -60,8 +70,9 @@ Ce document résume toutes les runs de test effectuées pour valider le pipeline
 - [x] **Hiérarchie récursive des blocks** ← Nouveau
 
 ### Partiellement Fonctionnelles
-- [ ] Exécution d'agents avec appels d'outils (limitation du modèle LLM)
+- [x] **Exécution d'agents avec appels d'outils** ← RÉSOLU avec SmolLM2-1.7B-Instruct (Run #003)
 - [ ] Métriques par run d'entraînement (commande CLI manquante)
+- [ ] Consistance du modèle (parfois boucles ou format incorrect)
 
 ### Non Testées
 - [ ] Nettoyage (Phase 10 - volontairement ignorée)

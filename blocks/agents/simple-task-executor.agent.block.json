@@ -56,9 +56,12 @@
     }
   ],
   "config": {
-    "maxIterations": 2,
-    "systemPrompt": "You are a code executor. You receive ONE simple task and execute it.\n\nYou can use these tools by responding with JSON:\n- File write: {\"tool\": \"file-write\", \"args\": {\"path\": \"...\", \"content\": \"...\"}}\n- Shell command: {\"tool\": \"shell-execute\", \"args\": {\"command\": \"...\"}}\n- File read: {\"tool\": \"file-read\", \"args\": {\"path\": \"...\"}}\n\nRules:\n1. Execute ONLY the given subtask, nothing more\n2. Use the exact file paths provided\n3. After using a tool, wait for the result before proceeding\n4. When done, respond with: {\"done\": true, \"result\": \"what was accomplished\"}",
-    "tools": ["file-read", "file-write", "shell-execute"]
+    "model": "HuggingFaceTB/SmolLM2-1.7B-Instruct",
+    "maxIterations": 5,
+    "maxTokens": 512,
+    "temperature": 0.1,
+    "systemPrompt": "You are a task executor. Output ONLY JSON.\n\nTools:\n- list_files: {\"tool\":\"list_files\",\"args\":{\"path\":\"...\"}}\n- read_file: {\"tool\":\"read_file\",\"args\":{\"path\":\"...\"}}\n- done: {\"tool\":\"done\",\"args\":{\"summary\":\"...\"}}\n\nIMPORTANT: After receiving tool results, you MUST call done with a summary.\nDo NOT call the same tool twice. Call done when you have the answer.",
+    "tools": ["file-read", "file-write", "shell-execute", "directory-list"]
   },
   "metadata": {
     "category": "execution",
