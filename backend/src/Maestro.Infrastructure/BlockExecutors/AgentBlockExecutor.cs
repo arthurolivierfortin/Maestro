@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using Maestro.Application.DTOs;
 using Maestro.Application.Interfaces;
 using Maestro.Domain.Entities;
+using Maestro.Infrastructure.Context;
 using Microsoft.Extensions.DependencyInjection;
 using ExecutionContext = Maestro.Domain.Entities.ExecutionContext;
 
@@ -18,6 +19,7 @@ public class AgentBlockExecutor : IBlockExecutor
 {
     private readonly ILLMGateway _llmGateway;
     private readonly IServiceProvider? _serviceProvider;
+    private readonly ContextProcessorFactory _contextProcessorFactory;
     private BlockExecutorRegistry? _registry;
     private IBlockDiscoveryService? _discoveryService;
 
@@ -41,6 +43,7 @@ public class AgentBlockExecutor : IBlockExecutor
     {
         _llmGateway = llmGateway;
         _serviceProvider = serviceProvider;
+        _contextProcessorFactory = new ContextProcessorFactory(serviceProvider);
     }
 
     private BlockExecutorRegistry? GetRegistry()
@@ -257,6 +260,11 @@ Respond with ONLY the JSON object. No explanations. No markdown. Just JSON.";
 
         result.Logs.Add($"Using model: {modelId ?? "default"}, temperature: {temperature}, maxTokens: {maxTokens}");
 
+        // Get context configuration
+        var contextConfig = GetContextConfig(block.Config);
+        var contextProcessor = _contextProcessorFactory.Create(contextConfig.Strategy);
+        result.Logs.Add($"Context strategy: {contextConfig.Strategy}, maxTokens: {contextConfig.MaxTokens}");
+
         var maxIterations = 5;
         if (block.Config != null && block.Config.TryGetValue("maxIterations", out var mi) && mi is int mii) maxIterations = mii;
         if (block.Config != null && block.Config.TryGetValue("maxSteps", out var ms))
@@ -272,10 +280,24 @@ Respond with ONLY the JSON object. No explanations. No markdown. Just JSON.";
             iteration++;
             result.Logs.Add($"Agent iteration {iteration}/{maxIterations}");
 
-            // Create request with messages for proper ChatML formatting
+            // Process context before sending to LLM
+            var contextInput = new ContextInput
+            {
+                Messages = messages.Where(m => m.Role != "system").ToList(),
+                SystemPrompt = systemPrompt,
+                Config = contextConfig
+            };
+            var contextResult = await contextProcessor.ProcessAsync(contextInput, ct);
+
+            if (contextResult.WasTruncated)
+            {
+                result.Logs.Add($"Context truncated: {contextResult.MessagesRemoved} messages removed, ~{contextResult.EstimatedTokens} tokens");
+            }
+
+            // Create request with optimized messages
             var request = new LLMRequest
             {
-                Messages = messages,
+                Messages = contextResult.Messages,
                 ModelId = modelId,
                 MaxNewTokens = maxTokens,
                 Temperature = temperature
@@ -512,5 +534,58 @@ Respond with ONLY the JSON object. No explanations. No markdown. Just JSON.";
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// Extracts context configuration from block config.
+    /// Supports both inline config and block reference.
+    /// </summary>
+    private ContextConfig GetContextConfig(Dictionary<string, object>? blockConfig)
+    {
+        var config = new ContextConfig();
+
+        if (blockConfig == null)
+            return config;
+
+        // Check for inline context config
+        if (blockConfig.TryGetValue("context", out var contextObj) && contextObj != null)
+        {
+            if (contextObj is JsonElement jsonElement && jsonElement.ValueKind == JsonValueKind.Object)
+            {
+                return new ContextConfig
+                {
+                    Strategy = jsonElement.TryGetProperty("strategy", out var s) ? s.GetString() ?? "sliding-window" : "sliding-window",
+                    MaxTokens = jsonElement.TryGetProperty("maxTokens", out var mt) ? mt.GetInt32() : 4096,
+                    ReserveForResponse = jsonElement.TryGetProperty("reserveForResponse", out var r) ? r.GetInt32() : 512,
+                    KeepSystemPrompt = jsonElement.TryGetProperty("keepSystemPrompt", out var ksp) ? ksp.GetBoolean() : true,
+                    KeepLastN = jsonElement.TryGetProperty("keepLastN", out var kln) ? kln.GetInt32() : 10,
+                    ContextBlockRef = jsonElement.TryGetProperty("contextBlock", out var cb) ? cb.GetString() : null
+                };
+            }
+
+            if (contextObj is Dictionary<string, object> contextDict)
+            {
+                return new ContextConfig
+                {
+                    Strategy = contextDict.TryGetValue("strategy", out var s) ? s?.ToString() ?? "sliding-window" : "sliding-window",
+                    MaxTokens = contextDict.TryGetValue("maxTokens", out var mt) && int.TryParse(mt?.ToString(), out var mtVal) ? mtVal : 4096,
+                    ReserveForResponse = contextDict.TryGetValue("reserveForResponse", out var r) && int.TryParse(r?.ToString(), out var rVal) ? rVal : 512,
+                    KeepSystemPrompt = contextDict.TryGetValue("keepSystemPrompt", out var ksp) && bool.TryParse(ksp?.ToString(), out var kspVal) ? kspVal : true,
+                    KeepLastN = contextDict.TryGetValue("keepLastN", out var kln) && int.TryParse(kln?.ToString(), out var klnVal) ? klnVal : 10,
+                    ContextBlockRef = contextDict.TryGetValue("contextBlock", out var cb) ? cb?.ToString() : null
+                };
+            }
+        }
+
+        // Check for context block reference directly in config
+        if (blockConfig.TryGetValue("contextBlock", out var contextBlockRef) && contextBlockRef != null)
+        {
+            config = new ContextConfig
+            {
+                ContextBlockRef = contextBlockRef.ToString()
+            };
+        }
+
+        return config;
     }
 }

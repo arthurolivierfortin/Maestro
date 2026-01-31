@@ -22,7 +22,8 @@ export type BlockType =
   | 'validator' // Output validation (atomic)
   | 'trigger' // Workflow trigger (atomic)
   | 'inference' // LLM inference unit with dynamic inputs/outputs (atomic)
-  | 'script'; // Script block to run user-provided code (atomic)
+  | 'script' // Script block to run user-provided code (atomic)
+  | 'context'; // Context management for LLM conversations (atomic)
 
 /**
  * Input/Output port for block connections
@@ -150,7 +151,8 @@ export type BlockConfig =
   | InferenceBlockConfig
   | ScriptBlockConfig
   | AgentBlockConfig
-  | FoundryToolBlockConfig;
+  | FoundryToolBlockConfig
+  | ContextBlockConfig;
 
 /**
  * Script block configuration - allows storing code in any language
@@ -286,19 +288,19 @@ export interface InferenceParameter {
  */
 export interface InferenceBlockConfig {
   type: 'inference';
-  
+
   // Prompts
   systemPrompt?: string;
   userPrompt: string; // Can use {{parameterName}} for dynamic parameters
-  
+
   // Dynamic inputs
   inputs: InferenceParameter[];
-  
+
   // Output schema (added to prompt to guide structure)
   // Note: Only raw_response and metadata outputs are generated.
   // Use other blocks (Tool, Decision) to parse/extract from raw_response.
   outputSchema?: string; // JSON schema definition (added to prompt, no auto-parsing)
-  
+
   // LLM configuration
   modelId?: string; // Model ID from model registry
   fallbackModelId?: string;
@@ -307,6 +309,29 @@ export interface InferenceBlockConfig {
   topP?: number;
   responseFormat?: 'text' | 'json' | 'yaml';
   stopSequences?: string[];
+}
+
+/**
+ * Context block configuration
+ * Manages conversation context for LLM calls using various strategies
+ */
+export interface ContextBlockConfig {
+  type: 'context';
+
+  // Strategy for context management
+  strategy: 'sliding-window' | 'summarize' | 'rag' | 'none';
+
+  // Token limits
+  maxTokens?: number; // Maximum tokens for context window
+  reserveForResponse?: number; // Tokens to reserve for response
+
+  // Sliding window options
+  keepSystemPrompt?: boolean; // Always keep system prompt
+  keepLastN?: number; // Keep at least N recent messages
+
+  // Advanced options
+  summaryModel?: string; // Model to use for summarization
+  contextBlockRef?: string; // Reference to external context block
 }
 
 /**
@@ -365,6 +390,10 @@ export function isAgentConfig(config: BlockConfig): config is AgentBlockConfig {
 
 export function isFoundryToolConfig(config: BlockConfig): config is FoundryToolBlockConfig {
   return config.type === 'tool';
+}
+
+export function isContextConfig(config: BlockConfig): config is ContextBlockConfig {
+  return config.type === 'context';
 }
 
 /**

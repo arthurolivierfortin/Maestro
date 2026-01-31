@@ -1,0 +1,89 @@
+{
+  "$schema": "../../../docs/schemas/block.schema.json",
+  "id": "sliding-window-context",
+  "name": "Sliding Window Context",
+  "blockType": "context",
+  "version": "1.0.0",
+  "isAtomic": true,
+  "description": "Manages conversation context using a sliding window strategy. Keeps recent messages within token limits.",
+
+  "inputs": [
+    {
+      "id": "messages",
+      "name": "Messages",
+      "type": "array",
+      "required": true,
+      "description": "Full message history (array of {role, content})"
+    },
+    {
+      "id": "systemPrompt",
+      "name": "System Prompt",
+      "type": "string",
+      "required": false,
+      "description": "System prompt to always include"
+    },
+    {
+      "id": "newMessage",
+      "name": "New Message",
+      "type": "string",
+      "required": false,
+      "description": "New message content to add"
+    },
+    {
+      "id": "newMessageRole",
+      "name": "New Message Role",
+      "type": "string",
+      "required": false,
+      "default": "user",
+      "description": "Role for new message (user, assistant)"
+    }
+  ],
+
+  "outputs": [
+    {
+      "id": "messages",
+      "name": "Optimized Messages",
+      "type": "array",
+      "description": "Messages optimized for LLM context window"
+    },
+    {
+      "id": "messageCount",
+      "name": "Message Count",
+      "type": "number",
+      "description": "Number of messages in optimized output"
+    },
+    {
+      "id": "estimatedTokens",
+      "name": "Estimated Tokens",
+      "type": "number",
+      "description": "Estimated token count"
+    },
+    {
+      "id": "wasTruncated",
+      "name": "Was Truncated",
+      "type": "boolean",
+      "description": "Whether context was truncated"
+    },
+    {
+      "id": "messagesRemoved",
+      "name": "Messages Removed",
+      "type": "number",
+      "description": "Number of messages removed"
+    }
+  ],
+
+  "config": {
+    "strategy": "sliding-window",
+    "maxTokens": 4096,
+    "reserveForResponse": 512,
+    "keepSystemPrompt": true,
+    "keepLastN": 10
+  },
+
+  "metadata": {
+    "category": "context",
+    "tags": ["context", "memory", "sliding-window"]
+  },
+
+  "capabilities": ["context-management"]
+}

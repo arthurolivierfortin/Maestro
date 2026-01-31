@@ -18,6 +18,7 @@ import type {
   ScriptBlockConfig,
   AgentBlockConfig,
   FoundryToolBlockConfig,
+  ContextBlockConfig,
 } from '../types/block.types';
 
 /**
@@ -44,6 +45,7 @@ export const workflowTypeInfo: BlockTypeInfo = {
     'trigger',
     'inference',
     'script',
+    'context',
   ],
   allowedParents: [],
   defaultConfig: {
@@ -105,7 +107,7 @@ export const agentTypeInfo: BlockTypeInfo = {
   icon: 'Bot',
   color: '#7c3aed',
   isAtomic: false, // COMPOSITE - can contain children
-  allowedChildren: ['inference', 'decision', 'prompt', 'validator', 'script', 'tool'],
+  allowedChildren: ['inference', 'decision', 'prompt', 'validator', 'script', 'tool', 'context'],
   allowedParents: ['workflow'],
   defaultConfig: {
     type: 'agent',
@@ -463,6 +465,74 @@ export const scriptTypeInfo: BlockTypeInfo = {
 };
 
 /**
+ * Context block type - manages conversation context for LLM calls
+ */
+export const contextTypeInfo: BlockTypeInfo = {
+  type: 'context',
+  label: 'Context',
+  description: 'Manages conversation context using sliding window or other strategies',
+  icon: 'History',
+  color: '#14b8a6',
+  isAtomic: true,
+  allowedChildren: [],
+  allowedParents: ['workflow', 'agent'],
+  defaultConfig: {
+    type: 'context',
+    strategy: 'sliding-window',
+    maxTokens: 4096,
+    reserveForResponse: 512,
+    keepSystemPrompt: true,
+    keepLastN: 10,
+  } as ContextBlockConfig,
+  defaultInputs: [
+    {
+      id: 'messages',
+      name: 'Messages',
+      dataType: 'array',
+      required: true,
+      multiple: false,
+    },
+    {
+      id: 'systemPrompt',
+      name: 'System Prompt',
+      dataType: 'string',
+      required: false,
+      multiple: false,
+    },
+    {
+      id: 'newMessage',
+      name: 'New Message',
+      dataType: 'string',
+      required: false,
+      multiple: false,
+    },
+  ],
+  defaultOutputs: [
+    {
+      id: 'messages',
+      name: 'Optimized Messages',
+      dataType: 'array',
+      required: true,
+      multiple: false,
+    },
+    {
+      id: 'estimatedTokens',
+      name: 'Estimated Tokens',
+      dataType: 'number',
+      required: true,
+      multiple: false,
+    },
+    {
+      id: 'wasTruncated',
+      name: 'Was Truncated',
+      dataType: 'boolean',
+      required: true,
+      multiple: false,
+    },
+  ],
+};
+
+/**
  * All block type definitions
  */
 export const blockTypeDefinitions: BlockTypeInfo[] = [
@@ -478,4 +548,5 @@ export const blockTypeDefinitions: BlockTypeInfo[] = [
   triggerTypeInfo,
   inferenceTypeInfo,
   scriptTypeInfo,
+  contextTypeInfo,
 ];

@@ -39,6 +39,7 @@ export const EditorRegistry: Record<BlockType, ComponentType<BlockEditorProps> |
   workflow: null, // Workflows use Canvas editor, not a form editor
   agent: null, // Agents use Canvas editor, not a form editor
   tool: null, // Tools use Canvas editor, not a form editor
+  context: null, // Context blocks configured via JSON block definition
 };
 
 /**

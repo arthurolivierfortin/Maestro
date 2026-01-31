@@ -17,6 +17,7 @@ import {
   Code,
   Bot,
   Wrench,
+  History,
   type LucideIcon,
 } from 'lucide-react';
 import type { BlockType } from '../../types/block.types';
@@ -37,6 +38,7 @@ const iconMap: Record<BlockType, LucideIcon> = {
   trigger: Zap,
   inference: Brain,
   script: Code,
+  context: History,
 };
 
 /**
@@ -55,6 +57,7 @@ export const blockColorMap: Record<BlockType, string> = {
   trigger: '#ef4444',
   inference: '#8b5cf6',
   script: '#f43f5e',
+  context: '#14b8a6',
 };
 
 interface BlockIconProps {
