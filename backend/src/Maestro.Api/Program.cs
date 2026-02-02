@@ -217,6 +217,10 @@ builder.Services.AddSingleton<Maestro.Infrastructure.Testing.FileSystemBlockTest
     return new Maestro.Infrastructure.Testing.FileSystemBlockTestRepository(testingFolder, logger);
 });
 
+// Knowledge Base: Register service for documentation and test results persistence
+builder.Services.AddSingleton<IKnowledgeBaseService, Maestro.Infrastructure.Services.KnowledgeBaseService>();
+Console.WriteLine($"[Maestro] Knowledge base:  {Path.Combine(pathConfig.RepoRootPath, "docs", "knowledge-base")}");
+
 // Phase 9: Register quality evaluators
 builder.Services.AddSingleton<HeuristicQualityEvaluator>();
 builder.Services.AddSingleton<LLMQualityEvaluator>(sp =>

@@ -1,0 +1,449 @@
+{
+  "id": "model-capability-tester",
+  "name": "Model Capability Tester",
+  "blockType": "workflow",
+  "version": "1.0.0",
+  "description": "Comprehensive workflow to test and document all capabilities of a language model. Generates detailed test results compatible with Maestro's model page.",
+  "isAtomic": false,
+  "capabilities": ["testing", "evaluation", "documentation"],
+
+  "inputs": [
+    {
+      "id": "modelId",
+      "name": "Model ID",
+      "type": "string",
+      "required": true,
+      "description": "HuggingFace model ID or registry identifier (e.g., 'deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B')"
+    },
+    {
+      "id": "testCategories",
+      "name": "Test Categories",
+      "type": "array",
+      "required": false,
+      "default": ["all"],
+      "description": "Categories to test: outputFormat, instructionFollowing, contextMemory, reasoning, toolCalling, codeGeneration, creativity, safety"
+    },
+    {
+      "id": "baselineModelId",
+      "name": "Baseline Model",
+      "type": "string",
+      "required": false,
+      "description": "Optional model ID to compare against"
+    },
+    {
+      "id": "outputPath",
+      "name": "Output Path",
+      "type": "string",
+      "required": false,
+      "default": "docs/test-plans/model-runs",
+      "description": "Directory to save test results"
+    }
+  ],
+
+  "outputs": [
+    {
+      "id": "testResult",
+      "name": "Test Result",
+      "type": "object",
+      "description": "Complete test results following model-test-result.schema.json"
+    },
+    {
+      "id": "summary",
+      "name": "Summary",
+      "type": "object",
+      "description": "Quick summary with score, classification, and key findings"
+    },
+    {
+      "id": "outputFilePath",
+      "name": "Output File Path",
+      "type": "string",
+      "description": "Path to the generated detailed results file"
+    }
+  ],
+
+  "config": {
+    "variables": {
+      "llmProviderUrl": "http://localhost:8000",
+      "testTimestamp": "{{$timestamp}}",
+      "temperature": 0.1,
+      "maxTokens": 512
+    },
+
+    "nodes": [
+      {
+        "id": "switch-model",
+        "name": "Switch to Target Model",
+        "blockRef": "tools/llm-switch-model",
+        "inputs": {
+          "modelId": "{{modelId}}"
+        },
+        "description": "Load the target model into LLM-Provider"
+      },
+      {
+        "id": "get-model-info",
+        "name": "Get Model Information",
+        "blockRef": "tools/llm-model-info",
+        "inputs": {
+          "modelId": "{{modelId}}"
+        },
+        "description": "Retrieve model metadata (parameters, context window, etc.)"
+      },
+      {
+        "id": "test-output-format",
+        "name": "Test Output Format",
+        "blockRef": "agents/model-test-runner",
+        "inputs": {
+          "category": "outputFormat",
+          "modelId": "{{modelId}}",
+          "tests": [
+            {
+              "id": "1.1",
+              "name": "JSON Simple Output",
+              "systemPrompt": "You are a helpful assistant that outputs only valid JSON.",
+              "userPrompt": "Output a JSON object with 'name' set to 'John' and 'age' set to 30. Do not include any extra text.",
+              "expected": "{\"name\": \"John\", \"age\": 30}",
+              "evaluationMethod": "json_valid",
+              "maxScore": 10
+            },
+            {
+              "id": "1.2",
+              "name": "JSON Array Output",
+              "systemPrompt": "You are a helpful assistant that outputs only valid JSON.",
+              "userPrompt": "Output a JSON array with the numbers 1, 2, 3. Only the array, nothing else.",
+              "expected": "[1, 2, 3]",
+              "evaluationMethod": "json_valid",
+              "maxScore": 10
+            },
+            {
+              "id": "1.3",
+              "name": "Tool Call Format",
+              "systemPrompt": "You are an AI assistant that uses tools. When you need to use a tool, output ONLY a JSON object in this format: {\"tool\": \"tool_name\", \"args\": {\"arg1\": \"value1\"}}",
+              "userPrompt": "Use the list_files tool with path '/home/user'. Output only the JSON, no markdown.",
+              "expected": "{\"tool\": \"list_files\", \"args\": {\"path\": \"/home/user\"}}",
+              "evaluationMethod": "tool_call_format",
+              "maxScore": 10
+            },
+            {
+              "id": "1.4",
+              "name": "Structured YAML",
+              "systemPrompt": "Output only valid YAML.",
+              "userPrompt": "Output a YAML document with name: Alice and age: 25",
+              "expected": "name: Alice\nage: 25",
+              "evaluationMethod": "yaml_valid",
+              "maxScore": 10
+            }
+          ]
+        },
+        "condition": "{{testCategories.includes('all') || testCategories.includes('outputFormat')}}",
+        "description": "Test JSON, YAML, and structured output capabilities"
+      },
+      {
+        "id": "test-instruction-following",
+        "name": "Test Instruction Following",
+        "blockRef": "agents/model-test-runner",
+        "inputs": {
+          "category": "instructionFollowing",
+          "modelId": "{{modelId}}",
+          "tests": [
+            {
+              "id": "2.1",
+              "name": "Simple Count",
+              "systemPrompt": "Follow instructions exactly.",
+              "userPrompt": "Count from 1 to 5, each number on a new line. Output ONLY the numbers.",
+              "expected": "1\n2\n3\n4\n5",
+              "evaluationMethod": "exact",
+              "maxScore": 10
+            },
+            {
+              "id": "2.2",
+              "name": "Word Limit",
+              "systemPrompt": "Follow instructions exactly.",
+              "userPrompt": "Describe a cat in exactly 5 words.",
+              "expected": "5 words",
+              "evaluationMethod": "word_count",
+              "maxScore": 10
+            },
+            {
+              "id": "2.3",
+              "name": "Format Constraint",
+              "systemPrompt": "Follow instructions exactly.",
+              "userPrompt": "List 3 fruits, one per line, in UPPERCASE only.",
+              "expected": "3 lines, uppercase",
+              "evaluationMethod": "format_check",
+              "maxScore": 10
+            },
+            {
+              "id": "2.4",
+              "name": "Information Extraction",
+              "systemPrompt": "Extract the requested information only.",
+              "userPrompt": "Extract the email from: 'Contact John at john.doe@example.com'. Output ONLY the email.",
+              "expected": "john.doe@example.com",
+              "evaluationMethod": "contains",
+              "maxScore": 10
+            }
+          ]
+        },
+        "condition": "{{testCategories.includes('all') || testCategories.includes('instructionFollowing')}}",
+        "description": "Test ability to follow specific instructions"
+      },
+      {
+        "id": "test-context-memory",
+        "name": "Test Context/Memory",
+        "blockRef": "agents/model-test-runner",
+        "inputs": {
+          "category": "contextMemory",
+          "modelId": "{{modelId}}",
+          "tests": [
+            {
+              "id": "3.1",
+              "name": "System Prompt Adherence",
+              "systemPrompt": "Your name is Alice and you live in Paris. Always mention these facts.",
+              "userPrompt": "Tell me about yourself.",
+              "expected": "Alice AND Paris",
+              "evaluationMethod": "contains_all",
+              "maxScore": 10
+            },
+            {
+              "id": "3.2",
+              "name": "Information Recall",
+              "systemPrompt": "You are a helpful assistant.",
+              "userPrompt": "The project is at C:/Projects/MyApp. Main file is app.py. What is the full path?",
+              "expected": "C:/Projects/MyApp/app.py",
+              "evaluationMethod": "contains",
+              "maxScore": 10
+            },
+            {
+              "id": "3.3",
+              "name": "Multi-turn Context",
+              "systemPrompt": "You are a helpful assistant.",
+              "conversation": [
+                {"role": "user", "content": "My favorite color is blue."},
+                {"role": "assistant", "content": "Nice choice!"},
+                {"role": "user", "content": "What is my favorite color?"}
+              ],
+              "expected": "blue",
+              "evaluationMethod": "contains",
+              "maxScore": 10
+            },
+            {
+              "id": "3.4",
+              "name": "Persona Consistency",
+              "systemPrompt": "You are a pirate. Always speak like a pirate.",
+              "userPrompt": "How are you today?",
+              "expected": "pirate language",
+              "evaluationMethod": "semantic",
+              "maxScore": 10
+            }
+          ]
+        },
+        "condition": "{{testCategories.includes('all') || testCategories.includes('contextMemory')}}",
+        "description": "Test context retention and system prompt adherence"
+      },
+      {
+        "id": "test-reasoning",
+        "name": "Test Reasoning",
+        "blockRef": "agents/model-test-runner",
+        "inputs": {
+          "category": "reasoning",
+          "modelId": "{{modelId}}",
+          "tests": [
+            {
+              "id": "4.1",
+              "name": "Simple Logic",
+              "systemPrompt": "Answer logic questions.",
+              "userPrompt": "If A > B and B > C, is A > C? Answer Yes or No.",
+              "expected": "Yes",
+              "evaluationMethod": "contains",
+              "maxScore": 10
+            },
+            {
+              "id": "4.2",
+              "name": "Arithmetic",
+              "systemPrompt": "You are a calculator.",
+              "userPrompt": "Calculate: 15 + 27",
+              "expected": "42",
+              "evaluationMethod": "contains",
+              "maxScore": 10
+            },
+            {
+              "id": "4.3",
+              "name": "Word Problem",
+              "systemPrompt": "Solve word problems step by step.",
+              "userPrompt": "If John has 5 apples and gives 2 to Mary, how many does John have?",
+              "expected": "3",
+              "evaluationMethod": "contains",
+              "maxScore": 10
+            },
+            {
+              "id": "4.4",
+              "name": "Pattern Recognition",
+              "systemPrompt": "Complete the pattern.",
+              "userPrompt": "What comes next: 2, 4, 6, 8, ?",
+              "expected": "10",
+              "evaluationMethod": "contains",
+              "maxScore": 10
+            }
+          ]
+        },
+        "condition": "{{testCategories.includes('all') || testCategories.includes('reasoning')}}",
+        "description": "Test logic, math, and reasoning capabilities"
+      },
+      {
+        "id": "test-tool-calling",
+        "name": "Test Tool Calling",
+        "blockRef": "agents/model-test-runner",
+        "inputs": {
+          "category": "toolCalling",
+          "modelId": "{{modelId}}",
+          "tests": [
+            {
+              "id": "5.1",
+              "name": "Single Tool Call",
+              "systemPrompt": "You have access to: list_files(path). Output tool calls as: {\"tool\":\"name\",\"args\":{...}}",
+              "userPrompt": "List files in /project",
+              "expected": "{\"tool\":\"list_files\",\"args\":{\"path\":\"/project\"}}",
+              "evaluationMethod": "tool_call_format",
+              "maxScore": 10
+            },
+            {
+              "id": "5.2",
+              "name": "Tool with Multiple Args",
+              "systemPrompt": "You have: write_file(path, content). Output: {\"tool\":\"name\",\"args\":{...}}",
+              "userPrompt": "Write 'Hello' to /tmp/test.txt",
+              "expected": "{\"tool\":\"write_file\",\"args\":{\"path\":\"/tmp/test.txt\",\"content\":\"Hello\"}}",
+              "evaluationMethod": "tool_call_format",
+              "maxScore": 10
+            },
+            {
+              "id": "5.3",
+              "name": "Tool Selection",
+              "systemPrompt": "Tools: read_file(path), write_file(path,content), delete_file(path). Choose the right tool.",
+              "userPrompt": "I need to see what's in /etc/config.json",
+              "expected": "read_file",
+              "evaluationMethod": "contains",
+              "maxScore": 10
+            },
+            {
+              "id": "5.4",
+              "name": "No Tool Needed",
+              "systemPrompt": "Use tools only when needed. If you can answer directly, do so.",
+              "userPrompt": "What is 2+2?",
+              "expected": "4 (no tool call)",
+              "evaluationMethod": "no_tool_call",
+              "maxScore": 10
+            }
+          ]
+        },
+        "condition": "{{testCategories.includes('all') || testCategories.includes('toolCalling')}}",
+        "description": "Test function/tool calling capabilities"
+      },
+      {
+        "id": "test-code-generation",
+        "name": "Test Code Generation",
+        "blockRef": "agents/model-test-runner",
+        "inputs": {
+          "category": "codeGeneration",
+          "modelId": "{{modelId}}",
+          "tests": [
+            {
+              "id": "6.1",
+              "name": "Simple Function",
+              "systemPrompt": "Write code only, no explanation.",
+              "userPrompt": "Write a Python function that adds two numbers.",
+              "expected": "def add",
+              "evaluationMethod": "contains",
+              "maxScore": 10
+            },
+            {
+              "id": "6.2",
+              "name": "Bug Fix",
+              "systemPrompt": "Fix the bug in the code.",
+              "userPrompt": "Fix: def add(a, b): return a - b",
+              "expected": "return a + b",
+              "evaluationMethod": "contains",
+              "maxScore": 10
+            },
+            {
+              "id": "6.3",
+              "name": "Code Explanation",
+              "systemPrompt": "Explain code briefly.",
+              "userPrompt": "What does this do: [x**2 for x in range(5)]",
+              "expected": "squares",
+              "evaluationMethod": "semantic",
+              "maxScore": 10
+            }
+          ]
+        },
+        "condition": "{{testCategories.includes('all') || testCategories.includes('codeGeneration')}}",
+        "description": "Test code writing and debugging"
+      },
+      {
+        "id": "aggregate-results",
+        "name": "Aggregate Test Results",
+        "blockRef": "tools/test-result-aggregator",
+        "inputs": {
+          "modelInfo": "{{get-model-info.output}}",
+          "outputFormat": "{{test-output-format.results}}",
+          "instructionFollowing": "{{test-instruction-following.results}}",
+          "contextMemory": "{{test-context-memory.results}}",
+          "reasoning": "{{test-reasoning.results}}",
+          "toolCalling": "{{test-tool-calling.results}}",
+          "codeGeneration": "{{test-code-generation.results}}",
+          "baselineModelId": "{{baselineModelId}}"
+        },
+        "description": "Combine all test results into detailed report"
+      },
+      {
+        "id": "generate-analysis",
+        "name": "Generate Qualitative Analysis",
+        "blockRef": "inference/model-analysis-generator",
+        "inputs": {
+          "testResults": "{{aggregate-results.output}}",
+          "modelId": "{{modelId}}"
+        },
+        "description": "Generate strengths, weaknesses, quirks analysis"
+      },
+      {
+        "id": "save-results",
+        "name": "Save Results File",
+        "blockRef": "tools/file-writer",
+        "inputs": {
+          "path": "{{outputPath}}/{{modelId | slug}}-detailed.json",
+          "content": "{{generate-analysis.output}}"
+        },
+        "description": "Save detailed results to JSON file"
+      }
+    ],
+
+    "connections": [
+      {"from": "switch-model", "to": "get-model-info"},
+      {"from": "get-model-info", "to": "test-output-format"},
+      {"from": "get-model-info", "to": "test-instruction-following"},
+      {"from": "get-model-info", "to": "test-context-memory"},
+      {"from": "get-model-info", "to": "test-reasoning"},
+      {"from": "get-model-info", "to": "test-tool-calling"},
+      {"from": "get-model-info", "to": "test-code-generation"},
+      {"from": "test-output-format", "to": "aggregate-results"},
+      {"from": "test-instruction-following", "to": "aggregate-results"},
+      {"from": "test-context-memory", "to": "aggregate-results"},
+      {"from": "test-reasoning", "to": "aggregate-results"},
+      {"from": "test-tool-calling", "to": "aggregate-results"},
+      {"from": "test-code-generation", "to": "aggregate-results"},
+      {"from": "aggregate-results", "to": "generate-analysis"},
+      {"from": "generate-analysis", "to": "save-results"}
+    ],
+
+    "outputMapping": {
+      "testResult": "{{generate-analysis.output}}",
+      "summary": "{{aggregate-results.summary}}",
+      "outputFilePath": "{{save-results.path}}"
+    }
+  },
+
+  "metadata": {
+    "author": "Maestro Team",
+    "tags": ["testing", "evaluation", "models", "benchmarking"],
+    "documentation": "docs/test-plans/MODEL-CAPABILITY-TEST-TEMPLATE.md",
+    "schemaRef": "docs/schemas/model-test-result.schema.json"
+  }
+}

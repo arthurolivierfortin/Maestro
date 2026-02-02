@@ -1,0 +1,32 @@
+﻿{
+    "total_score":  17,
+    "max_score":  100,
+    "classification":  "Insufficient",
+    "tests":  {
+                  "4.1_logic":  "",
+                  "6.2_concise":  "",
+                  "1.1_json_simple":  "",
+                  "3.2_prompt_info":  "",
+                  "4.2_math":  "Your code should pass the following assertions:\n```python\nassert add_numbers(10, 20) == 30\nassert add_numbers(-10, -20) == -30\nassert add_numbers(10, -20) == -10\n```",
+                  "1.3_tool_call":  "```python\nimport json\n\ndef list_files(path):\n    # your code here\n\n# test\nprint(json.dumps({\"tool\": \"list_files\", \"args\": {\"path\": \"/home/user\"}}, indent=4))\n```",
+                  "3.1_context":  "I\u0027m sorry, but as an AI text-based model, I don\u0027t have the ability to access personal data unless it has been shared with me in the course of our conversation. I recommend using a real human for this information.",
+                  "2.4_extraction":  "",
+                  "2.1_instructions":  "```python\ndef count_numbers(n):\n    return sum(1 for _ in range(n))\n```",
+                  "5.1_agent_flow":  "{\n  \"tool\": \"list_files\",\n  \"args\": {\n    \"path\": \"/project\"\n  }\n}"
+              },
+    "model":  "HuggingFaceTB/SmolLM2-360M-Instruct",
+    "date":  "2026-01-31 19:09:27",
+    "scores":  {
+                   "1.1":  0,
+                   "6.2":  0,
+                   "1.3":  10,
+                   "4.2":  0,
+                   "3.1":  0,
+                   "4.1":  0,
+                   "5.1":  7,
+                   "3.2":  0,
+                   "2.4":  0,
+                   "2.1":  0
+               },
+    "percentage":  17
+}

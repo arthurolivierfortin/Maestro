@@ -1,0 +1,329 @@
+{
+  "version": "1.0.0",
+  "description": "Model capability test definitions for Maestro",
+
+  "categories": {
+    "outputFormat": {
+      "name": "Output Format",
+      "description": "Tests for structured output generation (JSON, YAML)",
+      "weight": 1.0,
+      "tests": [
+        {
+          "id": "1.1",
+          "name": "JSON Simple Object",
+          "description": "Generate a simple JSON object with specific keys",
+          "maxScore": 10,
+          "systemPrompt": "You output only valid JSON. No explanations, no markdown.",
+          "userPrompt": "Output a JSON object with 'name' set to 'John' and 'age' set to 30.",
+          "evaluation": {
+            "method": "json_contains",
+            "expected": { "name": "John", "age": 30 }
+          }
+        },
+        {
+          "id": "1.2",
+          "name": "JSON Array",
+          "description": "Generate a JSON array",
+          "maxScore": 10,
+          "systemPrompt": "You output only valid JSON. No explanations.",
+          "userPrompt": "Output a JSON array containing the numbers 1, 2, and 3.",
+          "evaluation": {
+            "method": "json_equals",
+            "expected": [1, 2, 3]
+          }
+        },
+        {
+          "id": "1.3",
+          "name": "Tool Call Format",
+          "description": "Generate a properly formatted tool call",
+          "maxScore": 10,
+          "systemPrompt": "You are an AI that uses tools. Output tool calls as: {\"tool\": \"name\", \"args\": {...}}. No markdown, no explanation.",
+          "userPrompt": "Call the 'list_files' tool with path '/home/user'.",
+          "evaluation": {
+            "method": "tool_call",
+            "expectedTool": "list_files",
+            "expectedArgs": { "path": "/home/user" }
+          }
+        },
+        {
+          "id": "1.4",
+          "name": "Nested JSON",
+          "description": "Generate nested JSON structure",
+          "maxScore": 10,
+          "systemPrompt": "Output only valid JSON.",
+          "userPrompt": "Output JSON: {\"user\": {\"name\": \"Alice\", \"address\": {\"city\": \"Paris\"}}}",
+          "evaluation": {
+            "method": "json_contains",
+            "expected": { "user": { "name": "Alice", "address": { "city": "Paris" } } }
+          }
+        }
+      ]
+    },
+
+    "instructionFollowing": {
+      "name": "Instruction Following",
+      "description": "Tests for following specific instructions",
+      "weight": 1.0,
+      "tests": [
+        {
+          "id": "2.1",
+          "name": "Simple Count",
+          "description": "Count from 1 to 5, one number per line",
+          "maxScore": 10,
+          "systemPrompt": "Follow instructions exactly. Output only what is asked.",
+          "userPrompt": "Count from 1 to 5. Output each number on a new line. Nothing else.",
+          "evaluation": {
+            "method": "contains_all",
+            "expected": ["1", "2", "3", "4", "5"]
+          }
+        },
+        {
+          "id": "2.2",
+          "name": "Single Word Answer",
+          "description": "Answer with exactly one word",
+          "maxScore": 10,
+          "systemPrompt": "Answer with exactly one word. No punctuation.",
+          "userPrompt": "What color is the sky on a clear day?",
+          "evaluation": {
+            "method": "single_word",
+            "acceptedAnswers": ["blue", "Blue", "BLUE"]
+          }
+        },
+        {
+          "id": "2.3",
+          "name": "Format Constraint",
+          "description": "Output in specific format",
+          "maxScore": 10,
+          "systemPrompt": "Follow the format exactly.",
+          "userPrompt": "List 3 fruits in UPPERCASE, one per line.",
+          "evaluation": {
+            "method": "regex",
+            "pattern": "^[A-Z]+\\n[A-Z]+\\n[A-Z]+$"
+          }
+        },
+        {
+          "id": "2.4",
+          "name": "Information Extraction",
+          "description": "Extract specific information from text",
+          "maxScore": 10,
+          "systemPrompt": "Extract only the requested information.",
+          "userPrompt": "Extract the email from: 'Contact John at john.doe@example.com for info.'",
+          "evaluation": {
+            "method": "contains",
+            "expected": "john.doe@example.com"
+          }
+        }
+      ]
+    },
+
+    "contextMemory": {
+      "name": "Context & Memory",
+      "description": "Tests for context retention and system prompt adherence",
+      "weight": 1.0,
+      "tests": [
+        {
+          "id": "3.1",
+          "name": "System Prompt Adherence",
+          "description": "Remember and use information from system prompt",
+          "maxScore": 10,
+          "systemPrompt": "Your name is Alice and you live in Paris. Always mention these facts when introducing yourself.",
+          "userPrompt": "Introduce yourself briefly.",
+          "evaluation": {
+            "method": "contains_all",
+            "expected": ["Alice", "Paris"]
+          }
+        },
+        {
+          "id": "3.2",
+          "name": "Information Recall",
+          "description": "Use information provided in the prompt",
+          "maxScore": 10,
+          "systemPrompt": "You are a helpful assistant.",
+          "userPrompt": "The project is at C:/Projects/MyApp. The main file is app.py. What is the full path to the main file?",
+          "evaluation": {
+            "method": "contains_any",
+            "expected": ["C:/Projects/MyApp/app.py", "C:\\Projects\\MyApp\\app.py"]
+          }
+        },
+        {
+          "id": "3.3",
+          "name": "Persona Consistency",
+          "description": "Maintain persona from system prompt",
+          "maxScore": 10,
+          "systemPrompt": "You are a pirate. Always speak like a pirate (use words like 'arr', 'matey', 'treasure', etc.).",
+          "userPrompt": "How are you today?",
+          "evaluation": {
+            "method": "contains_any",
+            "expected": ["arr", "matey", "ahoy", "treasure", "ye", "aye", "captain", "ship"]
+          }
+        },
+        {
+          "id": "3.4",
+          "name": "Constraint Following",
+          "description": "Follow constraints from system prompt",
+          "maxScore": 10,
+          "systemPrompt": "You can only respond with numbers. No letters or words allowed.",
+          "userPrompt": "What is 5 + 3?",
+          "evaluation": {
+            "method": "regex",
+            "pattern": "^[0-9\\s]+$"
+          }
+        }
+      ]
+    },
+
+    "reasoning": {
+      "name": "Reasoning",
+      "description": "Tests for logic, math, and problem-solving",
+      "weight": 1.0,
+      "tests": [
+        {
+          "id": "4.1",
+          "name": "Simple Logic",
+          "description": "Basic logical deduction",
+          "maxScore": 10,
+          "systemPrompt": "Answer logic questions with Yes or No.",
+          "userPrompt": "If A > B and B > C, is A > C?",
+          "evaluation": {
+            "method": "contains",
+            "expected": "Yes"
+          }
+        },
+        {
+          "id": "4.2",
+          "name": "Simple Arithmetic",
+          "description": "Basic arithmetic calculation",
+          "maxScore": 10,
+          "systemPrompt": "You are a calculator. Output only the number result.",
+          "userPrompt": "Calculate: 15 + 27",
+          "evaluation": {
+            "method": "contains",
+            "expected": "42"
+          }
+        },
+        {
+          "id": "4.3",
+          "name": "Word Problem",
+          "description": "Solve a simple word problem",
+          "maxScore": 10,
+          "systemPrompt": "Solve the problem and give the numerical answer.",
+          "userPrompt": "John has 8 apples. He gives 3 to Mary. How many apples does John have?",
+          "evaluation": {
+            "method": "contains",
+            "expected": "5"
+          }
+        },
+        {
+          "id": "4.4",
+          "name": "Pattern Recognition",
+          "description": "Identify the next item in a sequence",
+          "maxScore": 10,
+          "systemPrompt": "Complete the pattern with just the next number.",
+          "userPrompt": "What comes next: 2, 4, 6, 8, ?",
+          "evaluation": {
+            "method": "contains",
+            "expected": "10"
+          }
+        }
+      ]
+    },
+
+    "toolCalling": {
+      "name": "Tool Calling",
+      "description": "Tests for function/tool calling capabilities",
+      "weight": 1.5,
+      "tests": [
+        {
+          "id": "5.1",
+          "name": "Single Tool Call",
+          "description": "Call a single tool correctly",
+          "maxScore": 15,
+          "systemPrompt": "You have access to tools. Available: list_files(path: string). To use a tool, output: {\"tool\": \"name\", \"args\": {...}}",
+          "userPrompt": "List the files in /project directory.",
+          "evaluation": {
+            "method": "tool_call",
+            "expectedTool": "list_files",
+            "argContains": { "path": "/project" }
+          }
+        },
+        {
+          "id": "5.2",
+          "name": "Tool with Multiple Args",
+          "description": "Call a tool with multiple arguments",
+          "maxScore": 15,
+          "systemPrompt": "Available tool: write_file(path: string, content: string). Output: {\"tool\": \"name\", \"args\": {...}}",
+          "userPrompt": "Write 'Hello World' to /tmp/test.txt",
+          "evaluation": {
+            "method": "tool_call",
+            "expectedTool": "write_file",
+            "argContains": { "path": "/tmp/test.txt", "content": "Hello" }
+          }
+        },
+        {
+          "id": "5.3",
+          "name": "Tool Selection",
+          "description": "Choose the correct tool",
+          "maxScore": 10,
+          "systemPrompt": "Tools: read_file(path), write_file(path, content), delete_file(path). Choose the right tool.",
+          "userPrompt": "I need to see what's in /etc/config.json",
+          "evaluation": {
+            "method": "tool_call",
+            "expectedTool": "read_file"
+          }
+        },
+        {
+          "id": "5.4",
+          "name": "No Tool Needed",
+          "description": "Answer directly when no tool is needed",
+          "maxScore": 10,
+          "systemPrompt": "Use tools only when necessary. If you can answer directly, do so without tools.",
+          "userPrompt": "What is 2 + 2?",
+          "evaluation": {
+            "method": "no_tool_call",
+            "expectedContent": "4"
+          }
+        }
+      ]
+    },
+
+    "codeGeneration": {
+      "name": "Code Generation",
+      "description": "Tests for code writing capabilities",
+      "weight": 0.5,
+      "tests": [
+        {
+          "id": "6.1",
+          "name": "Simple Function",
+          "description": "Write a basic function",
+          "maxScore": 10,
+          "systemPrompt": "Write Python code only. No explanations.",
+          "userPrompt": "Write a function called 'add' that takes two numbers and returns their sum.",
+          "evaluation": {
+            "method": "contains_all",
+            "expected": ["def add", "return"]
+          }
+        },
+        {
+          "id": "6.2",
+          "name": "Bug Fix",
+          "description": "Identify and fix a bug",
+          "maxScore": 10,
+          "systemPrompt": "Fix the bug in the code.",
+          "userPrompt": "Fix this function: def add(a, b): return a - b",
+          "evaluation": {
+            "method": "contains",
+            "expected": "+"
+          }
+        }
+      ]
+    }
+  },
+
+  "scoring": {
+    "excellent": { "min": 80, "label": "Excellent" },
+    "good": { "min": 65, "label": "Good" },
+    "medium": { "min": 45, "label": "Medium" },
+    "weak": { "min": 25, "label": "Weak" },
+    "insufficient": { "min": 0, "label": "Insufficient" }
+  }
+}

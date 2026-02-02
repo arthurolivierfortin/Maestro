@@ -85,7 +85,9 @@
       "Bash(move \"C:\\\\Meastro\\\\docs\\\\FOUNDRY-WORKFLOW.md\" \"C:\\\\Meastro\\\\docs\\\\guides\\\\FOUNDRY-DETAILED-GUIDE.md\")",
       "Bash(dotnet clean:*)",
       "Bash(node:*)",
-      "WebSearch"
+      "WebSearch",
+      "Bash(Select-Object -First 50)",
+      "Bash(MAESTRO_GLOBAL_BLOCKS_PATH=\"C:/Meastro/blocks\" MAESTRO_REPO_ROOT=\"C:/Meastro\" dotnet run:*)"
     ]
   }
 }

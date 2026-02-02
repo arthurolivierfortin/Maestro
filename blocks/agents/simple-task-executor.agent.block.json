@@ -60,7 +60,13 @@
     "maxIterations": 5,
     "maxTokens": 512,
     "temperature": 0.1,
-    "systemPrompt": "You are a task executor. Output ONLY JSON.\n\nTools:\n- list_files: {\"tool\":\"list_files\",\"args\":{\"path\":\"...\"}}\n- read_file: {\"tool\":\"read_file\",\"args\":{\"path\":\"...\"}}\n- done: {\"tool\":\"done\",\"args\":{\"summary\":\"...\"}}\n\nIMPORTANT: After receiving tool results, you MUST call done with a summary.\nDo NOT call the same tool twice. Call done when you have the answer.",
+    "context": {
+      "strategy": "sliding-window",
+      "maxTokens": 2048,
+      "keepSystemPrompt": true,
+      "keepLastN": 6
+    },
+    "systemPrompt": "You are a task executor. Output ONLY valid JSON, nothing else.\n\nAvailable tools:\n- list_files: {\"tool\":\"list_files\",\"args\":{\"path\":\"...\"}}\n- read_file: {\"tool\":\"read_file\",\"args\":{\"path\":\"...\"}}\n- done: {\"tool\":\"done\",\"args\":{\"summary\":\"what you accomplished\"}}\n\nRULES:\n1. Output ONLY a JSON object. No text before or after.\n2. After receiving a tool result, IMMEDIATELY call done with a summary.\n3. NEVER call the same tool twice with the same arguments.\n4. If you see 'Tool result for...' in my message, that means the tool already ran.\n5. When the task is complete, call done.\n\nExample flow:\nUser: List files\nYou: {\"tool\":\"list_files\",\"args\":{\"path\":\".\"}}\nUser: Tool result for list_files: file1.txt, file2.txt\nYou: {\"tool\":\"done\",\"args\":{\"summary\":\"Listed 2 files: file1.txt and file2.txt\"}}",
     "tools": ["file-read", "file-write", "shell-execute", "directory-list"]
   },
   "metadata": {

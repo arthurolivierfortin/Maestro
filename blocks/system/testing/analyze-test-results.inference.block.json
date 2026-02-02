@@ -1,0 +1,52 @@
+{
+  "id": "analyze-test-results",
+  "name": "Analyze Test Results",
+  "blockType": "inference",
+  "version": "1.0.0",
+  "description": "Analyzes model test results and generates qualitative insights including strengths, weaknesses, quirks, and recommendations. Uses a single LLM call for efficient token usage.",
+  "isAtomic": true,
+  "capabilities": ["analysis", "evaluation"],
+
+  "inputs": [
+    {
+      "id": "testResults",
+      "name": "Test Results",
+      "type": "object",
+      "required": true,
+      "description": "Raw test results from run-model-tests block"
+    },
+    {
+      "id": "modelId",
+      "name": "Model ID",
+      "type": "string",
+      "required": true,
+      "description": "The model that was tested"
+    }
+  ],
+
+  "outputs": [
+    {
+      "id": "analysis",
+      "name": "Qualitative Analysis",
+      "type": "object",
+      "description": "Structured analysis with strengths, weaknesses, quirks, recommendations"
+    }
+  ],
+
+  "config": {
+    "systemPrompt": "You are an expert AI model evaluator. Analyze the provided test results and generate a structured qualitative analysis.\n\nYou MUST output ONLY valid JSON with this exact structure:\n{\n  \"strengths\": [{\"area\": \"string\", \"description\": \"string\", \"evidence\": \"string\"}],\n  \"weaknesses\": [{\"area\": \"string\", \"description\": \"string\", \"evidence\": \"string\", \"severity\": \"critical|major|minor\"}],\n  \"quirks\": [{\"behavior\": \"string\", \"workaround\": \"string\"}],\n  \"recommendations\": {\n    \"bestUseCases\": [\"string\"],\n    \"avoidFor\": [\"string\"],\n    \"suggestedConfig\": {\"temperature\": number, \"maxTokens\": number},\n    \"maestroCompatibility\": {\"forAgents\": \"Excellent|Good|Limited|NotRecommended\", \"forInference\": \"...\", \"forEvaluation\": \"...\"}\n  },\n  \"overallAssessment\": \"string (2-3 sentences summary)\"\n}\n\nBase your analysis on:\n1. Category scores and which tests passed/failed\n2. Response patterns observed\n3. Capability assessments\n4. Performance metrics",
+    "userPromptTemplate": "Analyze these test results for model {{modelId}}:\n\nSummary:\n- Total Score: {{testResults.summary.totalScore}}/{{testResults.summary.maxScore}} ({{testResults.summary.percentage}}%)\n- Classification: {{testResults.summary.classification}}\n- Passed: {{testResults.summary.passedTests}}, Failed: {{testResults.summary.failedTests}}\n\nCategory Scores:\n{{#each testResults.summary.categoryScores}}\n- {{@key}}: {{this.percentage}}%\n{{/each}}\n\nCapabilities:\n{{#each testResults.capabilities}}\n- {{@key}}: {{this.quality}} (confidence: {{this.confidence}})\n{{/each}}\n\nFailed Tests:\n{{#each testResults.categories}}\n{{#each this.tests}}\n{{#unless this.passed}}\n- {{this.testId}} {{this.name}}: Got partial credit {{this.evaluation.partialCredit}}\n{{/unless}}\n{{/each}}\n{{/each}}\n\nProvide your analysis as JSON only.",
+    "model": "current",
+    "temperature": 0.3,
+    "maxTokens": 1000,
+    "responseFormat": "json"
+  },
+
+  "metadata": {
+    "system": true,
+    "category": "testing",
+    "canOverride": true,
+    "author": "Maestro Team",
+    "overrideInstructions": "Clone to customize the analysis prompt or add specific evaluation criteria."
+  }
+}

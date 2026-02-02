@@ -1,0 +1,32 @@
+﻿{
+    "total_score":  17,
+    "max_score":  100,
+    "classification":  "Insufficient",
+    "tests":  {
+                  "4.1_logic":  "",
+                  "6.2_concise":  "",
+                  "1.1_json_simple":  "",
+                  "3.2_prompt_info":  "",
+                  "4.2_math":  "",
+                  "1.3_tool_call":  "",
+                  "3.1_context":  "Your name is Alice, and you live in Paris.",
+                  "2.4_extraction":  "",
+                  "2.1_instructions":  "",
+                  "5.1_agent_flow":  "{\n  \"tool\": \"list_files\",\n  \"args\": {\n    \"path\": \"/project\"\n  }\n}"
+              },
+    "model":  "HuggingFaceTB/SmolLM2-1.7B-Instruct",
+    "date":  "2026-01-31 19:08:47",
+    "scores":  {
+                   "1.1":  0,
+                   "6.2":  0,
+                   "1.3":  0,
+                   "4.2":  0,
+                   "3.1":  10,
+                   "4.1":  0,
+                   "5.1":  7,
+                   "3.2":  0,
+                   "2.4":  0,
+                   "2.1":  0
+               },
+    "percentage":  17
+}

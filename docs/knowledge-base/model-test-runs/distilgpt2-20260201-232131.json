@@ -1,0 +1,146 @@
+﻿{
+    "capabilities":  {
+                         "jsonOutput":  {
+                                            "quality":  "poor",
+                                            "confidence":  0,
+                                            "supported":  false
+                                        },
+                         "instructionFollowing":  {
+                                                      "quality":  "poor",
+                                                      "confidence":  0,
+                                                      "supported":  false
+                                                  },
+                         "contextMemory":  {
+                                               "quality":  "poor",
+                                               "confidence":  0,
+                                               "supported":  false
+                                           },
+                         "toolCalling":  {
+                                             "quality":  "none",
+                                             "confidence":  0.1,
+                                             "supported":  false
+                                         },
+                         "reasoning":  {
+                                           "quality":  "poor",
+                                           "confidence":  0,
+                                           "supported":  false
+                                       }
+                     },
+    "meta":  {
+                 "tester":  "Maestro Model Tester",
+                 "timestamp":  "2026-02-02T04:21:31.7590637Z",
+                 "runId":  "distilgpt2-20260201-232131",
+                 "duration":  {
+                                  "perTestAvgMs":  3133,
+                                  "totalMs":  74563
+                              },
+                 "templateVersion":  "1.0.0",
+                 "environment":  {
+                                     "gpu":  "",
+                                     "vramAvailable":  "",
+                                     "platform":  "Win32NT",
+                                     "llmProviderUrl":  "http://localhost:8000"
+                                 },
+                 "testId":  "test-20260201-232131"
+             },
+    "performance":  {
+                        "totalTokensGenerated":  22,
+                        "avgResponseTimeMs":  3133,
+                        "tokensPerSecond":  0.3
+                    },
+    "model":  {
+                  "provider":  "distilgpt2",
+                  "displayName":  "distilgpt2",
+                  "id":  "distilgpt2"
+              },
+    "summary":  {
+                    "maxScore":  230,
+                    "failedTests":  22,
+                    "categoryScores":  {
+                                           "instructionFollowing":  {
+                                                                        "score":  0,
+                                                                        "maxScore":  40,
+                                                                        "percentage":  0
+                                                                    },
+                                           "outputFormat":  {
+                                                                "score":  0,
+                                                                "maxScore":  40,
+                                                                "percentage":  0
+                                                            },
+                                           "reasoning":  {
+                                                             "score":  0,
+                                                             "maxScore":  40,
+                                                             "percentage":  0
+                                                         },
+                                           "contextMemory":  {
+                                                                 "score":  0,
+                                                                 "maxScore":  40,
+                                                                 "percentage":  0
+                                                             },
+                                           "toolCalling":  {
+                                                               "score":  5,
+                                                               "maxScore":  50,
+                                                               "percentage":  10
+                                                           },
+                                           "codeGeneration":  {
+                                                                  "score":  0,
+                                                                  "maxScore":  20,
+                                                                  "percentage":  0
+                                                              }
+                                       },
+                    "totalScore":  5,
+                    "percentage":  2,
+                    "passedTests":  0,
+                    "classification":  "Insufficient"
+                },
+    "categories":  {
+                       "instructionFollowing":  {
+                                                    "tests":  [
+
+                                                              ],
+                                                    "score":  0,
+                                                    "maxScore":  40,
+                                                    "percentage":  0
+                                                },
+                       "outputFormat":  {
+                                            "tests":  [
+
+                                                      ],
+                                            "score":  0,
+                                            "maxScore":  40,
+                                            "percentage":  0
+                                        },
+                       "reasoning":  {
+                                         "tests":  [
+
+                                                   ],
+                                         "score":  0,
+                                         "maxScore":  40,
+                                         "percentage":  0
+                                     },
+                       "contextMemory":  {
+                                             "tests":  [
+
+                                                       ],
+                                             "score":  0,
+                                             "maxScore":  40,
+                                             "percentage":  0
+                                         },
+                       "toolCalling":  {
+                                           "tests":  [
+
+                                                     ],
+                                           "score":  5,
+                                           "maxScore":  50,
+                                           "percentage":  10
+                                       },
+                       "codeGeneration":  {
+                                              "tests":  [
+
+                                                        ],
+                                              "score":  0,
+                                              "maxScore":  20,
+                                              "percentage":  0
+                                          }
+                   }
+}

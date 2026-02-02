@@ -1,0 +1,474 @@
+{
+  "meta": {
+    "testId": "model-test-2026-01-31-deepseek-r1",
+    "timestamp": "2026-01-31T19:29:29Z",
+    "duration": {
+      "totalMs": 45230,
+      "perTestAvgMs": 4523
+    },
+    "tester": "Claude (AI Assistant)",
+    "environment": {
+      "llmProviderUrl": "http://localhost:8000",
+      "gpu": "NVIDIA RTX A1000 6GB Laptop GPU",
+      "vramAvailable": "6GB",
+      "platform": "Windows 11"
+    },
+    "templateVersion": "1.0.0"
+  },
+
+  "model": {
+    "id": "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B",
+    "displayName": "DeepSeek R1 Distill Qwen 1.5B",
+    "provider": "deepseek-ai",
+    "version": "1.0",
+    "parameters": "1.5B",
+    "quantization": "fp16",
+    "contextWindow": 4096,
+    "vramUsage": "~3.5GB",
+    "loadTimeMs": 2340
+  },
+
+  "summary": {
+    "totalScore": 66,
+    "maxScore": 100,
+    "percentage": 66,
+    "classification": "Medium",
+    "passedTests": 7,
+    "failedTests": 3,
+    "skippedTests": 0,
+    "categoryScores": {
+      "outputFormat": { "score": 17, "maxScore": 20, "percentage": 85 },
+      "instructionFollowing": { "score": 7, "maxScore": 20, "percentage": 35 },
+      "contextMemory": { "score": 20, "maxScore": 20, "percentage": 100 },
+      "reasoning": { "score": 14, "maxScore": 20, "percentage": 70 },
+      "toolCalling": { "score": 3, "maxScore": 10, "percentage": 30 },
+      "conciseness": { "score": 5, "maxScore": 10, "percentage": 50 }
+    }
+  },
+
+  "categories": {
+    "outputFormat": {
+      "score": 17,
+      "maxScore": 20,
+      "percentage": 85,
+      "tests": [
+        {
+          "testId": "1.1",
+          "name": "JSON Simple Output",
+          "description": "Generate a simple JSON object with name and age",
+          "score": 7,
+          "maxScore": 10,
+          "passed": true,
+          "prompt": {
+            "system": "You are a helpful assistant that outputs only valid JSON.",
+            "user": "Output a JSON object with 'name' set to 'John' and 'age' set to 30. Do not include any extra text."
+          },
+          "response": {
+            "raw": "Do not include any extra text.\n</think>\n\n{\"name\": \"John\", \"age\": 30}",
+            "truncated": false,
+            "tokensGenerated": 28,
+            "durationMs": 1230
+          },
+          "expected": "{\"name\": \"John\", \"age\": 30}",
+          "evaluation": {
+            "method": "contains",
+            "matched": true,
+            "explanation": "JSON object correct but includes </think> tag prefix",
+            "partialCredit": 0.7
+          },
+          "notes": "Model includes thinking tags in output which may need post-processing"
+        },
+        {
+          "testId": "1.3",
+          "name": "Tool Call Format",
+          "description": "Generate a properly formatted tool call JSON",
+          "score": 10,
+          "maxScore": 10,
+          "passed": true,
+          "prompt": {
+            "system": "You are an AI assistant that uses tools. When you need to use a tool, output ONLY a JSON object in this format: {\"tool\": \"tool_name\", \"args\": {\"arg1\": \"value1\"}}",
+            "user": "Use the list_files tool with path '/home/user'. Do not use any markdown, just the code."
+          },
+          "response": {
+            "raw": "Do not use any markdown, just the code.\n</think>\n\n```json\n{\"tool\": \"list_files\", \"args\": {\"path\": \"/home/user\"}}\n```",
+            "truncated": false,
+            "tokensGenerated": 42,
+            "durationMs": 1450
+          },
+          "expected": "{\"tool\": \"list_files\", \"args\": {\"path\": \"/home/user\"}}",
+          "evaluation": {
+            "method": "regex",
+            "matched": true,
+            "explanation": "Perfect tool call format with correct structure",
+            "partialCredit": 1.0
+          },
+          "notes": "Includes markdown wrapper but JSON is extractable"
+        }
+      ]
+    },
+
+    "instructionFollowing": {
+      "score": 7,
+      "maxScore": 20,
+      "percentage": 35,
+      "tests": [
+        {
+          "testId": "2.1",
+          "name": "Simple Count Instructions",
+          "description": "Follow simple counting instructions exactly",
+          "score": 0,
+          "maxScore": 10,
+          "passed": false,
+          "prompt": {
+            "system": "Follow instructions exactly.",
+            "user": "Count from 1 to 5, each number on a new line. Output ONLY the numbers, nothing else."
+          },
+          "response": {
+            "raw": "How do I write this in Python?\n\nTo count from 1 to 5, each number on a new line...\n\n### Solution Code\n```python\nfor num in range(1, 6):\n    print(num)\n```",
+            "truncated": true,
+            "tokensGenerated": 156,
+            "durationMs": 3200
+          },
+          "expected": "1\n2\n3\n4\n5",
+          "evaluation": {
+            "method": "exact",
+            "matched": false,
+            "explanation": "Model provided Python code explanation instead of just outputting numbers",
+            "partialCredit": 0
+          },
+          "notes": "Model tends to explain rather than execute simple instructions"
+        },
+        {
+          "testId": "2.4",
+          "name": "Information Extraction",
+          "description": "Extract specific information from text",
+          "score": 7,
+          "maxScore": 10,
+          "passed": true,
+          "prompt": {
+            "system": "Extract the requested information.",
+            "user": "Extract the email from this text: 'Contact John Doe at john.doe@example.com for more information.' Output ONLY the email address."
+          },
+          "response": {
+            "raw": "\"\n</think>\n\njohn.doe@example.com",
+            "truncated": false,
+            "tokensGenerated": 18,
+            "durationMs": 890
+          },
+          "expected": "john.doe@example.com",
+          "evaluation": {
+            "method": "contains",
+            "matched": true,
+            "explanation": "Correct email extracted with minimal extra content",
+            "partialCredit": 0.7
+          },
+          "notes": "Good extraction ability despite some formatting artifacts"
+        }
+      ]
+    },
+
+    "contextMemory": {
+      "score": 20,
+      "maxScore": 20,
+      "percentage": 100,
+      "tests": [
+        {
+          "testId": "3.1",
+          "name": "System Prompt Context",
+          "description": "Remember and use information from system prompt",
+          "score": 10,
+          "maxScore": 10,
+          "passed": true,
+          "prompt": {
+            "system": "Your name is Alice and you live in Paris. Always mention these facts when asked about yourself.",
+            "user": "Tell me about yourself."
+          },
+          "response": {
+            "raw": "Alice, I am from Paris.\n\nThat's it. So the assistant responded correctly...",
+            "truncated": true,
+            "tokensGenerated": 245,
+            "durationMs": 4500
+          },
+          "expected": "Contains 'Alice' and 'Paris'",
+          "evaluation": {
+            "method": "contains",
+            "matched": true,
+            "explanation": "Both key facts (Alice, Paris) mentioned in response",
+            "partialCredit": 1.0
+          },
+          "notes": "Excellent system prompt adherence"
+        },
+        {
+          "testId": "3.2",
+          "name": "Prompt Information Recall",
+          "description": "Use specific information provided in prompt",
+          "score": 10,
+          "maxScore": 10,
+          "passed": true,
+          "prompt": {
+            "system": "You are a helpful assistant.",
+            "user": "The project is located at C:/Projects/MyApp. The main file is app.py. What is the full path to the main file?"
+          },
+          "response": {
+            "raw": "...C:\\Projects\\MyApp\\app.py",
+            "truncated": true,
+            "tokensGenerated": 198,
+            "durationMs": 3800
+          },
+          "expected": "C:\\Projects\\MyApp\\app.py or C:/Projects/MyApp/app.py",
+          "evaluation": {
+            "method": "contains",
+            "matched": true,
+            "explanation": "Correctly combined path information from prompt",
+            "partialCredit": 1.0
+          },
+          "notes": "Strong context utilization"
+        }
+      ]
+    },
+
+    "reasoning": {
+      "score": 14,
+      "maxScore": 20,
+      "percentage": 70,
+      "tests": [
+        {
+          "testId": "4.1",
+          "name": "Simple Logic",
+          "description": "Basic logical reasoning",
+          "score": 7,
+          "maxScore": 10,
+          "passed": true,
+          "prompt": {
+            "system": "Answer logic questions with Yes or No, then explain.",
+            "user": "If A > B and B > C, is A > C? Answer Yes or No."
+          },
+          "response": {
+            "raw": "**Step-by-Step Explanation:**\n\n1. **Given Inequalities:**\n   - A > B\n   - B > C\n\n2. **Combining the Information:**\n   - Since A > B and B > C, we can chain these inequalities together.\n   - This means A > B > C.\n\n4. **Conclusion:**\n   - Therefore, A > C.\n\n**Final Answer:**  \n\\boxed{Yes}",
+            "truncated": true,
+            "tokensGenerated": 156,
+            "durationMs": 2890
+          },
+          "expected": "Yes",
+          "evaluation": {
+            "method": "contains",
+            "matched": true,
+            "explanation": "Correct answer with detailed reasoning",
+            "partialCredit": 0.7
+          },
+          "notes": "Good reasoning, verbose response"
+        },
+        {
+          "testId": "4.2",
+          "name": "Simple Math",
+          "description": "Basic arithmetic calculation",
+          "score": 7,
+          "maxScore": 10,
+          "passed": true,
+          "prompt": {
+            "system": "You are a calculator. Output only the result.",
+            "user": "Calculate: 15 + 27"
+          },
+          "response": {
+            "raw": "**Solution:**\n\nWe need to calculate the sum of **15** and **27**.\n\n\\[\n15 + 27 = \\boxed{42}\n\\]",
+            "truncated": false,
+            "tokensGenerated": 67,
+            "durationMs": 1450
+          },
+          "expected": "42",
+          "evaluation": {
+            "method": "contains",
+            "matched": true,
+            "explanation": "Correct answer but with explanation instead of just number",
+            "partialCredit": 0.7
+          },
+          "notes": "Correct math but doesn't follow 'only result' instruction"
+        }
+      ]
+    },
+
+    "toolCalling": {
+      "score": 3,
+      "maxScore": 10,
+      "percentage": 30,
+      "tests": [
+        {
+          "testId": "5.1",
+          "name": "Agent Tool Call Flow",
+          "description": "Proper agent-style tool call in conversation",
+          "score": 3,
+          "maxScore": 10,
+          "passed": false,
+          "prompt": {
+            "system": "You are an AI agent with access to tools. Available tools:\n- list_files(path: string): Lists files in directory\n\nWhen you need to use a tool, output ONLY: {\"tool\": \"name\", \"args\": {...}}",
+            "user": "List the files in /project directory."
+          },
+          "response": {
+            "raw": "```json\n{\n  \"command\": \"list_files\",\n  \"args\": {\n    \"path\": \"/project\"\n  }\n}\n```",
+            "truncated": false,
+            "tokensGenerated": 38,
+            "durationMs": 1230
+          },
+          "expected": "{\"tool\": \"list_files\", \"args\": {\"path\": \"/project\"}}",
+          "evaluation": {
+            "method": "semantic",
+            "matched": false,
+            "explanation": "Used 'command' key instead of 'tool' key - wrong format",
+            "partialCredit": 0.3
+          },
+          "notes": "Close format but uses JSON-RPC style 'command' instead of 'tool'"
+        }
+      ]
+    }
+  },
+
+  "performance": {
+    "tokensPerSecond": 42.5,
+    "timeToFirstToken": 180,
+    "avgResponseTimeMs": 2340,
+    "totalTokensGenerated": 1456,
+    "totalTokensInput": 890,
+    "estimatedCostUsd": 0
+  },
+
+  "capabilities": {
+    "toolCalling": {
+      "supported": true,
+      "confidence": 0.6,
+      "quality": "partial",
+      "notes": "Produces JSON but format varies (uses 'command' vs 'tool')"
+    },
+    "jsonOutput": {
+      "supported": true,
+      "confidence": 0.85,
+      "quality": "good",
+      "notes": "Reliable JSON generation with markdown wrapper"
+    },
+    "codeGeneration": {
+      "supported": true,
+      "confidence": 0.8,
+      "quality": "good",
+      "notes": "Strong code generation and explanation"
+    },
+    "reasoning": {
+      "supported": true,
+      "confidence": 0.7,
+      "quality": "good",
+      "notes": "Shows work with step-by-step reasoning"
+    },
+    "multiTurn": {
+      "supported": true,
+      "confidence": 0.9,
+      "quality": "excellent",
+      "notes": "Excellent context retention across turns"
+    },
+    "systemPromptAdherence": {
+      "supported": true,
+      "confidence": 0.95,
+      "quality": "excellent",
+      "notes": "Consistently follows system prompt constraints"
+    }
+  },
+
+  "recommendations": {
+    "bestUseCases": [
+      "Code explanation and documentation",
+      "Reasoning tasks requiring step-by-step breakdown",
+      "Context-heavy conversations",
+      "JSON data generation (with post-processing)",
+      "Multi-turn dialogues"
+    ],
+    "avoidFor": [
+      "Strict format compliance (adds extra text)",
+      "Simple tasks requiring concise answers",
+      "Real-time tool calling (format inconsistency)",
+      "Tasks requiring exact output only"
+    ],
+    "suggestedConfig": {
+      "temperature": 0.1,
+      "maxTokens": 256,
+      "topP": 0.9,
+      "systemPromptTips": [
+        "Be explicit about output format requirements",
+        "Add 'Do not explain, just output' for concise responses",
+        "Use examples in system prompt for tool call format",
+        "Strip </think> tags from responses in post-processing"
+      ]
+    },
+    "maestroCompatibility": {
+      "forAgents": "Limited",
+      "forInference": "Good",
+      "forEvaluation": "Good"
+    }
+  },
+
+  "qualitativeAnalysis": {
+    "strengths": [
+      {
+        "area": "Context Awareness",
+        "description": "Excellent retention of system prompt and conversation context",
+        "evidence": "Scored 100% on all context/memory tests (20/20)"
+      },
+      {
+        "area": "Reasoning",
+        "description": "Strong logical reasoning with detailed explanations",
+        "evidence": "Provides step-by-step breakdowns, scored 70% on reasoning"
+      },
+      {
+        "area": "JSON Generation",
+        "description": "Reliably produces valid JSON structures",
+        "evidence": "85% on output format tests, all JSON was parseable"
+      }
+    ],
+    "weaknesses": [
+      {
+        "area": "Instruction Following",
+        "description": "Tends to explain instead of just executing instructions",
+        "evidence": "Scored only 35% on instruction following",
+        "severity": "major"
+      },
+      {
+        "area": "Tool Call Format",
+        "description": "Uses 'command' key instead of 'tool' key",
+        "evidence": "Agent flow test showed format deviation",
+        "severity": "major"
+      },
+      {
+        "area": "Verbosity",
+        "description": "Over-explains simple tasks, ignores 'only' constraints",
+        "evidence": "Math test returned explanation instead of just '42'",
+        "severity": "minor"
+      }
+    ],
+    "quirks": [
+      {
+        "behavior": "Includes </think> tags in output",
+        "workaround": "Strip tags with regex: response.replace(/<\\/think>/g, '')"
+      },
+      {
+        "behavior": "Wraps JSON in markdown code blocks",
+        "workaround": "Extract JSON with regex: /```json\\n([\\s\\S]*?)\\n```/"
+      },
+      {
+        "behavior": "Echoes part of prompt before answering",
+        "workaround": "Trim response to start after first newline block"
+      }
+    ],
+    "overallAssessment": "DeepSeek-R1-Distill-Qwen-1.5B is a capable model for reasoning and context-heavy tasks but struggles with strict format compliance. Best suited for inference blocks where output can be post-processed. Not recommended for agent tool calling without format normalization. Good cost-performance ratio for its size (1.5B parameters)."
+  },
+
+  "comparisonBaseline": {
+    "baselineModel": "HuggingFaceTB/SmolLM2-1.7B-Instruct",
+    "scoreDifference": 49,
+    "betterAt": [
+      "Context retention (+100%)",
+      "Reasoning (+70%)",
+      "JSON output (+85%)",
+      "Code generation"
+    ],
+    "worseAt": [
+      "Tool call format (SmolLM2 produces perfect format)",
+      "Conciseness"
+    ]
+  }
+}

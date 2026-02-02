@@ -19,6 +19,22 @@ Ce document résume toutes les runs de test effectuées pour valider le pipeline
 | 1 | 2026-01-30 | Complété | 20/22 | 2 | 4 (2 corrigés, 1 majeur, 1 mineur) | [RUN-001.md](./runs/RUN-001.md) |
 | 2 | 2026-01-30 | Complété | 25/28 | 3 | 4 (2 corrigés pendant run) | [RUN-002.md](./runs/RUN-002.md) |
 | 3 | 2026-01-30 | Partiel | 5/7 | 2 | **Tool calling FONCTIONNE avec SmolLM2!** | [RUN-003.md](./runs/RUN-003.md) |
+| 4 | 2026-01-31 | Partiel | 6/7 | 1 | **Context block ajouté**, SmolLM2 ignore inputs | [RUN-004.md](./runs/RUN-004.md) |
+
+---
+
+## Tests de Capacités des Modèles
+
+| Model | Score | Classification | Tool Calling | Document |
+|-------|-------|----------------|--------------|----------|
+| DeepSeek-R1-Distill-Qwen-1.5B | 66% | Medium | Oui | [Results](./model-runs/DeepSeek-R1-1.5B-results.json) |
+| Qwen2.5-Coder-3B-Instruct | 53% | Medium | Oui | [Results](./model-runs/Qwen2.5-Coder-3B-results.json) |
+| deepseek-coder-1.3b-instruct | 40% | Weak | Non | [Results](./model-runs/deepseek-coder-1.3B-results.json) |
+| SmolLM2-1.7B-Instruct | 17% | Insufficient | **Format Parfait** | [Results](./model-runs/SmolLM2-1.7B-results.json) |
+| SmolLM2-360M-Instruct | 17% | Insufficient | **Format Parfait** | [Results](./model-runs/SmolLM2-360M-results.json) |
+| distilgpt2 | 0% | Insufficient | Non | [Results](./model-runs/distilgpt2-results.json) |
+
+**Résumé complet :** [MODEL-TESTS-SUMMARY.md](./model-runs/MODEL-TESTS-SUMMARY.md)
 
 ---
 
@@ -27,22 +43,57 @@ Ce document résume toutes les runs de test effectuées pour valider le pipeline
 | Run | # | Problème | Description | Sévérité | Statut | Correction |
 |-----|---|----------|-------------|----------|--------|------------|
 | 1 | 1 | API création block | curl avec JSON config échoue | Mineur | Contourné | Utiliser CLI |
-| 1 | 2 | Agent LLM tool calls | Le modèle deepseek-coder-1.3b ne suit pas format JSON | **Majeur** | Non résolu | Nécessite modèle plus capable |
+| 1 | 2 | Agent LLM tool calls | Le modèle deepseek-coder-1.3b ne suit pas format JSON | **Majeur** | **Résolu** | Utiliser SmolLM2 |
 | 1 | 3 | API block-tests | Endpoint diffère du template | Mineur | Documenté | Template mis à jour |
 | 1 | 4 | Commande CLI | list-blocks vs blocks | Mineur | Corrigé | Utiliser `blocks` |
 | 2 | 1 | isAtomic non lu | FileSystemBlockDiscoveryService ne lisait pas isAtomic | **Majeur** | **Corrigé** | Ajout lecture propriété |
 | 2 | 2 | CLI children | Affichage incorrect des propriétés enfants | Mineur | **Corrigé** | Utiliser resolvedBlockId |
 | 2 | 3 | metrics training-run | Commande non implémentée | Mineur | Non résolu | À implémenter |
-| 2 | 4 | Agent LLM tool calls | Même problème que Run 1 | **Majeur** | Non résolu | Nécessite modèle plus capable |
+| 2 | 4 | Agent LLM tool calls | Même problème que Run 1 | **Majeur** | **Résolu** | Utiliser SmolLM2 |
+| 3 | 1 | Boucles agent | Agent appelle même tool plusieurs fois | Moyenne | **Résolu** | Context management |
+| 4 | 1 | SmolLM2 inputs | Modèle ignore les inputs utilisateur | **Majeur** | Non résolu | Tester modèle plus capable |
 
 ---
 
 ## Progression Globale
 
-**Dernière Run :** RUN-003 (2026-01-30)
-**Statut Global :** Tool calling validé avec SmolLM2-1.7B-Instruct
+**Dernière Run :** RUN-004 (2026-01-31)
+**Statut Global :** Context management implémenté, problème modèle identifié
 
-### ✅ PROBLÈME MAJEUR RÉSOLU (Run #003)
+### ✅ CONTEXT MANAGEMENT AJOUTÉ (Run #004)
+
+Le système de gestion du contexte a été implémenté :
+
+**Bloc Context :**
+- `sliding-window-context` : Garde les N derniers messages dans la limite de tokens
+- Truncation testée : 100 messages → 11 (system + 10 recent)
+- Intégré dans AgentBlockExecutor
+
+**Configuration Agent :**
+```json
+{
+  "config": {
+    "context": {
+      "strategy": "sliding-window",
+      "maxTokens": 2048,
+      "keepSystemPrompt": true,
+      "keepLastN": 6
+    }
+  }
+}
+```
+
+### ⚠️ NOUVEAU PROBLÈME IDENTIFIÉ (Run #004)
+
+Le modèle `SmolLM2-1.7B-Instruct` **ignore les inputs utilisateur** et utilise des patterns mémorisés :
+```
+Input: task="List files in C:/Meastro"
+LLM: {"tool":"list_files","args":{"path":"/home/user/Documents"}}  ← Path incorrect!
+```
+
+**Conclusion :** SmolLM2 produit du JSON valide mais n'est pas assez intelligent pour suivre les instructions.
+
+### ✅ PROBLÈME RÉSOLU (Run #003)
 
 Le modèle `SmolLM2-1.7B-Instruct` **produit du JSON structuré correct** pour les tool calls :
 ```
@@ -66,13 +117,15 @@ Tool call detected: list_files ← Détecté et exécuté!
 - [x] Exécution d'entraînement (itérations réelles)
 - [x] Collection de métriques
 - [x] Sessions de projet (create, start, exec, stop)
-- [x] **Vérification blocks composites (children)** ← Nouveau
-- [x] **Hiérarchie récursive des blocks** ← Nouveau
+- [x] **Vérification blocks composites (children)**
+- [x] **Hiérarchie récursive des blocks**
+- [x] **Context management (sliding-window)** ← Nouveau (Run #004)
+- [x] **Bloc Context exécutable** ← Nouveau (Run #004)
 
 ### Partiellement Fonctionnelles
-- [x] **Exécution d'agents avec appels d'outils** ← RÉSOLU avec SmolLM2-1.7B-Instruct (Run #003)
+- [x] **Exécution d'agents avec appels d'outils** ← Format JSON OK (Run #003)
 - [ ] Métriques par run d'entraînement (commande CLI manquante)
-- [ ] Consistance du modèle (parfois boucles ou format incorrect)
+- [ ] **Instruction following** ← SmolLM2 ignore les inputs (Run #004)
 
 ### Non Testées
 - [ ] Nettoyage (Phase 10 - volontairement ignorée)
@@ -120,6 +173,64 @@ node C:\Meastro\tools\maestro-cli\index.js llm
 
 ---
 
+## Context Management (2026-01-31)
+
+### Architecture
+
+Le système de gestion du contexte permet d'optimiser les conversations LLM :
+
+```
+Messages (input)
+    ↓
+ContextProcessor (sliding-window, summarize, rag, none)
+    ↓
+Messages optimisés (output)
+    ↓
+LLM
+```
+
+### Bloc Context
+
+**ID :** `sliding-window-context`
+**Type :** `context`
+**Stratégie :** Garde les N derniers messages dans la limite de tokens
+
+**Configuration :**
+```json
+{
+  "strategy": "sliding-window",
+  "maxTokens": 4096,
+  "reserveForResponse": 512,
+  "keepSystemPrompt": true,
+  "keepLastN": 10
+}
+```
+
+### Intégration Agent
+
+Les agents utilisent automatiquement le context management via leur config :
+
+```json
+{
+  "config": {
+    "context": {
+      "strategy": "sliding-window",
+      "maxTokens": 2048,
+      "keepLastN": 6
+    }
+  }
+}
+```
+
+### Résultats de Test
+
+| Input | Output | Truncated |
+|-------|--------|-----------|
+| 5 messages | 5 messages | Non |
+| 100 messages | 11 messages | Oui (90 supprimés) |
+
+---
+
 ## Analyse LLM-Provider (2026-01-30)
 
 ### Architecture
@@ -160,6 +271,12 @@ node C:\Meastro\tools\maestro-cli\index.js llm
 | 2026-01-30 | **Correction affichage children dans CLI** | CLI |
 | 2026-01-30 | **Création MAESTRO-PHILOSOPHY.md** | Documentation |
 | 2026-01-30 | **Création AGENT-TOOL-CREATION-GUIDE.md** | Documentation |
+| 2026-01-31 | **Ajout IContextProcessor et implémentations** | Backend |
+| 2026-01-31 | **Ajout SlidingWindowContextProcessor** | Backend |
+| 2026-01-31 | **Ajout ContextBlockExecutor** | Backend |
+| 2026-01-31 | **Intégration context dans AgentBlockExecutor** | Backend |
+| 2026-01-31 | **Ajout bloc sliding-window-context** | Blocks |
+| 2026-01-31 | **Ajout type context dans frontend** | Frontend |
 
 ---
 

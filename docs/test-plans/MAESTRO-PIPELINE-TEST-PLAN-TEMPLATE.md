@@ -1120,6 +1120,49 @@ _Espace pour les recommandations du testeur basées sur les résultats_
 
 ---
 
+# ARBRE DES BLOCKS CRÉÉS/UTILISÉS
+
+> **IMPORTANT** : À la fin de chaque test run, le testeur DOIT documenter l'arbre des blocks
+> créés ou utilisés pendant les tests. Cela permet de visualiser les connexions et la hiérarchie.
+
+**Commande pour générer l'arbre :**
+```bash
+node C:\Meastro\tools\maestro-cli\index.js children {WORKFLOW_ID}
+```
+
+**Arbre des blocks :**
+```
+[Coller ici la sortie de la commande children ou dessiner manuellement l'arbre]
+
+Exemple de format :
+┌─────────────────────────────────────────┐
+│ Workflow: autonomous-development        │
+├─────────────────────────────────────────┤
+│ ├── Tool: git-status                    │
+│ ├── Tool: directory-list                │
+│ ├── Agent: simple-task-executor         │
+│ │   ├── (uses) Tool: file-read          │
+│ │   ├── (uses) Tool: file-write         │
+│ │   └── (uses) Tool: shell-execute      │
+│ ├── Tool: git-diff                      │
+│ └── Decision: validate-result           │
+└─────────────────────────────────────────┘
+```
+
+**Blocks créés pendant ce test :**
+| Block ID | Type | Parent | Description |
+|----------|------|--------|-------------|
+| | | | |
+| | | | |
+
+**Connexions entre blocks :**
+| Source Block | Port | Target Block | Port |
+|--------------|------|--------------|------|
+| | | | |
+| | | | |
+
+---
+
 # APPROBATION
 
 **Testeur :**

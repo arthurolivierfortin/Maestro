@@ -1,0 +1,32 @@
+﻿{
+    "total_score":  0,
+    "max_score":  100,
+    "classification":  "Insufficient",
+    "tests":  {
+                  "4.1_logic":  "The answer to this question has been answered in the past. The first time I asked a friend about it was when he said that his wife had died of cancer after she left her husband\u0027s house on July 1st 2012 (the day before my death). He then added that there were no other reasons for why they didn\u0027t have their own children at home because of illness. This prompted me back to ask if we could find out what happened next: What caused them to die from breast cancer? And how did you know who killed him?",
+                  "6.2_concise":  "The first thing I want to say about this game, and the second one that will be a part of my life for years to come, is how much fun it has been! It\u0027s not just an RPG but also something you can play with in your own way as well! The story takes place at different times throughout the year (or even during each season) so if there are any questions or concerns regarding what happens next, please let me know below!",
+                  "1.1_json_simple":  "The following code is generated from an example file that contains all of the key values in this case, which will be used to generate one or more data for each user on your website using JavaScript as well. The output format can also be found here .",
+                  "3.2_prompt_info":  "I have a few things I want to do:\n1) Create an app that will run on my phone and use it as your home screen, or if you are using Windows Phone 8 (or iOS 7). This can be done by running this command in /home/myapp.py . In order for me to create something like this, we need to add some code from our App Store so that all of the apps work together properly. If there\u0027s one thing missing here, let\u0027s just make sure everything works correctly!",
+                  "4.2_math":  "The output is a function that returns an integer value, and it can be used to calculate its values using this method in order to compute all of the parameters for each parameter (i.e., if you want to use more than one argument). The input will also have two arguments which are passed as inputs into the array or outputs from them via either \u0027input\u0027 or \u0027output\u0027 . This means we need to specify what type of data should be sent out by any given variable at once before passing on these variables back to us! If your application has multiple functions available with different types of code, then there\u0027s no reason to worry about having many other methods running concurrently without needing to run every time they\u0027re called - just simply add some extra bit of information when needed so that our program runs faster while still being able\u0027t get started again.",
+                  "1.3_tool_call":  "The following is an example of how you can use this command in your application using Python 3 or more (or any other language). The above code will be used for all applications that require it and are not required to run on Windows 10 devices running Linux OS X 7 or higher. You may also want to add some additional commands such as -p-help , which allows you to specify what tools should work when compiling scripts from source files into executable file formats like .txt or .zip. For those who don\u0027t have access to these programs, they might need to install them manually before installing their own program!",
+                  "3.1_context":  "My first job was to help the people who were affected by this attack, but it took a while for me to get back on track. It wasn\u0027t until after that we started working together as an organization called \"The People of France\". We had been doing our best to keep everyone safe from attacks like these before they happened. But now there are more than just those things happening around us all over the world - so much better!",
+                  "2.4_extraction":  "The following is a list of emails sent to me by my friend in response to an e-mail I received on June 6th 2016 (I was not able to reach him directly). The message contains no attachments or any other details about what happened that day; it does not contain anything related to how they were handled. If you have questions regarding your account please contact us via our website here .",
+                  "2.1_instructions":  "The first time I saw this was when the last one of my friends had been in town and they were all there for me because we both knew that it would be fun if you could get into your own house with someone who is not just an expert at building things up but also has some experience as well. It\u0027s great how much more people are interested in learning about architecture than ever before!",
+                  "5.1_agent_flow":  "Create an Assistant that will handle all of your tasks and provide you with some useful features like creating new jobs, managing projects, etc."
+              },
+    "model":  "distilgpt2",
+    "date":  "2026-01-31 19:39:46",
+    "scores":  {
+                   "1.1":  0,
+                   "6.2":  0,
+                   "1.3":  0,
+                   "4.2":  0,
+                   "3.1":  0,
+                   "4.1":  0,
+                   "5.1":  0,
+                   "3.2":  0,
+                   "2.4":  0,
+                   "2.1":  0
+               },
+    "percentage":  0
+}

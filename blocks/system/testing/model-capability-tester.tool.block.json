@@ -1,0 +1,109 @@
+{
+  "id": "model-capability-tester",
+  "name": "Model Capability Tester",
+  "blockType": "tool",
+  "version": "1.0.0",
+  "description": "Comprehensive tool to test and document all capabilities of a language model. Generates detailed results for the Maestro Knowledge Base. This tool orchestrates the testing workflow internally while exposing a simple interface.",
+  "isAtomic": false,
+  "capabilities": ["testing", "evaluation", "documentation"],
+
+  "inputs": [
+    {
+      "id": "modelId",
+      "name": "Model ID",
+      "type": "string",
+      "required": true,
+      "description": "HuggingFace model ID or registry identifier (e.g., 'deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B')"
+    },
+    {
+      "id": "categories",
+      "name": "Test Categories",
+      "type": "string",
+      "required": false,
+      "default": "all",
+      "description": "Comma-separated categories to test, or 'all' for complete suite"
+    },
+    {
+      "id": "includeAnalysis",
+      "name": "Include Analysis",
+      "type": "boolean",
+      "required": false,
+      "default": true,
+      "description": "Whether to include LLM-based qualitative analysis"
+    }
+  ],
+
+  "outputs": [
+    {
+      "id": "testResult",
+      "name": "Test Result",
+      "type": "object",
+      "description": "Complete test results following model-test-result schema",
+      "persist": {
+        "enabled": true,
+        "collection": "models",
+        "keyField": "model.id",
+        "titleField": "model.displayName"
+      }
+    },
+    {
+      "id": "summary",
+      "name": "Summary",
+      "type": "object",
+      "description": "Quick summary with score and classification"
+    }
+  ],
+
+  "children": [
+    {
+      "id": "run-tests",
+      "blockRef": "system/testing/run-model-tests",
+      "inputs": {
+        "modelId": "{{modelId}}",
+        "categories": "{{categories}}"
+      }
+    },
+    {
+      "id": "analyze",
+      "blockRef": "system/testing/analyze-test-results",
+      "condition": "{{includeAnalysis}}",
+      "inputs": {
+        "testResults": "{{run-tests.testResults}}",
+        "modelId": "{{modelId}}"
+      }
+    }
+  ],
+
+  "config": {
+    "outputMapping": {
+      "testResult": {
+        "$merge": [
+          "{{run-tests.testResults}}",
+          {
+            "qualitativeAnalysis": "{{analyze.analysis}}"
+          }
+        ]
+      },
+      "summary": {
+        "modelId": "{{modelId}}",
+        "score": "{{run-tests.testResults.summary.totalScore}}",
+        "maxScore": "{{run-tests.testResults.summary.maxScore}}",
+        "percentage": "{{run-tests.testResults.summary.percentage}}",
+        "classification": "{{run-tests.testResults.summary.classification}}",
+        "passedTests": "{{run-tests.testResults.summary.passedTests}}",
+        "failedTests": "{{run-tests.testResults.summary.failedTests}}"
+      }
+    }
+  },
+
+  "metadata": {
+    "system": true,
+    "category": "testing",
+    "canOverride": true,
+    "author": "Maestro Team",
+    "tags": ["testing", "evaluation", "models", "benchmarking"],
+    "documentation": "docs/test-plans/MODEL-CAPABILITY-TEST-TEMPLATE.md",
+    "schemaRef": "docs/knowledge-base/_schemas/model-test-result.schema.json",
+    "overrideInstructions": "Clone this tool to customize the testing workflow, add additional test categories, or modify the output format."
+  }
+}

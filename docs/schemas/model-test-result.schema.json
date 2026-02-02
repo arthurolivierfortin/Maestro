@@ -1,0 +1,297 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ModelTestResult",
+  "description": "Comprehensive model capability test results for Maestro",
+  "type": "object",
+  "required": ["meta", "model", "summary", "categories", "recommendations"],
+  "properties": {
+    "meta": {
+      "type": "object",
+      "description": "Test execution metadata",
+      "required": ["testId", "timestamp", "duration", "tester", "environment"],
+      "properties": {
+        "testId": { "type": "string", "description": "Unique test run identifier" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "duration": {
+          "type": "object",
+          "properties": {
+            "totalMs": { "type": "number" },
+            "perTestAvgMs": { "type": "number" }
+          }
+        },
+        "tester": { "type": "string", "description": "Agent or user who ran the test" },
+        "environment": {
+          "type": "object",
+          "properties": {
+            "llmProviderUrl": { "type": "string" },
+            "gpu": { "type": "string" },
+            "vramAvailable": { "type": "string" },
+            "platform": { "type": "string" }
+          }
+        },
+        "templateVersion": { "type": "string", "description": "Version of test template used" }
+      }
+    },
+
+    "model": {
+      "type": "object",
+      "description": "Model information",
+      "required": ["id", "displayName", "provider"],
+      "properties": {
+        "id": { "type": "string", "description": "HuggingFace or registry ID" },
+        "displayName": { "type": "string" },
+        "provider": { "type": "string" },
+        "version": { "type": "string" },
+        "parameters": { "type": "string", "description": "e.g., 1.5B, 7B, 70B" },
+        "quantization": { "type": "string", "enum": ["fp32", "fp16", "int8", "int4", "none"] },
+        "contextWindow": { "type": "number" },
+        "vramUsage": { "type": "string" },
+        "loadTimeMs": { "type": "number" }
+      }
+    },
+
+    "summary": {
+      "type": "object",
+      "description": "Overall test summary",
+      "required": ["totalScore", "maxScore", "percentage", "classification", "passedTests", "failedTests"],
+      "properties": {
+        "totalScore": { "type": "number" },
+        "maxScore": { "type": "number" },
+        "percentage": { "type": "number" },
+        "classification": {
+          "type": "string",
+          "enum": ["Excellent", "Good", "Medium", "Weak", "Insufficient"]
+        },
+        "passedTests": { "type": "number" },
+        "failedTests": { "type": "number" },
+        "skippedTests": { "type": "number" },
+        "categoryScores": {
+          "type": "object",
+          "description": "Score breakdown by category",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "score": { "type": "number" },
+              "maxScore": { "type": "number" },
+              "percentage": { "type": "number" }
+            }
+          }
+        }
+      }
+    },
+
+    "categories": {
+      "type": "object",
+      "description": "Detailed test results by category",
+      "properties": {
+        "outputFormat": {
+          "$ref": "#/definitions/testCategory",
+          "description": "JSON, structured output, formatting tests"
+        },
+        "instructionFollowing": {
+          "$ref": "#/definitions/testCategory",
+          "description": "Ability to follow specific instructions"
+        },
+        "contextMemory": {
+          "$ref": "#/definitions/testCategory",
+          "description": "Context retention and system prompt adherence"
+        },
+        "reasoning": {
+          "$ref": "#/definitions/testCategory",
+          "description": "Logic, math, and problem-solving"
+        },
+        "toolCalling": {
+          "$ref": "#/definitions/testCategory",
+          "description": "Function/tool calling capabilities"
+        },
+        "codeGeneration": {
+          "$ref": "#/definitions/testCategory",
+          "description": "Code writing and debugging"
+        },
+        "creativity": {
+          "$ref": "#/definitions/testCategory",
+          "description": "Creative writing and generation"
+        },
+        "safety": {
+          "$ref": "#/definitions/testCategory",
+          "description": "Refusal of harmful requests"
+        }
+      }
+    },
+
+    "performance": {
+      "type": "object",
+      "description": "Performance metrics",
+      "properties": {
+        "tokensPerSecond": { "type": "number" },
+        "timeToFirstToken": { "type": "number" },
+        "avgResponseTimeMs": { "type": "number" },
+        "totalTokensGenerated": { "type": "number" },
+        "totalTokensInput": { "type": "number" },
+        "estimatedCostUsd": { "type": "number" }
+      }
+    },
+
+    "capabilities": {
+      "type": "object",
+      "description": "Detected capabilities",
+      "properties": {
+        "toolCalling": { "$ref": "#/definitions/capabilityAssessment" },
+        "jsonOutput": { "$ref": "#/definitions/capabilityAssessment" },
+        "codeGeneration": { "$ref": "#/definitions/capabilityAssessment" },
+        "reasoning": { "$ref": "#/definitions/capabilityAssessment" },
+        "multiTurn": { "$ref": "#/definitions/capabilityAssessment" },
+        "systemPromptAdherence": { "$ref": "#/definitions/capabilityAssessment" }
+      }
+    },
+
+    "recommendations": {
+      "type": "object",
+      "description": "Usage recommendations",
+      "properties": {
+        "bestUseCases": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "avoidFor": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "suggestedConfig": {
+          "type": "object",
+          "properties": {
+            "temperature": { "type": "number" },
+            "maxTokens": { "type": "number" },
+            "topP": { "type": "number" },
+            "systemPromptTips": { "type": "array", "items": { "type": "string" } }
+          }
+        },
+        "maestroCompatibility": {
+          "type": "object",
+          "properties": {
+            "forAgents": { "type": "string", "enum": ["Excellent", "Good", "Limited", "NotRecommended"] },
+            "forInference": { "type": "string", "enum": ["Excellent", "Good", "Limited", "NotRecommended"] },
+            "forEvaluation": { "type": "string", "enum": ["Excellent", "Good", "Limited", "NotRecommended"] }
+          }
+        }
+      }
+    },
+
+    "qualitativeAnalysis": {
+      "type": "object",
+      "description": "Human-readable analysis",
+      "properties": {
+        "strengths": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "area": { "type": "string" },
+              "description": { "type": "string" },
+              "evidence": { "type": "string" }
+            }
+          }
+        },
+        "weaknesses": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "area": { "type": "string" },
+              "description": { "type": "string" },
+              "evidence": { "type": "string" },
+              "severity": { "type": "string", "enum": ["critical", "major", "minor"] }
+            }
+          }
+        },
+        "quirks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "behavior": { "type": "string" },
+              "workaround": { "type": "string" }
+            }
+          }
+        },
+        "overallAssessment": { "type": "string" }
+      }
+    },
+
+    "comparisonBaseline": {
+      "type": "object",
+      "description": "Comparison with baseline model",
+      "properties": {
+        "baselineModel": { "type": "string" },
+        "scoreDifference": { "type": "number" },
+        "betterAt": { "type": "array", "items": { "type": "string" } },
+        "worseAt": { "type": "array", "items": { "type": "string" } }
+      }
+    }
+  },
+
+  "definitions": {
+    "testCategory": {
+      "type": "object",
+      "properties": {
+        "score": { "type": "number" },
+        "maxScore": { "type": "number" },
+        "percentage": { "type": "number" },
+        "tests": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/testResult" }
+        }
+      }
+    },
+
+    "testResult": {
+      "type": "object",
+      "required": ["testId", "name", "score", "maxScore", "passed"],
+      "properties": {
+        "testId": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "score": { "type": "number" },
+        "maxScore": { "type": "number" },
+        "passed": { "type": "boolean" },
+        "prompt": {
+          "type": "object",
+          "properties": {
+            "system": { "type": "string" },
+            "user": { "type": "string" }
+          }
+        },
+        "response": {
+          "type": "object",
+          "properties": {
+            "raw": { "type": "string" },
+            "truncated": { "type": "boolean" },
+            "tokensGenerated": { "type": "number" },
+            "durationMs": { "type": "number" }
+          }
+        },
+        "expected": { "type": "string" },
+        "evaluation": {
+          "type": "object",
+          "properties": {
+            "method": { "type": "string", "enum": ["exact", "contains", "regex", "semantic", "manual"] },
+            "matched": { "type": "boolean" },
+            "explanation": { "type": "string" },
+            "partialCredit": { "type": "number" }
+          }
+        },
+        "notes": { "type": "string" }
+      }
+    },
+
+    "capabilityAssessment": {
+      "type": "object",
+      "properties": {
+        "supported": { "type": "boolean" },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+        "quality": { "type": "string", "enum": ["excellent", "good", "partial", "poor", "none"] },
+        "notes": { "type": "string" }
+      }
+    }
+  }
+}

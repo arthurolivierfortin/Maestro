@@ -1,0 +1,73 @@
+{
+  "id": "run-all-model-tests",
+  "name": "Run All Model Tests",
+  "blockType": "command",
+  "version": "1.0.0",
+  "description": "Runs capability tests for all available models from the LLM Provider. Stores results in the Knowledge Base for each model.",
+  "isAtomic": true,
+  "capabilities": ["testing", "evaluation", "batch"],
+
+  "inputs": [
+    {
+      "id": "categories",
+      "name": "Test Categories",
+      "type": "string",
+      "required": false,
+      "default": "all",
+      "description": "Comma-separated list of categories to test, or 'all'"
+    },
+    {
+      "id": "llmProviderUrl",
+      "name": "LLM Provider URL",
+      "type": "string",
+      "required": false,
+      "default": "http://localhost:8000",
+      "description": "URL of the LLM Provider API"
+    },
+    {
+      "id": "backendUrl",
+      "name": "Backend URL",
+      "type": "string",
+      "required": false,
+      "default": "http://localhost:5000",
+      "description": "URL of the Maestro Backend API"
+    }
+  ],
+
+  "outputs": [
+    {
+      "id": "results",
+      "name": "Results",
+      "type": "array",
+      "description": "Array of test results for each model"
+    },
+    {
+      "id": "summary",
+      "name": "Summary",
+      "type": "object",
+      "description": "Summary with total models tested, success/fail counts"
+    }
+  ],
+
+  "config": {
+    "command": "powershell.exe",
+    "args": [
+      "-ExecutionPolicy", "Bypass",
+      "-File", "{{projectRoot}}/blocks/scripts/model-testing/run-all-models.ps1",
+      "-Categories", "{{categories}}",
+      "-LLMProviderUrl", "{{llmProviderUrl}}",
+      "-BackendUrl", "{{backendUrl}}"
+    ],
+    "workingDirectory": "{{projectRoot}}",
+    "timeout": 1800000,
+    "parseOutput": "json"
+  },
+
+  "metadata": {
+    "system": true,
+    "category": "testing",
+    "canOverride": true,
+    "author": "Maestro Team",
+    "documentation": "docs/knowledge-base/_schemas/model-test-result.schema.json"
+  }
+}

@@ -22,6 +22,8 @@ import {
   AlertCircle,
   Download,
   Settings,
+  FileText,
+  BarChart3,
 } from 'lucide-react';
 import { useModelStore } from '../store/modelStore';
 import { ALL_MODEL_DEFINITIONS } from '../data/modelCatalog';
@@ -31,6 +33,7 @@ import { CapabilityIcon, getCapabilityName } from '../components/icons/Capabilit
 import { getCostTier } from '../types/model.types';
 import type { Model, ModelProvider } from '../types/model.types';
 import type { ModelStatus } from '../types/modelStatus.types';
+import { ModelCapabilityTests } from '../components/ModelCapabilityTests';
 import './ModelDetailPage.scss';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
@@ -67,6 +70,7 @@ export default function ModelDetailPage() {
   const [benchmarkError, setBenchmarkError] = useState<string | null>(null);
   const [isDownloading, setIsDownloading] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState(0);
+  const [activeTab, setActiveTab] = useState<'overview' | 'capabilities'>('overview');
 
   // Find model in store or create from catalog
   const { model, catalogEntry } = useMemo(() => {
@@ -300,8 +304,29 @@ export default function ModelDetailPage() {
           <div className="model-detail__description">{model.description}</div>
         )}
 
-        <div className="model-detail__section">
-          <h4 className="model-detail__section-title">Status</h4>
+        {/* Tabs */}
+        <div className="model-detail__tabs">
+          <button
+            className={`model-detail__tab ${activeTab === 'overview' ? 'active' : ''}`}
+            onClick={() => setActiveTab('overview')}
+          >
+            <FileText size={16} />
+            Overview
+          </button>
+          <button
+            className={`model-detail__tab ${activeTab === 'capabilities' ? 'active' : ''}`}
+            onClick={() => setActiveTab('capabilities')}
+          >
+            <BarChart3 size={16} />
+            Capability Tests
+          </button>
+        </div>
+
+        {/* Tab Content */}
+        {activeTab === 'overview' ? (
+          <>
+            <div className="model-detail__section">
+              <h4 className="model-detail__section-title">Status</h4>
           <div className="model-detail__badges">
             <div
               className={`model-detail__badge model-detail__badge--${
@@ -620,6 +645,10 @@ export default function ModelDetailPage() {
               ))}
             </ol>
           </div>
+        )}
+          </>
+        ) : (
+          <ModelCapabilityTests modelId={model.id} />
         )}
       </div>
     </div>

@@ -1,0 +1,132 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "RunLog",
+  "description": "Log of a workflow or agent execution run",
+  "type": "object",
+  "required": ["runId", "blockId", "status", "startedAt"],
+  "properties": {
+    "runId": {
+      "type": "string",
+      "description": "Unique run identifier"
+    },
+    "blockId": {
+      "type": "string",
+      "description": "ID of the block that was executed"
+    },
+    "blockType": {
+      "type": "string",
+      "enum": ["workflow", "agent", "tool", "inference"]
+    },
+    "status": {
+      "type": "string",
+      "enum": ["pending", "running", "completed", "failed", "cancelled"]
+    },
+    "startedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "completedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "duration": {
+      "type": "object",
+      "properties": {
+        "totalMs": { "type": "number" },
+        "executionMs": { "type": "number" },
+        "waitMs": { "type": "number" }
+      }
+    },
+    "inputs": {
+      "type": "object",
+      "description": "Input parameters provided to the run"
+    },
+    "outputs": {
+      "type": "object",
+      "description": "Output values produced by the run"
+    },
+    "context": {
+      "type": "object",
+      "properties": {
+        "sessionId": { "type": "string" },
+        "projectId": { "type": "string" },
+        "userId": { "type": "string" },
+        "environment": { "type": "string" }
+      }
+    },
+    "execution": {
+      "type": "object",
+      "properties": {
+        "steps": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "stepId": { "type": "string" },
+              "blockRef": { "type": "string" },
+              "status": { "type": "string" },
+              "startedAt": { "type": "string", "format": "date-time" },
+              "completedAt": { "type": "string", "format": "date-time" },
+              "inputs": { "type": "object" },
+              "outputs": { "type": "object" },
+              "error": { "type": "string" }
+            }
+          }
+        },
+        "llmCalls": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "modelId": { "type": "string" },
+              "promptTokens": { "type": "number" },
+              "completionTokens": { "type": "number" },
+              "durationMs": { "type": "number" }
+            }
+          }
+        },
+        "toolCalls": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "toolId": { "type": "string" },
+              "success": { "type": "boolean" },
+              "durationMs": { "type": "number" }
+            }
+          }
+        }
+      }
+    },
+    "metrics": {
+      "type": "object",
+      "properties": {
+        "totalTokens": { "type": "number" },
+        "totalLlmCalls": { "type": "number" },
+        "totalToolCalls": { "type": "number" },
+        "estimatedCostUsd": { "type": "number" },
+        "successRate": { "type": "number" }
+      }
+    },
+    "error": {
+      "type": "object",
+      "properties": {
+        "message": { "type": "string" },
+        "code": { "type": "string" },
+        "stack": { "type": "string" },
+        "stepId": { "type": "string" }
+      }
+    },
+    "linkedDocuments": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "collection": { "type": "string" },
+          "documentId": { "type": "string" }
+        }
+      },
+      "description": "Documents generated or linked to this run"
+    }
+  }
+}
