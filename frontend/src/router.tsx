@@ -27,6 +27,9 @@ const FoundryPage = lazy(() => import('@/pages/FoundryPage'));
 const AtomicBlockEditorPage = lazy(() => import('@/pages/AtomicBlockEditorPage'));
 const ProjectsPage = lazy(() => import('@/pages/ProjectsPage'));
 const ProjectDetailPage = lazy(() => import('@/pages/ProjectDetailPage'));
+const WorkspacesPage = lazy(() => import('@/pages/WorkspacesPage'));
+const WorkspaceDetailPage = lazy(() => import('@/pages/WorkspaceDetailPage'));
+const SessionsPage = lazy(() => import('@/pages/SessionsPage'));
 const TrainingPage = lazy(() => import('@/pages/TrainingPage'));
 const MetricsPage = lazy(() => import('@/pages/MetricsPage'));
 const MonitoringPage = lazy(() => import('@/pages/MonitoringPage'));
@@ -162,6 +165,32 @@ const routes: RouteObject[] = [
         element: (
           <LazyPage>
             <ProjectDetailPage />
+          </LazyPage>
+        ),
+      },
+      // Workspace routes (Phase 7.5 - Generic Sessions)
+      {
+        path: 'workspaces',
+        element: (
+          <LazyPage>
+            <WorkspacesPage />
+          </LazyPage>
+        ),
+      },
+      {
+        path: 'workspaces/:id',
+        element: (
+          <LazyPage>
+            <WorkspaceDetailPage />
+          </LazyPage>
+        ),
+      },
+      // Session routes (Phase 7.5 - Generic Sessions)
+      {
+        path: 'sessions',
+        element: (
+          <LazyPage>
+            <SessionsPage />
           </LazyPage>
         ),
       },

@@ -28,3 +28,6 @@ export * from './workspaceStore';
 
 // Experiment store (Phase 7 - Training Strategies)
 export * from './experimentStore';
+
+// Session store (Phase 7.5 - Generic Sessions)
+export * from './sessionStore';

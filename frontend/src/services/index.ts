@@ -27,3 +27,6 @@ export { workspaceService } from './workspaceService';
 
 // Experiment service (Phase 7 - Training Strategies)
 export { experimentService } from './experimentService';
+
+// Session service (Phase 7.5 - Generic Sessions)
+export { sessionService } from './sessionService';

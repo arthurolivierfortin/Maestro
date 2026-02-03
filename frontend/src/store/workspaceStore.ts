@@ -15,17 +15,24 @@ import type {
   UpdateWorkspaceRequest,
   PromoteAgentRequest,
   WorkspaceType,
+  WorkspaceStatus,
 } from '../types/workspace.types';
+import type { UIBlock } from '../types/ui-block.types';
 import { workspaceService } from '../services/workspaceService';
 
 interface WorkspaceState {
   // State
   workspaces: Workspace[];
   currentWorkspace: Workspace | null;
+  uiBlocks: UIBlock[];
   topology: WorkspaceTopology | null;
   lastPromotion: PromotionResult | null;
   isLoading: boolean;
   error: string | null;
+
+  // Filters for list page
+  statusFilter: WorkspaceStatus | 'All';
+  searchQuery: string;
 
   // Workspace CRUD actions
   loadWorkspaces: (type?: WorkspaceType) => Promise<void>;
@@ -51,19 +58,33 @@ interface WorkspaceState {
   // Promotion actions
   promoteAgent: (sourceId: string, request: PromoteAgentRequest) => Promise<PromotionResult>;
 
+  // UI Block actions
+  loadUIBlocks: (workspaceId: string) => Promise<void>;
+
+  // Filter actions
+  setStatusFilter: (filter: WorkspaceStatus | 'All') => void;
+  setSearchQuery: (query: string) => void;
+
   // Utility actions
   setCurrentWorkspace: (workspace: Workspace | null) => void;
   clearError: () => void;
   reset: () => void;
+
+  // Computed (call as functions)
+  filteredWorkspaces: () => Workspace[];
+  countByStatus: () => Record<WorkspaceStatus | 'All', number>;
 }
 
 const initialState = {
-  workspaces: [],
-  currentWorkspace: null,
-  topology: null,
-  lastPromotion: null,
+  workspaces: [] as Workspace[],
+  currentWorkspace: null as Workspace | null,
+  uiBlocks: [] as UIBlock[],
+  topology: null as WorkspaceTopology | null,
+  lastPromotion: null as PromotionResult | null,
   isLoading: false,
-  error: null,
+  error: null as string | null,
+  statusFilter: 'All' as WorkspaceStatus | 'All',
+  searchQuery: '',
 };
 
 export const useWorkspaceStore = create<WorkspaceState>()(
@@ -350,6 +371,32 @@ export const useWorkspaceStore = create<WorkspaceState>()(
       },
 
       // =====================
+      // UI Block Actions
+      // =====================
+
+      loadUIBlocks: async (workspaceId: string) => {
+        try {
+          const uiBlocks = await workspaceService.getUIBlocks(workspaceId);
+          set({ uiBlocks });
+        } catch (error) {
+          console.error('Failed to load UI blocks:', error);
+          set({ uiBlocks: [] });
+        }
+      },
+
+      // =====================
+      // Filter Actions
+      // =====================
+
+      setStatusFilter: (filter: WorkspaceStatus | 'All') => {
+        set({ statusFilter: filter });
+      },
+
+      setSearchQuery: (query: string) => {
+        set({ searchQuery: query });
+      },
+
+      // =====================
       // Utility Actions
       // =====================
 
@@ -363,6 +410,34 @@ export const useWorkspaceStore = create<WorkspaceState>()(
 
       reset: () => {
         set(initialState);
+      },
+
+      // =====================
+      // Computed Functions
+      // =====================
+
+      filteredWorkspaces: () => {
+        const { workspaces, statusFilter, searchQuery } = get();
+        return workspaces.filter(ws => {
+          const matchesStatus = statusFilter === 'All' || ws.status === statusFilter;
+          const matchesSearch = !searchQuery ||
+            ws.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            ws.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            ws.settings.tags.some(t => t.toLowerCase().includes(searchQuery.toLowerCase()));
+          return matchesStatus && matchesSearch;
+        });
+      },
+
+      countByStatus: () => {
+        const { workspaces } = get();
+        const counts: Record<WorkspaceStatus | 'All', number> = {
+          All: workspaces.length,
+          Active: 0,
+          Paused: 0,
+          Archived: 0
+        };
+        workspaces.forEach(ws => counts[ws.status]++);
+        return counts;
       },
     }),
     { name: 'WorkspaceStore' }

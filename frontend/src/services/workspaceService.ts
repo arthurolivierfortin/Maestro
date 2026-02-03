@@ -15,6 +15,7 @@ import type {
   PromoteAgentRequest,
   WorkspaceType
 } from '../types/workspace.types';
+import type { UIBlock } from '../types/ui-block.types';
 
 class WorkspaceService {
   /**
@@ -148,6 +149,37 @@ class WorkspaceService {
     return this.updateWorkspace(id, {
       isolation: { permissions }
     });
+  }
+
+  // =====================
+  // UI Block Operations
+  // =====================
+
+  /**
+   * Get UI blocks for a workspace
+   */
+  async getUIBlocks(workspaceId: string): Promise<UIBlock[]> {
+    return apiClient.get<UIBlock[]>(
+      `/api/workspaces/${encodeURIComponent(workspaceId)}/ui-blocks`
+    );
+  }
+
+  /**
+   * Get UI block content (HTML/JS/CSS)
+   */
+  async getUIBlockContent(workspaceId: string, blockId: string): Promise<string> {
+    return apiClient.get<string>(
+      `/api/workspaces/${encodeURIComponent(workspaceId)}/ui-blocks/${encodeURIComponent(blockId)}/content`
+    );
+  }
+
+  /**
+   * Get a specific UI block definition
+   */
+  async getUIBlock(workspaceId: string, blockId: string): Promise<UIBlock> {
+    return apiClient.get<UIBlock>(
+      `/api/workspaces/${encodeURIComponent(workspaceId)}/ui-blocks/${encodeURIComponent(blockId)}`
+    );
   }
 }
 

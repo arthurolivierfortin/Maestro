@@ -48,3 +48,9 @@ export * from './workspace.types';
 
 // Experiment types (Phase 7 - Training Strategies)
 export * from './experiment.types';
+
+// Session types (Phase 7.5 - Generic Sessions)
+export * from './session.types';
+
+// UI Block types (Phase 7.5 - UI as a Block)
+export * from './ui-block.types';
