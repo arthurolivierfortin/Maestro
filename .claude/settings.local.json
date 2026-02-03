@@ -85,7 +85,9 @@
       "Bash(move \"C:\\\\Meastro\\\\docs\\\\FOUNDRY-WORKFLOW.md\" \"C:\\\\Meastro\\\\docs\\\\guides\\\\FOUNDRY-DETAILED-GUIDE.md\")",
       "Bash(dotnet clean:*)",
       "Bash(node:*)",
-      "WebSearch"
+      "WebSearch",
+      "Bash(tree:*)",
+      "Bash(git log:*)"
     ]
   }
 }
