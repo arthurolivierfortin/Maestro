@@ -3,6 +3,10 @@
 **Date**: February 3, 2026
 **Purpose**: Deep analysis of the Research Workspace setup following Maestro Philosophy V2
 **Language**: English (for agent comprehension)
+**Related Documents**:
+- `docs/architecture/DESIGN-MAESTRO-CLI-BLOCK.md` - Agent-backend communication pattern
+- `docs/workspaces/WORKSPACE-SETUP-MODEL-RESEARCH.md` - Workspace configuration
+- `docs/implementation/IMPLEMENTATION-PLAN-RESEARCH-WORKSPACE.md` - Implementation phases
 
 ---
 
@@ -482,9 +486,68 @@ rl-fitness-strategy.workflow.block.json
 
 ---
 
-## 5. How to Use the Workspace
+## 5. Agent-Backend Communication (maestro-cli)
 
-### 5.1 Initial Setup (One-Time)
+> **Reference**: See `docs/architecture/DESIGN-MAESTRO-CLI-BLOCK.md` for full details.
+
+### 5.1 Core Pattern
+
+Agents in Maestro have **ONE tool**: the `maestro-cli` block. Through this single interface, they can:
+- Discover available tools: `list-tools`
+- Execute blocks: `run <block-id>`
+- Manage data: `data read/write/list`
+- Create sessions: `session create` (if permitted)
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  AGENT                                                          │
+│                                                                 │
+│  tools: [{ name: "maestro_cli", ... }]                         │
+│                                                                 │
+│  Agent calls: maestro_cli({ command: "list-tools" })           │
+│  Agent calls: maestro_cli({ command: "run system:fitness-calculator --input ..." })
+│                                                                 │
+└─────────────────────────────┬───────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  BACKEND CLI EXECUTOR                                           │
+│                                                                 │
+│  1. Check permissions for this context                          │
+│  2. Execute command if allowed                                  │
+│  3. Return result                                               │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### 5.2 Permission Hierarchy
+
+```
+WORKSPACE (full access)
+    │
+    ├─► researcher-agent: Can create blocks, create sessions
+    │
+    ├─► trainer-agent: Restricted to training tools only
+    │
+    └─► TRAINING SESSION (restricted)
+            │
+            └─► Session agents: Only fitness-calculator, data-store
+```
+
+### 5.3 Why This Pattern?
+
+| Benefit | Description |
+|---------|-------------|
+| **CLI-First** | Agents use CLI like humans |
+| **Uniform** | Same pattern for all contexts |
+| **Secure** | All permissions checked at backend |
+| **Discoverable** | Agents can `list-tools` to see what's available |
+
+---
+
+## 6. How to Use the Workspace
+
+### 6.1 Initial Setup (One-Time)
 
 ```bash
 # 1. Create the workspace
@@ -507,7 +570,7 @@ maestro blocks copy system:strategy-* \
 maestro workspace info model-research
 ```
 
-### 5.2 Daily Usage
+### 6.2 Daily Usage
 
 ```bash
 # View workspace in UI
@@ -547,7 +610,7 @@ maestro run research-team \
   --input maxIterations=100
 ```
 
-### 5.3 Switching to Production Models
+### 6.3 Switching to Production Models
 
 When ready to use paid models, just edit the inference blocks:
 
@@ -564,7 +627,7 @@ maestro blocks override trainer-agent \
 
 ---
 
-## 6. Data Flow Diagram
+## 7. Data Flow Diagram
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -627,9 +690,9 @@ maestro blocks override trainer-agent \
 
 ---
 
-## 7. What Should NOT Exist
+## 8. What Should NOT Exist
 
-### 7.1 Remove from Plan
+### 8.1 Remove from Plan
 
 | Item | Reason |
 |------|--------|
@@ -642,7 +705,7 @@ maestro blocks override trainer-agent \
 | Frontend `experimentStore.ts` | UI Block handles its own state |
 | Frontend `experimentService.ts` | No API to call |
 
-### 7.2 What Should Exist Instead
+### 8.2 What Should Exist Instead
 
 | Component | Location | Purpose |
 |-----------|----------|---------|
@@ -654,7 +717,7 @@ maestro blocks override trainer-agent \
 
 ---
 
-## 8. Implementation Checklist
+## 9. Implementation Checklist
 
 ### Phase 1: Workspace Structure
 - [ ] Create workspace folder structure
@@ -702,7 +765,7 @@ maestro blocks override trainer-agent \
 
 ---
 
-## 9. Summary
+## 10. Summary
 
 ### Key Differences from Original Plan
 

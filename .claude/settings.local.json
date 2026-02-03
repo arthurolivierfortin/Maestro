@@ -87,7 +87,8 @@
       "Bash(node:*)",
       "WebSearch",
       "Bash(tree:*)",
-      "Bash(git log:*)"
+      "Bash(git log:*)",
+      "Bash(move \"C:\\\\Meastro\\\\docs\\\\proposals\\\\PLAN-TRAINING-STRATEGIES-V2.md\" \"C:\\\\Meastro\\\\docs\\\\archive\\\\ARCHIVED-PLAN-TRAINING-STRATEGIES-V2.md\")"
     ]
   }
 }
