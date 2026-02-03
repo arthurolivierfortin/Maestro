@@ -1,0 +1,61 @@
+{
+  "id": "system:strategy-distillation",
+  "name": "Knowledge Distillation Strategy",
+  "blockType": "workflow",
+  "version": "1.0.0",
+  "isSystem": true,
+  "overridable": true,
+  "description": "Transfer knowledge from a large teacher model to a smaller student model",
+  "metadata": {
+    "method": "Distillation",
+    "category": "transfer",
+    "suitableFor": ["compression", "efficiency", "deployment", "cost-reduction"],
+    "strengths": [
+      "Reduces model size significantly",
+      "Preserves most capabilities",
+      "Improves fitness via lower cost",
+      "Enables edge deployment"
+    ],
+    "weaknesses": [
+      "Requires high-quality teacher",
+      "Some capability loss expected",
+      "Complex temperature tuning",
+      "Teacher inference overhead"
+    ],
+    "estimatedResources": {
+      "minIterations": 30,
+      "typicalIterations": 200,
+      "maxIterations": 500,
+      "costPerIteration": "high"
+    }
+  },
+  "config": {
+    "teacherModel": null,
+    "temperature": 2.0,
+    "alpha": 0.5,
+    "distillationType": "response",
+    "softLabelWeight": 0.7,
+    "hardLabelWeight": 0.3,
+    "intermediateLayerMatching": false,
+    "attentionTransfer": false
+  },
+  "inputs": {
+    "studentAgentId": { "type": "string", "required": true, "description": "Student agent to train" },
+    "teacherAgentId": { "type": "string", "required": true, "description": "Teacher agent to distill from" },
+    "trainingData": { "type": "array", "required": true, "description": "Training prompts" },
+    "maxIterations": { "type": "number", "default": 200, "description": "Maximum iterations" }
+  },
+  "outputs": {
+    "studentFitness": { "type": "number", "description": "Student's final fitness" },
+    "teacherFitness": { "type": "number", "description": "Teacher's fitness for reference" },
+    "fitnessRatio": { "type": "number", "description": "Student/Teacher fitness ratio" },
+    "compressionRatio": { "type": "number", "description": "Size reduction achieved" },
+    "capabilityRetention": { "type": "number", "description": "Percentage of capability retained" }
+  },
+  "children": [
+    { "ref": "system:teacher-inference", "role": "teacher" },
+    { "ref": "system:iteration-runner", "role": "student" },
+    { "ref": "system:fitness-evaluator", "role": "evaluator" },
+    { "ref": "system:early-stopper", "role": "stopper" }
+  ]
+}

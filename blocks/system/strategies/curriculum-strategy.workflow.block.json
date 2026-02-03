@@ -1,0 +1,61 @@
+{
+  "id": "system:strategy-curriculum",
+  "name": "Curriculum Learning Strategy",
+  "blockType": "workflow",
+  "version": "1.0.0",
+  "isSystem": true,
+  "overridable": true,
+  "description": "Progressive learning from simple to complex tasks for stable skill acquisition",
+  "metadata": {
+    "method": "CurriculumLearning",
+    "category": "progressive",
+    "suitableFor": ["reasoning", "math", "language", "multi-step"],
+    "strengths": [
+      "Stable and gradual learning",
+      "Handles complexity well",
+      "Better generalization",
+      "Clear progress markers"
+    ],
+    "weaknesses": [
+      "Requires curriculum design",
+      "Slow initial progress",
+      "Difficulty defining progression",
+      "May get stuck between stages"
+    ],
+    "estimatedResources": {
+      "minIterations": 50,
+      "typicalIterations": 300,
+      "maxIterations": 1000,
+      "costPerIteration": "medium"
+    }
+  },
+  "config": {
+    "stages": [
+      { "name": "basic", "difficulty": 0.2, "iterations": 50, "promotionThreshold": 0.7 },
+      { "name": "intermediate", "difficulty": 0.5, "iterations": 100, "promotionThreshold": 0.75 },
+      { "name": "advanced", "difficulty": 0.8, "iterations": 100, "promotionThreshold": 0.8 },
+      { "name": "expert", "difficulty": 1.0, "iterations": 50, "promotionThreshold": 0.85 }
+    ],
+    "allowDemotion": false,
+    "stageTransitionSmoothing": true,
+    "difficultyScaling": "linear"
+  },
+  "inputs": {
+    "agentId": { "type": "string", "required": true, "description": "Target agent to train" },
+    "curriculumId": { "type": "string", "required": true, "description": "Curriculum definition ID" },
+    "startStage": { "type": "number", "default": 0, "description": "Starting stage index" }
+  },
+  "outputs": {
+    "finalFitness": { "type": "number", "description": "Final fitness score" },
+    "stagesCompleted": { "type": "number", "description": "Number of stages completed" },
+    "stageHistory": { "type": "array", "description": "Performance per stage" },
+    "finalStage": { "type": "string", "description": "Highest stage reached" },
+    "skillProgression": { "type": "object", "description": "Skill development over time" }
+  },
+  "children": [
+    { "ref": "system:curriculum-manager", "role": "curriculum" },
+    { "ref": "system:iteration-runner", "role": "executor" },
+    { "ref": "system:fitness-evaluator", "role": "evaluator" },
+    { "ref": "system:stage-promoter", "role": "promoter" }
+  ]
+}

@@ -1,0 +1,65 @@
+{
+  "id": "system:strategy-execution",
+  "name": "Execution-Based Strategy",
+  "blockType": "workflow",
+  "version": "1.0.0",
+  "isSystem": true,
+  "overridable": true,
+  "description": "Training based on actual code execution, tests, and verifiable outputs",
+  "metadata": {
+    "method": "ExecutionBased",
+    "category": "verification",
+    "suitableFor": ["code", "math", "logic", "data-processing"],
+    "strengths": [
+      "Objective reward signal from execution",
+      "Verifies actual correctness",
+      "No evaluation bias",
+      "Clear success criteria"
+    ],
+    "weaknesses": [
+      "Limited to verifiable tasks",
+      "Slower due to execution overhead",
+      "Requires secure sandbox",
+      "May not capture style/quality"
+    ],
+    "estimatedResources": {
+      "minIterations": 20,
+      "typicalIterations": 150,
+      "maxIterations": 500,
+      "costPerIteration": "medium"
+    }
+  },
+  "config": {
+    "executionTimeout": 30000,
+    "sandboxed": true,
+    "sandboxImage": "maestro/code-sandbox:latest",
+    "testTypes": ["unit", "integration"],
+    "partialCredit": true,
+    "rewardMapping": {
+      "allTestsPass": 1.0,
+      "partialPass": 0.5,
+      "compileError": -0.5,
+      "runtimeError": -0.3,
+      "timeout": -0.2
+    },
+    "memoryLimitMB": 512,
+    "cpuLimitPercent": 50
+  },
+  "inputs": {
+    "agentId": { "type": "string", "required": true, "description": "Target agent to train" },
+    "testSuiteId": { "type": "string", "required": true, "description": "Test suite to evaluate against" },
+    "maxIterations": { "type": "number", "default": 150, "description": "Maximum iterations" }
+  },
+  "outputs": {
+    "finalFitness": { "type": "number", "description": "Final fitness score" },
+    "testPassRate": { "type": "number", "description": "Percentage of tests passing" },
+    "executionResults": { "type": "array", "description": "Results from each execution" },
+    "iterationsCompleted": { "type": "number", "description": "Iterations completed" }
+  },
+  "children": [
+    { "ref": "system:iteration-runner", "role": "executor" },
+    { "ref": "system:test-runner", "role": "tester" },
+    { "ref": "system:fitness-evaluator", "role": "evaluator" },
+    { "ref": "system:early-stopper", "role": "stopper" }
+  ]
+}

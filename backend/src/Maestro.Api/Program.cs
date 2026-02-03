@@ -13,6 +13,7 @@ using Maestro.Infrastructure.Training;
 using Maestro.Infrastructure.Training.QualityEvaluators;
 using Maestro.Infrastructure.Fitness;
 using Maestro.Infrastructure.Sessions;
+using Maestro.Infrastructure.Experiments;
 using System.IO;
 using System;
 using Microsoft.Extensions.Options;
@@ -283,6 +284,16 @@ builder.Services.AddScoped<IOrchestratorService, Maestro.Infrastructure.Orchestr
 
 // Phase 6: Register research team service
 builder.Services.AddScoped<IResearchTeamService, Maestro.Infrastructure.Research.ResearchTeamService>();
+
+// Phase 7: Register experiment services (Training Strategies)
+var experimentsFolder = Path.Combine(pathConfig.RepoRootPath, "data", "experiments");
+Directory.CreateDirectory(experimentsFolder);
+Console.WriteLine($"[Maestro] Experiments data: {experimentsFolder}");
+builder.Services.AddSingleton<IExperimentRepository>(sp =>
+{
+    var logger = sp.GetService<ILogger<Maestro.Infrastructure.Experiments.FileSystemExperimentRepository>>();
+    return new Maestro.Infrastructure.Experiments.FileSystemExperimentRepository(experimentsFolder, logger);
+});
 
 // Add CORS for frontend development and Docker
 builder.Services.AddCors(options =>

@@ -24,3 +24,6 @@ export { systemBlockService } from './systemBlockService';
 
 // Workspace service (Phase 3 - Workspaces)
 export { workspaceService } from './workspaceService';
+
+// Experiment service (Phase 7 - Training Strategies)
+export { experimentService } from './experimentService';

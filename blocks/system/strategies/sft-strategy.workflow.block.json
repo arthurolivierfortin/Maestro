@@ -1,0 +1,66 @@
+{
+  "id": "system:strategy-sft",
+  "name": "Supervised Fine-Tuning Strategy",
+  "blockType": "workflow",
+  "version": "1.0.0",
+  "isSystem": true,
+  "overridable": true,
+  "description": "Classic supervised fine-tuning strategy using gold-standard examples for training",
+  "metadata": {
+    "method": "SupervisedFineTuning",
+    "category": "supervised",
+    "suitableFor": ["classification", "generation", "qa", "summarization"],
+    "strengths": [
+      "Simple to implement and debug",
+      "Predictable results with quality data",
+      "Well-suited for well-defined tasks",
+      "Fast convergence with good examples"
+    ],
+    "weaknesses": [
+      "Requires labeled training data",
+      "Risk of overfitting on small datasets",
+      "Less adaptive to novel situations",
+      "Quality limited by training data"
+    ],
+    "estimatedResources": {
+      "minIterations": 10,
+      "typicalIterations": 100,
+      "maxIterations": 500,
+      "costPerIteration": "low"
+    }
+  },
+  "config": {
+    "learningRate": 0.001,
+    "batchSize": 8,
+    "epochs": 3,
+    "validationSplit": 0.2,
+    "shuffleData": true,
+    "warmupSteps": 100,
+    "gradientClipping": 1.0,
+    "earlyStopping": {
+      "enabled": true,
+      "patience": 5,
+      "minDelta": 0.01,
+      "monitor": "validation_loss"
+    }
+  },
+  "inputs": {
+    "agentId": { "type": "string", "required": true, "description": "Target agent to fine-tune" },
+    "trainingData": { "type": "array", "required": true, "description": "Array of input-output training pairs" },
+    "validationData": { "type": "array", "required": false, "description": "Separate validation set" },
+    "maxIterations": { "type": "number", "default": 100, "description": "Maximum training iterations" }
+  },
+  "outputs": {
+    "finalFitness": { "type": "number", "description": "Final fitness score achieved" },
+    "iterationsCompleted": { "type": "number", "description": "Number of iterations completed" },
+    "trainingHistory": { "type": "array", "description": "Loss and metrics history" },
+    "bestCheckpoint": { "type": "string", "description": "ID of best model checkpoint" },
+    "validationMetrics": { "type": "object", "description": "Final validation metrics" }
+  },
+  "children": [
+    { "ref": "system:iteration-runner", "role": "executor" },
+    { "ref": "system:fitness-evaluator", "role": "evaluator" },
+    { "ref": "system:early-stopper", "role": "stopper" },
+    { "ref": "system:metrics-aggregator", "role": "aggregator" }
+  ]
+}

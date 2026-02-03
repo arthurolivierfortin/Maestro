@@ -1,0 +1,30 @@
+{
+  "id": "system:iteration-runner",
+  "name": "Iteration Runner",
+  "blockType": "workflow",
+  "version": "1.0.0",
+  "isSystem": true,
+  "overridable": true,
+  "description": "Executes a single training iteration on a target agent, collecting metrics and handling retries",
+  "config": {
+    "timeout": 300000,
+    "retryOnFailure": true,
+    "maxRetries": 3,
+    "collectMetrics": true,
+    "checkpointEnabled": true
+  },
+  "inputs": {
+    "agentId": { "type": "string", "required": true, "description": "Target agent to train" },
+    "workflowId": { "type": "string", "required": true, "description": "Training workflow to execute" },
+    "iterationNumber": { "type": "number", "required": true, "description": "Current iteration number" },
+    "parameters": { "type": "object", "required": false, "description": "Iteration-specific parameters" }
+  },
+  "outputs": {
+    "success": { "type": "boolean", "description": "Whether the iteration succeeded" },
+    "metrics": { "type": "object", "description": "Collected metrics from the iteration" },
+    "duration": { "type": "number", "description": "Duration in milliseconds" },
+    "error": { "type": "string", "description": "Error message if failed" },
+    "checkpointId": { "type": "string", "description": "Checkpoint ID if saved" }
+  },
+  "children": []
+}

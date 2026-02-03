@@ -3133,6 +3133,366 @@ async function checkLLMStatus() {
   }
 }
 
+// ============= Experiment Commands (Phase 7 - Training Strategies) =============
+
+async function listExperiments(options = {}) {
+  try {
+    const params = new URLSearchParams();
+    if (options.workspace) params.append('workspaceId', options.workspace);
+    if (options.status) params.append('status', options.status);
+    if (options.agent) params.append('agentId', options.agent);
+    if (options.strategy) params.append('strategyId', options.strategy);
+
+    const experiments = await client.get(`/api/experiments?${params.toString()}`);
+    if (!experiments || experiments.length === 0) {
+      console.log('\nNo experiments found');
+      console.log('  Create one with: maestro experiment create --name "Test" --workspace <ws-id> --agent <agent-id> --strategy system:strategy-sft');
+      return;
+    }
+
+    console.log('\n🧪 Training Experiments:\n');
+    console.table(experiments.map(e => ({
+      'ID': e.id.substring(0, 12) + '...',
+      'Name': e.name,
+      'Status': e.status,
+      'Strategy': e.strategyBlockId.replace('system:strategy-', ''),
+      'Iteration': e.currentIteration,
+      'Fitness': e.currentFitness.toFixed(3)
+    })));
+  } catch (error) {
+    handleApiError(error, 'listing experiments');
+    process.exit(1);
+  }
+}
+
+async function getExperimentInfo(id) {
+  try {
+    const exp = await client.get(`/api/experiments/${encodeURIComponent(id)}`);
+    console.log('\n🧪 Experiment Details:\n');
+    console.log(`  ID:           ${exp.id}`);
+    console.log(`  Name:         ${exp.name}`);
+    console.log(`  Status:       ${exp.status}`);
+    console.log(`  Workspace:    ${exp.workspaceId}`);
+    console.log(`  Agent:        ${exp.targetAgentId}`);
+    console.log(`  Strategy:     ${exp.strategyBlockId}`);
+    console.log(`  Created:      ${exp.createdAt}`);
+    console.log(`  Started:      ${exp.startedAt || 'N/A'}`);
+    console.log(`  Completed:    ${exp.completedAt || 'N/A'}`);
+    console.log('');
+    console.log('  Progress:');
+    console.log(`    Iteration:  ${exp.currentIteration}`);
+    console.log(`    Fitness:    ${exp.currentFitness.toFixed(4)}`);
+
+    if (exp.results) {
+      console.log('');
+      console.log('  Results:');
+      console.log(`    Initial:    ${exp.results.initialFitness.toFixed(4)}`);
+      console.log(`    Final:      ${exp.results.finalFitness.toFixed(4)}`);
+      console.log(`    Improve:    ${exp.results.fitnessImprovementPercent.toFixed(1)}%`);
+      console.log(`    Iterations: ${exp.results.totalIterations}`);
+      console.log(`    Success:    ${(exp.results.successRate * 100).toFixed(1)}%`);
+      console.log(`    Cost:       $${exp.results.totalCost.toFixed(4)}`);
+      console.log(`    Duration:   ${exp.results.totalDuration}`);
+      console.log(`    Stop:       ${exp.results.stopReason}`);
+    }
+
+    if (exp.error) {
+      console.log('');
+      console.log(`  Error:        ${exp.error}`);
+    }
+    console.log('');
+  } catch (error) {
+    if (error.status === 404) {
+      console.error(`❌ Experiment not found: ${id}`);
+    } else {
+      handleApiError(error, 'getting experiment info');
+    }
+    process.exit(1);
+  }
+}
+
+async function createExperiment(options) {
+  try {
+    if (!options.name) { console.error('❌ --name required'); process.exit(1); }
+    if (!options.workspace) { console.error('❌ --workspace required'); process.exit(1); }
+    if (!options.agent) { console.error('❌ --agent required'); process.exit(1); }
+    if (!options.strategy) { console.error('❌ --strategy required'); process.exit(1); }
+
+    let strategyId = options.strategy;
+    if (!strategyId.includes(':')) {
+      strategyId = `system:strategy-${strategyId}`;
+    }
+
+    const config = options.config ? JSON.parse(options.config) : undefined;
+
+    const exp = await client.post('/api/experiments', {
+      name: options.name,
+      workspaceId: options.workspace,
+      agentId: options.agent,
+      strategyId: strategyId,
+      config: config
+    });
+
+    console.log('\n✅ Experiment created!\n');
+    console.log(`  ID:       ${exp.id}`);
+    console.log(`  Name:     ${exp.name}`);
+    console.log(`  Strategy: ${exp.strategyBlockId}`);
+    console.log('');
+    console.log('  Start with: maestro experiment start ' + exp.id);
+    console.log('');
+  } catch (error) {
+    handleApiError(error, 'creating experiment');
+    process.exit(1);
+  }
+}
+
+async function startExperiment(id) {
+  try {
+    const exp = await client.post(`/api/experiments/${encodeURIComponent(id)}/start`);
+    console.log(`\n✅ Experiment started: ${exp.name}`);
+    console.log(`   Status: ${exp.status}`);
+    console.log('');
+  } catch (error) {
+    if (error.status === 404) {
+      console.error(`❌ Experiment not found: ${id}`);
+    } else {
+      handleApiError(error, 'starting experiment');
+    }
+    process.exit(1);
+  }
+}
+
+async function startAllExperiments(workspaceId, parallel = true) {
+  try {
+    const experiments = await client.get(`/api/experiments?workspaceId=${encodeURIComponent(workspaceId)}`);
+    const toStart = experiments.filter(e => e.status === 'Created' || e.status === 'Paused');
+
+    if (toStart.length === 0) {
+      console.log('\nNo experiments to start in this workspace');
+      return;
+    }
+
+    console.log(`\n🚀 Starting ${toStart.length} experiments ${parallel ? 'in parallel' : 'sequentially'}...\n`);
+
+    for (const exp of toStart) {
+      try {
+        await client.post(`/api/experiments/${encodeURIComponent(exp.id)}/start`);
+        console.log(`  ✅ ${exp.name}`);
+      } catch (err) {
+        console.log(`  ❌ ${exp.name}: ${err.message}`);
+      }
+    }
+    console.log('');
+  } catch (error) {
+    handleApiError(error, 'starting experiments');
+    process.exit(1);
+  }
+}
+
+async function pauseExperiment(id) {
+  try {
+    const exp = await client.post(`/api/experiments/${encodeURIComponent(id)}/pause`);
+    console.log(`\n⏸️  Experiment paused: ${exp.name}`);
+    console.log(`   Status: ${exp.status}`);
+    console.log('');
+  } catch (error) {
+    if (error.status === 404) {
+      console.error(`❌ Experiment not found: ${id}`);
+    } else {
+      handleApiError(error, 'pausing experiment');
+    }
+    process.exit(1);
+  }
+}
+
+async function stopExperiment(id) {
+  try {
+    const exp = await client.post(`/api/experiments/${encodeURIComponent(id)}/stop`);
+    console.log(`\n⏹️  Experiment stopped: ${exp.name}`);
+    console.log(`   Status: ${exp.status}`);
+    console.log('');
+  } catch (error) {
+    if (error.status === 404) {
+      console.error(`❌ Experiment not found: ${id}`);
+    } else {
+      handleApiError(error, 'stopping experiment');
+    }
+    process.exit(1);
+  }
+}
+
+async function deleteExperiment(id, force = false) {
+  try {
+    if (!force) {
+      console.log('⚠️  Use --force to confirm experiment deletion');
+      process.exit(1);
+    }
+
+    await client.delete(`/api/experiments/${encodeURIComponent(id)}`);
+    console.log(`\n✅ Experiment deleted: ${id}\n`);
+  } catch (error) {
+    if (error.status === 404) {
+      console.error(`❌ Experiment not found: ${id}`);
+    } else {
+      handleApiError(error, 'deleting experiment');
+    }
+    process.exit(1);
+  }
+}
+
+async function getExperimentProgress(id) {
+  try {
+    const progress = await client.get(`/api/experiments/${encodeURIComponent(id)}/progress`);
+    console.log('\n📊 Experiment Progress:\n');
+    console.log(`  Status:      ${progress.status}`);
+    console.log(`  Progress:    ${progress.progress}%`);
+    console.log(`  Iteration:   ${progress.currentIteration} / ${progress.maxIterations}`);
+    console.log(`  Fitness:     ${progress.currentFitness.toFixed(4)}`);
+    if (progress.elapsedTime) {
+      console.log(`  Elapsed:     ${progress.elapsedTime}`);
+    }
+    console.log('');
+  } catch (error) {
+    if (error.status === 404) {
+      console.error(`❌ Experiment not found: ${id}`);
+    } else {
+      handleApiError(error, 'getting experiment progress');
+    }
+    process.exit(1);
+  }
+}
+
+async function compareExperiments(ids) {
+  try {
+    const comparison = await client.post('/api/experiments/compare', { experimentIds: ids });
+
+    console.log('\n📊 Experiment Comparison:\n');
+    console.log(`  Best Experiment: ${comparison.bestExperimentId}`);
+    console.log(`  Recommended:     ${comparison.recommendedStrategyId}`);
+    console.log('');
+
+    if (comparison.summary) {
+      console.log('  Summary:');
+      console.log(`    Best Fitness:     ${comparison.summary.bestFitness.toFixed(4)}`);
+      console.log(`    Average Fitness:  ${comparison.summary.averageFitness.toFixed(4)}`);
+      console.log(`    Total Iterations: ${comparison.summary.totalIterationsAcrossAll}`);
+      console.log(`    Total Cost:       $${comparison.summary.totalCostAcrossAll.toFixed(4)}`);
+      console.log('');
+    }
+
+    console.log('  Rankings:');
+    Object.entries(comparison.rankings).forEach(([expId, rank]) => {
+      console.log(`    ${expId.substring(0, 12)}... - Overall: #${rank.overallRank} (Fitness: #${rank.fitnessRank}, Cost: #${rank.costEfficiencyRank})`);
+    });
+    console.log('');
+  } catch (error) {
+    handleApiError(error, 'comparing experiments');
+    process.exit(1);
+  }
+}
+
+async function listStrategies(options = {}) {
+  try {
+    const params = options.category ? `?category=${options.category}` : '';
+    const strategies = await client.get(`/api/experiments/strategies${params}`);
+
+    if (!strategies || strategies.length === 0) {
+      console.log('\nNo strategies found');
+      return;
+    }
+
+    console.log('\n📋 Training Strategies:\n');
+    strategies.forEach(s => {
+      const icon = s.isSystem ? '🔒' : '📝';
+      console.log(`  ${icon} ${s.name}`);
+      console.log(`     ID:       ${s.id}`);
+      console.log(`     Method:   ${s.method}`);
+      console.log(`     Category: ${s.category}`);
+      console.log(`     For:      ${s.suitableFor.join(', ')}`);
+      if (s.estimatedResources) {
+        console.log(`     Typical:  ${s.estimatedResources.typicalIterations} iterations`);
+      }
+      console.log('');
+    });
+  } catch (error) {
+    handleApiError(error, 'listing strategies');
+    process.exit(1);
+  }
+}
+
+async function getStrategyInfo(id) {
+  try {
+    let strategyId = id;
+    if (!strategyId.includes(':')) {
+      strategyId = `system:strategy-${strategyId}`;
+    }
+
+    const strategy = await client.get(`/api/experiments/strategies/${encodeURIComponent(strategyId)}`);
+    console.log('\n📋 Strategy Details:\n');
+    console.log(`  ID:          ${strategy.id}`);
+    console.log(`  Name:        ${strategy.name}`);
+    console.log(`  Method:      ${strategy.method}`);
+    console.log(`  Category:    ${strategy.category}`);
+    console.log(`  System:      ${strategy.isSystem ? 'Yes' : 'No'}`);
+    console.log(`  Overridable: ${strategy.isOverridable ? 'Yes' : 'No'}`);
+    console.log('');
+    console.log(`  Suitable For: ${strategy.suitableFor.join(', ')}`);
+    console.log('');
+    console.log('  Strengths:');
+    strategy.strengths.forEach(s => console.log(`    ✅ ${s}`));
+    console.log('');
+    console.log('  Weaknesses:');
+    strategy.weaknesses.forEach(w => console.log(`    ⚠️  ${w}`));
+    console.log('');
+    if (strategy.estimatedResources) {
+      console.log('  Resources:');
+      console.log(`    Min iterations:     ${strategy.estimatedResources.minIterations}`);
+      console.log(`    Typical iterations: ${strategy.estimatedResources.typicalIterations}`);
+      console.log(`    Max iterations:     ${strategy.estimatedResources.maxIterations}`);
+      console.log(`    Cost per iteration: ${strategy.estimatedResources.costPerIteration}`);
+      console.log('');
+    }
+  } catch (error) {
+    if (error.status === 404) {
+      console.error(`❌ Strategy not found: ${id}`);
+    } else {
+      handleApiError(error, 'getting strategy info');
+    }
+    process.exit(1);
+  }
+}
+
+async function recommendStrategy(options) {
+  try {
+    if (!options.task) { console.error('❌ --task required (e.g., code, reasoning, classification)'); process.exit(1); }
+
+    const strategies = await client.get('/api/experiments/strategies');
+    const taskLower = options.task.toLowerCase();
+
+    const recommended = strategies.filter(s =>
+      s.suitableFor.some(t => t.toLowerCase().includes(taskLower))
+    );
+
+    if (recommended.length === 0) {
+      console.log(`\n❓ No strategies specifically recommend for "${options.task}"`);
+      console.log('   Consider: sft (general), rl-fitness (agentic), execution (code)');
+      return;
+    }
+
+    console.log(`\n💡 Recommended Strategies for "${options.task}":\n`);
+    recommended.forEach((s, i) => {
+      console.log(`  ${i + 1}. ${s.name}`);
+      console.log(`     ID: ${s.id}`);
+      console.log(`     Method: ${s.method}`);
+      console.log(`     ✅ ${s.strengths[0]}`);
+      console.log('');
+    });
+  } catch (error) {
+    handleApiError(error, 'getting strategy recommendations');
+    process.exit(1);
+  }
+}
+
 async function main() {
   const argv = minimist(process.argv.slice(2), {
     boolean: ['mock', 'help', 'h', 'force', 'status', 'push', 'run-tests', 'run-linter', 'keep-changes'],
@@ -3286,6 +3646,22 @@ Orchestrator Commands:
   orchestrator config set --min-fitness <n> --from <ws> --to <ws>
   orchestrator auto-promote --enable|--disable
   orchestrator monitor Run monitoring cycle manually
+
+Experiment Commands (Training Strategies):
+  experiment           List all experiments
+  experiment list      List experiments with filters
+  experiment info <id> Show experiment details
+  experiment create    Create a new experiment
+  experiment start <id> Start an experiment
+  experiment start-all Start all experiments in workspace
+  experiment pause <id> Pause an experiment
+  experiment stop <id>  Stop/cancel an experiment
+  experiment delete <id> Delete an experiment (--force required)
+  experiment progress <id> Show experiment progress
+  experiment compare <ids...> Compare multiple experiments
+  experiment strategies List available training strategies
+  experiment strategy <id> Show strategy details
+  experiment recommend Recommend strategy for task type
 
 Research Team Commands:
   research             Show pending improvement proposals
@@ -3460,6 +3836,19 @@ Examples:
   maestro research reject proposal-123 --reason "Not aligned with goals"
   maestro research config                       # Show configuration
   maestro research config set --threshold 0.85 --auto-approve
+
+  # Experiments (Phase 7 - Training Strategies)
+  maestro experiment                              # List all experiments
+  maestro experiment strategies                   # List available strategies
+  maestro experiment strategy sft                 # Show SFT strategy details
+  maestro experiment recommend --task code        # Recommend strategies for task type
+  maestro experiment create --name "Test SFT" --workspace ws-123 --agent agent-1 --strategy sft
+  maestro experiment create --name "Test RL" --workspace ws-123 --agent agent-1 --strategy rl-fitness
+  maestro experiment start exp-123                # Start single experiment
+  maestro experiment start-all --workspace ws-123 # Start all in workspace
+  maestro experiment progress exp-123             # Check progress
+  maestro experiment compare exp-1 exp-2 exp-3    # Compare results
+  maestro experiment info exp-123                 # Show full details
 `);
     return;
   }
@@ -4452,6 +4841,103 @@ Examples:
       }
 
       console.error(`❌ Unknown test subcommand: ${subCmd}`);
+      process.exit(1);
+    }
+
+    // Experiment commands (Phase 7 - Training Strategies)
+    if (cmd === 'experiment' || cmd === 'experiments') {
+      const subCmd = argv._[1];
+
+      if (!subCmd) return await listExperiments({});
+
+      if (subCmd === 'list') {
+        return await listExperiments({
+          workspace: argv.workspace || argv.w,
+          status: argv.status || argv.s,
+          agent: argv.agent || argv.a,
+          strategy: argv.strategy
+        });
+      }
+
+      if (subCmd === 'info') {
+        const id = argv._[2];
+        if (!id) { console.error('❌ Experiment ID required'); process.exit(1); }
+        return await getExperimentInfo(id);
+      }
+
+      if (subCmd === 'create') {
+        return await createExperiment({
+          name: argv.name || argv.n,
+          workspace: argv.workspace || argv.w,
+          agent: argv.agent || argv.a,
+          strategy: argv.strategy || argv.s,
+          config: argv.config
+        });
+      }
+
+      if (subCmd === 'start') {
+        const id = argv._[2];
+        if (!id) { console.error('❌ Experiment ID required'); process.exit(1); }
+        return await startExperiment(id);
+      }
+
+      if (subCmd === 'start-all') {
+        const workspaceId = argv.workspace || argv.w || argv._[2];
+        if (!workspaceId) { console.error('❌ Workspace ID required (--workspace)'); process.exit(1); }
+        return await startAllExperiments(workspaceId, !argv.sequential);
+      }
+
+      if (subCmd === 'pause') {
+        const id = argv._[2];
+        if (!id) { console.error('❌ Experiment ID required'); process.exit(1); }
+        return await pauseExperiment(id);
+      }
+
+      if (subCmd === 'stop') {
+        const id = argv._[2];
+        if (!id) { console.error('❌ Experiment ID required'); process.exit(1); }
+        return await stopExperiment(id);
+      }
+
+      if (subCmd === 'delete') {
+        const id = argv._[2];
+        if (!id) { console.error('❌ Experiment ID required'); process.exit(1); }
+        return await deleteExperiment(id, argv.force);
+      }
+
+      if (subCmd === 'progress') {
+        const id = argv._[2];
+        if (!id) { console.error('❌ Experiment ID required'); process.exit(1); }
+        return await getExperimentProgress(id);
+      }
+
+      if (subCmd === 'compare') {
+        const ids = argv._.slice(2);
+        if (ids.length < 2) { console.error('❌ At least 2 experiment IDs required'); process.exit(1); }
+        return await compareExperiments(ids);
+      }
+
+      if (subCmd === 'strategies') {
+        return await listStrategies({
+          category: argv.category || argv.c
+        });
+      }
+
+      if (subCmd === 'strategy') {
+        const id = argv._[2];
+        if (!id) { console.error('❌ Strategy ID required'); process.exit(1); }
+        return await getStrategyInfo(id);
+      }
+
+      if (subCmd === 'recommend') {
+        return await recommendStrategy({
+          agent: argv.agent || argv.a,
+          task: argv.task || argv.t
+        });
+      }
+
+      console.error(`❌ Unknown experiment subcommand: ${subCmd}`);
+      console.error('   Available: list, info, create, start, start-all, pause, stop, delete, progress, compare, strategies, strategy, recommend');
       process.exit(1);
     }
 

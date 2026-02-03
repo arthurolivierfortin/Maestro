@@ -45,3 +45,6 @@ export * from './fitness.types';
 
 // Workspace types (Phase 3)
 export * from './workspace.types';
+
+// Experiment types (Phase 7 - Training Strategies)
+export * from './experiment.types';

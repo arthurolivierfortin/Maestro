@@ -1,0 +1,30 @@
+{
+  "id": "system:early-stopper",
+  "name": "Early Stopper",
+  "blockType": "agent",
+  "version": "1.0.0",
+  "isSystem": true,
+  "overridable": true,
+  "description": "Determines when to stop training based on convergence, plateau detection, or degradation",
+  "config": {
+    "patience": 10,
+    "minDelta": 0.001,
+    "mode": "maximize",
+    "baselinePatience": 5,
+    "divergenceThreshold": 0.1,
+    "minIterations": 10
+  },
+  "inputs": {
+    "fitnessHistory": { "type": "array", "required": true, "description": "History of fitness scores" },
+    "currentIteration": { "type": "number", "required": true, "description": "Current iteration number" },
+    "maxIterations": { "type": "number", "required": true, "description": "Maximum allowed iterations" },
+    "targetFitness": { "type": "number", "required": false, "description": "Target fitness to achieve" }
+  },
+  "outputs": {
+    "shouldStop": { "type": "boolean", "description": "Whether training should stop" },
+    "reason": { "type": "string", "description": "Reason for stopping (convergence, plateau, divergence, target_reached, max_iterations)" },
+    "confidence": { "type": "number", "description": "Confidence in the stop decision (0-1)" },
+    "bestIteration": { "type": "number", "description": "Iteration with best fitness" }
+  },
+  "systemPrompt": "You are the Early Stopper agent. Analyze training progress and determine if training should continue or stop. Consider convergence patterns, plateaus, and potential overfitting."
+}
