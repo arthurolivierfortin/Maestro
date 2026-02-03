@@ -15,3 +15,6 @@ export { trainingService } from './trainingService';
 
 // Block Testing service
 export { testService } from './testService';
+
+// Fitness service (Phase 11)
+export { fitnessService } from './fitnessService';

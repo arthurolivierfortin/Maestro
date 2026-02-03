@@ -18,6 +18,7 @@ public class TrainingService : ITrainingService
     private readonly IBlockDiscoveryService _blockDiscoveryService;
     private readonly MetricsCollector _metricsCollector;
     private readonly IServiceScopeFactory _serviceScopeFactory;
+    private readonly IFitnessService? _fitnessService;
     private readonly ILogger<TrainingService>? _logger;
 
     // Active training run cancellation tokens
@@ -30,6 +31,7 @@ public class TrainingService : ITrainingService
         IBlockDiscoveryService blockDiscoveryService,
         MetricsCollector metricsCollector,
         IServiceScopeFactory serviceScopeFactory,
+        IFitnessService? fitnessService = null,
         ILogger<TrainingService>? logger = null)
     {
         _configRepository = configRepository;
@@ -37,6 +39,7 @@ public class TrainingService : ITrainingService
         _blockDiscoveryService = blockDiscoveryService;
         _metricsCollector = metricsCollector;
         _serviceScopeFactory = serviceScopeFactory;
+        _fitnessService = fitnessService;
         _logger = logger;
     }
 
@@ -295,6 +298,37 @@ public class TrainingService : ITrainingService
             iteration.ErrorMessage = result.Error;
             iteration.Metrics = metrics;
             iteration.CompletedAt = DateTimeOffset.UtcNow;
+
+            // Calculate fitness score if service is available
+            if (_fitnessService != null && metrics != null)
+            {
+                try
+                {
+                    // Determine model ID from metrics (use first model or default)
+                    var modelId = metrics.TokensByModel.Keys.FirstOrDefault() ?? "unknown";
+                    var taskType = workflowBlock.BlockType ?? "general";
+
+                    var fitnessScore = await _fitnessService.CalculateFitnessAsync(
+                        metrics, modelId, taskType, ct);
+
+                    iteration.FitnessScore = fitnessScore;
+
+                    // Record for historical tracking
+                    await _fitnessService.RecordFitnessAsync(fitnessScore, ct);
+
+                    _logger?.LogDebug(
+                        "Iteration {Iteration} fitness: {Fitness:F3} (P={P:F3}, S={S:F3}, W={W:F3})",
+                        iterationNumber,
+                        fitnessScore.TotalFitness,
+                        fitnessScore.Performance,
+                        fitnessScore.Specialization,
+                        fitnessScore.Composability);
+                }
+                catch (Exception ex)
+                {
+                    _logger?.LogWarning(ex, "Failed to calculate fitness for iteration {Iteration}", iterationNumber);
+                }
+            }
 
             // Check constraints
             if (config.Constraints != null)

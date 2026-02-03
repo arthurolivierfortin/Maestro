@@ -5,6 +5,7 @@
  */
 
 import type { TrainingOptimizationGoal, WorkflowExecutionMetrics } from './metrics.types';
+import type { FitnessScore, FitnessBreakdown } from './fitness.types';
 
 /**
  * Training run status
@@ -33,6 +34,7 @@ export interface TrainingIteration {
   success: boolean;
   errorMessage?: string;
   metrics?: WorkflowExecutionMetrics;
+  fitnessScore?: FitnessScore;
 }
 
 /**
@@ -132,6 +134,12 @@ export interface TrainingRun {
   consistencyScore?: number;
   totalCostUsd?: number;
   averageDurationMs?: number;
+  // Fitness metrics
+  averageFitnessScore?: number;
+  fitnessVariance?: number;
+  bestFitnessScore?: number;
+  worstFitnessScore?: number;
+  fitnessBreakdown?: FitnessBreakdown;
 }
 
 /**

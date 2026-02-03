@@ -168,6 +168,37 @@ public class WorkflowExecutionMetricsDto
             ErrorMessage = metrics.ErrorMessage
         };
     }
+
+    public WorkflowExecutionMetrics ToDomain()
+    {
+        return new WorkflowExecutionMetrics
+        {
+            ExecutionId = ExecutionId,
+            WorkflowId = WorkflowId,
+            TrainingRunId = TrainingRunId,
+            IterationNumber = IterationNumber,
+            StartedAt = StartedAt,
+            CompletedAt = CompletedAt,
+            TotalDurationMs = TotalDurationMs,
+            BlockExecutionTimeMs = BlockExecutionTimeMs,
+            TotalCostUsd = TotalCostUsd,
+            CostByModel = CostByModel.ToDictionary(k => k.Key, v => v.Value),
+            CostByBlockType = CostByBlockType.ToDictionary(k => k.Key, v => v.Value),
+            TotalInputTokens = TotalInputTokens,
+            TotalOutputTokens = TotalOutputTokens,
+            TokensByModel = TokensByModel.ToDictionary(
+                k => k.Key,
+                v => new TokenUsage { Input = v.Value.Input, Output = v.Value.Output }),
+            BlocksTotal = BlocksTotal,
+            BlocksSucceeded = BlocksSucceeded,
+            BlocksFailed = BlocksFailed,
+            BlocksSkipped = BlocksSkipped,
+            TotalRetries = TotalRetries,
+            Quality = Quality?.ToDomain(),
+            Status = Status,
+            ErrorMessage = ErrorMessage
+        };
+    }
 }
 
 /// <summary>
@@ -211,6 +242,30 @@ public class QualityScoreDto
             EvaluatedAt = score.EvaluatedAt,
             EvaluatorModelId = score.EvaluatorModelId,
             Confidence = score.Confidence
+        };
+    }
+
+    public QualityScore ToDomain()
+    {
+        var method = Enum.TryParse<QualityEvaluationMethod>(Method, true, out var m)
+            ? m : QualityEvaluationMethod.None;
+
+        return new QualityScore
+        {
+            Score = Score,
+            Method = method,
+            Criteria = Criteria.Select(c => new QualityCriterion
+            {
+                Name = c.Name,
+                Score = c.Score,
+                Weight = c.Weight,
+                Passed = c.Passed,
+                Description = c.Description
+            }).ToList(),
+            Explanation = Explanation,
+            EvaluatedAt = EvaluatedAt,
+            EvaluatorModelId = EvaluatorModelId,
+            Confidence = Confidence
         };
     }
 }

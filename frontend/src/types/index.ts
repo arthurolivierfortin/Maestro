@@ -39,3 +39,6 @@ export * from './metrics.types';
 
 // Training types (Phase 9)
 export * from './training.types';
+
+// Fitness types (Phase 11)
+export * from './fitness.types';

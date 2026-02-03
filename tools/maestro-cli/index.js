@@ -1195,6 +1195,225 @@ async function controlTrainingRun(id, action) {
   }
 }
 
+// ============= Fitness Commands =============
+
+async function getFitnessConfig() {
+  try {
+    const config = await client.get('/api/fitness/config');
+    console.log('\n⚖️ Fitness Configuration:\n');
+    console.log(`  Lambda (λ):           ${config.lambda.toFixed(2)} (cost sensitivity)`);
+    console.log('');
+    console.log('  Component Weights:');
+    console.log(`    Performance:        ${(config.performanceWeight * 100).toFixed(1)}%`);
+    console.log(`    Specialization:     ${(config.specializationWeight * 100).toFixed(1)}%`);
+    console.log(`    Composability:      ${(config.composabilityWeight * 100).toFixed(1)}%`);
+    console.log('');
+    console.log('  Hardware Cost Weights:');
+    console.log(`    VRAM:               ${(config.vramWeight * 100).toFixed(1)}%`);
+    console.log(`    RAM:                ${(config.ramWeight * 100).toFixed(1)}%`);
+    console.log(`    GPU:                ${(config.gpuWeight * 100).toFixed(1)}%`);
+    console.log('');
+    console.log(`  Baseline Cost:        $${config.baselineCostPerMillion}/M tokens`);
+    console.log(`  Retry Penalty:        ${config.retryPenaltyFactor.toFixed(2)} per retry`);
+    console.log(`  Min Threshold:        ${config.minimumFitnessThreshold.toFixed(2)}`);
+    console.log(`  Updated:              ${config.updatedAt}`);
+    console.log('');
+  } catch (error) {
+    handleApiError(error, 'getting fitness config');
+    process.exit(1);
+  }
+}
+
+async function updateFitnessConfig(updates) {
+  try {
+    const config = await client.put('/api/fitness/config', updates);
+    console.log('\n✅ Fitness configuration updated!\n');
+    console.log(`  Lambda:               ${config.lambda.toFixed(2)}`);
+    console.log(`  Performance Weight:   ${(config.performanceWeight * 100).toFixed(1)}%`);
+    console.log(`  Specialization Weight: ${(config.specializationWeight * 100).toFixed(1)}%`);
+    console.log(`  Composability Weight: ${(config.composabilityWeight * 100).toFixed(1)}%`);
+    console.log('');
+  } catch (error) {
+    handleApiError(error, 'updating fitness config');
+    process.exit(1);
+  }
+}
+
+async function getFitnessLeaderboard(options = {}) {
+  try {
+    const params = new URLSearchParams();
+    if (options.taskType) params.append('taskType', options.taskType);
+    params.append('limit', options.limit?.toString() || '10');
+
+    const leaderboard = await client.get(`/api/fitness/leaderboard?${params.toString()}`);
+
+    if (!leaderboard || leaderboard.length === 0) {
+      console.log('\nNo fitness data available yet');
+      console.log('  Run some training iterations to populate the leaderboard');
+      return;
+    }
+
+    console.log('\n🏆 Model Fitness Leaderboard:\n');
+    console.table(leaderboard.map(r => ({
+      'Rank': r.rank,
+      'Model': r.displayName || r.modelId,
+      'Provider': r.provider,
+      'Avg Fitness': r.averageFitness.toFixed(3),
+      'Best': r.bestFitness.toFixed(3),
+      'Executions': r.executionCount
+    })));
+  } catch (error) {
+    handleApiError(error, 'getting fitness leaderboard');
+    process.exit(1);
+  }
+}
+
+async function listModelProfiles(options = {}) {
+  try {
+    const params = new URLSearchParams();
+    if (options.provider) params.append('provider', options.provider);
+
+    const profiles = await client.get(`/api/fitness/profiles?${params.toString()}`);
+
+    if (!profiles || profiles.length === 0) {
+      console.log('\nNo model profiles found');
+      console.log('  Run: maestro fitness profiles --initialize');
+      return;
+    }
+
+    console.log('\n📋 Model Profiles:\n');
+    console.table(profiles.map(p => ({
+      'Model ID': p.modelId,
+      'Name': p.displayName,
+      'Provider': p.provider,
+      'Params': p.parametersBillions + 'B',
+      'VRAM': p.isLocal ? `${p.vramGb}GB` : '-',
+      'Cost': p.isLocal ? 'local' : `$${p.averageCostPerMillion}/M`,
+      'Local': p.isLocal ? 'Yes' : 'No'
+    })));
+  } catch (error) {
+    handleApiError(error, 'listing model profiles');
+    process.exit(1);
+  }
+}
+
+async function getModelProfile(modelId) {
+  try {
+    const profile = await client.get(`/api/fitness/profiles/${encodeURIComponent(modelId)}`);
+    console.log('\n📋 Model Profile:\n');
+    console.log(`  Model ID:       ${profile.modelId}`);
+    console.log(`  Display Name:   ${profile.displayName}`);
+    console.log(`  Provider:       ${profile.provider}`);
+    console.log(`  Parameters:     ${profile.parametersBillions}B`);
+    console.log(`  FLOPs/token:    ${profile.flopsPerToken.toExponential(2)}`);
+    console.log('');
+    console.log('  Hardware Requirements:');
+    console.log(`    VRAM:         ${profile.vramGb}GB`);
+    console.log(`    RAM:          ${profile.ramGb}GB`);
+    console.log(`    GPU:          ${(profile.gpuRequirement * 100).toFixed(0)}%`);
+    console.log('');
+    console.log('  Costs:');
+    console.log(`    Input:        $${profile.costPerMillionInputTokens}/M tokens`);
+    console.log(`    Output:       $${profile.costPerMillionOutputTokens}/M tokens`);
+    console.log('');
+    console.log(`  Context Window: ${profile.contextWindowSize} tokens`);
+    console.log(`  Local:          ${profile.isLocal ? 'Yes' : 'No'}`);
+    console.log(`  Latency:        ${profile.avgLatencyMsPerToken}ms/token`);
+    console.log(`  Specializations: ${profile.specializations?.join(', ') || 'general'}`);
+    console.log('');
+  } catch (error) {
+    if (error.status === 404) {
+      console.error(`❌ Model profile not found: ${modelId}`);
+    } else {
+      handleApiError(error, 'getting model profile');
+    }
+    process.exit(1);
+  }
+}
+
+async function listTaskEntropy(options = {}) {
+  try {
+    const params = new URLSearchParams();
+    if (options.entityType) params.append('entityType', options.entityType);
+
+    const entropies = await client.get(`/api/fitness/entropy?${params.toString()}`);
+
+    if (!entropies || entropies.length === 0) {
+      console.log('\nNo task entropy data found');
+      return;
+    }
+
+    console.log('\n📊 Task Entropy (Specialization Data):\n');
+    console.table(entropies.map(e => ({
+      'Entity': e.entityId,
+      'Type': e.entityType,
+      'Entropy': e.entropyValue.toFixed(3),
+      'Specialization': (e.specializationScore * 100).toFixed(1) + '%',
+      'Tasks': e.totalTasks,
+      'Unique Types': e.uniqueTaskTypes,
+      'Dominant': e.dominantTaskType || '-'
+    })));
+  } catch (error) {
+    handleApiError(error, 'listing task entropy');
+    process.exit(1);
+  }
+}
+
+async function getTaskEntropy(entityId, entityType = 'model') {
+  try {
+    const entropy = await client.get(`/api/fitness/entropy/${encodeURIComponent(entityId)}?entityType=${entityType}`);
+    console.log(`\n📊 Task Entropy for ${entityType}:${entityId}\n`);
+    console.log(`  Entropy Value:    ${entropy.entropyValue.toFixed(3)}`);
+    console.log(`  Max Entropy:      ${entropy.maxEntropy.toFixed(3)}`);
+    console.log(`  Normalized:       ${entropy.normalizedEntropy.toFixed(3)}`);
+    console.log(`  Specialization:   ${(entropy.specializationScore * 100).toFixed(1)}%`);
+    console.log(`  Total Tasks:      ${entropy.totalTasks}`);
+    console.log(`  Unique Types:     ${entropy.uniqueTaskTypes}`);
+    console.log(`  Dominant Task:    ${entropy.dominantTaskType || 'none'}`);
+
+    if (entropy.taskDistribution && Object.keys(entropy.taskDistribution).length > 0) {
+      console.log('\n  Task Distribution:');
+      for (const [taskType, count] of Object.entries(entropy.taskDistribution)) {
+        const pct = (count / entropy.totalTasks * 100).toFixed(1);
+        console.log(`    ${taskType}: ${count} (${pct}%)`);
+      }
+    }
+    console.log('');
+  } catch (error) {
+    if (error.status === 404) {
+      console.error(`❌ Task entropy not found for ${entityType}:${entityId}`);
+    } else {
+      handleApiError(error, 'getting task entropy');
+    }
+    process.exit(1);
+  }
+}
+
+async function calculateFitness(options) {
+  try {
+    // This requires execution metrics - for now show an info message
+    console.log('\n⚠️  Direct fitness calculation requires execution metrics.\n');
+    console.log('  Fitness is automatically calculated during training runs.');
+    console.log('  To see fitness data, run a training iteration and check:');
+    console.log('    maestro fitness leaderboard');
+    console.log('    maestro training run <id>');
+    console.log('');
+
+    // Show model stats if available
+    const stats = await client.get(`/api/fitness/stats/${encodeURIComponent(options.modelId)}?taskType=${options.taskType || 'general'}`).catch(() => null);
+    if (stats && stats.sampleCount > 0) {
+      console.log(`  Current Stats for ${options.modelId}:`);
+      console.log(`    Average Fitness: ${stats.averageFitness.toFixed(3)}`);
+      console.log(`    Min/Max: ${stats.minFitness.toFixed(3)} - ${stats.maxFitness.toFixed(3)}`);
+      console.log(`    Samples: ${stats.sampleCount}`);
+      console.log('');
+    }
+  } catch (error) {
+    handleApiError(error, 'calculating fitness');
+    process.exit(1);
+  }
+}
+
 // ============= Metrics Commands =============
 
 async function listExecutionMetrics(filter = {}) {
@@ -2043,6 +2262,15 @@ Training Commands:
   training resume <id> Resume a paused training run
   training cancel <id> Cancel a training run
 
+Fitness Commands:
+  fitness              Show fitness configuration
+  fitness config       Show/update fitness configuration
+  fitness leaderboard  Show model fitness rankings
+  fitness profiles     List all model profiles
+  fitness profile <id> Show/update a model profile
+  fitness entropy      Show task entropy data
+  fitness calculate    Calculate fitness for an execution
+
 Metrics Commands:
   metrics              List recent execution metrics
   metrics summary      Show aggregated metrics summary
@@ -2584,6 +2812,64 @@ Examples:
       }
 
       console.error(`❌ Unknown training subcommand: ${subCmd}`);
+      process.exit(1);
+    }
+
+    // Fitness commands
+    if (cmd === 'fitness') {
+      const subCmd = argv._[1];
+
+      if (!subCmd) return await getFitnessConfig();
+
+      if (subCmd === 'config') {
+        if (argv.lambda || argv['performance-weight'] || argv['specialization-weight'] || argv['composability-weight']) {
+          return await updateFitnessConfig({
+            lambda: argv.lambda ? parseFloat(argv.lambda) : undefined,
+            performanceWeight: argv['performance-weight'] ? parseFloat(argv['performance-weight']) : undefined,
+            specializationWeight: argv['specialization-weight'] ? parseFloat(argv['specialization-weight']) : undefined,
+            composabilityWeight: argv['composability-weight'] ? parseFloat(argv['composability-weight']) : undefined
+          });
+        }
+        return await getFitnessConfig();
+      }
+
+      if (subCmd === 'leaderboard') {
+        return await getFitnessLeaderboard({
+          taskType: argv['task-type'],
+          limit: argv.limit ? parseInt(argv.limit) : 10
+        });
+      }
+
+      if (subCmd === 'profiles') {
+        return await listModelProfiles({ provider: argv.provider });
+      }
+
+      if (subCmd === 'profile') {
+        const modelId = argv._[2];
+        if (!modelId) { console.error('❌ Model ID required'); process.exit(1); }
+        return await getModelProfile(modelId);
+      }
+
+      if (subCmd === 'entropy') {
+        const entityId = argv._[2];
+        if (entityId) {
+          return await getTaskEntropy(entityId, argv['entity-type'] || 'model');
+        }
+        return await listTaskEntropy({ entityType: argv['entity-type'] });
+      }
+
+      if (subCmd === 'calculate') {
+        if (!argv.model) { console.error('❌ --model is required'); process.exit(1); }
+        if (!argv['task-type']) { console.error('❌ --task-type is required'); process.exit(1); }
+        return await calculateFitness({
+          modelId: argv.model,
+          taskType: argv['task-type'],
+          executionId: argv.execution
+        });
+      }
+
+      console.error(`❌ Unknown fitness subcommand: ${subCmd}`);
+      console.error('   Available commands: config, leaderboard, profiles, profile, entropy, calculate');
       process.exit(1);
     }
 

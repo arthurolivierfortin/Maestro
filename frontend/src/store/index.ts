@@ -19,3 +19,6 @@ export * from './projectStore';
 // Metrics and Training stores (Phase 9)
 export * from './metricsStore';
 export * from './trainingStore';
+
+// Fitness store (Phase 11)
+export * from './fitnessStore';

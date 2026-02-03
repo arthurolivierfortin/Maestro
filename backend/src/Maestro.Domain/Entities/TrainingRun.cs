@@ -207,6 +207,39 @@ public class TrainingRun
             .Select(i => i.Metrics!.Quality!.Score)
             .ToList();
 
+        // Compute fitness statistics
+        var iterationsWithFitness = successfulIterations
+            .Where(i => i.FitnessScore != null)
+            .Select(i => i.FitnessScore!)
+            .ToList();
+
+        double? avgFitness = null;
+        double? fitnessVariance = null;
+        double? bestFitness = null;
+        double? worstFitness = null;
+        FitnessBreakdown? fitnessBreakdown = null;
+
+        if (iterationsWithFitness.Any())
+        {
+            var fitnessValues = iterationsWithFitness.Select(f => f.TotalFitness).ToList();
+            avgFitness = fitnessValues.Average();
+            fitnessVariance = fitnessValues.Count > 1 ? ComputeVariance(fitnessValues) : 0;
+            bestFitness = fitnessValues.Max();
+            worstFitness = fitnessValues.Min();
+
+            // Calculate average breakdown
+            fitnessBreakdown = new FitnessBreakdown
+            {
+                Performance = iterationsWithFitness.Average(f => f.Performance),
+                Specialization = iterationsWithFitness.Average(f => f.Specialization),
+                Composability = iterationsWithFitness.Average(f => f.Composability),
+                EconomicCost = iterationsWithFitness.Average(f => f.EconomicCost),
+                ComputeCost = iterationsWithFitness.Average(f => f.ComputeCost),
+                HardwareCost = iterationsWithFitness.Average(f => f.HardwareCost),
+                TotalFitness = avgFitness.Value
+            };
+        }
+
         return new TrainingRunMetrics
         {
             TrainingRunId = Id,
@@ -226,7 +259,13 @@ public class TrainingRun
             ConsistencyScore = ComputeConsistencyScore(durations, costs, qualities),
             StartedAt = StartedAt ?? CreatedAt,
             CompletedAt = CompletedAt,
-            Status = Status.ToString()
+            Status = Status.ToString(),
+            // Fitness metrics
+            AverageFitnessScore = avgFitness,
+            FitnessVariance = fitnessVariance,
+            BestFitnessScore = bestFitness,
+            WorstFitnessScore = worstFitness,
+            FitnessBreakdown = fitnessBreakdown
         };
     }
 
@@ -308,6 +347,11 @@ public class TrainingIteration
     public WorkflowExecutionMetrics? Metrics { get; set; }
 
     /// <summary>
+    /// Fitness score calculated for this iteration.
+    /// </summary>
+    public FitnessScore? FitnessScore { get; set; }
+
+    /// <summary>
     /// When the iteration started.
     /// </summary>
     public DateTimeOffset StartedAt { get; set; }
@@ -341,4 +385,11 @@ public record TrainingRunMetrics
     public DateTimeOffset StartedAt { get; init; }
     public DateTimeOffset? CompletedAt { get; init; }
     public string Status { get; init; } = string.Empty;
+
+    // Fitness metrics
+    public double? AverageFitnessScore { get; init; }
+    public double? FitnessVariance { get; init; }
+    public double? BestFitnessScore { get; init; }
+    public double? WorstFitnessScore { get; init; }
+    public FitnessBreakdown? FitnessBreakdown { get; init; }
 }

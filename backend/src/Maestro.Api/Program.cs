@@ -11,6 +11,7 @@ using Maestro.Infrastructure.Services;
 using Maestro.Infrastructure.Metrics;
 using Maestro.Infrastructure.Training;
 using Maestro.Infrastructure.Training.QualityEvaluators;
+using Maestro.Infrastructure.Fitness;
 using Maestro.Infrastructure.Sessions;
 using System.IO;
 using System;
@@ -232,6 +233,24 @@ builder.Services.AddSingleton<IQualityEvaluator, CompositeQualityEvaluator>(sp =
     var logger = sp.GetService<ILogger<CompositeQualityEvaluator>>();
     return new CompositeQualityEvaluator(heuristic, llm, logger);
 });
+
+// Phase 11: Register fitness services
+var fitnessFolder = Path.Combine(pathConfig.RepoRootPath, "data", "fitness");
+Directory.CreateDirectory(fitnessFolder);
+Console.WriteLine($"[Maestro] Fitness data:    {fitnessFolder}");
+builder.Services.AddSingleton<IModelProfileRepository>(sp =>
+{
+    var logger = sp.GetService<ILogger<FileSystemModelProfileRepository>>();
+    return new FileSystemModelProfileRepository(
+        Path.Combine(fitnessFolder, "model-profiles.json"), logger);
+});
+builder.Services.AddSingleton<ITaskEntropyRepository>(sp =>
+{
+    var logger = sp.GetService<ILogger<FileSystemTaskEntropyRepository>>();
+    return new FileSystemTaskEntropyRepository(
+        Path.Combine(fitnessFolder, "task-entropy.json"), logger);
+});
+builder.Services.AddScoped<IFitnessService, FitnessService>();
 
 // Phase 9: Register training service (Scoped because IWorkflowExecutor is Scoped)
 builder.Services.AddScoped<ITrainingService, TrainingService>();

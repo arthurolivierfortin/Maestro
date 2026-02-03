@@ -228,6 +228,13 @@ public class TrainingRunMetricsDto
     public DateTimeOffset? CompletedAt { get; set; }
     public string Status { get; set; } = string.Empty;
 
+    // Fitness metrics
+    public double? AverageFitnessScore { get; set; }
+    public double? FitnessVariance { get; set; }
+    public double? BestFitnessScore { get; set; }
+    public double? WorstFitnessScore { get; set; }
+    public FitnessBreakdownDto? FitnessBreakdown { get; set; }
+
     public static TrainingRunMetricsDto FromDomain(TrainingRunMetrics metrics)
     {
         return new TrainingRunMetricsDto
@@ -249,7 +256,15 @@ public class TrainingRunMetricsDto
             ConsistencyScore = metrics.ConsistencyScore,
             StartedAt = metrics.StartedAt,
             CompletedAt = metrics.CompletedAt,
-            Status = metrics.Status
+            Status = metrics.Status,
+            // Fitness metrics
+            AverageFitnessScore = metrics.AverageFitnessScore,
+            FitnessVariance = metrics.FitnessVariance,
+            BestFitnessScore = metrics.BestFitnessScore,
+            WorstFitnessScore = metrics.WorstFitnessScore,
+            FitnessBreakdown = metrics.FitnessBreakdown != null
+                ? FitnessBreakdownDto.FromDomain(metrics.FitnessBreakdown)
+                : null
         };
     }
 }
@@ -264,6 +279,7 @@ public class TrainingIterationDto
     public bool Success { get; set; }
     public string? ErrorMessage { get; set; }
     public WorkflowExecutionMetricsDto? Metrics { get; set; }
+    public FitnessScoreDto? FitnessScore { get; set; }
     public DateTimeOffset StartedAt { get; set; }
     public DateTimeOffset? CompletedAt { get; set; }
 
@@ -277,6 +293,9 @@ public class TrainingIterationDto
             ErrorMessage = iteration.ErrorMessage,
             Metrics = iteration.Metrics != null
                 ? WorkflowExecutionMetricsDto.FromDomain(iteration.Metrics)
+                : null,
+            FitnessScore = iteration.FitnessScore != null
+                ? FitnessScoreDto.FromDomain(iteration.FitnessScore)
                 : null,
             StartedAt = iteration.StartedAt,
             CompletedAt = iteration.CompletedAt
