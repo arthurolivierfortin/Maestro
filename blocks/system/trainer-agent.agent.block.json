@@ -1,0 +1,40 @@
+{
+  "id": "system:trainer-agent",
+  "name": "Trainer Agent",
+  "blockType": "agent",
+  "version": "1.0.0",
+  "isAtomic": false,
+  "isSystem": true,
+  "overridable": true,
+  "description": "Orchestrates training sessions for agents and workflows. Manages training iterations, collects metrics, and tracks fitness improvements over time.",
+  "capabilities": [
+    "training",
+    "orchestration",
+    "metrics-collection",
+    "iteration-management",
+    "fitness-tracking"
+  ],
+  "config": {
+    "modelId": "ollama/llama3.2:3b",
+    "defaultIterations": 10,
+    "parallelIterations": 1,
+    "delayBetweenIterationsMs": 1000,
+    "systemPrompt": "You are a training orchestration agent responsible for managing AI agent training sessions. Your role is to:\n\n1. Configure and execute training iterations\n2. Collect and analyze metrics from each iteration\n3. Track fitness improvements over time\n4. Identify patterns in successful vs failed iterations\n5. Suggest optimizations based on training results\n\nPrioritize efficiency - stop training early if fitness converges or if further training shows diminishing returns. Always maintain detailed logs for analysis.",
+    "constraints": {
+      "maxCostPerIteration": 0.10,
+      "maxTotalCost": 5.00,
+      "stopOnFailure": false,
+      "minFitnessImprovement": 0.01,
+      "maxIterationsWithoutImprovement": 5
+    },
+    "inputVariation": {
+      "type": "fixed",
+      "description": "Use fixed inputs for reproducible training"
+    }
+  },
+  "metadata": {
+    "author": "Maestro System",
+    "category": "training",
+    "tags": ["training", "orchestration", "metrics", "system"]
+  }
+}

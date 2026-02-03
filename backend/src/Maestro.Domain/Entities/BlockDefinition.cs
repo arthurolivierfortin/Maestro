@@ -15,6 +15,23 @@ namespace Maestro.Domain.Entities
         public Dictionary<string, object> Metadata { get; private set; } = new();
         public List<string> Capabilities { get; private set; } = new();
 
+        /// <summary>
+        /// Indicates whether this is a system block (provided by Maestro).
+        /// System blocks are loaded from the blocks/system directory.
+        /// </summary>
+        public bool IsSystem { get; private set; }
+
+        /// <summary>
+        /// Indicates whether this system block can be overridden by user blocks.
+        /// Only applicable when IsSystem is true.
+        /// </summary>
+        public bool Overridable { get; private set; } = true;
+
+        /// <summary>
+        /// If this block is a user override of a system block, this holds the original system block ID.
+        /// </summary>
+        public string? OverridesSystemBlock { get; private set; }
+
         private BlockDefinition() { }
 
         public static BlockDefinition Create(string id, string name, string blockType)
@@ -29,8 +46,18 @@ namespace Maestro.Domain.Entities
                 Name = name,
                 BlockType = blockType,
                 Version = "1.0.0",
-                IsAtomic = true
+                IsAtomic = true,
+                IsSystem = false,
+                Overridable = true
             };
+        }
+
+        public static BlockDefinition CreateSystem(string id, string name, string blockType, bool overridable = true)
+        {
+            var block = Create(id, name, blockType);
+            block.IsSystem = true;
+            block.Overridable = overridable;
+            return block;
         }
 
         public void UpdateMetadata(Dictionary<string, object> metadata)
@@ -64,6 +91,21 @@ namespace Maestro.Domain.Entities
             {
                 Capabilities.AddRange(capabilities);
             }
+        }
+
+        public void SetIsSystem(bool isSystem)
+        {
+            IsSystem = isSystem;
+        }
+
+        public void SetOverridable(bool overridable)
+        {
+            Overridable = overridable;
+        }
+
+        public void SetOverridesSystemBlock(string? systemBlockId)
+        {
+            OverridesSystemBlock = systemBlockId;
         }
     }
 }

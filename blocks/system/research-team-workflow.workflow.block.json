@@ -1,0 +1,229 @@
+{
+  "id": "system:research-team",
+  "name": "Research Team Workflow",
+  "blockType": "workflow",
+  "isSystem": true,
+  "overridable": true,
+  "description": "Orchestrates the self-improvement research pipeline: Researcher identifies opportunities, Trainer implements improvements, Tester validates, Fitness Evaluator scores, then either Documenter + Publisher (on pass) or back to Researcher (on fail).",
+  "version": "1.0.0",
+  "capabilities": [
+    "self-improvement",
+    "automated-research",
+    "continuous-training",
+    "quality-assurance",
+    "automated-publishing"
+  ],
+  "config": {
+    "workflowMode": "continuous",
+    "maxCyclesPerRun": 10,
+    "cycleDelayMs": 60000,
+    "stopOnFirstSuccess": false,
+    "fitnessThreshold": 0.85,
+    "retryOnFailure": true,
+    "maxRetries": 3,
+    "notifyOnMilestones": true,
+    "autoPublish": false
+  },
+  "children": [
+    {
+      "id": "research-phase",
+      "name": "Research Phase",
+      "blockRef": "system:researcher",
+      "config": {
+        "analysisScope": "agent",
+        "timeRange": "7d",
+        "focusArea": "all"
+      },
+      "position": { "x": 100, "y": 100 }
+    },
+    {
+      "id": "training-phase",
+      "name": "Training Phase",
+      "blockRef": "system:trainer",
+      "config": {
+        "iterations": 50,
+        "evaluationMode": "hybrid"
+      },
+      "position": { "x": 300, "y": 100 }
+    },
+    {
+      "id": "testing-phase",
+      "name": "Testing Phase",
+      "blockRef": "system:tester",
+      "config": {
+        "testSuite": "comprehensive",
+        "coverageThreshold": 0.8
+      },
+      "position": { "x": 500, "y": 100 }
+    },
+    {
+      "id": "fitness-evaluation",
+      "name": "Fitness Evaluation",
+      "blockRef": "system:fitness-evaluator",
+      "config": {
+        "evaluationType": "full",
+        "includeComparison": true
+      },
+      "position": { "x": 700, "y": 100 }
+    },
+    {
+      "id": "decision-gate",
+      "name": "Quality Decision",
+      "blockType": "decision",
+      "config": {
+        "conditionType": "threshold",
+        "metric": "fitnessScore",
+        "threshold": 0.85,
+        "comparison": "greaterOrEqual"
+      },
+      "position": { "x": 900, "y": 100 }
+    },
+    {
+      "id": "documentation-phase",
+      "name": "Documentation Phase",
+      "blockRef": "system:documenter",
+      "config": {
+        "documentType": "readme",
+        "includeExamples": true,
+        "format": "markdown"
+      },
+      "position": { "x": 1100, "y": 50 }
+    },
+    {
+      "id": "publishing-phase",
+      "name": "Publishing Phase",
+      "blockRef": "system:publisher",
+      "config": {
+        "publishTarget": "workspace-catalog",
+        "autoIncrement": true
+      },
+      "position": { "x": 1300, "y": 50 }
+    },
+    {
+      "id": "failure-analysis",
+      "name": "Failure Analysis",
+      "blockRef": "system:researcher",
+      "config": {
+        "focusArea": "quality",
+        "analysisScope": "agent"
+      },
+      "position": { "x": 1100, "y": 200 }
+    }
+  ],
+  "connections": [
+    {
+      "id": "conn-1",
+      "from": { "blockId": "research-phase", "port": "output" },
+      "to": { "blockId": "training-phase", "port": "input" }
+    },
+    {
+      "id": "conn-2",
+      "from": { "blockId": "training-phase", "port": "output" },
+      "to": { "blockId": "testing-phase", "port": "input" }
+    },
+    {
+      "id": "conn-3",
+      "from": { "blockId": "testing-phase", "port": "output" },
+      "to": { "blockId": "fitness-evaluation", "port": "input" }
+    },
+    {
+      "id": "conn-4",
+      "from": { "blockId": "fitness-evaluation", "port": "output" },
+      "to": { "blockId": "decision-gate", "port": "input" }
+    },
+    {
+      "id": "conn-5-pass",
+      "from": { "blockId": "decision-gate", "port": "pass" },
+      "to": { "blockId": "documentation-phase", "port": "input" }
+    },
+    {
+      "id": "conn-6",
+      "from": { "blockId": "documentation-phase", "port": "output" },
+      "to": { "blockId": "publishing-phase", "port": "input" }
+    },
+    {
+      "id": "conn-5-fail",
+      "from": { "blockId": "decision-gate", "port": "fail" },
+      "to": { "blockId": "failure-analysis", "port": "input" }
+    },
+    {
+      "id": "conn-7-loop",
+      "from": { "blockId": "failure-analysis", "port": "output" },
+      "to": { "blockId": "training-phase", "port": "input" },
+      "condition": "retryCount < maxRetries"
+    }
+  ],
+  "inputs": [
+    {
+      "name": "targetAgent",
+      "type": "string",
+      "description": "Agent ID to improve",
+      "required": true
+    },
+    {
+      "name": "improvementGoal",
+      "type": "string",
+      "description": "Specific improvement goal (optional)",
+      "required": false
+    },
+    {
+      "name": "fitnessTarget",
+      "type": "number",
+      "description": "Target fitness score (default: 0.85)",
+      "required": false,
+      "default": 0.85
+    },
+    {
+      "name": "maxIterations",
+      "type": "number",
+      "description": "Maximum training iterations per cycle",
+      "required": false,
+      "default": 50
+    },
+    {
+      "name": "autoPublish",
+      "type": "boolean",
+      "description": "Automatically publish on success",
+      "required": false,
+      "default": false
+    }
+  ],
+  "outputs": [
+    {
+      "name": "success",
+      "type": "boolean",
+      "description": "Whether the improvement cycle succeeded"
+    },
+    {
+      "name": "finalFitness",
+      "type": "number",
+      "description": "Final fitness score achieved"
+    },
+    {
+      "name": "improvements",
+      "type": "array",
+      "description": "List of improvements applied"
+    },
+    {
+      "name": "publishedVersion",
+      "type": "string",
+      "description": "Published version (if auto-publish enabled)"
+    },
+    {
+      "name": "cycleCount",
+      "type": "number",
+      "description": "Number of improvement cycles run"
+    },
+    {
+      "name": "documentation",
+      "type": "string",
+      "description": "Generated documentation"
+    }
+  ],
+  "metadata": {
+    "author": "Maestro System",
+    "category": "research",
+    "tags": ["system", "research", "self-improvement", "pipeline", "automation"],
+    "documentation": "https://maestro.ai/docs/research-team"
+  }
+}

@@ -1,0 +1,105 @@
+{
+  "id": "system:researcher",
+  "name": "Research Agent",
+  "blockType": "agent",
+  "isSystem": true,
+  "overridable": true,
+  "description": "Identifies improvement opportunities by analyzing agent performance, user feedback, and execution patterns. Proposes research hypotheses and improvement experiments.",
+  "version": "1.0.0",
+  "capabilities": [
+    "performance-analysis",
+    "pattern-detection",
+    "hypothesis-generation",
+    "improvement-proposals",
+    "feedback-analysis"
+  ],
+  "config": {
+    "analysisTypes": [
+      "performance-degradation",
+      "error-patterns",
+      "latency-bottlenecks",
+      "cost-optimization",
+      "quality-improvements",
+      "capability-gaps"
+    ],
+    "dataSourcePriorities": [
+      "execution-metrics",
+      "fitness-scores",
+      "user-feedback",
+      "error-logs",
+      "comparison-baselines"
+    ],
+    "proposalThresholds": {
+      "minConfidence": 0.7,
+      "minExpectedImprovement": 0.05,
+      "maxProposalsPerCycle": 5
+    },
+    "experimentConfig": {
+      "defaultIterations": 50,
+      "controlGroupSize": 0.2,
+      "significanceThreshold": 0.95
+    }
+  },
+  "inputs": [
+    {
+      "name": "targetAgent",
+      "type": "string",
+      "description": "Agent ID to analyze (optional - analyzes all if not specified)",
+      "required": false
+    },
+    {
+      "name": "analysisScope",
+      "type": "string",
+      "description": "Scope of analysis: agent, workflow, workspace, or system",
+      "required": false,
+      "default": "agent"
+    },
+    {
+      "name": "timeRange",
+      "type": "string",
+      "description": "Time range for analysis: 1h, 24h, 7d, 30d",
+      "required": false,
+      "default": "7d"
+    },
+    {
+      "name": "focusArea",
+      "type": "string",
+      "description": "Focus area: performance, quality, cost, or all",
+      "required": false,
+      "default": "all"
+    }
+  ],
+  "outputs": [
+    {
+      "name": "findings",
+      "type": "array",
+      "description": "List of identified issues and opportunities"
+    },
+    {
+      "name": "proposals",
+      "type": "array",
+      "description": "Proposed improvements with expected impact"
+    },
+    {
+      "name": "experiments",
+      "type": "array",
+      "description": "Suggested experiments to validate improvements"
+    },
+    {
+      "name": "prioritizedActions",
+      "type": "array",
+      "description": "Actions prioritized by impact and effort"
+    }
+  ],
+  "prompts": {
+    "analysisPrompt": "You are a research agent analyzing agent performance to identify improvement opportunities.\n\nTarget: {targetAgent}\nScope: {analysisScope}\nTime Range: {timeRange}\nFocus Area: {focusArea}\n\nPerformance Data:\n{performanceData}\n\nFitness Trends:\n{fitnessTrends}\n\nError Patterns:\n{errorPatterns}\n\nAnalyze this data and identify:\n1. Performance degradation patterns\n2. Common failure modes\n3. Cost optimization opportunities\n4. Quality improvement areas\n5. Capability gaps\n\nFor each finding, provide:\n- Description of the issue\n- Evidence from the data\n- Potential root causes\n- Suggested improvements\n- Expected impact (quantified if possible)",
+    "hypothesisPrompt": "Based on the findings:\n{findings}\n\nGenerate research hypotheses that could improve agent performance.\n\nFor each hypothesis:\n1. Clear statement of what you expect to happen\n2. Proposed change or intervention\n3. Metrics to measure success\n4. Experiment design to validate\n5. Confidence level and reasoning",
+    "prioritizationPrompt": "Given these improvement proposals:\n{proposals}\n\nPrioritize them considering:\n- Expected improvement in fitness score\n- Implementation effort (low/medium/high)\n- Risk level\n- Dependencies on other changes\n- Time to realize benefits\n\nProvide a ranked list with justification for the ordering."
+  },
+  "metadata": {
+    "author": "Maestro System",
+    "category": "research",
+    "tags": ["system", "research", "analysis", "improvement", "optimization"],
+    "documentation": "https://maestro.ai/docs/researcher-agent"
+  }
+}

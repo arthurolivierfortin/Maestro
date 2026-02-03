@@ -42,3 +42,6 @@ export * from './training.types';
 
 // Fitness types (Phase 11)
 export * from './fitness.types';
+
+// Workspace types (Phase 3)
+export * from './workspace.types';

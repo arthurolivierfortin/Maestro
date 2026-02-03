@@ -788,6 +788,12 @@ async function createSession(options) {
   try {
     if (!options.projectId) { console.error('❌ --project is required'); process.exit(1); }
 
+    // Validate repository source requires path
+    if (options.source === 'repository' && !options.repositoryPath) {
+      console.error('❌ --repository-path is required when using --source repository');
+      process.exit(1);
+    }
+
     const request = {
       projectId: options.projectId,
       authority: options.authority || 'human',
@@ -803,7 +809,15 @@ async function createSession(options) {
       runLinter: options.runLinter || false,
       linterCommand: options.linterCommand,
       maxSteps: options.maxSteps ? parseInt(options.maxSteps) : 50,
-      timeoutMs: options.timeout ? parseInt(options.timeout) : 600000
+      timeoutMs: options.timeout ? parseInt(options.timeout) : 600000,
+      // Phase 4: Session source configuration
+      source: options.source || 'sandbox',
+      repositoryConfig: options.source === 'repository' ? {
+        repositoryPath: options.repositoryPath,
+        accessLevel: options.accessLevel || 'controlled',
+        branch: options.branch,
+        excludePatterns: options.excludePatterns ? options.excludePatterns.split(',') : undefined
+      } : undefined
     };
 
     const session = await client.createSession(request);
@@ -812,6 +826,14 @@ async function createSession(options) {
     console.log(`  Name:      ${session.name}`);
     console.log(`  Status:    ${session.status}`);
     console.log(`  Authority: ${session.authority || 'human'}`);
+    console.log(`  Source:    ${request.source}`);
+    if (request.source === 'repository' && request.repositoryConfig) {
+      console.log(`  Repo Path: ${request.repositoryConfig.repositoryPath}`);
+      console.log(`  Access:    ${request.repositoryConfig.accessLevel}`);
+      if (request.repositoryConfig.branch) {
+        console.log(`  Branch:    ${request.repositoryConfig.branch}`);
+      }
+    }
     console.log('');
     console.log('  Start it with: maestro session start ' + session.id);
     console.log('  Execute cmd:   maestro session exec ' + session.id + ' "ls -la"');
@@ -1410,6 +1432,932 @@ async function calculateFitness(options) {
     }
   } catch (error) {
     handleApiError(error, 'calculating fitness');
+    process.exit(1);
+  }
+}
+
+// ============= System Block Commands =============
+
+async function listSystemBlocks() {
+  try {
+    const blocks = await client.get('/api/blocks/system');
+    if (!blocks || blocks.length === 0) {
+      console.log('\nNo system blocks found');
+      console.log('  System blocks are located in blocks/system/');
+      return;
+    }
+
+    console.log('\n🔧 System Blocks:\n');
+    console.table(blocks.map(b => ({
+      'ID': b.id,
+      'Name': b.name,
+      'Type': b.blockType,
+      'Overridable': b.overridable ? 'Yes' : 'No',
+      'Version': b.version
+    })));
+  } catch (error) {
+    handleApiError(error, 'listing system blocks');
+    process.exit(1);
+  }
+}
+
+async function getSystemBlockInfo(blockId) {
+  try {
+    const block = await client.get(`/api/blocks/system/${encodeURIComponent(blockId)}`);
+    console.log('\n🔧 System Block Details:\n');
+    console.log(`  ID:           ${block.id}`);
+    console.log(`  Name:         ${block.name}`);
+    console.log(`  Type:         ${block.blockType}`);
+    console.log(`  Version:      ${block.version}`);
+    console.log(`  Description:  ${block.description || 'N/A'}`);
+    console.log(`  Overridable:  ${block.overridable ? 'Yes' : 'No'}`);
+    console.log(`  Capabilities: ${block.capabilities?.join(', ') || 'None'}`);
+
+    // Check if has override
+    const overrideStatus = await client.get(`/api/blocks/system/${encodeURIComponent(blockId)}/has-override`);
+    console.log(`  Has Override: ${overrideStatus.hasOverride ? 'Yes' : 'No'}`);
+    console.log('');
+
+    if (block.config) {
+      console.log('  Configuration:');
+      const configStr = JSON.stringify(block.config, null, 2).split('\n');
+      configStr.slice(0, 10).forEach(line => console.log('    ' + line));
+      if (configStr.length > 10) {
+        console.log(`    ... (${configStr.length - 10} more lines)`);
+      }
+    }
+    console.log('');
+  } catch (error) {
+    if (error.status === 404) {
+      console.error(`❌ System block not found: ${blockId}`);
+    } else {
+      handleApiError(error, 'getting system block info');
+    }
+    process.exit(1);
+  }
+}
+
+async function listUserOverrides() {
+  try {
+    const overrides = await client.get('/api/blocks/system/overrides');
+    if (!overrides || overrides.length === 0) {
+      console.log('\nNo user overrides found');
+      console.log('  Create an override with: maestro system override <system-block-id>');
+      return;
+    }
+
+    console.log('\n📝 User Overrides:\n');
+    console.table(overrides.map(b => ({
+      'ID': b.id,
+      'Overrides': b.overridesSystemBlock,
+      'Name': b.name,
+      'Type': b.blockType
+    })));
+  } catch (error) {
+    handleApiError(error, 'listing user overrides');
+    process.exit(1);
+  }
+}
+
+async function createSystemBlockOverride(blockId, config = null) {
+  try {
+    const body = {};
+    if (config) {
+      try {
+        body.config = JSON.parse(config);
+      } catch (e) {
+        console.error('❌ Invalid JSON config:', e.message);
+        process.exit(1);
+      }
+    }
+
+    const override = await client.post(`/api/blocks/system/${encodeURIComponent(blockId)}/override`, body);
+    console.log('\n✅ Override created successfully!\n');
+    console.log(`  Override ID:    ${override.id}`);
+    console.log(`  System Block:   ${override.overridesSystemBlock || blockId}`);
+    console.log(`  Name:           ${override.name}`);
+    console.log('');
+    console.log('  To restore to default:');
+    console.log(`    maestro system restore ${blockId}`);
+    console.log('');
+  } catch (error) {
+    if (error.status === 404) {
+      console.error(`❌ System block not found: ${blockId}`);
+    } else if (error.status === 400) {
+      console.error(`❌ Cannot override: ${error.message || 'Block is not overridable'}`);
+    } else {
+      handleApiError(error, 'creating override');
+    }
+    process.exit(1);
+  }
+}
+
+async function restoreSystemBlock(blockId) {
+  try {
+    await client.delete(`/api/blocks/system/${encodeURIComponent(blockId)}/override`);
+    console.log('\n✅ System block restored to default!\n');
+    console.log(`  Block ID: ${blockId}`);
+    console.log('');
+  } catch (error) {
+    if (error.status === 404) {
+      console.error(`❌ System block not found: ${blockId}`);
+    } else {
+      handleApiError(error, 'restoring system block');
+    }
+    process.exit(1);
+  }
+}
+
+async function getEffectiveBlock(blockId) {
+  try {
+    const block = await client.get(`/api/blocks/system/${encodeURIComponent(blockId)}/effective`);
+    const hasOverride = await client.get(`/api/blocks/system/${encodeURIComponent(blockId)}/has-override`);
+
+    console.log(`\n${hasOverride.hasOverride ? '📝' : '🔧'} Effective Block (${hasOverride.hasOverride ? 'with override' : 'system default'}):\n`);
+    console.log(`  ID:           ${block.id}`);
+    console.log(`  Name:         ${block.name}`);
+    console.log(`  Type:         ${block.blockType}`);
+    console.log(`  Version:      ${block.version}`);
+    console.log(`  Description:  ${block.description || 'N/A'}`);
+    console.log(`  Is System:    ${block.isSystem ? 'Yes' : 'No'}`);
+    console.log(`  Overridden:   ${hasOverride.hasOverride ? 'Yes' : 'No'}`);
+    console.log('');
+
+    if (block.config) {
+      console.log('  Effective Configuration:');
+      const configStr = JSON.stringify(block.config, null, 2).split('\n');
+      configStr.forEach(line => console.log('    ' + line));
+    }
+    console.log('');
+  } catch (error) {
+    if (error.status === 404) {
+      console.error(`❌ Block not found: ${blockId}`);
+    } else {
+      handleApiError(error, 'getting effective block');
+    }
+    process.exit(1);
+  }
+}
+
+// ============= Workspace Commands =============
+
+async function listWorkspaces(options = {}) {
+  try {
+    const params = new URLSearchParams();
+    if (options.type) params.append('type', options.type);
+
+    const workspaces = await client.get(`/api/workspaces?${params.toString()}`);
+    if (!workspaces || workspaces.length === 0) {
+      console.log('\nNo workspaces found');
+      console.log('  Create one with: maestro workspace create --name "My Workspace" --type research');
+      return;
+    }
+
+    console.log('\n🏢 Workspaces:\n');
+    console.table(workspaces.map(w => ({
+      'ID': w.id.substring(0, 8) + '...',
+      'Name': w.name,
+      'Type': w.type,
+      'Status': w.status,
+      'Sessions': w.sessionIds?.length || 0,
+      'Projects': w.projectIds?.length || 0,
+      'Isolated': w.isolation?.enabled ? 'Yes' : 'No'
+    })));
+  } catch (error) {
+    handleApiError(error, 'listing workspaces');
+    process.exit(1);
+  }
+}
+
+async function getWorkspaceInfo(id) {
+  try {
+    const workspace = await client.get(`/api/workspaces/${encodeURIComponent(id)}`);
+    console.log('\n🏢 Workspace Details:\n');
+    console.log(`  ID:           ${workspace.id}`);
+    console.log(`  Name:         ${workspace.name}`);
+    console.log(`  Type:         ${workspace.type}`);
+    console.log(`  Status:       ${workspace.status}`);
+    console.log(`  Description:  ${workspace.description || 'N/A'}`);
+    console.log(`  Created:      ${workspace.createdAt}`);
+    console.log(`  Updated:      ${workspace.updatedAt}`);
+    console.log('');
+    console.log('  Resources:');
+    console.log(`    Sessions:   ${workspace.sessionIds?.length || 0}`);
+    console.log(`    Projects:   ${workspace.projectIds?.length || 0}`);
+    console.log(`    Catalog:    ${workspace.catalogRef || 'default'}`);
+    console.log('');
+    console.log('  Isolation:');
+    console.log(`    Enabled:    ${workspace.isolation?.enabled ? 'Yes' : 'No'}`);
+    if (workspace.isolation?.enabled) {
+      console.log(`    Network:    ${workspace.isolation?.network?.networkName || 'N/A'}`);
+      if (workspace.isolation?.resources) {
+        console.log(`    CPU:        ${workspace.isolation.resources.cpuPercentage}%`);
+        console.log(`    Memory:     ${workspace.isolation.resources.memoryMb}MB`);
+        console.log(`    Storage:    ${workspace.isolation.resources.storageGb}GB`);
+      }
+    }
+    console.log('');
+    console.log('  Settings:');
+    console.log(`    Max Sessions:     ${workspace.settings?.maxConcurrentSessions || 10}`);
+    console.log(`    Max Training:     ${workspace.settings?.maxConcurrentTrainingRuns || 3}`);
+    console.log(`    Auto-Promotion:   ${workspace.settings?.autoPromotionEnabled ? 'Yes' : 'No'}`);
+    if (workspace.settings?.autoPromotionEnabled) {
+      console.log(`    Min Fitness:      ${workspace.settings.minFitnessForPromotion}`);
+    }
+    console.log('');
+
+    if (workspace.isolation?.permissions) {
+      const perms = workspace.isolation.permissions;
+      if (perms.canPromoteTo?.length > 0) {
+        console.log(`  Can Promote To: ${perms.canPromoteTo.join(', ')}`);
+      }
+      if (perms.canReadFrom?.length > 0) {
+        console.log(`  Can Read From:  ${perms.canReadFrom.join(', ')}`);
+      }
+    }
+    console.log('');
+  } catch (error) {
+    if (error.status === 404) {
+      console.error(`❌ Workspace not found: ${id}`);
+    } else {
+      handleApiError(error, 'getting workspace info');
+    }
+    process.exit(1);
+  }
+}
+
+async function createWorkspace(options) {
+  try {
+    const request = {
+      name: options.name,
+      type: options.type || 'Custom',
+      description: options.description,
+      isolated: options.isolated || false
+    };
+
+    if (options.isolated) {
+      request.isolationConfig = {
+        enabled: true,
+        resources: {
+          cpuPercentage: options.cpu || 50,
+          memoryMb: options.memory || 4096,
+          storageGb: options.storage || 50,
+          maxContainers: options.maxContainers || 10
+        }
+      };
+
+      if (options.canPromoteTo) {
+        request.isolationConfig.permissions = {
+          canPromoteTo: options.canPromoteTo.split(',').map(s => s.trim())
+        };
+      }
+    }
+
+    const workspace = await client.post('/api/workspaces', request);
+    console.log('\n✅ Workspace created successfully!\n');
+    console.log(`  ID:       ${workspace.id}`);
+    console.log(`  Name:     ${workspace.name}`);
+    console.log(`  Type:     ${workspace.type}`);
+    console.log(`  Isolated: ${workspace.isolation?.enabled ? 'Yes' : 'No'}`);
+    console.log('');
+  } catch (error) {
+    handleApiError(error, 'creating workspace');
+    process.exit(1);
+  }
+}
+
+async function deleteWorkspace(id, options = {}) {
+  try {
+    if (!options.force) {
+      console.log('⚠️  Use --force to confirm workspace deletion');
+      process.exit(1);
+    }
+
+    await client.delete(`/api/workspaces/${encodeURIComponent(id)}`);
+    console.log(`\n✅ Workspace '${id}' deleted\n`);
+  } catch (error) {
+    if (error.status === 404) {
+      console.error(`❌ Workspace not found: ${id}`);
+    } else if (error.status === 400) {
+      console.error(`❌ Cannot delete workspace: ${error.message || 'Has active sessions or projects'}`);
+    } else {
+      handleApiError(error, 'deleting workspace');
+    }
+    process.exit(1);
+  }
+}
+
+async function addSessionToWorkspace(workspaceId, sessionId) {
+  try {
+    const workspace = await client.post(`/api/workspaces/${encodeURIComponent(workspaceId)}/sessions`, {
+      sessionId
+    });
+    console.log(`\n✅ Session '${sessionId}' added to workspace '${workspace.name}'\n`);
+  } catch (error) {
+    if (error.status === 404) {
+      console.error(`❌ Workspace not found: ${workspaceId}`);
+    } else {
+      handleApiError(error, 'adding session to workspace');
+    }
+    process.exit(1);
+  }
+}
+
+async function addProjectToWorkspace(workspaceId, projectId) {
+  try {
+    const workspace = await client.post(`/api/workspaces/${encodeURIComponent(workspaceId)}/projects`, {
+      projectId
+    });
+    console.log(`\n✅ Project '${projectId}' added to workspace '${workspace.name}'\n`);
+  } catch (error) {
+    if (error.status === 404) {
+      console.error(`❌ Workspace not found: ${workspaceId}`);
+    } else {
+      handleApiError(error, 'adding project to workspace');
+    }
+    process.exit(1);
+  }
+}
+
+async function updateWorkspacePermissions(workspaceId, options) {
+  try {
+    const workspace = await client.get(`/api/workspaces/${encodeURIComponent(workspaceId)}`);
+
+    const isolation = workspace.isolation || { enabled: false, permissions: {} };
+    const permissions = isolation.permissions || {};
+
+    if (options.canPromoteTo) {
+      permissions.canPromoteTo = options.canPromoteTo.split(',').map(s => s.trim());
+    }
+    if (options.canReadFrom) {
+      permissions.canReadFrom = options.canReadFrom.split(',').map(s => s.trim());
+    }
+    if (options.canWriteTo) {
+      permissions.canWriteTo = options.canWriteTo.split(',').map(s => s.trim());
+    }
+
+    const updated = await client.put(`/api/workspaces/${encodeURIComponent(workspaceId)}`, {
+      isolation: {
+        ...isolation,
+        permissions
+      }
+    });
+
+    console.log(`\n✅ Permissions updated for workspace '${updated.name}'\n`);
+    console.log('  New Permissions:');
+    if (permissions.canPromoteTo?.length > 0) {
+      console.log(`    Can Promote To: ${permissions.canPromoteTo.join(', ')}`);
+    }
+    if (permissions.canReadFrom?.length > 0) {
+      console.log(`    Can Read From:  ${permissions.canReadFrom.join(', ')}`);
+    }
+    if (permissions.canWriteTo?.length > 0) {
+      console.log(`    Can Write To:   ${permissions.canWriteTo.join(', ')}`);
+    }
+    console.log('');
+  } catch (error) {
+    if (error.status === 404) {
+      console.error(`❌ Workspace not found: ${workspaceId}`);
+    } else {
+      handleApiError(error, 'updating workspace permissions');
+    }
+    process.exit(1);
+  }
+}
+
+async function getWorkspaceTopology() {
+  try {
+    const topology = await client.get('/api/workspaces/topology');
+
+    if (!topology.nodes || topology.nodes.length === 0) {
+      console.log('\nNo workspaces found');
+      return;
+    }
+
+    console.log('\n🗺️  Workspace Topology:\n');
+    console.log('  Workspaces:');
+    topology.nodes.forEach(node => {
+      const icon = node.isIsolated ? '🔒' : '🔓';
+      console.log(`    ${icon} ${node.name} (${node.type}) - ${node.sessionCount} sessions, ${node.projectCount} projects`);
+    });
+
+    if (topology.edges && topology.edges.length > 0) {
+      console.log('\n  Connections:');
+      const promotionEdges = topology.edges.filter(e => e.edgeType === 'promotion');
+      const readEdges = topology.edges.filter(e => e.edgeType === 'read');
+
+      if (promotionEdges.length > 0) {
+        console.log('    Promotion paths:');
+        promotionEdges.forEach(edge => {
+          const source = topology.nodes.find(n => n.workspaceId === edge.sourceWorkspaceId);
+          const target = topology.nodes.find(n => n.workspaceId === edge.targetWorkspaceId);
+          console.log(`      ${source?.name || edge.sourceWorkspaceId} → ${target?.name || edge.targetWorkspaceId}`);
+        });
+      }
+
+      if (readEdges.length > 0) {
+        console.log('    Read access:');
+        readEdges.forEach(edge => {
+          const source = topology.nodes.find(n => n.workspaceId === edge.sourceWorkspaceId);
+          const target = topology.nodes.find(n => n.workspaceId === edge.targetWorkspaceId);
+          console.log(`      ${source?.name || edge.sourceWorkspaceId} ← ${target?.name || edge.targetWorkspaceId}`);
+        });
+      }
+    }
+    console.log('');
+  } catch (error) {
+    handleApiError(error, 'getting workspace topology');
+    process.exit(1);
+  }
+}
+
+async function promoteAgent(sourceWorkspaceId, options) {
+  try {
+    if (!options.target) {
+      console.error('❌ --target workspace is required');
+      process.exit(1);
+    }
+    if (!options.agent) {
+      console.error('❌ --agent block ID is required');
+      process.exit(1);
+    }
+
+    const result = await client.post(`/api/workspaces/${encodeURIComponent(sourceWorkspaceId)}/promote`, {
+      targetWorkspaceId: options.target,
+      agentBlockId: options.agent,
+      version: options.version
+    });
+
+    if (result.success) {
+      console.log('\n✅ Agent promoted successfully!\n');
+      console.log(`  Agent:    ${result.promotedBlockId}`);
+      console.log(`  Version:  ${result.targetVersion}`);
+      console.log(`  Audit ID: ${result.auditLogId}`);
+    } else {
+      console.error(`\n❌ Promotion failed: ${result.errorMessage}\n`);
+      process.exit(1);
+    }
+    console.log('');
+  } catch (error) {
+    handleApiError(error, 'promoting agent');
+    process.exit(1);
+  }
+}
+
+// ============= Orchestrator Commands (Phase 5) =============
+
+async function getOrchestratorStatus() {
+  try {
+    const status = await client.get('/api/orchestrator/status');
+
+    console.log('\n🎯 Orchestrator Status:\n');
+    console.log(`  Running:          ${status.isRunning ? '✅ Yes' : '⏸️  No'}`);
+    console.log(`  Auto-Promotion:   ${status.autoPromotionEnabled ? '✅ Enabled' : '❌ Disabled'}`);
+    console.log(`  Last Cycle:       ${status.lastMonitoringCycle ? new Date(status.lastMonitoringCycle).toLocaleString() : 'Never'}`);
+    console.log(`  Next Cycle:       ${status.nextScheduledCycle ? new Date(status.nextScheduledCycle).toLocaleString() : 'Not scheduled'}`);
+    console.log(`  Pending:          ${status.pendingPromotions} promotions`);
+    console.log(`  Monitored Agents: ${status.activeMonitoredAgents}`);
+    console.log(`  Recent (24h):     ${status.recentPromotions} promotions, ${status.recentRollbacks} rollbacks`);
+    console.log(`  Workspaces:       ${status.monitoredWorkspaces?.join(', ') || 'None'}`);
+    console.log('');
+  } catch (error) {
+    handleApiError(error, 'getting orchestrator status');
+    process.exit(1);
+  }
+}
+
+async function getOrchestratorPending() {
+  try {
+    const pending = await client.get('/api/orchestrator/pending');
+
+    if (!pending || pending.length === 0) {
+      console.log('\n✅ No pending promotions');
+      return;
+    }
+
+    console.log(`\n⏳ Pending Promotions (${pending.length}):\n`);
+    pending.forEach(p => {
+      const status = p.meetsCriteria ? '✅' : '⏸️';
+      console.log(`  ${status} ${p.agentName} (${p.agentId})`);
+      console.log(`     From: ${p.fromWorkspace} → To: ${p.toWorkspace}`);
+      console.log(`     Fitness: ${(p.currentFitness * 100).toFixed(1)}% (required: ${(p.requiredFitness * 100).toFixed(1)}%)`);
+      console.log(`     Iterations: ${p.iterations} (required: ${p.requiredIterations})`);
+      console.log(`     Tests: ${p.testsPassed ? '✅ Passed' : '❌ Failed'}`);
+      if (p.requiresApproval) console.log(`     ⚠️  Requires manual approval`);
+      if (p.blockingReason) console.log(`     ❌ Blocked: ${p.blockingReason}`);
+      console.log('');
+    });
+  } catch (error) {
+    handleApiError(error, 'getting pending promotions');
+    process.exit(1);
+  }
+}
+
+async function orchestratorPromote(options) {
+  try {
+    if (!options.agent) { console.error('❌ --agent is required'); process.exit(1); }
+    if (!options.from) { console.error('❌ --from workspace is required'); process.exit(1); }
+    if (!options.to) { console.error('❌ --to workspace is required'); process.exit(1); }
+
+    console.log(`\n🚀 Promoting agent ${options.agent} from ${options.from} to ${options.to}...\n`);
+
+    const result = await client.post('/api/orchestrator/promote', {
+      agentId: options.agent,
+      fromWorkspace: options.from,
+      toWorkspace: options.to,
+      force: options.force || false
+    });
+
+    if (result.success) {
+      console.log('✅ Promotion successful!\n');
+      console.log(`  Agent:   ${result.agentId}`);
+      console.log(`  Version: ${result.toVersion}`);
+      console.log(`  Fitness: ${(result.fitnessAtPromotion * 100).toFixed(1)}%`);
+    } else {
+      console.error(`❌ Promotion failed: ${result.errorMessage}\n`);
+      process.exit(1);
+    }
+    console.log('');
+  } catch (error) {
+    handleApiError(error, 'promoting agent');
+    process.exit(1);
+  }
+}
+
+async function orchestratorRollback(options) {
+  try {
+    if (!options.agent) { console.error('❌ --agent is required'); process.exit(1); }
+    if (!options.workspace) { console.error('❌ --workspace is required'); process.exit(1); }
+
+    console.log(`\n⏪ Rolling back agent ${options.agent} in ${options.workspace}...\n`);
+
+    const result = await client.post('/api/orchestrator/rollback', {
+      agentId: options.agent,
+      workspaceId: options.workspace,
+      toVersion: options.version
+    });
+
+    if (result.success) {
+      console.log('✅ Rollback successful!\n');
+      console.log(`  Agent:        ${result.agentId}`);
+      console.log(`  From Version: ${result.fromVersion}`);
+      console.log(`  To Version:   ${result.toVersion}`);
+      console.log(`  Reason:       ${result.reason}`);
+    } else {
+      console.error(`❌ Rollback failed: ${result.errorMessage}\n`);
+      process.exit(1);
+    }
+    console.log('');
+  } catch (error) {
+    handleApiError(error, 'rolling back agent');
+    process.exit(1);
+  }
+}
+
+async function getOrchestratorHistory(options) {
+  try {
+    let url = '/api/orchestrator/history';
+    const params = [];
+    if (options.workspace) params.push(`workspaceId=${encodeURIComponent(options.workspace)}`);
+    if (options.agent) params.push(`agentId=${encodeURIComponent(options.agent)}`);
+    if (options.limit) params.push(`limit=${options.limit}`);
+    if (params.length > 0) url += '?' + params.join('&');
+
+    const history = await client.get(url);
+
+    if (!history || history.length === 0) {
+      console.log('\nNo promotion history found');
+      return;
+    }
+
+    console.log(`\n📜 Promotion History (${history.length}):\n`);
+    history.forEach(h => {
+      const status = h.success ? '✅' : '❌';
+      const forced = h.wasForced ? ' [FORCED]' : '';
+      console.log(`  ${status} ${new Date(h.timestamp).toLocaleString()}${forced}`);
+      console.log(`     ${h.agentName || h.agentId}: ${h.fromWorkspace} → ${h.toWorkspace}`);
+      console.log(`     Version: ${h.fromVersion} → ${h.toVersion}`);
+      console.log(`     Fitness: ${(h.fitnessAtPromotion * 100).toFixed(1)}%`);
+      if (h.errorMessage) console.log(`     Error: ${h.errorMessage}`);
+      console.log('');
+    });
+  } catch (error) {
+    handleApiError(error, 'getting orchestrator history');
+    process.exit(1);
+  }
+}
+
+async function getOrchestratorConfig() {
+  try {
+    const config = await client.get('/api/orchestrator/config');
+
+    console.log('\n⚙️  Orchestrator Configuration:\n');
+    console.log(`  Auto-Promotion:      ${config.autoPromotionEnabled ? 'Enabled' : 'Disabled'}`);
+    console.log(`  Monitoring Interval: ${config.monitoringInterval}`);
+
+    console.log('\n  Promotion Rules:');
+    config.promotionRules?.forEach(rule => {
+      console.log(`    ${rule.fromWorkspace} → ${rule.toWorkspace}`);
+      console.log(`      Min Fitness:    ${(rule.minFitness * 100).toFixed(0)}%`);
+      console.log(`      Min Iterations: ${rule.minIterations}`);
+      console.log(`      Tests Required: ${rule.allTestsPass ? 'Yes' : 'No'}`);
+      console.log(`      Approval:       ${rule.approvalRequired ? 'Required' : 'Automatic'}`);
+    });
+
+    console.log('\n  Rollback Settings:');
+    console.log(`    Auto-Rollback:        ${config.rollbackConfig?.autoRollback ? 'Enabled' : 'Disabled'}`);
+    console.log(`    Fitness Drop Thresh:  ${((config.rollbackConfig?.fitnessDropThreshold || 0.1) * 100).toFixed(0)}%`);
+    console.log(`    Error Rate Thresh:    ${((config.rollbackConfig?.errorRateThreshold || 0.05) * 100).toFixed(0)}%`);
+    console.log(`    Max Versions:         ${config.rollbackConfig?.maxRollbackVersions || 3}`);
+    console.log('');
+  } catch (error) {
+    handleApiError(error, 'getting orchestrator config');
+    process.exit(1);
+  }
+}
+
+async function updateOrchestratorConfig(options) {
+  try {
+    const update = {};
+    if (options.minFitness !== undefined) {
+      update.minFitnessResearchToStaging = parseFloat(options.minFitness);
+    }
+    if (options.minFitnessProduction !== undefined) {
+      update.minFitnessStagingToProduction = parseFloat(options.minFitnessProduction);
+    }
+    if (options.interval !== undefined) {
+      update.monitoringIntervalMinutes = parseInt(options.interval);
+    }
+    if (options.fitnessDropThreshold !== undefined) {
+      update.fitnessDropThreshold = parseFloat(options.fitnessDropThreshold);
+    }
+    if (options.errorRateThreshold !== undefined) {
+      update.errorRateThreshold = parseFloat(options.errorRateThreshold);
+    }
+
+    const config = await client.put('/api/orchestrator/config', update);
+
+    console.log('\n✅ Configuration updated!\n');
+    await getOrchestratorConfig();
+  } catch (error) {
+    handleApiError(error, 'updating orchestrator config');
+    process.exit(1);
+  }
+}
+
+async function setOrchestratorAutoPromote(enabled) {
+  try {
+    await client.post('/api/orchestrator/auto-promote', { enabled });
+    console.log(`\n✅ Auto-promotion ${enabled ? 'enabled' : 'disabled'}\n`);
+  } catch (error) {
+    handleApiError(error, 'setting auto-promote');
+    process.exit(1);
+  }
+}
+
+async function runOrchestratorMonitor() {
+  try {
+    console.log('\n🔍 Running monitoring cycle...\n');
+    const result = await client.post('/api/orchestrator/monitor', {});
+
+    console.log('✅ Monitoring cycle complete!\n');
+    console.log(`  Agents Checked:      ${result.agentsChecked}`);
+    console.log(`  Promotion Candidates: ${result.promotionCandidates}`);
+    console.log(`  Promotions Executed:  ${result.promotionsExecuted}`);
+    console.log(`  Rollback Candidates:  ${result.rollbackCandidates}`);
+    console.log(`  Rollbacks Executed:   ${result.rollbacksExecuted}`);
+    console.log(`  Alerts Generated:     ${result.alertsGenerated}`);
+
+    if (result.actions?.length > 0) {
+      console.log('\n  Actions:');
+      result.actions.forEach(a => console.log(`    • ${a}`));
+    }
+
+    if (result.warnings?.length > 0) {
+      console.log('\n  ⚠️  Warnings:');
+      result.warnings.forEach(w => console.log(`    • ${w}`));
+    }
+    console.log('');
+  } catch (error) {
+    handleApiError(error, 'running monitoring cycle');
+    process.exit(1);
+  }
+}
+
+// ============= Research Team Commands (Phase 6) =============
+
+async function startResearchCycle(options) {
+  try {
+    if (!options.agent) { console.error('❌ --agent is required'); process.exit(1); }
+
+    console.log(`\n🔬 Starting research cycle for agent ${options.agent}...\n`);
+
+    const result = await client.post('/api/research/cycles', {
+      agentId: options.agent,
+      improvementGoal: options.goal,
+      fitnessTarget: options.target ? parseFloat(options.target) : undefined,
+      maxIterations: options.iterations ? parseInt(options.iterations) : undefined,
+      maxCycles: options.cycles ? parseInt(options.cycles) : undefined,
+      autoPublish: options.publish || false,
+      workspaceId: options.workspace
+    });
+
+    if (result.success) {
+      console.log('✅ Research cycle completed successfully!\n');
+      console.log(`  Cycle ID:      ${result.cycleId}`);
+      console.log(`  Agent:         ${result.agentId}`);
+      console.log(`  Cycles Run:    ${result.cyclesRun}`);
+      console.log(`  Iterations:    ${result.totalIterations}`);
+      console.log(`  Fitness:       ${(result.initialFitness * 100).toFixed(1)}% → ${(result.finalFitness * 100).toFixed(1)}%`);
+      console.log(`  Improvement:   ${result.fitnessImprovement >= 0 ? '+' : ''}${(result.fitnessImprovement * 100).toFixed(1)}%`);
+      if (result.publishedVersion) {
+        console.log(`  Published:     v${result.publishedVersion}`);
+      }
+      if (result.duration) {
+        console.log(`  Duration:      ${result.duration}`);
+      }
+    } else {
+      console.log(`❌ Research cycle failed: ${result.errorMessage}\n`);
+      console.log(`  Final Phase:   ${result.finalPhase}`);
+      console.log(`  Final Fitness: ${(result.finalFitness * 100).toFixed(1)}%`);
+    }
+    console.log('');
+  } catch (error) {
+    handleApiError(error, 'starting research cycle');
+    process.exit(1);
+  }
+}
+
+async function getResearchCycleStatus(cycleId) {
+  try {
+    const status = await client.get(`/api/research/cycles/${encodeURIComponent(cycleId)}/status`);
+
+    console.log(`\n🔬 Research Cycle Status: ${cycleId}\n`);
+    console.log(`  Agent:         ${status.agentId}`);
+    console.log(`  Phase:         ${status.currentPhase}`);
+    console.log(`  Cycle:         ${status.currentCycle}/${status.maxCycles}`);
+    console.log(`  Iteration:     ${status.currentIteration}/${status.maxIterations}`);
+    console.log(`  Fitness:       ${(status.currentFitness * 100).toFixed(1)}% (target: ${(status.targetFitness * 100).toFixed(1)}%)`);
+    console.log(`  Progress:      ${status.progressPercent.toFixed(0)}%`);
+    console.log(`  Activity:      ${status.currentActivity || 'N/A'}`);
+    console.log(`  Elapsed:       ${status.elapsed || 'N/A'}`);
+
+    if (status.recentEvents?.length > 0) {
+      console.log('\n  Recent Events:');
+      status.recentEvents.slice(-5).forEach(e => console.log(`    • ${e}`));
+    }
+    console.log('');
+  } catch (error) {
+    handleApiError(error, 'getting research cycle status');
+    process.exit(1);
+  }
+}
+
+async function stopResearchCycle(cycleId) {
+  try {
+    await client.post(`/api/research/cycles/${encodeURIComponent(cycleId)}/stop`, {});
+    console.log(`\n✅ Research cycle ${cycleId} stopped\n`);
+  } catch (error) {
+    handleApiError(error, 'stopping research cycle');
+    process.exit(1);
+  }
+}
+
+async function getResearchHistory(options) {
+  try {
+    let url = '/api/research/history';
+    const params = [];
+    if (options.agent) params.push(`agentId=${encodeURIComponent(options.agent)}`);
+    if (options.limit) params.push(`limit=${options.limit}`);
+    if (params.length > 0) url += '?' + params.join('&');
+
+    const history = await client.get(url);
+
+    if (!history || history.length === 0) {
+      console.log('\nNo research history found');
+      return;
+    }
+
+    console.log(`\n📜 Research History (${history.length}):\n`);
+    history.forEach(h => {
+      const status = h.success ? '✅' : '❌';
+      const improvement = h.fitnessImprovement >= 0 ? '+' : '';
+      console.log(`  ${status} ${new Date(h.startedAt).toLocaleString()}`);
+      console.log(`     Agent: ${h.agentName || h.agentId}`);
+      console.log(`     Phase: ${h.finalPhase}`);
+      console.log(`     Fitness: ${(h.initialFitness * 100).toFixed(1)}% → ${(h.finalFitness * 100).toFixed(1)}% (${improvement}${(h.fitnessImprovement * 100).toFixed(1)}%)`);
+      console.log(`     Cycles: ${h.cyclesRun}, Iterations: ${h.totalIterations}`);
+      if (h.publishedVersion) console.log(`     Published: v${h.publishedVersion}`);
+      if (h.errorMessage) console.log(`     Error: ${h.errorMessage}`);
+      console.log('');
+    });
+  } catch (error) {
+    handleApiError(error, 'getting research history');
+    process.exit(1);
+  }
+}
+
+async function getResearchProposals(options) {
+  try {
+    let url = '/api/research/proposals';
+    if (options.agent) url += `?agentId=${encodeURIComponent(options.agent)}`;
+
+    const proposals = await client.get(url);
+
+    if (!proposals || proposals.length === 0) {
+      console.log('\nNo pending proposals found');
+      return;
+    }
+
+    console.log(`\n📋 Pending Proposals (${proposals.length}):\n`);
+    proposals.forEach(p => {
+      const priority = { 'Low': '🟢', 'Medium': '🟡', 'High': '🟠', 'Critical': '🔴' }[p.priority] || '⚪';
+      console.log(`  ${priority} ${p.title} [${p.id.substring(0, 8)}...]`);
+      console.log(`     Agent: ${p.agentId}`);
+      console.log(`     Type: ${p.type}`);
+      console.log(`     Confidence: ${(p.confidence * 100).toFixed(0)}%`);
+      console.log(`     Expected Improvement: +${(p.expectedImprovement * 100).toFixed(1)}%`);
+      console.log(`     Description: ${p.description}`);
+      console.log('');
+    });
+    console.log('  To approve: maestro research approve <proposal-id>');
+    console.log('  To reject:  maestro research reject <proposal-id> --reason "..."');
+    console.log('');
+  } catch (error) {
+    handleApiError(error, 'getting research proposals');
+    process.exit(1);
+  }
+}
+
+async function approveResearchProposal(proposalId, approvedBy) {
+  try {
+    await client.post(`/api/research/proposals/${encodeURIComponent(proposalId)}/approve`, {
+      approvedBy
+    });
+    console.log(`\n✅ Proposal ${proposalId} approved\n`);
+  } catch (error) {
+    handleApiError(error, 'approving proposal');
+    process.exit(1);
+  }
+}
+
+async function rejectResearchProposal(proposalId, reason, rejectedBy) {
+  try {
+    await client.post(`/api/research/proposals/${encodeURIComponent(proposalId)}/reject`, {
+      reason,
+      rejectedBy
+    });
+    console.log(`\n✅ Proposal ${proposalId} rejected\n`);
+  } catch (error) {
+    handleApiError(error, 'rejecting proposal');
+    process.exit(1);
+  }
+}
+
+async function getResearchConfig() {
+  try {
+    const config = await client.get('/api/research/config');
+
+    console.log('\n⚙️  Research Team Configuration:\n');
+    console.log(`  Enabled:              ${config.enabled ? 'Yes' : 'No'}`);
+    console.log(`  Fitness Threshold:    ${(config.fitnessThreshold * 100).toFixed(0)}%`);
+    console.log(`  Default Iterations:   ${config.defaultMaxIterations}`);
+    console.log(`  Default Max Cycles:   ${config.defaultMaxCycles}`);
+    console.log(`  Auto-Approve:         ${config.autoApproveProposals ? 'Yes' : 'No'}`);
+    if (config.autoApproveProposals) {
+      console.log(`    Min Confidence:     ${(config.autoApproveMinConfidence * 100).toFixed(0)}%`);
+    }
+    console.log(`  Auto-Publish:         ${config.autoPublishOnSuccess ? 'Yes' : 'No'}`);
+    console.log(`  Cycle Timeout:        ${config.cycleTimeout}`);
+    if (config.priorityAgents?.length > 0) {
+      console.log(`  Priority Agents:      ${config.priorityAgents.join(', ')}`);
+    }
+    if (config.excludedAgents?.length > 0) {
+      console.log(`  Excluded Agents:      ${config.excludedAgents.join(', ')}`);
+    }
+    console.log('');
+  } catch (error) {
+    handleApiError(error, 'getting research config');
+    process.exit(1);
+  }
+}
+
+async function updateResearchConfig(options) {
+  try {
+    const update = {};
+    if (options.enabled !== undefined) update.enabled = options.enabled;
+    if (options.threshold !== undefined) update.fitnessThreshold = parseFloat(options.threshold);
+    if (options.iterations !== undefined) update.defaultMaxIterations = parseInt(options.iterations);
+    if (options.cycles !== undefined) update.defaultMaxCycles = parseInt(options.cycles);
+    if (options.autoApprove !== undefined) update.autoApproveProposals = options.autoApprove;
+    if (options.autoPublish !== undefined) update.autoPublishOnSuccess = options.autoPublish;
+    if (options.timeout !== undefined) update.cycleTimeoutMinutes = parseInt(options.timeout);
+
+    await client.put('/api/research/config', update);
+    console.log('\n✅ Research configuration updated!\n');
+    await getResearchConfig();
+  } catch (error) {
+    handleApiError(error, 'updating research config');
     process.exit(1);
   }
 }
@@ -2308,6 +3256,49 @@ Block Testing Commands (works with any block type: tool, agent, workflow, task):
 LLM Commands:
   llm                  Show LLM provider status
 
+System Block Commands:
+  system               List all system blocks
+  system info <id>     Show system block details
+  system overrides     List user overrides
+  system override <id> Create override for a system block
+  system restore <id>  Restore system block to default
+  system effective <id> Show effective block (with override if present)
+
+Workspace Commands:
+  workspace            List all workspaces
+  workspace info <id>  Show workspace details
+  workspace create     Create a new workspace
+  workspace delete <id> Delete a workspace (--force required)
+  workspace add-session <ws-id> <session-id>  Add session to workspace
+  workspace add-project <ws-id> <project-id>  Add project to workspace
+  workspace permissions <id>  Update workspace permissions
+  workspace topology   Show workspace topology and promotion paths
+  workspace promote <ws-id>   Promote an agent to another workspace
+
+Orchestrator Commands:
+  orchestrator         Show orchestrator status
+  orchestrator status  Show orchestrator status
+  orchestrator pending Show agents pending promotion
+  orchestrator promote --agent <id> --from <ws> --to <ws> [--force]
+  orchestrator rollback --agent <id> --workspace <ws> [--to-version <v>]
+  orchestrator history [--workspace <ws>] [--agent <id>] [--limit <n>]
+  orchestrator config  Show orchestrator configuration
+  orchestrator config set --min-fitness <n> --from <ws> --to <ws>
+  orchestrator auto-promote --enable|--disable
+  orchestrator monitor Run monitoring cycle manually
+
+Research Team Commands:
+  research             Show pending improvement proposals
+  research start --agent <id> [--goal "..."] [--target 0.85]
+  research status <cycle-id>   Get status of running cycle
+  research stop <cycle-id>     Stop a running cycle
+  research history [--agent <id>] [--limit <n>]
+  research proposals [--agent <id>]
+  research approve <proposal-id>
+  research reject <proposal-id> --reason "..."
+  research config      Show research team configuration
+  research config set --threshold 0.85 --iterations 50
+
 System Commands:
   health               Check backend connection
 
@@ -2414,6 +3405,9 @@ Examples:
   maestro session
   maestro session create --project proj-123 --authority human
   maestro session create --project proj-123 --authority "ai:claude-code" --task "Fix login bug"
+  maestro session create --project proj-123 --source sandbox                    # Default: isolated sandbox
+  maestro session create --project proj-123 --source repository --repository-path /path/to/repo
+  maestro session create --project proj-123 --source repository --repository-path ./app --access-level readonly
   maestro session start sess-123
   maestro session exec sess-123 "ls -la"
   maestro session exec sess-123 "blocks list"
@@ -2440,6 +3434,32 @@ Examples:
   maestro tools info commit-helper
   maestro tools create --name "Git Diff" --block git-diff-block
   maestro foundry promote --block my-workflow --name "My Tool" --type tool
+
+  # Orchestrator (Phase 5)
+  maestro orchestrator                          # Show orchestrator status
+  maestro orchestrator pending                  # Show agents pending promotion
+  maestro orchestrator promote --agent agent-123 --from research --to staging
+  maestro orchestrator promote --agent agent-123 --from staging --to production --force
+  maestro orchestrator rollback --agent agent-123 --workspace production --to-version v1.0.0
+  maestro orchestrator history --workspace staging --limit 10
+  maestro orchestrator config                   # Show configuration
+  maestro orchestrator config set --min-fitness 0.8
+  maestro orchestrator auto-promote --enable    # Enable automatic promotions
+  maestro orchestrator monitor                  # Run monitoring cycle manually
+
+  # Research Team (Phase 6)
+  maestro research                              # Show pending improvement proposals
+  maestro research start --agent my-agent       # Start research cycle
+  maestro research start --agent my-agent --target 0.9 --iterations 100
+  maestro research start --agent my-agent --goal "Improve response quality" --auto-publish
+  maestro research status cycle-123             # Check cycle status
+  maestro research stop cycle-123               # Stop a running cycle
+  maestro research history --agent my-agent     # View research history
+  maestro research proposals                    # View pending proposals
+  maestro research approve proposal-123         # Approve an improvement
+  maestro research reject proposal-123 --reason "Not aligned with goals"
+  maestro research config                       # Show configuration
+  maestro research config set --threshold 0.85 --auto-approve
 `);
     return;
   }
@@ -2648,7 +3668,13 @@ Examples:
           runLinter: argv['run-linter'],
           linterCommand: argv['linter-command'],
           maxSteps: argv['max-steps'],
-          timeout: argv.timeout
+          timeout: argv.timeout,
+          // Phase 4: Session source options
+          source: argv.source,
+          repositoryPath: argv['repository-path'],
+          accessLevel: argv['access-level'],
+          branch: argv.branch,
+          excludePatterns: argv['exclude-patterns']
         });
       }
 
@@ -2870,6 +3896,273 @@ Examples:
 
       console.error(`❌ Unknown fitness subcommand: ${subCmd}`);
       console.error('   Available commands: config, leaderboard, profiles, profile, entropy, calculate');
+      process.exit(1);
+    }
+
+    // System block commands
+    if (cmd === 'system') {
+      const subCmd = argv._[1];
+
+      if (!subCmd) return await listSystemBlocks();
+
+      if (subCmd === 'info') {
+        const blockId = argv._[2];
+        if (!blockId) { console.error('❌ Block ID required'); process.exit(1); }
+        return await getSystemBlockInfo(blockId);
+      }
+
+      if (subCmd === 'overrides') {
+        return await listUserOverrides();
+      }
+
+      if (subCmd === 'override') {
+        const blockId = argv._[2];
+        if (!blockId) { console.error('❌ Block ID required'); process.exit(1); }
+        return await createSystemBlockOverride(blockId, argv.config);
+      }
+
+      if (subCmd === 'restore') {
+        const blockId = argv._[2];
+        if (!blockId) { console.error('❌ Block ID required'); process.exit(1); }
+        return await restoreSystemBlock(blockId);
+      }
+
+      if (subCmd === 'effective') {
+        const blockId = argv._[2];
+        if (!blockId) { console.error('❌ Block ID required'); process.exit(1); }
+        return await getEffectiveBlock(blockId);
+      }
+
+      console.error(`❌ Unknown system subcommand: ${subCmd}`);
+      console.error('   Available commands: info, overrides, override, restore, effective');
+      process.exit(1);
+    }
+
+    // Workspace commands
+    if (cmd === 'workspace') {
+      const subCmd = argv._[1];
+
+      if (!subCmd) return await listWorkspaces();
+
+      if (subCmd === 'info') {
+        const workspaceId = argv._[2];
+        if (!workspaceId) { console.error('❌ Workspace ID required'); process.exit(1); }
+        return await getWorkspaceInfo(workspaceId);
+      }
+
+      if (subCmd === 'create') {
+        const name = argv._[2] || argv.name;
+        if (!name) { console.error('❌ Workspace name required'); process.exit(1); }
+        return await createWorkspace(name, {
+          type: argv.type,
+          description: argv.description,
+          isolated: argv.isolated
+        });
+      }
+
+      if (subCmd === 'delete') {
+        const workspaceId = argv._[2];
+        if (!workspaceId) { console.error('❌ Workspace ID required'); process.exit(1); }
+        return await deleteWorkspace(workspaceId);
+      }
+
+      if (subCmd === 'add-session') {
+        const workspaceId = argv._[2];
+        const sessionId = argv._[3] || argv.session;
+        if (!workspaceId) { console.error('❌ Workspace ID required'); process.exit(1); }
+        if (!sessionId) { console.error('❌ Session ID required (--session or as argument)'); process.exit(1); }
+        return await addSessionToWorkspace(workspaceId, sessionId);
+      }
+
+      if (subCmd === 'add-project') {
+        const workspaceId = argv._[2];
+        const projectId = argv._[3] || argv.project;
+        if (!workspaceId) { console.error('❌ Workspace ID required'); process.exit(1); }
+        if (!projectId) { console.error('❌ Project ID required (--project or as argument)'); process.exit(1); }
+        return await addProjectToWorkspace(workspaceId, projectId);
+      }
+
+      if (subCmd === 'permissions') {
+        const workspaceId = argv._[2];
+        if (!workspaceId) { console.error('❌ Workspace ID required'); process.exit(1); }
+        return await updateWorkspacePermissions(workspaceId, {
+          canReadFrom: argv['read-from'] ? argv['read-from'].split(',') : undefined,
+          canWriteTo: argv['write-to'] ? argv['write-to'].split(',') : undefined,
+          canPromoteTo: argv['promote-to'] ? argv['promote-to'].split(',') : undefined
+        });
+      }
+
+      if (subCmd === 'topology') {
+        return await getWorkspaceTopology();
+      }
+
+      if (subCmd === 'promote') {
+        const sourceId = argv.source || argv._[2];
+        const targetId = argv.target || argv._[3];
+        const agentId = argv.agent || argv._[4];
+        if (!sourceId) { console.error('❌ Source workspace ID required (--source)'); process.exit(1); }
+        if (!targetId) { console.error('❌ Target workspace ID required (--target)'); process.exit(1); }
+        if (!agentId) { console.error('❌ Agent block ID required (--agent)'); process.exit(1); }
+        return await promoteAgent(sourceId, targetId, agentId, argv.version);
+      }
+
+      console.error(`❌ Unknown workspace subcommand: ${subCmd}`);
+      console.error('   Available commands: info, create, delete, add-session, add-project, permissions, topology, promote');
+      process.exit(1);
+    }
+
+    // Orchestrator commands (Phase 5)
+    if (cmd === 'orchestrator') {
+      const subCmd = argv._[1];
+
+      if (!subCmd) return await getOrchestratorStatus();
+
+      if (subCmd === 'status') {
+        return await getOrchestratorStatus();
+      }
+
+      if (subCmd === 'pending') {
+        return await getOrchestratorPending();
+      }
+
+      if (subCmd === 'promote') {
+        return await orchestratorPromote({
+          agent: argv.agent || argv._[2],
+          from: argv.from,
+          to: argv.to,
+          force: argv.force
+        });
+      }
+
+      if (subCmd === 'rollback') {
+        return await orchestratorRollback({
+          agent: argv.agent || argv._[2],
+          workspace: argv.workspace,
+          version: argv.version || argv['to-version']
+        });
+      }
+
+      if (subCmd === 'history') {
+        return await getOrchestratorHistory({
+          workspace: argv.workspace,
+          agent: argv.agent,
+          limit: argv.limit ? parseInt(argv.limit) : 20
+        });
+      }
+
+      if (subCmd === 'config') {
+        if (argv.set || argv['min-fitness'] || argv.interval) {
+          return await updateOrchestratorConfig({
+            minFitness: argv['min-fitness'],
+            minFitnessProduction: argv['min-fitness-production'],
+            interval: argv.interval,
+            fitnessDropThreshold: argv['fitness-drop-threshold'],
+            errorRateThreshold: argv['error-rate-threshold']
+          });
+        }
+        return await getOrchestratorConfig();
+      }
+
+      if (subCmd === 'auto-promote') {
+        const enabled = argv.enable || argv._[2] === 'enable';
+        const disabled = argv.disable || argv._[2] === 'disable';
+        if (!enabled && !disabled) {
+          console.error('❌ Specify --enable or --disable');
+          process.exit(1);
+        }
+        return await setOrchestratorAutoPromote(!disabled);
+      }
+
+      if (subCmd === 'monitor' || subCmd === 'run') {
+        return await runOrchestratorMonitor();
+      }
+
+      if (subCmd === 'metrics') {
+        const agentId = argv.agent || argv._[2];
+        if (!agentId) { console.error('❌ Agent ID required'); process.exit(1); }
+        // TODO: Implement agent-specific metrics
+        console.log(`\n📊 Metrics for agent: ${agentId}\n`);
+        console.log('  (Not yet implemented)');
+        return;
+      }
+
+      console.error(`❌ Unknown orchestrator subcommand: ${subCmd}`);
+      console.error('   Available commands: status, pending, promote, rollback, history, config, auto-promote, monitor, metrics');
+      process.exit(1);
+    }
+
+    // Research team commands (Phase 6)
+    if (cmd === 'research') {
+      const subCmd = argv._[1];
+
+      if (!subCmd) return await getResearchProposals({});
+
+      if (subCmd === 'start' || subCmd === 'cycle') {
+        return await startResearchCycle({
+          agent: argv.agent || argv._[2],
+          goal: argv.goal,
+          target: argv.target,
+          iterations: argv.iterations,
+          cycles: argv.cycles,
+          publish: argv.publish || argv['auto-publish'],
+          workspace: argv.workspace
+        });
+      }
+
+      if (subCmd === 'status') {
+        const cycleId = argv._[2] || argv.cycle;
+        if (!cycleId) { console.error('❌ Cycle ID required'); process.exit(1); }
+        return await getResearchCycleStatus(cycleId);
+      }
+
+      if (subCmd === 'stop') {
+        const cycleId = argv._[2] || argv.cycle;
+        if (!cycleId) { console.error('❌ Cycle ID required'); process.exit(1); }
+        return await stopResearchCycle(cycleId);
+      }
+
+      if (subCmd === 'history') {
+        return await getResearchHistory({
+          agent: argv.agent,
+          limit: argv.limit ? parseInt(argv.limit) : 20
+        });
+      }
+
+      if (subCmd === 'proposals') {
+        return await getResearchProposals({ agent: argv.agent });
+      }
+
+      if (subCmd === 'approve') {
+        const proposalId = argv._[2] || argv.proposal;
+        if (!proposalId) { console.error('❌ Proposal ID required'); process.exit(1); }
+        return await approveResearchProposal(proposalId, argv.by);
+      }
+
+      if (subCmd === 'reject') {
+        const proposalId = argv._[2] || argv.proposal;
+        const reason = argv.reason;
+        if (!proposalId) { console.error('❌ Proposal ID required'); process.exit(1); }
+        if (!reason) { console.error('❌ --reason is required'); process.exit(1); }
+        return await rejectResearchProposal(proposalId, reason, argv.by);
+      }
+
+      if (subCmd === 'config') {
+        if (argv.set || argv.threshold || argv.iterations || argv.cycles) {
+          return await updateResearchConfig({
+            enabled: argv.enabled,
+            threshold: argv.threshold,
+            iterations: argv.iterations,
+            cycles: argv.cycles,
+            autoApprove: argv['auto-approve'],
+            autoPublish: argv['auto-publish'],
+            timeout: argv.timeout
+          });
+        }
+        return await getResearchConfig();
+      }
+
+      console.error(`❌ Unknown research subcommand: ${subCmd}`);
+      console.error('   Available commands: start, status, stop, history, proposals, approve, reject, config');
       process.exit(1);
     }
 

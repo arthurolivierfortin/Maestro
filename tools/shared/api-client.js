@@ -96,6 +96,43 @@ class MaestroApiClient {
     throw lastError;
   }
 
+  // ===== GENERIC HTTP METHODS =====
+  // These allow direct API calls for endpoints not yet wrapped in dedicated methods
+
+  /**
+   * Generic GET request
+   * @param {string} path - API path (e.g., '/api/fitness/config')
+   */
+  async get(path) {
+    return this._fetch('GET', path);
+  }
+
+  /**
+   * Generic POST request
+   * @param {string} path - API path
+   * @param {object} body - Request body
+   */
+  async post(path, body = {}) {
+    return this._fetch('POST', path, { body });
+  }
+
+  /**
+   * Generic PUT request
+   * @param {string} path - API path
+   * @param {object} body - Request body
+   */
+  async put(path, body = {}) {
+    return this._fetch('PUT', path, { body });
+  }
+
+  /**
+   * Generic DELETE request
+   * @param {string} path - API path
+   */
+  async delete(path) {
+    return this._fetch('DELETE', path);
+  }
+
   // ===== HEALTH & STATUS =====
 
   async getHealth() {

@@ -1,0 +1,66 @@
+{
+  "id": "system:fitness-evaluator",
+  "name": "Fitness Evaluator",
+  "blockType": "agent",
+  "version": "1.0.0",
+  "isAtomic": false,
+  "isSystem": true,
+  "overridable": true,
+  "description": "Evaluates agent and workflow fitness using the formula P×S×W / (C_norm×C_compute×C_hw)^λ. Calculates performance, specialization, composability, and cost dimensions.",
+  "capabilities": [
+    "evaluation",
+    "fitness",
+    "metrics",
+    "quality-assessment",
+    "cost-analysis"
+  ],
+  "config": {
+    "modelId": "ollama/llama3.2:3b",
+    "fitnessConfig": {
+      "lambda": 1.5,
+      "weights": {
+        "performance": 1.0,
+        "specialization": 1.0,
+        "composability": 1.0
+      },
+      "thresholds": {
+        "minFitness": 0.3,
+        "goodFitness": 0.6,
+        "excellentFitness": 0.8
+      }
+    },
+    "systemPrompt": "You are a fitness evaluation agent responsible for analyzing the performance, specialization, and composability of AI agents and workflows. Your goal is to provide objective metrics that help optimize the system.\n\nWhen evaluating, consider:\n1. Performance (P): How well did the agent complete its task? Measure success rate, accuracy, and quality.\n2. Specialization (S): Is the agent focused on specific task types? Reward focused expertise over generalization.\n3. Composability (W): How well does the agent integrate with workflows? Consider reliability and format compliance.\n4. Costs: Economic (API costs), Compute (model size, FLOPs), Hardware (VRAM, RAM, GPU requirements).\n\nAlways favor smaller, specialized models over large monolithic ones when performance is comparable.",
+    "evaluationCriteria": [
+      {
+        "name": "task_completion",
+        "weight": 0.3,
+        "description": "Did the agent successfully complete the assigned task?"
+      },
+      {
+        "name": "output_quality",
+        "weight": 0.25,
+        "description": "Is the output accurate, relevant, and well-formatted?"
+      },
+      {
+        "name": "efficiency",
+        "weight": 0.2,
+        "description": "Was the task completed with minimal token usage and latency?"
+      },
+      {
+        "name": "reliability",
+        "weight": 0.15,
+        "description": "Does the agent produce consistent results across multiple runs?"
+      },
+      {
+        "name": "integration",
+        "weight": 0.1,
+        "description": "Does the output integrate well with downstream blocks?"
+      }
+    ]
+  },
+  "metadata": {
+    "author": "Maestro System",
+    "category": "evaluation",
+    "tags": ["fitness", "evaluation", "metrics", "system"]
+  }
+}

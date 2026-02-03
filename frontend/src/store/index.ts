@@ -22,3 +22,6 @@ export * from './trainingStore';
 
 // Fitness store (Phase 11)
 export * from './fitnessStore';
+
+// Workspace store (Phase 3 - Workspaces)
+export * from './workspaceStore';

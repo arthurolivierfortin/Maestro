@@ -11,6 +11,16 @@ public class FoundrySessionConfig
     public string? DraftId { get; set; }
 
     /// <summary>
+    /// The source type for the session (Sandbox or Repository).
+    /// </summary>
+    public SessionSource Source { get; set; } = SessionSource.Sandbox;
+
+    /// <summary>
+    /// Configuration for repository source (when Source = Repository).
+    /// </summary>
+    public RepositorySourceConfig? RepositoryConfig { get; set; }
+
+    /// <summary>
     /// Configuration for training runs.
     /// </summary>
     public TrainingRunConfig Training { get; set; } = TrainingRunConfig.Default;
@@ -24,6 +34,117 @@ public class FoundrySessionConfig
     /// Default configuration.
     /// </summary>
     public static FoundrySessionConfig Default => new();
+
+    /// <summary>
+    /// Create a sandbox-based session configuration.
+    /// </summary>
+    public static FoundrySessionConfig CreateSandbox(string? draftId = null)
+    {
+        return new FoundrySessionConfig
+        {
+            DraftId = draftId,
+            Source = SessionSource.Sandbox
+        };
+    }
+
+    /// <summary>
+    /// Create a repository-bound session configuration.
+    /// </summary>
+    public static FoundrySessionConfig CreateRepositoryBound(
+        string repositoryPath,
+        RepositoryAccessLevel accessLevel = RepositoryAccessLevel.Controlled,
+        string? draftId = null)
+    {
+        return new FoundrySessionConfig
+        {
+            DraftId = draftId,
+            Source = SessionSource.Repository,
+            RepositoryConfig = new RepositorySourceConfig
+            {
+                RepositoryPath = repositoryPath,
+                AccessLevel = accessLevel
+            }
+        };
+    }
+}
+
+/// <summary>
+/// Source type for a session.
+/// </summary>
+public enum SessionSource
+{
+    /// <summary>
+    /// Isolated sandbox (default) - temporary, isolated container.
+    /// </summary>
+    Sandbox,
+
+    /// <summary>
+    /// Bound to a local repository - Docker volume mount.
+    /// </summary>
+    Repository
+}
+
+/// <summary>
+/// Configuration for repository-bound sessions.
+/// </summary>
+public class RepositorySourceConfig
+{
+    /// <summary>
+    /// Path to the repository on the host system.
+    /// </summary>
+    public string RepositoryPath { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Path inside the Docker container where the repository will be mounted.
+    /// Defaults to /workspace if not specified.
+    /// </summary>
+    public string DockerBindPath { get; set; } = "/workspace";
+
+    /// <summary>
+    /// Access level for the repository mount.
+    /// </summary>
+    public RepositoryAccessLevel AccessLevel { get; set; } = RepositoryAccessLevel.Controlled;
+
+    /// <summary>
+    /// Branch to checkout (optional).
+    /// </summary>
+    public string? Branch { get; set; }
+
+    /// <summary>
+    /// File patterns to exclude from access (e.g., ".env", "secrets/").
+    /// Only applicable for Controlled access level.
+    /// </summary>
+    public IList<string> ExcludePatterns { get; set; } = new List<string>
+    {
+        ".env",
+        ".env.*",
+        "*.pem",
+        "*.key",
+        "secrets/"
+    };
+}
+
+/// <summary>
+/// Access level for repository-bound sessions.
+/// </summary>
+public enum RepositoryAccessLevel
+{
+    /// <summary>
+    /// Read-only access - no writes allowed.
+    /// </summary>
+    ReadOnly,
+
+    /// <summary>
+    /// Controlled access - writes allowed with restrictions.
+    /// Changes are staged and require review before commit.
+    /// </summary>
+    Controlled,
+
+    /// <summary>
+    /// Full access - unrestricted read/write.
+    /// Use with caution.
+    /// </summary>
+    Full
 }
 
 /// <summary>

@@ -18,3 +18,9 @@ export { testService } from './testService';
 
 // Fitness service (Phase 11)
 export { fitnessService } from './fitnessService';
+
+// System Block service (Phase 2 - System Blocks)
+export { systemBlockService } from './systemBlockService';
+
+// Workspace service (Phase 3 - Workspaces)
+export { workspaceService } from './workspaceService';

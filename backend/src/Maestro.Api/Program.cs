@@ -91,11 +91,22 @@ builder.Services.AddSingleton(pathConfig);
 builder.Services.AddSingleton<Maestro.Application.Interfaces.IBlockChangePublisher, Maestro.Api.Services.SignalRBlockChangePublisher>();
 
 // Register block discovery service with change publisher
-builder.Services.AddSingleton<IBlockDiscoveryService>(sp =>
+builder.Services.AddSingleton<FileSystemBlockDiscoveryService>(sp =>
 {
     var publisher = sp.GetService<Maestro.Application.Interfaces.IBlockChangePublisher>();
     var config = sp.GetRequiredService<MaestroPathConfiguration>();
     return new FileSystemBlockDiscoveryService(config.GetSearchPaths(), publisher);
+});
+builder.Services.AddSingleton<IBlockDiscoveryService>(sp =>
+    sp.GetRequiredService<FileSystemBlockDiscoveryService>());
+
+// Phase 2 (System Blocks): Register system block service
+builder.Services.AddSingleton<ISystemBlockService>(sp =>
+{
+    var blockDiscoveryService = sp.GetRequiredService<FileSystemBlockDiscoveryService>();
+    var config = sp.GetRequiredService<MaestroPathConfiguration>();
+    var logger = sp.GetService<ILogger<SystemBlockService>>();
+    return new SystemBlockService(blockDiscoveryService, config.GlobalBlocksPath, logger);
 });
 
 // Register block repository with publisher and validator
@@ -254,6 +265,24 @@ builder.Services.AddScoped<IFitnessService, FitnessService>();
 
 // Phase 9: Register training service (Scoped because IWorkflowExecutor is Scoped)
 builder.Services.AddScoped<ITrainingService, TrainingService>();
+
+// Phase 3: Register workspace services
+var workspaceFolder = Path.Combine(pathConfig.RepoRootPath, "data", "workspaces");
+Directory.CreateDirectory(workspaceFolder);
+Console.WriteLine($"[Maestro] Workspace data:  {workspaceFolder}");
+builder.Services.AddSingleton<IWorkspaceRepository>(sp =>
+{
+    var logger = sp.GetService<ILogger<Maestro.Infrastructure.Workspaces.FileSystemWorkspaceRepository>>();
+    return new Maestro.Infrastructure.Workspaces.FileSystemWorkspaceRepository(workspaceFolder, logger);
+});
+builder.Services.AddScoped<IWorkspaceService, Maestro.Infrastructure.Workspaces.WorkspaceService>();
+builder.Services.AddScoped<IWorkspaceGateway, Maestro.Infrastructure.Workspaces.WorkspaceGateway>();
+
+// Phase 5: Register orchestrator service
+builder.Services.AddScoped<IOrchestratorService, Maestro.Infrastructure.Orchestration.OrchestratorService>();
+
+// Phase 6: Register research team service
+builder.Services.AddScoped<IResearchTeamService, Maestro.Infrastructure.Research.ResearchTeamService>();
 
 // Add CORS for frontend development and Docker
 builder.Services.AddCors(options =>

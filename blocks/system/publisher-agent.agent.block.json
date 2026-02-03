@@ -1,0 +1,143 @@
+{
+  "id": "system:publisher",
+  "name": "Publisher Agent",
+  "blockType": "agent",
+  "isSystem": true,
+  "overridable": true,
+  "description": "Publishes agents, blocks, and workflows to the Maestro catalog. Handles versioning, metadata, and distribution. Ensures quality gates are met before publication.",
+  "version": "1.0.0",
+  "capabilities": [
+    "catalog-publishing",
+    "version-management",
+    "metadata-validation",
+    "dependency-resolution",
+    "distribution",
+    "rollback-support"
+  ],
+  "config": {
+    "publishTargets": [
+      "local-catalog",
+      "workspace-catalog",
+      "organization-catalog"
+    ],
+    "defaultTarget": "workspace-catalog",
+    "qualityGates": {
+      "minFitnessScore": 0.75,
+      "requireTests": true,
+      "requireDocumentation": true,
+      "maxOpenIssues": 0,
+      "requireChangelog": true
+    },
+    "versioning": {
+      "strategy": "semver",
+      "autoIncrement": "patch",
+      "preReleaseTag": "beta"
+    },
+    "metadata": {
+      "requiredFields": ["name", "description", "version", "author"],
+      "optionalFields": ["tags", "license", "repository", "homepage"]
+    },
+    "notifications": {
+      "onPublish": true,
+      "onFail": true,
+      "channels": ["log", "event"]
+    }
+  },
+  "inputs": [
+    {
+      "name": "targetId",
+      "type": "string",
+      "description": "ID of the agent/block/workflow to publish",
+      "required": true
+    },
+    {
+      "name": "targetType",
+      "type": "string",
+      "description": "Type: agent, block, workflow",
+      "required": false,
+      "default": "agent"
+    },
+    {
+      "name": "version",
+      "type": "string",
+      "description": "Version to publish (auto-incremented if not specified)",
+      "required": false
+    },
+    {
+      "name": "publishTarget",
+      "type": "string",
+      "description": "Target catalog: local-catalog, workspace-catalog, organization-catalog",
+      "required": false,
+      "default": "workspace-catalog"
+    },
+    {
+      "name": "preRelease",
+      "type": "boolean",
+      "description": "Whether this is a pre-release version",
+      "required": false,
+      "default": false
+    },
+    {
+      "name": "skipQualityGates",
+      "type": "boolean",
+      "description": "Skip quality gate checks (not recommended)",
+      "required": false,
+      "default": false
+    },
+    {
+      "name": "releaseNotes",
+      "type": "string",
+      "description": "Release notes for this version",
+      "required": false
+    },
+    {
+      "name": "documentation",
+      "type": "string",
+      "description": "Documentation content (auto-generated if not provided)",
+      "required": false
+    }
+  ],
+  "outputs": [
+    {
+      "name": "success",
+      "type": "boolean",
+      "description": "Whether publication was successful"
+    },
+    {
+      "name": "publishedVersion",
+      "type": "string",
+      "description": "The version that was published"
+    },
+    {
+      "name": "catalogEntry",
+      "type": "object",
+      "description": "The catalog entry that was created"
+    },
+    {
+      "name": "qualityGateResults",
+      "type": "object",
+      "description": "Results of quality gate checks"
+    },
+    {
+      "name": "warnings",
+      "type": "array",
+      "description": "Warnings encountered during publication"
+    },
+    {
+      "name": "distributionUrls",
+      "type": "array",
+      "description": "URLs where the published item can be accessed"
+    }
+  ],
+  "prompts": {
+    "qualityCheckPrompt": "Evaluate whether this agent meets quality standards for publication:\n\nAgent: {name}\nVersion: {version}\nFitness Score: {fitnessScore}\nTest Results: {testResults}\nDocumentation Status: {documentationStatus}\nOpen Issues: {openIssues}\n\nQuality Gates:\n{qualityGates}\n\nFor each gate, determine:\n1. Whether it passes\n2. Current value vs required\n3. Recommendations if failing\n\nProvide a clear pass/fail verdict with explanation.",
+    "releaseNotesPrompt": "Generate release notes for:\n\nAgent: {name}\nPrevious Version: {previousVersion}\nNew Version: {newVersion}\n\nChanges:\n{changes}\n\nImprovements:\n{improvements}\n\nCreate professional release notes that:\n1. Summarize key changes\n2. Highlight new features\n3. Note breaking changes (if any)\n4. Credit contributors\n5. Include migration guide if needed",
+    "catalogDescriptionPrompt": "Create a catalog description for:\n\nName: {name}\nType: {targetType}\nVersion: {version}\nCapabilities: {capabilities}\n\nWrite a compelling catalog description that:\n1. Clearly explains what this does\n2. Lists key features and benefits\n3. Mentions use cases\n4. Is concise but informative (max 500 characters)"
+  },
+  "metadata": {
+    "author": "Maestro System",
+    "category": "publishing",
+    "tags": ["system", "publishing", "catalog", "versioning", "distribution"],
+    "documentation": "https://maestro.ai/docs/publisher-agent"
+  }
+}

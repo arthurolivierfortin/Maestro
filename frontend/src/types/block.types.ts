@@ -105,6 +105,11 @@ export interface Block<TConfig = BlockConfig> {
   // User preferences
   isFavorite?: boolean; // Starred/favorited by user
 
+  // System blocks (Phase 2)
+  isSystem?: boolean; // true if this is a system-provided block
+  overridable?: boolean; // true if system block can be overridden by user
+  overridesSystemBlock?: string; // If user override, the ID of the system block being overridden
+
   // Metadata
   metadata: BlockMetadata;
 }
