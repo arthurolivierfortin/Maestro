@@ -1796,6 +1796,228 @@ async function showPendingEvaluations(runId) { return showBlockTestPendingEvalua
 async function evaluateToolTestRun(runId, options) { return evaluateBlockTestRun(runId, options); }
 async function compareToolTestRuns(runIds) { return compareBlockTestRuns(runIds); }
 
+// ============= Documentation Commands (Knowledge Base) =============
+
+async function listPendingDocs(collection = null) {
+  try {
+    const url = collection
+      ? `/api/knowledge-base/pending?collection=${encodeURIComponent(collection)}`
+      : '/api/knowledge-base/pending';
+    const response = await client.request('GET', url);
+
+    if (!response.documents || response.documents.length === 0) {
+      console.log('\n✅ No pending documentation');
+      return;
+    }
+
+    console.log(`\n📝 Pending Documentation (${response.count}):\n`);
+    console.table(response.documents.map(d => ({
+      'ID': d.id,
+      'Title': d.title || '-',
+      'Collection': collection || d.collection || '-',
+      'Created': new Date(d.createdAt).toLocaleDateString()
+    })));
+  } catch (error) {
+    handleApiError(error, 'listing pending documentation');
+    process.exit(1);
+  }
+}
+
+async function listOutdatedDocs(collection = null) {
+  try {
+    const url = collection
+      ? `/api/knowledge-base/outdated?collection=${encodeURIComponent(collection)}`
+      : '/api/knowledge-base/outdated';
+    const response = await client.request('GET', url);
+
+    if (!response.documents || response.documents.length === 0) {
+      console.log('\n✅ No outdated documentation');
+      return;
+    }
+
+    console.log(`\n📝 Outdated Documentation (${response.count}):\n`);
+    console.table(response.documents.map(d => ({
+      'ID': d.id,
+      'Title': d.title || '-',
+      'Collection': collection || d.collection || '-',
+      'Doc Path': d.docPath || '-'
+    })));
+  } catch (error) {
+    handleApiError(error, 'listing outdated documentation');
+    process.exit(1);
+  }
+}
+
+async function getDocsStats() {
+  try {
+    const stats = await client.request('GET', '/api/knowledge-base/docs/stats');
+
+    console.log('\n📊 Documentation Statistics:\n');
+
+    if (stats.collections && stats.collections.length > 0) {
+      console.log('By Collection:');
+      console.table(stats.collections.map(c => ({
+        'Collection': c.collection,
+        'Total': c.total,
+        'Pending': c.pending,
+        'Generated': c.generated,
+        'Outdated': c.outdated,
+        'Error': c.error
+      })));
+    }
+
+    if (stats.totals) {
+      console.log('\nTotals:');
+      console.log(`  Pending:    ${stats.totals.pending}`);
+      console.log(`  Generated:  ${stats.totals.generated}`);
+      console.log(`  Outdated:   ${stats.totals.outdated}`);
+      console.log(`  Errors:     ${stats.totals.error}`);
+    }
+    console.log('');
+  } catch (error) {
+    handleApiError(error, 'getting documentation stats');
+    process.exit(1);
+  }
+}
+
+async function processDocumentation(options = {}) {
+  try {
+    console.log('\n📄 Processing documentation...\n');
+
+    // Get pending documents
+    const collection = options.collection;
+    const url = collection
+      ? `/api/knowledge-base/pending?collection=${encodeURIComponent(collection)}`
+      : '/api/knowledge-base/pending';
+    const pending = await client.request('GET', url);
+
+    if (!pending.documents || pending.documents.length === 0) {
+      console.log('✅ No pending documentation to process');
+      return;
+    }
+
+    console.log(`Found ${pending.count} document(s) to process...`);
+
+    // For now, just show what would be processed
+    // Full implementation would execute the documentation-agent block
+    for (const doc of pending.documents) {
+      console.log(`  📝 Would generate documentation for: ${doc.id}`);
+    }
+
+    console.log('\n💡 To fully generate documentation, execute the documentation-agent block:');
+    console.log('   maestro run documentation-agent --input mode=pending' + (collection ? ` --input collection=${collection}` : ''));
+    console.log('');
+  } catch (error) {
+    handleApiError(error, 'processing documentation');
+    process.exit(1);
+  }
+}
+
+async function rebuildDocs(collection) {
+  try {
+    if (!collection) {
+      console.error('❌ --collection is required for rebuild');
+      process.exit(1);
+    }
+
+    console.log(`\n🔄 Rebuilding documentation for collection: ${collection}\n`);
+
+    // Rebuild index first
+    await client.request('POST', `/api/knowledge-base/collections/${encodeURIComponent(collection)}/rebuild-index`);
+    console.log('  ✅ Index rebuilt');
+
+    // Then trigger documentation agent
+    console.log('  📝 Triggering documentation regeneration...');
+    console.log('\n💡 To regenerate all documentation, execute:');
+    console.log(`   maestro run documentation-agent --input mode=all --input collection=${collection}`);
+    console.log('');
+  } catch (error) {
+    handleApiError(error, 'rebuilding documentation');
+    process.exit(1);
+  }
+}
+
+async function listKnowledgeBaseCollections() {
+  try {
+    const collections = await client.request('GET', '/api/knowledge-base/collections');
+
+    if (!collections || collections.length === 0) {
+      console.log('\nNo collections found in Knowledge Base');
+      return;
+    }
+
+    console.log('\n📚 Knowledge Base Collections:\n');
+    console.table(collections.map(c => ({
+      'Name': c.name,
+      'Documents': c.documentCount,
+      'Description': c.description || '-',
+      'Last Updated': c.lastUpdated ? new Date(c.lastUpdated).toLocaleDateString() : '-'
+    })));
+  } catch (error) {
+    handleApiError(error, 'listing collections');
+    process.exit(1);
+  }
+}
+
+async function getKnowledgeBaseDocument(collection, documentId) {
+  try {
+    const doc = await client.request('GET', `/api/knowledge-base/collections/${encodeURIComponent(collection)}/${encodeURIComponent(documentId)}`);
+
+    console.log('\n📄 Document Details:\n');
+    console.log(`  ID:           ${doc.id}`);
+    console.log(`  Collection:   ${doc.collection}`);
+    console.log(`  Title:        ${doc.title || 'N/A'}`);
+    console.log(`  Version:      ${doc.version}`);
+    console.log(`  Doc Status:   ${doc.docStatus}`);
+    console.log(`  Doc Path:     ${doc.docPath || 'N/A'}`);
+    console.log(`  Created:      ${doc.createdAt}`);
+    console.log(`  Updated:      ${doc.updatedAt}`);
+    console.log(`  Tags:         ${doc.tags?.join(', ') || 'None'}`);
+
+    if (doc.document) {
+      console.log('\n  Content Preview:');
+      const preview = JSON.stringify(doc.document, null, 2).slice(0, 500);
+      console.log('  ' + preview.split('\n').join('\n  '));
+      if (JSON.stringify(doc.document).length > 500) {
+        console.log('  ...(truncated)');
+      }
+    }
+    console.log('');
+  } catch (error) {
+    if (error.status === 404) {
+      console.error(`❌ Document '${documentId}' not found in collection '${collection}'`);
+    } else {
+      handleApiError(error, 'getting document');
+    }
+    process.exit(1);
+  }
+}
+
+async function searchKnowledgeBase(query, collection = null) {
+  try {
+    const url = collection
+      ? `/api/knowledge-base/search?q=${encodeURIComponent(query)}&collection=${encodeURIComponent(collection)}`
+      : `/api/knowledge-base/search?q=${encodeURIComponent(query)}`;
+    const response = await client.request('GET', url);
+
+    if (!response.results || response.results.length === 0) {
+      console.log(`\nNo results found for: ${query}`);
+      return;
+    }
+
+    console.log(`\n🔍 Search Results for "${query}" (${response.results.length}):\n`);
+    console.table(response.results.map(r => ({
+      'Collection': r.collection,
+      'ID': r.documentId,
+      'Title': r.title || '-',
+      'Score': r.score.toFixed(2)
+    })));
+  } catch (error) {
+    handleApiError(error, 'searching knowledge base');
+    process.exit(1);
+  }
+}
+
 async function getToolMetricsCmd(id) {
   try {
     const metrics = await client.getToolMetrics(id);
@@ -2080,6 +2302,17 @@ Block Testing Commands (works with any block type: tool, agent, workflow, task):
 LLM Commands:
   llm                  Show LLM provider status
 
+Documentation / Knowledge Base Commands:
+  docs                 Show documentation statistics
+  docs pending         List documents with pending documentation
+  docs outdated        List documents with outdated documentation
+  docs stats           Show documentation statistics by collection
+  docs process         Process pending documentation
+  docs rebuild         Rebuild documentation for a collection
+  docs collections     List all Knowledge Base collections
+  docs get <col> <id>  Get a specific document
+  docs search <query>  Search the Knowledge Base
+
 System Commands:
   health               Check backend connection
 
@@ -2167,6 +2400,10 @@ Metrics Filter Options:
   --to <date>          End date (ISO format)
   --limit <n>          Maximum results to show
 
+Docs Options:
+  --collection <name>  Filter by collection name
+  --mode <mode>        Processing mode: pending, outdated, all
+
 Environment Variables:
   MAESTRO_API_URL      Backend API URL (default: http://localhost:5000)
   MAESTRO_API_TIMEOUT  API request timeout in ms (default: 30000)
@@ -2201,6 +2438,15 @@ Examples:
   maestro runs --limit 10
   maestro llm
   maestro health
+
+  # Documentation / Knowledge Base
+  maestro docs
+  maestro docs pending
+  maestro docs pending --collection models
+  maestro docs process --collection models
+  maestro docs collections
+  maestro docs get models smollm2-1.7b
+  maestro docs search "capability test"
 
   # Agent Foundry
   maestro foundry
@@ -2873,6 +3119,58 @@ Examples:
       }
 
       console.error(`❌ Unknown test subcommand: ${subCmd}`);
+      process.exit(1);
+    }
+
+    // Documentation / Knowledge Base commands
+    if (cmd === 'docs' || cmd === 'kb') {
+      const subCmd = argv._[1];
+
+      if (!subCmd) return await getDocsStats();
+
+      if (subCmd === 'pending') {
+        return await listPendingDocs(argv.collection);
+      }
+
+      if (subCmd === 'outdated') {
+        return await listOutdatedDocs(argv.collection);
+      }
+
+      if (subCmd === 'stats') {
+        return await getDocsStats();
+      }
+
+      if (subCmd === 'process') {
+        return await processDocumentation({
+          collection: argv.collection,
+          mode: argv.mode
+        });
+      }
+
+      if (subCmd === 'rebuild') {
+        return await rebuildDocs(argv.collection);
+      }
+
+      if (subCmd === 'collections') {
+        return await listKnowledgeBaseCollections();
+      }
+
+      if (subCmd === 'get') {
+        const collection = argv._[2];
+        const documentId = argv._[3];
+        if (!collection) { console.error('❌ Collection name required'); process.exit(1); }
+        if (!documentId) { console.error('❌ Document ID required'); process.exit(1); }
+        return await getKnowledgeBaseDocument(collection, documentId);
+      }
+
+      if (subCmd === 'search') {
+        const query = argv._[2] || argv.q;
+        if (!query) { console.error('❌ Search query required'); process.exit(1); }
+        return await searchKnowledgeBase(query, argv.collection);
+      }
+
+      console.error(`❌ Unknown docs subcommand: ${subCmd}`);
+      console.error('   Run "maestro docs --help" for usage information');
       process.exit(1);
     }
 

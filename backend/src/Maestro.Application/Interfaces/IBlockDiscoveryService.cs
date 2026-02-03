@@ -12,6 +12,16 @@ namespace Maestro.Application.Interfaces
         Task<BlockDefinition?> GetByIdAsync(string blockId, CancellationToken ct = default);
         Task<BlockDefinition?> GetByPathAsync(string folderPath, CancellationToken ct = default);
         Task WatchForChangesAsync(System.Action<BlockChangeEvent> onChange, CancellationToken ct = default);
+
+        /// <summary>
+        /// Gets all system blocks (blocks in blocks/system/ folder).
+        /// </summary>
+        Task<IEnumerable<BlockDefinition>> DiscoverSystemBlocksAsync(CancellationToken ct = default);
+
+        /// <summary>
+        /// Gets all versions of a block (including system and user overrides).
+        /// </summary>
+        Task<IEnumerable<BlockDefinition>> GetAllVersionsAsync(string blockId, CancellationToken ct = default);
     }
 
     public class BlockChangeEvent

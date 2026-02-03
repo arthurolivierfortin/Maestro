@@ -1,0 +1,80 @@
+{
+  "id": "fetch-pending-docs",
+  "name": "Fetch Pending Documents",
+  "blockType": "tool",
+  "version": "1.0.0",
+  "description": "Fetches documents from the Knowledge Base that need documentation generation. Supports filtering by status (pending, outdated, error) and collection.",
+  "isAtomic": true,
+  "capabilities": ["knowledge-base", "querying"],
+
+  "inputs": [
+    {
+      "id": "collection",
+      "name": "Collection",
+      "type": "string",
+      "required": false,
+      "description": "Specific collection to query, or leave empty for all collections"
+    },
+    {
+      "id": "mode",
+      "name": "Mode",
+      "type": "string",
+      "required": false,
+      "default": "pending",
+      "description": "Which documents to fetch: 'pending', 'outdated', 'error', or 'all'"
+    },
+    {
+      "id": "limit",
+      "name": "Limit",
+      "type": "number",
+      "required": false,
+      "default": 50,
+      "description": "Maximum number of documents to return"
+    }
+  ],
+
+  "outputs": [
+    {
+      "id": "documents",
+      "name": "Documents",
+      "type": "array",
+      "description": "List of document envelopes matching the criteria"
+    },
+    {
+      "id": "collections",
+      "name": "Collections",
+      "type": "array",
+      "description": "Unique list of collections that have matching documents"
+    },
+    {
+      "id": "count",
+      "name": "Count",
+      "type": "number",
+      "description": "Total number of matching documents"
+    }
+  ],
+
+  "config": {
+    "apiEndpoints": {
+      "pending": "/api/knowledge-base/pending",
+      "outdated": "/api/knowledge-base/outdated",
+      "all": "/api/knowledge-base/collections/{collection}"
+    },
+    "statusFilter": {
+      "pending": ["pending"],
+      "outdated": ["outdated"],
+      "error": ["error"],
+      "all": ["pending", "outdated", "error", "generated"]
+    }
+  },
+
+  "metadata": {
+    "system": true,
+    "category": "documentation",
+    "canOverride": true,
+    "author": "Maestro Team",
+    "tags": ["knowledge-base", "querying", "documentation"],
+    "documentation": "docs/guides/DOCS-SESSION-DETAILED-GUIDE.md",
+    "overrideInstructions": "Clone this block to add custom filtering logic or modify the query parameters."
+  }
+}

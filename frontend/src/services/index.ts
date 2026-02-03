@@ -15,3 +15,9 @@ export { trainingService } from './trainingService';
 
 // Block Testing service
 export { testService } from './testService';
+
+// Session services (Phase 11 - Composable Session Architecture)
+export { sandboxImageService } from './sandboxImageService';
+export { sessionTemplateService } from './sessionTemplateService';
+export { sessionService } from './sessionService';
+export { sessionCategoryService } from './sessionCategoryService';

@@ -1,0 +1,78 @@
+{
+  "id": "generate-model-doc",
+  "name": "Generate Model Documentation",
+  "blockType": "inference",
+  "version": "1.0.0",
+  "description": "Generates comprehensive Markdown documentation for a model test result. Uses LLM to create human-readable analysis and recommendations based on test scores and capabilities.",
+  "isAtomic": true,
+  "capabilities": ["documentation", "inference", "markdown-generation"],
+
+  "inputs": [
+    {
+      "id": "document",
+      "name": "Document",
+      "type": "object",
+      "required": true,
+      "description": "The Knowledge Base document envelope containing model test results"
+    },
+    {
+      "id": "collection",
+      "name": "Collection",
+      "type": "string",
+      "required": true,
+      "description": "The collection this document belongs to"
+    },
+    {
+      "id": "templatePath",
+      "name": "Template Path",
+      "type": "string",
+      "required": false,
+      "default": "docs/templates/model-documentation.md.hbs",
+      "description": "Path to the Handlebars template for documentation generation"
+    }
+  ],
+
+  "outputs": [
+    {
+      "id": "docPath",
+      "name": "Documentation Path",
+      "type": "string",
+      "description": "Path to the generated Markdown documentation"
+    },
+    {
+      "id": "success",
+      "name": "Success",
+      "type": "boolean",
+      "description": "Whether documentation was successfully generated"
+    },
+    {
+      "id": "analysis",
+      "name": "Analysis",
+      "type": "object",
+      "description": "LLM-generated analysis of the model capabilities"
+    }
+  ],
+
+  "config": {
+    "prompt": {
+      "system": "You are a technical documentation expert specializing in AI model capabilities. Generate clear, actionable documentation that helps developers understand what a model can and cannot do.",
+      "template": "Based on the following model test results, generate a comprehensive analysis:\n\n## Model Information\n- **Model ID**: {{document.document.model.id}}\n- **Display Name**: {{document.document.model.displayName}}\n- **Parameters**: {{document.document.model.parameters}}\n\n## Test Summary\n- **Total Score**: {{document.document.summary.totalScore}} / {{document.document.summary.maxScore}} ({{document.document.summary.percentage}}%)\n- **Classification**: {{document.document.summary.classification}}\n- **Passed Tests**: {{document.document.summary.passedTests}}\n- **Failed Tests**: {{document.document.summary.failedTests}}\n\n## Test Results by Category\n{{#each document.document.categories}}\n### {{name}}\n- Score: {{score}} / {{maxScore}}\n- Tests: {{passedTests}} passed, {{failedTests}} failed\n{{/each}}\n\nProvide:\n1. A brief executive summary (2-3 sentences)\n2. Key strengths (bullet points)\n3. Notable limitations (bullet points)\n4. Recommended use cases\n5. Use cases to avoid\n6. Any specific configuration recommendations"
+    },
+    "outputPath": "docs/models/{{document.id}}.md",
+    "updateKnowledgeBase": {
+      "enabled": true,
+      "setStatus": "generated",
+      "setDocPath": "{{outputPath}}"
+    }
+  },
+
+  "metadata": {
+    "system": true,
+    "category": "documentation",
+    "canOverride": true,
+    "author": "Maestro Team",
+    "tags": ["documentation", "models", "inference", "analysis"],
+    "documentation": "docs/guides/DOCS-SESSION-DETAILED-GUIDE.md",
+    "overrideInstructions": "Clone this block to customize the documentation template, modify the LLM prompt, or change the output format."
+  }
+}

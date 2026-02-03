@@ -1,0 +1,12 @@
+{
+  "id": "documentation",
+  "name": "Documentation",
+  "description": "Sessions for documentation work",
+  "icon": "book",
+  "color": "#8B5CF6",
+  "source": 1,
+  "isSystem": false,
+  "displayOrder": 50,
+  "createdAt": "2026-02-02T15:49:14.5038669Z",
+  "updatedAt": null
+}

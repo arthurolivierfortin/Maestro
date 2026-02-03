@@ -1,0 +1,134 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "DocumentEnvelope",
+  "description": "Wrapper for all Knowledge Base documents with metadata for versioning, status tracking, and documentation generation",
+  "type": "object",
+  "required": ["id", "collection", "createdAt", "updatedAt", "document"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Unique document identifier within the collection"
+    },
+    "collection": {
+      "type": "string",
+      "description": "Collection name (e.g., 'models', 'runs', 'agents')",
+      "enum": ["models", "model-test-runs", "runs", "agents", "architecture"]
+    },
+    "title": {
+      "type": "string",
+      "description": "Human-readable title for the document"
+    },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp when document was first created"
+    },
+    "updatedAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp when document was last updated"
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1,
+      "default": 1,
+      "description": "Document version number, incremented on each update"
+    },
+    "linkedRunId": {
+      "type": "string",
+      "description": "Optional reference to the run/execution that created this document"
+    },
+    "tags": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Tags for categorization and search"
+    },
+    "schemaRef": {
+      "type": "string",
+      "description": "Reference to the JSON schema for the document content"
+    },
+    "docStatus": {
+      "type": "string",
+      "enum": ["pending", "generated", "outdated", "error", "skipped"],
+      "default": "pending",
+      "description": "Documentation generation status"
+    },
+    "docPath": {
+      "type": ["string", "null"],
+      "description": "Path to generated Markdown documentation (relative to docs/)"
+    },
+    "docGeneratedAt": {
+      "type": ["string", "null"],
+      "format": "date-time",
+      "description": "When documentation was last generated"
+    },
+    "docGeneratorVersion": {
+      "type": ["string", "null"],
+      "description": "Version of documentation generator used"
+    },
+    "document": {
+      "type": "object",
+      "description": "The actual document content (varies by collection/schema)"
+    }
+  },
+  "definitions": {
+    "docStatusDescription": {
+      "description": "Document status meanings",
+      "enum": [
+        "pending - New item, documentation not yet generated",
+        "generated - Documentation exists and is current",
+        "outdated - Source updated after documentation was generated",
+        "error - Documentation generation failed",
+        "skipped - Manually marked to skip documentation"
+      ]
+    }
+  },
+  "examples": [
+    {
+      "id": "smollm2-1.7b-20260202-143052",
+      "collection": "model-test-runs",
+      "title": "SmolLM2-1.7B Test Results",
+      "createdAt": "2026-02-02T14:30:52Z",
+      "updatedAt": "2026-02-02T14:30:52Z",
+      "version": 1,
+      "linkedRunId": "run-005",
+      "tags": ["model-test", "smollm2", "tool-calling"],
+      "schemaRef": "_schemas/model-test-result.schema.json",
+      "docStatus": "pending",
+      "docPath": null,
+      "docGeneratedAt": null,
+      "document": {
+        "meta": {},
+        "model": {},
+        "summary": {},
+        "categories": {}
+      }
+    },
+    {
+      "id": "smollm2-1.7b",
+      "collection": "models",
+      "title": "SmolLM2-1.7B Model Documentation",
+      "createdAt": "2026-02-01T10:00:00Z",
+      "updatedAt": "2026-02-02T14:30:52Z",
+      "version": 3,
+      "tags": ["model", "smollm2", "huggingface"],
+      "schemaRef": "_schemas/model-test-result.schema.json",
+      "docStatus": "generated",
+      "docPath": "docs/models/smollm2-1.7b.md",
+      "docGeneratedAt": "2026-02-02T14:35:00Z",
+      "docGeneratorVersion": "documentation-agent-1.0.0",
+      "document": {
+        "model": {
+          "id": "HuggingFaceTB/SmolLM2-1.7B-Instruct",
+          "displayName": "SmolLM2-1.7B-Instruct"
+        },
+        "summary": {
+          "totalScore": 32,
+          "maxScore": 190,
+          "percentage": 17,
+          "classification": "Insufficient"
+        }
+      }
+    }
+  ]
+}

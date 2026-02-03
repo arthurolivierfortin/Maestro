@@ -76,4 +76,34 @@ public record ResourceLimits
     /// Maximum execution time in seconds.
     /// </summary>
     public int? TimeoutSeconds { get; init; }
+
+    /// <summary>
+    /// Default resource limits for sessions.
+    /// </summary>
+    public static ResourceLimits Default => new()
+    {
+        CpuLimit = "1.0",
+        MemoryLimit = "512m",
+        TimeoutSeconds = 3600
+    };
+
+    /// <summary>
+    /// Minimal resource limits for lightweight tasks.
+    /// </summary>
+    public static ResourceLimits Minimal => new()
+    {
+        CpuLimit = "0.5",
+        MemoryLimit = "256m",
+        TimeoutSeconds = 1800
+    };
+
+    /// <summary>
+    /// High resource limits for demanding tasks.
+    /// </summary>
+    public static ResourceLimits High => new()
+    {
+        CpuLimit = "2.0",
+        MemoryLimit = "2g",
+        TimeoutSeconds = 7200
+    };
 }

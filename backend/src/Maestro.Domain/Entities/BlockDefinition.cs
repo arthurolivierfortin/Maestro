@@ -15,6 +15,12 @@ namespace Maestro.Domain.Entities
         public Dictionary<string, object> Metadata { get; private set; } = new();
         public List<string> Capabilities { get; private set; } = new();
 
+        // System block properties
+        public bool IsSystem { get; private set; }
+        public string? OverridesBlockId { get; private set; }
+        public string? SourcePath { get; private set; }
+        public string? Category { get; private set; }
+
         private BlockDefinition() { }
 
         public static BlockDefinition Create(string id, string name, string blockType)
@@ -64,6 +70,26 @@ namespace Maestro.Domain.Entities
             {
                 Capabilities.AddRange(capabilities);
             }
+        }
+
+        public void SetIsSystem(bool isSystem)
+        {
+            IsSystem = isSystem;
+        }
+
+        public void SetOverridesBlockId(string? overridesBlockId)
+        {
+            OverridesBlockId = overridesBlockId;
+        }
+
+        public void SetSourcePath(string? sourcePath)
+        {
+            SourcePath = sourcePath;
+        }
+
+        public void SetCategory(string? category)
+        {
+            Category = category;
         }
     }
 }

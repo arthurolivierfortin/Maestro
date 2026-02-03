@@ -374,6 +374,95 @@ namespace Maestro.Api.Controllers
         }
 
         /// <summary>
+        /// Get all system blocks.
+        /// System blocks are built-in blocks in blocks/system/ that power Maestro functionality.
+        /// </summary>
+        [HttpGet("system")]
+        public async Task<ActionResult<SystemBlocksResponse>> GetSystemBlocks()
+        {
+            var systemBlocks = await _discovery.DiscoverSystemBlocksAsync();
+
+            var grouped = systemBlocks
+                .GroupBy(b => b.Category ?? "uncategorized")
+                .ToDictionary(
+                    g => g.Key,
+                    g => g.Select(b => BlockDto.FromDomain(b)).ToList()
+                );
+
+            return Ok(new SystemBlocksResponse
+            {
+                TotalCount = systemBlocks.Count(),
+                Categories = grouped.Keys.ToList(),
+                BlocksByCategory = grouped
+            });
+        }
+
+        /// <summary>
+        /// Get all versions of a block (including system and user overrides).
+        /// </summary>
+        [HttpGet("{id}/versions")]
+        public async Task<ActionResult<BlockVersionsResponse>> GetBlockVersions(string id)
+        {
+            var versions = await _discovery.GetAllVersionsAsync(id);
+            if (!versions.Any())
+                return NotFound(new { error = $"Block '{id}' not found" });
+
+            var versionDtos = versions.Select(b => BlockDto.FromDomain(b)).ToList();
+
+            return Ok(new BlockVersionsResponse
+            {
+                BlockId = id,
+                TotalVersions = versionDtos.Count,
+                ActiveVersion = versionDtos.First(),
+                SystemVersion = versionDtos.FirstOrDefault(v => v.IsSystem),
+                AllVersions = versionDtos
+            });
+        }
+
+        /// <summary>
+        /// Clone a system block to allow customization.
+        /// </summary>
+        [HttpPost("{id}/clone")]
+        public async Task<ActionResult<BlockDto>> CloneBlock(string id, [FromBody] CloneBlockRequest request)
+        {
+            var block = await _discovery.GetByIdAsync(id);
+            if (block == null)
+                return NotFound(new { error = $"Block '{id}' not found" });
+
+            // Determine target path
+            var targetFolder = request.TargetFolder ?? "blocks/tools";
+            var targetId = request.NewId ?? block.Id;
+
+            // Check if target already exists
+            var existing = await _repository.GetByIdAsync(targetId);
+            if (existing != null && !request.Overwrite)
+                return Conflict(new { error = $"Block '{targetId}' already exists. Set overwrite=true to replace." });
+
+            // Clone the block
+            var clonedBlock = Domain.Entities.BlockDefinition.Create(targetId, block.Name, block.BlockType);
+            clonedBlock.SetDescription(block.Description);
+            clonedBlock.SetVersion(block.Version);
+            clonedBlock.SetIsAtomic(block.IsAtomic);
+            clonedBlock.UpdateConfig(new Dictionary<string, object>(block.Config));
+            clonedBlock.UpdateMetadata(new Dictionary<string, object>(block.Metadata));
+            clonedBlock.AddCapabilities(block.Capabilities);
+
+            // Mark as override if cloning a system block
+            if (block.IsSystem)
+            {
+                clonedBlock.SetOverridesBlockId(block.Id);
+            }
+
+            // Save to the target location
+            await _repository.SaveAsync(clonedBlock, targetFolder);
+
+            var path = await _repository.GetBlockPathAsync(targetId);
+            var dto = BlockDto.FromDomain(clonedBlock, path);
+
+            return CreatedAtAction(nameof(GetById), new { id = targetId }, dto);
+        }
+
+        /// <summary>
         /// Get content of a specific file within a block.
         /// </summary>
         [HttpGet("{id}/content/{*filePath}")]
@@ -547,5 +636,37 @@ namespace Maestro.Api.Controllers
         public string? ResolvedBlockType { get; set; }
         public bool IsAtomic { get; set; } = true;
         public List<BlockChildInfo>? Children { get; set; }
+    }
+
+    /// <summary>
+    /// Response model for system blocks.
+    /// </summary>
+    public class SystemBlocksResponse
+    {
+        public int TotalCount { get; set; }
+        public List<string> Categories { get; set; } = new();
+        public Dictionary<string, List<BlockDto>> BlocksByCategory { get; set; } = new();
+    }
+
+    /// <summary>
+    /// Response model for block versions.
+    /// </summary>
+    public class BlockVersionsResponse
+    {
+        public string BlockId { get; set; } = string.Empty;
+        public int TotalVersions { get; set; }
+        public BlockDto? ActiveVersion { get; set; }
+        public BlockDto? SystemVersion { get; set; }
+        public List<BlockDto> AllVersions { get; set; } = new();
+    }
+
+    /// <summary>
+    /// Request model for cloning a block.
+    /// </summary>
+    public class CloneBlockRequest
+    {
+        public string? NewId { get; set; }
+        public string? TargetFolder { get; set; }
+        public bool Overwrite { get; set; }
     }
 }

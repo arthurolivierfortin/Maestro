@@ -61,6 +61,17 @@
       }
     }
 
+    &--system {
+      .foundry-sidebar__category-icon {
+        color: var(--color-warning);
+      }
+
+      &.foundry-sidebar__category--active {
+        background: rgba(var(--color-warning-rgb, 245, 158, 11), 0.1);
+        color: var(--color-warning);
+      }
+    }
+
     &:focus-visible {
       outline: 2px solid var(--color-primary);
       outline-offset: 2px;

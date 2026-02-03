@@ -178,13 +178,92 @@ namespace Maestro.Infrastructure.BlockStore
                 // Publish change event
                 if (_publisher != null)
                 {
-                    var lightweight = new 
-                    { 
-                        id = block.Id, 
-                        name = block.Name, 
-                        blockType = block.BlockType 
+                    var lightweight = new
+                    {
+                        id = block.Id,
+                        name = block.Name,
+                        blockType = block.BlockType
                     };
                     await _publisher.PublishBlockUpdatedAsync(lightweight);
+                }
+            }
+            finally
+            {
+                _writeLock.Release();
+            }
+        }
+
+        /// <summary>
+        /// Save a block to a specific target folder (used for cloning blocks).
+        /// </summary>
+        public async Task SaveAsync(BlockDefinition block, string targetFolder, CancellationToken ct = default)
+        {
+            if (block == null) throw new ArgumentNullException(nameof(block));
+            if (string.IsNullOrEmpty(targetFolder)) throw new ArgumentNullException(nameof(targetFolder));
+
+            await _writeLock.WaitAsync(ct);
+            try
+            {
+                // Resolve target folder relative to base path if not absolute
+                var resolvedFolder = Path.IsPathRooted(targetFolder)
+                    ? targetFolder
+                    : Path.Combine(Path.GetDirectoryName(_basePath) ?? _basePath, targetFolder);
+
+                Directory.CreateDirectory(resolvedFolder);
+
+                var fileName = BlockFileNameHelper.CreateFileName(block.Name, block.BlockType);
+                var file = Path.Combine(resolvedFolder, fileName);
+                var tempFile = file + ".tmp";
+
+                // Serialize block with all properties including override info
+                var options = new JsonSerializerOptions { WriteIndented = true };
+                var json = JsonSerializer.Serialize(new
+                {
+                    id = block.Id,
+                    name = block.Name,
+                    blockType = block.BlockType,
+                    version = block.Version,
+                    isAtomic = block.IsAtomic,
+                    description = block.Description,
+                    config = block.Config,
+                    metadata = block.Metadata,
+                    capabilities = block.Capabilities
+                }, options);
+
+                // Atomic write
+                await File.WriteAllTextAsync(tempFile, json, ct);
+
+                if (File.Exists(file))
+                {
+                    var backupFile = file + ".bak";
+                    File.Move(file, backupFile, overwrite: true);
+                    try
+                    {
+                        File.Move(tempFile, file);
+                        File.Delete(backupFile);
+                    }
+                    catch
+                    {
+                        if (File.Exists(backupFile))
+                            File.Move(backupFile, file, overwrite: true);
+                        throw;
+                    }
+                }
+                else
+                {
+                    File.Move(tempFile, file);
+                }
+
+                // Publish change event
+                if (_publisher != null)
+                {
+                    var lightweight = new
+                    {
+                        id = block.Id,
+                        name = block.Name,
+                        blockType = block.BlockType
+                    };
+                    await _publisher.PublishBlockAddedAsync(lightweight);
                 }
             }
             finally

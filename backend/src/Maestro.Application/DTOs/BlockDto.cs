@@ -24,6 +24,11 @@ namespace Maestro.Application.DTOs
         public DateTime UpdatedAt { get; init; }
         public string? SourcePath { get; init; }
 
+        // System block properties
+        public bool IsSystem { get; init; }
+        public string? OverridesBlockId { get; init; }
+        public string? Category { get; init; }
+
         public static BlockDto FromDomain(Domain.Entities.BlockDefinition block, string? sourcePath = null)
         {
             return new BlockDto
@@ -39,7 +44,10 @@ namespace Maestro.Application.DTOs
                 Metadata = block.Metadata != null ? ConvertDictionary(block.Metadata) : null,
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow,
-                SourcePath = sourcePath
+                SourcePath = sourcePath ?? block.SourcePath,
+                IsSystem = block.IsSystem,
+                OverridesBlockId = block.OverridesBlockId,
+                Category = block.Category
             };
         }
 

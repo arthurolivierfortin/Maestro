@@ -87,7 +87,8 @@
       "Bash(node:*)",
       "WebSearch",
       "Bash(Select-Object -First 50)",
-      "Bash(MAESTRO_GLOBAL_BLOCKS_PATH=\"C:/Meastro/blocks\" MAESTRO_REPO_ROOT=\"C:/Meastro\" dotnet run:*)"
+      "Bash(MAESTRO_GLOBAL_BLOCKS_PATH=\"C:/Meastro/blocks\" MAESTRO_REPO_ROOT=\"C:/Meastro\" dotnet run:*)",
+      "WebFetch(domain:localhost)"
     ]
   }
 }

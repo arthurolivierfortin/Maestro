@@ -16,6 +16,8 @@ namespace Maestro.Infrastructure.BlockStore
     {
         private readonly string[] _searchPaths;
         private readonly ConcurrentDictionary<string, BlockDefinition> _cache = new();
+        private readonly ConcurrentDictionary<string, BlockDefinition> _systemBlocksCache = new();
+        private readonly ConcurrentDictionary<string, List<BlockDefinition>> _allVersionsCache = new();
         private readonly List<FileSystemWatcher> _watchers = new();
         private readonly IBlockChangePublisher? _changePublisher;
 
@@ -25,6 +27,26 @@ namespace Maestro.Infrastructure.BlockStore
             _changePublisher = changePublisher;
             InitializeWatchers();
             ScanAll();
+        }
+
+        /// <summary>
+        /// Gets all system blocks (blocks in blocks/system/ folder).
+        /// </summary>
+        public IEnumerable<BlockDefinition> GetSystemBlocks()
+        {
+            return _systemBlocksCache.Values;
+        }
+
+        /// <summary>
+        /// Gets all versions of a block (including system and user versions).
+        /// </summary>
+        public IEnumerable<BlockDefinition> GetAllVersionsOfBlock(string blockId)
+        {
+            if (_allVersionsCache.TryGetValue(blockId, out var versions))
+            {
+                return versions;
+            }
+            return Enumerable.Empty<BlockDefinition>();
         }
 
         private void InitializeWatchers()
@@ -119,10 +141,19 @@ namespace Maestro.Infrastructure.BlockStore
 
         private void ScanAll()
         {
-            foreach (var basePath in _searchPaths)
+            // Clear all caches
+            _cache.Clear();
+            _systemBlocksCache.Clear();
+            _allVersionsCache.Clear();
+
+            // First pass: collect all blocks from all paths with priority info
+            var allBlocks = new List<(BlockDefinition block, int priority, string basePath)>();
+
+            for (int priority = 0; priority < _searchPaths.Length; priority++)
             {
+                var basePath = _searchPaths[priority];
                 if (!Directory.Exists(basePath)) continue;
-                
+
                 // Load project config if available (for .maestro folders)
                 Dictionary<string, object>? projectConfig = null;
                 try
@@ -135,7 +166,7 @@ namespace Maestro.Infrastructure.BlockStore
                     }
                 }
                 catch { /* ignore invalid project config */ }
-                
+
                 // Scan for *.block.json files
                 try
                 {
@@ -147,7 +178,21 @@ namespace Maestro.Infrastructure.BlockStore
                             if (block != null)
                             {
                                 AttachProjectConfig(block, projectConfig);
-                                _cache[block.Id] = block;
+
+                                // Detect if this is a system block
+                                var isSystemBlock = IsSystemBlockPath(file);
+                                block.SetIsSystem(isSystemBlock);
+                                block.SetSourcePath(file);
+
+                                // Extract category from path (e.g., "testing" from blocks/system/testing/)
+                                if (isSystemBlock)
+                                {
+                                    var category = ExtractCategoryFromPath(file);
+                                    block.SetCategory(category);
+                                    _systemBlocksCache[block.Id] = block;
+                                }
+
+                                allBlocks.Add((block, priority, basePath));
                             }
                         }
                         catch { }
@@ -155,6 +200,63 @@ namespace Maestro.Infrastructure.BlockStore
                 }
                 catch { }
             }
+
+            // Second pass: resolve overrides (lower priority number = higher priority)
+            // Group by block ID
+            var blockGroups = allBlocks.GroupBy(b => b.block.Id);
+
+            foreach (var group in blockGroups)
+            {
+                var sortedVersions = group.OrderBy(b => b.priority).ToList();
+                var primaryBlock = sortedVersions.First().block;
+
+                // Store all versions for reference
+                _allVersionsCache[group.Key] = sortedVersions.Select(b => b.block).ToList();
+
+                // If the primary block is not a system block but a system version exists,
+                // mark it as overriding the system block
+                var systemVersion = sortedVersions.FirstOrDefault(b => b.block.IsSystem);
+                if (!primaryBlock.IsSystem && systemVersion.block != null)
+                {
+                    primaryBlock.SetOverridesBlockId(systemVersion.block.Id);
+                }
+
+                // Store the primary (highest priority) block in main cache
+                _cache[group.Key] = primaryBlock;
+            }
+        }
+
+        /// <summary>
+        /// Checks if a file path is within the system blocks folder.
+        /// </summary>
+        private static bool IsSystemBlockPath(string filePath)
+        {
+            var normalizedPath = filePath.Replace('\\', '/');
+            return normalizedPath.Contains($"/{MaestroConstants.BlocksFolderName}/{MaestroConstants.SystemBlocksFolderName}/") ||
+                   normalizedPath.Contains($"\\{MaestroConstants.BlocksFolderName}\\{MaestroConstants.SystemBlocksFolderName}\\");
+        }
+
+        /// <summary>
+        /// Extracts the category from a system block path.
+        /// e.g., "blocks/system/testing/model-test.tool.block.json" -> "testing"
+        /// </summary>
+        private static string? ExtractCategoryFromPath(string filePath)
+        {
+            var normalizedPath = filePath.Replace('\\', '/');
+            var systemMarker = $"/{MaestroConstants.SystemBlocksFolderName}/";
+            var idx = normalizedPath.IndexOf(systemMarker, StringComparison.OrdinalIgnoreCase);
+
+            if (idx >= 0)
+            {
+                var afterSystem = normalizedPath.Substring(idx + systemMarker.Length);
+                var slashIdx = afterSystem.IndexOf('/');
+                if (slashIdx > 0)
+                {
+                    return afterSystem.Substring(0, slashIdx);
+                }
+            }
+
+            return null;
         }
         
         private static void AttachProjectConfig(BlockDefinition block, Dictionary<string, object>? projectConfig)
@@ -288,6 +390,20 @@ namespace Maestro.Infrastructure.BlockStore
         {
             // For now, watcher updates _cache; we do not push events to caller in this simple impl.
             return Task.CompletedTask;
+        }
+
+        public Task<IEnumerable<BlockDefinition>> DiscoverSystemBlocksAsync(CancellationToken ct = default)
+        {
+            return Task.FromResult(_systemBlocksCache.Values.AsEnumerable());
+        }
+
+        public Task<IEnumerable<BlockDefinition>> GetAllVersionsAsync(string blockId, CancellationToken ct = default)
+        {
+            if (_allVersionsCache.TryGetValue(blockId, out var versions))
+            {
+                return Task.FromResult(versions.AsEnumerable());
+            }
+            return Task.FromResult(Enumerable.Empty<BlockDefinition>());
         }
 
         public void Dispose()

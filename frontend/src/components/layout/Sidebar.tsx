@@ -22,6 +22,7 @@ import {
   BarChart3,
   Plus,
   ChevronRight,
+  Container,
 } from 'lucide-react';
 import './Sidebar.scss';
 
@@ -45,6 +46,12 @@ const navigationItems: SidebarItem[] = [
     label: 'Projects',
     icon: <FolderKanban size={16} />,
     path: '/projects',
+  },
+  {
+    id: 'sessions',
+    label: 'Sessions',
+    icon: <Container size={16} />,
+    path: '/sessions',
   },
   {
     id: 'foundry',

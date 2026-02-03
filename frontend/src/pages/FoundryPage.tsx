@@ -13,7 +13,7 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Bot, Wrench, GitBranch } from 'lucide-react';
+import { Bot, Wrench, GitBranch, Lock, Copy } from 'lucide-react';
 import { useBlockStore } from '../store';
 import type { BlockType } from '../types/block.types';
 import { FoundrySidebar } from '../components/Foundry/FoundrySidebar';
@@ -21,6 +21,7 @@ import { FoundrySearchBar } from '../components/Foundry/FoundrySearchBar';
 import { BlockGrid } from '../components/Foundry/BlockGrid';
 import { CreateBlockWizard } from '../components/Foundry/CreateBlockWizard';
 import { useFavorites } from '../hooks/useFavorites';
+import { BlockIcon } from '../components/icons';
 import './FoundryPage.scss';
 
 type FoundryTab = 'blocks' | 'agents' | 'tools' | 'templates';
@@ -63,6 +64,18 @@ interface Template {
   tags: string[];
 }
 
+// System block from API
+interface SystemBlock {
+  id: string;
+  name: string;
+  blockType: string;
+  version: string;
+  description: string;
+  category: string;
+  isAtomic: boolean;
+  capabilities: string[];
+}
+
 export function FoundryPage() {
   const { tab } = useParams<{ tab?: string }>();
   const navigate = useNavigate();
@@ -76,7 +89,7 @@ export function FoundryPage() {
   };
 
   const [activeTab, setActiveTab] = useState<FoundryTab>(getInitialTab);
-  const [selectedCategory, setSelectedCategory] = useState<BlockType | 'all' | 'favorites'>('all');
+  const [selectedCategory, setSelectedCategory] = useState<BlockType | 'all' | 'favorites' | 'system'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCapability, setSelectedCapability] = useState<string | null>(null);
   const [isWizardOpen, setIsWizardOpen] = useState(false);
@@ -85,8 +98,10 @@ export function FoundryPage() {
   const [agents, setAgents] = useState<AgentDefinition[]>([]);
   const [tools, setTools] = useState<ToolDefinition[]>([]);
   const [templates] = useState<Template[]>([]);
+  const [systemBlocks, setSystemBlocks] = useState<SystemBlock[]>([]);
   const [loadingAgents, setLoadingAgents] = useState(false);
   const [loadingTools, setLoadingTools] = useState(false);
+  const [loadingSystemBlocks, setLoadingSystemBlocks] = useState(false);
 
   // Load agents from API
   useEffect(() => {
@@ -121,6 +136,26 @@ export function FoundryPage() {
         });
     }
   }, [activeTab, tools.length, loadingTools]);
+
+  // Load system blocks from API (load on mount to show count in sidebar)
+  useEffect(() => {
+    if (systemBlocks.length === 0 && !loadingSystemBlocks) {
+      setLoadingSystemBlocks(true);
+      fetch(`${API_BASE}/api/blocks/system`)
+        .then(res => {
+          if (res.ok) return res.json();
+          throw new Error('Failed to load system blocks');
+        })
+        .then(data => {
+          setSystemBlocks(data.blocks || []);
+          setLoadingSystemBlocks(false);
+        })
+        .catch(err => {
+          console.error('Failed to load system blocks:', err);
+          setLoadingSystemBlocks(false);
+        });
+    }
+  }, [systemBlocks.length, loadingSystemBlocks]);
 
   // Sync tab from URL - always update when tab param changes
   useEffect(() => {
@@ -179,7 +214,7 @@ export function FoundryPage() {
   /**
    * Handle category selection from sidebar
    */
-  const handleCategorySelect = (category: BlockType | 'all' | 'favorites') => {
+  const handleCategorySelect = (category: BlockType | 'all' | 'favorites' | 'system') => {
     setSelectedCategory(category);
   };
 
@@ -212,6 +247,34 @@ export function FoundryPage() {
   };
 
   /**
+   * Handle cloning a system block
+   */
+  const handleCloneSystemBlock = async (blockId: string) => {
+    try {
+      const response = await fetch(`${API_BASE}/api/blocks/${blockId}/clone`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          targetFolder: 'blocks'
+        })
+      });
+
+      if (response.ok) {
+        const clonedBlock = await response.json();
+        alert(`System block cloned successfully!\n\nYour customizable copy is at:\n${clonedBlock.path || 'blocks/' + clonedBlock.id}`);
+        // Optionally refresh the blocks
+        window.location.reload();
+      } else {
+        const error = await response.json();
+        alert(`Failed to clone block: ${error.error || 'Unknown error'}`);
+      }
+    } catch (err) {
+      console.error('Failed to clone system block:', err);
+      alert('Failed to clone system block. Make sure the backend is running.');
+    }
+  };
+
+  /**
    * Render content based on active tab
    */
   const renderTabContent = () => {
@@ -224,6 +287,7 @@ export function FoundryPage() {
               selectedCategory={selectedCategory}
               onCategorySelect={handleCategorySelect}
               onCreateBlock={handleCreateBlock}
+              systemBlockCount={systemBlocks.length}
             />
 
             {/* Main content area */}
@@ -236,8 +300,74 @@ export function FoundryPage() {
                 onCapabilityChange={handleCapabilityFilter}
               />
 
-              {/* Block grid */}
-              <BlockGrid blocks={filteredBlocks} />
+              {/* Block grid - show system blocks or regular blocks */}
+              {selectedCategory === 'system' ? (
+                <div className="foundry-page__system-blocks">
+                  <div className="foundry-page__system-header">
+                    <h3>System Blocks</h3>
+                    <p>
+                      Built-in blocks that power Maestro's internal functionality.
+                      These blocks are read-only but can be cloned and customized.
+                    </p>
+                  </div>
+                  {loadingSystemBlocks ? (
+                    <div className="foundry-page__loading">Loading system blocks...</div>
+                  ) : systemBlocks.length === 0 ? (
+                    <div className="foundry-page__empty">
+                      <h3>No System Blocks</h3>
+                      <p>System blocks could not be loaded.</p>
+                    </div>
+                  ) : (
+                    <div className="foundry-page__grid">
+                      {systemBlocks
+                        .filter(block =>
+                          !searchQuery ||
+                          block.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          block.description?.toLowerCase().includes(searchQuery.toLowerCase())
+                        )
+                        .map((block) => (
+                          <div
+                            key={block.id}
+                            className="foundry-card foundry-card--system"
+                            data-testid={`system-block-${block.id}`}
+                          >
+                            <div className="foundry-card__header">
+                              <span className="foundry-card__icon">
+                                <BlockIcon type={block.blockType as BlockType} size={18} />
+                              </span>
+                              <h3>{block.name}</h3>
+                              <span className="foundry-card__badge foundry-card__badge--system">
+                                <Lock size={12} />
+                                System
+                              </span>
+                            </div>
+                            <p className="foundry-card__description">{block.description}</p>
+                            <div className="foundry-card__tags">
+                              <span className="tag tag--category">{block.category}</span>
+                              <span className="tag tag--type">{block.blockType}</span>
+                              {(block.capabilities || []).slice(0, 2).map((cap) => (
+                                <span key={cap} className="tag">{cap}</span>
+                              ))}
+                            </div>
+                            <div className="foundry-card__footer">
+                              <span className="foundry-card__version">v{block.version}</span>
+                              <button
+                                className="btn-secondary btn-sm"
+                                onClick={() => handleCloneSystemBlock(block.id)}
+                                title="Clone this system block to customize it"
+                              >
+                                <Copy size={14} />
+                                Clone
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <BlockGrid blocks={filteredBlocks} />
+              )}
             </div>
           </div>
         );

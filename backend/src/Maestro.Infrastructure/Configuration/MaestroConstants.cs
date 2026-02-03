@@ -18,6 +18,11 @@ namespace Maestro.Infrastructure.Configuration
         /// The blocks subfolder within .maestro or global blocks directory.
         /// </summary>
         public const string BlocksFolderName = "blocks";
+
+        /// <summary>
+        /// The system subfolder within blocks for built-in Maestro blocks.
+        /// </summary>
+        public const string SystemBlocksFolderName = "system";
         
         /// <summary>
         /// The workflows subfolder within .maestro.

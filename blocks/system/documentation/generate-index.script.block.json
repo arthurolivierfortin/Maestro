@@ -1,0 +1,83 @@
+{
+  "id": "generate-index",
+  "name": "Generate Index Pages",
+  "blockType": "script",
+  "version": "1.0.0",
+  "description": "Generates index pages for documentation collections. Creates navigable index.md files with links to all documents in each collection, organized by category and sorted by relevant metrics.",
+  "isAtomic": true,
+  "capabilities": ["documentation", "indexing", "markdown-generation"],
+
+  "inputs": [
+    {
+      "id": "collections",
+      "name": "Collections",
+      "type": "array",
+      "required": false,
+      "description": "List of collections to index. If empty, indexes all collections."
+    },
+    {
+      "id": "outputDir",
+      "name": "Output Directory",
+      "type": "string",
+      "required": false,
+      "default": "docs",
+      "description": "Base directory for generated index files"
+    },
+    {
+      "id": "includeStats",
+      "name": "Include Statistics",
+      "type": "boolean",
+      "required": false,
+      "default": true,
+      "description": "Whether to include aggregate statistics in index pages"
+    }
+  ],
+
+  "outputs": [
+    {
+      "id": "generatedIndexes",
+      "name": "Generated Indexes",
+      "type": "array",
+      "description": "List of paths to generated index files"
+    },
+    {
+      "id": "success",
+      "name": "Success",
+      "type": "boolean",
+      "description": "Whether all index files were successfully generated"
+    }
+  ],
+
+  "config": {
+    "runtime": "node",
+    "script": "generate-indexes.js",
+    "templates": {
+      "collectionIndex": "docs/templates/collection-index.md.hbs",
+      "masterIndex": "docs/templates/master-index.md.hbs"
+    },
+    "sortOptions": {
+      "models": {
+        "field": "summary.totalScore",
+        "order": "descending"
+      },
+      "runs": {
+        "field": "createdAt",
+        "order": "descending"
+      },
+      "default": {
+        "field": "updatedAt",
+        "order": "descending"
+      }
+    }
+  },
+
+  "metadata": {
+    "system": true,
+    "category": "documentation",
+    "canOverride": true,
+    "author": "Maestro Team",
+    "tags": ["documentation", "indexing", "navigation"],
+    "documentation": "docs/guides/DOCS-SESSION-DETAILED-GUIDE.md",
+    "overrideInstructions": "Clone this block to customize index templates, modify sorting options, or add custom grouping logic."
+  }
+}

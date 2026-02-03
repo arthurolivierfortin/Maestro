@@ -361,7 +361,9 @@ public class KnowledgeBaseService : IKnowledgeBaseService
             CreatedAt = envelope.CreatedAt,
             UpdatedAt = envelope.UpdatedAt,
             LinkedRunId = envelope.LinkedRunId,
-            Tags = envelope.Tags
+            Tags = envelope.Tags,
+            DocStatus = envelope.DocStatus,
+            DocPath = envelope.DocPath
         };
 
         // Extract preview fields
@@ -479,6 +481,101 @@ public class KnowledgeBaseService : IKnowledgeBaseService
 
         // Fallback to current directory
         return Directory.GetCurrentDirectory();
+    }
+
+    #endregion
+
+    #region Documentation Status Methods
+
+    public async Task<List<DocumentIndexEntry>> GetPendingDocumentationAsync(string? collection = null)
+    {
+        return await GetDocumentsByStatusAsync("pending", collection);
+    }
+
+    public async Task<List<DocumentIndexEntry>> GetOutdatedDocumentationAsync(string? collection = null)
+    {
+        return await GetDocumentsByStatusAsync("outdated", collection);
+    }
+
+    private async Task<List<DocumentIndexEntry>> GetDocumentsByStatusAsync(string status, string? collection)
+    {
+        var results = new List<DocumentIndexEntry>();
+
+        var collectionsToSearch = collection != null
+            ? new[] { collection }
+            : Directory.GetDirectories(_basePath)
+                .Select(Path.GetFileName)
+                .Where(d => d != null && !d.StartsWith("_"))
+                .Cast<string>()
+                .ToArray();
+
+        foreach (var col in collectionsToSearch)
+        {
+            var index = await ListCollectionAsync(col);
+
+            var matching = index.Documents
+                .Where(d => string.Equals(d.DocStatus, status, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+
+            results.AddRange(matching);
+        }
+
+        return results;
+    }
+
+    public async Task<bool> UpdateDocStatusAsync(
+        string collection,
+        string documentId,
+        string docStatus,
+        string? docPath = null,
+        string? generatorVersion = null)
+    {
+        try
+        {
+            collection = SanitizeName(collection);
+            documentId = SanitizeName(documentId);
+
+            var filePath = Path.Combine(_basePath, collection, $"{documentId}.json");
+
+            if (!File.Exists(filePath))
+            {
+                return false;
+            }
+
+            var envelope = await LoadEnvelopeAsync(filePath);
+            if (envelope == null)
+            {
+                return false;
+            }
+
+            // Update doc status fields
+            envelope.DocStatus = docStatus;
+            envelope.DocPath = docPath ?? envelope.DocPath;
+            envelope.DocGeneratorVersion = generatorVersion ?? envelope.DocGeneratorVersion;
+
+            if (docStatus == "generated")
+            {
+                envelope.DocGeneratedAt = DateTime.UtcNow;
+            }
+
+            // Save updated envelope
+            var json = JsonSerializer.Serialize(envelope, _jsonOptions);
+            await File.WriteAllTextAsync(filePath, json);
+
+            // Update index
+            await UpdateIndexEntryAsync(collection, envelope);
+
+            _logger.LogInformation(
+                "Updated doc status for {DocumentId} in {Collection} to {Status}",
+                documentId, collection, docStatus);
+
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to update doc status for {DocumentId} in {Collection}", documentId, collection);
+            return false;
+        }
     }
 
     #endregion

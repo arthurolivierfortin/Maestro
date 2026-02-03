@@ -51,4 +51,24 @@ public interface IKnowledgeBaseService
     /// Update the index for a collection.
     /// </summary>
     Task RebuildIndexAsync(string collection);
+
+    /// <summary>
+    /// Get all documents with pending documentation status.
+    /// </summary>
+    Task<List<DocumentIndexEntry>> GetPendingDocumentationAsync(string? collection = null);
+
+    /// <summary>
+    /// Get all documents with outdated documentation status.
+    /// </summary>
+    Task<List<DocumentIndexEntry>> GetOutdatedDocumentationAsync(string? collection = null);
+
+    /// <summary>
+    /// Update the documentation status of a document.
+    /// </summary>
+    Task<bool> UpdateDocStatusAsync(
+        string collection,
+        string documentId,
+        string docStatus,
+        string? docPath = null,
+        string? generatorVersion = null);
 }

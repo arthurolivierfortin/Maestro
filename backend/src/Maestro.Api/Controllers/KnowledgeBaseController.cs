@@ -161,6 +161,113 @@ public class KnowledgeBaseController : ControllerBase
         return Ok(new { message = "Index rebuilt", index });
     }
 
+    // ========== Documentation Status Endpoints ==========
+
+    /// <summary>
+    /// Get all documents with pending documentation status.
+    /// </summary>
+    [HttpGet("pending")]
+    public async Task<IActionResult> GetPendingDocumentation([FromQuery] string? collection = null)
+    {
+        var pending = await _knowledgeBase.GetPendingDocumentationAsync(collection);
+        return Ok(new
+        {
+            status = "pending",
+            collection,
+            count = pending.Count,
+            documents = pending
+        });
+    }
+
+    /// <summary>
+    /// Get all documents with outdated documentation status.
+    /// </summary>
+    [HttpGet("outdated")]
+    public async Task<IActionResult> GetOutdatedDocumentation([FromQuery] string? collection = null)
+    {
+        var outdated = await _knowledgeBase.GetOutdatedDocumentationAsync(collection);
+        return Ok(new
+        {
+            status = "outdated",
+            collection,
+            count = outdated.Count,
+            documents = outdated
+        });
+    }
+
+    /// <summary>
+    /// Update the documentation status of a document.
+    /// </summary>
+    [HttpPut("collections/{collection}/{documentId}/doc-status")]
+    public async Task<IActionResult> UpdateDocStatus(
+        string collection,
+        string documentId,
+        [FromBody] UpdateDocStatusRequest request)
+    {
+        var success = await _knowledgeBase.UpdateDocStatusAsync(
+            collection,
+            documentId,
+            request.DocStatus,
+            request.DocPath,
+            request.GeneratorVersion);
+
+        if (!success)
+        {
+            return NotFound(new { error = $"Document '{documentId}' not found in collection '{collection}'" });
+        }
+
+        return Ok(new
+        {
+            success = true,
+            documentId,
+            collection,
+            docStatus = request.DocStatus,
+            docPath = request.DocPath
+        });
+    }
+
+    /// <summary>
+    /// Get documentation statistics across all collections.
+    /// </summary>
+    [HttpGet("docs/stats")]
+    public async Task<IActionResult> GetDocumentationStats()
+    {
+        var collections = await _knowledgeBase.GetCollectionsAsync();
+        var stats = new List<object>();
+
+        foreach (var col in collections)
+        {
+            var index = await _knowledgeBase.ListCollectionAsync(col.Name);
+
+            var pending = index.Documents.Count(d => d.DocStatus == "pending");
+            var generated = index.Documents.Count(d => d.DocStatus == "generated");
+            var outdated = index.Documents.Count(d => d.DocStatus == "outdated");
+            var error = index.Documents.Count(d => d.DocStatus == "error");
+
+            stats.Add(new
+            {
+                collection = col.Name,
+                total = index.Documents.Count,
+                pending,
+                generated,
+                outdated,
+                error
+            });
+        }
+
+        return Ok(new
+        {
+            collections = stats,
+            totals = new
+            {
+                pending = stats.Sum(s => (int)((dynamic)s).pending),
+                generated = stats.Sum(s => (int)((dynamic)s).generated),
+                outdated = stats.Sum(s => (int)((dynamic)s).outdated),
+                error = stats.Sum(s => (int)((dynamic)s).error)
+            }
+        });
+    }
+
     /// <summary>
     /// Store model test results (convenience endpoint).
     /// </summary>
@@ -336,4 +443,25 @@ public class KnowledgeBaseController : ControllerBase
     }
 
     #endregion
+}
+
+/// <summary>
+/// Request to update documentation status.
+/// </summary>
+public class UpdateDocStatusRequest
+{
+    /// <summary>
+    /// New documentation status (pending, generated, outdated, error, skipped).
+    /// </summary>
+    public string DocStatus { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Path to generated documentation (relative to docs/).
+    /// </summary>
+    public string? DocPath { get; set; }
+
+    /// <summary>
+    /// Version of the generator used.
+    /// </summary>
+    public string? GeneratorVersion { get; set; }
 }

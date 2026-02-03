@@ -46,6 +46,12 @@ export function TopBar() {
             Projects
           </Link>
           <Link
+            to="/sessions"
+            className={`top-bar__nav-link ${isActive('/sessions') ? 'top-bar__nav-link--active' : ''}`}
+          >
+            Sessions
+          </Link>
+          <Link
             to="/foundry"
             className={`top-bar__nav-link ${isActive('/foundry') || isActive('/agent-foundry') ? 'top-bar__nav-link--active' : ''}`}
           >

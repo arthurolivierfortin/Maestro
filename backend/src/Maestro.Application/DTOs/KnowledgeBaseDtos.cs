@@ -55,6 +55,27 @@ public class DocumentEnvelope
     public List<string> Tags { get; set; } = new();
 
     /// <summary>
+    /// Documentation generation status.
+    /// Values: pending, generated, outdated, error, skipped
+    /// </summary>
+    public string DocStatus { get; set; } = "pending";
+
+    /// <summary>
+    /// Path to generated Markdown documentation (relative to docs/).
+    /// </summary>
+    public string? DocPath { get; set; }
+
+    /// <summary>
+    /// When documentation was last generated.
+    /// </summary>
+    public DateTime? DocGeneratedAt { get; set; }
+
+    /// <summary>
+    /// Version of documentation generator used.
+    /// </summary>
+    public string? DocGeneratorVersion { get; set; }
+
+    /// <summary>
     /// The actual document content.
     /// </summary>
     public JsonElement Document { get; set; }
@@ -96,6 +117,16 @@ public class DocumentIndexEntry
     public DateTime UpdatedAt { get; set; }
     public string? LinkedRunId { get; set; }
     public List<string> Tags { get; set; } = new();
+
+    /// <summary>
+    /// Documentation generation status.
+    /// </summary>
+    public string DocStatus { get; set; } = "pending";
+
+    /// <summary>
+    /// Path to generated Markdown documentation.
+    /// </summary>
+    public string? DocPath { get; set; }
 
     /// <summary>
     /// Preview/summary data extracted from the document.

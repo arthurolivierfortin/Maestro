@@ -1,0 +1,113 @@
+{
+  "id": "documentation-agent",
+  "name": "Documentation Agent",
+  "blockType": "agent",
+  "version": "1.0.0",
+  "description": "Agent that processes pending Knowledge Base documents and generates Markdown documentation. Monitors the Knowledge Base for documents with 'pending' or 'outdated' status and generates human-readable documentation.",
+  "isAtomic": false,
+  "capabilities": ["documentation", "knowledge-base", "markdown-generation"],
+
+  "inputs": [
+    {
+      "id": "collection",
+      "name": "Collection",
+      "type": "string",
+      "required": false,
+      "description": "Specific collection to process, or leave empty for all collections"
+    },
+    {
+      "id": "documentId",
+      "name": "Document ID",
+      "type": "string",
+      "required": false,
+      "description": "Specific document to process, or leave empty for all pending"
+    },
+    {
+      "id": "mode",
+      "name": "Processing Mode",
+      "type": "string",
+      "required": false,
+      "default": "pending",
+      "description": "Mode: 'pending' (new docs), 'outdated' (regenerate), 'all' (rebuild entire collection)"
+    },
+    {
+      "id": "generateIndex",
+      "name": "Generate Index",
+      "type": "boolean",
+      "required": false,
+      "default": true,
+      "description": "Whether to regenerate index pages after processing"
+    }
+  ],
+
+  "outputs": [
+    {
+      "id": "processedCount",
+      "name": "Processed Count",
+      "type": "number",
+      "description": "Number of documents processed"
+    },
+    {
+      "id": "generatedDocs",
+      "name": "Generated Documents",
+      "type": "array",
+      "description": "List of generated documentation paths"
+    },
+    {
+      "id": "errors",
+      "name": "Errors",
+      "type": "array",
+      "description": "List of any errors encountered during processing"
+    }
+  ],
+
+  "children": [
+    {
+      "id": "fetch-pending",
+      "blockRef": "system/documentation/fetch-pending-docs",
+      "inputs": {
+        "collection": "{{collection}}",
+        "mode": "{{mode}}"
+      }
+    },
+    {
+      "id": "process-documents",
+      "blockRef": "system/documentation/generate-model-doc",
+      "loop": "{{fetch-pending.documents}}",
+      "inputs": {
+        "document": "{{$item}}",
+        "collection": "{{$item.collection}}"
+      }
+    },
+    {
+      "id": "generate-indexes",
+      "blockRef": "system/documentation/generate-index",
+      "condition": "{{generateIndex}}",
+      "inputs": {
+        "collections": "{{fetch-pending.collections}}"
+      }
+    }
+  ],
+
+  "config": {
+    "outputMapping": {
+      "processedCount": "{{process-documents.$count}}",
+      "generatedDocs": "{{process-documents.$results.docPath}}",
+      "errors": "{{process-documents.$errors}}"
+    },
+    "errorHandling": {
+      "continueOnError": true,
+      "markFailedAsError": true
+    }
+  },
+
+  "metadata": {
+    "system": true,
+    "category": "documentation",
+    "canOverride": true,
+    "author": "Maestro Team",
+    "tags": ["documentation", "knowledge-base", "markdown", "automation"],
+    "documentation": "docs/guides/DOCS-SESSION-DETAILED-GUIDE.md",
+    "overrideInstructions": "Clone this agent to customize the documentation generation workflow, add custom templates, or modify the output format."
+  }
+}

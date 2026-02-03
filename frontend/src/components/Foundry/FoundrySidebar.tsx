@@ -4,7 +4,7 @@
  * Category filters for block types in the Foundry page.
  */
 
-import { Package, Star } from 'lucide-react';
+import { Package, Star, Settings2 } from 'lucide-react';
 import { Button } from '../common';
 import { BlockIcon } from '../icons';
 import type { BlockType } from '../../types/block.types';
@@ -12,9 +12,10 @@ import { useFavorites } from '../../hooks/useFavorites';
 import './FoundrySidebar.scss';
 
 interface FoundrySidebarProps {
-  selectedCategory: BlockType | 'all' | 'favorites';
-  onCategorySelect: (category: BlockType | 'all' | 'favorites') => void;
+  selectedCategory: BlockType | 'all' | 'favorites' | 'system';
+  onCategorySelect: (category: BlockType | 'all' | 'favorites' | 'system') => void;
   onCreateBlock: () => void;
+  systemBlockCount?: number;
 }
 
 /**
@@ -42,6 +43,7 @@ export function FoundrySidebar({
   selectedCategory,
   onCategorySelect,
   onCreateBlock,
+  systemBlockCount = 0,
 }: FoundrySidebarProps) {
   const { favoriteCount } = useFavorites();
 
@@ -72,6 +74,25 @@ export function FoundrySidebar({
             <div className="foundry-sidebar__divider" />
           </>
         )}
+
+        {/* System Blocks section */}
+        <button
+          className={`foundry-sidebar__category foundry-sidebar__category--system ${
+            selectedCategory === 'system' ? 'foundry-sidebar__category--active' : ''
+          }`}
+          onClick={() => onCategorySelect('system')}
+          aria-label="View system blocks"
+          aria-current={selectedCategory === 'system' ? 'true' : undefined}
+        >
+          <span className="foundry-sidebar__category-icon">
+            <Settings2 size={20} />
+          </span>
+          <span className="foundry-sidebar__category-label">System</span>
+          {systemBlockCount > 0 && (
+            <span className="foundry-sidebar__category-count">{systemBlockCount}</span>
+          )}
+        </button>
+        <div className="foundry-sidebar__divider" />
 
         {CATEGORIES.map((category) => (
           <button

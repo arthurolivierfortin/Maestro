@@ -189,13 +189,46 @@ export function ModelCapabilityTests({ modelId, modelDisplayName }: ModelCapabil
     setError(null);
 
     try {
-      // This would trigger the model-capability-tester workflow
-      alert(
-        `To run capability tests for ${modelDisplayName || modelId}, use the CLI:\n\n` +
-        `powershell -File blocks/scripts/model-testing/test-model-capabilities.ps1 -ModelId "${modelId}"`
-      );
+      // Execute the model-capability-tester system block via the API
+      const response = await fetch(`${API_BASE}/api/blocks/model-capability-tester/execute`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          inputs: {
+            modelId: modelId,
+            categories: 'all',
+            includeAnalysis: true
+          }
+        })
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log('Test execution result:', result);
+        // Refresh test runs after successful execution
+        await fetchTestRuns();
+      } else if (response.status === 404) {
+        // Fallback to CLI instructions if block execution endpoint not available
+        alert(
+          `Block execution endpoint not available.\n\n` +
+          `To run capability tests for ${modelDisplayName || modelId}, use the CLI:\n\n` +
+          `powershell -File blocks/scripts/model-testing/test-model-capabilities.ps1 -ModelId "${modelId}"`
+        );
+      } else {
+        const errorData = await response.json().catch(() => ({ error: response.statusText }));
+        throw new Error(errorData.error || 'Failed to execute tests');
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to run tests');
+      // Check if it's a network error (endpoint doesn't exist)
+      if (err instanceof TypeError && err.message.includes('fetch')) {
+        alert(
+          `Backend not available.\n\n` +
+          `To run capability tests for ${modelDisplayName || modelId}, use the CLI:\n\n` +
+          `powershell -File blocks/scripts/model-testing/test-model-capabilities.ps1 -ModelId "${modelId}"`
+        );
+      } else {
+        setError(err instanceof Error ? err.message : 'Failed to run tests');
+      }
     } finally {
       setIsRunningTests(false);
     }

@@ -39,3 +39,6 @@ export * from './metrics.types';
 
 // Training types (Phase 9)
 export * from './training.types';
+
+// Session types (Phase 11 - Composable Session Architecture)
+export * from './session.types';

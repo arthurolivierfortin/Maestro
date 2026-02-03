@@ -2,82 +2,163 @@
 
 ## Overview
 
-A **Session** in Maestro is an **interactive server environment** where an **Authority** (human, AI, or agent) manages and orchestrates work. Sessions provide isolation, monitoring, and command execution capabilities.
+A **Session** in Maestro is a **composable, Docker-based environment** where work is executed. The architecture has evolved from hardcoded session types to a unified, flexible system.
 
-| Type | Objective | Environment | Authority Use Case |
-|------|-----------|-------------|-------------------|
-| **Foundry Session** | Develop, test, improve blocks | Isolated sandbox | Block development and training |
-| **Project Session** | Manage and execute on real project | Project repository | Real task automation and orchestration |
+## Key Concepts
+
+### Unified Session Model
+
+All sessions share a single `Session` entity with composable configuration:
+
+| Component | Description |
+|-----------|-------------|
+| **Environment Mode** | `Sandbox` (ephemeral) or `Repo` (bind-mounted) |
+| **Sandbox Image** | Docker image providing the runtime environment |
+| **Category** | User-defined organizational grouping |
+| **Template** | Reusable preset for quick session creation |
+
+### Environment Modes
+
+| Mode | Description | Use Case |
+|------|-------------|----------|
+| **Sandbox** | Ephemeral container, no persistence | Testing, experiments, training |
+| **Repo** | Bind-mounted to host repository | Real project work, development |
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    SESSION (Unified)                         │
+│                                                              │
+│  Config:                                                     │
+│  ├── mode: "sandbox" | "repo"                               │
+│  ├── sandboxImageId: "sandbox-git"                          │
+│  ├── categoryId?: "projects" (user-defined)                 │
+│  ├── repoBind?: { hostPath, containerPath }                 │
+│  └── templateId?: "quick-git-test"                          │
+│                                                              │
+│                    ┌─────────────┐                           │
+│                    │   DOCKER    │                           │
+│                    │  Container  │                           │
+│                    │  (always)   │                           │
+│                    └─────────────┘                           │
+└─────────────────────────────────────────────────────────────┘
+```
 
 ---
 
-## Core Architecture: Session as Server
+## User-Defined Categories
 
-Both session types share the same **Session Server** architecture:
+Categories are **user-defined** organizational groups for sessions. Unlike the previous hardcoded "purpose" enum, users can create their own categories to organize sessions however they prefer.
 
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                           SESSION SERVER                                  │
-│                   (Foundry Session OR Project Session)                    │
-│                                                                          │
-│  ┌────────────────────────────────────────────────────────────────────┐ │
-│  │                         SESSION STATE                               │ │
-│  │                                                                     │ │
-│  │  • Authority: Who controls (human, agent, AI)                       │ │
-│  │  • Block Registry: Available blocks in this session                 │ │
-│  │  • Permissions: What's allowed (paths, commands, blocks)           │ │
-│  │  • Executions: Running agents/workflows                            │ │
-│  │  • Event History: Full audit log                                   │ │
-│  └────────────────────────────────────────────────────────────────────┘ │
-│                                                                          │
-│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────────────┐ │
-│  │  Command Queue  │  │  Event Stream   │  │  File System Access     │ │
-│  │  (REST API)     │  │  (WebSocket)    │  │  (Isolated/Controlled)  │ │
-│  └────────┬────────┘  └────────┬────────┘  └─────────────────────────┘ │
-│           │                    │                                        │
-└───────────┼────────────────────┼────────────────────────────────────────┘
-            │                    │
-            │    API Layer       │
-            │  (REST + WebSocket)│
-            │                    │
-┌───────────┴────────────────────┴────────────────────────────────────────┐
-│                              CLIENTS                                      │
-│                                                                          │
-│  ┌──────────────┐    ┌──────────────┐    ┌──────────────────────────┐  │
-│  │   MONITOR    │    │     CLI      │    │      AGENT / IA          │  │
-│  │  (Terminal)  │    │   Maestro    │    │   (Claude Code, etc)     │  │
-│  │              │    │              │    │                          │  │
-│  │ • View events│    │ • Send cmds  │    │ • Send commands via API  │  │
-│  │ • Read-only  │    │ • Connect to │    │ • Subscribe to events    │  │
-│  │   or interact│    │   session    │    │ • Autonomous operation   │  │
-│  └──────────────┘    └──────────────┘    └──────────────────────────┘  │
-│                                                                          │
-└──────────────────────────────────────────────────────────────────────────┘
+### Built-in Categories
+
+Maestro provides several built-in categories as starting points:
+
+| Category ID | Name | Description | Deletable |
+|-------------|------|-------------|-----------|
+| `system` | System | System workflows and maintenance | **No** |
+| `projects` | Projects | Repository-based work | Yes |
+| `foundry` | Foundry | Block development and testing | Yes |
+| `testing` | Testing | Tests and experiments | Yes |
+| `training` | Training | Model training and fine-tuning | Yes |
+
+### Creating Custom Categories
+
+Users can create their own categories:
+
+```typescript
+// API: POST /api/session-categories
+{
+  "id": "documentation",
+  "name": "Documentation",
+  "description": "Sessions for generating and maintaining docs",
+  "icon": "book",
+  "color": "#8B5CF6",
+  "displayOrder": 50
+}
 ```
 
-### Key Concepts
+### Category Properties
 
-#### 1. Authority
-The entity that controls and makes decisions within the session.
+| Property | Description |
+|----------|-------------|
+| `id` | Unique slug identifier |
+| `name` | Display name |
+| `description` | Optional description |
+| `icon` | Icon name for UI |
+| `color` | Color for UI styling |
+| `source` | `built-in` or `user-defined` |
+| `isSystem` | If true, cannot be deleted |
+| `displayOrder` | Sorting order in UI |
 
-| Authority Type | Description | Example |
-|---------------|-------------|---------|
-| `human` | Interactive human control | Developer using CLI |
-| `agent` | Maestro agent as controller | `orchestrator-agent` managing sub-agents |
-| `ai` | External AI system | Claude Code, Cursor, etc. |
+---
 
-#### 2. Block Registry
-Each session has its own registry of available blocks:
-- **Inherited**: Blocks from the global catalog
-- **Added**: Blocks explicitly added by the authority
-- **Restricted**: Blocks allowed for sub-agents (subset of available)
+## Sandbox Images
 
-#### 3. Permissions
-Controls what can be done within the session:
-- **Paths**: Allowed/denied file system paths
-- **Commands**: Allowed shell commands
-- **Blocks**: Which blocks agents can use
-- **Network**: Network access rules
+Sandbox images are Docker images registered with Maestro for use in sessions.
+
+### Built-in Images
+
+| Image ID | Docker Image | Tools |
+|----------|--------------|-------|
+| `sandbox-empty` | `maestro/sandbox-empty:latest` | sh |
+| `sandbox-git` | `maestro/sandbox-git:latest` | git, bash |
+| `sandbox-nodejs` | `maestro/sandbox-nodejs:latest` | node, npm, git |
+| `sandbox-python` | `maestro/sandbox-python:latest` | python, pip, git |
+
+### Registering Custom Images
+
+Users create Docker images externally and register them with Maestro:
+
+```typescript
+// API: POST /api/sandbox-images
+{
+  "id": "my-custom-image",
+  "name": "My Custom Environment",
+  "dockerImage": "myregistry/custom-env:latest",
+  "tags": ["custom", "specialized"],
+  "tools": ["custom-tool", "another-tool"]
+}
+```
+
+### Image Verification
+
+Verify an image exists and is accessible:
+
+```
+GET /api/sandbox-images/{id}/verify
+```
+
+---
+
+## Session Templates
+
+Templates are reusable presets that combine environment mode, sandbox image, and category.
+
+### Built-in Templates
+
+| Template ID | Name | Mode | Image | Category |
+|-------------|------|------|-------|----------|
+| `quick-git-test` | Quick Git Test | Sandbox | sandbox-git | testing |
+| `project-default` | Project Session | Repo | sandbox-git | projects |
+| `foundry-default` | Foundry Session | Sandbox | sandbox-nodejs | foundry |
+| `training-default` | Training Session | Sandbox | sandbox-nodejs | training |
+| `nodejs-sandbox` | Node.js Sandbox | Sandbox | sandbox-nodejs | testing |
+| `python-sandbox` | Python Sandbox | Sandbox | sandbox-python | testing |
+
+### Creating Sessions from Templates
+
+```typescript
+// API: POST /api/sessions/from-template/{templateId}
+{
+  "name": "My Test Session",
+  "authority": "human",
+  // For Repo mode templates:
+  "repoBind": {
+    "hostPath": "/path/to/repo",
+    "containerPath": "/workspace"
+  }
+}
+```
 
 ---
 
@@ -105,454 +186,153 @@ Controls what can be done within the session:
 | `running` | Session active, accepting commands |
 | `paused` | Temporarily suspended |
 | `completed` | Finished successfully |
-| `error` | Terminated with error |
+| `failed` | Terminated with error |
 | `stopped` | Manually stopped |
+| `cancelled` | Cancelled before completion |
 
 ---
 
-## 1. Project Session
+## API Reference
 
-### Purpose
-
-A **Project Session** is an interactive environment for managing a real project. The authority can:
-- Navigate the project file system
-- Run shell commands (within permissions)
-- List and manage available blocks
-- Launch agent executions
-- Monitor running agents
-- Configure permissions for sub-agents
-
-### Architecture
+### Sessions
 
 ```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                       PROJECT SESSION SERVER                              │
-├─────────────────────────────────────────────────────────────────────────┤
-│                                                                          │
-│  Context: Real Git repository                                            │
-│  Authority: Human / AI / Agent                                           │
-│                                                                          │
-│  ┌─────────────────────────────────────────────────────────────────┐   │
-│  │                    AUTHORITY CAPABILITIES                         │   │
-│  │                                                                   │   │
-│  │  Shell Commands:          Maestro Commands:                       │   │
-│  │  • ls, cd, cat, etc.      • blocks list                          │   │
-│  │  • git status, diff       • agents list                          │   │
-│  │  • npm, dotnet, etc.      • agent run <id>                       │   │
-│  │  (within permissions)     • agent stop <id>                       │   │
-│  │                           • monitor                               │   │
-│  │                           • blocks add <catalog-id>               │   │
-│  │                           • permissions set ...                   │   │
-│  └─────────────────────────────────────────────────────────────────┘   │
-│                                                                          │
-│  ┌─────────────────────────────────────────────────────────────────┐   │
-│  │                    SUB-AGENT EXECUTION                            │   │
-│  │                                                                   │   │
-│  │  Agent launched by authority:                                     │   │
-│  │  • Receives ONLY blocks configured by authority                   │   │
-│  │  • Restricted to paths set by authority                          │   │
-│  │  • Cannot modify its own permissions                              │   │
-│  │  • Actions visible in session event stream                       │   │
-│  └─────────────────────────────────────────────────────────────────┘   │
-│                                                                          │
-│  ┌─────────────────────────────────────────────────────────────────┐   │
-│  │                    VALIDATION & COMMIT                            │   │
-│  │                                                                   │   │
-│  │  • View changes: diff                                             │   │
-│  │  • Run tests: test [--command]                                    │   │
-│  │  • Run linter: lint [--command]                                   │   │
-│  │  • Commit: commit --message "..." [--push]                        │   │
-│  └─────────────────────────────────────────────────────────────────┘   │
-│                                                                          │
-└─────────────────────────────────────────────────────────────────────────┘
+GET    /api/sessions                              # List all sessions
+GET    /api/sessions?categoryId=projects          # Filter by category
+GET    /api/sessions?mode=sandbox                 # Filter by mode
+GET    /api/sessions?status=running               # Filter by status
+GET    /api/sessions/active                       # Get active sessions
+POST   /api/sessions                              # Create session
+POST   /api/sessions/from-template/{templateId}   # Create from template
+GET    /api/sessions/{id}                         # Get session details
+DELETE /api/sessions/{id}                         # Delete session
+POST   /api/sessions/{id}/start                   # Start session
+POST   /api/sessions/{id}/stop                    # Stop session
+POST   /api/sessions/{id}/pause                   # Pause session
+POST   /api/sessions/{id}/resume                  # Resume session
+POST   /api/sessions/{id}/exec                    # Execute command
 ```
 
-### Commands Available in Project Session
-
-#### Shell Commands (Standard Linux-like)
-```bash
-# Navigation and file operations
-ls [path]
-cd <path>
-pwd
-cat <file>
-head/tail <file>
-find <pattern>
-grep <pattern> [path]
-
-# Git operations
-git status
-git diff
-git log
-git branch
-
-# Project-specific (if allowed)
-npm/yarn/pnpm ...
-dotnet ...
-python ...
-```
-
-#### Maestro Commands
-```bash
-# Block management
-blocks list                    # List available blocks in session
-blocks info <id>               # Show block details
-blocks add <catalog-id>        # Add block from catalog to session
-blocks remove <id>             # Remove block from session
-
-# Agent management
-agents list                    # List available agents
-agents run <id> [--task "..."] # Launch an agent
-agents stop <id>               # Stop a running agent
-agents status <id>             # Check agent status
-
-# Monitoring
-monitor                        # Watch all activity in real-time
-monitor --agent <id>           # Watch specific agent
-events                         # List recent events
-events --filter <type>         # Filter events
-
-# Permissions (for sub-agents)
-permissions show               # Show current permissions
-permissions set --paths "..."  # Set allowed paths
-permissions set --blocks "..." # Set allowed blocks
-
-# Validation
-diff                           # Show all changes
-diff <file>                    # Show specific file diff
-test [--command "..."]         # Run tests
-lint [--command "..."]         # Run linter
-
-# Commit
-commit --message "..."         # Commit changes
-commit --message "..." --push  # Commit and push
-
-# Session control
-pause                          # Pause session
-resume                         # Resume session
-exit                           # End session
-```
-
-### Access Levels
-
-| Level | Authority Can | Sub-Agents Can |
-|-------|--------------|----------------|
-| `readonly` | Read all, no writes | Read only |
-| `sandbox` | Read all, write to temp | Write to temp only |
-| `controlled` | Read/write with review | Write with restrictions |
-| `full` | Full access | As configured |
-
----
-
-## 2. Foundry Session
-
-### Purpose
-
-A **Foundry Session** is an isolated sandbox for developing and training blocks. The authority can:
-- Test block executions
-- Run training iterations
-- Evaluate outputs
-- Apply improvements
-- Publish to catalog
-
-### Architecture
+### Session Categories
 
 ```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                       FOUNDRY SESSION SERVER                              │
-├─────────────────────────────────────────────────────────────────────────┤
-│                                                                          │
-│  Context: Isolated sandbox (no real project)                             │
-│  Authority: Human / AI / Agent                                           │
-│                                                                          │
-│  ┌─────────────────────────────────────────────────────────────────┐   │
-│  │                    DRAFT MANAGEMENT                               │   │
-│  │                                                                   │   │
-│  │  • draft load <id>           Load a draft to work on              │   │
-│  │  • draft edit                Edit draft definition                 │   │
-│  │  • draft test                Quick test execution                  │   │
-│  │  • draft save                Save current changes                  │   │
-│  └─────────────────────────────────────────────────────────────────┘   │
-│                                                                          │
-│  ┌─────────────────────────────────────────────────────────────────┐   │
-│  │                    TRAINING                                       │   │
-│  │                                                                   │   │
-│  │  • train start --iterations 50 --parallel 3                       │   │
-│  │  • train status              View training progress               │   │
-│  │  • train pause / resume      Control training                     │   │
-│  │  • train stop                Stop training                        │   │
-│  └─────────────────────────────────────────────────────────────────┘   │
-│                                                                          │
-│  ┌─────────────────────────────────────────────────────────────────┐   │
-│  │                    EVALUATION                                     │   │
-│  │                                                                   │   │
-│  │  • eval pending              List iterations awaiting eval        │   │
-│  │  • eval show <iter-id>       Show iteration details               │   │
-│  │  • eval submit <iter-id> --score 0.85 --feedback "..."            │   │
-│  │  • eval auto --model deepseek-coder  Run auto-evaluation         │   │
-│  └─────────────────────────────────────────────────────────────────┘   │
-│                                                                          │
-│  ┌─────────────────────────────────────────────────────────────────┐   │
-│  │                    IMPROVEMENTS                                   │   │
-│  │                                                                   │   │
-│  │  • improve suggest           Get improvement suggestions          │   │
-│  │  • improve apply <id>        Apply a suggestion                   │   │
-│  │  • improve apply-all         Apply all suggestions                │   │
-│  │  • metrics                   View current metrics                  │   │
-│  └─────────────────────────────────────────────────────────────────┘   │
-│                                                                          │
-│  ┌─────────────────────────────────────────────────────────────────┐   │
-│  │                    PUBLICATION                                    │   │
-│  │                                                                   │   │
-│  │  • publish --version "1.0.0" Publish to catalog                   │   │
-│  │  • publish --dry-run         Preview publication                  │   │
-│  └─────────────────────────────────────────────────────────────────┘   │
-│                                                                          │
-└─────────────────────────────────────────────────────────────────────────┘
+GET    /api/session-categories                    # List all categories
+GET    /api/session-categories/builtin            # Built-in only
+GET    /api/session-categories/user-defined       # User-defined only
+POST   /api/session-categories                    # Create category
+GET    /api/session-categories/{id}               # Get category
+PUT    /api/session-categories/{id}               # Update category
+DELETE /api/session-categories/{id}               # Delete category
 ```
 
-### Commands Available in Foundry Session
+### Sandbox Images
 
-```bash
-# Draft management
-draft load <id>                # Load draft into session
-draft list                     # List available drafts
-draft edit                     # Open draft for editing
-draft test [--input "..."]     # Quick test execution
-draft save                     # Save changes
+```
+GET    /api/sandbox-images                        # List all images
+GET    /api/sandbox-images/builtin                # Built-in only
+GET    /api/sandbox-images/user-defined           # User-defined only
+POST   /api/sandbox-images                        # Register image
+GET    /api/sandbox-images/{id}                   # Get image
+PUT    /api/sandbox-images/{id}                   # Update image
+DELETE /api/sandbox-images/{id}                   # Delete image
+GET    /api/sandbox-images/{id}/verify            # Verify image
+```
 
-# Training
-train start [options]          # Start training run
-train status                   # View progress
-train pause                    # Pause training
-train resume                   # Resume training
-train stop                     # Stop training
+### Session Templates
 
-# Evaluation
-eval pending                   # List pending evaluations
-eval show <iter-id>            # Show iteration details
-eval submit <iter-id> [opts]   # Submit manual evaluation
-eval auto [--model <id>]       # Run auto-evaluation
-
-# Improvements
-improve suggest                # Get AI suggestions
-improve show                   # List suggestions
-improve apply <id>             # Apply suggestion
-improve apply-all              # Apply all suggestions
-
-# Metrics
-metrics                        # Show current metrics
-metrics compare <session-id>   # Compare with another session
-
-# Publication
-publish [--version "..."]      # Publish to catalog
-publish --dry-run              # Preview publication
-
-# Session control
-pause                          # Pause session
-resume                         # Resume session
-exit                           # End session
+```
+GET    /api/session-templates                     # List all templates
+GET    /api/session-templates/builtin             # Built-in only
+GET    /api/session-templates/user-defined        # User-defined only
+POST   /api/session-templates                     # Create template
+GET    /api/session-templates/{id}                # Get template
+PUT    /api/session-templates/{id}                # Update template
+DELETE /api/session-templates/{id}                # Delete template
 ```
 
 ---
 
-## 3. Client Types
+## Example Workflows
 
-### Monitor (Terminal)
-
-A read-only (or interactive) terminal that displays session events in real-time.
-
-```bash
-# Connect as monitor (read-only)
-maestro session monitor <session-id>
-
-# Connect as interactive terminal
-maestro session connect <session-id>
-```
-
-**Monitor Display:**
-```
-┌─ Session: sess-abc123 (Project: my-app) ─────────────────────────────┐
-│ Authority: human | Status: running | Uptime: 00:05:23                │
-├──────────────────────────────────────────────────────────────────────┤
-│ [10:23:45] COMMAND  ls src/                                          │
-│ [10:23:45] OUTPUT   components/  utils/  index.ts                    │
-│ [10:23:52] COMMAND  agents run code-reviewer --task "Review auth"    │
-│ [10:23:52] EVENT    Agent code-reviewer started (exec-xyz)           │
-│ [10:23:55] AGENT    Reading file: src/auth/login.ts                  │
-│ [10:24:01] AGENT    Analysis complete, 3 issues found                │
-│ [10:24:01] EVENT    Agent code-reviewer completed                    │
-│ [10:24:05] COMMAND  diff                                             │
-│ [10:24:05] OUTPUT   No uncommitted changes                           │
-└──────────────────────────────────────────────────────────────────────┘
-```
-
-### CLI (External)
-
-The Maestro CLI connects to a session and sends commands.
-
-```bash
-# Execute a single command
-maestro session exec <session-id> "blocks list"
-
-# Interactive mode
-maestro session connect <session-id>
-session> blocks list
-session> agents run code-developer --task "Add feature"
-session> monitor
-session> exit
-```
-
-### Agent/AI SDK
-
-For programmatic access by AI systems or agents.
+### 1. Quick Sandbox Test
 
 ```typescript
-// Connect to session
-const session = await maestro.connectSession('sess-abc123');
-
-// Subscribe to events
-session.onEvent((event) => {
-  console.log(`[${event.type}] ${event.message}`);
+// Create a quick sandbox session for testing
+const session = await sessionService.createFromTemplate('quick-git-test', {
+  name: 'Git Experiment'
 });
 
-// Execute commands
-const blocks = await session.execute('blocks list');
-const result = await session.execute('agents run code-reviewer', {
-  task: 'Review the authentication module'
+await sessionService.start(session.id);
+await sessionService.exec(session.id, 'git init');
+await sessionService.exec(session.id, 'git branch -a');
+await sessionService.stop(session.id);
+```
+
+### 2. Project Development Session
+
+```typescript
+// Create a session bound to a real repository
+const session = await sessionService.create({
+  name: 'Feature Development',
+  mode: 'repo',
+  sandboxImageId: 'sandbox-nodejs',
+  categoryId: 'projects',
+  repoBind: {
+    hostPath: '/home/user/my-project',
+    containerPath: '/workspace'
+  }
 });
 
-// Monitor agent execution
-session.onAgentEvent('code-reviewer', (event) => {
-  console.log(`Agent: ${event.action}`);
+await sessionService.start(session.id);
+// Changes to /workspace persist to /home/user/my-project
+```
+
+### 3. Custom Category for Documentation
+
+```typescript
+// Create a custom category
+const category = await sessionCategoryService.create({
+  id: 'documentation',
+  name: 'Documentation',
+  description: 'Sessions for documentation work',
+  icon: 'book',
+  color: '#8B5CF6'
+});
+
+// Create a session in the new category
+const session = await sessionService.create({
+  name: 'Docs Update',
+  mode: 'repo',
+  sandboxImageId: 'sandbox-nodejs',
+  categoryId: 'documentation',
+  repoBind: {
+    hostPath: '/home/user/docs-repo',
+    containerPath: '/workspace'
+  }
 });
 ```
 
 ---
 
-## 4. Authority Hierarchy
+## Migration from Legacy Session Types
 
-```
-┌──────────────────────────────────────────────────────────────────┐
-│                         AUTHORITY                                  │
-│                  (Human, AI, or Agent)                            │
-│                                                                   │
-│  Full access to session:                                          │
-│  • All Maestro commands                                           │
-│  • Shell commands (within session permissions)                    │
-│  • Can configure sub-agent permissions                            │
-│  • Can intervene in agent executions                              │
-└────────────────────────────┬─────────────────────────────────────┘
-                             │
-                             │ Launches with restricted permissions
-                             ▼
-┌──────────────────────────────────────────────────────────────────┐
-│                       SUB-AGENTS                                   │
-│              (Launched by authority)                              │
-│                                                                   │
-│  Limited access:                                                  │
-│  • Only blocks assigned by authority                              │
-│  • Only paths allowed by authority                                │
-│  • Cannot modify own permissions                                  │
-│  • Cannot launch other agents (unless explicitly allowed)         │
-│  • All actions logged to session event stream                     │
-└──────────────────────────────────────────────────────────────────┘
-```
+The composable session architecture replaces the previous hardcoded session types:
 
-### Example: Human Authority with Agent
+| Legacy Type | New Equivalent |
+|-------------|----------------|
+| ProjectSession | Session with `mode: repo`, `categoryId: projects` |
+| FoundrySession | Session with `mode: sandbox`, `categoryId: foundry` |
+| TrainingSession | Session with `mode: sandbox`, `categoryId: training` |
 
-```bash
-# Human starts a project session
-maestro session create --project my-app --authority human
-maestro session connect sess-123
-
-# Human configures what the code-developer agent can do
-session> permissions set --agent code-developer \
-           --paths "src/**,tests/**" \
-           --blocks "file-read,file-write,git-diff"
-
-# Human launches the agent with a task
-session> agents run code-developer --task "Implement user validation"
-
-# Human monitors the agent's work
-session> monitor --agent code-developer
-
-# Agent works autonomously within its constraints...
-# Human can intervene at any time
-
-session> agents pause code-developer   # Pause if needed
-session> agents resume code-developer  # Resume
-
-# When agent completes, human reviews
-session> diff
-session> test
-session> commit --message "feat: add user validation"
-```
-
-### Example: AI Authority (Claude Code)
-
-```bash
-# Claude Code creates and controls a session
-maestro session create --project my-app --authority ai:claude-code
-
-# Claude Code executes commands via API
-POST /api/sessions/sess-123/exec
-{ "command": "blocks list" }
-
-POST /api/sessions/sess-123/exec
-{ "command": "agents run code-developer", "args": { "task": "Fix bug #123" } }
-
-# Human can monitor what Claude Code is doing
-maestro session monitor sess-123   # Read-only view
-
-# Human can take control if needed
-maestro session take-control sess-123
-```
-
----
-
-## 5. Comparison Table
-
-| Aspect | Project Session | Foundry Session |
-|--------|-----------------|-----------------|
-| **Purpose** | Manage real project | Develop blocks |
-| **Environment** | Git repository | Isolated sandbox |
-| **File Access** | Real project files | Test/mock data |
-| **Authority Actions** | Run agents, shell cmds | Train, evaluate, publish |
-| **Sub-agents** | Execute on project | Execute in sandbox |
-| **Persistence** | Git commits | Metrics, catalog |
-| **Risk** | Controlled (permissions) | None (isolated) |
-
----
-
-## 6. CLI Quick Reference
-
-```bash
-# ===== SESSION MANAGEMENT =====
-maestro session create --project <id> --authority <type>   # Project session
-maestro session create --foundry --authority <type>        # Foundry session
-maestro session list [--status <status>]                   # List sessions
-maestro session info <id>                                  # Session details
-
-# ===== CONNECTION =====
-maestro session connect <id>                               # Interactive mode
-maestro session monitor <id>                               # Monitor only
-maestro session exec <id> "<command>"                      # Single command
-
-# ===== CONTROL =====
-maestro session pause <id>                                 # Pause
-maestro session resume <id>                                # Resume
-maestro session stop <id>                                  # Stop
-maestro session take-control <id>                          # Take over from AI
-
-# ===== WITHIN SESSION =====
-# (See detailed guides for Project and Foundry commands)
-```
+Key differences:
+- **Categories are user-defined**: Instead of a fixed `SessionPurpose` enum, categories are flexible
+- **Docker-only**: All sessions run in Docker containers (no process/none runtime)
+- **Templates for presets**: Common patterns are captured in reusable templates
+- **Network isolation**: Containers run with `--network none` by default
 
 ---
 
 ## Related Documents
 
-- [PROJECT-SESSION-DETAILED-GUIDE.md](PROJECT-SESSION-DETAILED-GUIDE.md) - Complete Project Session guide
-- [FOUNDRY-DETAILED-GUIDE.md](FOUNDRY-DETAILED-GUIDE.md) - Complete Foundry Session guide
-- [FULL-PIPELINE-GUIDE.md](FULL-PIPELINE-GUIDE.md) - End-to-end workflow
+- [ADR-0005: Composable Docker Session Architecture](../adr/0005-composable-docker-session-architecture.md)
+- [PLAN-composable-session-implementation.md](../plans/PLAN-composable-session-implementation.md)

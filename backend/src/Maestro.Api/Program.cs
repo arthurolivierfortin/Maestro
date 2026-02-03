@@ -12,6 +12,10 @@ using Maestro.Infrastructure.Metrics;
 using Maestro.Infrastructure.Training;
 using Maestro.Infrastructure.Training.QualityEvaluators;
 using Maestro.Infrastructure.Sessions;
+using Maestro.Infrastructure.SandboxImages;
+using Maestro.Infrastructure.SessionTemplates;
+using Maestro.Infrastructure.SessionCategories;
+using Maestro.Infrastructure.Data;
 using System.IO;
 using System;
 using Microsoft.Extensions.Options;
@@ -220,6 +224,42 @@ builder.Services.AddSingleton<Maestro.Infrastructure.Testing.FileSystemBlockTest
 // Knowledge Base: Register service for documentation and test results persistence
 builder.Services.AddSingleton<IKnowledgeBaseService, Maestro.Infrastructure.Services.KnowledgeBaseService>();
 Console.WriteLine($"[Maestro] Knowledge base:  {Path.Combine(pathConfig.RepoRootPath, "docs", "knowledge-base")}");
+
+// Phase 11: Register composable session services (Sandbox Images, Session Templates, Unified Sessions)
+var sessionDataFolder = Path.Combine(pathConfig.RepoRootPath, "data");
+Directory.CreateDirectory(sessionDataFolder);
+
+// Sandbox Images Repository
+builder.Services.AddSingleton<ISandboxImageRepository>(sp =>
+{
+    var logger = sp.GetService<ILogger<FileSystemSandboxImageRepository>>();
+    return new FileSystemSandboxImageRepository(sessionDataFolder, logger);
+});
+Console.WriteLine($"[Maestro] Sandbox images:  {Path.Combine(sessionDataFolder, "sandbox-images")}");
+
+// Session Templates Repository
+builder.Services.AddSingleton<ISessionTemplateRepository>(sp =>
+{
+    var logger = sp.GetService<ILogger<FileSystemSessionTemplateRepository>>();
+    return new FileSystemSessionTemplateRepository(sessionDataFolder, logger);
+});
+Console.WriteLine($"[Maestro] Session templates: {Path.Combine(sessionDataFolder, "session-templates")}");
+
+// Unified Sessions Repository
+builder.Services.AddSingleton<ISessionRepository>(sp =>
+{
+    var logger = sp.GetService<ILogger<FileSystemSessionRepository>>();
+    return new FileSystemSessionRepository(sessionDataFolder, logger);
+});
+Console.WriteLine($"[Maestro] Sessions:        {Path.Combine(sessionDataFolder, "sessions")}");
+
+// Session Categories Repository (user-defined session categories)
+builder.Services.AddSingleton<ISessionCategoryRepository>(sp =>
+{
+    var logger = sp.GetService<ILogger<FileSystemSessionCategoryRepository>>();
+    return new FileSystemSessionCategoryRepository(sessionDataFolder, logger);
+});
+Console.WriteLine($"[Maestro] Session categories: {Path.Combine(sessionDataFolder, "session-categories")}");
 
 // Phase 9: Register quality evaluators
 builder.Services.AddSingleton<HeuristicQualityEvaluator>();
