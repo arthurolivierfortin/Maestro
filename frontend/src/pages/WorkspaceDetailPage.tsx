@@ -5,11 +5,19 @@
  * Shows generic overview + custom UI panels defined by workspace.
  */
 
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useWorkspaceStore } from '../store/workspaceStore';
 import { useSessionStore } from '../store/sessionStore';
 import { UIBlockRenderer } from '../components/ui-block';
+import {
+  BlocksPanel,
+  LogsPanel,
+  QuickActions,
+  WorkspaceContent,
+  RecentActivity,
+  WorkspaceHealth,
+} from '../components/workspace';
 import './WorkspaceDetailPage.scss';
 
 // ============= Tab Types =============
@@ -38,18 +46,39 @@ interface OverviewPanelProps {
     settings: { tags: string[] };
     createdAt: string;
     updatedAt: string;
+    entryPoints?: Array<{
+      blockId: string;
+      name: string;
+      description?: string;
+      type: 'main' | 'dashboard' | 'experiments' | 'settings' | 'custom';
+    }>;
   };
+  onNavigateToBlocks?: () => void;
 }
 
-const OverviewPanel: React.FC<OverviewPanelProps> = ({ workspace }) => {
+const OverviewPanel: React.FC<OverviewPanelProps> = ({ workspace, onNavigateToBlocks }) => {
   const formatDate = (dateStr: string) => {
     return new Date(dateStr).toLocaleString();
   };
+
+  // Mock entry points for research workspace
+  const entryPoints = workspace.entryPoints || (workspace.type === 'Research' ? [
+    { blockId: 'research-team', name: 'Run Research Team', type: 'main' as const },
+    { blockId: 'experiment-manager', name: 'Manage Experiments', type: 'experiments' as const },
+    { blockId: 'leaderboard', name: 'View Leaderboard', type: 'dashboard' as const },
+  ] : []);
 
   return (
     <div className="overview-panel">
       <h2>Overview</h2>
 
+      {/* Quick Actions Section */}
+      <QuickActions
+        workspaceId={workspace.id}
+        entryPoints={entryPoints}
+      />
+
+      {/* Status Grid */}
       <div className="overview-panel__grid">
         <div className="overview-panel__card">
           <div className="overview-panel__card-label">Status</div>
@@ -76,6 +105,18 @@ const OverviewPanel: React.FC<OverviewPanelProps> = ({ workspace }) => {
           <div className="overview-panel__card-value">{workspace.projectIds.length}</div>
         </div>
       </div>
+
+      {/* Workspace Content Summary */}
+      <WorkspaceContent
+        workspaceId={workspace.id}
+        onViewAll={onNavigateToBlocks}
+      />
+
+      {/* Workspace Health KPIs */}
+      <WorkspaceHealth workspaceId={workspace.id} />
+
+      {/* Recent Activity */}
+      <RecentActivity workspaceId={workspace.id} limit={5} />
 
       {workspace.description && (
         <div className="overview-panel__section">
@@ -172,34 +213,6 @@ const SessionsPanel: React.FC<SessionsPanelProps> = ({ workspaceId }) => {
   );
 };
 
-const BlocksPanel: React.FC<{ workspaceId: string }> = ({ workspaceId }) => {
-  // TODO: Implement blocks listing for workspace
-  return (
-    <div className="blocks-panel">
-      <h2>Blocks</h2>
-      <div className="panel-empty">
-        <div className="panel-empty__icon">🧱</div>
-        <p>Block listing coming soon</p>
-        <p className="panel-empty__hint">Workspace ID: {workspaceId}</p>
-      </div>
-    </div>
-  );
-};
-
-const LogsPanel: React.FC<{ workspaceId: string }> = ({ workspaceId }) => {
-  // TODO: Implement workspace logs
-  return (
-    <div className="logs-panel">
-      <h2>Logs</h2>
-      <div className="panel-empty">
-        <div className="panel-empty__icon">📜</div>
-        <p>Logs viewer coming soon</p>
-        <p className="panel-empty__hint">Workspace ID: {workspaceId}</p>
-      </div>
-    </div>
-  );
-};
-
 // ============= Main Component =============
 
 export function WorkspaceDetailPage() {
@@ -259,12 +272,21 @@ export function WorkspaceDetailPage() {
     }
   };
 
+  const handleNavigateToBlocks = useCallback(() => {
+    setActiveTab('blocks');
+  }, []);
+
   const renderContent = () => {
     if (!currentWorkspace) return null;
 
     switch (activeTab) {
       case 'overview':
-        return <OverviewPanel workspace={currentWorkspace} />;
+        return (
+          <OverviewPanel
+            workspace={currentWorkspace}
+            onNavigateToBlocks={handleNavigateToBlocks}
+          />
+        );
       case 'blocks':
         return <BlocksPanel workspaceId={currentWorkspace.id} />;
       case 'sessions':

@@ -1,0 +1,18 @@
+{
+  "id": "data-store",
+  "name": "Data Store",
+  "blockType": "tool",
+  "version": "1.0.0",
+  "isAtomic": true,
+  "description": null,
+  "config": {},
+  "metadata": {
+    "description": "Reads and writes JSON data files in the workspace data folder",
+    "tags": [
+      "data",
+      "json",
+      "persistence"
+    ]
+  },
+  "capabilities": []
+}

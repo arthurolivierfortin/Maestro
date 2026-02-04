@@ -1,0 +1,18 @@
+{
+  "id": "researcher-agent",
+  "name": "Researcher Agent",
+  "blockType": "agent",
+  "version": "1.0.0",
+  "isAtomic": true,
+  "description": null,
+  "config": {},
+  "metadata": {
+    "description": "Analyzes agent performance and identifies improvement opportunities",
+    "tags": [
+      "research",
+      "analysis",
+      "planning"
+    ]
+  },
+  "capabilities": []
+}

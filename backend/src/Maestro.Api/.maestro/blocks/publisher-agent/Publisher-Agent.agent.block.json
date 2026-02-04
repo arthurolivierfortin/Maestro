@@ -1,0 +1,18 @@
+{
+  "id": "publisher-agent",
+  "name": "Publisher Agent",
+  "blockType": "agent",
+  "version": "1.0.0",
+  "isAtomic": true,
+  "description": null,
+  "config": {},
+  "metadata": {
+    "description": "Publishes approved agents to the catalog",
+    "tags": [
+      "publishing",
+      "catalog",
+      "versioning"
+    ]
+  },
+  "capabilities": []
+}

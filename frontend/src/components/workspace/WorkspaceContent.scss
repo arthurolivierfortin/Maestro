@@ -1,0 +1,131 @@
+/**
+ * Workspace Content Styles
+ */
+
+.workspace-content {
+  margin-bottom: var(--spacing-xl);
+  padding: var(--spacing-lg);
+  background-color: var(--background-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+
+  &--loading,
+  &--empty {
+    text-align: center;
+  }
+
+  &__loading {
+    color: var(--text-tertiary);
+    padding: var(--spacing-md);
+  }
+
+  &__empty-text {
+    color: var(--text-tertiary);
+    font-size: var(--font-size-sm);
+    margin: 0;
+  }
+
+  &__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--spacing-md);
+
+    h3 {
+      font-size: var(--font-size-md);
+      font-weight: var(--font-weight-semibold);
+      color: var(--text-primary);
+      margin: 0;
+    }
+  }
+
+  &__total {
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+    padding: 2px var(--spacing-sm);
+    background-color: var(--background-tertiary);
+    border-radius: var(--radius-sm);
+  }
+
+  &__tree {
+    font-family: var(--font-mono);
+    font-size: var(--font-size-sm);
+  }
+
+  &__group {
+    margin-bottom: var(--spacing-sm);
+
+    &:last-child {
+      margin-bottom: 0;
+    }
+  }
+
+  &__group-header {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-xs) 0;
+    color: var(--text-primary);
+    font-weight: var(--font-weight-medium);
+  }
+
+  &__group-icon {
+    font-size: 16px;
+  }
+
+  &__group-label {
+    color: var(--text-primary);
+  }
+
+  &__group-count {
+    color: var(--text-tertiary);
+  }
+
+  &__group-items {
+    padding-left: var(--spacing-lg);
+  }
+
+  &__item {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    padding: 2px 0;
+    color: var(--text-secondary);
+
+    &--more {
+      color: var(--text-tertiary);
+    }
+  }
+
+  &__item-connector {
+    color: var(--border);
+  }
+
+  &__item-name {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  &__item-more {
+    font-style: italic;
+  }
+
+  &__view-all {
+    display: block;
+    width: 100%;
+    margin-top: var(--spacing-md);
+    padding: var(--spacing-sm);
+    border: none;
+    border-radius: var(--radius-sm);
+    background: none;
+    color: var(--color-primary);
+    font-size: var(--font-size-sm);
+    cursor: pointer;
+    transition: background-color var(--transition-fast);
+
+    &:hover {
+      background-color: var(--color-primary-subtle);
+    }
+  }
+}

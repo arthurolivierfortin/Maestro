@@ -1,0 +1,18 @@
+{
+  "id": "tester-agent",
+  "name": "Tester Agent",
+  "blockType": "agent",
+  "version": "1.0.0",
+  "isAtomic": true,
+  "description": null,
+  "config": {},
+  "metadata": {
+    "description": "Runs test suites and validates trained agent fitness",
+    "tags": [
+      "testing",
+      "validation",
+      "quality"
+    ]
+  },
+  "capabilities": []
+}

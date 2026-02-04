@@ -1,0 +1,59 @@
+{
+  "profiles": [
+    {
+      "modelId": "smollm2:135m",
+      "displayName": "SmolLM2 135M",
+      "parameterCount": 135000000,
+      "flopsPerToken": 270000000,
+      "vramRequirementMB": 512,
+      "ramRequirementMB": 1024,
+      "requiresGPU": false,
+      "costPer1kTokens": 0,
+      "provider": "ollama"
+    },
+    {
+      "modelId": "smollm2:360m",
+      "displayName": "SmolLM2 360M",
+      "parameterCount": 360000000,
+      "flopsPerToken": 720000000,
+      "vramRequirementMB": 1024,
+      "ramRequirementMB": 2048,
+      "requiresGPU": false,
+      "costPer1kTokens": 0,
+      "provider": "ollama"
+    },
+    {
+      "modelId": "smollm2:1.7b",
+      "displayName": "SmolLM2 1.7B",
+      "parameterCount": 1700000000,
+      "flopsPerToken": 3400000000,
+      "vramRequirementMB": 4096,
+      "ramRequirementMB": 8192,
+      "requiresGPU": true,
+      "costPer1kTokens": 0,
+      "provider": "ollama"
+    },
+    {
+      "modelId": "llama3:8b",
+      "displayName": "Llama 3 8B",
+      "parameterCount": 8000000000,
+      "flopsPerToken": 16000000000,
+      "vramRequirementMB": 8192,
+      "ramRequirementMB": 16384,
+      "requiresGPU": true,
+      "costPer1kTokens": 0,
+      "provider": "ollama"
+    },
+    {
+      "modelId": "gpt-4o-mini",
+      "displayName": "GPT-4o Mini",
+      "parameterCount": 8000000000,
+      "flopsPerToken": 16000000000,
+      "vramRequirementMB": 0,
+      "ramRequirementMB": 0,
+      "requiresGPU": false,
+      "costPer1kTokens": 0.00015,
+      "provider": "openai"
+    }
+  ]
+}

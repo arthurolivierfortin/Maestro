@@ -1,0 +1,18 @@
+{
+  "id": "checkpoint-manager",
+  "name": "Checkpoint Manager",
+  "blockType": "tool",
+  "version": "1.0.0",
+  "isAtomic": true,
+  "description": null,
+  "config": {},
+  "metadata": {
+    "description": "Manages training checkpoints for recovery and comparison",
+    "tags": [
+      "checkpoint",
+      "recovery",
+      "state"
+    ]
+  },
+  "capabilities": []
+}

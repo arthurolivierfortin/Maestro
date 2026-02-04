@@ -1,0 +1,18 @@
+{
+  "id": "metrics-collector",
+  "name": "Metrics Collector",
+  "blockType": "tool",
+  "version": "1.0.0",
+  "isAtomic": true,
+  "description": null,
+  "config": {},
+  "metadata": {
+    "description": "Collects and aggregates metrics over time",
+    "tags": [
+      "metrics",
+      "aggregation",
+      "history"
+    ]
+  },
+  "capabilities": []
+}

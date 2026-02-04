@@ -1,0 +1,18 @@
+{
+  "id": "training-loop",
+  "name": "Training Loop",
+  "blockType": "workflow",
+  "version": "1.0.0",
+  "isAtomic": true,
+  "description": null,
+  "config": {},
+  "metadata": {
+    "description": "Core training iteration loop with fitness tracking",
+    "tags": [
+      "training",
+      "loop",
+      "iteration"
+    ]
+  },
+  "capabilities": []
+}

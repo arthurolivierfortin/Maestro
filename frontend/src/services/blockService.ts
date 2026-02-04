@@ -44,4 +44,5 @@ export type {
   CreateBlockDto,
   UpdateBlockDto,
   BlockUsage,
+  BlockExecutionResult,
 } from './interfaces/IBlockService';

@@ -1,0 +1,18 @@
+{
+  "id": "experiment-manager",
+  "name": "Experiment Manager",
+  "blockType": "agent",
+  "version": "1.0.0",
+  "isAtomic": true,
+  "description": null,
+  "config": {},
+  "metadata": {
+    "description": "Orchestrates training experiments using different strategies",
+    "tags": [
+      "experiment",
+      "manager",
+      "orchestration"
+    ]
+  },
+  "capabilities": []
+}

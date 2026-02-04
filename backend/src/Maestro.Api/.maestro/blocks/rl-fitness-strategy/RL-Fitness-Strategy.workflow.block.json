@@ -1,0 +1,18 @@
+{
+  "id": "rl-fitness-strategy",
+  "name": "RL Fitness Strategy",
+  "blockType": "workflow",
+  "version": "1.0.0",
+  "isAtomic": true,
+  "description": null,
+  "config": {},
+  "metadata": {
+    "description": "Reinforcement learning strategy using fitness as reward",
+    "tags": [
+      "strategy",
+      "reinforcement-learning",
+      "fitness"
+    ]
+  },
+  "capabilities": []
+}

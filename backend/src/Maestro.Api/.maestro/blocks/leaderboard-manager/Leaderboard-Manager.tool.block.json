@@ -1,0 +1,18 @@
+{
+  "id": "leaderboard-manager",
+  "name": "Leaderboard Manager",
+  "blockType": "tool",
+  "version": "1.0.0",
+  "isAtomic": true,
+  "description": null,
+  "config": {},
+  "metadata": {
+    "description": "Manages the fitness leaderboard rankings",
+    "tags": [
+      "leaderboard",
+      "ranking",
+      "comparison"
+    ]
+  },
+  "capabilities": []
+}
