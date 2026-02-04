@@ -7,44 +7,25 @@ namespace Maestro.Domain.Entities;
 /// <summary>
 /// Represents a project session - an interactive server environment for managing a real project.
 /// The authority (human, agent, or AI) can execute shell and Maestro commands within the session.
+///
+/// Inherits from Session to get common session functionality (command history, events, lifecycle).
+/// ProjectSession adds project-specific features like file tracking, tests, linting, and commits.
 /// </summary>
-public class ProjectSession
+public class ProjectSession : Session
 {
-    private readonly List<SessionCommand> _commandHistory = new();
-    private readonly List<SessionEvent> _eventHistory = new();
     private readonly Dictionary<string, AgentExecution> _runningAgents = new();
 
-    public required SessionId Id { get; init; }
-
-    /// <summary>
-    /// Display name for the session.
-    /// </summary>
-    public required string Name { get; set; }
+    // ===== Project-Specific Properties =====
 
     /// <summary>
     /// The type of session (always Project for this entity).
     /// </summary>
-    public SessionType Type => SessionType.Project;
-
-    /// <summary>
-    /// Current status of the session.
-    /// </summary>
-    public SessionStatus Status { get; private set; } = SessionStatus.Created;
-
-    /// <summary>
-    /// The authority controlling this session.
-    /// </summary>
-    public required Authority Authority { get; set; }
+    public override SessionType SessionType => SessionType.Project;
 
     /// <summary>
     /// Configuration for this project session.
     /// </summary>
-    public required ProjectSessionConfig Config { get; init; }
-
-    /// <summary>
-    /// Block registry for this session.
-    /// </summary>
-    public SessionBlockRegistry BlockRegistry { get; private set; } = SessionBlockRegistry.Empty();
+    public ProjectSessionConfig Config { get; private set; } = null!;
 
     /// <summary>
     /// Current working directory within the project.
@@ -52,41 +33,9 @@ public class ProjectSession
     public string WorkingDirectory { get; private set; } = ".";
 
     /// <summary>
-    /// When the session was created.
+    /// Repository path for this session.
     /// </summary>
-    public DateTime CreatedAt { get; init; } = DateTime.UtcNow;
-
-    /// <summary>
-    /// When the session was started.
-    /// </summary>
-    public DateTime? StartedAt { get; private set; }
-
-    /// <summary>
-    /// When the session completed (success, failure, or cancellation).
-    /// </summary>
-    public DateTime? CompletedAt { get; private set; }
-
-    /// <summary>
-    /// Duration of the session in milliseconds.
-    /// </summary>
-    public long? DurationMs => StartedAt.HasValue && CompletedAt.HasValue
-        ? (long)(CompletedAt.Value - StartedAt.Value).TotalMilliseconds
-        : null;
-
-    /// <summary>
-    /// Total commands executed.
-    /// </summary>
-    public int CommandCount => _commandHistory.Count;
-
-    /// <summary>
-    /// Command history for this session.
-    /// </summary>
-    public IReadOnlyList<SessionCommand> CommandHistory => _commandHistory.AsReadOnly();
-
-    /// <summary>
-    /// Event history for this session.
-    /// </summary>
-    public IReadOnlyList<SessionEvent> EventHistory => _eventHistory.AsReadOnly();
+    public string? RepositoryPath { get; private set; }
 
     /// <summary>
     /// Currently running agent executions.
@@ -97,11 +46,6 @@ public class ProjectSession
     /// Files modified during the session.
     /// </summary>
     public IList<FileChange> ModifiedFiles { get; private set; } = new List<FileChange>();
-
-    /// <summary>
-    /// Error message if the session failed.
-    /// </summary>
-    public string? ErrorMessage { get; private set; }
 
     /// <summary>
     /// Test results if tests were run.
@@ -118,100 +62,161 @@ public class ProjectSession
     /// </summary>
     public CommitInfo? CommitInfo { get; private set; }
 
+    // ===== ContainerSession Implementation =====
+
     /// <summary>
-    /// Event raised when a new event is emitted.
+    /// Returns the parent context for permission inheritance.
+    /// Note: Full implementation with workspace lookup is done in the service layer.
     /// </summary>
-    public event EventHandler<SessionEvent>? OnEvent;
+    public override ContainerSession? GetParentContext()
+    {
+        // The parent workspace lookup is done at the service layer
+        // because it requires repository access
+        return null;
+    }
+
+    // ===== Constructor =====
 
     private ProjectSession() { }
+
+    // ===== Factory Methods =====
 
     /// <summary>
     /// Creates a new project session.
     /// </summary>
-    public static ProjectSession Create(string name, Authority authority, ProjectSessionConfig config)
+    public static ProjectSession Create(
+        string name,
+        Authority authority,
+        ProjectSessionConfig config,
+        string? repositoryPath = null,
+        ContextPermissions? permissions = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         ArgumentNullException.ThrowIfNull(authority);
         ArgumentNullException.ThrowIfNull(config);
 
+        var accessLevel = MapAccessLevel(config.Access.Level);
+
         var session = new ProjectSession
         {
-            Id = SessionId.New(),
+            Id = Guid.NewGuid().ToString(),
             Name = name,
             Authority = authority,
-            Config = config
+            Config = config,
+            RepositoryPath = repositoryPath,
+            Status = ContainerSessionStatus.Created,
+            Permissions = permissions ?? ContextPermissions.Full,
+            Binding = repositoryPath != null
+                ? ContainerBinding.CreateRepositoryBound(repositoryPath, accessLevel)
+                : ContainerBinding.CreateSandbox(),
+            CreatedAt = DateTimeOffset.UtcNow
         };
 
-        session.EmitEvent(SessionEvent.Info(session.Id.Value, $"Session created with authority: {authority}"));
+        session.EmitEvent(SessionEvent.Info(session.Id, $"Session created with authority: {authority}"));
         return session;
     }
 
     /// <summary>
-    /// Initializes the block registry with available blocks.
+    /// Creates a project session with a parent workspace.
     /// </summary>
-    public void InitializeBlockRegistry(IEnumerable<string> blockIds)
+    public static ProjectSession CreateInWorkspace(
+        string name,
+        Authority authority,
+        ProjectSessionConfig config,
+        string workspaceId,
+        string? repositoryPath = null,
+        ContextPermissions? permissions = null)
     {
-        BlockRegistry = SessionBlockRegistry.From(blockIds);
-        EmitEvent(SessionEvent.Info(Id.Value, $"Block registry initialized with {BlockRegistry.Count} blocks"));
+        var session = Create(name, authority, config, repositoryPath, permissions);
+        session.ParentWorkspaceId = workspaceId;
+        return session;
     }
 
     /// <summary>
-    /// Starts the session.
+    /// Reconstitutes a project session from persisted data.
     /// </summary>
-    public void Start()
+    public static ProjectSession Reconstitute(
+        string id,
+        string name,
+        Authority authority,
+        ProjectSessionConfig config,
+        ContainerSessionStatus status,
+        SessionTerminalReason terminalReason,
+        string? repositoryPath,
+        string? parentWorkspaceId,
+        string? parentSessionId,
+        string workingDirectory,
+        ContextPermissions permissions,
+        ContainerBinding binding,
+        SessionBlockRegistry blockRegistry,
+        IList<FileChange> modifiedFiles,
+        TestResult? testResult,
+        LinterResult? linterResult,
+        CommitInfo? commitInfo,
+        string? errorMessage,
+        DateTimeOffset createdAt,
+        DateTimeOffset? startedAt,
+        DateTimeOffset? completedAt,
+        DateTimeOffset? updatedAt,
+        string? createdBy,
+        IEnumerable<SessionCommand>? commandHistory = null,
+        IEnumerable<SessionEvent>? eventHistory = null)
     {
-        if (Status != SessionStatus.Created)
-            throw new InvalidOperationException($"Cannot start session in status {Status}");
+        var session = new ProjectSession
+        {
+            Id = id,
+            Name = name,
+            Authority = authority,
+            Config = config,
+            Status = status,
+            TerminalReason = terminalReason,
+            RepositoryPath = repositoryPath,
+            ParentWorkspaceId = parentWorkspaceId,
+            ParentSessionId = parentSessionId,
+            WorkingDirectory = workingDirectory,
+            Permissions = permissions,
+            Binding = binding,
+            BlockRegistry = blockRegistry,
+            ModifiedFiles = modifiedFiles,
+            TestResult = testResult,
+            LinterResult = linterResult,
+            CommitInfo = commitInfo,
+            ErrorMessage = errorMessage,
+            CreatedAt = createdAt,
+            StartedAt = startedAt,
+            CompletedAt = completedAt,
+            UpdatedAt = updatedAt,
+            CreatedBy = createdBy
+        };
 
-        var previousStatus = Status;
-        Status = SessionStatus.Running;
-        StartedAt = DateTime.UtcNow;
+        // Restore command and event history
+        if (commandHistory != null)
+        {
+            foreach (var cmd in commandHistory)
+            {
+                session.AddCommandToHistory(cmd);
+            }
+        }
 
-        EmitEvent(SessionEvent.StateChange(Id.Value, Status, previousStatus));
+        if (eventHistory != null)
+        {
+            foreach (var evt in eventHistory)
+            {
+                session.AddEventToHistory(evt);
+            }
+        }
+
+        return session;
     }
 
-    /// <summary>
-    /// Pauses the session.
-    /// </summary>
-    public void Pause()
-    {
-        if (Status != SessionStatus.Running)
-            throw new InvalidOperationException($"Cannot pause session in status {Status}");
-
-        var previousStatus = Status;
-        Status = SessionStatus.Paused;
-
-        EmitEvent(SessionEvent.StateChange(Id.Value, Status, previousStatus));
-    }
+    // ===== Lifecycle Overrides =====
 
     /// <summary>
-    /// Resumes a paused session.
+    /// Stops the session and cancels all running agents.
     /// </summary>
-    public void Resume()
+    public override void Stop()
     {
-        if (Status != SessionStatus.Paused)
-            throw new InvalidOperationException($"Cannot resume session in status {Status}");
-
-        var previousStatus = Status;
-        Status = SessionStatus.Running;
-
-        EmitEvent(SessionEvent.StateChange(Id.Value, Status, previousStatus));
-    }
-
-    /// <summary>
-    /// Stops the session.
-    /// </summary>
-    public void Stop()
-    {
-        if (Status == SessionStatus.Completed || Status == SessionStatus.Failed ||
-            Status == SessionStatus.Cancelled || Status == SessionStatus.Stopped)
-            throw new InvalidOperationException($"Cannot stop session in status {Status}");
-
-        var previousStatus = Status;
-        Status = SessionStatus.Stopped;
-        CompletedAt = DateTime.UtcNow;
-
-        // Stop all running agents
+        // Cancel all running agents before stopping
         foreach (var agent in _runningAgents.Values.ToList())
         {
             agent.Cancel();
@@ -219,40 +224,10 @@ public class ProjectSession
         }
         _runningAgents.Clear();
 
-        EmitEvent(SessionEvent.StateChange(Id.Value, Status, previousStatus));
+        base.Stop();
     }
 
-    /// <summary>
-    /// Submits a command for execution.
-    /// </summary>
-    public SessionCommand SubmitCommand(string input)
-    {
-        if (Status != SessionStatus.Running)
-            throw new InvalidOperationException($"Cannot execute commands in session status {Status}");
-
-        var command = SessionCommand.Parse(input);
-        _commandHistory.Add(command);
-
-        EmitEvent(SessionEvent.CommandSubmitted(Id.Value, command));
-        return command;
-    }
-
-    /// <summary>
-    /// Records a command result.
-    /// </summary>
-    public void RecordCommandResult(SessionCommand command, bool success, string? output = null, string? error = null, int? exitCode = null)
-    {
-        if (success)
-        {
-            command.MarkCompleted(output, exitCode);
-            EmitEvent(SessionEvent.CommandCompleted(command.Id, output, exitCode));
-        }
-        else
-        {
-            command.MarkFailed(error ?? "Unknown error", exitCode);
-            EmitEvent(SessionEvent.CommandFailed(command.Id, error ?? "Unknown error", exitCode));
-        }
-    }
+    // ===== Working Directory =====
 
     /// <summary>
     /// Changes the working directory.
@@ -260,8 +235,11 @@ public class ProjectSession
     public void SetWorkingDirectory(string path)
     {
         WorkingDirectory = path;
-        EmitEvent(SessionEvent.Info(Id.Value, $"Working directory changed to: {path}"));
+        UpdatedAt = DateTimeOffset.UtcNow;
+        EmitEvent(SessionEvent.Info(Id, $"Working directory changed to: {path}"));
     }
+
+    // ===== Agent Management =====
 
     /// <summary>
     /// Records an agent execution starting.
@@ -323,73 +301,18 @@ public class ProjectSession
         }
     }
 
+    // ===== File Tracking =====
+
     /// <summary>
     /// Records a file modification.
     /// </summary>
     public void RecordFileChange(FileChange change)
     {
         ModifiedFiles.Add(change);
-        EmitEvent(SessionEvent.FileChanged(Id.Value, change.Path, change.ChangeType.ToString()));
+        EmitEvent(SessionEvent.FileChanged(Id, change.Path, change.ChangeType.ToString()));
     }
 
-    /// <summary>
-    /// Completes the session successfully.
-    /// </summary>
-    public void Complete()
-    {
-        if (Status != SessionStatus.Running && Status != SessionStatus.Paused)
-            throw new InvalidOperationException($"Cannot complete session in status {Status}");
-
-        var previousStatus = Status;
-        Status = SessionStatus.Completed;
-        CompletedAt = DateTime.UtcNow;
-
-        EmitEvent(SessionEvent.StateChange(Id.Value, Status, previousStatus));
-    }
-
-    /// <summary>
-    /// Fails the session with an error.
-    /// </summary>
-    public void Fail(string errorMessage)
-    {
-        if (Status != SessionStatus.Running && Status != SessionStatus.Paused && Status != SessionStatus.Created)
-            throw new InvalidOperationException($"Cannot fail session in status {Status}");
-
-        var previousStatus = Status;
-        Status = SessionStatus.Failed;
-        CompletedAt = DateTime.UtcNow;
-        ErrorMessage = errorMessage;
-
-        EmitEvent(SessionEvent.Error(Id.Value, errorMessage));
-        EmitEvent(SessionEvent.StateChange(Id.Value, Status, previousStatus));
-    }
-
-    /// <summary>
-    /// Cancels the session.
-    /// </summary>
-    public void Cancel()
-    {
-        if (Status == SessionStatus.Completed || Status == SessionStatus.Failed ||
-            Status == SessionStatus.Cancelled || Status == SessionStatus.Stopped)
-            throw new InvalidOperationException($"Cannot cancel session in status {Status}");
-
-        var previousStatus = Status;
-        Status = SessionStatus.Cancelled;
-        CompletedAt = DateTime.UtcNow;
-
-        EmitEvent(SessionEvent.StateChange(Id.Value, Status, previousStatus));
-    }
-
-    /// <summary>
-    /// Transfers control to a new authority.
-    /// </summary>
-    public void TransferControl(Authority newAuthority)
-    {
-        var oldAuthority = Authority;
-        Authority = newAuthority;
-
-        EmitEvent(SessionEvent.Info(Id.Value, $"Control transferred from {oldAuthority} to {newAuthority}"));
-    }
+    // ===== Results =====
 
     /// <summary>
     /// Records test results.
@@ -397,7 +320,8 @@ public class ProjectSession
     public void SetTestResult(TestResult result)
     {
         TestResult = result;
-        EmitEvent(SessionEvent.Info(Id.Value, $"Tests {(result.Passed ? "passed" : "failed")}: {result.PassedTests}/{result.TotalTests}"));
+        UpdatedAt = DateTimeOffset.UtcNow;
+        EmitEvent(SessionEvent.Info(Id, $"Tests {(result.Passed ? "passed" : "failed")}: {result.PassedTests}/{result.TotalTests}"));
     }
 
     /// <summary>
@@ -406,7 +330,8 @@ public class ProjectSession
     public void SetLinterResult(LinterResult result)
     {
         LinterResult = result;
-        EmitEvent(SessionEvent.Info(Id.Value, $"Linter: {result.ErrorCount} errors, {result.WarningCount} warnings"));
+        UpdatedAt = DateTimeOffset.UtcNow;
+        EmitEvent(SessionEvent.Info(Id, $"Linter: {result.ErrorCount} errors, {result.WarningCount} warnings"));
     }
 
     /// <summary>
@@ -415,16 +340,25 @@ public class ProjectSession
     public void SetCommitInfo(CommitInfo info)
     {
         CommitInfo = info;
-        EmitEvent(SessionEvent.Info(Id.Value, $"Committed: {info.CommitHash[..7]} - {info.Message}"));
+        UpdatedAt = DateTimeOffset.UtcNow;
+        EmitEvent(SessionEvent.Info(Id, $"Committed: {info.CommitHash[..7]} - {info.Message}"));
     }
 
+    // ===== Helpers =====
+
     /// <summary>
-    /// Emits an event and records it in history.
+    /// Maps AccessLevel to RepositoryAccessLevel.
     /// </summary>
-    private void EmitEvent(SessionEvent evt)
+    private static ValueObjects.RepositoryAccessLevel MapAccessLevel(AccessLevel level)
     {
-        _eventHistory.Add(evt);
-        OnEvent?.Invoke(this, evt);
+        return level switch
+        {
+            AccessLevel.ReadOnly => ValueObjects.RepositoryAccessLevel.ReadOnly,
+            AccessLevel.Sandbox => ValueObjects.RepositoryAccessLevel.Controlled, // Sandbox uses controlled access
+            AccessLevel.Controlled => ValueObjects.RepositoryAccessLevel.Controlled,
+            AccessLevel.Full => ValueObjects.RepositoryAccessLevel.Full,
+            _ => ValueObjects.RepositoryAccessLevel.Controlled
+        };
     }
 }
 

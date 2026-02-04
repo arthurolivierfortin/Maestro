@@ -107,10 +107,10 @@ public class SessionsController : ControllerBase
             var session = await _sessionServer.CreateAsync(sessionName, authority, config);
 
             _logger.LogInformation("Created session {SessionId} for project {ProjectId} with authority {Authority}",
-                session.Id.Value, request.ProjectId, authority);
+                session.Id, request.ProjectId, authority);
 
             var dto = ProjectSessionDto.FromDomain(session);
-            return CreatedAtAction(nameof(GetById), new { id = session.Id.Value }, dto);
+            return CreatedAtAction(nameof(GetById), new { id = session.Id }, dto);
         }
         catch (InvalidOperationException ex)
         {

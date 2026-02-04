@@ -52,7 +52,7 @@ public class ProjectSessionService : IProjectSessionService
         await _sessionRepository.SaveAsync(session, ct);
 
         _logger.LogInformation("Created session {SessionId} for project {ProjectId}",
-            session.Id.Value, config.ProjectId);
+            session.Id, config.ProjectId);
 
         return session;
     }

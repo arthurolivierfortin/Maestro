@@ -59,17 +59,17 @@ public class ProjectSessionServer : IProjectSessionServer
         session.InitializeBlockRegistry(blocks.Select(b => b.Id));
 
         // Subscribe to session events
-        session.OnEvent += (_, evt) => BroadcastEvent(session.Id.Value, evt);
+        session.OnEvent += (_, evt) => BroadcastEvent(session.Id, evt);
 
         // Save to repository
         await _repository.SaveAsync(session, ct);
 
         // Ensure event channel exists for this session
-        _contextStorage.GetOrCreateEventChannel(session.Id.Value);
+        _contextStorage.GetOrCreateEventChannel(session.Id);
 
         _logger.LogInformation(
             "Created project session {SessionId} for project {ProjectId} with authority {Authority}",
-            session.Id.Value, config.ProjectId, authority);
+            session.Id, config.ProjectId, authority);
 
         return session;
     }
@@ -97,7 +97,7 @@ public class ProjectSessionServer : IProjectSessionServer
             ?? throw new InvalidOperationException($"Project {session.Config.ProjectId} not found");
 
         // Subscribe to session events if not already subscribed
-        session.OnEvent += (_, evt) => BroadcastEvent(session.Id.Value, evt);
+        session.OnEvent += (_, evt) => BroadcastEvent(session.Id, evt);
 
         // Start the session
         session.Start();
@@ -106,11 +106,11 @@ public class ProjectSessionServer : IProjectSessionServer
         var context = new ProjectSessionContext(
             session,
             project.RootPath,
-            evt => BroadcastEvent(session.Id.Value, evt));
-        _contextStorage.SetContext(session.Id.Value, context);
+            evt => BroadcastEvent(session.Id, evt));
+        _contextStorage.SetContext(session.Id, context);
 
         // Ensure event channel exists
-        _contextStorage.GetOrCreateEventChannel(session.Id.Value);
+        _contextStorage.GetOrCreateEventChannel(session.Id);
 
         await _repository.SaveAsync(session, ct);
 
@@ -127,12 +127,12 @@ public class ProjectSessionServer : IProjectSessionServer
         var session = await _repository.GetByIdAsync(id, ct)
             ?? throw new InvalidOperationException($"Session {id.Value} not found");
 
-        if (session.Status != SessionStatus.Running)
+        if (!session.IsRunning)
         {
             throw new InvalidOperationException($"Session is not running (status: {session.Status})");
         }
 
-        if (!_contextStorage.TryGetContext(session.Id.Value, out var context) || context == null)
+        if (!_contextStorage.TryGetContext(session.Id, out var context) || context == null)
         {
             throw new InvalidOperationException("Session context not found. Did you start the session?");
         }
@@ -141,7 +141,7 @@ public class ProjectSessionServer : IProjectSessionServer
         var command = session.SubmitCommand(commandInput);
         command.MarkStarted();
 
-        BroadcastEvent(session.Id.Value, SessionEvent.CommandStarted(command.Id, command.Command));
+        BroadcastEvent(session.Id, SessionEvent.CommandStarted(command.Id, command.Command));
 
         try
         {
@@ -192,7 +192,7 @@ public class ProjectSessionServer : IProjectSessionServer
             ?? throw new InvalidOperationException($"Session {id.Value} not found");
 
         // Get or create channel
-        var channel = _contextStorage.GetOrCreateEventChannel(session.Id.Value);
+        var channel = _contextStorage.GetOrCreateEventChannel(session.Id);
 
         // First, replay existing event history
         foreach (var evt in session.EventHistory)
@@ -242,11 +242,11 @@ public class ProjectSessionServer : IProjectSessionServer
         await _repository.SaveAsync(session, ct);
 
         // Cleanup from storage
-        _contextStorage.RemoveContext(session.Id.Value);
-        if (_contextStorage.TryGetEventChannel(session.Id.Value, out var channel) && channel != null)
+        _contextStorage.RemoveContext(session.Id);
+        if (_contextStorage.TryGetEventChannel(session.Id, out var channel) && channel != null)
         {
             channel.Writer.Complete();
-            _contextStorage.RemoveEventChannel(session.Id.Value);
+            _contextStorage.RemoveEventChannel(session.Id);
         }
 
         _logger.LogInformation("Stopped project session {SessionId}", id.Value);
@@ -278,17 +278,17 @@ public class ProjectSessionServer : IProjectSessionServer
         if (session == null) return;
 
         // Stop if running
-        if (session.Status == SessionStatus.Running || session.Status == SessionStatus.Paused)
+        if (session.IsRunning || session.IsPaused)
         {
             session.Stop();
         }
 
         // Cleanup from storage
-        _contextStorage.RemoveContext(session.Id.Value);
-        if (_contextStorage.TryGetEventChannel(session.Id.Value, out var channel) && channel != null)
+        _contextStorage.RemoveContext(session.Id);
+        if (_contextStorage.TryGetEventChannel(session.Id, out var channel) && channel != null)
         {
             channel.Writer.Complete();
-            _contextStorage.RemoveEventChannel(session.Id.Value);
+            _contextStorage.RemoveEventChannel(session.Id);
         }
 
         await _repository.DeleteAsync(id, ct);
@@ -319,7 +319,7 @@ public class ProjectSessionContext : ISessionContext
     private readonly ProjectSession _session;
     private readonly Action<SessionEvent> _emitEvent;
 
-    public string SessionId => _session.Id.Value;
+    public string SessionId => _session.Id;
     public SessionType SessionType => SessionType.Project;
     public string WorkingDirectory { get; private set; }
     public string? ProjectId => _session.Config.ProjectId;

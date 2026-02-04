@@ -25,7 +25,7 @@ public class WorkspaceDto
     public Dictionary<string, SessionTemplateDto> SessionTemplates { get; set; } = new();
     public Dictionary<string, string> EntryPoints { get; set; } = new();
     public DateTimeOffset CreatedAt { get; set; }
-    public DateTimeOffset UpdatedAt { get; set; }
+    public DateTimeOffset? UpdatedAt { get; set; }
     public string? CreatedBy { get; set; }
 
     public static WorkspaceDto FromDomain(Workspace workspace)

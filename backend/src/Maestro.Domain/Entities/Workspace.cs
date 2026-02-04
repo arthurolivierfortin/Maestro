@@ -1,5 +1,4 @@
-using System;
-using System.Collections.Generic;
+using Maestro.Domain.Enums;
 using Maestro.Domain.ValueObjects;
 
 namespace Maestro.Domain.Entities;
@@ -22,7 +21,8 @@ public enum WorkspaceType
 }
 
 /// <summary>
-/// Workspace status.
+/// Workspace status - maps to ContainerSessionStatus subset.
+/// Kept for backwards compatibility with existing code.
 /// </summary>
 public enum WorkspaceStatus
 {
@@ -34,14 +34,18 @@ public enum WorkspaceStatus
 /// <summary>
 /// Workspace entity for grouping sessions, projects, and catalogs.
 /// Supports optional Docker-based isolation and agent permission management.
+///
+/// Inherits from ContainerSession to provide unified permission inheritance
+/// and lifecycle management across the session hierarchy.
+///
+/// Workspace is the ROOT of the permission inheritance chain.
 /// </summary>
-public class Workspace
+public class Workspace : ContainerSession
 {
-    public string Id { get; private set; } = string.Empty;
-    public string Name { get; private set; } = string.Empty;
-    public string? Description { get; private set; }
+    // ===== Workspace-Specific Properties =====
+
+    /// <summary>Workspace type determining default behavior.</summary>
     public WorkspaceType Type { get; private set; }
-    public WorkspaceStatus Status { get; private set; }
 
     /// <summary>Filesystem path for file-based workspaces.</summary>
     public string? Path { get; private set; }
@@ -61,21 +65,71 @@ public class Workspace
     /// <summary>Isolation configuration for Docker-based separation.</summary>
     public WorkspaceIsolation Isolation { get; private set; } = new();
 
-    /// <summary>Default permissions for this workspace context (what can be done via CLI).</summary>
-    public ContextPermissions Permissions { get; private set; } = ContextPermissions.Full;
-
     /// <summary>Session templates for creating sessions with preset permissions.</summary>
     public Dictionary<string, SessionTemplate> SessionTemplates { get; private set; } = new();
 
     /// <summary>Named entry points (main workflow, dashboard, etc.).</summary>
     public Dictionary<string, string> EntryPoints { get; private set; } = new();
 
-    /// <summary>Metadata about the workspace.</summary>
-    public DateTimeOffset CreatedAt { get; private set; }
-    public DateTimeOffset UpdatedAt { get; private set; }
-    public string? CreatedBy { get; private set; }
+    // ===== Backwards Compatibility =====
 
-    private Workspace() { }
+    /// <summary>
+    /// Gets the workspace status (mapped from ContainerSessionStatus).
+    /// Provides backwards compatibility with existing code.
+    /// </summary>
+    public WorkspaceStatus WorkspaceStatus => Status switch
+    {
+        ContainerSessionStatus.Active => WorkspaceStatus.Active,
+        ContainerSessionStatus.Paused => WorkspaceStatus.Paused,
+        ContainerSessionStatus.Archived => WorkspaceStatus.Archived,
+        ContainerSessionStatus.Created => WorkspaceStatus.Active, // Treat created as active for workspaces
+        _ => WorkspaceStatus.Active
+    };
+
+    // ===== ContainerSession Implementation =====
+
+    /// <summary>
+    /// Workspace is the root of the permission hierarchy - no parent.
+    /// </summary>
+    public override ContainerSession? GetParentContext() => null;
+
+    /// <summary>
+    /// Storage extension for workspace files.
+    /// </summary>
+    public override string GetStorageExtension() => ".workspace.json";
+
+    /// <summary>
+    /// Validates workspace status transitions.
+    /// </summary>
+    protected override bool CanTransitionTo(ContainerSessionStatus newStatus)
+    {
+        return (Status, newStatus) switch
+        {
+            // From Created
+            (ContainerSessionStatus.Created, ContainerSessionStatus.Active) => true,
+
+            // From Active
+            (ContainerSessionStatus.Active, ContainerSessionStatus.Paused) => true,
+            (ContainerSessionStatus.Active, ContainerSessionStatus.Archived) => true,
+
+            // From Paused
+            (ContainerSessionStatus.Paused, ContainerSessionStatus.Active) => true,
+            (ContainerSessionStatus.Paused, ContainerSessionStatus.Archived) => true,
+
+            // Archived is terminal for workspaces
+            _ => false
+        };
+    }
+
+    // ===== Constructor =====
+
+    private Workspace()
+    {
+        // Workspace doesn't bind to containers directly
+        Binding = ContainerBinding.None;
+    }
+
+    // ===== Factory Methods =====
 
     /// <summary>
     /// Creates a new workspace.
@@ -95,7 +149,8 @@ public class Workspace
             Name = name,
             Description = description,
             Type = type,
-            Status = WorkspaceStatus.Active,
+            Status = ContainerSessionStatus.Active,
+            Permissions = ContextPermissions.Full,
             CreatedAt = DateTimeOffset.UtcNow,
             UpdatedAt = DateTimeOffset.UtcNow,
             CreatedBy = createdBy,
@@ -140,19 +195,52 @@ public class Workspace
         return workspace;
     }
 
-    public void UpdateName(string name)
+    /// <summary>
+    /// Reconstitutes a workspace from persisted data.
+    /// Used by repositories during deserialization.
+    /// </summary>
+    public static Workspace Reconstitute(
+        string id,
+        string name,
+        string? description,
+        WorkspaceType type,
+        ContainerSessionStatus status,
+        string? path,
+        List<string> sessionIds,
+        List<string> projectIds,
+        string? catalogRef,
+        WorkspaceSettings settings,
+        WorkspaceIsolation isolation,
+        ContextPermissions permissions,
+        Dictionary<string, SessionTemplate> sessionTemplates,
+        Dictionary<string, string> entryPoints,
+        DateTimeOffset createdAt,
+        DateTimeOffset? updatedAt,
+        string? createdBy)
     {
-        if (string.IsNullOrWhiteSpace(name))
-            throw new ArgumentException("Workspace name is required", nameof(name));
-        Name = name;
-        UpdatedAt = DateTimeOffset.UtcNow;
+        return new Workspace
+        {
+            Id = id,
+            Name = name,
+            Description = description,
+            Type = type,
+            Status = status,
+            Path = path,
+            SessionIds = sessionIds,
+            ProjectIds = projectIds,
+            CatalogRef = catalogRef,
+            Settings = settings,
+            Isolation = isolation,
+            Permissions = permissions,
+            SessionTemplates = sessionTemplates,
+            EntryPoints = entryPoints,
+            CreatedAt = createdAt,
+            UpdatedAt = updatedAt,
+            CreatedBy = createdBy
+        };
     }
 
-    public void UpdateDescription(string? description)
-    {
-        Description = description;
-        UpdatedAt = DateTimeOffset.UtcNow;
-    }
+    // ===== Update Methods =====
 
     public void UpdateSettings(WorkspaceSettings settings)
     {
@@ -169,12 +257,6 @@ public class Workspace
     public void UpdatePath(string? path)
     {
         Path = path;
-        UpdatedAt = DateTimeOffset.UtcNow;
-    }
-
-    public void UpdatePermissions(ContextPermissions permissions)
-    {
-        Permissions = permissions ?? throw new ArgumentNullException(nameof(permissions));
         UpdatedAt = DateTimeOffset.UtcNow;
     }
 
@@ -228,6 +310,8 @@ public class Workspace
         return EntryPoints.TryGetValue(name, out var blockId) ? blockId : null;
     }
 
+    // ===== Session/Project Management =====
+
     public void AddSession(string sessionId)
     {
         if (string.IsNullOrWhiteSpace(sessionId))
@@ -274,22 +358,41 @@ public class Workspace
         UpdatedAt = DateTimeOffset.UtcNow;
     }
 
+    // ===== Lifecycle Methods =====
+
+    /// <summary>
+    /// Pauses the workspace.
+    /// </summary>
     public void Pause()
     {
-        Status = WorkspaceStatus.Paused;
-        UpdatedAt = DateTimeOffset.UtcNow;
+        TransitionTo(ContainerSessionStatus.Paused);
     }
 
+    /// <summary>
+    /// Resumes a paused workspace.
+    /// </summary>
     public void Resume()
     {
-        Status = WorkspaceStatus.Active;
-        UpdatedAt = DateTimeOffset.UtcNow;
+        TransitionTo(ContainerSessionStatus.Active);
     }
 
+    /// <summary>
+    /// Archives the workspace (terminal state).
+    /// </summary>
     public void Archive()
     {
-        Status = WorkspaceStatus.Archived;
-        UpdatedAt = DateTimeOffset.UtcNow;
+        TransitionTo(ContainerSessionStatus.Archived);
+    }
+
+    /// <summary>
+    /// Activates a newly created workspace.
+    /// </summary>
+    public void Activate()
+    {
+        if (Status == ContainerSessionStatus.Created)
+        {
+            TransitionTo(ContainerSessionStatus.Active);
+        }
     }
 }
 

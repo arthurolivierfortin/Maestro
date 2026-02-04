@@ -149,6 +149,13 @@ builder.Services.AddSingleton<IProjectSessionRepository>(sp =>
     var logger = sp.GetService<ILogger<FileSystemProjectSessionRepository>>();
     return new FileSystemProjectSessionRepository(projectRepo, logger);
 });
+
+// Register Foundry session repository (file-based persistence)
+builder.Services.AddSingleton<IFoundrySessionRepository>(sp =>
+{
+    var logger = sp.GetService<ILogger<FileSystemFoundrySessionRepository>>();
+    return new FileSystemFoundrySessionRepository(logger);
+});
 builder.Services.AddScoped<IProjectSessionService>(sp =>
 {
     var sessionRepo = sp.GetRequiredService<IProjectSessionRepository>();
@@ -294,10 +301,6 @@ builder.Services.AddScoped<IWorkspaceBlockResolver>(sp =>
     return new Maestro.Infrastructure.Workspaces.WorkspaceBlockResolver(blockDiscovery, logger, workspaceFolder);
 });
 
-// Phase 2: Register execution session services (Session-based permissions)
-builder.Services.AddSingleton<IExecutionSessionRepository, InMemoryExecutionSessionRepository>();
-builder.Services.AddScoped<IExecutionSessionService, ExecutionSessionService>();
-
 // Phase 3: Register CLI Executor services
 // Command handlers
 builder.Services.AddScoped<ICommandHandler, RunCommandHandler>();
@@ -305,7 +308,6 @@ builder.Services.AddScoped<ICommandHandler, ListToolsCommandHandler>();
 builder.Services.AddScoped<ICommandHandler, ListBlocksCommandHandler>();
 builder.Services.AddScoped<ICommandHandler, DescribeCommandHandler>();
 builder.Services.AddScoped<ICommandHandler, DataCommandHandler>();
-builder.Services.AddScoped<ICommandHandler, SessionCommandHandler>();
 builder.Services.AddScoped<ICommandHandler, WorkspaceCommandHandler>();
 builder.Services.AddScoped<ICommandHandler, HelpCommandHandler>();
 // Permission checker and executor

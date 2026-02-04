@@ -1,5 +1,12 @@
 # Phase 2: Session Management - Detailed Implementation Plan
 
+> **⚠️ SUPERSEDED**: This document describes the original `ExecutionSession` implementation which has been replaced by the unified `ContainerSession` hierarchy. See:
+> - `docs/architecture/DESIGN-CONTAINER-SESSION-HIERARCHY.md` - New design
+> - `docs/guides/MIGRATION-CONTAINER-SESSION-HIERARCHY.md` - Migration guide
+> - `docs/issues/REFACTOR-CONTAINER-SESSION-HIERARCHY.md` - Implementation details
+>
+> The concepts in this document are still valid, but the implementation now uses `Session` (abstract), `ProjectSession`, and `FoundrySession` instead of `ExecutionSession`.
+
 ## Overview
 
 **Goal**: Enable session creation with permission inheritance from workspace.

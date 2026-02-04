@@ -31,15 +31,15 @@ public record ProjectSessionDto
     {
         return new ProjectSessionDto
         {
-            Id = session.Id.ToString(),
+            Id = session.Id,
             Name = session.Name,
-            Type = session.Type.ToString().ToLowerInvariant(),
-            Status = session.Status.ToString().ToLowerInvariant(),
+            Type = session.SessionType.ToString().ToLowerInvariant(),
+            Status = session.GetSessionStatus().ToString().ToLowerInvariant(),
             Authority = session.Authority.ToString(),
             Config = ProjectSessionConfigDto.FromDomain(session.Config),
-            CreatedAt = session.CreatedAt,
-            StartedAt = session.StartedAt,
-            CompletedAt = session.CompletedAt,
+            CreatedAt = session.CreatedAt.DateTime,
+            StartedAt = session.StartedAt?.DateTime,
+            CompletedAt = session.CompletedAt?.DateTime,
             DurationMs = session.DurationMs,
             CommandCount = session.CommandCount,
             WorkingDirectory = session.WorkingDirectory,

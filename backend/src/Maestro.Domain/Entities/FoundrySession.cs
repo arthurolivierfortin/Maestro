@@ -7,50 +7,31 @@ namespace Maestro.Domain.Entities;
 /// <summary>
 /// Represents a Foundry session - an interactive sandbox for developing, testing, and improving blocks.
 /// The authority (human, agent, or AI) can run training, evaluate iterations, and publish to the catalog.
+///
+/// Inherits from Session to get common session functionality (command history, events, lifecycle).
+/// FoundrySession adds foundry-specific features like training, iterations, and improvements.
 /// </summary>
-public class FoundrySession
+public class FoundrySession : Session
 {
-    private readonly List<SessionCommand> _commandHistory = new();
-    private readonly List<SessionEvent> _eventHistory = new();
     private readonly List<FoundryIteration> _iterations = new();
     private readonly List<ImprovementSuggestion> _improvements = new();
 
-    public required SessionId Id { get; init; }
-
-    /// <summary>
-    /// Display name for the session.
-    /// </summary>
-    public required string Name { get; set; }
+    // ===== Foundry-Specific Properties =====
 
     /// <summary>
     /// The type of session (always Foundry for this entity).
     /// </summary>
-    public SessionType Type => SessionType.Foundry;
-
-    /// <summary>
-    /// Current status of the session.
-    /// </summary>
-    public SessionStatus Status { get; private set; } = SessionStatus.Created;
-
-    /// <summary>
-    /// The authority controlling this session.
-    /// </summary>
-    public required Authority Authority { get; set; }
+    public override SessionType SessionType => SessionType.Foundry;
 
     /// <summary>
     /// Configuration for this Foundry session.
     /// </summary>
-    public required FoundrySessionConfig Config { get; init; }
+    public FoundrySessionConfig Config { get; private set; } = null!;
 
     /// <summary>
     /// The currently loaded draft ID.
     /// </summary>
     public string? LoadedDraftId { get; private set; }
-
-    /// <summary>
-    /// Block registry for this session.
-    /// </summary>
-    public SessionBlockRegistry BlockRegistry { get; private set; } = SessionBlockRegistry.Empty();
 
     /// <summary>
     /// Current training status.
@@ -77,171 +58,207 @@ public class FoundrySession
     /// </summary>
     public int PendingEvaluations => _iterations.Count(i => !i.Evaluated);
 
-    /// <summary>
-    /// When the session was created.
-    /// </summary>
-    public DateTime CreatedAt { get; init; } = DateTime.UtcNow;
+    // ===== ContainerSession Implementation =====
 
     /// <summary>
-    /// When the session was started.
+    /// Returns the parent context for permission inheritance.
+    /// Note: Full implementation with workspace lookup is done in the service layer.
     /// </summary>
-    public DateTime? StartedAt { get; private set; }
+    public override ContainerSession? GetParentContext()
+    {
+        // The parent workspace lookup is done at the service layer
+        // because it requires repository access
+        return null;
+    }
 
-    /// <summary>
-    /// When the session completed.
-    /// </summary>
-    public DateTime? CompletedAt { get; private set; }
-
-    /// <summary>
-    /// Duration of the session in milliseconds.
-    /// </summary>
-    public long? DurationMs => StartedAt.HasValue && CompletedAt.HasValue
-        ? (long)(CompletedAt.Value - StartedAt.Value).TotalMilliseconds
-        : null;
-
-    /// <summary>
-    /// Command history for this session.
-    /// </summary>
-    public IReadOnlyList<SessionCommand> CommandHistory => _commandHistory.AsReadOnly();
-
-    /// <summary>
-    /// Event history for this session.
-    /// </summary>
-    public IReadOnlyList<SessionEvent> EventHistory => _eventHistory.AsReadOnly();
-
-    /// <summary>
-    /// Error message if the session failed.
-    /// </summary>
-    public string? ErrorMessage { get; private set; }
-
-    /// <summary>
-    /// Event raised when a new event is emitted.
-    /// </summary>
-    public event EventHandler<SessionEvent>? OnEvent;
+    // ===== Constructor =====
 
     private FoundrySession() { }
+
+    // ===== Factory Methods =====
 
     /// <summary>
     /// Creates a new Foundry session.
     /// </summary>
-    public static FoundrySession Create(string name, Authority authority, FoundrySessionConfig? config = null)
+    public static FoundrySession Create(
+        string name,
+        Authority authority,
+        FoundrySessionConfig? config = null,
+        ContextPermissions? permissions = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         ArgumentNullException.ThrowIfNull(authority);
 
+        config ??= FoundrySessionConfig.Default;
+
+        // Determine binding based on config source
+        var binding = config.Source == SessionSource.Repository && config.RepositoryConfig != null
+            ? ContainerBinding.CreateRepositoryBound(
+                config.RepositoryConfig.RepositoryPath,
+                MapAccessLevel(config.RepositoryConfig.AccessLevel))
+            : ContainerBinding.CreateSandbox();
+
         var session = new FoundrySession
         {
-            Id = SessionId.New(),
+            Id = Guid.NewGuid().ToString(),
             Name = name,
             Authority = authority,
-            Config = config ?? FoundrySessionConfig.Default
+            Config = config,
+            Status = ContainerSessionStatus.Created,
+            Permissions = permissions ?? ContextPermissions.Full,
+            Binding = binding,
+            CreatedAt = DateTimeOffset.UtcNow
         };
 
-        session.EmitEvent(SessionEvent.Info(session.Id.Value, $"Foundry session created with authority: {authority}"));
+        session.EmitEvent(SessionEvent.Info(session.Id, $"Foundry session created with authority: {authority}"));
 
         // Auto-load draft if specified in config
-        if (!string.IsNullOrEmpty(config?.DraftId))
+        if (!string.IsNullOrEmpty(config.DraftId))
         {
             session.LoadedDraftId = config.DraftId;
-            session.EmitEvent(SessionEvent.Info(session.Id.Value, $"Draft loaded: {config.DraftId}"));
+            session.EmitEvent(SessionEvent.Info(session.Id, $"Draft loaded: {config.DraftId}"));
         }
 
         return session;
     }
 
     /// <summary>
-    /// Initializes the block registry with available blocks.
+    /// Creates a Foundry session with a parent workspace.
     /// </summary>
-    public void InitializeBlockRegistry(IEnumerable<string> blockIds)
+    public static FoundrySession CreateInWorkspace(
+        string name,
+        Authority authority,
+        FoundrySessionConfig config,
+        string workspaceId,
+        ContextPermissions? permissions = null)
     {
-        BlockRegistry = SessionBlockRegistry.From(blockIds);
-        EmitEvent(SessionEvent.Info(Id.Value, $"Block registry initialized with {BlockRegistry.Count} blocks"));
+        var session = Create(name, authority, config, permissions);
+        session.ParentWorkspaceId = workspaceId;
+        return session;
     }
 
     /// <summary>
-    /// Starts the session.
+    /// Reconstitutes a Foundry session from persisted data.
     /// </summary>
-    public void Start()
+    public static FoundrySession Reconstitute(
+        string id,
+        string name,
+        Authority authority,
+        FoundrySessionConfig config,
+        ContainerSessionStatus status,
+        SessionTerminalReason terminalReason,
+        string? parentWorkspaceId,
+        string? parentSessionId,
+        string? loadedDraftId,
+        FoundryTrainingStatus trainingStatus,
+        ContextPermissions permissions,
+        ContainerBinding binding,
+        SessionBlockRegistry blockRegistry,
+        SessionMetrics metrics,
+        IList<FoundryIteration> iterations,
+        IList<ImprovementSuggestion> improvements,
+        string? errorMessage,
+        DateTimeOffset createdAt,
+        DateTimeOffset? startedAt,
+        DateTimeOffset? completedAt,
+        DateTimeOffset? updatedAt,
+        string? createdBy,
+        IEnumerable<SessionCommand>? commandHistory = null,
+        IEnumerable<SessionEvent>? eventHistory = null)
     {
-        if (Status != SessionStatus.Created)
-            throw new InvalidOperationException($"Cannot start session in status {Status}");
+        var session = new FoundrySession
+        {
+            Id = id,
+            Name = name,
+            Authority = authority,
+            Config = config,
+            Status = status,
+            TerminalReason = terminalReason,
+            ParentWorkspaceId = parentWorkspaceId,
+            ParentSessionId = parentSessionId,
+            LoadedDraftId = loadedDraftId,
+            FoundryTrainingStatus = trainingStatus,
+            Permissions = permissions,
+            Binding = binding,
+            BlockRegistry = blockRegistry,
+            Metrics = metrics,
+            ErrorMessage = errorMessage,
+            CreatedAt = createdAt,
+            StartedAt = startedAt,
+            CompletedAt = completedAt,
+            UpdatedAt = updatedAt,
+            CreatedBy = createdBy
+        };
 
-        var previousStatus = Status;
-        Status = SessionStatus.Running;
-        StartedAt = DateTime.UtcNow;
+        // Restore collections
+        session._iterations.AddRange(iterations);
+        session._improvements.AddRange(improvements);
 
-        EmitEvent(SessionEvent.StateChange(Id.Value, Status, previousStatus));
+        // Restore command and event history
+        if (commandHistory != null)
+        {
+            foreach (var cmd in commandHistory)
+            {
+                session.AddCommandToHistory(cmd);
+            }
+        }
+
+        if (eventHistory != null)
+        {
+            foreach (var evt in eventHistory)
+            {
+                session.AddEventToHistory(evt);
+            }
+        }
+
+        return session;
     }
 
-    /// <summary>
-    /// Pauses the session.
-    /// </summary>
-    public void Pause()
-    {
-        if (Status != SessionStatus.Running)
-            throw new InvalidOperationException($"Cannot pause session in status {Status}");
+    // ===== Lifecycle Overrides =====
 
-        var previousStatus = Status;
-        Status = SessionStatus.Paused;
+    /// <summary>
+    /// Pauses the session and training if running.
+    /// </summary>
+    public override void Pause()
+    {
+        base.Pause();
 
         // Also pause training if running
         if (FoundryTrainingStatus == FoundryTrainingStatus.Running)
+        {
             FoundryTrainingStatus = FoundryTrainingStatus.Paused;
-
-        EmitEvent(SessionEvent.StateChange(Id.Value, Status, previousStatus));
+        }
     }
 
     /// <summary>
-    /// Resumes a paused session.
+    /// Resumes the session and training if it was paused.
     /// </summary>
-    public void Resume()
+    public override void Resume()
     {
-        if (Status != SessionStatus.Paused)
-            throw new InvalidOperationException($"Cannot resume session in status {Status}");
-
-        var previousStatus = Status;
-        Status = SessionStatus.Running;
+        base.Resume();
 
         // Also resume training if it was paused
         if (FoundryTrainingStatus == FoundryTrainingStatus.Paused)
+        {
             FoundryTrainingStatus = FoundryTrainingStatus.Running;
-
-        EmitEvent(SessionEvent.StateChange(Id.Value, Status, previousStatus));
+        }
     }
 
     /// <summary>
-    /// Stops the session.
+    /// Stops the session and training.
     /// </summary>
-    public void Stop()
+    public override void Stop()
     {
-        if (Status == SessionStatus.Completed || Status == SessionStatus.Failed ||
-            Status == SessionStatus.Cancelled || Status == SessionStatus.Stopped)
-            throw new InvalidOperationException($"Cannot stop session in status {Status}");
-
-        var previousStatus = Status;
-        Status = SessionStatus.Stopped;
-        CompletedAt = DateTime.UtcNow;
-
+        // Stop training if running
         if (FoundryTrainingStatus == FoundryTrainingStatus.Running || FoundryTrainingStatus == FoundryTrainingStatus.Paused)
+        {
             FoundryTrainingStatus = FoundryTrainingStatus.Stopped;
+        }
 
-        EmitEvent(SessionEvent.StateChange(Id.Value, Status, previousStatus));
+        base.Stop();
     }
 
-    /// <summary>
-    /// Submits a command for execution.
-    /// </summary>
-    public SessionCommand SubmitCommand(string input)
-    {
-        if (Status != SessionStatus.Running)
-            throw new InvalidOperationException($"Cannot execute commands in session status {Status}");
-
-        var command = SessionCommand.Parse(input);
-        _commandHistory.Add(command);
-
-        EmitEvent(SessionEvent.CommandSubmitted(Id.Value, command));
-        return command;
-    }
+    // ===== Draft Management =====
 
     /// <summary>
     /// Loads a draft for editing/training.
@@ -250,8 +267,10 @@ public class FoundrySession
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(draftId);
         LoadedDraftId = draftId;
-        EmitEvent(SessionEvent.Info(Id.Value, $"Draft loaded: {draftId}"));
+        EmitEvent(SessionEvent.Info(Id, $"Draft loaded: {draftId}"));
     }
+
+    // ===== Training Management =====
 
     /// <summary>
     /// Starts a training run.
@@ -265,7 +284,7 @@ public class FoundrySession
             throw new InvalidOperationException("Training is already running.");
 
         FoundryTrainingStatus = FoundryTrainingStatus.Running;
-        EmitEvent(SessionEvent.Info(Id.Value, $"Training started with {Config.Training.Iterations} iterations"));
+        EmitEvent(SessionEvent.Info(Id, $"Training started with {Config.Training.Iterations} iterations"));
     }
 
     /// <summary>
@@ -277,7 +296,7 @@ public class FoundrySession
             throw new InvalidOperationException("Training is not running.");
 
         FoundryTrainingStatus = FoundryTrainingStatus.Paused;
-        EmitEvent(SessionEvent.Info(Id.Value, "Training paused"));
+        EmitEvent(SessionEvent.Info(Id, "Training paused"));
     }
 
     /// <summary>
@@ -289,7 +308,7 @@ public class FoundrySession
             throw new InvalidOperationException("Training is not paused.");
 
         FoundryTrainingStatus = FoundryTrainingStatus.Running;
-        EmitEvent(SessionEvent.Info(Id.Value, "Training resumed"));
+        EmitEvent(SessionEvent.Info(Id, "Training resumed"));
     }
 
     /// <summary>
@@ -301,8 +320,24 @@ public class FoundrySession
             throw new InvalidOperationException("Training is not running or paused.");
 
         FoundryTrainingStatus = FoundryTrainingStatus.Stopped;
-        EmitEvent(SessionEvent.Info(Id.Value, "Training stopped"));
+        EmitEvent(SessionEvent.Info(Id, "Training stopped"));
     }
+
+    /// <summary>
+    /// Marks training as complete.
+    /// </summary>
+    public void CompleteTraining()
+    {
+        if (FoundryTrainingStatus != FoundryTrainingStatus.Running && FoundryTrainingStatus != FoundryTrainingStatus.Paused)
+            throw new InvalidOperationException("Training is not running or paused.");
+
+        FoundryTrainingStatus = FoundryTrainingStatus.Completed;
+        UpdateMetrics();
+
+        EmitEvent(SessionEvent.Info(Id, $"Training completed. {_iterations.Count} iterations, avg score: {Metrics.AverageScore:P0}"));
+    }
+
+    // ===== Iteration Management =====
 
     /// <summary>
     /// Records a training iteration.
@@ -322,7 +357,7 @@ public class FoundrySession
         _iterations.Add(iteration);
         UpdateMetrics();
 
-        EmitEvent(SessionEvent.Info(Id.Value, $"Iteration {iteration.IterationNumber} completed in {durationMs}ms"));
+        EmitEvent(SessionEvent.Info(Id, $"Iteration {iteration.IterationNumber} completed in {durationMs}ms"));
         return iteration;
     }
 
@@ -338,22 +373,10 @@ public class FoundrySession
         UpdateMetrics();
 
         var status = needsHumanReview ? " (needs human review)" : "";
-        EmitEvent(SessionEvent.Info(Id.Value, $"Iteration {iteration.IterationNumber} evaluated: {score:P0}{status}"));
+        EmitEvent(SessionEvent.Info(Id, $"Iteration {iteration.IterationNumber} evaluated: {score:P0}{status}"));
     }
 
-    /// <summary>
-    /// Marks training as complete.
-    /// </summary>
-    public void CompleteTraining()
-    {
-        if (FoundryTrainingStatus != FoundryTrainingStatus.Running && FoundryTrainingStatus != FoundryTrainingStatus.Paused)
-            throw new InvalidOperationException("Training is not running or paused.");
-
-        FoundryTrainingStatus = FoundryTrainingStatus.Completed;
-        UpdateMetrics();
-
-        EmitEvent(SessionEvent.Info(Id.Value, $"Training completed. {_iterations.Count} iterations, avg score: {Metrics.AverageScore:P0}"));
-    }
+    // ===== Improvement Management =====
 
     /// <summary>
     /// Adds an improvement suggestion.
@@ -361,7 +384,7 @@ public class FoundrySession
     public void AddImprovement(ImprovementSuggestion improvement)
     {
         _improvements.Add(improvement);
-        EmitEvent(SessionEvent.Info(Id.Value, $"Improvement suggested: {improvement.Title}"));
+        EmitEvent(SessionEvent.Info(Id, $"Improvement suggested: {improvement.Title}"));
     }
 
     /// <summary>
@@ -375,51 +398,10 @@ public class FoundrySession
         improvement.Applied = true;
         improvement.AppliedAt = DateTime.UtcNow;
 
-        EmitEvent(SessionEvent.Info(Id.Value, $"Improvement applied: {improvement.Title}"));
+        EmitEvent(SessionEvent.Info(Id, $"Improvement applied: {improvement.Title}"));
     }
 
-    /// <summary>
-    /// Completes the session successfully.
-    /// </summary>
-    public void Complete()
-    {
-        if (Status != SessionStatus.Running && Status != SessionStatus.Paused)
-            throw new InvalidOperationException($"Cannot complete session in status {Status}");
-
-        var previousStatus = Status;
-        Status = SessionStatus.Completed;
-        CompletedAt = DateTime.UtcNow;
-
-        EmitEvent(SessionEvent.StateChange(Id.Value, Status, previousStatus));
-    }
-
-    /// <summary>
-    /// Fails the session with an error.
-    /// </summary>
-    public void Fail(string errorMessage)
-    {
-        if (Status != SessionStatus.Running && Status != SessionStatus.Paused && Status != SessionStatus.Created)
-            throw new InvalidOperationException($"Cannot fail session in status {Status}");
-
-        var previousStatus = Status;
-        Status = SessionStatus.Failed;
-        CompletedAt = DateTime.UtcNow;
-        ErrorMessage = errorMessage;
-
-        EmitEvent(SessionEvent.Error(Id.Value, errorMessage));
-        EmitEvent(SessionEvent.StateChange(Id.Value, Status, previousStatus));
-    }
-
-    /// <summary>
-    /// Transfers control to a new authority.
-    /// </summary>
-    public void TransferControl(Authority newAuthority)
-    {
-        var oldAuthority = Authority;
-        Authority = newAuthority;
-
-        EmitEvent(SessionEvent.Info(Id.Value, $"Control transferred from {oldAuthority} to {newAuthority}"));
-    }
+    // ===== Helpers =====
 
     /// <summary>
     /// Updates aggregated metrics from iterations.
@@ -444,12 +426,17 @@ public class FoundrySession
     }
 
     /// <summary>
-    /// Emits an event and records it in history.
+    /// Maps RepositoryAccessLevel to ContainerBinding RepositoryAccessLevel.
     /// </summary>
-    private void EmitEvent(SessionEvent evt)
+    private static Maestro.Domain.ValueObjects.RepositoryAccessLevel MapAccessLevel(Configuration.RepositoryAccessLevel level)
     {
-        _eventHistory.Add(evt);
-        OnEvent?.Invoke(this, evt);
+        return level switch
+        {
+            Configuration.RepositoryAccessLevel.ReadOnly => ValueObjects.RepositoryAccessLevel.ReadOnly,
+            Configuration.RepositoryAccessLevel.Controlled => ValueObjects.RepositoryAccessLevel.Controlled,
+            Configuration.RepositoryAccessLevel.Full => ValueObjects.RepositoryAccessLevel.Full,
+            _ => ValueObjects.RepositoryAccessLevel.Controlled
+        };
     }
 }
 

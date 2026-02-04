@@ -8,6 +8,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using Maestro.Application.Interfaces;
 using Maestro.Domain.Entities;
+using Maestro.Domain.Enums;
+using Maestro.Domain.ValueObjects;
 using Microsoft.Extensions.Logging;
 
 namespace Maestro.Infrastructure.Workspaces;
@@ -144,13 +146,17 @@ public class FileSystemWorkspaceRepository : IWorkspaceRepository
         public string? Description { get; set; }
         public string Type { get; set; } = "Custom";
         public string Status { get; set; } = "Active";
+        public string? Path { get; set; }
         public List<string> SessionIds { get; set; } = new();
         public List<string> ProjectIds { get; set; } = new();
         public string? CatalogRef { get; set; }
         public WorkspaceSettingsData Settings { get; set; } = new();
         public WorkspaceIsolationData Isolation { get; set; } = new();
+        public ContextPermissionsData Permissions { get; set; } = new();
+        public Dictionary<string, SessionTemplateData> SessionTemplates { get; set; } = new();
+        public Dictionary<string, string> EntryPoints { get; set; } = new();
         public DateTimeOffset CreatedAt { get; set; }
-        public DateTimeOffset UpdatedAt { get; set; }
+        public DateTimeOffset? UpdatedAt { get; set; }
         public string? CreatedBy { get; set; }
 
         public static WorkspaceData FromDomain(Workspace workspace)
@@ -162,11 +168,17 @@ public class FileSystemWorkspaceRepository : IWorkspaceRepository
                 Description = workspace.Description,
                 Type = workspace.Type.ToString(),
                 Status = workspace.Status.ToString(),
+                Path = workspace.Path,
                 SessionIds = workspace.SessionIds.ToList(),
                 ProjectIds = workspace.ProjectIds.ToList(),
                 CatalogRef = workspace.CatalogRef,
                 Settings = WorkspaceSettingsData.FromDomain(workspace.Settings),
                 Isolation = WorkspaceIsolationData.FromDomain(workspace.Isolation),
+                Permissions = ContextPermissionsData.FromDomain(workspace.Permissions),
+                SessionTemplates = workspace.SessionTemplates.ToDictionary(
+                    kvp => kvp.Key,
+                    kvp => SessionTemplateData.FromDomain(kvp.Value)),
+                EntryPoints = new Dictionary<string, string>(workspace.EntryPoints),
                 CreatedAt = workspace.CreatedAt,
                 UpdatedAt = workspace.UpdatedAt,
                 CreatedBy = workspace.CreatedBy
@@ -176,36 +188,125 @@ public class FileSystemWorkspaceRepository : IWorkspaceRepository
         public Workspace ToDomain()
         {
             var type = Enum.TryParse<WorkspaceType>(Type, true, out var t) ? t : WorkspaceType.Custom;
-            var workspace = Workspace.Create(Name, type, Description, CreatedBy);
+            var status = ParseStatus(Status);
 
-            // Use reflection to set private properties (since we're deserializing)
-            SetPrivateProperty(workspace, "Id", Id);
-            SetPrivateProperty(workspace, "Status", Enum.TryParse<WorkspaceStatus>(Status, true, out var s) ? s : WorkspaceStatus.Active);
-            SetPrivateProperty(workspace, "CreatedAt", CreatedAt);
-            SetPrivateProperty(workspace, "UpdatedAt", UpdatedAt);
-            SetPrivateProperty(workspace, "CatalogRef", CatalogRef);
-
-            // Set lists
-            foreach (var sessionId in SessionIds)
-                workspace.AddSession(sessionId);
-            foreach (var projectId in ProjectIds)
-                workspace.AddProject(projectId);
-
-            workspace.UpdateSettings(Settings.ToDomain());
-            workspace.UpdateIsolation(Isolation.ToDomain());
-
-            return workspace;
+            return Workspace.Reconstitute(
+                id: Id,
+                name: Name,
+                description: Description,
+                type: type,
+                status: status,
+                path: Path,
+                sessionIds: SessionIds,
+                projectIds: ProjectIds,
+                catalogRef: CatalogRef,
+                settings: Settings.ToDomain(),
+                isolation: Isolation.ToDomain(),
+                permissions: Permissions.ToDomain(),
+                sessionTemplates: SessionTemplates.ToDictionary(
+                    kvp => kvp.Key,
+                    kvp => kvp.Value.ToDomain()),
+                entryPoints: new Dictionary<string, string>(EntryPoints),
+                createdAt: CreatedAt,
+                updatedAt: UpdatedAt,
+                createdBy: CreatedBy
+            );
         }
 
-        private static void SetPrivateProperty(object obj, string propertyName, object? value)
+        private static ContainerSessionStatus ParseStatus(string status)
         {
-            var prop = obj.GetType().GetProperty(propertyName);
-            if (prop != null && prop.CanWrite == false)
+            // Support both old WorkspaceStatus and new ContainerSessionStatus values
+            return status.ToLowerInvariant() switch
             {
-                var backingField = obj.GetType().GetField($"<{propertyName}>k__BackingField",
-                    System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-                backingField?.SetValue(obj, value);
-            }
+                "active" => ContainerSessionStatus.Active,
+                "paused" => ContainerSessionStatus.Paused,
+                "archived" => ContainerSessionStatus.Archived,
+                "created" => ContainerSessionStatus.Created,
+                "ended" => ContainerSessionStatus.Ended,
+                "expired" => ContainerSessionStatus.Expired,
+                _ => ContainerSessionStatus.Active
+            };
+        }
+    }
+
+    private class ContextPermissionsData
+    {
+        public List<string> AllowedCommands { get; set; } = new();
+        public List<string> AllowedTools { get; set; } = new();
+        public List<string> AllowedBlocks { get; set; } = new();
+        public bool CanCreateBlocks { get; set; }
+        public bool CanCreateSessions { get; set; }
+        public List<string> DataCollections { get; set; } = new();
+        public List<string> AllowedPaths { get; set; } = new();
+
+        public static ContextPermissionsData FromDomain(ContextPermissions permissions)
+        {
+            return new ContextPermissionsData
+            {
+                AllowedCommands = permissions.AllowedCommands.ToList(),
+                AllowedTools = permissions.AllowedTools.ToList(),
+                AllowedBlocks = permissions.AllowedBlocks.ToList(),
+                CanCreateBlocks = permissions.CanCreateBlocks,
+                CanCreateSessions = permissions.CanCreateSessions,
+                DataCollections = permissions.DataCollections.ToList(),
+                AllowedPaths = permissions.AllowedPaths.ToList()
+            };
+        }
+
+        public ContextPermissions ToDomain()
+        {
+            return new ContextPermissions
+            {
+                AllowedCommands = AllowedCommands.ToList(),
+                AllowedTools = AllowedTools.ToList(),
+                AllowedBlocks = AllowedBlocks.ToList(),
+                CanCreateBlocks = CanCreateBlocks,
+                CanCreateSessions = CanCreateSessions,
+                DataCollections = DataCollections.ToList(),
+                AllowedPaths = AllowedPaths.ToList()
+            };
+        }
+    }
+
+    private class SessionTemplateData
+    {
+        public string Type { get; set; } = string.Empty;
+        public string? Description { get; set; }
+        public ContextPermissionsData Permissions { get; set; } = new();
+        public bool LogAllCommands { get; set; }
+        public int MaxDurationMinutes { get; set; }
+        public int MaxIterations { get; set; }
+        public bool AllowNestedSessions { get; set; }
+        public string? DefaultModelId { get; set; }
+
+        public static SessionTemplateData FromDomain(SessionTemplate template)
+        {
+            return new SessionTemplateData
+            {
+                Type = template.Type,
+                Description = template.Description,
+                Permissions = ContextPermissionsData.FromDomain(template.Permissions),
+                LogAllCommands = template.LogAllCommands,
+                MaxDurationMinutes = template.MaxDurationMinutes,
+                MaxIterations = template.MaxIterations,
+                AllowNestedSessions = template.AllowNestedSessions,
+                DefaultModelId = template.DefaultModelId
+            };
+        }
+
+        public SessionTemplate ToDomain()
+        {
+            return new SessionTemplate
+            {
+                Type = Type,
+                Description = Description,
+                Permissions = Permissions.ToDomain(),
+                LogAllCommands = LogAllCommands,
+                MaxDurationMinutes = MaxDurationMinutes,
+                MaxIterations = MaxIterations,
+                AllowNestedSessions = AllowNestedSessions,
+                DefaultModelId = DefaultModelId
+            };
         }
     }
 

@@ -10,16 +10,16 @@ namespace Maestro.Infrastructure.Cli;
 /// </summary>
 public class PermissionChecker : IPermissionChecker
 {
-    private readonly IExecutionSessionService _sessionService;
+    private readonly IProjectSessionServer _sessionServer;
     private readonly IWorkspaceService _workspaceService;
     private readonly ILogger<PermissionChecker> _logger;
 
     public PermissionChecker(
-        IExecutionSessionService sessionService,
+        IProjectSessionServer sessionServer,
         IWorkspaceService workspaceService,
         ILogger<PermissionChecker> logger)
     {
-        _sessionService = sessionService;
+        _sessionServer = sessionServer;
         _workspaceService = workspaceService;
         _logger = logger;
     }
@@ -33,16 +33,22 @@ public class PermissionChecker : IPermissionChecker
         {
             try
             {
-                var permissions = await _sessionService.GetEffectivePermissionsAsync(context.SessionId, ct);
-                _logger.LogDebug(
-                    "Resolved permissions from session {SessionId}",
-                    context.SessionId);
-                return permissions;
+                var sessionId = SessionId.From(context.SessionId);
+                var session = await _sessionServer.GetAsync(sessionId);
+                if (session != null)
+                {
+                    var permissions = session.GetEffectivePermissions();
+                    _logger.LogDebug(
+                        "Resolved permissions from session {SessionId}",
+                        context.SessionId);
+                    return permissions;
+                }
             }
-            catch (KeyNotFoundException)
+            catch (Exception ex)
             {
                 _logger.LogWarning(
-                    "Session {SessionId} not found, falling back to workspace permissions",
+                    ex,
+                    "Session {SessionId} not found or invalid, falling back to workspace permissions",
                     context.SessionId);
                 // Fall through to workspace check
             }
@@ -57,7 +63,7 @@ public class PermissionChecker : IPermissionChecker
                 _logger.LogDebug(
                     "Resolved permissions from workspace {WorkspaceId}",
                     context.WorkspaceId);
-                return workspace.Permissions;
+                return workspace.GetEffectivePermissions();
             }
 
             _logger.LogWarning(
