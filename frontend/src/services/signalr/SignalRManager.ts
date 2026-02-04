@@ -11,6 +11,80 @@ import {
   HubConnectionState,
 } from '@microsoft/signalr';
 
+// Workspace SignalR message types
+export interface WorkspaceJoinedMessage {
+  workspaceId: string;
+  workspaceName: string;
+  activeSessionCount: number;
+  timestamp: string;
+}
+
+export interface WorkspaceSessionStateMessage {
+  workspaceId: string;
+  sessionId: string;
+  sessionType: string;
+  newStatus: string;
+  previousStatus?: string;
+  blocksCompleted: number;
+  blocksTotal: number;
+  currentBlockName?: string;
+  timestamp: string;
+}
+
+export interface WorkspaceSessionEventMessage {
+  workspaceId: string;
+  sessionId: string;
+  eventType: string;
+  source: string;
+  message: string;
+  level: 'debug' | 'info' | 'warn' | 'error';
+  timestamp: string;
+  data?: Record<string, unknown>;
+}
+
+export interface WorkspaceAgentEventMessage {
+  workspaceId: string;
+  sessionId: string;
+  agentId: string;
+  agentName: string;
+  eventType: string;
+  message: string;
+  timestamp: string;
+  data?: Record<string, unknown>;
+}
+
+export interface WorkspaceMetricsMessage {
+  workspaceId: string;
+  activeSessionCount: number;
+  totalBlockExecutions: number;
+  errorCount: number;
+  averageLatencyMs: number;
+  timestamp: string;
+}
+
+export interface WorkspacePromotionMessage {
+  sourceWorkspaceId: string;
+  targetWorkspaceId: string;
+  promotionType: string;
+  blockId?: string;
+  blockName?: string;
+  message: string;
+  timestamp: string;
+}
+
+export interface WorkspaceConsoleLogMessage {
+  id: string;
+  workspaceId: string;
+  sessionId: string;
+  sessionName: string;
+  blockId?: string;
+  blockName?: string;
+  level: 'debug' | 'info' | 'warn' | 'error';
+  message: string;
+  timestamp: string;
+  data?: Record<string, unknown>;
+}
+
 /**
  * SignalR Manager for managing multiple hub connections
  */
@@ -201,6 +275,112 @@ class SignalRManager {
       if (callbacks.onBlockAdded) connection.off('BlockAdded', callbacks.onBlockAdded);
       if (callbacks.onBlockUpdated) connection.off('BlockUpdated', callbacks.onBlockUpdated);
       if (callbacks.onBlockDeleted) connection.off('BlockDeleted', callbacks.onBlockDeleted);
+    };
+  }
+
+  /**
+   * Get or create connection to workspace hub
+   */
+  async connectToWorkspaceHub(): Promise<HubConnection | null> {
+    if (!this.isEnabled) {
+      console.log('[SignalR] Disabled in mock mode');
+      return null;
+    }
+
+    if (this.connections.has('workspaces')) {
+      const connection = this.connections.get('workspaces')!;
+      if (connection.state === HubConnectionState.Connected) {
+        return connection;
+      }
+    }
+
+    try {
+      const connection = new HubConnectionBuilder()
+        .withUrl(`${this.apiBaseUrl}/hubs/workspaces`)
+        .withAutomaticReconnect({
+          nextRetryDelayInMilliseconds: () => {
+            return Math.min(5000 * Math.pow(2, this.getRetryCount('workspaces')), 30000);
+          },
+        })
+        .configureLogging(LogLevel.Information)
+        .build();
+
+      // Connection lifecycle event handlers
+      connection.onreconnecting((error) => {
+        console.log('[SignalR Workspace Hub] Reconnecting...', error);
+      });
+
+      connection.onreconnected((connectionId) => {
+        console.log(`[SignalR Workspace Hub] Reconnected: ${connectionId}`);
+        this.resetRetryCount('workspaces');
+      });
+
+      connection.onclose((error) => {
+        console.log('[SignalR Workspace Hub] Connection closed', error);
+        this.connections.delete('workspaces');
+      });
+
+      await connection.start();
+      console.log('[SignalR Workspace Hub] Connected');
+
+      this.connections.set('workspaces', connection);
+      return connection;
+    } catch (error) {
+      console.error('[SignalR Workspace Hub] Failed to connect:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Subscribe to workspace events
+   */
+  async subscribeToWorkspaceEvents(
+    workspaceId: string,
+    callbacks: {
+      onWorkspaceJoined?: (data: WorkspaceJoinedMessage) => void;
+      onSessionStateChange?: (data: WorkspaceSessionStateMessage) => void;
+      onSessionEvent?: (data: WorkspaceSessionEventMessage) => void;
+      onAgentEvent?: (data: WorkspaceAgentEventMessage) => void;
+      onMetricsUpdate?: (data: WorkspaceMetricsMessage) => void;
+      onPromotionEvent?: (data: WorkspacePromotionMessage) => void;
+      onConsoleLog?: (data: WorkspaceConsoleLogMessage) => void;
+    }
+  ): Promise<(() => Promise<void>) | null> {
+    const connection = await this.connectToWorkspaceHub();
+    if (!connection) return null;
+
+    // Join the workspace room
+    try {
+      await connection.invoke('JoinWorkspace', workspaceId);
+    } catch (error) {
+      console.error('[SignalR] Failed to join workspace:', error);
+      return null;
+    }
+
+    // Register event handlers
+    if (callbacks.onWorkspaceJoined) connection.on('OnWorkspaceJoined', callbacks.onWorkspaceJoined);
+    if (callbacks.onSessionStateChange) connection.on('OnSessionStateChange', callbacks.onSessionStateChange);
+    if (callbacks.onSessionEvent) connection.on('OnSessionEvent', callbacks.onSessionEvent);
+    if (callbacks.onAgentEvent) connection.on('OnAgentEvent', callbacks.onAgentEvent);
+    if (callbacks.onMetricsUpdate) connection.on('OnMetricsUpdate', callbacks.onMetricsUpdate);
+    if (callbacks.onPromotionEvent) connection.on('OnPromotionEvent', callbacks.onPromotionEvent);
+    if (callbacks.onConsoleLog) connection.on('OnConsoleLog', callbacks.onConsoleLog);
+
+    // Return unsubscribe function
+    return async () => {
+      if (callbacks.onWorkspaceJoined) connection.off('OnWorkspaceJoined', callbacks.onWorkspaceJoined);
+      if (callbacks.onSessionStateChange) connection.off('OnSessionStateChange', callbacks.onSessionStateChange);
+      if (callbacks.onSessionEvent) connection.off('OnSessionEvent', callbacks.onSessionEvent);
+      if (callbacks.onAgentEvent) connection.off('OnAgentEvent', callbacks.onAgentEvent);
+      if (callbacks.onMetricsUpdate) connection.off('OnMetricsUpdate', callbacks.onMetricsUpdate);
+      if (callbacks.onPromotionEvent) connection.off('OnPromotionEvent', callbacks.onPromotionEvent);
+      if (callbacks.onConsoleLog) connection.off('OnConsoleLog', callbacks.onConsoleLog);
+
+      try {
+        await connection.invoke('LeaveWorkspace', workspaceId);
+      } catch (error) {
+        console.error('[SignalR] Failed to leave workspace:', error);
+      }
     };
   }
 

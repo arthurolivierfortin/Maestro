@@ -1,0 +1,197 @@
+/**
+ * WorkspaceInspector Styles
+ *
+ * External workspace information panel.
+ */
+
+.workspace-inspector {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 13px;
+  color: #e5e7eb;
+
+  // Header
+  &__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-bottom: 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  &__title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  &__icon {
+    font-size: 18px;
+  }
+
+  &__name {
+    font-size: 14px;
+    font-weight: 600;
+    color: #9ca3af;
+  }
+
+  &__status {
+    font-size: 10px;
+    padding: 3px 8px;
+    border-radius: 4px;
+    background: rgba(107, 114, 128, 0.2);
+    color: #6b7280;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+
+    &--online {
+      background: rgba(34, 197, 94, 0.2);
+      color: #22c55e;
+    }
+  }
+
+  // Workspace name
+  &__workspace-name {
+    font-size: 20px;
+    font-weight: 600;
+    color: #fff;
+    padding-bottom: 8px;
+  }
+
+  // Sections
+  &__section {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  &__section-header {
+    font-size: 11px;
+    font-weight: 600;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  // Type badge
+  &__type-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-weight: 500;
+    width: fit-content;
+  }
+
+  // Relationship
+  &__relationship {
+    padding: 12px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    border: 1px dashed rgba(255, 255, 255, 0.1);
+  }
+
+  &__relationship-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  &__relationship-icon {
+    font-size: 16px;
+  }
+
+  &__relationship-type {
+    font-weight: 600;
+    color: #fff;
+  }
+
+  &__relationship-description {
+    font-size: 12px;
+    color: #9ca3af;
+    line-height: 1.5;
+    margin: 0;
+  }
+
+  // Statistics
+  &__stats {
+    display: flex;
+    gap: 12px;
+  }
+
+  &__stat {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 12px 20px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    flex: 1;
+  }
+
+  &__stat-value {
+    font-size: 24px;
+    font-weight: 600;
+    color: #fff;
+  }
+
+  &__stat-label {
+    font-size: 10px;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  // ID
+  &__id {
+    display: block;
+    padding: 8px;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 4px;
+    font-family: 'Monaco', 'Menlo', monospace;
+    font-size: 11px;
+    color: #9ca3af;
+    word-break: break-all;
+  }
+
+  // Actions
+  &__actions {
+    display: flex;
+    gap: 8px;
+    padding-top: 12px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    margin-top: auto;
+  }
+
+  &__action {
+    flex: 1;
+    padding: 10px 16px;
+    background: rgba(255, 255, 255, 0.1);
+    border: none;
+    border-radius: 6px;
+    color: #e5e7eb;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s ease;
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.15);
+    }
+
+    &--primary {
+      background: rgba(59, 130, 246, 0.2);
+      color: #3b82f6;
+
+      &:hover {
+        background: rgba(59, 130, 246, 0.3);
+      }
+    }
+  }
+}

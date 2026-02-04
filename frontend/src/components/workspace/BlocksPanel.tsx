@@ -1,54 +1,40 @@
 /**
  * Blocks Panel Component
  *
- * Displays all blocks in a workspace with filtering, searching,
- * and action capabilities (run, edit, view, delete).
+ * Displays all blocks in a workspace using the shared BlockGrid component.
+ * Reuses Foundry components for consistent styling.
  */
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Search, X } from 'lucide-react';
 import { blockService } from '../../services/blockService';
-import type { Block } from '../../types/block.types';
-import { BlockExecuteModal } from './BlockExecuteModal';
+import { BlockGrid } from '../Foundry/BlockGrid';
+import { Button } from '../common/Button';
+import { BlockIcon } from '../icons';
+import type { Block, BlockType } from '../../types/block.types';
 import './BlocksPanel.scss';
 
 interface BlocksPanelProps {
   workspaceId: string;
 }
 
-type FilterType = 'all' | 'tool' | 'agent' | 'workflow' | 'prompt' | 'inference';
+type FilterType = 'all' | BlockType;
 
-const BLOCK_TYPE_ICONS: Record<string, string> = {
-  tool: '🔧',
-  agent: '🤖',
-  workflow: '🔄',
-  prompt: '💬',
-  inference: '🧠',
-  task: '📋',
-  decision: '🔀',
-  validator: '✅',
-  trigger: '⚡',
-  script: '📜',
-  default: '📦',
-};
-
-const FILTER_OPTIONS: { id: FilterType; label: string }[] = [
+const FILTER_OPTIONS: { id: FilterType; label: string; type?: BlockType }[] = [
   { id: 'all', label: 'All' },
-  { id: 'tool', label: 'Tools' },
-  { id: 'agent', label: 'Agents' },
-  { id: 'workflow', label: 'Workflows' },
-  { id: 'prompt', label: 'Prompts' },
-  { id: 'inference', label: 'Inference' },
+  { id: 'tool', label: 'Tools', type: 'tool' },
+  { id: 'agent', label: 'Agents', type: 'agent' },
+  { id: 'workflow', label: 'Workflows', type: 'workflow' },
+  { id: 'prompt', label: 'Prompts', type: 'prompt' },
+  { id: 'inference', label: 'Inference', type: 'inference' },
 ];
 
 export const BlocksPanel: React.FC<BlocksPanelProps> = ({ workspaceId }) => {
-  const navigate = useNavigate();
   const [blocks, setBlocks] = useState<Block[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<FilterType>('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [executeBlock, setExecuteBlock] = useState<Block | null>(null);
 
   // Load blocks
   useEffect(() => {
@@ -103,41 +89,12 @@ export const BlocksPanel: React.FC<BlocksPanelProps> = ({ workspaceId }) => {
     return grouped;
   }, [blocks]);
 
-  const handleRun = useCallback((block: Block) => {
-    setExecuteBlock(block);
-  }, []);
-
-  const handleView = useCallback((block: Block) => {
-    navigate(`/blocks/${block.id}`);
-  }, [navigate]);
-
-  const handleEdit = useCallback((block: Block) => {
-    navigate(`/blocks/${block.id}/edit`);
-  }, [navigate]);
-
-  const handleDelete = useCallback(async (block: Block) => {
-    if (!confirm(`Are you sure you want to delete "${block.name}"?`)) {
-      return;
-    }
-
-    try {
-      await blockService.delete(block.id);
-      setBlocks(prev => prev.filter(b => b.id !== block.id));
-    } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to delete block');
-    }
-  }, []);
-
-  const getBlockIcon = (type: string): string => {
-    return BLOCK_TYPE_ICONS[type] || BLOCK_TYPE_ICONS.default;
-  };
-
   if (isLoading) {
     return (
       <div className="blocks-panel">
-        <h2>Blocks</h2>
+        <h2 className="blocks-panel__title">Blocks</h2>
         <div className="blocks-panel__loading">
-          <span className="blocks-panel__spinner"></span>
+          <span className="blocks-panel__spinner" />
           Loading blocks...
         </div>
       </div>
@@ -147,10 +104,10 @@ export const BlocksPanel: React.FC<BlocksPanelProps> = ({ workspaceId }) => {
   if (error) {
     return (
       <div className="blocks-panel">
-        <h2>Blocks</h2>
+        <h2 className="blocks-panel__title">Blocks</h2>
         <div className="blocks-panel__error">
-          <span className="blocks-panel__error-icon">❌</span>
-          {error}
+          <X size={24} />
+          <span>{error}</span>
         </div>
       </div>
     );
@@ -160,18 +117,18 @@ export const BlocksPanel: React.FC<BlocksPanelProps> = ({ workspaceId }) => {
     <div className="blocks-panel">
       {/* Header */}
       <div className="blocks-panel__header">
-        <h2>Blocks ({blocks.length})</h2>
+        <h2 className="blocks-panel__title">Blocks ({blocks.length})</h2>
       </div>
 
-      {/* Summary */}
+      {/* Summary - using Lucide BlockIcons */}
       <div className="blocks-panel__summary">
         {Object.entries(blocksByType).map(([type, typeBlocks]) => (
           <button
             key={type}
-            className={`blocks-panel__summary-item ${filter === type ? 'active' : ''}`}
+            className={`blocks-panel__summary-item ${filter === type ? 'blocks-panel__summary-item--active' : ''}`}
             onClick={() => setFilter(filter === type ? 'all' : type as FilterType)}
           >
-            <span className="blocks-panel__summary-icon">{getBlockIcon(type)}</span>
+            <BlockIcon type={type as BlockType} size={16} />
             <span className="blocks-panel__summary-label">{type}</span>
             <span className="blocks-panel__summary-count">{typeBlocks.length}</span>
           </button>
@@ -182,135 +139,41 @@ export const BlocksPanel: React.FC<BlocksPanelProps> = ({ workspaceId }) => {
       <div className="blocks-panel__toolbar">
         <div className="blocks-panel__filters">
           {FILTER_OPTIONS.map(option => (
-            <button
+            <Button
               key={option.id}
-              className={`blocks-panel__filter ${filter === option.id ? 'active' : ''}`}
+              variant={filter === option.id ? 'primary' : 'ghost'}
+              size="sm"
               onClick={() => setFilter(option.id)}
             >
+              {option.type && <BlockIcon type={option.type} size={14} />}
               {option.label}
-            </button>
+            </Button>
           ))}
         </div>
         <div className="blocks-panel__search">
+          <Search size={16} className="blocks-panel__search-icon" />
           <input
             type="text"
             placeholder="Search blocks..."
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
+            className="blocks-panel__search-input"
           />
           {searchQuery && (
             <button
               className="blocks-panel__search-clear"
               onClick={() => setSearchQuery('')}
             >
-              ×
+              <X size={14} />
             </button>
           )}
         </div>
       </div>
 
-      {/* Block List */}
-      <div className="blocks-panel__list">
-        {filteredBlocks.length === 0 ? (
-          <div className="blocks-panel__empty">
-            {searchQuery || filter !== 'all' ? (
-              <p>No blocks match your filters.</p>
-            ) : (
-              <>
-                <div className="blocks-panel__empty-icon">📦</div>
-                <p>No blocks in this workspace yet.</p>
-              </>
-            )}
-          </div>
-        ) : (
-          filteredBlocks.map(block => (
-            <div key={block.id} className="block-card">
-              <div className="block-card__header">
-                <span className="block-card__icon">{getBlockIcon(block.blockType)}</span>
-                <div className="block-card__title-group">
-                  <h3 className="block-card__name">{block.name}</h3>
-                  <span className="block-card__type">{block.blockType}</span>
-                </div>
-              </div>
-
-              {block.metadata?.description && (
-                <p className="block-card__description">
-                  {block.metadata.description}
-                </p>
-              )}
-
-              {block.metadata?.tags && block.metadata.tags.length > 0 && (
-                <div className="block-card__tags">
-                  {block.metadata.tags.slice(0, 5).map(tag => (
-                    <span key={tag} className="block-card__tag">{tag}</span>
-                  ))}
-                  {block.metadata.tags.length > 5 && (
-                    <span className="block-card__tag block-card__tag--more">
-                      +{block.metadata.tags.length - 5}
-                    </span>
-                  )}
-                </div>
-              )}
-
-              {block.capabilities && block.capabilities.length > 0 && (
-                <div className="block-card__capabilities">
-                  {block.capabilities.slice(0, 3).map(cap => (
-                    <span key={cap} className="block-card__capability">{cap}</span>
-                  ))}
-                  {block.capabilities.length > 3 && (
-                    <span className="block-card__capability block-card__capability--more">
-                      +{block.capabilities.length - 3}
-                    </span>
-                  )}
-                </div>
-              )}
-
-              <div className="block-card__actions">
-                <button
-                  className="block-card__action block-card__action--run"
-                  onClick={() => handleRun(block)}
-                  title="Run block"
-                >
-                  ▶ Run
-                </button>
-                <button
-                  className="block-card__action"
-                  onClick={() => handleView(block)}
-                  title="View details"
-                >
-                  📋 View
-                </button>
-                <button
-                  className="block-card__action"
-                  onClick={() => handleEdit(block)}
-                  title="Edit block"
-                >
-                  ✏️ Edit
-                </button>
-                <button
-                  className="block-card__action block-card__action--delete"
-                  onClick={() => handleDelete(block)}
-                  title="Delete block"
-                >
-                  🗑️
-                </button>
-              </div>
-            </div>
-          ))
-        )}
+      {/* Block Grid - Reusing Foundry component */}
+      <div className="blocks-panel__content">
+        <BlockGrid blocks={filteredBlocks} />
       </div>
-
-      {/* Execute Modal */}
-      {executeBlock && (
-        <BlockExecuteModal
-          block={executeBlock}
-          workspaceId={workspaceId}
-          onClose={() => setExecuteBlock(null)}
-          onExecuted={(result) => {
-            console.log('Block executed:', result);
-          }}
-        />
-      )}
     </div>
   );
 };

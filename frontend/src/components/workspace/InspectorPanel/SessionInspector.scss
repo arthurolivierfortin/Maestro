@@ -1,0 +1,338 @@
+/**
+ * SessionInspector Styles
+ *
+ * Detailed session information panel.
+ */
+
+.session-inspector {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 13px;
+  color: #e5e7eb;
+
+  // Header
+  &__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-bottom: 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  &__title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  &__icon {
+    font-size: 18px;
+  }
+
+  &__name {
+    font-size: 16px;
+    font-weight: 600;
+    color: #fff;
+  }
+
+  &__status {
+    font-size: 10px;
+    padding: 3px 8px;
+    border-radius: 4px;
+    color: #fff;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  // ID
+  &__id {
+    code {
+      display: block;
+      padding: 8px;
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 4px;
+      font-family: 'Monaco', 'Menlo', monospace;
+      font-size: 11px;
+      color: #9ca3af;
+      word-break: break-all;
+    }
+  }
+
+  // Sections
+  &__section {
+    &--error {
+      .session-inspector__section-header {
+        color: #ef4444;
+      }
+    }
+  }
+
+  &__section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 11px;
+    font-weight: 600;
+    color: #9ca3af;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 8px;
+  }
+
+  &__view-all {
+    font-size: 10px;
+    padding: 2px 6px;
+    background: rgba(59, 130, 246, 0.2);
+    border: none;
+    border-radius: 4px;
+    color: #3b82f6;
+    cursor: pointer;
+    transition: background 0.15s ease;
+
+    &:hover {
+      background: rgba(59, 130, 246, 0.3);
+    }
+  }
+
+  // Progress
+  &__progress {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  &__progress-bar {
+    height: 8px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+
+  &__progress-fill {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.3s ease;
+  }
+
+  &__progress-label {
+    font-size: 12px;
+    color: #9ca3af;
+    text-align: center;
+  }
+
+  // Current block
+  &__current-block {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px;
+    background: rgba(59, 130, 246, 0.1);
+    border: 1px solid rgba(59, 130, 246, 0.3);
+    border-radius: 6px;
+  }
+
+  &__current-block-icon {
+    color: #3b82f6;
+    font-size: 12px;
+    animation: pulse 1.5s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+
+  &__current-block-name {
+    flex: 1;
+    font-weight: 500;
+    color: #fff;
+  }
+
+  &__current-block-type {
+    font-size: 10px;
+    padding: 2px 6px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+    color: #9ca3af;
+  }
+
+  // Details
+  &__details {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  &__detail-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 4px 0;
+  }
+
+  &__detail-label {
+    font-size: 12px;
+    color: #6b7280;
+  }
+
+  &__detail-value {
+    font-size: 12px;
+    color: #e5e7eb;
+  }
+
+  // Error
+  &__error {
+    padding: 10px;
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    border-radius: 6px;
+    font-size: 12px;
+    color: #fca5a5;
+    line-height: 1.5;
+  }
+
+  // Failed blocks
+  &__failed-blocks {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  &__failed-block {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 8px;
+    background: rgba(239, 68, 68, 0.1);
+    border-radius: 4px;
+  }
+
+  &__failed-block-icon {
+    color: #ef4444;
+    font-size: 10px;
+  }
+
+  &__failed-block-name {
+    font-weight: 500;
+    color: #fca5a5;
+  }
+
+  &__failed-block-error {
+    font-size: 11px;
+    color: #9ca3af;
+  }
+
+  // Logs
+  &__logs {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    max-height: 150px;
+    overflow-y: auto;
+
+    &::-webkit-scrollbar {
+      width: 4px;
+    }
+
+    &::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 2px;
+    }
+  }
+
+  &__log {
+    display: flex;
+    gap: 8px;
+    padding: 4px 8px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 4px;
+    font-size: 11px;
+
+    &--info {
+      border-left: 2px solid #3b82f6;
+    }
+
+    &--warn {
+      border-left: 2px solid #f59e0b;
+    }
+
+    &--error {
+      border-left: 2px solid #ef4444;
+    }
+
+    &--debug {
+      border-left: 2px solid #6b7280;
+    }
+  }
+
+  &__log-time {
+    color: #6b7280;
+    flex-shrink: 0;
+    font-family: 'Monaco', 'Menlo', monospace;
+  }
+
+  &__log-message {
+    color: #e5e7eb;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  // Actions
+  &__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding-top: 12px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    margin-top: auto;
+  }
+
+  &__action {
+    flex: 1;
+    min-width: 80px;
+    padding: 8px 12px;
+    background: rgba(255, 255, 255, 0.1);
+    border: none;
+    border-radius: 6px;
+    color: #e5e7eb;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.15);
+    }
+
+    &--primary {
+      background: rgba(59, 130, 246, 0.2);
+      color: #3b82f6;
+
+      &:hover {
+        background: rgba(59, 130, 246, 0.3);
+      }
+    }
+
+    &--secondary {
+      background: rgba(139, 92, 246, 0.2);
+      color: #a78bfa;
+
+      &:hover {
+        background: rgba(139, 92, 246, 0.3);
+      }
+    }
+
+    &--danger {
+      background: rgba(239, 68, 68, 0.2);
+      color: #fca5a5;
+
+      &:hover {
+        background: rgba(239, 68, 68, 0.3);
+      }
+    }
+  }
+}

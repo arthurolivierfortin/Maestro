@@ -84,6 +84,9 @@
   }
 
   &__status {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
     font-size: var(--font-size-sm);
     color: var(--text-secondary);
   }
@@ -182,6 +185,25 @@
     overflow-y: auto;
     padding: var(--spacing-lg);
   }
+
+  // Canvas container - full height for React Flow (legacy)
+  &__canvas-container {
+    height: calc(100vh - 180px);
+    min-height: 500px;
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    background: #0d1117;
+  }
+
+  // Live view container - full 3-column layout
+  &__live-view-container {
+    height: calc(100vh - 180px);
+    min-height: 500px;
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    margin: calc(var(--spacing-lg) * -1); // Expand to fill parent padding
+    margin-top: 0;
+  }
 }
 
 // Overview Panel
@@ -218,6 +240,12 @@
     font-size: var(--font-size-lg);
     font-weight: var(--font-weight-semibold);
     color: var(--text-primary);
+
+    &--status {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-xs);
+    }
   }
 
   &__section {
@@ -295,7 +323,11 @@
   border-radius: var(--radius-md);
 
   &__status {
-    font-size: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
     flex-shrink: 0;
   }
 
@@ -349,9 +381,9 @@
   text-align: center;
 
   &__icon {
-    font-size: 48px;
     margin-bottom: var(--spacing-md);
     opacity: 0.5;
+    color: var(--text-tertiary);
   }
 
   p {

@@ -3,10 +3,30 @@
  *
  * Generic workspace detail view with UI block slot.
  * Shows generic overview + custom UI panels defined by workspace.
+ * Includes Vivado-inspired canvas view for session visualization.
+ * Uses Lucide icons for consistency.
  */
 
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import {
+  ArrowLeft,
+  LayoutDashboard,
+  Palette,
+  Layers,
+  RefreshCw,
+  FileText,
+  Image,
+  Play,
+  Pause,
+  Clock,
+  CheckCircle,
+  XCircle,
+  StopCircle,
+  Archive,
+  Trash2,
+  Circle,
+} from 'lucide-react';
 import { useWorkspaceStore } from '../store/workspaceStore';
 import { useSessionStore } from '../store/sessionStore';
 import { UIBlockRenderer } from '../components/ui-block';
@@ -18,19 +38,48 @@ import {
   RecentActivity,
   WorkspaceHealth,
 } from '../components/workspace';
+import { WorkspaceLiveView } from '../components/workspace/WorkspaceLiveView';
+import { Button } from '../components/common/Button';
+import type { Session, SessionStatus } from '../types/session.types';
 import './WorkspaceDetailPage.scss';
 
 // ============= Tab Types =============
 
-type TabId = 'overview' | 'blocks' | 'sessions' | 'logs' | string;
+type TabId = 'overview' | 'canvas' | 'blocks' | 'sessions' | 'logs' | string;
 
 interface Tab {
   id: TabId;
   label: string;
-  icon: string;
+  icon: React.ReactNode;
   isUIBlock?: boolean;
   blockId?: string;
 }
+
+// ============= Status Icon Component =============
+
+const StatusIcon: React.FC<{ status: string; size?: number }> = ({ status, size = 14 }) => {
+  const props = { size };
+  switch (status) {
+    case 'Active':
+      return <Circle {...props} fill="#22c55e" color="#22c55e" />;
+    case 'Running':
+      return <Play {...props} fill="#3b82f6" color="#3b82f6" />;
+    case 'Pending':
+      return <Clock {...props} color="#8b5cf6" />;
+    case 'Paused':
+      return <Pause {...props} color="#f59e0b" />;
+    case 'Completed':
+      return <CheckCircle {...props} color="#22c55e" />;
+    case 'Failed':
+      return <XCircle {...props} color="#ef4444" />;
+    case 'Cancelled':
+      return <StopCircle {...props} color="#6b7280" />;
+    case 'Archived':
+      return <Archive {...props} color="#6b7280" />;
+    default:
+      return <Circle {...props} color="#6b7280" />;
+  }
+};
 
 // ============= Sub-Components =============
 
@@ -82,11 +131,9 @@ const OverviewPanel: React.FC<OverviewPanelProps> = ({ workspace, onNavigateToBl
       <div className="overview-panel__grid">
         <div className="overview-panel__card">
           <div className="overview-panel__card-label">Status</div>
-          <div className="overview-panel__card-value">
-            {workspace.status === 'Active' && '🟢'}
-            {workspace.status === 'Paused' && '🟡'}
-            {workspace.status === 'Archived' && '🔵'}
-            {' '}{workspace.status}
+          <div className="overview-panel__card-value overview-panel__card-value--status">
+            <StatusIcon status={workspace.status} />
+            <span>{workspace.status}</span>
           </div>
         </div>
 
@@ -174,7 +221,9 @@ const SessionsPanel: React.FC<SessionsPanelProps> = ({ workspaceId }) => {
   if (workspaceSessions.length === 0) {
     return (
       <div className="panel-empty">
-        <div className="panel-empty__icon">🔄</div>
+        <div className="panel-empty__icon">
+          <RefreshCw size={48} strokeWidth={1.5} />
+        </div>
         <p>No sessions in this workspace yet</p>
       </div>
     );
@@ -187,12 +236,7 @@ const SessionsPanel: React.FC<SessionsPanelProps> = ({ workspaceId }) => {
         {workspaceSessions.map(session => (
           <div key={session.id} className="session-item">
             <div className="session-item__status">
-              {session.status === 'Running' && '🟢'}
-              {session.status === 'Pending' && '⏳'}
-              {session.status === 'Completed' && '✅'}
-              {session.status === 'Failed' && '❌'}
-              {session.status === 'Paused' && '🟡'}
-              {session.status === 'Cancelled' && '⚫'}
+              <StatusIcon status={session.status} size={20} />
             </div>
             <div className="session-item__content">
               <div className="session-item__id">{session.id}</div>
@@ -223,29 +267,53 @@ export function WorkspaceDetailPage() {
   const {
     currentWorkspace,
     uiBlocks,
+    topology,
     isLoading,
     error,
     loadWorkspace,
     loadUIBlocks,
+    loadTopology,
     pauseWorkspace,
     resumeWorkspace,
     archiveWorkspace,
     deleteWorkspace
   } = useWorkspaceStore();
 
+  const { sessions, loadSessions } = useSessionStore();
+
+  // Filter sessions for current workspace
+  const workspaceSessions = useMemo<Session[]>(() => {
+    if (!currentWorkspace) return [];
+    return sessions
+      .filter(s => s.workspaceId === currentWorkspace.id)
+      .map(summary => ({
+        ...summary,
+        executions: [],
+        recentLogs: [],
+      } as Session));
+  }, [sessions, currentWorkspace]);
+
   useEffect(() => {
     if (id) {
       loadWorkspace(id);
       loadUIBlocks(id);
+      loadTopology();
+      loadSessions({ workspaceId: id });
     }
-  }, [id, loadWorkspace, loadUIBlocks]);
+  }, [id, loadWorkspace, loadUIBlocks, loadTopology, loadSessions]);
+
+  // Handle external workspace click (navigate to that workspace)
+  const handleExternalWorkspaceClick = useCallback((workspaceId: string) => {
+    navigate(`/workspaces/${workspaceId}`);
+  }, [navigate]);
 
   // Built-in tabs
   const builtInTabs: Tab[] = [
-    { id: 'overview', label: 'Overview', icon: '📊' },
-    { id: 'blocks', label: 'Blocks', icon: '🧱' },
-    { id: 'sessions', label: 'Sessions', icon: '🔄' },
-    { id: 'logs', label: 'Logs', icon: '📜' }
+    { id: 'overview', label: 'Overview', icon: <LayoutDashboard size={16} /> },
+    { id: 'canvas', label: 'Canvas', icon: <Palette size={16} /> },
+    { id: 'blocks', label: 'Blocks', icon: <Layers size={16} /> },
+    { id: 'sessions', label: 'Sessions', icon: <RefreshCw size={16} /> },
+    { id: 'logs', label: 'Logs', icon: <FileText size={16} /> }
   ];
 
   // UI block tabs (custom panels from workspace)
@@ -255,7 +323,7 @@ export function WorkspaceDetailPage() {
       .map(b => ({
         id: `ui:${b.id}`,
         label: b.name,
-        icon: '🖼️',
+        icon: <Image size={16} />,
         isUIBlock: true,
         blockId: b.id
       })),
@@ -286,6 +354,19 @@ export function WorkspaceDetailPage() {
             workspace={currentWorkspace}
             onNavigateToBlocks={handleNavigateToBlocks}
           />
+        );
+      case 'canvas':
+        return (
+          <div className="workspace-detail-page__live-view-container">
+            <WorkspaceLiveView
+              workspace={currentWorkspace}
+              sessions={workspaceSessions}
+              topology={topology}
+              isLoading={isLoading}
+              onNavigateToWorkspace={handleExternalWorkspaceClick}
+              onNavigateToLogs={() => setActiveTab('logs')}
+            />
+          </div>
         );
       case 'blocks':
         return <BlocksPanel workspaceId={currentWorkspace.id} />;
@@ -323,9 +404,13 @@ export function WorkspaceDetailPage() {
         <div className="error-message">
           <h2>Error</h2>
           <p>{error || 'Workspace not found'}</p>
-          <button className="btn btn-primary" onClick={() => navigate('/workspaces')}>
+          <Button
+            variant="primary"
+            icon={<ArrowLeft size={16} />}
+            onClick={() => navigate('/workspaces')}
+          >
             Back to Workspaces
-          </button>
+          </Button>
         </div>
       </div>
     );
@@ -335,12 +420,14 @@ export function WorkspaceDetailPage() {
     <div className="workspace-detail-page">
       {/* Header */}
       <header className="workspace-detail-page__header">
-        <button
-          className="workspace-detail-page__back"
+        <Button
+          variant="ghost"
+          size="sm"
+          icon={<ArrowLeft size={16} />}
           onClick={() => navigate('/workspaces')}
         >
-          ← Back
-        </button>
+          Back
+        </Button>
 
         <div className="workspace-detail-page__title-group">
           <h1 className="workspace-detail-page__title">
@@ -350,40 +437,49 @@ export function WorkspaceDetailPage() {
         </div>
 
         <div className="workspace-detail-page__status">
-          {currentWorkspace.status === 'Active' && '🟢'}
-          {currentWorkspace.status === 'Paused' && '🟡'}
-          {currentWorkspace.status === 'Archived' && '🔵'}
-          {' '}{currentWorkspace.status}
+          <StatusIcon status={currentWorkspace.status} />
+          <span>{currentWorkspace.status}</span>
         </div>
 
         <div className="workspace-detail-page__actions">
           {currentWorkspace.status === 'Active' && (
-            <button
-              className="btn btn-secondary"
+            <Button
+              variant="secondary"
+              size="sm"
+              icon={<Pause size={14} />}
               onClick={() => pauseWorkspace(currentWorkspace.id)}
             >
-              ⏸️ Pause
-            </button>
+              Pause
+            </Button>
           )}
           {currentWorkspace.status === 'Paused' && (
-            <button
-              className="btn btn-primary"
+            <Button
+              variant="primary"
+              size="sm"
+              icon={<Play size={14} />}
               onClick={() => resumeWorkspace(currentWorkspace.id)}
             >
-              ▶️ Resume
-            </button>
+              Resume
+            </Button>
           )}
           {currentWorkspace.status !== 'Archived' && (
-            <button
-              className="btn btn-secondary"
+            <Button
+              variant="secondary"
+              size="sm"
+              icon={<Archive size={14} />}
               onClick={() => archiveWorkspace(currentWorkspace.id)}
             >
-              📥 Archive
-            </button>
+              Archive
+            </Button>
           )}
-          <button className="btn btn-danger" onClick={handleDelete}>
-            🗑️ Delete
-          </button>
+          <Button
+            variant="danger"
+            size="sm"
+            icon={<Trash2 size={14} />}
+            onClick={handleDelete}
+          >
+            Delete
+          </Button>
         </div>
       </header>
 

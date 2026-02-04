@@ -11,3 +11,6 @@ export { QuickActions } from './QuickActions';
 export { WorkspaceContent } from './WorkspaceContent';
 export { RecentActivity } from './RecentActivity';
 export { WorkspaceHealth } from './WorkspaceHealth';
+export { ConsolePanel } from './ConsolePanel';
+export { HierarchyPanel } from './HierarchyPanel';
+export { SessionInspector, WorkspaceInspector, InspectorPanel } from './InspectorPanel';

@@ -91,7 +91,10 @@
       "Bash(move \"C:\\\\Meastro\\\\docs\\\\proposals\\\\PLAN-TRAINING-STRATEGIES-V2.md\" \"C:\\\\Meastro\\\\docs\\\\archive\\\\ARCHIVED-PLAN-TRAINING-STRATEGIES-V2.md\")",
       "Bash(dotnet sln add:*)",
       "Bash(cmd.exe /c \"cd /d C:\\\\Meastro\\\\backend && dotnet build --no-restore\")",
-      "Bash(del \"C:\\\\Meastro\\\\backend\\\\src\\\\Maestro.Infrastructure\\\\Cli\\\\CommandHandlers\\\\SessionCommandHandler.cs\")"
+      "Bash(del \"C:\\\\Meastro\\\\backend\\\\src\\\\Maestro.Infrastructure\\\\Cli\\\\CommandHandlers\\\\SessionCommandHandler.cs\")",
+      "Bash(cmd.exe /c \"cd /d C:\\\\Meastro\\\\frontend && npx tsc --noEmit\")",
+      "Bash(cmd.exe /c \"cd /d C:\\\\Meastro\\\\frontend && npx tsc --noEmit 2>&1\")",
+      "Bash(cmd.exe /c \"cd /d C:\\\\Meastro\\\\frontend && npm run build 2>&1\")"
     ]
   }
 }
