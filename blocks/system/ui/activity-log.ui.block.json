@@ -1,0 +1,71 @@
+{
+  "id": "system:activity-log",
+  "name": "Activity Log",
+  "blockType": "ui",
+  "version": "1.0.0",
+  "isSystem": true,
+  "isAtomic": true,
+  "overridable": true,
+  "description": "Real-time activity log showing agent actions, tool calls, and system events.",
+
+  "config": {
+    "component": "ActivityLog",
+    "maxEntries": 100,
+    "autoScroll": true,
+    "showTimestamps": true
+  },
+
+  "inputs": {
+    "workspaceId": {
+      "type": "string",
+      "required": false,
+      "description": "Filter to specific workspace"
+    },
+    "sessionId": {
+      "type": "string",
+      "required": false,
+      "description": "Filter to specific session"
+    },
+    "agentId": {
+      "type": "string",
+      "required": false,
+      "description": "Filter to specific agent"
+    },
+    "logLevels": {
+      "type": "array",
+      "default": ["info", "warning", "error"],
+      "description": "Log levels to display"
+    },
+    "categories": {
+      "type": "array",
+      "default": ["tool", "agent", "system", "user"],
+      "description": "Event categories to display"
+    }
+  },
+
+  "outputs": {
+    "entries": {
+      "type": "array",
+      "description": "Log entries"
+    },
+    "errorCount": {
+      "type": "number",
+      "description": "Number of errors"
+    },
+    "warningCount": {
+      "type": "number",
+      "description": "Number of warnings"
+    }
+  },
+
+  "metadata": {
+    "author": "system",
+    "category": "ui",
+    "tags": ["log", "activity", "monitoring", "events"],
+    "uiCategory": "monitoring"
+  },
+
+  "provides": {
+    "capabilities": ["event-logging", "activity-tracking", "log-filtering"]
+  }
+}

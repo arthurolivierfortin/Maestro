@@ -15,7 +15,16 @@ namespace Maestro.Infrastructure.BlockExecutors;
 /// </summary>
 public class ToolBlockExecutor : IBlockExecutor
 {
+    private readonly IServiceProvider? _serviceProvider;
+
     public string SupportedType => "tool";
+
+    public ToolBlockExecutor() { }
+
+    public ToolBlockExecutor(IServiceProvider serviceProvider)
+    {
+        _serviceProvider = serviceProvider;
+    }
 
     public async Task<BlockExecutionResult> ExecuteAsync(
         BlockDefinition block,
@@ -27,6 +36,13 @@ public class ToolBlockExecutor : IBlockExecutor
 
         // Basic config options
         var config = block.Config ?? new Dictionary<string, object?>();
+
+        // Handle CLI bridge executor type
+        var executorType = GetConfigString(config, "executorType");
+        if (executorType == "cli-bridge")
+        {
+            return await ExecuteCliBridgeAsync(block, context, inputs, sw, ct);
+        }
 
         // Support both "script" format and "command"+"args" format
         var script = GetConfigString(config, "script");
@@ -846,5 +862,93 @@ public class ToolBlockExecutor : IBlockExecutor
             result = result.Replace(placeholder, value);
         }
         return result;
+    }
+
+    /// <summary>
+    /// Executes a CLI bridge tool - routes commands through the CLI executor.
+    /// </summary>
+    private async Task<BlockExecutionResult> ExecuteCliBridgeAsync(
+        BlockDefinition block,
+        ExecutionContext context,
+        Dictionary<string, object> inputs,
+        Stopwatch sw,
+        CancellationToken ct)
+    {
+        var logs = new List<string>();
+        var resultOutputs = new Dictionary<string, object?>();
+
+        // Get command from inputs
+        if (!inputs.TryGetValue("command", out var commandObj) || commandObj == null)
+        {
+            logs.Add("CLI bridge error: 'command' input is required");
+            return new BlockExecutionResult
+            {
+                Outputs = new Dictionary<string, object> { ["success"] = false, ["error"] = "Command is required", ["exitCode"] = 1 },
+                Logs = logs,
+                Success = false,
+                DurationMs = sw.ElapsedMilliseconds
+            };
+        }
+
+        var command = commandObj.ToString() ?? string.Empty;
+        logs.Add($"CLI bridge executing: {command}");
+
+        // Resolve ICliExecutor from service provider
+        if (_serviceProvider == null)
+        {
+            logs.Add("CLI bridge error: Service provider not available");
+            return new BlockExecutionResult
+            {
+                Outputs = new Dictionary<string, object> { ["success"] = false, ["error"] = "CLI executor not available", ["exitCode"] = 1 },
+                Logs = logs,
+                Success = false,
+                DurationMs = sw.ElapsedMilliseconds
+            };
+        }
+
+        var cliExecutor = _serviceProvider.GetService(typeof(ICliExecutor)) as ICliExecutor;
+        if (cliExecutor == null)
+        {
+            logs.Add("CLI bridge error: ICliExecutor service not registered");
+            return new BlockExecutionResult
+            {
+                Outputs = new Dictionary<string, object> { ["success"] = false, ["error"] = "CLI executor not available", ["exitCode"] = 1 },
+                Logs = logs,
+                Success = false,
+                DurationMs = sw.ElapsedMilliseconds
+            };
+        }
+
+        // Build CLI execution context from domain ExecutionContext
+        // These values may be stored in the context Variables
+        var workspaceId = context.Variables.TryGetValue("workspaceId", out var wsObj) ? wsObj?.ToString() : null;
+        var sessionId = context.Variables.TryGetValue("sessionId", out var sessObj) ? sessObj?.ToString() : null;
+        var agentId = context.Variables.TryGetValue("agentId", out var agentObj) ? agentObj?.ToString() : null;
+
+        var cliContext = new CliExecutionContext
+        {
+            WorkspaceId = workspaceId,
+            SessionId = sessionId,
+            AgentId = agentId
+        };
+
+        // Execute command
+        var result = await cliExecutor.ExecuteAsync(command, cliContext, ct);
+
+        logs.Add($"CLI result: success={result.Success}, exitCode={result.ExitCode}");
+
+        resultOutputs["success"] = result.Success;
+        resultOutputs["output"] = result.Output;
+        resultOutputs["error"] = result.Error;
+        resultOutputs["exitCode"] = result.ExitCode;
+
+        sw.Stop();
+        return new BlockExecutionResult
+        {
+            Outputs = resultOutputs.ToDictionary(kv => kv.Key, kv => kv.Value ?? new object()),
+            Logs = logs,
+            Success = result.Success,
+            DurationMs = sw.ElapsedMilliseconds
+        };
     }
 }

@@ -1,0 +1,77 @@
+{
+  "id": "system:checkpoint-manager",
+  "name": "Checkpoint Manager",
+  "blockType": "tool",
+  "version": "1.0.0",
+  "isSystem": true,
+  "isAtomic": true,
+  "overridable": true,
+  "description": "Manages training checkpoints for save/restore of experiment state.",
+
+  "config": {
+    "executorType": "cli-bridge",
+    "timeout": 60000
+  },
+
+  "inputs": {
+    "action": {
+      "type": "string",
+      "required": true,
+      "enum": ["save", "load", "list", "delete", "prune"],
+      "description": "Checkpoint operation"
+    },
+    "experimentId": {
+      "type": "string",
+      "required": true,
+      "description": "Experiment identifier"
+    },
+    "checkpointId": {
+      "type": "string",
+      "required": false,
+      "description": "Checkpoint identifier (for load/delete)"
+    },
+    "state": {
+      "type": "object",
+      "required": false,
+      "description": "State to save"
+    },
+    "metadata": {
+      "type": "object",
+      "required": false,
+      "description": "Checkpoint metadata (iteration, metrics, etc.)"
+    },
+    "keepLast": {
+      "type": "number",
+      "default": 5,
+      "description": "Number of checkpoints to keep when pruning"
+    }
+  },
+
+  "outputs": {
+    "success": {
+      "type": "boolean"
+    },
+    "checkpointId": {
+      "type": "string",
+      "description": "Created/loaded checkpoint ID"
+    },
+    "state": {
+      "type": "object",
+      "description": "Loaded state"
+    },
+    "checkpoints": {
+      "type": "array",
+      "description": "List of available checkpoints"
+    }
+  },
+
+  "metadata": {
+    "author": "system",
+    "category": "training",
+    "tags": ["checkpoint", "persistence", "training", "state"]
+  },
+
+  "provides": {
+    "capabilities": ["checkpointing", "state-persistence", "recovery"]
+  }
+}

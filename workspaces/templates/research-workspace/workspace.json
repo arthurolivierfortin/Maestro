@@ -1,0 +1,130 @@
+{
+  "id": "research-workspace",
+  "name": "Research Workspace",
+  "description": "Template workspace for research and experimentation with model fitness evaluation.",
+  "version": "1.0.0",
+  "type": "research",
+
+  "config": {
+    "defaultModel": "smollm2:1.7b",
+    "maxConcurrentSessions": 5,
+    "maxIterationsPerSession": 100,
+    "autoCheckpoint": true,
+    "checkpointInterval": 10,
+
+    "fitness": {
+      "lambda": 0.3,
+      "weights": {
+        "performance": 1.0,
+        "specialization": 0.8,
+        "composability": 0.9
+      },
+      "evaluationStrategy": "composite"
+    },
+
+    "storage": {
+      "dataDir": "./data",
+      "checkpointsDir": "./checkpoints",
+      "metricsDir": "./metrics"
+    }
+  },
+
+  "defaultPermissions": {
+    "allowedCommands": [
+      "run",
+      "list-tools",
+      "list-blocks",
+      "describe",
+      "data",
+      "help"
+    ],
+    "allowedTools": [
+      "system:fitness-calculator",
+      "system:data-store",
+      "system:metrics-collector",
+      "system:leaderboard-manager",
+      "system:checkpoint-manager",
+      "file-read",
+      "directory-list",
+      "code-search"
+    ],
+    "blockedCommands": [
+      "workspace delete",
+      "session end-all"
+    ],
+    "maxToolExecutionTime": 30000
+  },
+
+  "views": {
+    "dashboard": {
+      "layout": "grid",
+      "columns": 2,
+      "blocks": [
+        {
+          "block": "system:workspace-status",
+          "inputs": { "workspaceId": "$workspaceId" },
+          "position": { "row": 0, "col": 0 }
+        },
+        {
+          "block": "system:metrics-dashboard",
+          "inputs": { "workspaceId": "$workspaceId", "showLeaderboard": true },
+          "position": { "row": 0, "col": 1 }
+        },
+        {
+          "block": "system:activity-log",
+          "inputs": { "workspaceId": "$workspaceId", "maxEntries": 50 },
+          "position": { "row": 1, "col": 0, "colSpan": 2 }
+        }
+      ]
+    },
+    "training": {
+      "layout": "split",
+      "orientation": "horizontal",
+      "blocks": [
+        {
+          "block": "system:progress-indicator",
+          "inputs": { "taskId": "$activeTrainingId", "variant": "steps" },
+          "size": "30%"
+        },
+        {
+          "block": "system:fitness-chart",
+          "inputs": { "workspaceId": "$workspaceId", "showBreakdown": true },
+          "size": "70%"
+        }
+      ]
+    }
+  },
+
+  "agents": [
+    {
+      "id": "research-orchestrator",
+      "ref": "./agents/research-orchestrator.agent.block.json"
+    },
+    {
+      "id": "data-analyst",
+      "ref": "./agents/data-analyst.agent.block.json"
+    }
+  ],
+
+  "workflows": {
+    "startup": [
+      { "action": "create-session", "template": "default" },
+      { "action": "run-block", "block": "system:workspace-status" }
+    ],
+    "experiment": [
+      { "action": "checkpoint-save", "metadata": { "phase": "start" }},
+      { "action": "run-agent", "agent": "research-orchestrator" },
+      { "action": "collect-metrics" },
+      { "action": "calculate-fitness" },
+      { "action": "update-leaderboard" },
+      { "action": "checkpoint-save", "metadata": { "phase": "end" }}
+    ]
+  },
+
+  "metadata": {
+    "author": "Maestro",
+    "created": "2026-02-03",
+    "tags": ["research", "training", "fitness", "evaluation"],
+    "template": true
+  }
+}

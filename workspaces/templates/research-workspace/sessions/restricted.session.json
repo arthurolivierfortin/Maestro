@@ -1,0 +1,44 @@
+{
+  "id": "restricted",
+  "name": "Restricted Session",
+  "description": "Limited session for untested agents with restricted tool access.",
+
+  "permissions": {
+    "inherit": "workspace",
+    "modifications": {
+      "allowedTools": [
+        "system:fitness-calculator",
+        "system:data-store",
+        "file-read",
+        "directory-list"
+      ],
+      "blockedCommands": [
+        "+file-write",
+        "+shell-execute",
+        "+workspace"
+      ],
+      "maxToolExecutionTime": 10000
+    }
+  },
+
+  "config": {
+    "maxIterations": 20,
+    "timeout": 600000,
+    "autoSave": false,
+    "sandboxed": true
+  },
+
+  "context": {
+    "systemPrompt": "You are operating in a restricted sandbox environment. You can read data and calculate fitness, but cannot modify files or execute commands.",
+    "initialVariables": {
+      "mode": "sandbox",
+      "writeAccess": false
+    }
+  },
+
+  "metadata": {
+    "category": "sandbox",
+    "priority": "low",
+    "securityLevel": "high"
+  }
+}

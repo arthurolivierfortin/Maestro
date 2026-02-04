@@ -20,23 +20,23 @@ public class AgentBlockExecutor : IBlockExecutor
     private readonly ILLMGateway _llmGateway;
     private readonly IServiceProvider? _serviceProvider;
     private readonly ContextProcessorFactory _contextProcessorFactory;
-    private BlockExecutorRegistry? _registry;
-    private IBlockDiscoveryService? _discoveryService;
+    private ICliExecutor? _cliExecutor;
 
-    // Mapping from agent tool names to system block IDs
-    private static readonly Dictionary<string, string> ToolMapping = new()
+    // Legacy tool mapping for backwards compatibility
+    // New agents should use maestro_cli directly
+    private static readonly Dictionary<string, string> LegacyToolMapping = new()
     {
-        { "list_files", "directory-list" },
-        { "directory-list", "directory-list" },
-        { "read_file", "file-read" },
-        { "file-read", "file-read" },
-        { "write_file", "file-write" },
-        { "file-write", "file-write" },
-        { "shell-execute", "shell-execute" },
-        { "git-status", "git-status" },
-        { "git-diff", "git-diff" },
-        { "code-search", "code-search" },
-        { "llm-generate", "llm-generate" }
+        { "list_files", "run directory-list --input path=" },
+        { "directory-list", "run directory-list --input path=" },
+        { "read_file", "run file-read --input path=" },
+        { "file-read", "run file-read --input path=" },
+        { "write_file", "run file-write" },
+        { "file-write", "run file-write" },
+        { "shell-execute", "run shell-execute --input command=" },
+        { "git-status", "run git-status" },
+        { "git-diff", "run git-diff" },
+        { "code-search", "run code-search --input pattern=" },
+        { "llm-generate", "run llm-generate" }
     };
 
     public AgentBlockExecutor(ILLMGateway llmGateway, IServiceProvider? serviceProvider = null)
@@ -46,27 +46,55 @@ public class AgentBlockExecutor : IBlockExecutor
         _contextProcessorFactory = new ContextProcessorFactory(serviceProvider);
     }
 
-    private BlockExecutorRegistry? GetRegistry()
+    private ICliExecutor? GetCliExecutor()
     {
-        if (_registry == null && _serviceProvider != null)
+        if (_cliExecutor == null && _serviceProvider != null)
         {
-            _registry = _serviceProvider.GetService<BlockExecutorRegistry>();
+            _cliExecutor = _serviceProvider.GetService<ICliExecutor>();
         }
-        return _registry;
+        return _cliExecutor;
     }
 
-    private IBlockDiscoveryService? GetDiscoveryService()
+    /// <summary>
+    /// Converts legacy tool calls to maestro CLI commands for backwards compatibility.
+    /// </summary>
+    private string? ConvertLegacyToolToCommand(string toolId, JsonElement args)
     {
-        if (_discoveryService == null && _serviceProvider != null)
+        if (!LegacyToolMapping.TryGetValue(toolId, out var baseCommand))
+            return null;
+
+        var sb = new System.Text.StringBuilder(baseCommand);
+
+        if (args.ValueKind == JsonValueKind.Object)
         {
-            _discoveryService = _serviceProvider.GetService<IBlockDiscoveryService>();
+            foreach (var prop in args.EnumerateObject())
+            {
+                var value = prop.Value.ToString().Trim('"');
+                // Handle common mappings
+                if (toolId.Contains("file") && prop.Name == "content")
+                {
+                    sb.Append($" --input content=\"{EscapeForCli(value)}\"");
+                }
+                else if (!baseCommand.Contains($"--input {prop.Name}="))
+                {
+                    if (baseCommand.EndsWith("="))
+                    {
+                        sb.Append(EscapeForCli(value));
+                    }
+                    else
+                    {
+                        sb.Append($" --input {prop.Name}=\"{EscapeForCli(value)}\"");
+                    }
+                }
+            }
         }
-        return _discoveryService;
+
+        return sb.ToString();
     }
 
-    private string MapToolId(string toolId)
+    private static string EscapeForCli(string value)
     {
-        return ToolMapping.TryGetValue(toolId, out var mapped) ? mapped : toolId;
+        return value.Replace("\\", "\\\\").Replace("\"", "\\\"");
     }
 
     public string SupportedType => "agent";
@@ -238,13 +266,22 @@ public class AgentBlockExecutor : IBlockExecutor
         var systemContent = systemPrompt;
         if (string.IsNullOrEmpty(systemContent))
         {
-            systemContent = $@"You are a JSON-only assistant. You MUST output exactly one JSON object, nothing else.
+            // Default system prompt uses maestro_cli as the single tool
+            systemContent = $@"You are a JSON-only assistant with access to Maestro CLI. You MUST output exactly one JSON object, nothing else.
 
-Available functions:
-- list_files: {{""tool"":""list_files"",""args"":{{""path"":""...""}}}}
-- read_file: {{""tool"":""read_file"",""args"":{{""path"":""...""}}}}
-- write_file: {{""tool"":""write_file"",""args"":{{""path"":""..."",""content"":""...""}}}}
-- done: {{""tool"":""done"",""args"":{{""summary"":""...""}}}}
+You have ONE tool: maestro_cli. Use it to interact with the system.
+
+Available commands via maestro_cli:
+- List files: {{""tool"":""maestro_cli"",""args"":{{""command"":""run directory-list --input path=<path>""}}}}
+- Read file: {{""tool"":""maestro_cli"",""args"":{{""command"":""run file-read --input path=<path>""}}}}
+- Write file: {{""tool"":""maestro_cli"",""args"":{{""command"":""run file-write --input path=<path> --input content=<content>""}}}}
+- List blocks: {{""tool"":""maestro_cli"",""args"":{{""command"":""list-blocks""}}}}
+- List tools: {{""tool"":""maestro_cli"",""args"":{{""command"":""list-tools""}}}}
+- Run any block: {{""tool"":""maestro_cli"",""args"":{{""command"":""run <block-id> --input <key>=<value>""}}}}
+- Get help: {{""tool"":""maestro_cli"",""args"":{{""command"":""help [command]""}}}}
+- Done: {{""tool"":""done"",""args"":{{""summary"":""...""}}}}
+
+Legacy tools (list_files, read_file, write_file) are also supported for backwards compatibility.
 
 Respond with ONLY the JSON object. No explanations. No markdown. Just JSON.";
         }
@@ -363,73 +400,57 @@ Respond with ONLY the JSON object. No explanations. No markdown. Just JSON.";
                             break;
                         }
 
-                        var registry = GetRegistry();
-                        var discoveryService = GetDiscoveryService();
-                        if (!string.IsNullOrEmpty(toolId) && registry != null)
+                        var cliExecutor = GetCliExecutor();
+                        if (!string.IsNullOrEmpty(toolId))
                         {
-                            // Map tool name to system block ID
-                            var mappedToolId = MapToolId(toolId);
-                            result.Logs.Add($"Mapping tool {toolId} -> {mappedToolId}");
+                            string? command = null;
 
-                            // Execute the tool - extract args
-                            var inputsForTool = new Dictionary<string, object>();
-                            if (args.ValueKind == JsonValueKind.Object)
+                            // Handle maestro_cli tool (the recommended approach)
+                            if (toolId == "maestro_cli" || toolId == "maestro-cli")
                             {
-                                foreach (var prop in args.EnumerateObject())
-                                    inputsForTool[prop.Name] = prop.Value.ToString().Trim('"');
-                            }
-
-                            // Validate required inputs for common tools
-                            var requiredInputs = mappedToolId switch
-                            {
-                                "directory-list" => new[] { "path" },
-                                "file-read" => new[] { "path" },
-                                "file-write" => new[] { "path", "content" },
-                                _ => Array.Empty<string>()
-                            };
-
-                            var missingInputs = requiredInputs.Where(r => !inputsForTool.ContainsKey(r) || string.IsNullOrEmpty(inputsForTool[r]?.ToString())).ToList();
-                            if (missingInputs.Count > 0)
-                            {
-                                result.Logs.Add($"Tool {toolId} missing required inputs: {string.Join(", ", missingInputs)}");
-                                messages.Add(ChatMessage.Assistant(jsonContent));
-                                messages.Add(ChatMessage.User($"Error: Tool {toolId} requires these arguments: {string.Join(", ", requiredInputs)}. Please provide them in the args object."));
-                                toolCalled = true;
-                                continue;
-                            }
-
-                            var toolExec = registry.Get("tool");
-                            if (toolExec != null)
-                            {
-                                // Try to load the tool block from discovery service
-                                BlockDefinition? toolBlock = null;
-                                if (discoveryService != null)
+                                if (args.ValueKind == JsonValueKind.Object && args.TryGetProperty("command", out var cmdProp))
                                 {
-                                    toolBlock = await discoveryService.GetByIdAsync(mappedToolId, ct);
+                                    command = cmdProp.GetString();
                                 }
+                                result.Logs.Add($"maestro_cli tool call: {command}");
+                            }
+                            // Handle legacy tool calls for backwards compatibility
+                            else if (LegacyToolMapping.ContainsKey(toolId))
+                            {
+                                command = ConvertLegacyToolToCommand(toolId, args);
+                                result.Logs.Add($"Legacy tool {toolId} converted to: {command}");
+                            }
 
-                                // Fallback to minimal block if not found
-                                if (toolBlock == null)
+                            if (!string.IsNullOrEmpty(command))
+                            {
+                                // Build CLI execution context from execution context variables
+                                var cliContext = new CliExecutionContext
                                 {
-                                    result.Logs.Add($"Tool block {mappedToolId} not found, using minimal block");
-                                    toolBlock = Maestro.Domain.Entities.BlockDefinition.Create(mappedToolId, mappedToolId, "tool");
+                                    WorkspaceId = context.Variables.TryGetValue("workspaceId", out var wsId) ? wsId?.ToString() : null,
+                                    SessionId = context.Variables.TryGetValue("sessionId", out var sessId) ? sessId?.ToString() : null,
+                                    AgentId = context.Variables.TryGetValue("agentId", out var agentId) ? agentId?.ToString() : block.Id
+                                };
+
+                                string toolOutput;
+                                if (cliExecutor != null)
+                                {
+                                    // Execute through CLI executor (with permission enforcement)
+                                    var cliResult = await cliExecutor.ExecuteAsync(command, cliContext, ct);
+
+                                    if (cliResult.Success)
+                                    {
+                                        toolOutput = cliResult.Output?.ToString() ?? "Success";
+                                    }
+                                    else
+                                    {
+                                        toolOutput = $"Error: {cliResult.Error}";
+                                    }
                                 }
                                 else
                                 {
-                                    result.Logs.Add($"Loaded tool block {mappedToolId} from discovery service");
-                                }
-
-                                var toolRes = await toolExec.ExecuteAsync(toolBlock, context, inputsForTool, ct);
-
-                                // Get tool result
-                                var toolOutput = toolRes.Outputs.ContainsKey("stdout")
-                                    ? toolRes.Outputs["stdout"]?.ToString() ?? ""
-                                    : string.Join(", ", toolRes.Outputs.Select(kv => $"{kv.Key}: {kv.Value}"));
-
-                                // Check for errors
-                                if (toolRes.Outputs.ContainsKey("stderr") && !string.IsNullOrEmpty(toolRes.Outputs["stderr"]?.ToString()))
-                                {
-                                    toolOutput += "\nError: " + toolRes.Outputs["stderr"]?.ToString();
+                                    // Fallback when CLI executor not available (shouldn't happen in production)
+                                    result.Logs.Add("Warning: CLI executor not available, tool execution skipped");
+                                    toolOutput = "Error: CLI executor not available. Ensure services are properly configured.";
                                 }
 
                                 result.Logs.Add($"Tool result: {(toolOutput.Length > 100 ? toolOutput.Substring(0, 100) + "..." : toolOutput)}");
@@ -438,6 +459,13 @@ Respond with ONLY the JSON object. No explanations. No markdown. Just JSON.";
                                 messages.Add(ChatMessage.Assistant(jsonContent));
                                 messages.Add(ChatMessage.User($"Tool result for {toolId}:\n{toolOutput}"));
 
+                                toolCalled = true;
+                            }
+                            else
+                            {
+                                result.Logs.Add($"Unknown tool: {toolId}. Use maestro_cli with a command argument.");
+                                messages.Add(ChatMessage.Assistant(jsonContent));
+                                messages.Add(ChatMessage.User($"Error: Unknown tool '{toolId}'. Use maestro_cli with a command argument. Example: {{\"tool\":\"maestro_cli\",\"args\":{{\"command\":\"help\"}}}}"));
                                 toolCalled = true;
                             }
                         }

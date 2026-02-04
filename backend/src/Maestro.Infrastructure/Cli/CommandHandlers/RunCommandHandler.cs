@@ -10,15 +10,18 @@ namespace Maestro.Infrastructure.Cli.CommandHandlers;
 /// </summary>
 public class RunCommandHandler : ICommandHandler
 {
+    private readonly IWorkspaceBlockResolver _blockResolver;
     private readonly IBlockRepository _blockRepository;
     private readonly ILogger<RunCommandHandler> _logger;
 
     public string Verb => "run";
 
     public RunCommandHandler(
+        IWorkspaceBlockResolver blockResolver,
         IBlockRepository blockRepository,
         ILogger<RunCommandHandler> logger)
     {
+        _blockResolver = blockResolver;
         _blockRepository = blockRepository;
         _logger = logger;
     }
@@ -36,11 +39,24 @@ public class RunCommandHandler : ICommandHandler
 
         var blockId = command.Target;
 
-        // Load block
-        var block = await _blockRepository.GetByIdAsync(blockId, ct);
+        // Load block with workspace-first resolution
+        var block = await _blockResolver.ResolveAsync(blockId, context.WorkspaceId, ct);
+        if (block == null)
+        {
+            // Fallback to direct repository lookup for backwards compatibility
+            block = await _blockRepository.GetByIdAsync(blockId, ct);
+        }
         if (block == null)
         {
             return CliResult.Failure($"Block not found: {blockId}");
+        }
+
+        // Log if using workspace override
+        if (block.Metadata?.ContainsKey("_isWorkspaceBlock") == true)
+        {
+            _logger.LogInformation(
+                "Using workspace-local block {BlockId} from workspace {WorkspaceId}",
+                blockId, context.WorkspaceId);
         }
 
         // Parse inputs

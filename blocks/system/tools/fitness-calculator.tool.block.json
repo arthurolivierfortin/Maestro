@@ -1,0 +1,70 @@
+{
+  "id": "system:fitness-calculator",
+  "name": "Fitness Calculator",
+  "blockType": "tool",
+  "version": "1.0.0",
+  "isSystem": true,
+  "isAtomic": true,
+  "overridable": true,
+  "description": "Calculates model fitness using the Maestro formula: ModelFitness = (P × S × W) / (C_norm × C_compute × C_hw)^λ",
+
+  "config": {
+    "executorType": "script",
+    "runtime": "javascript",
+    "scriptFile": "scripts/fitness-calculator.js",
+    "timeout": 30000
+  },
+
+  "inputs": {
+    "executionMetrics": {
+      "type": "object",
+      "required": true,
+      "description": "Execution metrics including qualityScore, successRate, retryCount"
+    },
+    "modelId": {
+      "type": "string",
+      "required": true,
+      "description": "Model identifier (e.g., 'smollm2:1.7b', 'llama3:8b')"
+    },
+    "taskType": {
+      "type": "string",
+      "default": "general",
+      "description": "Task type for specialization scoring"
+    },
+    "configOverrides": {
+      "type": "object",
+      "required": false,
+      "description": "Override default fitness config (lambda, weights, etc.)"
+    }
+  },
+
+  "outputs": {
+    "totalFitness": {
+      "type": "number",
+      "description": "Overall fitness score"
+    },
+    "breakdown": {
+      "type": "object",
+      "description": "Component breakdown: P, S, W, C_norm, C_compute, C_hw"
+    },
+    "interpretation": {
+      "type": "string",
+      "description": "Human-readable interpretation of the score"
+    },
+    "rank": {
+      "type": "string",
+      "description": "Fitness rank: S, A, B, C, D, F"
+    }
+  },
+
+  "metadata": {
+    "author": "system",
+    "category": "evaluation",
+    "tags": ["fitness", "evaluation", "metrics", "model-selection"],
+    "documentation": "docs/architecture/ANALYSIS-FITNESS-TRAINING-ARCHITECTURE.md"
+  },
+
+  "provides": {
+    "capabilities": ["fitness-calculation", "model-evaluation", "ranking"]
+  }
+}

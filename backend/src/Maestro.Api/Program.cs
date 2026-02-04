@@ -14,6 +14,7 @@ using Maestro.Infrastructure.Training.QualityEvaluators;
 using Maestro.Infrastructure.Fitness;
 using Maestro.Infrastructure.Sessions;
 using Maestro.Infrastructure.Experiments;
+using Maestro.Infrastructure.Workspaces;
 using Maestro.Infrastructure.Cli;
 using Maestro.Infrastructure.Cli.CommandHandlers;
 using System.IO;
@@ -47,7 +48,11 @@ builder.Services.AddScoped<Maestro.Application.Interfaces.IExecutionMonitor, Mae
 // Register block executors from Infrastructure
 builder.Services.AddScoped<Maestro.Application.Interfaces.IBlockExecutor, Maestro.Infrastructure.BlockExecutors.PromptBlockExecutor>();
 builder.Services.AddScoped<Maestro.Application.Interfaces.IBlockExecutor, Maestro.Infrastructure.BlockExecutors.InferenceBlockExecutor>();
-builder.Services.AddScoped<Maestro.Application.Interfaces.IBlockExecutor, Maestro.Infrastructure.BlockExecutors.ToolBlockExecutor>();
+// ToolBlockExecutor now needs IServiceProvider for CLI bridge support
+builder.Services.AddScoped<Maestro.Infrastructure.BlockExecutors.ToolBlockExecutor>(sp =>
+    new Maestro.Infrastructure.BlockExecutors.ToolBlockExecutor(sp));
+builder.Services.AddScoped<Maestro.Application.Interfaces.IBlockExecutor>(sp =>
+    sp.GetRequiredService<Maestro.Infrastructure.BlockExecutors.ToolBlockExecutor>());
 builder.Services.AddScoped<Maestro.Application.Interfaces.IBlockExecutor, Maestro.Infrastructure.BlockExecutors.ContextBlockExecutor>();
 // AgentBlockExecutor is registered separately to avoid circular dependency with BlockExecutorRegistry
 // Uses lazy resolution of registry via IServiceProvider
@@ -280,6 +285,14 @@ builder.Services.AddSingleton<IWorkspaceRepository>(sp =>
 });
 builder.Services.AddScoped<IWorkspaceService, Maestro.Infrastructure.Workspaces.WorkspaceService>();
 builder.Services.AddScoped<IWorkspaceGateway, Maestro.Infrastructure.Workspaces.WorkspaceGateway>();
+
+// Phase 7 (Research Workspace): Register workspace block resolver
+builder.Services.AddScoped<IWorkspaceBlockResolver>(sp =>
+{
+    var blockDiscovery = sp.GetRequiredService<IBlockDiscoveryService>();
+    var logger = sp.GetRequiredService<ILogger<Maestro.Infrastructure.Workspaces.WorkspaceBlockResolver>>();
+    return new Maestro.Infrastructure.Workspaces.WorkspaceBlockResolver(blockDiscovery, logger, workspaceFolder);
+});
 
 // Phase 2: Register execution session services (Session-based permissions)
 builder.Services.AddSingleton<IExecutionSessionRepository, InMemoryExecutionSessionRepository>();
