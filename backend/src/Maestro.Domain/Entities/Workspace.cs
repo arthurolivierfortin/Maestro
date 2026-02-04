@@ -33,7 +33,7 @@ public enum WorkspaceStatus
 
 /// <summary>
 /// Workspace entity for grouping sessions, projects, and catalogs.
-/// Supports optional Docker-based isolation.
+/// Supports optional Docker-based isolation and agent permission management.
 /// </summary>
 public class Workspace
 {
@@ -42,6 +42,9 @@ public class Workspace
     public string? Description { get; private set; }
     public WorkspaceType Type { get; private set; }
     public WorkspaceStatus Status { get; private set; }
+
+    /// <summary>Filesystem path for file-based workspaces.</summary>
+    public string? Path { get; private set; }
 
     /// <summary>Sessions assigned to this workspace.</summary>
     public List<string> SessionIds { get; private set; } = new();
@@ -57,6 +60,15 @@ public class Workspace
 
     /// <summary>Isolation configuration for Docker-based separation.</summary>
     public WorkspaceIsolation Isolation { get; private set; } = new();
+
+    /// <summary>Default permissions for this workspace context (what can be done via CLI).</summary>
+    public ContextPermissions Permissions { get; private set; } = ContextPermissions.Full;
+
+    /// <summary>Session templates for creating sessions with preset permissions.</summary>
+    public Dictionary<string, SessionTemplate> SessionTemplates { get; private set; } = new();
+
+    /// <summary>Named entry points (main workflow, dashboard, etc.).</summary>
+    public Dictionary<string, string> EntryPoints { get; private set; } = new();
 
     /// <summary>Metadata about the workspace.</summary>
     public DateTimeOffset CreatedAt { get; private set; }
@@ -107,6 +119,27 @@ public class Workspace
         return workspace;
     }
 
+    /// <summary>
+    /// Creates a workspace with a filesystem path and full configuration.
+    /// </summary>
+    public static Workspace CreateWithPath(
+        string name,
+        string path,
+        WorkspaceType type,
+        string? description = null,
+        string? createdBy = null,
+        ContextPermissions? permissions = null,
+        Dictionary<string, SessionTemplate>? sessionTemplates = null,
+        Dictionary<string, string>? entryPoints = null)
+    {
+        var workspace = Create(name, type, description, createdBy);
+        workspace.Path = path;
+        workspace.Permissions = permissions ?? ContextPermissions.Full;
+        workspace.SessionTemplates = sessionTemplates ?? new();
+        workspace.EntryPoints = entryPoints ?? new();
+        return workspace;
+    }
+
     public void UpdateName(string name)
     {
         if (string.IsNullOrWhiteSpace(name))
@@ -131,6 +164,68 @@ public class Workspace
     {
         Isolation = isolation ?? throw new ArgumentNullException(nameof(isolation));
         UpdatedAt = DateTimeOffset.UtcNow;
+    }
+
+    public void UpdatePath(string? path)
+    {
+        Path = path;
+        UpdatedAt = DateTimeOffset.UtcNow;
+    }
+
+    public void UpdatePermissions(ContextPermissions permissions)
+    {
+        Permissions = permissions ?? throw new ArgumentNullException(nameof(permissions));
+        UpdatedAt = DateTimeOffset.UtcNow;
+    }
+
+    public void SetSessionTemplate(string templateType, SessionTemplate template)
+    {
+        if (string.IsNullOrWhiteSpace(templateType))
+            throw new ArgumentException("Template type is required", nameof(templateType));
+
+        SessionTemplates[templateType] = template ?? throw new ArgumentNullException(nameof(template));
+        UpdatedAt = DateTimeOffset.UtcNow;
+    }
+
+    public void RemoveSessionTemplate(string templateType)
+    {
+        if (SessionTemplates.Remove(templateType))
+        {
+            UpdatedAt = DateTimeOffset.UtcNow;
+        }
+    }
+
+    public void SetEntryPoint(string name, string blockId)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+            throw new ArgumentException("Entry point name is required", nameof(name));
+
+        EntryPoints[name] = blockId ?? throw new ArgumentNullException(nameof(blockId));
+        UpdatedAt = DateTimeOffset.UtcNow;
+    }
+
+    public void RemoveEntryPoint(string name)
+    {
+        if (EntryPoints.Remove(name))
+        {
+            UpdatedAt = DateTimeOffset.UtcNow;
+        }
+    }
+
+    /// <summary>
+    /// Get a session template by type.
+    /// </summary>
+    public SessionTemplate? GetSessionTemplate(string templateType)
+    {
+        return SessionTemplates.TryGetValue(templateType, out var template) ? template : null;
+    }
+
+    /// <summary>
+    /// Get an entry point block ID by name.
+    /// </summary>
+    public string? GetEntryPoint(string name)
+    {
+        return EntryPoints.TryGetValue(name, out var blockId) ? blockId : null;
     }
 
     public void AddSession(string sessionId)

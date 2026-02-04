@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Maestro.Application.Interfaces;
 using Maestro.Application.DTOs;
 using Maestro.Domain.Entities;
+using Maestro.Domain.ValueObjects;
 
 namespace Maestro.Api.Controllers;
 
@@ -327,6 +328,330 @@ public class WorkspacesController : ControllerBase
         });
     }
 
+    // ====== Context Permissions Endpoints ======
+
+    /// <summary>
+    /// Get permissions for a workspace context.
+    /// </summary>
+    [HttpGet("{id}/permissions")]
+    public async Task<ActionResult<ContextPermissionsDto>> GetPermissions(
+        string id,
+        CancellationToken ct)
+    {
+        var workspace = await _workspaceService.GetWorkspaceAsync(id, ct);
+        if (workspace == null)
+        {
+            return NotFound(new { error = $"Workspace '{id}' not found" });
+        }
+
+        return Ok(ContextPermissionsDto.FromDomain(workspace.Permissions));
+    }
+
+    /// <summary>
+    /// Update permissions for a workspace context.
+    /// </summary>
+    [HttpPut("{id}/permissions")]
+    public async Task<ActionResult<WorkspaceDto>> UpdatePermissions(
+        string id,
+        [FromBody] ContextPermissionsDto request,
+        CancellationToken ct)
+    {
+        try
+        {
+            var workspace = await _workspaceService.GetWorkspaceAsync(id, ct);
+            if (workspace == null)
+            {
+                return NotFound(new { error = $"Workspace '{id}' not found" });
+            }
+
+            workspace.UpdatePermissions(request.ToDomain());
+            _logger.LogInformation("Updated permissions for workspace {Id}", id);
+            return Ok(WorkspaceDto.FromDomain(workspace));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to update permissions for workspace {Id}", id);
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    // ====== Session Templates Endpoints ======
+
+    /// <summary>
+    /// Get all session templates for a workspace.
+    /// </summary>
+    [HttpGet("{id}/session-templates")]
+    public async Task<ActionResult<Dictionary<string, SessionTemplateDto>>> GetSessionTemplates(
+        string id,
+        CancellationToken ct)
+    {
+        var workspace = await _workspaceService.GetWorkspaceAsync(id, ct);
+        if (workspace == null)
+        {
+            return NotFound(new { error = $"Workspace '{id}' not found" });
+        }
+
+        var templates = workspace.SessionTemplates.ToDictionary(
+            kvp => kvp.Key,
+            kvp => SessionTemplateDto.FromDomain(kvp.Value));
+        return Ok(templates);
+    }
+
+    /// <summary>
+    /// Get a specific session template.
+    /// </summary>
+    [HttpGet("{id}/session-templates/{templateType}")]
+    public async Task<ActionResult<SessionTemplateDto>> GetSessionTemplate(
+        string id,
+        string templateType,
+        CancellationToken ct)
+    {
+        var workspace = await _workspaceService.GetWorkspaceAsync(id, ct);
+        if (workspace == null)
+        {
+            return NotFound(new { error = $"Workspace '{id}' not found" });
+        }
+
+        var template = workspace.GetSessionTemplate(templateType);
+        if (template == null)
+        {
+            return NotFound(new { error = $"Session template '{templateType}' not found" });
+        }
+
+        return Ok(SessionTemplateDto.FromDomain(template));
+    }
+
+    /// <summary>
+    /// Set or update a session template.
+    /// </summary>
+    [HttpPut("{id}/session-templates/{templateType}")]
+    public async Task<ActionResult<WorkspaceDto>> SetSessionTemplate(
+        string id,
+        string templateType,
+        [FromBody] SessionTemplateDto template,
+        CancellationToken ct)
+    {
+        try
+        {
+            var workspace = await _workspaceService.GetWorkspaceAsync(id, ct);
+            if (workspace == null)
+            {
+                return NotFound(new { error = $"Workspace '{id}' not found" });
+            }
+
+            workspace.SetSessionTemplate(templateType, template.ToDomain());
+            _logger.LogInformation("Set session template '{Template}' for workspace {Id}", templateType, id);
+            return Ok(WorkspaceDto.FromDomain(workspace));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to set session template for workspace {Id}", id);
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Delete a session template.
+    /// </summary>
+    [HttpDelete("{id}/session-templates/{templateType}")]
+    public async Task<ActionResult<WorkspaceDto>> DeleteSessionTemplate(
+        string id,
+        string templateType,
+        CancellationToken ct)
+    {
+        try
+        {
+            var workspace = await _workspaceService.GetWorkspaceAsync(id, ct);
+            if (workspace == null)
+            {
+                return NotFound(new { error = $"Workspace '{id}' not found" });
+            }
+
+            workspace.RemoveSessionTemplate(templateType);
+            _logger.LogInformation("Removed session template '{Template}' from workspace {Id}", templateType, id);
+            return Ok(WorkspaceDto.FromDomain(workspace));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to remove session template from workspace {Id}", id);
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    // ====== Entry Points Endpoints ======
+
+    /// <summary>
+    /// Get all entry points for a workspace.
+    /// </summary>
+    [HttpGet("{id}/entry-points")]
+    public async Task<ActionResult<Dictionary<string, string>>> GetEntryPoints(
+        string id,
+        CancellationToken ct)
+    {
+        var workspace = await _workspaceService.GetWorkspaceAsync(id, ct);
+        if (workspace == null)
+        {
+            return NotFound(new { error = $"Workspace '{id}' not found" });
+        }
+
+        return Ok(workspace.EntryPoints);
+    }
+
+    /// <summary>
+    /// Set or update an entry point.
+    /// </summary>
+    [HttpPut("{id}/entry-points/{name}")]
+    public async Task<ActionResult<WorkspaceDto>> SetEntryPoint(
+        string id,
+        string name,
+        [FromBody] SetEntryPointRequest request,
+        CancellationToken ct)
+    {
+        try
+        {
+            var workspace = await _workspaceService.GetWorkspaceAsync(id, ct);
+            if (workspace == null)
+            {
+                return NotFound(new { error = $"Workspace '{id}' not found" });
+            }
+
+            workspace.SetEntryPoint(name, request.BlockId);
+            _logger.LogInformation("Set entry point '{Name}' to block '{BlockId}' for workspace {Id}",
+                name, request.BlockId, id);
+            return Ok(WorkspaceDto.FromDomain(workspace));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to set entry point for workspace {Id}", id);
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Delete an entry point.
+    /// </summary>
+    [HttpDelete("{id}/entry-points/{name}")]
+    public async Task<ActionResult<WorkspaceDto>> DeleteEntryPoint(
+        string id,
+        string name,
+        CancellationToken ct)
+    {
+        try
+        {
+            var workspace = await _workspaceService.GetWorkspaceAsync(id, ct);
+            if (workspace == null)
+            {
+                return NotFound(new { error = $"Workspace '{id}' not found" });
+            }
+
+            workspace.RemoveEntryPoint(name);
+            _logger.LogInformation("Removed entry point '{Name}' from workspace {Id}", name, id);
+            return Ok(WorkspaceDto.FromDomain(workspace));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to remove entry point from workspace {Id}", id);
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    // ====== Workspace Load/Validate Endpoints ======
+
+    /// <summary>
+    /// Load a workspace from a filesystem path.
+    /// </summary>
+    [HttpPost("load")]
+    public async Task<ActionResult<WorkspaceDto>> LoadFromPath(
+        [FromBody] LoadWorkspaceRequest request,
+        CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(request.Path))
+        {
+            return BadRequest(new { error = "Path is required" });
+        }
+
+        try
+        {
+            // This would need to be implemented in the service
+            // For now, return not implemented
+            _logger.LogInformation("Load workspace from path requested: {Path}", request.Path);
+            return StatusCode(501, new { error = "Load from path not yet implemented" });
+        }
+        catch (FileNotFoundException ex)
+        {
+            return NotFound(new { error = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to load workspace from path {Path}", request.Path);
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Validate a workspace structure.
+    /// </summary>
+    [HttpPost("{id}/validate")]
+    public async Task<ActionResult<WorkspaceValidationResult>> ValidateWorkspace(
+        string id,
+        CancellationToken ct)
+    {
+        var workspace = await _workspaceService.GetWorkspaceAsync(id, ct);
+        if (workspace == null)
+        {
+            return NotFound(new { error = $"Workspace '{id}' not found" });
+        }
+
+        var result = new WorkspaceValidationResult
+        {
+            IsValid = true,
+            Errors = new List<string>(),
+            Warnings = new List<string>()
+        };
+
+        // Validate path exists
+        if (!string.IsNullOrEmpty(workspace.Path) && !Directory.Exists(workspace.Path))
+        {
+            result.Errors.Add($"Workspace path does not exist: {workspace.Path}");
+            result.IsValid = false;
+        }
+
+        // Validate required directories exist
+        if (!string.IsNullOrEmpty(workspace.Path))
+        {
+            var blocksPath = Path.Combine(workspace.Path, "blocks");
+            var dataPath = Path.Combine(workspace.Path, "data");
+
+            if (!Directory.Exists(blocksPath))
+            {
+                result.Warnings.Add($"Blocks directory not found: {blocksPath}");
+            }
+            if (!Directory.Exists(dataPath))
+            {
+                result.Warnings.Add($"Data directory not found: {dataPath}");
+            }
+        }
+
+        // Validate entry points reference existing blocks (placeholder)
+        foreach (var (name, blockId) in workspace.EntryPoints)
+        {
+            result.Warnings.Add($"Entry point '{name}' -> '{blockId}' (block existence not verified)");
+        }
+
+        // Validate session templates have valid permissions
+        foreach (var (type, template) in workspace.SessionTemplates)
+        {
+            if (template.Permissions.AllowedCommands.Count == 0 &&
+                template.Permissions.AllowedTools.Count == 0)
+            {
+                result.Warnings.Add($"Session template '{type}' has no allowed commands or tools");
+            }
+        }
+
+        _logger.LogInformation("Validated workspace {Id}: IsValid={IsValid}", id, result.IsValid);
+        return Ok(result);
+    }
+
     /// <summary>
     /// Promote an agent between workspaces.
     /// </summary>
@@ -388,4 +713,9 @@ public class PromotionResultDto
     public string? TargetVersion { get; set; }
     public string? ErrorMessage { get; set; }
     public string? AuditLogId { get; set; }
+}
+
+public class SetEntryPointRequest
+{
+    public string BlockId { get; set; } = string.Empty;
 }

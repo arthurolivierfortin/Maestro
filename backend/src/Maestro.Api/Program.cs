@@ -14,6 +14,8 @@ using Maestro.Infrastructure.Training.QualityEvaluators;
 using Maestro.Infrastructure.Fitness;
 using Maestro.Infrastructure.Sessions;
 using Maestro.Infrastructure.Experiments;
+using Maestro.Infrastructure.Cli;
+using Maestro.Infrastructure.Cli.CommandHandlers;
 using System.IO;
 using System;
 using Microsoft.Extensions.Options;
@@ -278,6 +280,24 @@ builder.Services.AddSingleton<IWorkspaceRepository>(sp =>
 });
 builder.Services.AddScoped<IWorkspaceService, Maestro.Infrastructure.Workspaces.WorkspaceService>();
 builder.Services.AddScoped<IWorkspaceGateway, Maestro.Infrastructure.Workspaces.WorkspaceGateway>();
+
+// Phase 2: Register execution session services (Session-based permissions)
+builder.Services.AddSingleton<IExecutionSessionRepository, InMemoryExecutionSessionRepository>();
+builder.Services.AddScoped<IExecutionSessionService, ExecutionSessionService>();
+
+// Phase 3: Register CLI Executor services
+// Command handlers
+builder.Services.AddScoped<ICommandHandler, RunCommandHandler>();
+builder.Services.AddScoped<ICommandHandler, ListToolsCommandHandler>();
+builder.Services.AddScoped<ICommandHandler, ListBlocksCommandHandler>();
+builder.Services.AddScoped<ICommandHandler, DescribeCommandHandler>();
+builder.Services.AddScoped<ICommandHandler, DataCommandHandler>();
+builder.Services.AddScoped<ICommandHandler, SessionCommandHandler>();
+builder.Services.AddScoped<ICommandHandler, WorkspaceCommandHandler>();
+builder.Services.AddScoped<ICommandHandler, HelpCommandHandler>();
+// Permission checker and executor
+builder.Services.AddScoped<IPermissionChecker, PermissionChecker>();
+builder.Services.AddScoped<ICliExecutor, CliExecutor>();
 
 // Phase 5: Register orchestrator service
 builder.Services.AddScoped<IOrchestratorService, Maestro.Infrastructure.Orchestration.OrchestratorService>();

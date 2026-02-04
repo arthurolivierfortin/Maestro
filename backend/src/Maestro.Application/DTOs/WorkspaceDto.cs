@@ -15,11 +15,15 @@ public class WorkspaceDto
     public string? Description { get; set; }
     public string Type { get; set; } = string.Empty;
     public string Status { get; set; } = string.Empty;
+    public string? Path { get; set; }
     public List<string> SessionIds { get; set; } = new();
     public List<string> ProjectIds { get; set; } = new();
     public string? CatalogRef { get; set; }
     public WorkspaceSettingsDto Settings { get; set; } = new();
     public WorkspaceIsolationDto Isolation { get; set; } = new();
+    public ContextPermissionsDto Permissions { get; set; } = new();
+    public Dictionary<string, SessionTemplateDto> SessionTemplates { get; set; } = new();
+    public Dictionary<string, string> EntryPoints { get; set; } = new();
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
     public string? CreatedBy { get; set; }
@@ -33,11 +37,17 @@ public class WorkspaceDto
             Description = workspace.Description,
             Type = workspace.Type.ToString(),
             Status = workspace.Status.ToString(),
+            Path = workspace.Path,
             SessionIds = workspace.SessionIds,
             ProjectIds = workspace.ProjectIds,
             CatalogRef = workspace.CatalogRef,
             Settings = WorkspaceSettingsDto.FromDomain(workspace.Settings),
             Isolation = WorkspaceIsolationDto.FromDomain(workspace.Isolation),
+            Permissions = ContextPermissionsDto.FromDomain(workspace.Permissions),
+            SessionTemplates = workspace.SessionTemplates.ToDictionary(
+                kvp => kvp.Key,
+                kvp => SessionTemplateDto.FromDomain(kvp.Value)),
+            EntryPoints = new Dictionary<string, string>(workspace.EntryPoints),
             CreatedAt = workspace.CreatedAt,
             UpdatedAt = workspace.UpdatedAt,
             CreatedBy = workspace.CreatedBy
@@ -230,9 +240,13 @@ public class CreateWorkspaceRequest
     public string Name { get; set; } = string.Empty;
     public string Type { get; set; } = "Custom";
     public string? Description { get; set; }
+    public string? Path { get; set; }
     public bool Isolated { get; set; }
     public WorkspaceIsolationDto? IsolationConfig { get; set; }
     public WorkspaceSettingsDto? Settings { get; set; }
+    public ContextPermissionsDto? Permissions { get; set; }
+    public Dictionary<string, SessionTemplateDto>? SessionTemplates { get; set; }
+    public Dictionary<string, string>? EntryPoints { get; set; }
 }
 
 /// <summary>
