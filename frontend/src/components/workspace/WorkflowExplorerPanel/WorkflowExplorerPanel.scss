@@ -1,0 +1,112 @@
+/**
+ * WorkflowExplorerPanel Styles
+ */
+
+.workflow-explorer-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+
+  &--empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  // Empty state
+  &__empty-state {
+    text-align: center;
+    padding: var(--spacing-2xl);
+  }
+
+  &__empty-icon {
+    color: var(--text-tertiary);
+    opacity: 0.5;
+    margin-bottom: var(--spacing-md);
+  }
+
+  &__empty-state h3 {
+    margin: 0 0 var(--spacing-sm) 0;
+    font-size: var(--font-size-lg);
+    color: var(--text-primary);
+  }
+
+  &__empty-state p {
+    margin: 0;
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+  }
+
+  // Header
+  &__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-md);
+    margin-bottom: var(--spacing-lg);
+    flex-wrap: wrap;
+  }
+
+  &__title {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    margin: 0;
+    font-size: var(--font-size-xl);
+    font-weight: var(--font-weight-bold);
+    color: var(--text-primary);
+  }
+
+  // Search
+  &__search {
+    position: relative;
+    display: flex;
+    align-items: center;
+    min-width: 200px;
+    max-width: 300px;
+  }
+
+  &__search-icon {
+    position: absolute;
+    left: var(--spacing-sm);
+    color: var(--text-tertiary);
+    pointer-events: none;
+  }
+
+  &__search-input {
+    width: 100%;
+    padding: var(--spacing-sm) var(--spacing-md);
+    padding-left: calc(var(--spacing-sm) + 24px);
+    background: var(--background-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    color: var(--text-primary);
+    font-size: var(--font-size-sm);
+    outline: none;
+    transition: border-color var(--transition-fast);
+
+    &::placeholder {
+      color: var(--text-tertiary);
+    }
+
+    &:focus {
+      border-color: var(--color-primary);
+    }
+  }
+
+  // List
+  &__list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+    overflow-y: auto;
+    flex: 1;
+  }
+
+  &__no-results {
+    text-align: center;
+    padding: var(--spacing-xl);
+    color: var(--text-secondary);
+    font-size: var(--font-size-sm);
+  }
+}

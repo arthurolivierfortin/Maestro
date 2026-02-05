@@ -26,6 +26,7 @@ import {
   Archive,
   Trash2,
   Circle,
+  GitBranch,
 } from 'lucide-react';
 import { useWorkspaceStore } from '../store/workspaceStore';
 import { useSessionStore } from '../store/sessionStore';
@@ -37,10 +38,16 @@ import {
   WorkspaceContent,
   RecentActivity,
   WorkspaceHealth,
+  EntryPointCard,
+  BlockCompositionDiagram,
+  WorkflowExplorerPanel,
 } from '../components/workspace';
 import { WorkspaceLiveView } from '../components/workspace/WorkspaceLiveView';
 import { Button } from '../components/common/Button';
-import type { Session, SessionStatus } from '../types/session.types';
+import { useBlockStore } from '../store/blockStore';
+import type { Session } from '../types/session.types';
+import type { Block } from '../types/block.types';
+import type { EntryPoint } from '../types/workspace-canvas.types';
 import './WorkspaceDetailPage.scss';
 
 // ============= Tab Types =============
@@ -102,20 +109,54 @@ interface OverviewPanelProps {
       type: 'main' | 'dashboard' | 'experiments' | 'settings' | 'custom';
     }>;
   };
+  blocks: Block[];
   onNavigateToBlocks?: () => void;
+  onNavigateToCanvas?: () => void;
+  onStartSession?: (blockId: string) => void;
+  onBlockClick?: (blockId: string) => void;
 }
 
-const OverviewPanel: React.FC<OverviewPanelProps> = ({ workspace, onNavigateToBlocks }) => {
+const OverviewPanel: React.FC<OverviewPanelProps> = ({
+  workspace,
+  blocks,
+  onNavigateToBlocks,
+  onNavigateToCanvas,
+  onStartSession,
+  onBlockClick,
+}) => {
   const formatDate = (dateStr: string) => {
     return new Date(dateStr).toLocaleString();
   };
 
-  // Mock entry points for research workspace
-  const entryPoints = workspace.entryPoints || (workspace.type === 'Research' ? [
-    { blockId: 'research-team', name: 'Run Research Team', type: 'main' as const },
-    { blockId: 'experiment-manager', name: 'Manage Experiments', type: 'experiments' as const },
-    { blockId: 'leaderboard', name: 'View Leaderboard', type: 'dashboard' as const },
-  ] : []);
+  // Get entry points from workspace or use mock data
+  const entryPoints: EntryPoint[] = useMemo(() => {
+    if (Array.isArray(workspace.entryPoints) && workspace.entryPoints.length > 0) {
+      return workspace.entryPoints.map(ep => ({
+        blockId: ep.blockId,
+        name: ep.name,
+        description: ep.description,
+        type: ep.type,
+      }));
+    }
+    // Mock entry points for research workspace
+    if (workspace.type === 'Research') {
+      return [
+        { blockId: 'research-team', name: 'Run Research Team', type: 'main' as const },
+        { blockId: 'experiment-manager', name: 'Manage Experiments', type: 'experiments' as const },
+        { blockId: 'leaderboard', name: 'View Leaderboard', type: 'dashboard' as const },
+      ];
+    }
+    return [];
+  }, [workspace.entryPoints, workspace.type]);
+
+  // Get blocks for entry points
+  const entryPointBlocks = useMemo(() => {
+    const blockMap: Record<string, Block | null> = {};
+    for (const ep of entryPoints) {
+      blockMap[ep.blockId] = blocks.find(b => b.id === ep.blockId) || null;
+    }
+    return blockMap;
+  }, [entryPoints, blocks]);
 
   return (
     <div className="overview-panel">
@@ -126,6 +167,36 @@ const OverviewPanel: React.FC<OverviewPanelProps> = ({ workspace, onNavigateToBl
         workspaceId={workspace.id}
         entryPoints={entryPoints}
       />
+
+      {/* Entry Points with Previews */}
+      {entryPoints.length > 0 && (
+        <div className="overview-panel__section">
+          <h3>Entry Points</h3>
+          <div className="overview-panel__entry-points-grid">
+            {entryPoints.map(ep => (
+              <EntryPointCard
+                key={ep.blockId}
+                entryPoint={ep}
+                block={entryPointBlocks[ep.blockId]}
+                workspaceId={workspace.id}
+                onStart={() => onStartSession?.(ep.blockId)}
+                onPreview={() => onNavigateToCanvas?.()}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Block Composition Diagram */}
+      {blocks.length > 0 && (
+        <div className="overview-panel__section">
+          <BlockCompositionDiagram
+            blocks={blocks}
+            onBlockClick={onBlockClick}
+            onViewAll={onNavigateToBlocks}
+          />
+        </div>
+      )}
 
       {/* Status Grid */}
       <div className="overview-panel__grid">
@@ -280,6 +351,8 @@ export function WorkspaceDetailPage() {
   } = useWorkspaceStore();
 
   const { sessions, loadSessions } = useSessionStore();
+  const blocksMap = useBlockStore((state) => state.blocks);
+  const allBlocks = useMemo(() => Array.from(blocksMap.values()), [blocksMap]);
 
   // Filter sessions for current workspace
   const workspaceSessions = useMemo<Session[]>(() => {
@@ -311,6 +384,7 @@ export function WorkspaceDetailPage() {
   const builtInTabs: Tab[] = [
     { id: 'overview', label: 'Overview', icon: <LayoutDashboard size={16} /> },
     { id: 'canvas', label: 'Canvas', icon: <Palette size={16} /> },
+    { id: 'workflows', label: 'Workflows', icon: <GitBranch size={16} /> },
     { id: 'blocks', label: 'Blocks', icon: <Layers size={16} /> },
     { id: 'sessions', label: 'Sessions', icon: <RefreshCw size={16} /> },
     { id: 'logs', label: 'Logs', icon: <FileText size={16} /> }
@@ -344,6 +418,21 @@ export function WorkspaceDetailPage() {
     setActiveTab('blocks');
   }, []);
 
+  const handleNavigateToCanvas = useCallback(() => {
+    setActiveTab('canvas');
+  }, []);
+
+  const handleStartSession = useCallback((blockId: string) => {
+    // TODO: Implement session start
+    console.log('Start session with block:', blockId);
+  }, []);
+
+  const handleBlockClick = useCallback((_blockId: string) => {
+    // Navigate to blocks tab and select the block
+    setActiveTab('blocks');
+    // TODO: Add block selection state using _blockId
+  }, []);
+
   const renderContent = () => {
     if (!currentWorkspace) return null;
 
@@ -352,7 +441,11 @@ export function WorkspaceDetailPage() {
         return (
           <OverviewPanel
             workspace={currentWorkspace}
+            blocks={allBlocks}
             onNavigateToBlocks={handleNavigateToBlocks}
+            onNavigateToCanvas={handleNavigateToCanvas}
+            onStartSession={handleStartSession}
+            onBlockClick={handleBlockClick}
           />
         );
       case 'canvas':
@@ -365,8 +458,17 @@ export function WorkspaceDetailPage() {
               isLoading={isLoading}
               onNavigateToWorkspace={handleExternalWorkspaceClick}
               onNavigateToLogs={() => setActiveTab('logs')}
+              blocks={allBlocks}
             />
           </div>
+        );
+      case 'workflows':
+        return (
+          <WorkflowExplorerPanel
+            blocks={allBlocks}
+            onStartSession={handleStartSession}
+            onViewWorkflow={handleBlockClick}
+          />
         );
       case 'blocks':
         return <BlocksPanel workspaceId={currentWorkspace.id} />;

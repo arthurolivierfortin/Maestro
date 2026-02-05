@@ -113,7 +113,7 @@ export interface ConsoleLogEntry {
 /**
  * View mode for the workspace canvas
  */
-export type ViewMode = 'live' | 'design' | 'topology' | 'timeline';
+export type ViewMode = 'live' | 'design' | 'topology' | 'timeline' | 'blueprint';
 
 /**
  * Selection state for the canvas
@@ -144,4 +144,34 @@ export interface LinkedWorkspaceInfo {
   relationshipType: WorkspaceRelationshipType;
   isOnline: boolean;
   sessionCount?: number;
+}
+
+/**
+ * Entry point type for workspace
+ */
+export type EntryPointType = 'main' | 'dashboard' | 'experiments' | 'settings' | 'custom';
+
+/**
+ * Entry point definition
+ */
+export interface EntryPoint {
+  blockId: string;
+  name: string;
+  description?: string;
+  type: EntryPointType;
+}
+
+/**
+ * Data for a blueprint block node on the canvas
+ */
+export interface BlueprintBlockNodeData {
+  blockId: string;
+  name: string;
+  blockType: string;
+  description?: string;
+  isAtomic: boolean;
+  childCount?: number;
+  isEntryPoint?: boolean;
+  entryPointName?: string;
+  entryPointType?: EntryPointType;
 }

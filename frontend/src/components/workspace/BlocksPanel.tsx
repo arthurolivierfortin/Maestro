@@ -1,179 +1,143 @@
 /**
  * Blocks Panel Component
  *
- * Displays all blocks in a workspace using the shared BlockGrid component.
- * Reuses Foundry components for consistent styling.
+ * Displays all blocks in a workspace using the exact same layout as FoundryPage.
+ * Uses FoundrySidebar for category filtering and FoundrySearchBar for search.
+ * The only difference is that blocks are filtered by workspace.
  */
 
-import React, { useState, useEffect, useMemo } from 'react';
-import { Search, X } from 'lucide-react';
-import { blockService } from '../../services/blockService';
+import React, { useState, useMemo, useCallback } from 'react';
+import { useBlockStore } from '../../store';
+import { FoundrySidebar } from '../Foundry/FoundrySidebar';
+import { FoundrySearchBar } from '../Foundry/FoundrySearchBar';
 import { BlockGrid } from '../Foundry/BlockGrid';
-import { Button } from '../common/Button';
-import { BlockIcon } from '../icons';
+import { CreateBlockWizard } from '../Foundry/CreateBlockWizard';
+import { useFavorites } from '../../hooks/useFavorites';
 import type { Block, BlockType } from '../../types/block.types';
 import './BlocksPanel.scss';
 
 interface BlocksPanelProps {
   workspaceId: string;
+  blocks?: Block[]; // Optional: blocks can be passed directly or loaded from store
 }
 
-type FilterType = 'all' | BlockType;
-
-const FILTER_OPTIONS: { id: FilterType; label: string; type?: BlockType }[] = [
-  { id: 'all', label: 'All' },
-  { id: 'tool', label: 'Tools', type: 'tool' },
-  { id: 'agent', label: 'Agents', type: 'agent' },
-  { id: 'workflow', label: 'Workflows', type: 'workflow' },
-  { id: 'prompt', label: 'Prompts', type: 'prompt' },
-  { id: 'inference', label: 'Inference', type: 'inference' },
-];
-
-export const BlocksPanel: React.FC<BlocksPanelProps> = ({ workspaceId }) => {
-  const [blocks, setBlocks] = useState<Block[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [filter, setFilter] = useState<FilterType>('all');
+export const BlocksPanel: React.FC<BlocksPanelProps> = ({ workspaceId: _workspaceId, blocks: propBlocks }) => {
+  // State for filters
+  const [selectedCategory, setSelectedCategory] = useState<BlockType | 'all' | 'favorites'>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCapability, setSelectedCapability] = useState<string | null>(null);
+  const [isWizardOpen, setIsWizardOpen] = useState(false);
 
-  // Load blocks
-  useEffect(() => {
-    const loadBlocks = async () => {
-      setIsLoading(true);
-      setError(null);
-      try {
-        const allBlocks = await blockService.getAll();
-        setBlocks(allBlocks);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load blocks');
-      } finally {
-        setIsLoading(false);
-      }
-    };
+  // Get blocks from store if not provided via props
+  const getAllBlocks = useBlockStore((s) => s.getAllBlocks);
+  const { getFavorites } = useFavorites();
 
-    loadBlocks();
-  }, [workspaceId]);
+  // Use prop blocks if provided, otherwise get from store
+  const allBlocks = useMemo(() => {
+    return propBlocks ?? getAllBlocks();
+  }, [propBlocks, getAllBlocks]);
 
-  // Filter and search blocks
+  // Filter blocks based on current criteria
   const filteredBlocks = useMemo(() => {
-    return blocks.filter(block => {
-      // Type filter
-      if (filter !== 'all' && block.blockType !== filter) {
-        return false;
-      }
+    let blocks = allBlocks;
 
-      // Search filter
-      if (searchQuery) {
-        const query = searchQuery.toLowerCase();
+    // Filter by favorites
+    if (selectedCategory === 'favorites') {
+      const favoriteBlocks = getFavorites();
+      // Only show favorites that are in the workspace
+      const workspaceBlockIds = new Set(allBlocks.map(b => b.id));
+      blocks = favoriteBlocks.filter(b => workspaceBlockIds.has(b.id));
+    }
+    // Filter by category (block type)
+    else if (selectedCategory !== 'all') {
+      blocks = blocks.filter((b) => b.blockType === selectedCategory);
+    }
+
+    // Filter by search query
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      blocks = blocks.filter((block) => {
         const matchesName = block.name.toLowerCase().includes(query);
-        const matchesDescription = block.metadata?.description?.toLowerCase().includes(query);
-        const matchesTags = block.metadata?.tags?.some(tag =>
-          tag.toLowerCase().includes(query)
+        const matchesTags = block.metadata?.tags?.some(
+          (tag) => tag.toLowerCase().includes(query)
         );
-        return matchesName || matchesDescription || matchesTags;
-      }
+        const matchesDescription = block.metadata?.description?.toLowerCase().includes(query);
+        return matchesName || matchesTags || matchesDescription;
+      });
+    }
 
-      return true;
-    });
-  }, [blocks, filter, searchQuery]);
+    // Filter by capability
+    if (selectedCapability) {
+      blocks = blocks.filter((block) =>
+        block.capabilities?.includes(selectedCapability)
+      );
+    }
 
-  // Group blocks by type for summary
-  const blocksByType = useMemo(() => {
-    const grouped: Record<string, Block[]> = {};
-    blocks.forEach(block => {
-      if (!grouped[block.blockType]) {
-        grouped[block.blockType] = [];
-      }
-      grouped[block.blockType].push(block);
-    });
-    return grouped;
-  }, [blocks]);
+    return blocks;
+  }, [allBlocks, selectedCategory, searchQuery, selectedCapability, getFavorites]);
 
-  if (isLoading) {
-    return (
-      <div className="blocks-panel">
-        <h2 className="blocks-panel__title">Blocks</h2>
-        <div className="blocks-panel__loading">
-          <span className="blocks-panel__spinner" />
-          Loading blocks...
-        </div>
-      </div>
-    );
-  }
+  // Handlers
+  const handleCategorySelect = useCallback((category: BlockType | 'all' | 'favorites') => {
+    setSelectedCategory(category);
+  }, []);
 
-  if (error) {
-    return (
-      <div className="blocks-panel">
-        <h2 className="blocks-panel__title">Blocks</h2>
-        <div className="blocks-panel__error">
-          <X size={24} />
-          <span>{error}</span>
-        </div>
-      </div>
-    );
-  }
+  const handleSearchChange = useCallback((query: string) => {
+    setSearchQuery(query);
+  }, []);
+
+  const handleCapabilityChange = useCallback((capability: string | null) => {
+    setSelectedCapability(capability);
+  }, []);
+
+  const handleCreateBlock = useCallback(() => {
+    setIsWizardOpen(true);
+  }, []);
+
+  const handleWizardClose = useCallback(() => {
+    setIsWizardOpen(false);
+  }, []);
 
   return (
     <div className="blocks-panel">
-      {/* Header */}
-      <div className="blocks-panel__header">
-        <h2 className="blocks-panel__title">Blocks ({blocks.length})</h2>
-      </div>
+      <div className="blocks-panel__layout">
+        {/* Sidebar - Same as FoundryPage */}
+        <FoundrySidebar
+          selectedCategory={selectedCategory}
+          onCategorySelect={handleCategorySelect}
+          onCreateBlock={handleCreateBlock}
+        />
 
-      {/* Summary - using Lucide BlockIcons */}
-      <div className="blocks-panel__summary">
-        {Object.entries(blocksByType).map(([type, typeBlocks]) => (
-          <button
-            key={type}
-            className={`blocks-panel__summary-item ${filter === type ? 'blocks-panel__summary-item--active' : ''}`}
-            onClick={() => setFilter(filter === type ? 'all' : type as FilterType)}
-          >
-            <BlockIcon type={type as BlockType} size={16} />
-            <span className="blocks-panel__summary-label">{type}</span>
-            <span className="blocks-panel__summary-count">{typeBlocks.length}</span>
-          </button>
-        ))}
-      </div>
-
-      {/* Toolbar */}
-      <div className="blocks-panel__toolbar">
-        <div className="blocks-panel__filters">
-          {FILTER_OPTIONS.map(option => (
-            <Button
-              key={option.id}
-              variant={filter === option.id ? 'primary' : 'ghost'}
-              size="sm"
-              onClick={() => setFilter(option.id)}
-            >
-              {option.type && <BlockIcon type={option.type} size={14} />}
-              {option.label}
-            </Button>
-          ))}
-        </div>
-        <div className="blocks-panel__search">
-          <Search size={16} className="blocks-panel__search-icon" />
-          <input
-            type="text"
-            placeholder="Search blocks..."
-            value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
-            className="blocks-panel__search-input"
+        {/* Main Content */}
+        <div className="blocks-panel__main">
+          {/* Search Bar - Same as FoundryPage */}
+          <FoundrySearchBar
+            searchQuery={searchQuery}
+            onSearchChange={handleSearchChange}
+            selectedCapability={selectedCapability}
+            onCapabilityChange={handleCapabilityChange}
           />
-          {searchQuery && (
-            <button
-              className="blocks-panel__search-clear"
-              onClick={() => setSearchQuery('')}
-            >
-              <X size={14} />
-            </button>
-          )}
+
+          {/* Results count */}
+          <div className="blocks-panel__results-info">
+            <span className="blocks-panel__results-count">
+              {filteredBlocks.length} block{filteredBlocks.length !== 1 ? 's' : ''}
+              {selectedCategory !== 'all' && ` in ${selectedCategory}`}
+              {searchQuery && ` matching "${searchQuery}"`}
+            </span>
+          </div>
+
+          {/* Block Grid - Same component as FoundryPage */}
+          <BlockGrid blocks={filteredBlocks} />
         </div>
       </div>
 
-      {/* Block Grid - Reusing Foundry component */}
-      <div className="blocks-panel__content">
-        <BlockGrid blocks={filteredBlocks} />
-      </div>
+      {/* Create Block Wizard */}
+      {isWizardOpen && (
+        <CreateBlockWizard
+          isOpen={isWizardOpen}
+          onClose={handleWizardClose}
+        />
+      )}
     </div>
   );
 };

@@ -296,6 +296,13 @@
     flex-wrap: wrap;
     gap: var(--spacing-xs);
   }
+
+  // Entry Points Grid
+  &__entry-points-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: var(--spacing-md);
+  }
 }
 
 // Sessions Panel

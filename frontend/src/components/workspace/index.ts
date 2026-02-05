@@ -14,3 +14,6 @@ export { WorkspaceHealth } from './WorkspaceHealth';
 export { ConsolePanel } from './ConsolePanel';
 export { HierarchyPanel } from './HierarchyPanel';
 export { SessionInspector, WorkspaceInspector, InspectorPanel } from './InspectorPanel';
+export { EntryPointCard, MiniFlowDiagram } from './EntryPointCard';
+export { BlockCompositionDiagram } from './BlockCompositionDiagram';
+export { WorkflowExplorerPanel, WorkflowCard, WorkflowFlowDiagram } from './WorkflowExplorerPanel';

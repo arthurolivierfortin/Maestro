@@ -9,20 +9,23 @@
  */
 
 import React, { useState, useCallback, useMemo } from 'react';
-import { Radio, Pencil, Hexagon, List } from 'lucide-react';
+import { Radio, Pencil, Hexagon, List, FileArchive } from 'lucide-react';
 import { HierarchyPanel } from '../HierarchyPanel';
 import { WorkspaceCanvas } from '../WorkspaceCanvas';
 import { InspectorPanel } from '../InspectorPanel';
 import { ConsolePanel } from '../ConsolePanel';
 import { useWorkspaceRealtime } from '../../../hooks/useWorkspaceRealtime';
+import { useBlockStore } from '../../../store/blockStore';
 import type { Workspace, WorkspaceTopology } from '../../../types/workspace.types';
 import type { Session } from '../../../types/session.types';
-import type { LinkedWorkspaceInfo, ViewMode } from '../../../types/workspace-canvas.types';
+import type { Block } from '../../../types/block.types';
+import type { LinkedWorkspaceInfo, ViewMode, EntryPoint } from '../../../types/workspace-canvas.types';
 import './WorkspaceLiveView.scss';
 
 // View mode configuration
 const viewModes: { id: ViewMode; label: string; icon: React.ReactNode; description: string }[] = [
   { id: 'live', label: 'Live', icon: <Radio size={12} />, description: 'Real-time session monitoring' },
+  { id: 'blueprint', label: 'Blueprint', icon: <FileArchive size={12} />, description: 'Static block structure' },
   { id: 'design', label: 'Design', icon: <Pencil size={12} />, description: 'Edit block structure' },
   { id: 'topology', label: 'Topology', icon: <Hexagon size={12} />, description: 'View workspace connections' },
   { id: 'timeline', label: 'Timeline', icon: <List size={12} />, description: 'Execution history' },
@@ -35,6 +38,8 @@ interface WorkspaceLiveViewProps {
   isLoading?: boolean;
   onNavigateToWorkspace?: (workspaceId: string) => void;
   onNavigateToLogs?: () => void;
+  blocks?: Block[];
+  entryPoints?: EntryPoint[];
 }
 
 export const WorkspaceLiveView: React.FC<WorkspaceLiveViewProps> = ({
@@ -44,14 +49,28 @@ export const WorkspaceLiveView: React.FC<WorkspaceLiveViewProps> = ({
   isLoading = false,
   onNavigateToWorkspace,
   onNavigateToLogs,
+  blocks: propBlocks,
+  entryPoints: propEntryPoints,
 }) => {
   // View mode state
   const [viewMode, setViewMode] = useState<ViewMode>('live');
 
-  // Selection state
-  const [selectedType, setSelectedType] = useState<'session' | 'workspace' | null>(null);
+  // Selection state - internal state includes 'block', but we narrow for child components
+  const [selectedType, setSelectedType] = useState<'session' | 'workspace' | 'block' | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [consoleSessionFilter, setConsoleSessionFilter] = useState<string | null>(null);
+
+  // Narrow selectedType for child components that don't support 'block'
+  const narrowedSelectedType: 'session' | 'workspace' | null =
+    selectedType === 'block' ? null : selectedType;
+
+  // Get blocks from store if not provided via props
+  const storeBlocksMap = useBlockStore((state) => state.blocks);
+  const storeBlocks = useMemo(() => Array.from(storeBlocksMap.values()), [storeBlocksMap]);
+  const blocks = propBlocks ?? storeBlocks;
+
+  // Use entry points from props (workspace doesn't have entryPoints property yet)
+  const entryPoints: EntryPoint[] = propEntryPoints ?? [];
 
   // Real-time connection
   const {
@@ -104,7 +123,7 @@ export const WorkspaceLiveView: React.FC<WorkspaceLiveViewProps> = ({
   }, [selectedType, selectedId, linkedWorkspaces]);
 
   // Selection handlers
-  const handleSelect = useCallback((type: 'session' | 'workspace', id: string) => {
+  const handleSelect = useCallback((type: 'session' | 'workspace' | 'block', id: string) => {
     setSelectedType(type);
     setSelectedId(id);
   }, []);
@@ -117,10 +136,19 @@ export const WorkspaceLiveView: React.FC<WorkspaceLiveViewProps> = ({
     handleSelect('workspace', workspaceId);
   }, [handleSelect]);
 
+  const handleBlockSelect = useCallback((blockId: string) => {
+    handleSelect('block', blockId);
+  }, [handleSelect]);
+
   const handleDrillDown = useCallback((sessionId: string) => {
     // For now, just select the session
     // In the future, this could navigate to a detailed block view
     handleSelect('session', sessionId);
+  }, [handleSelect]);
+
+  const handleBlockDrillDown = useCallback((blockId: string) => {
+    // For now, just select the block
+    handleSelect('block', blockId);
   }, [handleSelect]);
 
   // Action handlers
@@ -158,7 +186,7 @@ export const WorkspaceLiveView: React.FC<WorkspaceLiveViewProps> = ({
           sessions={sessions}
           linkedWorkspaces={linkedWorkspaces}
           selectedId={selectedId}
-          selectedType={selectedType}
+          selectedType={narrowedSelectedType}
           onSelect={handleSelect}
           onDrillDown={handleDrillDown}
         />
@@ -230,7 +258,12 @@ export const WorkspaceLiveView: React.FC<WorkspaceLiveViewProps> = ({
             onSessionSelect={handleSessionSelect}
             onSessionDrillDown={handleDrillDown}
             onExternalWorkspaceClick={handleExternalWorkspaceClick}
+            onBlockSelect={handleBlockSelect}
+            onBlockDrillDown={handleBlockDrillDown}
             isLoading={isLoading}
+            viewMode={viewMode}
+            blocks={blocks}
+            entryPoints={entryPoints}
           />
         </main>
 
@@ -249,7 +282,7 @@ export const WorkspaceLiveView: React.FC<WorkspaceLiveViewProps> = ({
       {/* Right Panel: Inspector */}
       <aside className="workspace-live-view__inspector">
         <InspectorPanel
-          selectedType={selectedType}
+          selectedType={narrowedSelectedType}
           selectedSession={selectedSession}
           selectedWorkspace={selectedWorkspace}
           onSessionPause={handleSessionPause}
