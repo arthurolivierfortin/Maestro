@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 using Maestro.Application.Interfaces;
 using Maestro.Application.DTOs;
 using Maestro.Infrastructure.BlockExecutors;
+using Maestro.Infrastructure.Runs;
 
 namespace Maestro.Api.Controllers
 {
@@ -21,17 +22,20 @@ namespace Maestro.Api.Controllers
         private readonly IBlockRepository _repository;
         private readonly Maestro.Application.Interfaces.IBlockValidator _validator;
         private readonly BlockExecutorRegistry _executorRegistry;
+        private readonly RunTracker _runTracker;
 
         public BlocksController(
             IBlockDiscoveryService discovery,
             IBlockRepository repository,
             Maestro.Application.Interfaces.IBlockValidator validator,
-            BlockExecutorRegistry executorRegistry)
+            BlockExecutorRegistry executorRegistry,
+            RunTracker runTracker)
         {
             _discovery = discovery;
             _repository = repository;
             _validator = validator;
             _executorRegistry = executorRegistry;
+            _runTracker = runTracker;
         }
 
         /// <summary>
@@ -61,17 +65,18 @@ namespace Maestro.Api.Controllers
             
             if (!string.IsNullOrEmpty(search))
             {
-                blocks = blocks.Where(b => 
+                blocks = blocks.Where(b =>
                     b.Name.Contains(search, System.StringComparison.OrdinalIgnoreCase) ||
                     b.Description.Contains(search, System.StringComparison.OrdinalIgnoreCase));
             }
-            
-            var dtos = blocks.Select(b =>
+
+            var dtos = new List<BlockDto>();
+            foreach (var b in blocks)
             {
-                var path = _repository.GetBlockPathAsync(b.Id).Result;
-                return BlockDto.FromDomain(b, path);
-            }).ToList();
-            
+                var path = await _repository.GetBlockPathAsync(b.Id);
+                dtos.Add(BlockDto.FromDomain(b, path));
+            }
+
             return Ok(dtos);
         }
 
@@ -185,11 +190,132 @@ namespace Maestro.Api.Controllers
         public async Task<IActionResult> Delete(string id)
         {
             var existing = await _repository.GetByIdAsync(id);
-            if (existing == null) 
+            if (existing == null)
                 return NotFound(new { error = $"Block '{id}' not found" });
-            
+
             await _repository.DeleteAsync(id);
             return NoContent();
+        }
+
+        /// <summary>
+        /// Get children of a composite (non-atomic) block.
+        /// Returns the hierarchy of child blocks down to the most atomic level.
+        /// </summary>
+        [HttpGet("{id}/children")]
+        public async Task<ActionResult<BlockChildrenResponse>> GetChildren(string id, [FromQuery] bool recursive = true)
+        {
+            var block = await _discovery.GetByIdAsync(id);
+            if (block == null)
+                return NotFound(new { error = $"Block '{id}' not found" });
+
+            if (block.IsAtomic)
+                return Ok(new BlockChildrenResponse
+                {
+                    BlockId = id,
+                    BlockName = block.Name,
+                    BlockType = block.BlockType,
+                    IsAtomic = true,
+                    Children = new List<BlockChildInfo>()
+                });
+
+            var children = await GetBlockChildrenAsync(block, recursive);
+            var (total, atomic, composite) = CountChildren(children);
+            return Ok(new BlockChildrenResponse
+            {
+                BlockId = id,
+                BlockName = block.Name,
+                BlockType = block.BlockType,
+                IsAtomic = false,
+                TotalChildren = total,
+                AtomicCount = atomic,
+                CompositeCount = composite,
+                Children = children
+            });
+        }
+
+        private async Task<List<BlockChildInfo>> GetBlockChildrenAsync(Domain.Entities.BlockDefinition block, bool recursive)
+        {
+            var children = new List<BlockChildInfo>();
+
+            // Extract node references from config
+            if (block.Config != null && block.Config.TryGetValue("nodes", out var nodesObj))
+            {
+                IEnumerable<System.Text.Json.JsonElement>? nodes = null;
+
+                if (nodesObj is System.Text.Json.JsonElement jsonElement && jsonElement.ValueKind == System.Text.Json.JsonValueKind.Array)
+                {
+                    nodes = jsonElement.EnumerateArray();
+                }
+
+                if (nodes != null)
+                {
+                    foreach (var node in nodes)
+                    {
+                        var nodeId = node.TryGetProperty("id", out var idProp) ? idProp.GetString() : null;
+                        var nodeName = node.TryGetProperty("name", out var nameProp) ? nameProp.GetString() : nodeId;
+                        var blockRef = node.TryGetProperty("blockRef", out var refProp) ? refProp.GetString() : null;
+                        var nodeType = node.TryGetProperty("type", out var typeProp) ? typeProp.GetString() : null;
+
+                        var childInfo = new BlockChildInfo
+                        {
+                            NodeId = nodeId ?? "unknown",
+                            NodeName = nodeName ?? "unknown",
+                            BlockRef = blockRef,
+                            NodeType = nodeType ?? (blockRef != null ? "block-reference" : "inline")
+                        };
+
+                        // If it's a block reference, try to resolve it
+                        if (!string.IsNullOrEmpty(blockRef))
+                        {
+                            // Parse blockRef (format: "category/block-id" or just "block-id")
+                            var refId = blockRef.Contains('/') ? blockRef.Split('/').Last() : blockRef;
+                            var referencedBlock = await _discovery.GetByIdAsync(refId);
+
+                            if (referencedBlock != null)
+                            {
+                                childInfo.ResolvedBlockId = referencedBlock.Id;
+                                childInfo.ResolvedBlockName = referencedBlock.Name;
+                                childInfo.ResolvedBlockType = referencedBlock.BlockType;
+                                childInfo.IsAtomic = referencedBlock.IsAtomic;
+
+                                // Recursively get children if not atomic and recursive is true
+                                if (recursive && !referencedBlock.IsAtomic)
+                                {
+                                    childInfo.Children = await GetBlockChildrenAsync(referencedBlock, recursive);
+                                }
+                            }
+                        }
+
+                        children.Add(childInfo);
+                    }
+                }
+            }
+
+            return children;
+        }
+
+        private (int total, int atomic, int composite) CountChildren(List<BlockChildInfo> children)
+        {
+            int total = 0, atomic = 0, composite = 0;
+
+            foreach (var child in children)
+            {
+                total++;
+                if (child.IsAtomic)
+                    atomic++;
+                else
+                    composite++;
+
+                if (child.Children != null && child.Children.Count > 0)
+                {
+                    var (subTotal, subAtomic, subComposite) = CountChildren(child.Children);
+                    total += subTotal;
+                    atomic += subAtomic;
+                    composite += subComposite;
+                }
+            }
+
+            return (total, atomic, composite);
         }
 
         /// <summary>
@@ -226,13 +352,14 @@ namespace Maestro.Api.Controllers
             
             // Apply limit
             blocks = blocks.Take(limit);
-            
-            var dtos = blocks.Select(b =>
+
+            var dtos = new List<BlockDto>();
+            foreach (var b in blocks)
             {
-                var path = _repository.GetBlockPathAsync(b.Id).Result;
-                return BlockDto.FromDomain(b, path);
-            }).ToList();
-            
+                var path = await _repository.GetBlockPathAsync(b.Id);
+                dtos.Add(BlockDto.FromDomain(b, path));
+            }
+
             return Ok(dtos);
         }
 
@@ -277,9 +404,10 @@ namespace Maestro.Api.Controllers
 
         /// <summary>
         /// Execute a block with the given inputs.
+        /// All executions are automatically tracked for traceability.
         /// </summary>
         [HttpPost("{id}/execute")]
-        public async Task<ActionResult<Application.DTOs.BlockExecutionResult>> Execute(string id, [FromBody] BlockExecutionRequest request)
+        public async Task<ActionResult<BlockExecutionResponse>> Execute(string id, [FromBody] BlockExecutionRequest request)
         {
             var block = await _discovery.GetByIdAsync(id);
             if (block == null)
@@ -290,25 +418,78 @@ namespace Maestro.Api.Controllers
             if (executor == null)
                 return BadRequest(new { error = $"No executor found for block type '{block.BlockType}'" });
 
+            // Prepare inputs, including workingDir if provided
+            var inputs = request.Inputs ?? new Dictionary<string, object>();
+            if (!string.IsNullOrEmpty(request.WorkingDirectory))
+            {
+                inputs["workingDir"] = request.WorkingDirectory;
+            }
+
+            // Determine project info
+            var projectId = request.ProjectId ?? "global";
+            var projectPath = request.ProjectPath;
+
+            // Create a run record for traceability
+            var run = await _runTracker.CreateRunAsync(
+                projectId,
+                id,
+                block.BlockType,
+                inputs,
+                projectPath);
+
             try
             {
                 // Create execution context
-                var context = Domain.Entities.ExecutionContext.Create($"block-{id}");
+                var context = Domain.Entities.ExecutionContext.Create($"run-{run.Id}");
 
-                // Prepare inputs, including workingDir if provided
-                var inputs = request.Inputs ?? new Dictionary<string, object>();
-                if (!string.IsNullOrEmpty(request.WorkingDirectory))
-                {
-                    inputs["workingDir"] = request.WorkingDirectory;
-                }
-
+                // Execute the block
                 var result = await executor.ExecuteAsync(block, context, inputs);
 
-                return Ok(result);
+                // Record artifacts (files created/modified) if available
+                if (result.Outputs.TryGetValue("path", out var pathObj) && pathObj is string filePath)
+                {
+                    var fileInfo = new System.IO.FileInfo(filePath);
+                    if (fileInfo.Exists)
+                    {
+                        await _runTracker.RecordArtifactAsync(run, filePath, "created", fileInfo.Length, projectPath);
+                    }
+                }
+
+                // Calculate a basic score based on success
+                var scores = new RunScores
+                {
+                    Overall = result.Success ? 100 : 0,
+                    TaskCompletion = result.Success ? 100 : 0,
+                    Efficiency = result.DurationMs < 1000 ? 100 : (result.DurationMs < 5000 ? 80 : 60)
+                };
+
+                // Complete the run
+                var outputsDict = result.Outputs.ToDictionary(kv => kv.Key, kv => kv.Value);
+                await _runTracker.CompleteRunAsync(
+                    run,
+                    result.Success ? RunStatus.Completed : RunStatus.Failed,
+                    outputsDict,
+                    scores,
+                    projectPath);
+
+                // Return result with run ID for traceability
+                return Ok(new BlockExecutionResponse
+                {
+                    RunId = run.Id,
+                    Outputs = result.Outputs,
+                    Logs = result.Logs,
+                    Success = result.Success,
+                    DurationMs = result.DurationMs,
+                    Scores = scores
+                });
             }
             catch (System.Exception ex)
             {
-                return StatusCode(500, new { error = $"Execution failed: {ex.Message}" });
+                // Record the error
+                await _runTracker.RecordErrorAsync(run, "ExecutionException", ex.Message, false, projectPath);
+                await _runTracker.CompleteRunAsync(run, RunStatus.Failed, null, null, projectPath);
+
+                return StatusCode(500, new { error = $"Execution failed: {ex.Message}", runId = run.Id });
             }
         }
     }
@@ -320,5 +501,51 @@ namespace Maestro.Api.Controllers
     {
         public Dictionary<string, object>? Inputs { get; set; }
         public string? WorkingDirectory { get; set; }
+        public string? ProjectId { get; set; }
+        public string? ProjectPath { get; set; }
+    }
+
+    /// <summary>
+    /// Response model for block execution with traceability info.
+    /// </summary>
+    public class BlockExecutionResponse
+    {
+        public string RunId { get; set; } = string.Empty;
+        public Dictionary<string, object?> Outputs { get; set; } = new();
+        public List<string> Logs { get; set; } = new();
+        public bool Success { get; set; }
+        public long DurationMs { get; set; }
+        public RunScores? Scores { get; set; }
+    }
+
+    /// <summary>
+    /// Response model for block children hierarchy.
+    /// </summary>
+    public class BlockChildrenResponse
+    {
+        public string BlockId { get; set; } = string.Empty;
+        public string BlockName { get; set; } = string.Empty;
+        public string BlockType { get; set; } = string.Empty;
+        public bool IsAtomic { get; set; }
+        public int TotalChildren { get; set; }
+        public int AtomicCount { get; set; }
+        public int CompositeCount { get; set; }
+        public List<BlockChildInfo> Children { get; set; } = new();
+    }
+
+    /// <summary>
+    /// Information about a child node within a composite block.
+    /// </summary>
+    public class BlockChildInfo
+    {
+        public string NodeId { get; set; } = string.Empty;
+        public string NodeName { get; set; } = string.Empty;
+        public string? BlockRef { get; set; }
+        public string NodeType { get; set; } = string.Empty;
+        public string? ResolvedBlockId { get; set; }
+        public string? ResolvedBlockName { get; set; }
+        public string? ResolvedBlockType { get; set; }
+        public bool IsAtomic { get; set; } = true;
+        public List<BlockChildInfo>? Children { get; set; }
     }
 }

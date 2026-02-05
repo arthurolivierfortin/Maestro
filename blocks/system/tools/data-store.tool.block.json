@@ -1,0 +1,73 @@
+{
+  "id": "system:data-store",
+  "name": "Data Store",
+  "blockType": "tool",
+  "version": "1.0.0",
+  "isSystem": true,
+  "isAtomic": true,
+  "overridable": true,
+  "description": "Read/write JSON data in workspace data folder. Provides persistent storage for experiments, metrics, and results.",
+
+  "config": {
+    "executorType": "cli-bridge",
+    "timeout": 30000
+  },
+
+  "inputs": {
+    "action": {
+      "type": "string",
+      "required": true,
+      "enum": ["read", "write", "list", "delete", "query"],
+      "description": "Storage operation to perform"
+    },
+    "collection": {
+      "type": "string",
+      "required": true,
+      "description": "Data collection name (e.g., 'experiments', 'metrics', 'checkpoints')"
+    },
+    "id": {
+      "type": "string",
+      "required": false,
+      "description": "Document ID for read/write/delete operations"
+    },
+    "data": {
+      "type": "object",
+      "required": false,
+      "description": "Data to write (for write action)"
+    },
+    "filter": {
+      "type": "object",
+      "required": false,
+      "description": "Query filter (for query action)"
+    }
+  },
+
+  "outputs": {
+    "success": {
+      "type": "boolean",
+      "description": "Whether the operation succeeded"
+    },
+    "data": {
+      "type": "any",
+      "description": "Retrieved data or operation result"
+    },
+    "count": {
+      "type": "number",
+      "description": "Number of items (for list/query)"
+    },
+    "error": {
+      "type": "string",
+      "description": "Error message if failed"
+    }
+  },
+
+  "metadata": {
+    "author": "system",
+    "category": "storage",
+    "tags": ["storage", "persistence", "json", "data"]
+  },
+
+  "provides": {
+    "capabilities": ["storage", "persistence", "json-data", "collections"]
+  }
+}

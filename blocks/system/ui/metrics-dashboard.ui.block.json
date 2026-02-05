@@ -1,0 +1,68 @@
+{
+  "id": "system:metrics-dashboard",
+  "name": "Metrics Dashboard",
+  "blockType": "ui",
+  "version": "1.0.0",
+  "isSystem": true,
+  "isAtomic": true,
+  "overridable": true,
+  "description": "Displays real-time metrics including fitness scores, execution stats, and model performance.",
+
+  "config": {
+    "component": "MetricsDashboard",
+    "refreshInterval": 5000,
+    "chartType": "line",
+    "timeWindow": "1h"
+  },
+
+  "inputs": {
+    "workspaceId": {
+      "type": "string",
+      "required": false,
+      "description": "Workspace to display metrics for (defaults to current)"
+    },
+    "metrics": {
+      "type": "array",
+      "required": false,
+      "default": ["fitness", "successRate", "latency"],
+      "description": "Metrics to display"
+    },
+    "groupBy": {
+      "type": "string",
+      "enum": ["model", "task", "agent", "time"],
+      "default": "time",
+      "description": "How to group metrics"
+    },
+    "showLeaderboard": {
+      "type": "boolean",
+      "default": true,
+      "description": "Show model leaderboard panel"
+    }
+  },
+
+  "outputs": {
+    "currentMetrics": {
+      "type": "object",
+      "description": "Current metric values"
+    },
+    "trends": {
+      "type": "object",
+      "description": "Metric trends over time"
+    },
+    "topModels": {
+      "type": "array",
+      "description": "Top-ranked models by fitness"
+    }
+  },
+
+  "metadata": {
+    "author": "system",
+    "category": "ui",
+    "tags": ["metrics", "dashboard", "fitness", "visualization"],
+    "uiCategory": "analytics"
+  },
+
+  "provides": {
+    "capabilities": ["metrics-visualization", "leaderboard-display", "trend-analysis"]
+  }
+}

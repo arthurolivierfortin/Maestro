@@ -96,6 +96,43 @@ class MaestroApiClient {
     throw lastError;
   }
 
+  // ===== GENERIC HTTP METHODS =====
+  // These allow direct API calls for endpoints not yet wrapped in dedicated methods
+
+  /**
+   * Generic GET request
+   * @param {string} path - API path (e.g., '/api/fitness/config')
+   */
+  async get(path) {
+    return this._fetch('GET', path);
+  }
+
+  /**
+   * Generic POST request
+   * @param {string} path - API path
+   * @param {object} body - Request body
+   */
+  async post(path, body = {}) {
+    return this._fetch('POST', path, { body });
+  }
+
+  /**
+   * Generic PUT request
+   * @param {string} path - API path
+   * @param {object} body - Request body
+   */
+  async put(path, body = {}) {
+    return this._fetch('PUT', path, { body });
+  }
+
+  /**
+   * Generic DELETE request
+   * @param {string} path - API path
+   */
+  async delete(path) {
+    return this._fetch('DELETE', path);
+  }
+
   // ===== HEALTH & STATUS =====
 
   async getHealth() {
@@ -154,6 +191,11 @@ class MaestroApiClient {
   async deleteBlock(id) {
     if (!id) throw new Error('Block ID is required');
     return this._fetch('DELETE', `/api/blocks/${id}`);
+  }
+
+  async getBlockChildren(id, recursive = true) {
+    if (!id) throw new Error('Block ID is required');
+    return this._fetch('GET', `/api/blocks/${id}/children?recursive=${recursive}`);
   }
 
   async getBlockContent(id, filePath) {
@@ -298,6 +340,527 @@ class MaestroApiClient {
 
   async getCommonDirectories() {
     return this._fetch('GET', '/api/filesystem/common-directories');
+  }
+
+  // ===== TRAINING =====
+
+  async listTrainingConfigs() {
+    return this._fetch('GET', '/api/training/configurations');
+  }
+
+  async getTrainingConfig(id) {
+    if (!id) throw new Error('Configuration ID is required');
+    return this._fetch('GET', `/api/training/configurations/${id}`);
+  }
+
+  async createTrainingConfig(config) {
+    if (!config) throw new Error('Configuration is required');
+    return this._fetch('POST', '/api/training/configurations', { body: config });
+  }
+
+  async updateTrainingConfig(id, updates) {
+    if (!id) throw new Error('Configuration ID is required');
+    return this._fetch('PUT', `/api/training/configurations/${id}`, { body: updates });
+  }
+
+  async deleteTrainingConfig(id) {
+    if (!id) throw new Error('Configuration ID is required');
+    return this._fetch('DELETE', `/api/training/configurations/${id}`);
+  }
+
+  async listTrainingRuns(filter = {}) {
+    const params = new URLSearchParams();
+    if (filter.configId) params.set('configId', filter.configId);
+    if (filter.workflowId) params.set('workflowId', filter.workflowId);
+    if (filter.status) params.set('status', filter.status);
+    const queryString = params.toString();
+    return this._fetch('GET', `/api/training/runs${queryString ? `?${queryString}` : ''}`);
+  }
+
+  async getTrainingRun(id) {
+    if (!id) throw new Error('Run ID is required');
+    return this._fetch('GET', `/api/training/runs/${id}`);
+  }
+
+  async startTrainingRun(request) {
+    if (!request || !request.configurationId) throw new Error('Configuration ID is required');
+    return this._fetch('POST', `/api/training/configurations/${request.configurationId}/runs`, { body: request });
+  }
+
+  async pauseTrainingRun(id) {
+    if (!id) throw new Error('Run ID is required');
+    return this._fetch('POST', `/api/training/runs/${id}/pause`);
+  }
+
+  async resumeTrainingRun(id) {
+    if (!id) throw new Error('Run ID is required');
+    return this._fetch('POST', `/api/training/runs/${id}/resume`);
+  }
+
+  async cancelTrainingRun(id) {
+    if (!id) throw new Error('Run ID is required');
+    return this._fetch('POST', `/api/training/runs/${id}/cancel`);
+  }
+
+  // ===== METRICS =====
+
+  async listExecutionMetrics(filter = {}) {
+    const params = new URLSearchParams();
+    if (filter.workflowId) params.set('workflowId', filter.workflowId);
+    if (filter.from) params.set('from', filter.from);
+    if (filter.to) params.set('to', filter.to);
+    if (filter.limit) params.set('limit', filter.limit);
+    const queryString = params.toString();
+    return this._fetch('GET', `/api/metrics/executions${queryString ? `?${queryString}` : ''}`);
+  }
+
+  async getExecutionMetrics(executionId) {
+    if (!executionId) throw new Error('Execution ID is required');
+    return this._fetch('GET', `/api/metrics/executions/${executionId}`);
+  }
+
+  async getWorkflowMetrics(workflowId) {
+    if (!workflowId) throw new Error('Workflow ID is required');
+    return this._fetch('GET', `/api/metrics/workflows/${workflowId}`);
+  }
+
+  async getAggregatedMetrics(filter = {}) {
+    const params = new URLSearchParams();
+    if (filter.workflowId) params.set('workflowId', filter.workflowId);
+    if (filter.startDate) params.set('startDate', filter.startDate);
+    if (filter.endDate) params.set('endDate', filter.endDate);
+    const queryString = params.toString();
+    return this._fetch('GET', `/api/metrics/aggregate${queryString ? `?${queryString}` : ''}`);
+  }
+
+  async getTrainingRunMetrics(runId) {
+    if (!runId) throw new Error('Training run ID is required');
+    return this._fetch('GET', `/api/metrics/training-runs/${runId}`);
+  }
+
+  // ===== LLM PROVIDER =====
+
+  async getLLMHealth() {
+    return this._fetch('GET', '/api/llm/health');
+  }
+
+  async listLLMModels() {
+    return this._fetch('GET', '/api/llm/models');
+  }
+
+  async getLLMStatus() {
+    return this._fetch('GET', '/api/llm/status');
+  }
+
+  // ===== RUNS / EXECUTION HISTORY =====
+
+  async listRuns(filter = {}) {
+    const params = new URLSearchParams();
+    if (filter.projectId) params.set('projectId', filter.projectId);
+    if (filter.projectPath) params.set('projectPath', filter.projectPath);
+    if (filter.status) params.set('status', filter.status);
+    if (filter.limit) params.set('limit', filter.limit.toString());
+    const queryString = params.toString();
+    return this._fetch('GET', `/api/runs${queryString ? `?${queryString}` : ''}`);
+  }
+
+  async getRun(id, projectPath = null) {
+    if (!id) throw new Error('Run ID is required');
+    const params = new URLSearchParams();
+    if (projectPath) params.set('projectPath', projectPath);
+    const queryString = params.toString();
+    return this._fetch('GET', `/api/runs/${id}${queryString ? `?${queryString}` : ''}`);
+  }
+
+  // ===== AGENT FOUNDRY =====
+
+  async getFoundryOverview(projectPath = null) {
+    const params = new URLSearchParams();
+    if (projectPath) params.set('projectPath', projectPath);
+    const queryString = params.toString();
+    return this._fetch('GET', `/api/foundry/overview${queryString ? `?${queryString}` : ''}`);
+  }
+
+  async getFoundryLeaderboard(limit = 10, projectPath = null) {
+    const params = new URLSearchParams();
+    params.set('limit', limit.toString());
+    if (projectPath) params.set('projectPath', projectPath);
+    return this._fetch('GET', `/api/foundry/leaderboard?${params.toString()}`);
+  }
+
+  async getFoundryRelationships(projectPath = null) {
+    const params = new URLSearchParams();
+    if (projectPath) params.set('projectPath', projectPath);
+    const queryString = params.toString();
+    return this._fetch('GET', `/api/foundry/relationships${queryString ? `?${queryString}` : ''}`);
+  }
+
+  async promoteToFoundry(request, projectPath = null) {
+    const params = new URLSearchParams();
+    if (projectPath) params.set('projectPath', projectPath);
+    const queryString = params.toString();
+    return this._fetch('POST', `/api/foundry/promote${queryString ? `?${queryString}` : ''}`, { body: request });
+  }
+
+  // ===== AGENTS =====
+
+  async listAgents(filter = {}) {
+    const params = new URLSearchParams();
+    if (filter.projectPath) params.set('projectPath', filter.projectPath);
+    if (filter.category) params.set('category', filter.category);
+    const queryString = params.toString();
+    return this._fetch('GET', `/api/agents${queryString ? `?${queryString}` : ''}`);
+  }
+
+  async getAgent(id, projectPath = null) {
+    if (!id) throw new Error('Agent ID is required');
+    const params = new URLSearchParams();
+    if (projectPath) params.set('projectPath', projectPath);
+    const queryString = params.toString();
+    return this._fetch('GET', `/api/agents/${id}${queryString ? `?${queryString}` : ''}`);
+  }
+
+  async createAgent(agent, projectPath = null) {
+    if (!agent || !agent.name) throw new Error('Agent must have a name');
+    const params = new URLSearchParams();
+    if (projectPath) params.set('projectPath', projectPath);
+    const queryString = params.toString();
+    return this._fetch('POST', `/api/agents${queryString ? `?${queryString}` : ''}`, { body: agent });
+  }
+
+  async updateAgent(id, updates, projectPath = null) {
+    if (!id) throw new Error('Agent ID is required');
+    const params = new URLSearchParams();
+    if (projectPath) params.set('projectPath', projectPath);
+    const queryString = params.toString();
+    return this._fetch('PUT', `/api/agents/${id}${queryString ? `?${queryString}` : ''}`, { body: updates });
+  }
+
+  async deleteAgent(id, projectPath = null) {
+    if (!id) throw new Error('Agent ID is required');
+    const params = new URLSearchParams();
+    if (projectPath) params.set('projectPath', projectPath);
+    const queryString = params.toString();
+    return this._fetch('DELETE', `/api/agents/${id}${queryString ? `?${queryString}` : ''}`);
+  }
+
+  async getAgentMetrics(id, projectPath = null) {
+    if (!id) throw new Error('Agent ID is required');
+    const params = new URLSearchParams();
+    if (projectPath) params.set('projectPath', projectPath);
+    const queryString = params.toString();
+    return this._fetch('GET', `/api/agents/${id}/metrics${queryString ? `?${queryString}` : ''}`);
+  }
+
+  async recordAgentRun(id, result, projectPath = null) {
+    if (!id) throw new Error('Agent ID is required');
+    const params = new URLSearchParams();
+    if (projectPath) params.set('projectPath', projectPath);
+    const queryString = params.toString();
+    return this._fetch('POST', `/api/agents/${id}/runs${queryString ? `?${queryString}` : ''}`, { body: result });
+  }
+
+  async getAgentTools(id, projectPath = null) {
+    if (!id) throw new Error('Agent ID is required');
+    const params = new URLSearchParams();
+    if (projectPath) params.set('projectPath', projectPath);
+    const queryString = params.toString();
+    return this._fetch('GET', `/api/agents/${id}/tools${queryString ? `?${queryString}` : ''}`);
+  }
+
+  async getTopAgents(limit = 10, projectPath = null) {
+    const params = new URLSearchParams();
+    params.set('limit', limit.toString());
+    if (projectPath) params.set('projectPath', projectPath);
+    return this._fetch('GET', `/api/agents/top?${params.toString()}`);
+  }
+
+  // ===== TOOLS =====
+
+  async listTools(filter = {}) {
+    const params = new URLSearchParams();
+    if (filter.projectPath) params.set('projectPath', filter.projectPath);
+    if (filter.category) params.set('category', filter.category);
+    const queryString = params.toString();
+    return this._fetch('GET', `/api/tools${queryString ? `?${queryString}` : ''}`);
+  }
+
+  async getTool(id, projectPath = null) {
+    if (!id) throw new Error('Tool ID is required');
+    const params = new URLSearchParams();
+    if (projectPath) params.set('projectPath', projectPath);
+    const queryString = params.toString();
+    return this._fetch('GET', `/api/tools/${id}${queryString ? `?${queryString}` : ''}`);
+  }
+
+  async createTool(tool, projectPath = null) {
+    if (!tool || !tool.name) throw new Error('Tool must have a name');
+    const params = new URLSearchParams();
+    if (projectPath) params.set('projectPath', projectPath);
+    const queryString = params.toString();
+    return this._fetch('POST', `/api/tools${queryString ? `?${queryString}` : ''}`, { body: tool });
+  }
+
+  async updateTool(id, updates, projectPath = null) {
+    if (!id) throw new Error('Tool ID is required');
+    const params = new URLSearchParams();
+    if (projectPath) params.set('projectPath', projectPath);
+    const queryString = params.toString();
+    return this._fetch('PUT', `/api/tools/${id}${queryString ? `?${queryString}` : ''}`, { body: updates });
+  }
+
+  async deleteTool(id, projectPath = null) {
+    if (!id) throw new Error('Tool ID is required');
+    const params = new URLSearchParams();
+    if (projectPath) params.set('projectPath', projectPath);
+    const queryString = params.toString();
+    return this._fetch('DELETE', `/api/tools/${id}${queryString ? `?${queryString}` : ''}`);
+  }
+
+  async getToolMetrics(id, projectPath = null) {
+    if (!id) throw new Error('Tool ID is required');
+    const params = new URLSearchParams();
+    if (projectPath) params.set('projectPath', projectPath);
+    const queryString = params.toString();
+    return this._fetch('GET', `/api/tools/${id}/metrics${queryString ? `?${queryString}` : ''}`);
+  }
+
+  async recordToolRun(id, result, projectPath = null) {
+    if (!id) throw new Error('Tool ID is required');
+    const params = new URLSearchParams();
+    if (projectPath) params.set('projectPath', projectPath);
+    const queryString = params.toString();
+    return this._fetch('POST', `/api/tools/${id}/runs${queryString ? `?${queryString}` : ''}`, { body: result });
+  }
+
+  async getTopTools(limit = 10, projectPath = null) {
+    const params = new URLSearchParams();
+    params.set('limit', limit.toString());
+    if (projectPath) params.set('projectPath', projectPath);
+    return this._fetch('GET', `/api/tools/top?${params.toString()}`);
+  }
+
+  // ===== BLOCK TESTING (Generic for all block types: tool, agent, workflow, task) =====
+
+  async listBlockTestRuns(filter = {}) {
+    const params = new URLSearchParams();
+    if (filter.blockId) params.set('blockId', filter.blockId);
+    if (filter.blockType) params.set('blockType', filter.blockType);
+    if (filter.status) params.set('status', filter.status);
+    const queryString = params.toString();
+    return this._fetch('GET', `/api/blocktest/runs${queryString ? `?${queryString}` : ''}`);
+  }
+
+  async getBlockTestRun(id) {
+    if (!id) throw new Error('Test run ID is required');
+    return this._fetch('GET', `/api/blocktest/runs/${id}`);
+  }
+
+  async createBlockTestRun(request) {
+    if (!request || !request.blockId) throw new Error('Block ID is required');
+    return this._fetch('POST', '/api/blocktest/runs', { body: request });
+  }
+
+  async submitBlockTestEvaluation(runId, evaluation) {
+    if (!runId) throw new Error('Run ID is required');
+    return this._fetch('POST', `/api/blocktest/runs/${runId}/evaluate`, { body: evaluation });
+  }
+
+  async submitBulkBlockTestEvaluation(runId, evaluations) {
+    if (!runId) throw new Error('Run ID is required');
+    return this._fetch('POST', `/api/blocktest/runs/${runId}/evaluate/bulk`, { body: { evaluations } });
+  }
+
+  async getBlockTestPendingEvaluations(runId) {
+    if (!runId) throw new Error('Run ID is required');
+    return this._fetch('GET', `/api/blocktest/runs/${runId}/pending`);
+  }
+
+  async submitBlockImprovement(runId, suggestions) {
+    if (!runId) throw new Error('Run ID is required');
+    return this._fetch('POST', `/api/blocktest/runs/${runId}/improve`, { body: { suggestions } });
+  }
+
+  async compareBlockTestRuns(runIds) {
+    if (!runIds || runIds.length === 0) throw new Error('Run IDs are required');
+    return this._fetch('GET', `/api/blocktest/compare?runIds=${runIds.join(',')}`);
+  }
+
+  async deleteBlockTestRun(id) {
+    if (!id) throw new Error('Test run ID is required');
+    return this._fetch('DELETE', `/api/blocktest/runs/${id}`);
+  }
+
+  // Legacy aliases (deprecated - use block* methods instead)
+  async listToolTestRuns(filter = {}) { return this.listBlockTestRuns(filter); }
+  async getToolTestRun(id) { return this.getBlockTestRun(id); }
+  async createToolTestRun(request) { return this.createBlockTestRun(request); }
+  async submitToolTestEvaluation(runId, evaluation) { return this.submitBlockTestEvaluation(runId, evaluation); }
+  async getPendingEvaluations(runId) { return this.getBlockTestPendingEvaluations(runId); }
+  async deleteToolTestRun(id) { return this.deleteBlockTestRun(id); }
+
+  // ===== INTERACTIVE SESSIONS (Session Server Architecture) =====
+
+  /**
+   * List all sessions with optional filtering.
+   * @param {Object} filter - Optional filters: status, projectId, limit
+   */
+  async listSessions(filter = {}) {
+    const params = new URLSearchParams();
+    if (filter.status) params.set('status', filter.status);
+    if (filter.projectId) params.set('projectId', filter.projectId);
+    if (filter.limit) params.set('limit', filter.limit.toString());
+    const queryString = params.toString();
+    return this._fetch('GET', `/api/sessions${queryString ? `?${queryString}` : ''}`);
+  }
+
+  /**
+   * Get a session by ID.
+   * @param {string} id - Session ID
+   */
+  async getSession(id) {
+    if (!id) throw new Error('Session ID is required');
+    return this._fetch('GET', `/api/sessions/${id}`);
+  }
+
+  /**
+   * Create a new interactive session.
+   * @param {Object} request - Session creation request
+   * @param {string} request.projectId - Project ID (required)
+   * @param {string} request.authority - Authority type: "human", "ai:<name>", "agent:<id>" (default: "human")
+   * @param {string} request.name - Session name (optional)
+   * @param {string} request.workflowId - Workflow ID (optional)
+   * @param {string} request.task - Task description (optional)
+   * @param {string} request.context - Additional context (optional)
+   * @param {string} request.access - Access level: "readonly", "sandbox", "controlled", "full" (default: "controlled")
+   * @param {string[]} request.allowedPaths - Allowed file paths (optional)
+   * @param {string[]} request.deniedPaths - Denied file paths (optional)
+   * @param {boolean} request.runTests - Whether to run tests on commit (default: false)
+   * @param {string} request.testCommand - Custom test command (optional)
+   * @param {boolean} request.runLinter - Whether to run linter on commit (default: false)
+   * @param {string} request.linterCommand - Custom linter command (optional)
+   * @param {number} request.maxSteps - Maximum execution steps (default: 50)
+   * @param {number} request.timeoutMs - Timeout in milliseconds (default: 600000)
+   * @param {Object} request.inputs - Input variables for the session (optional)
+   */
+  async createSession(request) {
+    if (!request || !request.projectId) {
+      throw new Error('Session requires projectId');
+    }
+    return this._fetch('POST', '/api/sessions', { body: request });
+  }
+
+  /**
+   * Start a session.
+   * @param {string} id - Session ID
+   */
+  async startSession(id) {
+    if (!id) throw new Error('Session ID is required');
+    return this._fetch('POST', `/api/sessions/${id}/start`);
+  }
+
+  /**
+   * Pause a running session.
+   * @param {string} id - Session ID
+   */
+  async pauseSession(id) {
+    if (!id) throw new Error('Session ID is required');
+    return this._fetch('POST', `/api/sessions/${id}/pause`);
+  }
+
+  /**
+   * Resume a paused session.
+   * @param {string} id - Session ID
+   */
+  async resumeSession(id) {
+    if (!id) throw new Error('Session ID is required');
+    return this._fetch('POST', `/api/sessions/${id}/resume`);
+  }
+
+  /**
+   * Stop a session.
+   * @param {string} id - Session ID
+   */
+  async stopSession(id) {
+    if (!id) throw new Error('Session ID is required');
+    return this._fetch('POST', `/api/sessions/${id}/stop`);
+  }
+
+  /**
+   * Take control of a session (transfer authority).
+   * @param {string} id - Session ID
+   * @param {string} authority - New authority: "human", "ai:<name>", "agent:<id>" (default: "human")
+   */
+  async takeControlSession(id, authority = 'human') {
+    if (!id) throw new Error('Session ID is required');
+    return this._fetch('POST', `/api/sessions/${id}/take-control`, {
+      body: { authority }
+    });
+  }
+
+  /**
+   * Execute a command within a session.
+   * Commands can be:
+   * - Shell commands: ls, cd, git, etc.
+   * - Maestro commands: blocks, agents, monitor, permissions, diff, test, lint, commit
+   * - Control commands: /pause, /resume, /exit, /status, /history, /help
+   * @param {string} id - Session ID
+   * @param {string} command - Command to execute
+   * @param {Object} args - Optional command arguments
+   */
+  async executeSessionCommand(id, command, args = null) {
+    if (!id) throw new Error('Session ID is required');
+    if (!command) throw new Error('Command is required');
+    const body = { command };
+    if (args) body.args = args;
+    return this._fetch('POST', `/api/sessions/${id}/exec`, { body });
+  }
+
+  /**
+   * Get session events with pagination.
+   * @param {string} id - Session ID
+   * @param {Object} options - Pagination options: limit, offset, filter
+   */
+  async getSessionEvents(id, options = {}) {
+    if (!id) throw new Error('Session ID is required');
+    const params = new URLSearchParams();
+    if (options.limit) params.set('limit', options.limit.toString());
+    if (options.offset) params.set('offset', options.offset.toString());
+    if (options.filter) params.set('filter', options.filter);
+    const queryString = params.toString();
+    return this._fetch('GET', `/api/sessions/${id}/events${queryString ? `?${queryString}` : ''}`);
+  }
+
+  /**
+   * Delete a session.
+   * @param {string} id - Session ID
+   */
+  async deleteSession(id) {
+    if (!id) throw new Error('Session ID is required');
+    return this._fetch('DELETE', `/api/sessions/${id}`);
+  }
+
+  // Legacy session methods (deprecated - use new session server methods)
+  async getSessionDiff(id) {
+    // Use executeSessionCommand with 'diff' command
+    return this.executeSessionCommand(id, 'diff');
+  }
+
+  async runSessionTests(id, testCommand = null) {
+    // Use executeSessionCommand with 'test' command
+    const command = testCommand ? `test ${testCommand}` : 'test';
+    return this.executeSessionCommand(id, command);
+  }
+
+  async commitSession(id, request) {
+    if (!request || !request.message) throw new Error('Commit message is required');
+    // Use executeSessionCommand with 'commit' command
+    return this.executeSessionCommand(id, `commit -m "${request.message}"`);
+  }
+
+  async cancelSession(id) {
+    // Use stopSession
+    return this.stopSession(id);
   }
 
   // ===== HELPER METHODS =====

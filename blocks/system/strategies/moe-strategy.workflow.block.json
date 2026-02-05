@@ -1,0 +1,63 @@
+{
+  "id": "system:strategy-moe",
+  "name": "Mixture of Experts Strategy",
+  "blockType": "workflow",
+  "version": "1.0.0",
+  "isSystem": true,
+  "overridable": true,
+  "description": "Trains a router to select the best expert for each task, enabling specialization",
+  "metadata": {
+    "method": "MixtureOfExperts",
+    "category": "ensemble",
+    "suitableFor": ["multi-task", "generalization", "routing", "diverse-domains"],
+    "strengths": [
+      "Specialization per expert",
+      "Highly scalable",
+      "Efficient inference (sparse activation)",
+      "Handles diverse tasks"
+    ],
+    "weaknesses": [
+      "Complex training dynamics",
+      "Requires multiple models",
+      "Load balancing challenges",
+      "Router can be a bottleneck"
+    ],
+    "estimatedResources": {
+      "minIterations": 50,
+      "typicalIterations": 300,
+      "maxIterations": 1000,
+      "costPerIteration": "very-high"
+    }
+  },
+  "config": {
+    "numExperts": 4,
+    "topK": 2,
+    "routerType": "learned",
+    "loadBalancingLoss": 0.01,
+    "expertSpecialization": true,
+    "expertDropout": 0.1,
+    "routerTemperature": 1.0,
+    "auxiliaryLoss": {
+      "enabled": true,
+      "weight": 0.1
+    }
+  },
+  "inputs": {
+    "baseAgentId": { "type": "string", "required": true, "description": "Base agent for experts" },
+    "taskTypes": { "type": "array", "required": true, "description": "Task types to specialize for" },
+    "maxIterations": { "type": "number", "default": 300, "description": "Maximum iterations" }
+  },
+  "outputs": {
+    "routerAccuracy": { "type": "number", "description": "Router selection accuracy" },
+    "expertFitnesses": { "type": "object", "description": "Fitness per expert" },
+    "overallFitness": { "type": "number", "description": "Combined MoE fitness" },
+    "routingDistribution": { "type": "object", "description": "How tasks are distributed" },
+    "expertSpecializationScores": { "type": "object", "description": "Specialization per expert" }
+  },
+  "children": [
+    { "ref": "system:router-trainer", "role": "router" },
+    { "ref": "system:expert-trainer", "role": "expert" },
+    { "ref": "system:fitness-evaluator", "role": "evaluator" },
+    { "ref": "system:load-balancer", "role": "balancer" }
+  ]
+}

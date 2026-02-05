@@ -16,11 +16,53 @@ public interface ILLMGateway
 }
 
 /// <summary>
+/// A single message in a conversation.
+/// </summary>
+public class ChatMessage
+{
+    public required string Role { get; init; }
+    public required string Content { get; init; }
+
+    public static ChatMessage System(string content) => new() { Role = "system", Content = content };
+    public static ChatMessage User(string content) => new() { Role = "user", Content = content };
+    public static ChatMessage Assistant(string content) => new() { Role = "assistant", Content = content };
+}
+
+/// <summary>
 /// Model-agnostic LLM request.
 /// </summary>
 public class LLMRequest
 {
-    public required string Prompt { get; init; }
+    /// <summary>
+    /// Raw prompt (for legacy/simple requests).
+    /// </summary>
+    public string? Prompt { get; init; }
+
+    /// <summary>
+    /// Conversation messages (preferred for chat models).
+    /// When provided, the gateway will format these with the appropriate chat template.
+    /// </summary>
+    public List<ChatMessage>? Messages { get; init; }
+
+    /// <summary>
+    /// Optional system prompt (used when Messages is provided).
+    /// </summary>
+    public string? SystemPrompt { get; init; }
+
+    /// <summary>
+    /// Optional model ID to use for this request.
+    /// </summary>
+    public string? ModelId { get; init; }
+
+    /// <summary>
+    /// Maximum tokens to generate.
+    /// </summary>
+    public int? MaxNewTokens { get; init; }
+
+    /// <summary>
+    /// Sampling temperature (0.0 = deterministic).
+    /// </summary>
+    public float? Temperature { get; init; }
 }
 
 /// <summary>

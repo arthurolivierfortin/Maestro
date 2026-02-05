@@ -23,14 +23,14 @@ const BLOCK_TYPES: Array<{
     description: 'Top-level orchestration container',
   },
   {
-    type: 'agent',
-    label: 'Agent',
-    description: 'AI agent with model and tools',
-  },
-  {
     type: 'task',
     label: 'Task',
     description: 'Task with validation rules',
+  },
+  {
+    type: 'inference',
+    label: 'Inference',
+    description: 'LLM inference with dynamic I/O',
   },
   {
     type: 'prompt',
@@ -43,8 +43,8 @@ const BLOCK_TYPES: Array<{
     description: 'Instruction file reference',
   },
   {
-    type: 'tool',
-    label: 'Tool',
+    type: 'command',
+    label: 'Command',
     description: 'Executable script or command',
   },
   {
@@ -61,6 +61,11 @@ const BLOCK_TYPES: Array<{
     type: 'trigger',
     label: 'Trigger',
     description: 'Workflow execution trigger',
+  },
+  {
+    type: 'script',
+    label: 'Script',
+    description: 'Execute user-provided scripts',
   },
 ];
 

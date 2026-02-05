@@ -24,40 +24,42 @@ describe('BlockTypeRegistry', () => {
   describe('getAll', () => {
     it('should return all registered types', () => {
       const allTypes = BlockTypeRegistry.getAll();
-      // 11 types: workflow, agent, task, prompt, instruction, tool, decision, validator, trigger, inference, script
-      expect(allTypes).toHaveLength(11);
+      // 12 types: workflow, task, agent, tool, prompt, instruction, command, decision, validator, trigger, inference, script
+      expect(allTypes).toHaveLength(12);
       expect(allTypes.map((t) => t.type)).toContain('workflow');
-      expect(allTypes.map((t) => t.type)).toContain('agent');
       expect(allTypes.map((t) => t.type)).toContain('task');
+      expect(allTypes.map((t) => t.type)).toContain('agent');
+      expect(allTypes.map((t) => t.type)).toContain('tool');
+      expect(allTypes.map((t) => t.type)).toContain('command');
       expect(allTypes.map((t) => t.type)).toContain('inference');
       expect(allTypes.map((t) => t.type)).toContain('script');
     });
   });
 
   describe('canContain', () => {
-    it('should allow workflow to contain agent', () => {
-      expect(BlockTypeRegistry.canContain('workflow', 'agent')).toBe(true);
-    });
-
     it('should allow workflow to contain task', () => {
       expect(BlockTypeRegistry.canContain('workflow', 'task')).toBe(true);
     });
 
-    it('should allow agent to contain prompt', () => {
-      expect(BlockTypeRegistry.canContain('agent', 'prompt')).toBe(true);
+    it('should allow workflow to contain command', () => {
+      expect(BlockTypeRegistry.canContain('workflow', 'command')).toBe(true);
+    });
+
+    it('should allow task to contain command', () => {
+      expect(BlockTypeRegistry.canContain('task', 'command')).toBe(true);
     });
 
     it('should not allow prompt to contain anything (atomic)', () => {
-      expect(BlockTypeRegistry.canContain('prompt', 'agent')).toBe(false);
+      expect(BlockTypeRegistry.canContain('prompt', 'command')).toBe(false);
     });
 
     it('should allow workflow to contain prompt directly', () => {
-      // Workflow allows any block type as children for flexibility
+      // Workflow allows prompt blocks for flexibility
       expect(BlockTypeRegistry.canContain('workflow', 'prompt')).toBe(true);
     });
 
     it('should return false for unknown types', () => {
-      expect(BlockTypeRegistry.canContain('invalid' as BlockType, 'agent')).toBe(false);
+      expect(BlockTypeRegistry.canContain('invalid' as BlockType, 'task')).toBe(false);
     });
   });
 
@@ -70,12 +72,12 @@ describe('BlockTypeRegistry', () => {
       expect(block.children).toEqual([]);
     });
 
-    it('should create default agent block', () => {
-      const block = BlockTypeRegistry.getDefaultBlock('agent');
-      expect(block.blockType).toBe('agent');
-      expect(block.name).toBe('New Agent');
+    it('should create default task block', () => {
+      const block = BlockTypeRegistry.getDefaultBlock('task');
+      expect(block.blockType).toBe('task');
+      expect(block.name).toBe('New Task');
       expect(block.isAtomic).toBe(false);
-      expect(block.config.type).toBe('agent');
+      expect(block.config.type).toBe('task');
     });
 
     it('should create default atomic prompt block', () => {
@@ -91,22 +93,22 @@ describe('BlockTypeRegistry', () => {
   });
 
   describe('validateConfig', () => {
-    it('should validate valid agent config', () => {
+    it('should validate valid command config', () => {
       const config = {
-        type: 'agent',
-        agentType: 'Planner',
-        temperature: 0.7,
+        type: 'command',
+        commandType: 'Bash',
+        command: 'ls -la',
       };
-      const result = BlockTypeRegistry.validateConfig('agent', config);
+      const result = BlockTypeRegistry.validateConfig('command', config);
       expect(result.isValid).toBe(true);
       expect(result.errors).toHaveLength(0);
     });
 
-    it('should reject agent config without agentType', () => {
+    it('should reject command config without commandType', () => {
       const config = {
-        type: 'agent',
+        type: 'command',
       };
-      const result = BlockTypeRegistry.validateConfig('agent', config);
+      const result = BlockTypeRegistry.validateConfig('command', config);
       expect(result.isValid).toBe(false);
       expect(result.errors.length).toBeGreaterThan(0);
     });
@@ -114,9 +116,9 @@ describe('BlockTypeRegistry', () => {
     it('should reject config with wrong type field', () => {
       const config = {
         type: 'workflow',
-        agentType: 'Planner',
+        commandType: 'Bash',
       };
-      const result = BlockTypeRegistry.validateConfig('agent', config);
+      const result = BlockTypeRegistry.validateConfig('command', config);
       expect(result.isValid).toBe(false);
     });
 
@@ -138,7 +140,7 @@ describe('BlockTypeRegistry', () => {
     });
 
     it('should reject non-object config', () => {
-      const result = BlockTypeRegistry.validateConfig('agent', 'invalid');
+      const result = BlockTypeRegistry.validateConfig('command', 'invalid');
       expect(result.isValid).toBe(false);
     });
 

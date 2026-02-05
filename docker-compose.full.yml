@@ -1,0 +1,119 @@
+# Full stack development configuration with LLM-Provider
+# Usage: docker-compose -f docker-compose.full.yml up
+#
+# Services:
+#   - backend: Maestro API (.NET)
+#   - llm-provider: Local LLM inference (Python FastAPI)
+#   - frontend: Vite dev server (optional)
+
+services:
+  # LLM Provider - Python FastAPI server for local model inference
+  llm-provider:
+    build:
+      context: ${LLM_PROVIDER_PATH:-C:/LLM-Provider}
+      dockerfile: Dockerfile
+    container_name: maestro-llm-provider
+    ports:
+      - "8000:8000"
+    volumes:
+      # Mount model cache to avoid re-downloading
+      - llm-model-cache:/root/.cache/huggingface
+      # Mount source for development
+      - ${LLM_PROVIDER_PATH:-C:/LLM-Provider}/api:/app/api:ro
+      - ${LLM_PROVIDER_PATH:-C:/LLM-Provider}/src:/app/src:ro
+    environment:
+      - LLM_PRELOAD_MODEL=${LLM_DEFAULT_MODEL:-deepseek-ai/deepseek-coder-1.3b-instruct}
+      - CUDA_VISIBLE_DEVICES=0
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+    restart: unless-stopped
+
+  # Maestro Backend API
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    container_name: maestro-backend
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./backend/src:/app/src:rw
+      - ./blocks:/app/blocks:rw
+      - ./.maestro:/app/.maestro:rw
+      - ./docs:/app/docs:ro
+      - ${HOME}/.maestro/blocks:/root/.maestro/blocks:ro
+      - ${USERPROFILE:-${HOME}}:/host/home:ro
+      - ${MAESTRO_PROJECTS_PATH:-./projects}:/projects:rw
+      - /var/run/docker.sock:/var/run/docker.sock:rw
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:5000
+      - DOTNET_WATCH_RESTART_ON_RUDE_EDIT=1
+      - DOTNET_USE_POLLING_FILE_WATCHER=true
+      - MAESTRO_RUNNING_IN_DOCKER=true
+      - MAESTRO_HOST_MOUNT_PATH=/host
+      - MAESTRO_HOST_HOME_PATH=/host/home
+      - MAESTRO_GLOBAL_BLOCKS_PATH=/app/blocks
+      - MAESTRO_PROJECT_BLOCKS_PATH=/app/.maestro/blocks
+      - MAESTRO_ADDITIONAL_PROJECT_PATHS=/projects
+      # LLM Provider configuration - use container name for Docker networking
+      - LLMProvider__BaseUrl=http://llm-provider:8000
+      - LLMProvider__DefaultModel=${LLM_DEFAULT_MODEL:-deepseek-ai/deepseek-coder-1.3b-instruct}
+      - LLMProvider__TimeoutSeconds=300
+      - LLMProvider__MaxRetries=3
+      - Cors__AllowedOrigins=http://localhost:5173,http://localhost:3000,app://maestro
+    depends_on:
+      llm-provider:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/api/discovery/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+
+  # Frontend dev server (optional - can also run separately)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+      target: development
+    container_name: maestro-frontend
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend/src:/app/src:ro
+      - ./frontend/public:/app/public:ro
+      - ./frontend/index.html:/app/index.html:ro
+      - ./maestro.config.json:/app/maestro.config.json:ro
+      - ./maestro.config.json:/maestro.config.json:ro
+      - /app/node_modules
+    environment:
+      - VITE_USE_MOCK_BACKEND=false
+      - VITE_API_BASE_URL=http://localhost:5000
+    depends_on:
+      backend:
+        condition: service_healthy
+    profiles:
+      - frontend
+    restart: unless-stopped
+
+volumes:
+  llm-model-cache:
+    name: maestro-llm-model-cache
+
+networks:
+  default:
+    name: maestro-network

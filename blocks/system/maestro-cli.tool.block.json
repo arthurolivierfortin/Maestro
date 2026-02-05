@@ -1,0 +1,71 @@
+{
+  "id": "system:maestro-cli",
+  "name": "Maestro CLI",
+  "blockType": "tool",
+  "version": "1.0.0",
+  "isSystem": true,
+  "isAtomic": true,
+  "overridable": false,
+  "description": "CLI interface for agents to interact with Maestro. This is the primary tool that agents use to execute commands, run blocks, manage data, and interact with the Maestro system.",
+
+  "config": {
+    "executorType": "cli-bridge",
+    "timeout": 60000
+  },
+
+  "inputs": {
+    "command": {
+      "type": "string",
+      "required": true,
+      "description": "Maestro command to execute (without 'maestro' prefix). Examples: 'list-tools', 'run fitness-calculator --input modelId=test', 'data read experiments'"
+    }
+  },
+
+  "outputs": {
+    "success": {
+      "type": "boolean",
+      "description": "Whether the command executed successfully"
+    },
+    "output": {
+      "type": "any",
+      "description": "Command output (structure depends on command)"
+    },
+    "error": {
+      "type": "string",
+      "description": "Error message if command failed"
+    },
+    "exitCode": {
+      "type": "number",
+      "description": "Exit code (0 for success, non-zero for failure)"
+    }
+  },
+
+  "metadata": {
+    "author": "system",
+    "category": "core",
+    "tags": ["cli", "core", "interface", "agent-tool"],
+    "documentation": "docs/architecture/DESIGN-MAESTRO-CLI-BLOCK.md"
+  },
+
+  "provides": {
+    "capabilities": ["cli-execution", "command-routing", "permission-enforcement"]
+  },
+
+  "examples": [
+    {
+      "description": "List available tools",
+      "input": { "command": "list-tools" },
+      "output": { "success": true, "output": { "tools": [], "count": 0 }, "exitCode": 0 }
+    },
+    {
+      "description": "Run a block with input",
+      "input": { "command": "run fitness-calculator --input modelId=smollm2:1.7b" },
+      "output": { "success": true, "output": { "blockId": "fitness-calculator", "status": "pending" }, "exitCode": 0 }
+    },
+    {
+      "description": "Get help",
+      "input": { "command": "help" },
+      "output": { "success": true, "output": { "commands": [] }, "exitCode": 0 }
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "formula": {
+    "description": "ModelFitness = (P × S × W) / (C_norm × C_compute × C_hw)^λ",
+    "lambda": 1.5,
+    "baselineCost": 0.01
+  },
+  "hardwareWeights": {
+    "alpha": 0.0001,
+    "beta": 0.00001,
+    "gamma": 0.5,
+    "description": "C_hw = α×VRAM + β×RAM + γ×(GPU ? 1 : 0.1)"
+  },
+  "performanceWeights": {
+    "qualityScore": 0.5,
+    "testsPassRate": 0.5,
+    "description": "P = qualityScore × 0.5 + testsPassRate × 0.5"
+  },
+  "composabilityPenalties": {
+    "hallucinationPenalty": 0.5,
+    "formatNonCompliance": 0.8,
+    "description": "W = formatCompliance × (hallucination ? 0.5 : 1.0)"
+  },
+  "thresholds": {
+    "minimumFitness": 0.3,
+    "goodFitness": 0.6,
+    "excellentFitness": 0.8,
+    "publishThreshold": 0.75
+  },
+  "earlyStopping": {
+    "plateauPatience": 10,
+    "minImprovement": 0.001,
+    "maxIterationsWithoutImprovement": 20
+  }
+}

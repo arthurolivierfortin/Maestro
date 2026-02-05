@@ -1,0 +1,86 @@
+/**
+ * MiniFlowDiagram Styles
+ *
+ * Compact flow diagram with abbreviated letters and arrows.
+ * Matches spec: R→T→T→D→P pattern
+ */
+
+.mini-flow-diagram {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px;
+  min-height: 60px;
+
+  &--empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted, #6b7280);
+    font-size: 11px;
+  }
+
+  &__row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    position: relative;
+
+    // Second row flows right-to-left
+    &:nth-child(2n) {
+      flex-direction: row-reverse;
+      justify-content: flex-end;
+    }
+  }
+
+  &__block {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    background: var(--background-secondary, rgba(30, 30, 46, 0.9));
+    border: 2px solid;
+    border-radius: 4px;
+    cursor: default;
+    flex-shrink: 0;
+
+    &:hover {
+      background: var(--background-tertiary, rgba(40, 40, 56, 0.9));
+    }
+  }
+
+  &__letter {
+    font-size: 14px;
+    font-weight: 700;
+    font-family: var(--font-mono, 'JetBrains Mono', monospace);
+    text-transform: uppercase;
+  }
+
+  &__arrow {
+    color: var(--text-muted, #6b7280);
+    font-size: 12px;
+    margin: 0 2px;
+  }
+
+  &__row-connector {
+    position: absolute;
+    right: 0;
+    bottom: -12px;
+    color: var(--text-muted, #6b7280);
+    font-size: 12px;
+
+    // Connector from reversed row
+    .mini-flow-diagram__row:nth-child(2n) & {
+      left: 0;
+      right: auto;
+    }
+  }
+
+  &__more {
+    font-size: 10px;
+    color: var(--color-primary, #3b82f6);
+    padding-left: 4px;
+    margin-top: 4px;
+  }
+}

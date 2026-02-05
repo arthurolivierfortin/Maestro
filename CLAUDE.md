@@ -2,6 +2,50 @@
 
 This document establishes development practices and testing requirements for the Maestro project.
 
+## Development Environment Startup
+
+**IMPORTANT: Always use the startup script to manage services. Never start services manually.**
+
+### Starting Services
+
+Use the PowerShell script at `scripts/dev-start.ps1`:
+
+```powershell
+# Start all services (LLM-Provider, Backend, Frontend) - local mode
+powershell.exe -File C:\Meastro\scripts\dev-start.ps1
+
+# Start with specific options
+powershell.exe -File C:\Meastro\scripts\dev-start.ps1 -BackendOnly    # Backend + LLM only
+powershell.exe -File C:\Meastro\scripts\dev-start.ps1 -SkipLLM        # No LLM-Provider
+powershell.exe -File C:\Meastro\scripts\dev-start.ps1 -Mode docker    # Use Docker
+```
+
+### Stopping Services
+
+```powershell
+powershell.exe -File C:\Meastro\scripts\dev-start.ps1 -Stop
+```
+
+### Service Ports
+
+| Service      | Port | Health Check URL                    |
+|--------------|------|-------------------------------------|
+| LLM-Provider | 8000 | http://localhost:8000/health        |
+| Backend      | 5000 | http://localhost:5000/              |
+| Frontend     | 5173 | http://localhost:5173/              |
+
+### CLI Commands
+
+The Maestro CLI is at `tools/maestro-cli/index.js`:
+
+```bash
+cd C:\Meastro\tools\maestro-cli
+node index.js health              # Check services health
+node index.js list-blocks         # List all blocks
+node index.js llm                 # Check LLM status
+node index.js execute <block-id>  # Execute a block
+```
+
 ## Testing Requirements
 
 ### Before Making Changes
@@ -71,6 +115,16 @@ When adding properties to domain entities:
 ### Backend build fails with "file is locked"
 **Cause**: Maestro.Api process is running
 **Fix**: `taskkill /F /IM Maestro.Api.exe` before building
+
+### Block API requests hang or timeout
+**Cause**: Async deadlock from `.Result` calls or circular dependencies
+**Fix**:
+- Never use `.Result` inside async methods - use `await` instead
+- Check for circular DI dependencies (e.g., AgentBlockExecutor ↔ BlockExecutorRegistry)
+
+### Shell commands fail on Windows
+**Cause**: Unix commands like `mkdir -p` don't work on Windows cmd
+**Fix**: Use PowerShell commands: `powershell -Command "New-Item -ItemType Directory -Force -Path path1, path2"`
 
 ## Test Coverage Areas
 

@@ -5,6 +5,7 @@
  */
 
 import React from 'react';
+import { Play, GitBranch, Cpu } from 'lucide-react';
 import { BlockIcon } from '../../icons/BlockIcons';
 import type { Block } from '../../../types/block.types';
 import type { Model } from '../../../types/model.types';
@@ -54,9 +55,9 @@ export const SearchResults: React.FC<SearchResultsProps> = ({
             {result.type === 'block' && (
               <BlockIcon type={(result.data as Block).blockType} size={20} />
             )}
-            {result.type === 'action' && <span>⚡</span>}
-            {result.type === 'workflow' && <span>🔀</span>}
-            {result.type === 'model' && <span>🤖</span>}
+            {result.type === 'action' && <Play size={18} />}
+            {result.type === 'workflow' && <GitBranch size={18} />}
+            {result.type === 'model' && <Cpu size={18} />}
           </div>
           <div className="result-content">
             <div className="result-name">{result.name}</div>

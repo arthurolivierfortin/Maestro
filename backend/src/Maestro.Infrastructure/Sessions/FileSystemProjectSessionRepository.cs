@@ -1,0 +1,552 @@
+using System.Collections.Concurrent;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using Maestro.Application.Interfaces;
+using Maestro.Domain.Configuration;
+using Maestro.Domain.Entities;
+using Maestro.Domain.Enums;
+using Maestro.Domain.ValueObjects;
+using Maestro.Infrastructure.Configuration;
+using Microsoft.Extensions.Logging;
+
+namespace Maestro.Infrastructure.Sessions;
+
+/// <summary>
+/// Filesystem-based implementation of IProjectSessionRepository.
+/// Sessions are stored in {project}/.maestro/sessions/{session-id}.json
+/// </summary>
+public class FileSystemProjectSessionRepository : IProjectSessionRepository
+{
+    private readonly ConcurrentDictionary<string, ProjectSession> _cache = new();
+    private readonly IProjectRepository _projectRepository;
+    private readonly ILogger<FileSystemProjectSessionRepository>? _logger;
+
+    private static readonly JsonSerializerOptions JsonOptions = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        WriteIndented = true,
+        Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase) }
+    };
+
+    public FileSystemProjectSessionRepository(
+        IProjectRepository projectRepository,
+        ILogger<FileSystemProjectSessionRepository>? logger = null)
+    {
+        _projectRepository = projectRepository;
+        _logger = logger;
+    }
+
+    public async Task<ProjectSession?> GetByIdAsync(SessionId id, CancellationToken ct = default)
+    {
+        var sessionId = id.Value;
+
+        // Check cache first
+        if (_cache.TryGetValue(sessionId, out var cached))
+        {
+            return cached;
+        }
+
+        // Search across all projects
+        var projects = await _projectRepository.GetAllAsync(ct);
+        foreach (var project in projects)
+        {
+            var sessionPath = GetSessionFilePath(project.RootPath, sessionId);
+            if (File.Exists(sessionPath))
+            {
+                var session = await LoadSessionFromFileAsync(sessionPath, ct);
+                if (session != null)
+                {
+                    _cache[sessionId] = session;
+                    return session;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    public async Task<IEnumerable<ProjectSession>> GetByProjectIdAsync(string projectId, CancellationToken ct = default)
+    {
+        var project = await FindProjectByIdAsync(projectId, ct);
+        if (project == null)
+        {
+            return Enumerable.Empty<ProjectSession>();
+        }
+
+        return await LoadSessionsFromProjectAsync(project, ct);
+    }
+
+    public async Task<IEnumerable<ProjectSession>> GetAllAsync(
+        SessionStatus? status = null,
+        string? projectId = null,
+        string? workflowId = null,
+        int? limit = null,
+        CancellationToken ct = default)
+    {
+        var allSessions = new List<ProjectSession>();
+
+        if (projectId != null)
+        {
+            // Load sessions from specific project
+            var project = await FindProjectByIdAsync(projectId, ct);
+            if (project != null)
+            {
+                allSessions.AddRange(await LoadSessionsFromProjectAsync(project, ct));
+            }
+        }
+        else
+        {
+            // Load sessions from all projects
+            var projects = await _projectRepository.GetAllAsync(ct);
+            foreach (var project in projects)
+            {
+                allSessions.AddRange(await LoadSessionsFromProjectAsync(project, ct));
+            }
+        }
+
+        // Apply filters
+        IEnumerable<ProjectSession> filtered = allSessions;
+
+        if (status.HasValue)
+        {
+            // Map SessionStatus to ContainerSessionStatus for comparison
+            filtered = filtered.Where(s => s.GetSessionStatus() == status.Value);
+        }
+
+        if (workflowId != null)
+        {
+            filtered = filtered.Where(s => s.Config.WorkflowId == workflowId);
+        }
+
+        // Order by creation date descending (newest first)
+        filtered = filtered.OrderByDescending(s => s.CreatedAt);
+
+        if (limit.HasValue)
+        {
+            filtered = filtered.Take(limit.Value);
+        }
+
+        return filtered.ToList();
+    }
+
+    public async Task SaveAsync(ProjectSession session, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(session);
+
+        var project = await FindProjectByIdAsync(session.Config.ProjectId, ct);
+        if (project == null)
+        {
+            throw new InvalidOperationException($"Project {session.Config.ProjectId} not found");
+        }
+
+        var sessionsFolder = GetSessionsFolderPath(project.RootPath);
+        Directory.CreateDirectory(sessionsFolder);
+
+        var sessionPath = GetSessionFilePath(project.RootPath, session.Id);
+        var json = SerializeSession(session);
+        await File.WriteAllTextAsync(sessionPath, json, ct);
+
+        // Update cache
+        _cache[session.Id] = session;
+
+        _logger?.LogInformation("Saved session {SessionId} for project {ProjectId}",
+            session.Id, session.Config.ProjectId);
+    }
+
+    public async Task DeleteAsync(SessionId id, CancellationToken ct = default)
+    {
+        var sessionId = id.Value;
+        var session = await GetByIdAsync(id, ct);
+        if (session == null) return;
+
+        var project = await FindProjectByIdAsync(session.Config.ProjectId, ct);
+        if (project == null) return;
+
+        var sessionPath = GetSessionFilePath(project.RootPath, sessionId);
+        if (File.Exists(sessionPath))
+        {
+            File.Delete(sessionPath);
+        }
+
+        _cache.TryRemove(sessionId, out _);
+        _logger?.LogInformation("Deleted session {SessionId}", sessionId);
+    }
+
+    private async Task<Project?> FindProjectByIdAsync(string projectId, CancellationToken ct)
+    {
+        var projects = await _projectRepository.GetAllAsync(ct);
+        return projects.FirstOrDefault(p => p.Id.ToString() == projectId);
+    }
+
+    private async Task<IEnumerable<ProjectSession>> LoadSessionsFromProjectAsync(Project project, CancellationToken ct)
+    {
+        var sessions = new List<ProjectSession>();
+        var sessionsFolder = GetSessionsFolderPath(project.RootPath);
+
+        if (!Directory.Exists(sessionsFolder))
+        {
+            return sessions;
+        }
+
+        var sessionFiles = Directory.GetFiles(sessionsFolder, "*.json");
+        foreach (var file in sessionFiles)
+        {
+            try
+            {
+                var session = await LoadSessionFromFileAsync(file, ct);
+                if (session != null)
+                {
+                    _cache[session.Id] = session;
+                    sessions.Add(session);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogWarning(ex, "Failed to load session from {Path}", file);
+            }
+        }
+
+        return sessions;
+    }
+
+    private async Task<ProjectSession?> LoadSessionFromFileAsync(string path, CancellationToken ct)
+    {
+        if (!File.Exists(path)) return null;
+
+        var json = await File.ReadAllTextAsync(path, ct);
+        return DeserializeSession(json);
+    }
+
+    private static string GetSessionsFolderPath(string projectRootPath)
+    {
+        return Path.Combine(projectRootPath, MaestroConstants.MaestroFolderName, MaestroConstants.SessionsFolderName);
+    }
+
+    private static string GetSessionFilePath(string projectRootPath, string sessionId)
+    {
+        return Path.Combine(GetSessionsFolderPath(projectRootPath), $"{sessionId}.json");
+    }
+
+    private static string SerializeSession(ProjectSession session)
+    {
+        var dto = new SessionJsonDto
+        {
+            Id = session.Id,
+            Name = session.Name,
+            Status = session.GetSessionStatus().ToString().ToLowerInvariant(),
+            TerminalReason = session.TerminalReason.ToString().ToLowerInvariant(),
+            Authority = session.Authority.ToString(),
+            WorkingDirectory = session.WorkingDirectory,
+            RepositoryPath = session.RepositoryPath,
+            ParentWorkspaceId = session.ParentWorkspaceId,
+            ParentSessionId = session.ParentSessionId,
+            Config = new SessionConfigJsonDto
+            {
+                ProjectId = session.Config.ProjectId,
+                WorkflowId = session.Config.WorkflowId,
+                Task = session.Config.Task,
+                Context = session.Config.Context,
+                Access = new AccessConfigJsonDto
+                {
+                    Level = session.Config.Access.Level.ToString().ToLowerInvariant(),
+                    AllowedPaths = session.Config.Access.AllowedPaths.ToList(),
+                    DeniedPaths = session.Config.Access.DeniedPaths.ToList(),
+                    RequireApprovalPaths = session.Config.Access.RequireApprovalPaths.ToList()
+                },
+                Validation = new ValidationConfigJsonDto
+                {
+                    RunTests = session.Config.Validation.RunTests,
+                    TestCommand = session.Config.Validation.TestCommand,
+                    RunLinter = session.Config.Validation.RunLinter,
+                    LinterCommand = session.Config.Validation.LinterCommand,
+                    RequireCleanDiff = session.Config.Validation.RequireCleanDiff,
+                    MaxSteps = session.Config.Validation.MaxSteps,
+                    TimeoutMs = session.Config.Validation.TimeoutMs
+                },
+                Inputs = new Dictionary<string, object>(session.Config.Inputs)
+            },
+            CreatedAt = session.CreatedAt,
+            StartedAt = session.StartedAt,
+            CompletedAt = session.CompletedAt,
+            UpdatedAt = session.UpdatedAt,
+            CommandCount = session.CommandCount,
+            ModifiedFiles = session.ModifiedFiles.Select(f => new FileChangeJsonDto
+            {
+                Path = f.Path,
+                ChangeType = f.ChangeType.ToString().ToLowerInvariant()
+            }).ToList(),
+            ErrorMessage = session.ErrorMessage,
+            TestResult = session.TestResult != null ? new TestResultJsonDto
+            {
+                Passed = session.TestResult.Passed,
+                TotalTests = session.TestResult.TotalTests,
+                PassedTests = session.TestResult.PassedTests,
+                FailedTests = session.TestResult.FailedTests,
+                Output = session.TestResult.Output,
+                DurationMs = session.TestResult.DurationMs
+            } : null,
+            LinterResult = session.LinterResult != null ? new LinterResultJsonDto
+            {
+                Clean = session.LinterResult.Clean,
+                ErrorCount = session.LinterResult.ErrorCount,
+                WarningCount = session.LinterResult.WarningCount,
+                Output = session.LinterResult.Output
+            } : null,
+            CommitInfo = session.CommitInfo != null ? new CommitInfoJsonDto
+            {
+                CommitHash = session.CommitInfo.CommitHash,
+                Message = session.CommitInfo.Message,
+                Branch = session.CommitInfo.Branch,
+                Pushed = session.CommitInfo.Pushed,
+                CreatedAt = session.CommitInfo.CreatedAt
+            } : null
+        };
+
+        return JsonSerializer.Serialize(dto, JsonOptions);
+    }
+
+    private static ProjectSession? DeserializeSession(string json)
+    {
+        var dto = JsonSerializer.Deserialize<SessionJsonDto>(json, JsonOptions);
+        if (dto == null) return null;
+
+        var config = new ProjectSessionConfig
+        {
+            ProjectId = dto.Config.ProjectId,
+            WorkflowId = dto.Config.WorkflowId,
+            Task = dto.Config.Task,
+            Context = dto.Config.Context,
+            Access = new AccessConfig
+            {
+                Level = Enum.Parse<AccessLevel>(dto.Config.Access.Level, ignoreCase: true),
+                AllowedPaths = dto.Config.Access.AllowedPaths,
+                DeniedPaths = dto.Config.Access.DeniedPaths,
+                RequireApprovalPaths = dto.Config.Access.RequireApprovalPaths
+            },
+            Validation = new ValidationConfig
+            {
+                RunTests = dto.Config.Validation.RunTests,
+                TestCommand = dto.Config.Validation.TestCommand,
+                RunLinter = dto.Config.Validation.RunLinter,
+                LinterCommand = dto.Config.Validation.LinterCommand,
+                RequireCleanDiff = dto.Config.Validation.RequireCleanDiff,
+                MaxSteps = dto.Config.Validation.MaxSteps,
+                TimeoutMs = dto.Config.Validation.TimeoutMs
+            },
+            Inputs = dto.Config.Inputs ?? new Dictionary<string, object>()
+        };
+
+        // Parse authority
+        var authority = !string.IsNullOrEmpty(dto.Authority)
+            ? Authority.Parse(dto.Authority)
+            : Authority.Human();
+
+        // Parse status
+        var sessionStatus = Enum.Parse<SessionStatus>(dto.Status, ignoreCase: true);
+        var containerStatus = MapSessionStatusToContainerStatus(sessionStatus);
+
+        // Parse terminal reason
+        var terminalReason = SessionTerminalReason.None;
+        if (!string.IsNullOrEmpty(dto.TerminalReason))
+        {
+            Enum.TryParse<SessionTerminalReason>(dto.TerminalReason, ignoreCase: true, out terminalReason);
+        }
+        else if (containerStatus == ContainerSessionStatus.Ended)
+        {
+            // Infer terminal reason from old status for backwards compatibility
+            terminalReason = sessionStatus switch
+            {
+                SessionStatus.Completed => SessionTerminalReason.Completed,
+                SessionStatus.Failed => SessionTerminalReason.Failed,
+                SessionStatus.Cancelled => SessionTerminalReason.Cancelled,
+                SessionStatus.Stopped => SessionTerminalReason.Stopped,
+                _ => SessionTerminalReason.Completed
+            };
+        }
+
+        // Build container binding
+        var accessLevel = MapAccessLevelToRepositoryAccessLevel(config.Access.Level);
+        var binding = dto.RepositoryPath != null
+            ? ContainerBinding.CreateRepositoryBound(dto.RepositoryPath, accessLevel)
+            : ContainerBinding.CreateSandbox();
+
+        // Restore modified files
+        var modifiedFiles = dto.ModifiedFiles.Select(f => new FileChange
+        {
+            Path = f.Path,
+            ChangeType = Enum.Parse<FileChangeType>(f.ChangeType, ignoreCase: true)
+        }).ToList();
+
+        // Restore test result
+        TestResult? testResult = dto.TestResult != null ? new TestResult
+        {
+            Passed = dto.TestResult.Passed,
+            TotalTests = dto.TestResult.TotalTests,
+            PassedTests = dto.TestResult.PassedTests,
+            FailedTests = dto.TestResult.FailedTests,
+            Output = dto.TestResult.Output,
+            DurationMs = dto.TestResult.DurationMs
+        } : null;
+
+        // Restore linter result
+        LinterResult? linterResult = dto.LinterResult != null ? new LinterResult
+        {
+            Clean = dto.LinterResult.Clean,
+            ErrorCount = dto.LinterResult.ErrorCount,
+            WarningCount = dto.LinterResult.WarningCount,
+            Output = dto.LinterResult.Output
+        } : null;
+
+        // Restore commit info
+        CommitInfo? commitInfo = dto.CommitInfo != null ? new CommitInfo
+        {
+            CommitHash = dto.CommitInfo.CommitHash,
+            Message = dto.CommitInfo.Message,
+            Branch = dto.CommitInfo.Branch,
+            Pushed = dto.CommitInfo.Pushed,
+            CreatedAt = dto.CommitInfo.CreatedAt
+        } : null;
+
+        // Use Reconstitute to create the session with all state
+        return ProjectSession.Reconstitute(
+            id: dto.Id,
+            name: dto.Name,
+            authority: authority,
+            config: config,
+            status: containerStatus,
+            terminalReason: terminalReason,
+            repositoryPath: dto.RepositoryPath,
+            parentWorkspaceId: dto.ParentWorkspaceId,
+            parentSessionId: dto.ParentSessionId,
+            workingDirectory: dto.WorkingDirectory ?? ".",
+            permissions: ContextPermissions.Full, // TODO: Serialize permissions
+            binding: binding,
+            blockRegistry: SessionBlockRegistry.Empty(), // TODO: Serialize block registry
+            modifiedFiles: modifiedFiles,
+            testResult: testResult,
+            linterResult: linterResult,
+            commitInfo: commitInfo,
+            errorMessage: dto.ErrorMessage,
+            createdAt: dto.CreatedAt,
+            startedAt: dto.StartedAt,
+            completedAt: dto.CompletedAt,
+            updatedAt: dto.UpdatedAt,
+            createdBy: null
+        );
+    }
+
+    private static ContainerSessionStatus MapSessionStatusToContainerStatus(SessionStatus status)
+    {
+        return status switch
+        {
+            SessionStatus.Created => ContainerSessionStatus.Created,
+            SessionStatus.Running => ContainerSessionStatus.Active,
+            SessionStatus.Paused => ContainerSessionStatus.Paused,
+            SessionStatus.Completed => ContainerSessionStatus.Ended,
+            SessionStatus.Failed => ContainerSessionStatus.Ended,
+            SessionStatus.Cancelled => ContainerSessionStatus.Ended,
+            SessionStatus.Stopped => ContainerSessionStatus.Ended,
+            _ => ContainerSessionStatus.Created
+        };
+    }
+
+    private static Maestro.Domain.ValueObjects.RepositoryAccessLevel MapAccessLevelToRepositoryAccessLevel(AccessLevel level)
+    {
+        return level switch
+        {
+            AccessLevel.ReadOnly => Maestro.Domain.ValueObjects.RepositoryAccessLevel.ReadOnly,
+            AccessLevel.Sandbox => Maestro.Domain.ValueObjects.RepositoryAccessLevel.Controlled,
+            AccessLevel.Controlled => Maestro.Domain.ValueObjects.RepositoryAccessLevel.Controlled,
+            AccessLevel.Full => Maestro.Domain.ValueObjects.RepositoryAccessLevel.Full,
+            _ => Maestro.Domain.ValueObjects.RepositoryAccessLevel.Controlled
+        };
+    }
+
+    // JSON DTOs for serialization
+    private class SessionJsonDto
+    {
+        public string Id { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+        public string Status { get; set; } = "created";
+        public string? TerminalReason { get; set; }
+        public string Authority { get; set; } = "human";
+        public string? WorkingDirectory { get; set; } = ".";
+        public string? RepositoryPath { get; set; }
+        public string? ParentWorkspaceId { get; set; }
+        public string? ParentSessionId { get; set; }
+        public SessionConfigJsonDto Config { get; set; } = new();
+        public DateTimeOffset CreatedAt { get; set; }
+        public DateTimeOffset? StartedAt { get; set; }
+        public DateTimeOffset? CompletedAt { get; set; }
+        public DateTimeOffset? UpdatedAt { get; set; }
+        public int CommandCount { get; set; }
+        public List<FileChangeJsonDto> ModifiedFiles { get; set; } = new();
+        public string? ErrorMessage { get; set; }
+        public TestResultJsonDto? TestResult { get; set; }
+        public LinterResultJsonDto? LinterResult { get; set; }
+        public CommitInfoJsonDto? CommitInfo { get; set; }
+    }
+
+    private class SessionConfigJsonDto
+    {
+        public string ProjectId { get; set; } = string.Empty;
+        public string? WorkflowId { get; set; }
+        public string? Task { get; set; }
+        public string? Context { get; set; }
+        public AccessConfigJsonDto Access { get; set; } = new();
+        public ValidationConfigJsonDto Validation { get; set; } = new();
+        public Dictionary<string, object>? Inputs { get; set; }
+    }
+
+    private class AccessConfigJsonDto
+    {
+        public string Level { get; set; } = "controlled";
+        public List<string> AllowedPaths { get; set; } = new();
+        public List<string> DeniedPaths { get; set; } = new();
+        public List<string> RequireApprovalPaths { get; set; } = new();
+    }
+
+    private class ValidationConfigJsonDto
+    {
+        public bool RunTests { get; set; }
+        public string? TestCommand { get; set; }
+        public bool RunLinter { get; set; }
+        public string? LinterCommand { get; set; }
+        public bool RequireCleanDiff { get; set; }
+        public int MaxSteps { get; set; } = 50;
+        public int TimeoutMs { get; set; } = 600000;
+    }
+
+    private class FileChangeJsonDto
+    {
+        public string Path { get; set; } = string.Empty;
+        public string ChangeType { get; set; } = "modified";
+    }
+
+    private class TestResultJsonDto
+    {
+        public bool Passed { get; set; }
+        public int TotalTests { get; set; }
+        public int PassedTests { get; set; }
+        public int FailedTests { get; set; }
+        public string? Output { get; set; }
+        public long DurationMs { get; set; }
+    }
+
+    private class LinterResultJsonDto
+    {
+        public bool Clean { get; set; }
+        public int ErrorCount { get; set; }
+        public int WarningCount { get; set; }
+        public string? Output { get; set; }
+    }
+
+    private class CommitInfoJsonDto
+    {
+        public string CommitHash { get; set; } = string.Empty;
+        public string Message { get; set; } = string.Empty;
+        public string Branch { get; set; } = string.Empty;
+        public bool Pushed { get; set; }
+        public DateTime CreatedAt { get; set; }
+    }
+}

@@ -1,0 +1,84 @@
+/**
+ * Blocks Panel Styles
+ *
+ * Matches the FoundryPage layout exactly:
+ * - Sidebar on left with category filters
+ * - Main content on right with search bar and block grid
+ */
+
+.blocks-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+
+  // Main layout - sidebar + content
+  &__layout {
+    display: flex;
+    gap: var(--spacing-lg);
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  // Main content area (right of sidebar)
+  &__main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+    min-width: 0;
+    overflow: auto;
+    padding-right: var(--spacing-sm);
+  }
+
+  // Results info text
+  &__results-info {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  &__results-count {
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+  }
+
+  // Loading state
+  &__loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--spacing-md);
+    padding: var(--spacing-2xl);
+    color: var(--text-tertiary);
+  }
+
+  &__spinner {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 2px solid var(--border);
+    border-top-color: var(--color-primary);
+    border-radius: 50%;
+    animation: spin 0.75s linear infinite;
+  }
+
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  // Error state
+  &__error {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+    padding: var(--spacing-lg);
+    background-color: var(--color-danger-subtle);
+    border: 1px solid var(--color-danger);
+    border-radius: var(--radius-md);
+    color: var(--color-danger);
+  }
+}

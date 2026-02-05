@@ -1,0 +1,136 @@
+{
+  "id": "system:experiment-manager",
+  "name": "Experiment Manager",
+  "blockType": "agent",
+  "version": "1.0.0",
+  "isSystem": true,
+  "overridable": true,
+  "description": "Orchestrates training experiments with different strategies. Main entry point for all experimentation operations via CLI.",
+  "capabilities": [
+    "experiment-lifecycle",
+    "strategy-selection",
+    "parallel-execution",
+    "result-comparison",
+    "recommendation",
+    "progress-tracking"
+  ],
+  "config": {
+    "maxConcurrentExperiments": 3,
+    "defaultWorkspace": null,
+    "autoCompare": true,
+    "notifyOnComplete": true,
+    "checkpointInterval": 10,
+    "progressReportInterval": 5
+  },
+  "actions": {
+    "create": {
+      "description": "Create a new training experiment",
+      "inputs": {
+        "name": { "type": "string", "required": true, "description": "Experiment name" },
+        "workspaceId": { "type": "string", "required": true, "description": "Target workspace" },
+        "agentId": { "type": "string", "required": true, "description": "Agent to train" },
+        "strategyId": { "type": "string", "required": true, "description": "Strategy block ID" },
+        "config": { "type": "object", "required": false, "description": "Strategy config overrides" }
+      },
+      "outputs": {
+        "experimentId": { "type": "string", "description": "Created experiment ID" },
+        "status": { "type": "string", "description": "Initial status" }
+      }
+    },
+    "start": {
+      "description": "Start a pending experiment",
+      "inputs": {
+        "experimentId": { "type": "string", "required": true, "description": "Experiment to start" }
+      },
+      "outputs": {
+        "status": { "type": "string", "description": "New status" },
+        "startedAt": { "type": "string", "description": "Start timestamp" }
+      }
+    },
+    "startAll": {
+      "description": "Start all pending experiments in a workspace",
+      "inputs": {
+        "workspaceId": { "type": "string", "required": true, "description": "Workspace ID" },
+        "parallel": { "type": "boolean", "default": true, "description": "Run in parallel" }
+      },
+      "outputs": {
+        "started": { "type": "array", "description": "List of started experiment IDs" },
+        "skipped": { "type": "array", "description": "List of skipped experiment IDs" }
+      }
+    },
+    "stop": {
+      "description": "Stop a running experiment",
+      "inputs": {
+        "experimentId": { "type": "string", "required": true, "description": "Experiment to stop" }
+      },
+      "outputs": {
+        "status": { "type": "string", "description": "New status" },
+        "iterationsCompleted": { "type": "number", "description": "Iterations completed before stop" }
+      }
+    },
+    "compare": {
+      "description": "Compare results of multiple experiments",
+      "inputs": {
+        "experimentIds": { "type": "array", "required": true, "description": "Experiments to compare" }
+      },
+      "outputs": {
+        "rankings": { "type": "object", "description": "Ranking by different criteria" },
+        "bestExperimentId": { "type": "string", "description": "Best overall experiment" },
+        "recommendation": { "type": "string", "description": "Recommended strategy" }
+      }
+    },
+    "recommend": {
+      "description": "Recommend best strategy for an agent/task combination",
+      "inputs": {
+        "agentId": { "type": "string", "required": true, "description": "Agent to train" },
+        "taskType": { "type": "string", "required": true, "description": "Type of task" },
+        "constraints": { "type": "object", "required": false, "description": "Resource constraints" }
+      },
+      "outputs": {
+        "recommendedStrategies": { "type": "array", "description": "Ranked strategy recommendations" },
+        "reasoning": { "type": "string", "description": "Explanation for recommendations" }
+      }
+    },
+    "list": {
+      "description": "List experiments with optional filters",
+      "inputs": {
+        "workspaceId": { "type": "string", "required": false, "description": "Filter by workspace" },
+        "status": { "type": "string", "required": false, "description": "Filter by status" }
+      },
+      "outputs": {
+        "experiments": { "type": "array", "description": "List of experiments" },
+        "total": { "type": "number", "description": "Total count" }
+      }
+    },
+    "listStrategies": {
+      "description": "List all available training strategies",
+      "inputs": {
+        "category": { "type": "string", "required": false, "description": "Filter by category" }
+      },
+      "outputs": {
+        "strategies": { "type": "array", "description": "Available strategies" }
+      }
+    },
+    "getProgress": {
+      "description": "Get progress of a running experiment",
+      "inputs": {
+        "experimentId": { "type": "string", "required": true, "description": "Experiment ID" }
+      },
+      "outputs": {
+        "progress": { "type": "number", "description": "Progress percentage" },
+        "currentIteration": { "type": "number", "description": "Current iteration" },
+        "currentFitness": { "type": "number", "description": "Current fitness" },
+        "estimatedRemaining": { "type": "string", "description": "Estimated time remaining" }
+      }
+    }
+  },
+  "tools": [
+    "workspace-gateway",
+    "fitness-calculator",
+    "training-service",
+    "session-manager",
+    "block-discovery",
+    "metrics-collector"
+  ],
+  "systemPrompt": "You are the Experiment Manager for Maestro. You orchestrate training experiments using various strategies to improve agent performance.\n\nYour responsibilities:\n1. Help users select the right training strategy based on their goals\n2. Create, manage, and monitor training experiments\n3. Compare experiment results objectively using fitness metrics\n4. Recommend optimal approaches based on past performance\n5. Ensure experiments run efficiently within resource constraints\n\nWhen recommending strategies, consider:\n- Task type (code, reasoning, classification, etc.)\n- Available resources and cost constraints\n- Historical performance of strategies on similar tasks\n- The Maestro fitness formula that balances performance, cost, and specialization\n\nAlways explain your reasoning and provide clear, actionable guidance."
+}

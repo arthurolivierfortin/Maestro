@@ -7,6 +7,7 @@
 
 import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { Moon, Folder, File } from 'lucide-react';
 import { useProjectStore, Project, FileAccessRule, BlockPermission } from '../store/projectStore';
 import { ContainerState, containerService } from '../services/containerService';
 import { ProjectStatusBadge } from '../components/Projects/ProjectStatusBadge';
@@ -76,10 +77,10 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ project, containerState }) =>
             <span className="overview-tab__runtime-type">
               {hasRuntime ? (
                 <>
-                  {project.runtime?.type === 'docker' ? '🐳 Docker' : '⚡ Process'}
+                  {project.runtime?.type === 'docker' ? 'Docker' : 'Process'}
                 </>
               ) : (
-                '📁 Local'
+                'Local'
               )}
             </span>
             {project.runtime?.image && (
@@ -172,7 +173,7 @@ const TerminalTab: React.FC<TerminalTabProps> = ({ project, containerState }) =>
         />
       ) : (
         <div className="terminal-tab__not-running">
-          <div className="terminal-tab__not-running-icon">💤</div>
+          <div className="terminal-tab__not-running-icon"><Moon size={48} /></div>
           <h3>Container Not Running</h3>
           <p>Start the container to access the terminal.</p>
         </div>
@@ -384,17 +385,17 @@ const FilesTab: React.FC<FilesTabProps> = ({ project, onUpdateRules }) => {
           rules.map((rule, index) => (
             <div key={index} className="files-tab__item">
               <span className="files-tab__type">
-                {rule.type === 'directory' ? '📁' : '📄'}
+                {rule.type === 'directory' ? <Folder size={16} /> : <File size={16} />}
               </span>
               <span className="files-tab__path">{rule.path}</span>
               <span className={`files-tab__permission files-tab__permission--${rule.permission}`}>
                 {rule.permission === 'readwrite'
-                  ? '✓ Read/Write'
+                  ? 'Read/Write'
                   : rule.permission === 'readonly'
-                  ? '👁 Read Only'
+                  ? 'Read Only'
                   : rule.permission === 'hidden'
-                  ? '👻 Hidden'
-                  : '⊘ Excluded'}
+                  ? 'Hidden'
+                  : 'Excluded'}
               </span>
               <button className="files-tab__remove" onClick={() => handleRemoveRule(index)}>
                 Remove

@@ -1,0 +1,61 @@
+{
+  "id": "data-analyst",
+  "name": "Data Analyst",
+  "blockType": "agent",
+  "version": "1.0.0",
+  "description": "Analyzes experimental data, identifies patterns, and generates insights from metrics and fitness scores.",
+
+  "config": {
+    "model": "smollm2:1.7b",
+    "maxSteps": 20,
+    "maxTokens": 2048,
+    "temperature": 0.1,
+    "tools": [
+      "system:data-store",
+      "system:metrics-collector",
+      "system:leaderboard-manager",
+      "file-read",
+      "directory-list"
+    ],
+    "systemPrompt": "You are the Data Analyst agent. Your responsibilities:\n\n1. Query and analyze experimental data\n2. Identify patterns in model performance\n3. Compare models using the leaderboard\n4. Generate insights and recommendations\n5. Summarize findings in clear reports\n\nUse the maestro_cli tool to access data. Key commands:\n- run system:data-store --input action=query --input collection=experiments\n- run system:metrics-collector --input action=aggregate --input experimentId=...\n- run system:leaderboard-manager --input action=list --input taskType=...\n\nFocus on statistical significance and actionable insights."
+  },
+
+  "inputs": {
+    "query": {
+      "type": "string",
+      "required": true,
+      "description": "Analysis query or question"
+    },
+    "experimentId": {
+      "type": "string",
+      "required": false,
+      "description": "Specific experiment to analyze"
+    },
+    "compareModels": {
+      "type": "array",
+      "required": false,
+      "description": "List of model IDs to compare"
+    }
+  },
+
+  "outputs": {
+    "analysis": {
+      "type": "string",
+      "description": "Analysis summary"
+    },
+    "insights": {
+      "type": "array",
+      "description": "Key insights discovered"
+    },
+    "recommendations": {
+      "type": "array",
+      "description": "Recommended actions"
+    }
+  },
+
+  "metadata": {
+    "author": "Maestro",
+    "category": "analysis",
+    "tags": ["analyst", "data", "insights"]
+  }
+}

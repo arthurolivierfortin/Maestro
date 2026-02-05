@@ -60,7 +60,7 @@ namespace Maestro.Infrastructure.Configuration
         /// <summary>
         /// Gets all search paths for block discovery in priority order.
         /// Project blocks have highest priority, then user blocks, then global blocks.
-        /// Also includes any additional paths from MAESTRO_ADDITIONAL_PROJECT_PATHS env var.
+        /// Also includes any additional paths from environment variable or configuration.
         /// </summary>
         public string[] GetSearchPaths()
         {
@@ -78,7 +78,22 @@ namespace Maestro.Infrastructure.Configuration
                     if (!string.IsNullOrEmpty(trimmedPath) && Directory.Exists(trimmedPath))
                     {
                         basePaths.Add(trimmedPath);
-                        _logger?.LogInformation("Added additional project path: {Path}", trimmedPath);
+                        _logger?.LogInformation("Added additional project path from env: {Path}", trimmedPath);
+                    }
+                }
+            }
+
+            // Add any additional project paths from configuration
+            var configPaths = _configuration?.GetSection($"{MaestroConstants.ConfigurationSection}:{MaestroConstants.PathsConfigKey}:AdditionalProjects").Get<string[]>();
+            if (configPaths != null)
+            {
+                foreach (var path in configPaths)
+                {
+                    var trimmedPath = path?.Trim();
+                    if (!string.IsNullOrEmpty(trimmedPath) && Directory.Exists(trimmedPath) && !basePaths.Contains(trimmedPath))
+                    {
+                        basePaths.Add(trimmedPath);
+                        _logger?.LogInformation("Added additional project path from config: {Path}", trimmedPath);
                     }
                 }
             }

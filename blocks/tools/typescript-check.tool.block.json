@@ -1,0 +1,64 @@
+{
+  "$schema": "../../../docs/schemas/block.schema.json",
+  "id": "typescript-check",
+  "name": "TypeScript Check",
+  "blockType": "tool",
+  "version": "1.0.0",
+  "isAtomic": true,
+  "description": "Checks TypeScript files for type errors without emitting output",
+  "inputs": [
+    {
+      "id": "projectPath",
+      "name": "Project Path",
+      "type": "string",
+      "required": true,
+      "description": "Path to the TypeScript project directory"
+    },
+    {
+      "id": "files",
+      "name": "Specific Files",
+      "type": "string",
+      "required": false,
+      "description": "Specific files to check (space-separated), or empty for whole project"
+    }
+  ],
+  "outputs": [
+    {
+      "id": "stdout",
+      "name": "Type Check Output",
+      "type": "string",
+      "description": "TypeScript compiler output"
+    },
+    {
+      "id": "errors",
+      "name": "Errors",
+      "type": "string",
+      "description": "Any type errors found"
+    },
+    {
+      "id": "exitCode",
+      "name": "Exit Code",
+      "type": "number",
+      "description": "0 if no errors, non-zero if errors found"
+    },
+    {
+      "id": "hasErrors",
+      "name": "Has Errors",
+      "type": "boolean",
+      "description": "Whether type errors were found"
+    }
+  ],
+  "config": {
+    "command": "powershell",
+    "args": [
+      "-Command",
+      "cd '{{projectPath}}'; npx tsc --noEmit {{files}} 2>&1"
+    ],
+    "timeout": 60000
+  },
+  "metadata": {
+    "category": "development",
+    "tags": ["typescript", "type-check", "validation", "lint"]
+  },
+  "capabilities": ["typescript", "validation"]
+}

@@ -1,0 +1,83 @@
+{
+  "$schema": "../../../docs/schemas/block.schema.json",
+  "id": "file-write",
+  "name": "File Write",
+  "blockType": "tool",
+  "version": "1.0.0",
+  "isAtomic": true,
+  "description": "Writes content to a file on the filesystem",
+  "inputs": [
+    {
+      "id": "path",
+      "name": "File Path",
+      "type": "string",
+      "required": true,
+      "description": "The path to the file to write (absolute or relative to working directory)"
+    },
+    {
+      "id": "content",
+      "name": "Content",
+      "type": "string",
+      "required": true,
+      "description": "The content to write to the file"
+    },
+    {
+      "id": "workingDir",
+      "name": "Working Directory",
+      "type": "string",
+      "required": false,
+      "description": "The base directory for relative paths"
+    },
+    {
+      "id": "mode",
+      "name": "Write Mode",
+      "type": "string",
+      "required": false,
+      "description": "Write mode: 'overwrite' (default), 'append', or 'create' (fail if exists)"
+    },
+    {
+      "id": "createDirectories",
+      "name": "Create Directories",
+      "type": "boolean",
+      "required": false,
+      "description": "Create parent directories if they don't exist (default: true)"
+    },
+    {
+      "id": "encoding",
+      "name": "Encoding",
+      "type": "string",
+      "required": false,
+      "description": "File encoding (default: utf-8)"
+    }
+  ],
+  "outputs": [
+    {
+      "id": "success",
+      "name": "Success",
+      "type": "boolean",
+      "description": "Whether the write operation succeeded"
+    },
+    {
+      "id": "path",
+      "name": "Written Path",
+      "type": "string",
+      "description": "The absolute path to the written file"
+    },
+    {
+      "id": "bytesWritten",
+      "name": "Bytes Written",
+      "type": "number",
+      "description": "Number of bytes written"
+    }
+  ],
+  "config": {
+    "toolType": "filesystem",
+    "operation": "write",
+    "maxSizeBytes": 10485760
+  },
+  "metadata": {
+    "category": "filesystem",
+    "tags": ["file", "write", "io"]
+  },
+  "capabilities": ["filesystem", "write"]
+}

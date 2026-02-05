@@ -1,0 +1,61 @@
+{
+  "id": "system:strategy-self-play",
+  "name": "Self-Play Strategy",
+  "blockType": "workflow",
+  "version": "1.0.0",
+  "isSystem": true,
+  "overridable": true,
+  "description": "Self-improvement through generating and critiquing own outputs",
+  "metadata": {
+    "method": "SelfPlay",
+    "category": "self-improvement",
+    "suitableFor": ["reasoning", "debate", "verification", "self-correction"],
+    "strengths": [
+      "No external data needed",
+      "Continuous improvement",
+      "Discovers own weaknesses",
+      "Good for reasoning tasks"
+    ],
+    "weaknesses": [
+      "Can amplify biases",
+      "Risk of mode collapse",
+      "Requires good self-evaluation",
+      "May diverge without grounding"
+    ],
+    "estimatedResources": {
+      "minIterations": 30,
+      "typicalIterations": 200,
+      "maxIterations": 500,
+      "costPerIteration": "medium"
+    }
+  },
+  "config": {
+    "roles": ["generator", "critic", "refiner"],
+    "selfCritiqueEnabled": true,
+    "debateRounds": 3,
+    "consensusThreshold": 0.8,
+    "diversityBonus": 0.1,
+    "critiqueStrength": {
+      "initial": 0.5,
+      "growth": 1.02,
+      "maximum": 0.9
+    }
+  },
+  "inputs": {
+    "agentId": { "type": "string", "required": true, "description": "Target agent to train" },
+    "taskPrompts": { "type": "array", "required": true, "description": "Prompts for self-play" },
+    "maxIterations": { "type": "number", "default": 200, "description": "Maximum iterations" }
+  },
+  "outputs": {
+    "finalFitness": { "type": "number", "description": "Final fitness score" },
+    "selfCritiqueAccuracy": { "type": "number", "description": "How well it identifies own errors" },
+    "improvementRate": { "type": "number", "description": "Rate of self-improvement" },
+    "debateWinRate": { "type": "number", "description": "Win rate in self-debates" }
+  },
+  "children": [
+    { "ref": "system:generator-agent", "role": "generator" },
+    { "ref": "system:critic-agent", "role": "critic" },
+    { "ref": "system:fitness-evaluator", "role": "evaluator" },
+    { "ref": "system:early-stopper", "role": "stopper" }
+  ]
+}

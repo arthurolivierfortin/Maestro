@@ -1,0 +1,62 @@
+{
+  "$schema": "../../../docs/schemas/block.schema.json",
+  "id": "code-search",
+  "name": "Code Search",
+  "blockType": "tool",
+  "version": "1.0.0",
+  "isAtomic": true,
+  "description": "Searches for a pattern in files using findstr (Windows) or grep.",
+
+  "inputs": [
+    {
+      "id": "pattern",
+      "name": "Search Pattern",
+      "type": "string",
+      "required": true,
+      "description": "The pattern to search for"
+    },
+    {
+      "id": "path",
+      "name": "Search Path",
+      "type": "string",
+      "required": true,
+      "description": "Directory or file pattern to search in (e.g., 'src\\*.ts' or '.')"
+    },
+    {
+      "id": "workingDir",
+      "name": "Working Directory",
+      "type": "string",
+      "required": false,
+      "description": "Base directory for the search"
+    }
+  ],
+
+  "outputs": [
+    {
+      "id": "stdout",
+      "name": "Search Results",
+      "type": "string",
+      "description": "Lines matching the pattern"
+    },
+    {
+      "id": "exitCode",
+      "name": "Exit Code",
+      "type": "number",
+      "description": "0 if matches found, 1 if no matches"
+    }
+  ],
+
+  "config": {
+    "command": "powershell",
+    "args": ["-Command", "Get-ChildItem -Path '{{path}}' -Recurse -File -ErrorAction SilentlyContinue | Select-String -Pattern '{{pattern}}' -ErrorAction SilentlyContinue | ForEach-Object { $_.Path + ':' + $_.LineNumber + ': ' + $_.Line }"],
+    "timeout": 60000
+  },
+
+  "metadata": {
+    "category": "search",
+    "tags": ["search", "grep", "find", "code"],
+    "author": "maestro-team"
+  },
+
+  "capabilities": ["search", "read"]
+}

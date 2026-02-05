@@ -1,0 +1,68 @@
+{
+  "$schema": "../../../docs/schemas/block.schema.json",
+  "id": "test-runner",
+  "name": "Test Runner",
+  "blockType": "tool",
+  "version": "1.0.0",
+  "isAtomic": true,
+  "description": "Runs tests using npm test (auto-detects package.json).",
+
+  "inputs": [
+    {
+      "id": "workingDir",
+      "name": "Working Directory",
+      "type": "string",
+      "required": true,
+      "description": "The project root directory with package.json"
+    },
+    {
+      "id": "testCommand",
+      "name": "Test Command",
+      "type": "string",
+      "required": false,
+      "default": "npm test",
+      "description": "Custom test command (default: npm test)"
+    }
+  ],
+
+  "outputs": [
+    {
+      "id": "stdout",
+      "name": "Test Output",
+      "type": "string",
+      "description": "Test execution output"
+    },
+    {
+      "id": "stderr",
+      "name": "Error Output",
+      "type": "string",
+      "description": "Error output if any"
+    },
+    {
+      "id": "exitCode",
+      "name": "Exit Code",
+      "type": "number",
+      "description": "0 if tests passed, non-zero if failed"
+    },
+    {
+      "id": "success",
+      "name": "Success",
+      "type": "boolean",
+      "description": "Whether all tests passed"
+    }
+  ],
+
+  "config": {
+    "command": "powershell",
+    "args": ["-Command", "$cmd = if ('{{testCommand}}' -ne '') { '{{testCommand}}' } else { 'npm test' }; Set-Location '{{workingDir}}'; Invoke-Expression $cmd"],
+    "timeout": 300000
+  },
+
+  "metadata": {
+    "category": "testing",
+    "tags": ["test", "npm", "jest", "vitest"],
+    "author": "maestro-team"
+  },
+
+  "capabilities": ["testing", "execute"]
+}

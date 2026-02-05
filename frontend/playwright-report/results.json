@@ -1,0 +1,1388 @@
+{
+  "config": {
+    "configFile": "C:\\Meastro\\frontend\\playwright.config.ts",
+    "rootDir": "C:/Meastro/frontend/e2e",
+    "forbidOnly": false,
+    "fullyParallel": true,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 12
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "C:/Meastro/frontend/playwright-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 12
+        },
+        "id": "chromium",
+        "name": "chromium",
+        "testDir": "C:/Meastro/frontend/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      },
+      {
+        "outputDir": "C:/Meastro/frontend/playwright-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 12
+        },
+        "id": "firefox",
+        "name": "firefox",
+        "testDir": "C:/Meastro/frontend/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      },
+      {
+        "outputDir": "C:/Meastro/frontend/playwright-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 12
+        },
+        "id": "mobile",
+        "name": "mobile",
+        "testDir": "C:/Meastro/frontend/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "html",
+        {
+          "outputFolder": "playwright-report"
+        }
+      ],
+      [
+        "json",
+        {
+          "outputFile": "playwright-report/results.json"
+        }
+      ],
+      [
+        "list",
+        null
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "runAgents": "none",
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.58.0",
+    "workers": 12,
+    "webServer": null
+  },
+  "suites": [
+    {
+      "title": "workspace-static-views.spec.ts",
+      "file": "workspace-static-views.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "Workspace Static Views - Full Verification",
+          "file": "workspace-static-views.spec.ts",
+          "line": 13,
+          "column": 6,
+          "specs": [],
+          "suites": [
+            {
+              "title": "1. Workspaces List Page",
+              "file": "workspace-static-views.spec.ts",
+              "line": 21,
+              "column": 8,
+              "specs": [
+                {
+                  "title": "should display workspaces list with cards",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [
+                        {
+                          "workerIndex": 0,
+                          "parallelIndex": 0,
+                          "status": "passed",
+                          "duration": 6682,
+                          "errors": [],
+                          "stdout": [
+                            {
+                              "text": "Found 2 workspace elements\n"
+                            }
+                          ],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2026-02-04T20:58:59.661Z",
+                          "annotations": [],
+                          "attachments": [
+                            {
+                              "name": "screenshot",
+                              "contentType": "image/png",
+                              "path": "C:\\Meastro\\frontend\\playwright-results\\workspace-static-views-Wor-5995b--workspaces-list-with-cards-chromium\\test-finished-1.png"
+                            }
+                          ]
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "bc9f622ca88461f4e69e-8cb93506a5e1ae0c409b",
+                  "file": "workspace-static-views.spec.ts",
+                  "line": 22,
+                  "column": 5
+                },
+                {
+                  "title": "should have filter controls",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [
+                        {
+                          "workerIndex": 1,
+                          "parallelIndex": 1,
+                          "status": "passed",
+                          "duration": 6565,
+                          "errors": [],
+                          "stdout": [
+                            {
+                              "text": "Found 3 filter buttons\n"
+                            },
+                            {
+                              "text": "Search input visible: true\n"
+                            }
+                          ],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2026-02-04T20:58:59.661Z",
+                          "annotations": [],
+                          "attachments": [
+                            {
+                              "name": "screenshot",
+                              "contentType": "image/png",
+                              "path": "C:\\Meastro\\frontend\\playwright-results\\workspace-static-views-Wor-34796-should-have-filter-controls-chromium\\test-finished-1.png"
+                            }
+                          ]
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "bc9f622ca88461f4e69e-90ae807a7d443ee2e0ee",
+                  "file": "workspace-static-views.spec.ts",
+                  "line": 38,
+                  "column": 5
+                }
+              ]
+            },
+            {
+              "title": "2. Workspace Detail - Overview Tab",
+              "file": "workspace-static-views.spec.ts",
+              "line": 51,
+              "column": 8,
+              "specs": [
+                {
+                  "title": "should display workspace detail page with tabs",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [
+                        {
+                          "workerIndex": 2,
+                          "parallelIndex": 2,
+                          "status": "passed",
+                          "duration": 6535,
+                          "errors": [],
+                          "stdout": [
+                            {
+                              "text": "Overview tab: \u001b[33mtrue\u001b[39m\n"
+                            },
+                            {
+                              "text": "Canvas tab: \u001b[33mtrue\u001b[39m\n"
+                            },
+                            {
+                              "text": "Blocks tab: \u001b[33mfalse\u001b[39m\n"
+                            }
+                          ],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2026-02-04T20:58:59.724Z",
+                          "annotations": [],
+                          "attachments": [
+                            {
+                              "name": "screenshot",
+                              "contentType": "image/png",
+                              "path": "C:\\Meastro\\frontend\\playwright-results\\workspace-static-views-Wor-e566a-space-detail-page-with-tabs-chromium\\test-finished-1.png"
+                            }
+                          ]
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "bc9f622ca88461f4e69e-3c0581e7e0723a2e1e2b",
+                  "file": "workspace-static-views.spec.ts",
+                  "line": 62,
+                  "column": 5
+                },
+                {
+                  "title": "should show Quick Actions section",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [
+                        {
+                          "workerIndex": 3,
+                          "parallelIndex": 3,
+                          "status": "passed",
+                          "duration": 7080,
+                          "errors": [],
+                          "stdout": [
+                            {
+                              "text": "Quick Actions visible: \u001b[33mfalse\u001b[39m\n"
+                            }
+                          ],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2026-02-04T20:59:00.065Z",
+                          "annotations": [],
+                          "attachments": [
+                            {
+                              "name": "screenshot",
+                              "contentType": "image/png",
+                              "path": "C:\\Meastro\\frontend\\playwright-results\\workspace-static-views-Wor-b30be--show-Quick-Actions-section-chromium\\test-finished-1.png"
+                            }
+                          ]
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "bc9f622ca88461f4e69e-bf52ad3b083ebfc5a523",
+                  "file": "workspace-static-views.spec.ts",
+                  "line": 79,
+                  "column": 5
+                },
+                {
+                  "title": "should show Workspace Content section",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [
+                        {
+                          "workerIndex": 4,
+                          "parallelIndex": 4,
+                          "status": "passed",
+                          "duration": 8252,
+                          "errors": [],
+                          "stdout": [
+                            {
+                              "text": "Workspace Content visible: \u001b[33mfalse\u001b[39m\n"
+                            }
+                          ],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2026-02-04T20:58:59.676Z",
+                          "annotations": [],
+                          "attachments": [
+                            {
+                              "name": "screenshot",
+                              "contentType": "image/png",
+                              "path": "C:\\Meastro\\frontend\\playwright-results\\workspace-static-views-Wor-d8007-w-Workspace-Content-section-chromium\\test-finished-1.png"
+                            }
+                          ]
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "bc9f622ca88461f4e69e-6a65e177cdb819c4cf8c",
+                  "file": "workspace-static-views.spec.ts",
+                  "line": 86,
+                  "column": 5
+                },
+                {
+                  "title": "should show Workspace Health section",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [
+                        {
+                          "workerIndex": 5,
+                          "parallelIndex": 5,
+                          "status": "passed",
+                          "duration": 8517,
+                          "errors": [],
+                          "stdout": [
+                            {
+                              "text": "Workspace Health visible: \u001b[33mfalse\u001b[39m\n"
+                            }
+                          ],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2026-02-04T20:58:59.760Z",
+                          "annotations": [],
+                          "attachments": [
+                            {
+                              "name": "screenshot",
+                              "contentType": "image/png",
+                              "path": "C:\\Meastro\\frontend\\playwright-results\\workspace-static-views-Wor-5428a-ow-Workspace-Health-section-chromium\\test-finished-1.png"
+                            }
+                          ]
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "bc9f622ca88461f4e69e-811871765a89829862a5",
+                  "file": "workspace-static-views.spec.ts",
+                  "line": 93,
+                  "column": 5
+                },
+                {
+                  "title": "should show Entry Point Cards with mini diagrams",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [
+                        {
+                          "workerIndex": 6,
+                          "parallelIndex": 6,
+                          "status": "passed",
+                          "duration": 7756,
+                          "errors": [],
+                          "stdout": [
+                            {
+                              "text": "Found 3 entry point cards\n"
+                            },
+                            {
+                              "text": "Found 3 mini flow diagrams\n"
+                            }
+                          ],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2026-02-04T20:58:59.931Z",
+                          "annotations": [],
+                          "attachments": [
+                            {
+                              "name": "screenshot",
+                              "contentType": "image/png",
+                              "path": "C:\\Meastro\\frontend\\playwright-results\\workspace-static-views-Wor-41b12-nt-Cards-with-mini-diagrams-chromium\\test-finished-1.png"
+                            }
+                          ]
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "bc9f622ca88461f4e69e-753440981937d1f20fe2",
+                  "file": "workspace-static-views.spec.ts",
+                  "line": 100,
+                  "column": 5
+                },
+                {
+                  "title": "should show Block Composition Diagram",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [
+                        {
+                          "workerIndex": 7,
+                          "parallelIndex": 7,
+                          "status": "passed",
+                          "duration": 7985,
+                          "errors": [],
+                          "stdout": [
+                            {
+                              "text": "Block Composition visible: \u001b[33mtrue\u001b[39m\n"
+                            },
+                            {
+                              "text": "Found 3 columns in Block Composition\n"
+                            }
+                          ],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2026-02-04T20:58:59.909Z",
+                          "annotations": [],
+                          "attachments": [
+                            {
+                              "name": "screenshot",
+                              "contentType": "image/png",
+                              "path": "C:\\Meastro\\frontend\\playwright-results\\workspace-static-views-Wor-73094-w-Block-Composition-Diagram-chromium\\test-finished-1.png"
+                            }
+                          ]
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "bc9f622ca88461f4e69e-d64f6a955b829848a0e2",
+                  "file": "workspace-static-views.spec.ts",
+                  "line": 119,
+                  "column": 5
+                }
+              ]
+            },
+            {
+              "title": "3. Workspace Detail - Blocks Tab (Foundry-like)",
+              "file": "workspace-static-views.spec.ts",
+              "line": 140,
+              "column": 8,
+              "specs": [
+                {
+                  "title": "should display Foundry-like sidebar with categories",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [
+                        {
+                          "workerIndex": 8,
+                          "parallelIndex": 8,
+                          "status": "passed",
+                          "duration": 7487,
+                          "errors": [],
+                          "stdout": [
+                            {
+                              "text": "Foundry Sidebar visible: \u001b[33mfalse\u001b[39m\n"
+                            },
+                            {
+                              "text": "Found 0 category buttons\n"
+                            }
+                          ],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2026-02-04T20:58:59.890Z",
+                          "annotations": [],
+                          "attachments": [
+                            {
+                              "name": "screenshot",
+                              "contentType": "image/png",
+                              "path": "C:\\Meastro\\frontend\\playwright-results\\workspace-static-views-Wor-6333c-ike-sidebar-with-categories-chromium\\test-finished-1.png"
+                            }
+                          ]
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "bc9f622ca88461f4e69e-456ad4070b451ce90659",
+                  "file": "workspace-static-views.spec.ts",
+                  "line": 158,
+                  "column": 5
+                },
+                {
+                  "title": "should display search bar with capability filter",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [
+                        {
+                          "workerIndex": 9,
+                          "parallelIndex": 9,
+                          "status": "passed",
+                          "duration": 8009,
+                          "errors": [],
+                          "stdout": [
+                            {
+                              "text": "Foundry Search Bar visible: \u001b[33mfalse\u001b[39m\n"
+                            },
+                            {
+                              "text": "Capability filter visible: \u001b[33mfalse\u001b[39m\n"
+                            }
+                          ],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2026-02-04T20:59:00.136Z",
+                          "annotations": [],
+                          "attachments": [
+                            {
+                              "name": "screenshot",
+                              "contentType": "image/png",
+                              "path": "C:\\Meastro\\frontend\\playwright-results\\workspace-static-views-Wor-45cfc--bar-with-capability-filter-chromium\\test-finished-1.png"
+                            }
+                          ]
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "bc9f622ca88461f4e69e-9459e6d4a11a726e9937",
+                  "file": "workspace-static-views.spec.ts",
+                  "line": 175,
+                  "column": 5
+                },
+                {
+                  "title": "should display BlockGrid with BlockCards",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [
+                        {
+                          "workerIndex": 10,
+                          "parallelIndex": 10,
+                          "status": "passed",
+                          "duration": 8077,
+                          "errors": [],
+                          "stdout": [
+                            {
+                              "text": "Block Grid visible: \u001b[33mfalse\u001b[39m\n"
+                            },
+                            {
+                              "text": "Found 0 block cards\n"
+                            }
+                          ],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2026-02-04T20:58:59.953Z",
+                          "annotations": [],
+                          "attachments": [
+                            {
+                              "name": "screenshot",
+                              "contentType": "image/png",
+                              "path": "C:\\Meastro\\frontend\\playwright-results\\workspace-static-views-Wor-5f90e-y-BlockGrid-with-BlockCards-chromium\\test-finished-1.png"
+                            }
+                          ]
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "bc9f622ca88461f4e69e-ea386c2b3ed5167f15a8",
+                  "file": "workspace-static-views.spec.ts",
+                  "line": 187,
+                  "column": 5
+                },
+                {
+                  "title": "should filter blocks by category when clicking sidebar",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [
+                        {
+                          "workerIndex": 11,
+                          "parallelIndex": 11,
+                          "status": "passed",
+                          "duration": 7050,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2026-02-04T20:58:59.988Z",
+                          "annotations": [],
+                          "attachments": [
+                            {
+                              "name": "screenshot",
+                              "contentType": "image/png",
+                              "path": "C:\\Meastro\\frontend\\playwright-results\\workspace-static-views-Wor-2c397-egory-when-clicking-sidebar-chromium\\test-finished-1.png"
+                            }
+                          ]
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "bc9f622ca88461f4e69e-b13bf7baa0e1bb39bab3",
+                  "file": "workspace-static-views.spec.ts",
+                  "line": 199,
+                  "column": 5
+                },
+                {
+                  "title": "should filter blocks by search query",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [
+                        {
+                          "workerIndex": 1,
+                          "parallelIndex": 1,
+                          "status": "passed",
+                          "duration": 6279,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2026-02-04T20:59:06.518Z",
+                          "annotations": [],
+                          "attachments": [
+                            {
+                              "name": "screenshot",
+                              "contentType": "image/png",
+                              "path": "C:\\Meastro\\frontend\\playwright-results\\workspace-static-views-Wor-3a69e-lter-blocks-by-search-query-chromium\\test-finished-1.png"
+                            }
+                          ]
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "bc9f622ca88461f4e69e-6622ca3767f0e07d85df",
+                  "file": "workspace-static-views.spec.ts",
+                  "line": 216,
+                  "column": 5
+                }
+              ]
+            },
+            {
+              "title": "4. Workspace Detail - Canvas Tab with Blueprint Mode",
+              "file": "workspace-static-views.spec.ts",
+              "line": 231,
+              "column": 8,
+              "specs": [
+                {
+                  "title": "should display 3-column layout with view mode buttons",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [
+                        {
+                          "workerIndex": 2,
+                          "parallelIndex": 2,
+                          "status": "passed",
+                          "duration": 8456,
+                          "errors": [],
+                          "stdout": [
+                            {
+                              "text": "Found 5 view mode buttons\n"
+                            },
+                            {
+                              "text": "Live mode: \u001b[33mtrue\u001b[39m\n"
+                            },
+                            {
+                              "text": "Blueprint mode: \u001b[33mtrue\u001b[39m\n"
+                            },
+                            {
+                              "text": "Topology mode: \u001b[33mtrue\u001b[39m\n"
+                            }
+                          ],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2026-02-04T20:59:06.565Z",
+                          "annotations": [],
+                          "attachments": [
+                            {
+                              "name": "screenshot",
+                              "contentType": "image/png",
+                              "path": "C:\\Meastro\\frontend\\playwright-results\\workspace-static-views-Wor-f729f-yout-with-view-mode-buttons-chromium\\test-finished-1.png"
+                            }
+                          ]
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "bc9f622ca88461f4e69e-1e08bdad4e51d035070c",
+                  "file": "workspace-static-views.spec.ts",
+                  "line": 249,
+                  "column": 5
+                },
+                {
+                  "title": "should switch to Blueprint mode and show static structure",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [
+                        {
+                          "workerIndex": 0,
+                          "parallelIndex": 0,
+                          "status": "passed",
+                          "duration": 10095,
+                          "errors": [],
+                          "stdout": [
+                            {
+                              "text": "Found 83 blueprint nodes\n"
+                            },
+                            {
+                              "text": "Found 0 entry point badges\n"
+                            }
+                          ],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2026-02-04T20:59:06.626Z",
+                          "annotations": [],
+                          "attachments": [
+                            {
+                              "name": "screenshot",
+                              "contentType": "image/png",
+                              "path": "C:\\Meastro\\frontend\\playwright-results\\workspace-static-views-Wor-20daa-e-and-show-static-structure-chromium\\test-finished-1.png"
+                            }
+                          ]
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "bc9f622ca88461f4e69e-6479d5ed4439c9c04483",
+                  "file": "workspace-static-views.spec.ts",
+                  "line": 270,
+                  "column": 5
+                },
+                {
+                  "title": "should show hierarchy panel on the left",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [
+                        {
+                          "workerIndex": 11,
+                          "parallelIndex": 11,
+                          "status": "passed",
+                          "duration": 8043,
+                          "errors": [],
+                          "stdout": [
+                            {
+                              "text": "Hierarchy panel visible: \u001b[33mfalse\u001b[39m\n"
+                            },
+                            {
+                              "text": "Note: Hierarchy panel not found with expected selectors\n"
+                            }
+                          ],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2026-02-04T20:59:07.601Z",
+                          "annotations": [],
+                          "attachments": [
+                            {
+                              "name": "screenshot",
+                              "contentType": "image/png",
+                              "path": "C:\\Meastro\\frontend\\playwright-results\\workspace-static-views-Wor-6e37f-hierarchy-panel-on-the-left-chromium\\test-finished-1.png"
+                            }
+                          ]
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "bc9f622ca88461f4e69e-5be3ab4ed7e5bc2f0f32",
+                  "file": "workspace-static-views.spec.ts",
+                  "line": 294,
+                  "column": 5
+                },
+                {
+                  "title": "should show inspector panel on the right",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [
+                        {
+                          "workerIndex": 3,
+                          "parallelIndex": 3,
+                          "status": "passed",
+                          "duration": 8232,
+                          "errors": [],
+                          "stdout": [
+                            {
+                              "text": "Inspector panel visible: \u001b[33mfalse\u001b[39m\n"
+                            },
+                            {
+                              "text": "Note: Inspector panel not found with expected selectors\n"
+                            }
+                          ],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2026-02-04T20:59:07.756Z",
+                          "annotations": [],
+                          "attachments": [
+                            {
+                              "name": "screenshot",
+                              "contentType": "image/png",
+                              "path": "C:\\Meastro\\frontend\\playwright-results\\workspace-static-views-Wor-54a0e-nspector-panel-on-the-right-chromium\\test-finished-1.png"
+                            }
+                          ]
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "bc9f622ca88461f4e69e-1c33d003053f8a267fb5",
+                  "file": "workspace-static-views.spec.ts",
+                  "line": 305,
+                  "column": 5
+                },
+                {
+                  "title": "should show console panel at the bottom",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [
+                        {
+                          "workerIndex": 8,
+                          "parallelIndex": 8,
+                          "status": "passed",
+                          "duration": 8233,
+                          "errors": [],
+                          "stdout": [
+                            {
+                              "text": "Console panel visible: \u001b[33mfalse\u001b[39m\n"
+                            },
+                            {
+                              "text": "Note: Console panel not found with expected selectors\n"
+                            }
+                          ],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2026-02-04T20:59:08.071Z",
+                          "annotations": [],
+                          "attachments": [
+                            {
+                              "name": "screenshot",
+                              "contentType": "image/png",
+                              "path": "C:\\Meastro\\frontend\\playwright-results\\workspace-static-views-Wor-a426b-console-panel-at-the-bottom-chromium\\test-finished-1.png"
+                            }
+                          ]
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "bc9f622ca88461f4e69e-07b46bac8bcd31b04e34",
+                  "file": "workspace-static-views.spec.ts",
+                  "line": 316,
+                  "column": 5
+                },
+                {
+                  "title": "should show connection status indicator",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [
+                        {
+                          "workerIndex": 4,
+                          "parallelIndex": 4,
+                          "status": "passed",
+                          "duration": 8346,
+                          "errors": [],
+                          "stdout": [
+                            {
+                              "text": "Connection indicator visible: \u001b[33mtrue\u001b[39m\n"
+                            }
+                          ],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2026-02-04T20:59:08.198Z",
+                          "annotations": [],
+                          "attachments": [
+                            {
+                              "name": "screenshot",
+                              "contentType": "image/png",
+                              "path": "C:\\Meastro\\frontend\\playwright-results\\workspace-static-views-Wor-cf65b-connection-status-indicator-chromium\\test-finished-1.png"
+                            }
+                          ]
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "bc9f622ca88461f4e69e-24deb5eb1f22ee422917",
+                  "file": "workspace-static-views.spec.ts",
+                  "line": 327,
+                  "column": 5
+                }
+              ]
+            },
+            {
+              "title": "5. Workspace Detail - Workflows Tab",
+              "file": "workspace-static-views.spec.ts",
+              "line": 334,
+              "column": 8,
+              "specs": [
+                {
+                  "title": "should display Workflow Explorer panel",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [
+                        {
+                          "workerIndex": 6,
+                          "parallelIndex": 6,
+                          "status": "passed",
+                          "duration": 7822,
+                          "errors": [],
+                          "stdout": [
+                            {
+                              "text": "Workflow Explorer Panel visible: \u001b[33mtrue\u001b[39m\n"
+                            }
+                          ],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2026-02-04T20:59:08.548Z",
+                          "annotations": [],
+                          "attachments": [
+                            {
+                              "name": "screenshot",
+                              "contentType": "image/png",
+                              "path": "C:\\Meastro\\frontend\\playwright-results\\workspace-static-views-Wor-e97f4-lay-Workflow-Explorer-panel-chromium\\test-finished-1.png"
+                            }
+                          ]
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "bc9f622ca88461f4e69e-00463773653a6ad1c280",
+                  "file": "workspace-static-views.spec.ts",
+                  "line": 352,
+                  "column": 5
+                },
+                {
+                  "title": "should show workflow cards",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [
+                        {
+                          "workerIndex": 5,
+                          "parallelIndex": 5,
+                          "status": "passed",
+                          "duration": 7710,
+                          "errors": [],
+                          "stdout": [
+                            {
+                              "text": "Found 21 workflow cards\n"
+                            }
+                          ],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2026-02-04T20:59:08.581Z",
+                          "annotations": [],
+                          "attachments": [
+                            {
+                              "name": "screenshot",
+                              "contentType": "image/png",
+                              "path": "C:\\Meastro\\frontend\\playwright-results\\workspace-static-views-Wor-d227a--should-show-workflow-cards-chromium\\test-finished-1.png"
+                            }
+                          ]
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "bc9f622ca88461f4e69e-27d91c3b0dbd7a77d9b9",
+                  "file": "workspace-static-views.spec.ts",
+                  "line": 364,
+                  "column": 5
+                },
+                {
+                  "title": "should have search functionality",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [
+                        {
+                          "workerIndex": 10,
+                          "parallelIndex": 10,
+                          "status": "passed",
+                          "duration": 7746,
+                          "errors": [],
+                          "stdout": [
+                            {
+                              "text": "Workflow search input visible: \u001b[33mtrue\u001b[39m\n"
+                            }
+                          ],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2026-02-04T20:59:08.687Z",
+                          "annotations": [],
+                          "attachments": [
+                            {
+                              "name": "screenshot",
+                              "contentType": "image/png",
+                              "path": "C:\\Meastro\\frontend\\playwright-results\\workspace-static-views-Wor-419ff-d-have-search-functionality-chromium\\test-finished-1.png"
+                            }
+                          ]
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "bc9f622ca88461f4e69e-65b0767c6f106c824d49",
+                  "file": "workspace-static-views.spec.ts",
+                  "line": 371,
+                  "column": 5
+                },
+                {
+                  "title": "should expand workflow card to show flow diagram",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [
+                        {
+                          "workerIndex": 7,
+                          "parallelIndex": 7,
+                          "status": "passed",
+                          "duration": 7772,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2026-02-04T20:59:08.690Z",
+                          "annotations": [],
+                          "attachments": [
+                            {
+                              "name": "screenshot",
+                              "contentType": "image/png",
+                              "path": "C:\\Meastro\\frontend\\playwright-results\\workspace-static-views-Wor-05709-w-card-to-show-flow-diagram-chromium\\test-finished-1.png"
+                            }
+                          ]
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "bc9f622ca88461f4e69e-5abffd0c77044e0b1f50",
+                  "file": "workspace-static-views.spec.ts",
+                  "line": 377,
+                  "column": 5
+                }
+              ]
+            },
+            {
+              "title": "6. Component Integration Tests",
+              "file": "workspace-static-views.spec.ts",
+              "line": 397,
+              "column": 8,
+              "specs": [
+                {
+                  "title": "should navigate between tabs without errors",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [
+                        {
+                          "workerIndex": 9,
+                          "parallelIndex": 9,
+                          "status": "passed",
+                          "duration": 11644,
+                          "errors": [],
+                          "stdout": [
+                            {
+                              "text": "Tab Overview: OK\n"
+                            },
+                            {
+                              "text": "Tab Canvas: OK\n"
+                            },
+                            {
+                              "text": "Tab Blocks: OK\n"
+                            },
+                            {
+                              "text": "Tab Sessions: OK\n"
+                            },
+                            {
+                              "text": "Tab Logs: OK\n"
+                            }
+                          ],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2026-02-04T20:59:08.745Z",
+                          "annotations": [],
+                          "attachments": [
+                            {
+                              "name": "screenshot",
+                              "contentType": "image/png",
+                              "path": "C:\\Meastro\\frontend\\playwright-results\\workspace-static-views-Wor-00fa0-between-tabs-without-errors-chromium\\test-finished-1.png"
+                            }
+                          ]
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "bc9f622ca88461f4e69e-4e02492676d4721ef484",
+                  "file": "workspace-static-views.spec.ts",
+                  "line": 398,
+                  "column": 5
+                },
+                {
+                  "title": "should handle empty workspace gracefully",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [
+                        {
+                          "workerIndex": 1,
+                          "parallelIndex": 1,
+                          "status": "passed",
+                          "duration": 5828,
+                          "errors": [],
+                          "stdout": [
+                            {
+                              "text": "Found 1 empty state elements\n"
+                            }
+                          ],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2026-02-04T20:59:12.825Z",
+                          "annotations": [],
+                          "attachments": [
+                            {
+                              "name": "screenshot",
+                              "contentType": "image/png",
+                              "path": "C:\\Meastro\\frontend\\playwright-results\\workspace-static-views-Wor-6014b--empty-workspace-gracefully-chromium\\test-finished-1.png"
+                            }
+                          ]
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "bc9f622ca88461f4e69e-182a137be2e203733000",
+                  "file": "workspace-static-views.spec.ts",
+                  "line": 427,
+                  "column": 5
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "title": "Workspace Features - Detailed Verification",
+          "file": "workspace-static-views.spec.ts",
+          "line": 451,
+          "column": 6,
+          "specs": [
+            {
+              "title": "Full feature walkthrough with screenshots",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 2,
+                      "parallelIndex": 2,
+                      "status": "passed",
+                      "duration": 10959,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "Step 1: Workspaces list page\n"
+                        },
+                        {
+                          "text": "Step 2: Workspace Overview\n"
+                        },
+                        {
+                          "text": "Step 3: Canvas - Live mode\n"
+                        },
+                        {
+                          "text": "Step 4: Canvas - Blueprint mode\n"
+                        },
+                        {
+                          "text": "Step 5: Blocks tab (Foundry-like)\n"
+                        },
+                        {
+                          "text": "Walkthrough complete! Screenshots saved to: playwright-results/screenshots/workspace-views\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-02-04T20:59:15.044Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "C:\\Meastro\\frontend\\playwright-results\\workspace-static-views-Wor-30064-alkthrough-with-screenshots-chromium\\test-finished-1.png"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "bc9f622ca88461f4e69e-7852f0088cfe2bdd38ba",
+              "file": "workspace-static-views.spec.ts",
+              "line": 452,
+              "column": 3
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-02-04T20:58:55.899Z",
+    "duration": 30220.058,
+    "expected": 26,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  }
+}

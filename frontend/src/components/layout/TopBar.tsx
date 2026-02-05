@@ -40,34 +40,52 @@ export function TopBar() {
             Home
           </Link>
           <Link
-            to="/foundry"
-            className={`top-bar__nav-link ${isActive('/foundry') ? 'top-bar__nav-link--active' : ''}`}
-          >
-            Foundry
-          </Link>
-          <Link
-            to="/models"
-            className={`top-bar__nav-link ${isActive('/models') ? 'top-bar__nav-link--active' : ''}`}
-          >
-            Models
-          </Link>
-          <Link
             to="/projects"
             className={`top-bar__nav-link ${isActive('/projects') ? 'top-bar__nav-link--active' : ''}`}
           >
             Projects
           </Link>
           <Link
-            to="/demo"
-            className={`top-bar__nav-link ${isActive('/demo') ? 'top-bar__nav-link--active' : ''}`}
+            to="/workspaces"
+            className={`top-bar__nav-link ${isActive('/workspaces') ? 'top-bar__nav-link--active' : ''}`}
           >
-            Demo
+            Workspaces
           </Link>
           <Link
-            to="/history"
-            className={`top-bar__nav-link ${isActive('/history') ? 'top-bar__nav-link--active' : ''}`}
+            to="/sessions"
+            className={`top-bar__nav-link ${isActive('/sessions') ? 'top-bar__nav-link--active' : ''}`}
           >
-            History
+            Sessions
+          </Link>
+          <Link
+            to="/foundry"
+            className={`top-bar__nav-link ${isActive('/foundry') || isActive('/agent-foundry') ? 'top-bar__nav-link--active' : ''}`}
+          >
+            Foundry
+          </Link>
+          <Link
+            to="/training"
+            className={`top-bar__nav-link ${isActive('/training') || isActive('/metrics') ? 'top-bar__nav-link--active' : ''}`}
+          >
+            Training
+          </Link>
+          <Link
+            to="/testing"
+            className={`top-bar__nav-link ${isActive('/testing') ? 'top-bar__nav-link--active' : ''}`}
+          >
+            Testing
+          </Link>
+          <Link
+            to="/monitoring"
+            className={`top-bar__nav-link ${isActive('/monitoring') ? 'top-bar__nav-link--active' : ''}`}
+          >
+            Monitoring
+          </Link>
+          <Link
+            to="/models"
+            className={`top-bar__nav-link ${isActive('/models') ? 'top-bar__nav-link--active' : ''}`}
+          >
+            Models
           </Link>
         </nav>
         <div className="top-bar__right">

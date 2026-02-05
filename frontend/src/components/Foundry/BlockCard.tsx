@@ -93,7 +93,7 @@ export function BlockCard({ block }: BlockCardProps) {
    * Get status badge color
    */
   const getStatusColor = () => {
-    switch (block.metadata.status) {
+    switch (block.metadata?.status) {
       case 'active':
         return 'success';
       case 'draft':
@@ -170,7 +170,7 @@ export function BlockCard({ block }: BlockCardProps) {
       <div className="block-card__body">
         <h3 className="block-card__name">{block.name}</h3>
 
-        {block.metadata.description && (
+        {block.metadata?.description && (
           <p className="block-card__description">{block.metadata.description}</p>
         )}
 
@@ -189,12 +189,12 @@ export function BlockCard({ block }: BlockCardProps) {
           )}
 
           <span className={`block-card__badge block-card__badge--${getStatusColor()}`}>
-            {block.metadata.status}
+            {block.metadata?.status || 'active'}
           </span>
         </div>
 
         {/* Tags */}
-        {block.metadata.tags.length > 0 && (
+        {block.metadata?.tags && block.metadata.tags.length > 0 && (
           <div className="block-card__tags">
             {block.metadata.tags.slice(0, 3).map((tag) => (
               <span key={tag} className="block-card__tag">

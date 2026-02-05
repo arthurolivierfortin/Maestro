@@ -1,0 +1,76 @@
+{
+  "$schema": "../../../docs/schemas/block.schema.json",
+  "id": "llm-generate",
+  "name": "LLM Generate",
+  "blockType": "tool",
+  "version": "2.0.0",
+  "isAtomic": true,
+  "description": "Generates text using the local LLM Provider API with proper instruction formatting.",
+
+  "inputs": [
+    {
+      "id": "prompt",
+      "name": "Prompt",
+      "type": "string",
+      "required": true,
+      "description": "The prompt/instruction to send to the model"
+    },
+    {
+      "id": "maxTokens",
+      "name": "Max Tokens",
+      "type": "number",
+      "required": false,
+      "default": 500,
+      "description": "Maximum tokens to generate"
+    },
+    {
+      "id": "temperature",
+      "name": "Temperature",
+      "type": "number",
+      "required": false,
+      "default": 0.1,
+      "description": "Sampling temperature (0.0-2.0). Use 0.0-0.3 for deterministic code generation."
+    }
+  ],
+
+  "outputs": [
+    {
+      "id": "stdout",
+      "name": "Generated Text",
+      "type": "string",
+      "description": "The generated text from the model"
+    },
+    {
+      "id": "stderr",
+      "name": "Error Output",
+      "type": "string",
+      "description": "Error messages if any"
+    },
+    {
+      "id": "exitCode",
+      "name": "Exit Code",
+      "type": "number",
+      "description": "0 if successful"
+    }
+  ],
+
+  "config": {
+    "command": "powershell",
+    "args": [
+      "-ExecutionPolicy", "Bypass",
+      "-File", "C:/Meastro/scripts/llm-generate.ps1",
+      "-Prompt", "\"{{prompt}}\"",
+      "-MaxTokens", "{{maxTokens}}",
+      "-Temperature", "{{temperature}}"
+    ],
+    "timeout": 120000
+  },
+
+  "metadata": {
+    "category": "llm",
+    "tags": ["llm", "generation", "inference", "local", "deepseek"],
+    "author": "maestro-team"
+  },
+
+  "capabilities": ["llm", "generate"]
+}

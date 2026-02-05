@@ -6,7 +6,6 @@
 
 import {
   Workflow,
-  Bot,
   ListChecks,
   MessageSquare,
   FileText,
@@ -16,6 +15,9 @@ import {
   Zap,
   Brain,
   Code,
+  Bot,
+  Wrench,
+  History,
   type LucideIcon,
 } from 'lucide-react';
 import type { BlockType } from '../../types/block.types';
@@ -25,16 +27,18 @@ import type { BlockType } from '../../types/block.types';
  */
 const iconMap: Record<BlockType, LucideIcon> = {
   workflow: Workflow,
-  agent: Bot,
   task: ListChecks,
+  agent: Bot,
+  tool: Wrench,
   prompt: MessageSquare,
   instruction: FileText,
-  tool: Terminal,
+  command: Terminal,
   decision: GitBranch,
   validator: ShieldCheck,
   trigger: Zap,
   inference: Brain,
   script: Code,
+  context: History,
 };
 
 /**
@@ -42,16 +46,18 @@ const iconMap: Record<BlockType, LucideIcon> = {
  */
 export const blockColorMap: Record<BlockType, string> = {
   workflow: '#2563eb',
-  agent: '#7c3aed',
   task: '#10b981',
+  agent: '#7c3aed',
+  tool: '#0891b2',
   prompt: '#f59e0b',
   instruction: '#f97316',
-  tool: '#6b7280',
+  command: '#6b7280',
   decision: '#06b6d4',
   validator: '#ec4899',
   trigger: '#ef4444',
   inference: '#8b5cf6',
   script: '#f43f5e',
+  context: '#14b8a6',
 };
 
 interface BlockIconProps {

@@ -1,0 +1,37 @@
+{
+  "id": "system:reward-calculator",
+  "name": "Reward Calculator",
+  "blockType": "agent",
+  "version": "1.0.0",
+  "isSystem": true,
+  "overridable": true,
+  "description": "Calculates rewards for reinforcement learning based on fitness metrics and configurable reward shaping",
+  "config": {
+    "rewardType": "fitness-based",
+    "normalization": "minmax",
+    "discountFactor": 0.99,
+    "rewardShaping": {
+      "fitnessImprovement": 1.0,
+      "costPenalty": -0.1,
+      "formatCompliance": 0.2,
+      "speedBonus": 0.1
+    },
+    "clipping": {
+      "enabled": true,
+      "min": -10.0,
+      "max": 10.0
+    }
+  },
+  "inputs": {
+    "currentFitness": { "type": "number", "required": true, "description": "Current fitness score" },
+    "previousFitness": { "type": "number", "required": true, "description": "Previous fitness score" },
+    "metrics": { "type": "object", "required": true, "description": "Execution metrics" },
+    "config": { "type": "object", "required": false, "description": "Override reward config" }
+  },
+  "outputs": {
+    "reward": { "type": "number", "description": "Calculated reward value" },
+    "breakdown": { "type": "object", "description": "Reward breakdown by component" },
+    "normalized": { "type": "number", "description": "Normalized reward (0-1)" }
+  },
+  "systemPrompt": "You are the Reward Calculator agent. Your role is to compute training rewards based on fitness improvements and other metrics. You should provide clear breakdowns of how rewards are calculated."
+}

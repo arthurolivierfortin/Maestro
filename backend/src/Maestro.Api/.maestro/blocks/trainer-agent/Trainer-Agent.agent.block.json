@@ -1,0 +1,18 @@
+{
+  "id": "trainer-agent",
+  "name": "Trainer Agent",
+  "blockType": "agent",
+  "version": "1.0.0",
+  "isAtomic": true,
+  "description": null,
+  "config": {},
+  "metadata": {
+    "description": "Executes training strategies and manages the training loop",
+    "tags": [
+      "training",
+      "execution",
+      "strategy"
+    ]
+  },
+  "capabilities": []
+}

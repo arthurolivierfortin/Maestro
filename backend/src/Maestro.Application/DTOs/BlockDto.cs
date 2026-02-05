@@ -24,6 +24,21 @@ namespace Maestro.Application.DTOs
         public DateTime UpdatedAt { get; init; }
         public string? SourcePath { get; init; }
 
+        /// <summary>
+        /// Indicates whether this is a system block provided by Maestro.
+        /// </summary>
+        public bool IsSystem { get; init; }
+
+        /// <summary>
+        /// Indicates whether this system block can be overridden by user blocks.
+        /// </summary>
+        public bool Overridable { get; init; } = true;
+
+        /// <summary>
+        /// If this is a user override, holds the ID of the original system block.
+        /// </summary>
+        public string? OverridesSystemBlock { get; init; }
+
         public static BlockDto FromDomain(Domain.Entities.BlockDefinition block, string? sourcePath = null)
         {
             return new BlockDto
@@ -39,7 +54,10 @@ namespace Maestro.Application.DTOs
                 Metadata = block.Metadata != null ? ConvertDictionary(block.Metadata) : null,
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow,
-                SourcePath = sourcePath
+                SourcePath = sourcePath,
+                IsSystem = block.IsSystem,
+                Overridable = block.Overridable,
+                OverridesSystemBlock = block.OverridesSystemBlock
             };
         }
 

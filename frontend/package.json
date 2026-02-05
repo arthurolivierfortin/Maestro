@@ -9,10 +9,21 @@
     "dev": "vite",
     "dev:web": "ELECTRON_DISABLE=true vite",
     "dev:docker": "docker-compose -f ../docker-compose.backend.yml up -d && vite",
-    "dev:full": "docker-compose -f ../docker-compose.dev.yml up",
+    "dev:full": "docker-compose -f ../docker-compose.full.yml up",
+    "start": "powershell -ExecutionPolicy Bypass -File ../scripts/dev-start.ps1",
+    "start:local": "powershell -ExecutionPolicy Bypass -File ../scripts/dev-start.ps1 -Mode local",
+    "start:docker": "powershell -ExecutionPolicy Bypass -File ../scripts/dev-start.ps1 -Mode docker",
+    "start:backend": "powershell -ExecutionPolicy Bypass -File ../scripts/dev-start.ps1 -BackendOnly",
+    "start:no-llm": "powershell -ExecutionPolicy Bypass -File ../scripts/dev-start.ps1 -SkipLLM",
+    "stop": "powershell -ExecutionPolicy Bypass -File ../scripts/dev-start.ps1 -Stop",
+    "start:all": "powershell -ExecutionPolicy Bypass -File ../scripts/start-all.ps1",
+    "start:all:no-llm": "powershell -ExecutionPolicy Bypass -File ../scripts/start-all.ps1 -SkipLLM",
+    "docker:full": "docker-compose -f ../docker-compose.full.yml up -d",
+    "docker:full:build": "docker-compose -f ../docker-compose.full.yml up -d --build",
+    "docker:full:stop": "docker-compose -f ../docker-compose.full.yml down",
     "docker:backend": "docker-compose -f ../docker-compose.backend.yml up -d",
     "docker:backend:stop": "docker-compose -f ../docker-compose.backend.yml down",
-    "docker:logs": "docker-compose -f ../docker-compose.backend.yml logs -f",
+    "docker:logs": "docker-compose -f ../docker-compose.full.yml logs -f",
     "build": "tsc && vite build && electron-builder",
     "build:web": "tsc && vite build",
     "preview": "vite preview",
@@ -25,6 +36,13 @@
     "test:ui": "vitest --ui",
     "test:run": "vitest run",
     "test:coverage": "vitest run --coverage",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:debug": "playwright test --debug",
+    "test:e2e:headed": "playwright test --headed",
+    "test:e2e:report": "playwright show-report",
+    "test:screenshots": "playwright test sync-verification.spec.ts --project=chromium",
+    "verify": "playwright test sync-verification.spec.ts --project=chromium --reporter=list",
     "pack": "electron-builder --dir",
     "dist": "electron-builder",
     "dist:win": "electron-builder --win",
@@ -33,11 +51,13 @@
   },
   "dependencies": {
     "@microsoft/signalr": "^10.0.0",
+    "@types/dagre": "^0.7.53",
     "@xterm/addon-fit": "^0.11.0",
     "@xterm/addon-web-links": "^0.12.0",
     "@xterm/xterm": "^6.0.0",
     "@xyflow/react": "^12.10.0",
     "axios": "^1.13.2",
+    "dagre": "^0.8.5",
     "electron-updater": "^6.3.9",
     "lucide-react": "^0.562.0",
     "react": "^18.3.1",
@@ -49,6 +69,7 @@
     "zustand": "^5.0.9"
   },
   "devDependencies": {
+    "@playwright/test": "^1.58.0",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.1",
     "@testing-library/user-event": "^14.6.1",
@@ -88,16 +109,25 @@
       "dist-electron/**/*"
     ],
     "win": {
-      "target": ["nsis", "portable"],
+      "target": [
+        "nsis",
+        "portable"
+      ],
       "icon": "public/icon.ico"
     },
     "mac": {
-      "target": ["dmg", "zip"],
+      "target": [
+        "dmg",
+        "zip"
+      ],
       "icon": "public/icon.icns",
       "category": "public.app-category.developer-tools"
     },
     "linux": {
-      "target": ["AppImage", "deb"],
+      "target": [
+        "AppImage",
+        "deb"
+      ],
       "icon": "public/icon.png",
       "category": "Development"
     },

@@ -31,7 +31,9 @@ process.env.VITE_PUBLIC = app.isPackaged
 
 let mainWindow: BrowserWindow | null = null;
 let backendProcess: ChildProcess | null = null;
+let llmProviderProcess: ChildProcess | null = null;
 let backendPort = 5000;
+let llmProviderPort = 8000;
 
 // Vite dev server URL (set by vite-plugin-electron)
 const VITE_DEV_SERVER_URL = process.env.VITE_DEV_SERVER_URL;
@@ -45,6 +47,104 @@ function getBackendPath(): string {
     : path.join(__dirname, '../../..');
 
   return path.join(projectRoot, 'backend', 'src', 'Maestro.Api');
+}
+
+/**
+ * Find the LLM-Provider path
+ */
+function getLLMProviderPath(): string {
+  // LLM-Provider is expected to be at C:\LLM-Provider
+  // In production, it might be bundled differently
+  const defaultPath = process.platform === 'win32' ? 'C:\\LLM-Provider' : '/opt/LLM-Provider';
+
+  // Check if LLM_PROVIDER_PATH env var is set
+  if (process.env.LLM_PROVIDER_PATH && fs.existsSync(process.env.LLM_PROVIDER_PATH)) {
+    return process.env.LLM_PROVIDER_PATH;
+  }
+
+  return defaultPath;
+}
+
+/**
+ * Start the LLM-Provider Python server
+ */
+export async function startLLMProvider(): Promise<boolean> {
+  const llmProviderPath = getLLMProviderPath();
+
+  if (!fs.existsSync(llmProviderPath)) {
+    console.log('LLM-Provider not found at:', llmProviderPath);
+    return false;
+  }
+
+  // Check if port is already in use (LLM-Provider might already be running)
+  if (await isPortInUse(llmProviderPort)) {
+    console.log(`Port ${llmProviderPort} already in use, assuming LLM-Provider is running`);
+    return true;
+  }
+
+  console.log('Starting LLM-Provider from:', llmProviderPath);
+
+  // Start Python uvicorn server
+  const pythonCmd = process.platform === 'win32' ? 'python' : 'python3';
+  llmProviderProcess = spawn(pythonCmd, ['-m', 'uvicorn', 'api.server:app', '--host', '0.0.0.0', '--port', String(llmProviderPort)], {
+    cwd: llmProviderPath,
+    shell: true,
+    env: {
+      ...process.env,
+      LLM_PRELOAD_MODEL: process.env.LLM_PRELOAD_MODEL || 'deepseek-ai/deepseek-coder-1.3b-instruct',
+    },
+  });
+
+  llmProviderProcess.stdout?.on('data', (data) => {
+    console.log('[LLM-Provider]', data.toString());
+  });
+
+  llmProviderProcess.stderr?.on('data', (data) => {
+    // uvicorn logs to stderr by default, so we'll log as info
+    console.log('[LLM-Provider]', data.toString());
+  });
+
+  llmProviderProcess.on('error', (error) => {
+    console.error('LLM-Provider start error:', error);
+    mainWindow?.webContents.send('llm:error', error.message);
+  });
+
+  llmProviderProcess.on('exit', (code) => {
+    console.log('LLM-Provider exited with code:', code);
+    mainWindow?.webContents.send('llm:status', { running: false });
+    llmProviderProcess = null;
+  });
+
+  // Wait for LLM-Provider to be ready
+  const maxAttempts = 60; // 60 seconds timeout (model loading can take time)
+  for (let i = 0; i < maxAttempts; i++) {
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    try {
+      const http = require('http');
+      await new Promise<void>((resolve, reject) => {
+        const req = http.get(`http://localhost:${llmProviderPort}/health`, (res: any) => {
+          if (res.statusCode === 200) resolve();
+          else reject(new Error(`Status ${res.statusCode}`));
+        });
+        req.on('error', reject);
+        req.setTimeout(1000, () => {
+          req.destroy();
+          reject(new Error('Timeout'));
+        });
+      });
+      console.log('LLM-Provider is ready!');
+      mainWindow?.webContents.send('llm:status', { running: true });
+      return true;
+    } catch {
+      // Keep waiting
+      if (i % 10 === 0) {
+        console.log(`Waiting for LLM-Provider... (${i}s)`);
+      }
+    }
+  }
+
+  console.error('LLM-Provider failed to start within timeout');
+  return false;
 }
 
 /**
@@ -557,6 +657,52 @@ function registerIpcHandlers(): void {
       return { success: false, message: (error as Error).message };
     }
   });
+
+  // ===== LLM-Provider Management =====
+
+  ipcMain.handle('llm:getStatus', async () => {
+    // Check if LLM-Provider is running by pinging health endpoint
+    try {
+      const http = require('http');
+      await new Promise<void>((resolve, reject) => {
+        const req = http.get(`http://localhost:${llmProviderPort}/health`, (res: any) => {
+          if (res.statusCode === 200) resolve();
+          else reject(new Error(`Status ${res.statusCode}`));
+        });
+        req.on('error', reject);
+        req.setTimeout(1000, () => {
+          req.destroy();
+          reject(new Error('Timeout'));
+        });
+      });
+      return { running: true, port: llmProviderPort };
+    } catch {
+      return { running: false, port: llmProviderPort };
+    }
+  });
+
+  ipcMain.handle('llm:start', async () => {
+    try {
+      const success = await startLLMProvider();
+      return { success, message: success ? 'LLM-Provider started' : 'Failed to start LLM-Provider' };
+    } catch (error) {
+      return { success: false, message: (error as Error).message };
+    }
+  });
+
+  ipcMain.handle('llm:stop', async () => {
+    if (!llmProviderProcess || llmProviderProcess.killed) {
+      return { success: true, message: 'LLM-Provider not running' };
+    }
+
+    try {
+      llmProviderProcess.kill();
+      llmProviderProcess = null;
+      return { success: true, message: 'LLM-Provider stopped' };
+    } catch (error) {
+      return { success: false, message: (error as Error).message };
+    }
+  });
 }
 
 /**
@@ -601,11 +747,26 @@ if (!gotTheLock) {
   });
 
   // App ready
-  app.whenReady().then(() => {
+  app.whenReady().then(async () => {
     registerIpcHandlers();
     createMenu();
     createWindow();
     initAutoUpdater();
+
+    // Auto-start LLM-Provider if AUTO_START_LLM is not explicitly false
+    if (process.env.AUTO_START_LLM !== 'false') {
+      console.log('Auto-starting LLM-Provider...');
+      startLLMProvider().then((success) => {
+        if (success) {
+          console.log('LLM-Provider auto-started successfully');
+          mainWindow?.webContents.send('llm:status', { running: true });
+        } else {
+          console.log('LLM-Provider auto-start failed (might need manual start)');
+        }
+      }).catch((error) => {
+        console.error('LLM-Provider auto-start error:', error);
+      });
+    }
 
     app.on('activate', () => {
       // macOS: recreate window when dock icon is clicked
@@ -622,10 +783,13 @@ if (!gotTheLock) {
     }
   });
 
-  // Clean up backend on app quit
+  // Clean up backend and LLM-Provider on app quit
   app.on('before-quit', () => {
     if (backendProcess && !backendProcess.killed) {
       backendProcess.kill();
+    }
+    if (llmProviderProcess && !llmProviderProcess.killed) {
+      llmProviderProcess.kill();
     }
   });
 }

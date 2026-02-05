@@ -18,11 +18,27 @@ namespace Maestro.Infrastructure.Configuration
         /// The blocks subfolder within .maestro or global blocks directory.
         /// </summary>
         public const string BlocksFolderName = "blocks";
-        
+
+        /// <summary>
+        /// The system blocks subfolder within blocks directory.
+        /// System blocks are provided by Maestro and can be overridden.
+        /// </summary>
+        public const string SystemBlocksFolderName = "system";
+
+        /// <summary>
+        /// The user blocks subfolder within blocks directory for user overrides.
+        /// </summary>
+        public const string UserOverridesFolderName = "user";
+
         /// <summary>
         /// The workflows subfolder within .maestro.
         /// </summary>
         public const string WorkflowsFolderName = "workflows";
+
+        /// <summary>
+        /// The sessions subfolder within .maestro for storing session data.
+        /// </summary>
+        public const string SessionsFolderName = "sessions";
         
         // ─────────────────────────────────────────────────────────────────────
         // File Names & Patterns

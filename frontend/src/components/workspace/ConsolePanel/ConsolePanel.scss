@@ -1,0 +1,338 @@
+/**
+ * ConsolePanel Styles
+ *
+ * Terminal-like console for workspace logs.
+ * Dark theme inspired by IDE consoles.
+ */
+
+.console-panel {
+  display: flex;
+  flex-direction: column;
+  height: 200px;
+  min-height: 120px;
+  max-height: 400px;
+  background-color: var(--background, #0d1117);
+  border-top: 1px solid var(--border, #30363d);
+  font-family: var(--font-mono, 'JetBrains Mono', 'Fira Code', 'Consolas', monospace);
+  font-size: 12px;
+
+  &--collapsed {
+    height: auto;
+    min-height: auto;
+    max-height: none;
+  }
+
+  // Expand button when collapsed
+  &__expand-button {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 8px 12px;
+    border: none;
+    background: none;
+    color: #8b949e;
+    cursor: pointer;
+    font-size: 12px;
+    text-align: left;
+
+    &:hover {
+      background-color: #161b22;
+      color: #c9d1d9;
+    }
+  }
+
+  &__expand-icon {
+    font-size: 14px;
+  }
+
+  &__badge {
+    padding: 1px 6px;
+    border-radius: 10px;
+    font-size: 10px;
+    font-weight: 600;
+
+    &--error {
+      background-color: rgba(239, 68, 68, 0.2);
+      color: #ef4444;
+    }
+
+    &--warn {
+      background-color: rgba(245, 158, 11, 0.2);
+      color: #f59e0b;
+    }
+  }
+
+  // Header
+  &__header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 6px 12px;
+    background-color: var(--background-secondary, #161b22);
+    border-bottom: 1px solid var(--border, #30363d);
+    flex-shrink: 0;
+  }
+
+  &__title {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--text-primary, #c9d1d9);
+    font-weight: 500;
+    font-family: inherit;
+  }
+
+  &__connection-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background-color: var(--text-tertiary, #6b7280);
+
+    &--connected {
+      background-color: var(--color-success, #22c55e);
+    }
+  }
+
+  &__log-count {
+    color: var(--text-tertiary, #6b7280);
+    font-weight: 400;
+  }
+
+  &__filters {
+    display: flex;
+    gap: 2px;
+    margin-left: auto;
+  }
+
+  &__filter {
+    padding: 2px 8px;
+    border: none;
+    border-radius: 4px;
+    background: none;
+    color: #6b7280;
+    cursor: pointer;
+    font-size: 11px;
+    font-family: inherit;
+    transition: all 0.15s ease;
+
+    &:hover {
+      background-color: #21262d;
+      color: #c9d1d9;
+    }
+
+    &--active {
+      background-color: #21262d;
+      color: #c9d1d9;
+    }
+
+    &--error.console-panel__filter--active {
+      background-color: rgba(239, 68, 68, 0.15);
+    }
+
+    &--warn.console-panel__filter--active {
+      background-color: rgba(245, 158, 11, 0.15);
+    }
+
+    &--info.console-panel__filter--active {
+      background-color: rgba(59, 130, 246, 0.15);
+    }
+
+    &--debug.console-panel__filter--active {
+      background-color: rgba(107, 114, 128, 0.15);
+    }
+  }
+
+  &__actions {
+    display: flex;
+    gap: 4px;
+  }
+
+  &__action {
+    padding: 4px 8px;
+    border: none;
+    border-radius: 4px;
+    background: none;
+    color: #6b7280;
+    cursor: pointer;
+    font-size: 12px;
+    transition: all 0.15s ease;
+
+    &:hover {
+      background-color: #21262d;
+      color: #c9d1d9;
+    }
+
+    &--active {
+      color: #3b82f6;
+    }
+  }
+
+  // Search bar
+  &__search-bar {
+    display: flex;
+    gap: 8px;
+    padding: 6px 12px;
+    background-color: #0d1117;
+    border-bottom: 1px solid #21262d;
+    flex-shrink: 0;
+  }
+
+  &__search-input {
+    flex: 1;
+    padding: 4px 8px;
+    border: 1px solid #30363d;
+    border-radius: 4px;
+    background-color: #161b22;
+    color: #c9d1d9;
+    font-family: inherit;
+    font-size: 12px;
+
+    &::placeholder {
+      color: #6b7280;
+    }
+
+    &:focus {
+      outline: none;
+      border-color: #3b82f6;
+    }
+  }
+
+  &__session-select {
+    padding: 4px 8px;
+    border: 1px solid #30363d;
+    border-radius: 4px;
+    background-color: #161b22;
+    color: #c9d1d9;
+    font-family: inherit;
+    font-size: 12px;
+    cursor: pointer;
+    min-width: 120px;
+
+    &:focus {
+      outline: none;
+      border-color: #3b82f6;
+    }
+
+    option {
+      background-color: #161b22;
+    }
+  }
+
+  // Log entries container
+  &__logs {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 4px 0;
+
+    // Custom scrollbar
+    &::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    &::-webkit-scrollbar-track {
+      background: #0d1117;
+    }
+
+    &::-webkit-scrollbar-thumb {
+      background-color: #30363d;
+      border-radius: 4px;
+
+      &:hover {
+        background-color: #484f58;
+      }
+    }
+  }
+
+  &__empty {
+    padding: 24px;
+    text-align: center;
+    color: #6b7280;
+  }
+
+  // Individual log entry
+  &__entry {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 2px 12px;
+    line-height: 1.4;
+    transition: background-color 0.1s ease;
+
+    &:hover {
+      background-color: #161b22;
+    }
+
+    &--error {
+      background-color: rgba(239, 68, 68, 0.05);
+
+      &:hover {
+        background-color: rgba(239, 68, 68, 0.1);
+      }
+    }
+
+    &--warn {
+      background-color: rgba(245, 158, 11, 0.03);
+
+      &:hover {
+        background-color: rgba(245, 158, 11, 0.08);
+      }
+    }
+  }
+
+  &__entry-level {
+    flex-shrink: 0;
+    width: 14px;
+    text-align: center;
+    font-size: 11px;
+  }
+
+  &__entry-time {
+    flex-shrink: 0;
+    color: #6b7280;
+    font-size: 11px;
+    min-width: 90px;
+  }
+
+  &__entry-source {
+    flex-shrink: 0;
+    color: #8b5cf6;
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__entry-message {
+    flex: 1;
+    color: #c9d1d9;
+    word-break: break-word;
+    white-space: pre-wrap;
+  }
+
+  &__entry-data {
+    margin-top: 4px;
+    margin-left: 120px;
+
+    summary {
+      color: #6b7280;
+      cursor: pointer;
+      font-size: 11px;
+
+      &:hover {
+        color: #c9d1d9;
+      }
+    }
+
+    pre {
+      margin: 4px 0 0 0;
+      padding: 8px;
+      background-color: #161b22;
+      border-radius: 4px;
+      color: #8b949e;
+      font-size: 11px;
+      overflow-x: auto;
+    }
+  }
+}

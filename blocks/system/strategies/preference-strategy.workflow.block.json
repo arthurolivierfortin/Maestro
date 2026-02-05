@@ -1,0 +1,65 @@
+{
+  "id": "system:strategy-preference",
+  "name": "Preference Learning Strategy (RLAIF/DPO)",
+  "blockType": "workflow",
+  "version": "1.0.0",
+  "isSystem": true,
+  "overridable": true,
+  "description": "Learning from preferences using RLAIF (AI feedback) or DPO (Direct Preference Optimization)",
+  "metadata": {
+    "method": "PreferenceLearning",
+    "category": "preference",
+    "suitableFor": ["alignment", "style", "safety", "helpfulness"],
+    "strengths": [
+      "Aligns with human/AI preferences",
+      "No explicit reward function needed",
+      "Effective for style and tone",
+      "Good for safety alignment"
+    ],
+    "weaknesses": [
+      "Requires comparison pairs",
+      "Evaluations can be subjective",
+      "Higher evaluation cost",
+      "May converge to average preferences"
+    ],
+    "estimatedResources": {
+      "minIterations": 20,
+      "typicalIterations": 200,
+      "maxIterations": 1000,
+      "costPerIteration": "high"
+    }
+  },
+  "config": {
+    "method": "DPO",
+    "beta": 0.1,
+    "referenceModel": "self",
+    "preferenceSource": "ai",
+    "evaluatorModel": "default",
+    "comparisonBatchSize": 4,
+    "labelSmoothing": 0.0,
+    "maxResponseLength": 2048,
+    "generatePreferences": {
+      "enabled": true,
+      "numComparisons": 4,
+      "temperature": 0.7
+    }
+  },
+  "inputs": {
+    "agentId": { "type": "string", "required": true, "description": "Target agent to align" },
+    "preferenceData": { "type": "array", "required": false, "description": "Pre-existing preference pairs" },
+    "generatePreferences": { "type": "boolean", "default": true, "description": "Generate preferences via AI" },
+    "maxIterations": { "type": "number", "default": 200, "description": "Maximum training iterations" }
+  },
+  "outputs": {
+    "finalFitness": { "type": "number", "description": "Final fitness score" },
+    "preferenceAccuracy": { "type": "number", "description": "Accuracy on held-out preferences" },
+    "alignmentScore": { "type": "number", "description": "Alignment with target preferences" },
+    "iterationsCompleted": { "type": "number", "description": "Iterations completed" }
+  },
+  "children": [
+    { "ref": "system:iteration-runner", "role": "executor" },
+    { "ref": "system:preference-evaluator", "role": "evaluator" },
+    { "ref": "system:fitness-evaluator", "role": "fitness" },
+    { "ref": "system:early-stopper", "role": "stopper" }
+  ]
+}

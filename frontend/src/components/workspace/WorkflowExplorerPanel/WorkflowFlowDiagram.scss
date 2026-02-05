@@ -1,0 +1,87 @@
+/**
+ * WorkflowFlowDiagram Styles
+ */
+
+.workflow-flow-diagram {
+  width: 100%;
+  height: 100%;
+
+  &--empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-tertiary);
+    font-size: var(--font-size-sm);
+  }
+
+  // Style the controls
+  &__controls {
+    background: rgba(0, 0, 0, 0.5);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+
+    button {
+      background: transparent;
+      border: none;
+      color: var(--text-secondary);
+
+      &:hover {
+        background: rgba(255, 255, 255, 0.1);
+      }
+    }
+  }
+}
+
+.workflow-flow-node {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 12px;
+  background: linear-gradient(135deg, #1e1e2e 0%, #2d2d44 100%);
+  border: 2px solid;
+  border-radius: 8px;
+  min-width: 120px;
+  position: relative;
+
+  &__step {
+    position: absolute;
+    top: -8px;
+    left: -8px;
+    width: 20px;
+    height: 20px;
+    background: var(--color-primary);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    font-weight: 600;
+    color: white;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  }
+
+  &__content {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  &__name {
+    font-size: 11px;
+    font-weight: 600;
+    color: #fff;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 100px;
+  }
+
+  &__type {
+    font-size: 8px;
+    padding: 1px 4px;
+    border-radius: 2px;
+    color: #fff;
+    text-transform: lowercase;
+    align-self: flex-start;
+  }
+}

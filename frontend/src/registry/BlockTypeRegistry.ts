@@ -104,21 +104,15 @@ class BlockTypeRegistryImpl implements IBlockTypeRegistry {
 
     // Type-specific validation
     switch (type) {
-      case 'agent':
-        if (!cfg.agentType || typeof cfg.agentType !== 'string') {
-          errors.push({ field: 'agentType', message: 'Agent type is required' });
-        }
-        break;
-
       case 'task':
         if (!cfg.description || typeof cfg.description !== 'string') {
           errors.push({ field: 'description', message: 'Task description is required' });
         }
         break;
 
-      case 'tool':
-        if (!cfg.toolType || typeof cfg.toolType !== 'string') {
-          errors.push({ field: 'toolType', message: 'Tool type is required' });
+      case 'command':
+        if (!cfg.commandType || typeof cfg.commandType !== 'string') {
+          errors.push({ field: 'commandType', message: 'Command type is required' });
         }
         break;
 

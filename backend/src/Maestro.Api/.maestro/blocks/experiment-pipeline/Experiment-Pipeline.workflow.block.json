@@ -1,0 +1,18 @@
+{
+  "id": "experiment-pipeline",
+  "name": "Experiment Pipeline",
+  "blockType": "workflow",
+  "version": "1.0.0",
+  "isAtomic": true,
+  "description": null,
+  "config": {},
+  "metadata": {
+    "description": "Single experiment execution from start to finish",
+    "tags": [
+      "experiment",
+      "pipeline",
+      "execution"
+    ]
+  },
+  "capabilities": []
+}

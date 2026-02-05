@@ -1,0 +1,102 @@
+{
+  "id": "system:orchestrator",
+  "name": "Workspace Orchestrator",
+  "blockType": "agent",
+  "isSystem": true,
+  "overridable": true,
+  "description": "Automates agent promotion between workspaces based on fitness. Monitors agents in research/staging and promotes qualified ones to production.",
+  "version": "1.0.0",
+  "capabilities": [
+    "cross-workspace-communication",
+    "agent-promotion",
+    "fitness-monitoring",
+    "rollback-management"
+  ],
+  "config": {
+    "promotionRules": [
+      {
+        "from": "research",
+        "to": "staging",
+        "conditions": {
+          "minFitness": 0.7,
+          "minIterations": 50,
+          "allTestsPass": true,
+          "noRegressions": true
+        },
+        "approvalRequired": false
+      },
+      {
+        "from": "staging",
+        "to": "production",
+        "conditions": {
+          "minFitness": 0.85,
+          "integrationTestsPass": true,
+          "performanceTestsPass": true,
+          "minStagingDuration": "24h"
+        },
+        "approvalRequired": true
+      }
+    ],
+    "rollbackRules": {
+      "fitnessDropThreshold": 0.1,
+      "errorRateThreshold": 0.05,
+      "latencyIncreaseThreshold": 0.5,
+      "autoRollback": true,
+      "maxRollbackVersions": 3
+    },
+    "monitoringInterval": "5m",
+    "alerting": {
+      "enabled": true,
+      "channels": ["log", "event"],
+      "thresholds": {
+        "fitnessWarning": 0.75,
+        "fitnessCritical": 0.6,
+        "errorRateWarning": 0.02,
+        "errorRateCritical": 0.05
+      }
+    }
+  },
+  "inputs": [
+    {
+      "name": "targetWorkspace",
+      "type": "string",
+      "description": "Workspace to monitor/orchestrate",
+      "required": false
+    },
+    {
+      "name": "action",
+      "type": "string",
+      "description": "Action to perform: monitor, promote, rollback, status",
+      "required": false,
+      "default": "monitor"
+    }
+  ],
+  "outputs": [
+    {
+      "name": "status",
+      "type": "object",
+      "description": "Current orchestrator status"
+    },
+    {
+      "name": "pendingPromotions",
+      "type": "array",
+      "description": "Agents pending promotion"
+    },
+    {
+      "name": "recentActions",
+      "type": "array",
+      "description": "Recent promotion/rollback actions"
+    }
+  ],
+  "prompts": {
+    "monitoringPrompt": "You are an orchestrator agent responsible for monitoring agent fitness across workspaces and managing promotions.\\n\\nYour responsibilities:\\n1. Monitor fitness scores of agents in all workspaces\\n2. Identify agents that meet promotion criteria\\n3. Initiate promotions when conditions are met\\n4. Monitor production agents for degradation\\n5. Execute rollbacks when fitness drops below thresholds\\n\\nCurrent Rules:\\n{promotionRules}\\n\\nAgent Status:\\n{agentStatus}\\n\\nProvide analysis and recommended actions.",
+    "promotionDecisionPrompt": "Evaluate whether agent '{agentId}' should be promoted from '{sourceWorkspace}' to '{targetWorkspace}'.\\n\\nCurrent Metrics:\\n- Fitness Score: {fitnessScore}\\n- Iterations: {iterations}\\n- Test Results: {testResults}\\n- Time in Current Stage: {stageDuration}\\n\\nPromotion Criteria:\\n{criteria}\\n\\nProvide your decision with detailed reasoning.",
+    "rollbackDecisionPrompt": "Agent '{agentId}' in production is showing degradation.\\n\\nCurrent Metrics:\\n- Current Fitness: {currentFitness}\\n- Previous Fitness: {previousFitness}\\n- Error Rate: {errorRate}\\n- Available Rollback Versions: {rollbackVersions}\\n\\nRollback Thresholds:\\n{thresholds}\\n\\nRecommend whether to rollback and to which version."
+  },
+  "metadata": {
+    "author": "Maestro System",
+    "category": "orchestration",
+    "tags": ["system", "promotion", "fitness", "rollback", "monitoring"],
+    "documentation": "https://maestro.ai/docs/orchestrator"
+  }
+}

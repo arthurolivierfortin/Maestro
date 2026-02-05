@@ -1,0 +1,65 @@
+{
+  "id": "system:strategy-evolutionary",
+  "name": "Evolutionary Strategy",
+  "blockType": "workflow",
+  "version": "1.0.0",
+  "isSystem": true,
+  "overridable": true,
+  "description": "Natural selection with population of agent variants, crossover, and mutation",
+  "metadata": {
+    "method": "Evolutionary",
+    "category": "population",
+    "suitableFor": ["optimization", "creativity", "exploration", "prompt-engineering"],
+    "strengths": [
+      "Explores solution space broadly",
+      "Avoids local minima",
+      "Highly parallelizable",
+      "No gradient required"
+    ],
+    "weaknesses": [
+      "Resource intensive (multiple agents)",
+      "Slow convergence",
+      "Requires large population",
+      "May lose good solutions"
+    ],
+    "estimatedResources": {
+      "minIterations": 10,
+      "typicalIterations": 50,
+      "maxIterations": 200,
+      "costPerIteration": "very-high"
+    }
+  },
+  "config": {
+    "populationSize": 10,
+    "generations": 50,
+    "selectionMethod": "tournament",
+    "tournamentSize": 3,
+    "mutationRate": 0.1,
+    "crossoverRate": 0.7,
+    "elitism": 2,
+    "diversityPressure": 0.1,
+    "mutationStrength": {
+      "initial": 0.3,
+      "decay": 0.99,
+      "minimum": 0.05
+    }
+  },
+  "inputs": {
+    "agentId": { "type": "string", "required": true, "description": "Base agent for initial population" },
+    "maxGenerations": { "type": "number", "default": 50, "description": "Maximum generations" },
+    "targetFitness": { "type": "number", "default": 0.95, "description": "Target fitness to achieve" }
+  },
+  "outputs": {
+    "bestFitness": { "type": "number", "description": "Best fitness achieved" },
+    "bestAgentId": { "type": "string", "description": "ID of best evolved agent" },
+    "generationHistory": { "type": "array", "description": "Fitness stats per generation" },
+    "populationDiversity": { "type": "number", "description": "Final population diversity" },
+    "evolutionTree": { "type": "object", "description": "Ancestry tree of best agent" }
+  },
+  "children": [
+    { "ref": "system:population-manager", "role": "population" },
+    { "ref": "system:fitness-evaluator", "role": "evaluator" },
+    { "ref": "system:mutation-operator", "role": "mutator" },
+    { "ref": "system:selection-operator", "role": "selector" }
+  ]
+}

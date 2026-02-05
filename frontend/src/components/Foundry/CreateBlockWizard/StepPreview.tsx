@@ -15,10 +15,11 @@ export interface StepPreviewProps {
 
 export function StepPreview({ blockType, basicInfo, config }: StepPreviewProps) {
   // Build preview block object
+  // Only workflow and task are composite blocks (can contain children)
   const previewBlock: Partial<Block<Record<string, any>>> = {
     blockType,
     name: basicInfo.name,
-    isAtomic: blockType !== 'workflow' && blockType !== 'agent' && blockType !== 'task',
+    isAtomic: blockType !== 'workflow' && blockType !== 'task',
     config,
     metadata: {
       description: basicInfo.description,

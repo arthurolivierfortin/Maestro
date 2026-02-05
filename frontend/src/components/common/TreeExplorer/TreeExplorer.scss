@@ -1,0 +1,175 @@
+/**
+ * TreeExplorer Styles
+ *
+ * Shared styles for tree/file explorer components.
+ * Used by BlockPalette, BlockExplorer, ModelsPanel, etc.
+ */
+
+.tree-explorer {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-secondary, var(--surface));
+  overflow: hidden;
+
+  // Header
+  &__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px;
+    border-bottom: 1px solid var(--border-subtle, var(--border));
+    flex-shrink: 0;
+  }
+
+  &__title {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  &__actions {
+    display: flex;
+    gap: 4px;
+  }
+
+  // Search
+  &__search {
+    padding: 12px;
+    border-bottom: 1px solid var(--border-subtle, var(--border));
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--bg-primary, var(--surface));
+    flex-shrink: 0;
+
+    svg {
+      color: var(--text-tertiary);
+      flex-shrink: 0;
+    }
+  }
+
+  &__search-input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    color: var(--text-primary);
+    font-size: 14px;
+    outline: none;
+
+    &::placeholder {
+      color: var(--text-tertiary);
+    }
+  }
+
+  // Content
+  &__content {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 8px 0;
+    min-height: 0;
+
+    // Custom scrollbar
+    &::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    &::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    &::-webkit-scrollbar-thumb {
+      background: var(--scrollbar-thumb, rgba(0, 0, 0, 0.2));
+      border-radius: 4px;
+
+      &:hover {
+        background: var(--scrollbar-thumb-hover, rgba(0, 0, 0, 0.3));
+      }
+    }
+  }
+
+  // Category
+  &__category {
+    margin-bottom: 4px;
+  }
+
+  &__category-header {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: transparent;
+    border: none;
+    color: var(--text-primary);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s ease;
+    text-align: left;
+
+    &:hover {
+      background: var(--bg-hover, var(--surface-hover));
+    }
+
+    svg {
+      flex-shrink: 0;
+      color: var(--text-tertiary);
+    }
+  }
+
+  &__category-label {
+    flex: 1;
+  }
+
+  &__category-count {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text-tertiary);
+    background: var(--bg-tertiary, var(--background-tertiary));
+    padding: 2px 6px;
+    border-radius: 10px;
+  }
+
+  // Items container
+  &__items {
+    padding: 4px 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  // Item wrapper (allows custom content inside)
+  &__item {
+    display: flex;
+    align-items: center;
+    padding: 8px 12px;
+    background: var(--bg-primary, var(--surface));
+    border: 1px solid var(--border-subtle, var(--border));
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    user-select: none;
+
+    &:hover {
+      background: var(--bg-hover, var(--surface-hover));
+      border-color: var(--border-default, var(--border-hover));
+    }
+
+    &--selected {
+      background: var(--surface-active, var(--color-primary-subtle));
+      border-color: var(--primary, var(--color-primary));
+    }
+  }
+
+  // Empty state
+  &__empty {
+    padding: 24px 16px;
+    text-align: center;
+    color: var(--text-tertiary);
+    font-size: 13px;
+  }
+}

@@ -1,0 +1,64 @@
+{
+  "id": "system:tester-agent",
+  "name": "Tester Agent",
+  "blockType": "agent",
+  "version": "1.0.0",
+  "isAtomic": false,
+  "isSystem": true,
+  "overridable": true,
+  "description": "Executes structured tests for agents and workflows. Validates outputs against expected results, checks format compliance, and generates test reports.",
+  "capabilities": [
+    "testing",
+    "validation",
+    "output-verification",
+    "format-checking",
+    "report-generation"
+  ],
+  "config": {
+    "modelId": "ollama/llama3.2:3b",
+    "systemPrompt": "You are a testing agent responsible for validating AI agent outputs and behaviors. Your role is to:\n\n1. Execute test cases against agents and workflows\n2. Validate outputs match expected formats and content\n3. Check for hallucinations and factual errors\n4. Verify integration compatibility with downstream blocks\n5. Generate detailed test reports with pass/fail status\n\nBe thorough but fair in your assessments. Focus on actionable feedback that helps improve agent quality.",
+    "testTypes": [
+      {
+        "name": "output_format",
+        "description": "Validates output matches expected JSON/text format",
+        "weight": 0.2
+      },
+      {
+        "name": "content_accuracy",
+        "description": "Checks output content against ground truth",
+        "weight": 0.3
+      },
+      {
+        "name": "hallucination_detection",
+        "description": "Identifies fabricated or unsupported claims",
+        "weight": 0.25
+      },
+      {
+        "name": "edge_cases",
+        "description": "Tests behavior with unusual or boundary inputs",
+        "weight": 0.15
+      },
+      {
+        "name": "performance",
+        "description": "Measures latency and token efficiency",
+        "weight": 0.1
+      }
+    ],
+    "reportConfig": {
+      "includeDetailedLogs": true,
+      "includeSuggestions": true,
+      "includeMetrics": true,
+      "format": "json"
+    },
+    "thresholds": {
+      "minPassRate": 0.8,
+      "maxHallucinationRate": 0.05,
+      "maxLatencyMs": 30000
+    }
+  },
+  "metadata": {
+    "author": "Maestro System",
+    "category": "testing",
+    "tags": ["testing", "validation", "quality", "system"]
+  }
+}

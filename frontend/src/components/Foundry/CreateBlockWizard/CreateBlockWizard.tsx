@@ -135,13 +135,13 @@ export function CreateBlockWizard({ isOpen, onClose }: CreateBlockWizardProps) {
     const blockId = `block-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
     // Create new block
+    // Only workflow and task are composite blocks (can contain children)
     const newBlock: Block = {
       id: blockId,
       name: state.basicInfo.name,
       blockType: state.selectedType,
       isAtomic:
         state.selectedType !== 'workflow' &&
-        state.selectedType !== 'agent' &&
         state.selectedType !== 'task',
       config: state.config as BlockConfig,
       inputs: [],

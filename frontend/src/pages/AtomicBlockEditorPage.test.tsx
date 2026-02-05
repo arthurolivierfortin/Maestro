@@ -122,9 +122,9 @@ describe('AtomicBlockEditorPage', () => {
     const atomicBlock: Block = {
       id: 'atomic-123',
       name: 'Test Block',
-      blockType: 'tool',
+      blockType: 'command',
       isAtomic: true,
-      config: { type: 'tool', toolType: 'Bash' },
+      config: { type: 'command', commandType: 'Bash' },
       inputs: [],
       outputs: [],
       position: { x: 0, y: 0 },
@@ -153,9 +153,9 @@ describe('AtomicBlockEditorPage', () => {
     const atomicBlock: Block = {
       id: 'atomic-123',
       name: 'Test Block',
-      blockType: 'tool',
+      blockType: 'command',
       isAtomic: true,
-      config: { type: 'tool', toolType: 'Bash' },
+      config: { type: 'command', commandType: 'Bash' },
       inputs: [],
       outputs: [],
       position: { x: 0, y: 0 },
@@ -180,13 +180,13 @@ describe('AtomicBlockEditorPage', () => {
     expect(mockNavigate).toHaveBeenCalledWith('/foundry');
   });
 
-  it('should display editor placeholder message', () => {
+  it('should display editor for inference blocks', () => {
     const atomicBlock: Block = {
       id: 'atomic-123',
-      name: 'Test Block',
-      blockType: 'agent',
+      name: 'Test Inference',
+      blockType: 'inference',
       isAtomic: true,
-      config: { type: 'agent', agentType: 'Planner' },
+      config: { type: 'inference', userPrompt: 'Test prompt', inputs: [] },
       inputs: [],
       outputs: [],
       position: { x: 0, y: 0 },
@@ -205,13 +205,7 @@ describe('AtomicBlockEditorPage', () => {
 
     renderWithRouter('/foundry/atomic-123/edit');
 
-    expect(
-      screen.getByText((_content, element) => {
-        return (
-          element?.textContent ===
-          'Type-specific editor for agent blocks will be implemented in Phase 4g.2.'
-        );
-      })
-    ).toBeInTheDocument();
+    // Should display the block name
+    expect(screen.getByRole('heading', { name: 'Test Inference' })).toBeInTheDocument();
   });
 });

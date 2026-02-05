@@ -1,0 +1,65 @@
+{
+  "id": "custom-fitness",
+  "name": "Custom Fitness Calculator",
+  "blockType": "tool",
+  "version": "1.0.0",
+  "description": "Workspace-local fitness calculator with custom weights for research experiments.",
+  "overridesSystemBlock": "system:fitness-calculator",
+
+  "config": {
+    "executorType": "cli-bridge",
+    "timeout": 30000,
+    "customWeights": {
+      "lambda": 0.25,
+      "weights": {
+        "performance": 1.2,
+        "specialization": 1.0,
+        "composability": 0.8
+      }
+    }
+  },
+
+  "inputs": {
+    "executionMetrics": {
+      "type": "object",
+      "required": true,
+      "description": "Execution metrics (qualityScore, successRate, retryCount)"
+    },
+    "modelId": {
+      "type": "string",
+      "required": true,
+      "description": "Model identifier"
+    },
+    "taskType": {
+      "type": "string",
+      "default": "research",
+      "description": "Task type for specialization calculation"
+    },
+    "useCustomWeights": {
+      "type": "boolean",
+      "default": true,
+      "description": "Use workspace custom weights"
+    }
+  },
+
+  "outputs": {
+    "totalFitness": {
+      "type": "number",
+      "description": "Overall fitness score"
+    },
+    "breakdown": {
+      "type": "object",
+      "description": "Component breakdown with custom weights applied"
+    },
+    "rank": {
+      "type": "string",
+      "description": "Fitness rank (S/A/B/C/D/F)"
+    }
+  },
+
+  "metadata": {
+    "author": "Workspace",
+    "category": "fitness",
+    "tags": ["fitness", "custom", "research"]
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "id": "fitness-calculator",
+  "name": "Fitness Calculator",
+  "blockType": "tool",
+  "version": "1.0.0",
+  "isAtomic": true,
+  "description": null,
+  "config": {},
+  "metadata": {
+    "description": "Calculates model fitness score using the Maestro formula",
+    "tags": [
+      "fitness",
+      "evaluation",
+      "metrics"
+    ]
+  },
+  "capabilities": []
+}

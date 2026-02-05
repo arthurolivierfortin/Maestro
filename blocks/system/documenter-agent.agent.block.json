@@ -1,0 +1,113 @@
+{
+  "id": "system:documenter",
+  "name": "Documentation Agent",
+  "blockType": "agent",
+  "isSystem": true,
+  "overridable": true,
+  "description": "Automatically generates and maintains documentation for agents, workflows, and blocks. Creates usage guides, API references, and changelog entries.",
+  "version": "1.0.0",
+  "capabilities": [
+    "documentation-generation",
+    "api-reference",
+    "usage-examples",
+    "changelog-creation",
+    "readme-generation",
+    "tutorial-creation"
+  ],
+  "config": {
+    "outputFormats": ["markdown", "json", "html"],
+    "defaultFormat": "markdown",
+    "documentTypes": [
+      "readme",
+      "api-reference",
+      "usage-guide",
+      "changelog",
+      "tutorial",
+      "architecture"
+    ],
+    "templates": {
+      "readme": "# {name}\n\n{description}\n\n## Installation\n\n{installation}\n\n## Usage\n\n{usage}\n\n## Configuration\n\n{configuration}\n\n## Examples\n\n{examples}\n\n## API Reference\n\n{apiReference}",
+      "changelog": "## [{version}] - {date}\n\n### Added\n{added}\n\n### Changed\n{changed}\n\n### Fixed\n{fixed}\n\n### Removed\n{removed}"
+    },
+    "autoGenerate": {
+      "onPromotion": true,
+      "onVersionBump": true,
+      "onConfigChange": false
+    }
+  },
+  "inputs": [
+    {
+      "name": "targetId",
+      "type": "string",
+      "description": "ID of the agent/block/workflow to document",
+      "required": true
+    },
+    {
+      "name": "targetType",
+      "type": "string",
+      "description": "Type: agent, block, workflow",
+      "required": false,
+      "default": "agent"
+    },
+    {
+      "name": "documentType",
+      "type": "string",
+      "description": "Type of document to generate: readme, api-reference, usage-guide, changelog, tutorial",
+      "required": false,
+      "default": "readme"
+    },
+    {
+      "name": "format",
+      "type": "string",
+      "description": "Output format: markdown, json, html",
+      "required": false,
+      "default": "markdown"
+    },
+    {
+      "name": "includeExamples",
+      "type": "boolean",
+      "description": "Whether to include usage examples",
+      "required": false,
+      "default": true
+    },
+    {
+      "name": "previousVersion",
+      "type": "string",
+      "description": "Previous version for changelog generation",
+      "required": false
+    }
+  ],
+  "outputs": [
+    {
+      "name": "document",
+      "type": "string",
+      "description": "Generated documentation content"
+    },
+    {
+      "name": "metadata",
+      "type": "object",
+      "description": "Document metadata (title, version, generated date)"
+    },
+    {
+      "name": "sections",
+      "type": "array",
+      "description": "Individual sections of the document"
+    },
+    {
+      "name": "warnings",
+      "type": "array",
+      "description": "Warnings about missing information or potential issues"
+    }
+  ],
+  "prompts": {
+    "readmePrompt": "Generate comprehensive documentation for:\n\nName: {name}\nType: {targetType}\nDescription: {description}\nVersion: {version}\n\nConfiguration:\n{config}\n\nInputs:\n{inputs}\n\nOutputs:\n{outputs}\n\nCapabilities:\n{capabilities}\n\nCreate a README.md that includes:\n1. Clear description of what this does\n2. Installation/setup instructions\n3. Usage examples with code\n4. Configuration options explained\n5. API reference for inputs/outputs\n6. Best practices and tips\n7. Troubleshooting common issues\n\nUse clear, concise language. Include practical examples.",
+    "changelogPrompt": "Generate a changelog entry comparing:\n\nPrevious Version: {previousVersion}\nNew Version: {newVersion}\n\nPrevious Config:\n{previousConfig}\n\nNew Config:\n{newConfig}\n\nChanges Detected:\n{changes}\n\nCreate a changelog entry following Keep a Changelog format:\n- Added: New features\n- Changed: Changes in existing functionality\n- Fixed: Bug fixes\n- Removed: Removed features\n- Deprecated: Soon-to-be removed features\n- Security: Security fixes",
+    "tutorialPrompt": "Create a step-by-step tutorial for using:\n\nName: {name}\nDescription: {description}\n\nCapabilities:\n{capabilities}\n\nExample Use Cases:\n{useCases}\n\nThe tutorial should:\n1. Start with prerequisites\n2. Walk through basic usage\n3. Show intermediate examples\n4. Cover advanced scenarios\n5. Include troubleshooting tips\n\nMake it beginner-friendly but comprehensive."
+  },
+  "metadata": {
+    "author": "Maestro System",
+    "category": "documentation",
+    "tags": ["system", "documentation", "readme", "changelog", "tutorial"],
+    "documentation": "https://maestro.ai/docs/documenter-agent"
+  }
+}

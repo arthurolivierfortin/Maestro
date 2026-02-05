@@ -1,0 +1,379 @@
+/**
+ * Training Page Styles (Phase 9)
+ * Unified with app design system
+ */
+
+.training-page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background-color: var(--background);
+  color: var(--text-primary);
+  overflow: hidden;
+
+  // Header
+  &__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--spacing-lg);
+    border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+    gap: var(--spacing-md);
+  }
+
+  &__title {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+
+    h1 {
+      font-size: var(--font-size-2xl);
+      font-weight: var(--font-weight-bold);
+      color: var(--text-primary);
+      margin: 0;
+    }
+  }
+
+  &__count {
+    display: flex;
+    gap: var(--spacing-sm);
+    font-size: var(--font-size-sm);
+  }
+
+  &__count-active {
+    color: var(--color-success);
+    font-weight: var(--font-weight-medium);
+  }
+
+  &__count-total {
+    color: var(--text-tertiary);
+  }
+
+  &__actions {
+    display: flex;
+    gap: var(--spacing-sm);
+    align-items: center;
+  }
+
+  // Tabs
+  &__tabs {
+    display: flex;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-sm) var(--spacing-lg);
+    border-bottom: 1px solid var(--border);
+    background-color: var(--background-secondary);
+  }
+
+  &__tab {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-sm) var(--spacing-md);
+    border: none;
+    border-radius: var(--radius-md);
+    background-color: transparent;
+    color: var(--text-secondary);
+    font-size: var(--font-size-sm);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+
+    &:hover {
+      background-color: var(--background-tertiary);
+      color: var(--text-primary);
+    }
+
+    &.active {
+      background-color: var(--color-primary-subtle);
+      color: var(--color-primary);
+      font-weight: var(--font-weight-medium);
+    }
+  }
+
+  &__tab-count {
+    padding: 2px var(--spacing-sm);
+    border-radius: var(--radius-full);
+    background-color: var(--background);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-medium);
+  }
+
+  // Content
+  &__content {
+    flex: 1;
+    overflow-y: auto;
+    padding: var(--spacing-md) var(--spacing-lg);
+  }
+}
+
+// Configuration Cards Grid
+.config-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: var(--spacing-md);
+}
+
+.config-card {
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-lg);
+  transition: all var(--transition-fast);
+
+  &:hover {
+    border-color: var(--border-hover);
+    box-shadow: var(--shadow-md);
+  }
+
+  &__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: var(--spacing-sm);
+    margin-bottom: var(--spacing-sm);
+  }
+
+  &__name {
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-semibold);
+    color: var(--text-primary);
+    margin: 0;
+  }
+
+  &__goal {
+    padding: 2px var(--spacing-sm);
+    border-radius: var(--radius-sm);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-medium);
+    text-transform: uppercase;
+
+    &--balanced {
+      background-color: var(--color-info-subtle);
+      color: var(--color-info);
+    }
+
+    &--quality {
+      background-color: var(--color-success-subtle);
+      color: var(--color-success);
+    }
+
+    &--speed {
+      background-color: var(--color-warning-subtle);
+      color: var(--color-warning);
+    }
+
+    &--cost {
+      background-color: var(--color-primary-subtle);
+      color: var(--color-primary);
+    }
+  }
+
+  &__description {
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+    margin: 0 0 var(--spacing-md);
+    line-height: 1.5;
+  }
+
+  &__details {
+    display: flex;
+    gap: var(--spacing-lg);
+    padding: var(--spacing-md) 0;
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    margin-bottom: var(--spacing-md);
+  }
+
+  &__detail {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  &__label {
+    font-size: var(--font-size-xs);
+    color: var(--text-tertiary);
+    text-transform: uppercase;
+  }
+
+  &__value {
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+    color: var(--text-primary);
+
+    &--mono {
+      font-family: var(--font-family-mono);
+    }
+  }
+
+  &__actions {
+    display: flex;
+    gap: var(--spacing-sm);
+  }
+}
+
+// Runs List
+.runs-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.run-row {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  padding: var(--spacing-md) var(--spacing-lg);
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  transition: all var(--transition-fast);
+
+  &:hover {
+    border-color: var(--border-hover);
+  }
+
+  &__info {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    min-width: 200px;
+  }
+
+  &__name {
+    font-weight: var(--font-weight-medium);
+    color: var(--text-primary);
+  }
+
+  &__progress {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+  }
+
+  &__progress-text {
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+    white-space: nowrap;
+  }
+
+  &__failed {
+    color: var(--color-error);
+  }
+
+  &__metrics {
+    display: flex;
+    gap: var(--spacing-md);
+    min-width: 200px;
+  }
+
+  &__metric {
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+    white-space: nowrap;
+  }
+
+  &__actions {
+    display: flex;
+    gap: var(--spacing-xs);
+  }
+}
+
+// Progress Bar
+.progress-bar {
+  flex: 1;
+  height: 8px;
+  background-color: var(--background-tertiary);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+
+  &__fill {
+    height: 100%;
+    background-color: var(--color-primary);
+    border-radius: var(--radius-full);
+    transition: width var(--transition-normal);
+  }
+}
+
+// Status Badge
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px var(--spacing-sm);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+
+  &--pending {
+    background-color: var(--background-tertiary);
+    color: var(--text-secondary);
+  }
+
+  &--running {
+    background-color: var(--color-info-subtle);
+    color: var(--color-info);
+  }
+
+  &--paused {
+    background-color: var(--color-warning-subtle);
+    color: var(--color-warning);
+  }
+
+  &--completed {
+    background-color: var(--color-success-subtle);
+    color: var(--color-success);
+  }
+
+  &--failed {
+    background-color: var(--color-error-subtle);
+    color: var(--color-error);
+  }
+
+  &--cancelled {
+    background-color: var(--background-tertiary);
+    color: var(--text-tertiary);
+  }
+}
+
+// Icon Buttons
+.btn-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  background-color: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  font-size: var(--font-size-base);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+
+  &:hover {
+    background-color: var(--background-tertiary);
+    color: var(--text-primary);
+    border-color: var(--border-hover);
+  }
+
+  &--danger:hover {
+    background-color: var(--color-error-subtle);
+    color: var(--color-error);
+    border-color: var(--color-error);
+  }
+}
+
+// Danger button variant
+.btn-danger {
+  color: var(--color-error);
+  border-color: var(--color-error);
+
+  &:hover {
+    background-color: var(--color-error-subtle);
+  }
+}
+
+// Import shared styles
+@import './ProjectsPage.scss';

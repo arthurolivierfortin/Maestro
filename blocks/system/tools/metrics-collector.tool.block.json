@@ -1,0 +1,69 @@
+{
+  "id": "system:metrics-collector",
+  "name": "Metrics Collector",
+  "blockType": "tool",
+  "version": "1.0.0",
+  "isSystem": true,
+  "isAtomic": true,
+  "overridable": true,
+  "description": "Collects and aggregates execution metrics across training iterations and experiments.",
+
+  "config": {
+    "executorType": "cli-bridge",
+    "timeout": 30000
+  },
+
+  "inputs": {
+    "action": {
+      "type": "string",
+      "required": true,
+      "enum": ["record", "aggregate", "get", "list", "clear"],
+      "description": "Metrics operation"
+    },
+    "experimentId": {
+      "type": "string",
+      "required": false,
+      "description": "Experiment identifier"
+    },
+    "iterationId": {
+      "type": "string",
+      "required": false,
+      "description": "Iteration identifier"
+    },
+    "metrics": {
+      "type": "object",
+      "required": false,
+      "description": "Metrics to record"
+    },
+    "aggregation": {
+      "type": "string",
+      "enum": ["mean", "sum", "min", "max", "last"],
+      "default": "mean",
+      "description": "Aggregation method"
+    }
+  },
+
+  "outputs": {
+    "success": {
+      "type": "boolean"
+    },
+    "metrics": {
+      "type": "object",
+      "description": "Retrieved or aggregated metrics"
+    },
+    "count": {
+      "type": "number",
+      "description": "Number of metric records"
+    }
+  },
+
+  "metadata": {
+    "author": "system",
+    "category": "monitoring",
+    "tags": ["metrics", "monitoring", "aggregation", "training"]
+  },
+
+  "provides": {
+    "capabilities": ["metrics-collection", "aggregation", "monitoring"]
+  }
+}

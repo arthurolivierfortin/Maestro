@@ -1,0 +1,72 @@
+{
+  "id": "system:leaderboard-manager",
+  "name": "Leaderboard Manager",
+  "blockType": "tool",
+  "version": "1.0.0",
+  "isSystem": true,
+  "isAtomic": true,
+  "overridable": true,
+  "description": "Manages model fitness leaderboards and rankings across tasks and experiments.",
+
+  "config": {
+    "executorType": "cli-bridge",
+    "timeout": 30000
+  },
+
+  "inputs": {
+    "action": {
+      "type": "string",
+      "required": true,
+      "enum": ["update", "get", "list", "compare", "history"],
+      "description": "Leaderboard operation"
+    },
+    "taskType": {
+      "type": "string",
+      "required": false,
+      "description": "Task type for filtering"
+    },
+    "modelId": {
+      "type": "string",
+      "required": false,
+      "description": "Model identifier"
+    },
+    "fitnessScore": {
+      "type": "number",
+      "required": false,
+      "description": "Fitness score to record"
+    },
+    "limit": {
+      "type": "number",
+      "default": 10,
+      "description": "Maximum entries to return"
+    }
+  },
+
+  "outputs": {
+    "success": {
+      "type": "boolean"
+    },
+    "leaderboard": {
+      "type": "array",
+      "description": "Ranked list of models"
+    },
+    "rank": {
+      "type": "number",
+      "description": "Model's current rank"
+    },
+    "comparison": {
+      "type": "object",
+      "description": "Comparison results between models"
+    }
+  },
+
+  "metadata": {
+    "author": "system",
+    "category": "evaluation",
+    "tags": ["leaderboard", "ranking", "comparison", "fitness"]
+  },
+
+  "provides": {
+    "capabilities": ["leaderboard", "ranking", "model-comparison"]
+  }
+}

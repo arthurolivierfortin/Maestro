@@ -15,3 +15,19 @@ export * from './modelStore';
 
 // Project store (Phase 7E)
 export * from './projectStore';
+
+// Metrics and Training stores (Phase 9)
+export * from './metricsStore';
+export * from './trainingStore';
+
+// Fitness store (Phase 11)
+export * from './fitnessStore';
+
+// Workspace store (Phase 3 - Workspaces)
+export * from './workspaceStore';
+
+// Experiment store (Phase 7 - Training Strategies)
+export * from './experimentStore';
+
+// Session store (Phase 7.5 - Generic Sessions)
+export * from './sessionStore';

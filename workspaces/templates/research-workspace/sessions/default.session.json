@@ -1,0 +1,35 @@
+{
+  "id": "default",
+  "name": "Default Research Session",
+  "description": "Standard session template for research activities with balanced permissions.",
+
+  "permissions": {
+    "inherit": "workspace",
+    "modifications": {
+      "allowedTools": [
+        "+web-search",
+        "+document-reader"
+      ]
+    }
+  },
+
+  "config": {
+    "maxIterations": 50,
+    "timeout": 3600000,
+    "autoSave": true,
+    "saveInterval": 60000
+  },
+
+  "context": {
+    "systemPrompt": "You are a research assistant working within the Maestro Research Workspace. Your goal is to help conduct experiments, analyze data, and evaluate model fitness.",
+    "initialVariables": {
+      "experimentPhase": "exploration",
+      "dataCollection": "enabled"
+    }
+  },
+
+  "metadata": {
+    "category": "research",
+    "priority": "normal"
+  }
+}

@@ -1,0 +1,63 @@
+{
+  "id": "system:strategy-neuro-symbolic",
+  "name": "Neuro-Symbolic Strategy",
+  "blockType": "workflow",
+  "version": "1.0.0",
+  "isSystem": true,
+  "overridable": true,
+  "description": "Combines symbolic reasoning (rules, constraints) with neural LLM capabilities",
+  "metadata": {
+    "method": "NeuroSymbolic",
+    "category": "hybrid",
+    "suitableFor": ["logic", "compliance", "structured", "rule-based"],
+    "strengths": [
+      "Provides logical guarantees",
+      "Explainable decisions",
+      "Combines flexibility with rigor",
+      "Good for constrained domains"
+    ],
+    "weaknesses": [
+      "Complex implementation",
+      "Requires explicit rules",
+      "Can be rigid",
+      "Rule-neural integration challenges"
+    ],
+    "estimatedResources": {
+      "minIterations": 20,
+      "typicalIterations": 100,
+      "maxIterations": 300,
+      "costPerIteration": "medium"
+    }
+  },
+  "config": {
+    "rulesSource": "inline",
+    "rules": [],
+    "constraintEnforcement": "soft",
+    "symbolicWeight": 0.3,
+    "neuralWeight": 0.7,
+    "constraintViolationPenalty": -0.5,
+    "logicEngine": "prolog-style",
+    "ruleInference": {
+      "enabled": true,
+      "maxDepth": 5
+    }
+  },
+  "inputs": {
+    "agentId": { "type": "string", "required": true, "description": "Target agent to train" },
+    "rulesId": { "type": "string", "required": false, "description": "Rule set ID" },
+    "inlineRules": { "type": "array", "required": false, "description": "Inline rule definitions" },
+    "maxIterations": { "type": "number", "default": 100, "description": "Maximum iterations" }
+  },
+  "outputs": {
+    "finalFitness": { "type": "number", "description": "Final fitness score" },
+    "ruleCompliance": { "type": "number", "description": "Percentage of rules satisfied" },
+    "constraintViolations": { "type": "array", "description": "List of constraint violations" },
+    "symbolicAccuracy": { "type": "number", "description": "Accuracy on symbolic reasoning" }
+  },
+  "children": [
+    { "ref": "system:rule-engine", "role": "symbolic" },
+    { "ref": "system:iteration-runner", "role": "neural" },
+    { "ref": "system:constraint-checker", "role": "validator" },
+    { "ref": "system:fitness-evaluator", "role": "evaluator" }
+  ]
+}

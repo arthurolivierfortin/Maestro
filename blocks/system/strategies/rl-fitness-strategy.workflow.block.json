@@ -1,0 +1,75 @@
+{
+  "id": "system:strategy-rl-fitness",
+  "name": "RL Fitness Strategy",
+  "blockType": "workflow",
+  "version": "1.0.0",
+  "isSystem": true,
+  "overridable": true,
+  "description": "Reinforcement Learning strategy optimized to maximize Maestro fitness score",
+  "metadata": {
+    "method": "ReinforcementLearning",
+    "category": "reinforcement",
+    "suitableFor": ["reasoning", "code", "agentic", "decision-making"],
+    "strengths": [
+      "Directly optimizes fitness metric",
+      "Adaptable to complex task requirements",
+      "Can discover novel strategies",
+      "Handles sparse rewards well"
+    ],
+    "weaknesses": [
+      "Can be unstable during training",
+      "Requires more iterations than SFT",
+      "Sensitive to hyperparameters",
+      "May need reward shaping"
+    ],
+    "estimatedResources": {
+      "minIterations": 50,
+      "typicalIterations": 500,
+      "maxIterations": 2000,
+      "costPerIteration": "medium"
+    }
+  },
+  "config": {
+    "algorithm": "PPO",
+    "fitnessWeight": 1.0,
+    "explorationRate": 0.1,
+    "explorationDecay": 0.995,
+    "minExploration": 0.01,
+    "gamma": 0.99,
+    "lambdaGAE": 0.95,
+    "clipRange": 0.2,
+    "entropyCoefficient": 0.01,
+    "rewardShaping": {
+      "fitnessImprovement": 1.0,
+      "costPenalty": -0.1,
+      "formatCompliance": 0.2,
+      "taskCompletion": 0.5
+    },
+    "earlyStopping": {
+      "enabled": true,
+      "fitnessThreshold": 0.9,
+      "plateauPatience": 20,
+      "minImprovement": 0.001
+    }
+  },
+  "inputs": {
+    "agentId": { "type": "string", "required": true, "description": "Target agent to train" },
+    "taskWorkflowId": { "type": "string", "required": true, "description": "Workflow defining the task" },
+    "maxIterations": { "type": "number", "default": 500, "description": "Maximum training iterations" },
+    "targetFitness": { "type": "number", "default": 0.9, "description": "Target fitness to achieve" }
+  },
+  "outputs": {
+    "finalFitness": { "type": "number", "description": "Final fitness score achieved" },
+    "fitnessImprovement": { "type": "number", "description": "Total fitness improvement" },
+    "iterationsCompleted": { "type": "number", "description": "Number of iterations completed" },
+    "rewardHistory": { "type": "array", "description": "Reward values per iteration" },
+    "policyCheckpoints": { "type": "array", "description": "Saved policy checkpoints" }
+  },
+  "children": [
+    { "ref": "system:iteration-runner", "role": "executor" },
+    { "ref": "system:reward-calculator", "role": "reward" },
+    { "ref": "system:fitness-evaluator", "role": "evaluator" },
+    { "ref": "system:early-stopper", "role": "stopper" },
+    { "ref": "system:metrics-aggregator", "role": "aggregator" }
+  ]
+}

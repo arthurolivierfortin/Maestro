@@ -7,19 +7,23 @@
 
 /**
  * Core block types - hardcoded for MVP
+ * Note: 'agent' and 'tool' are composite blocks that can be edited on canvas
+ * Note: 'command' is the atomic command block (bash, git, file ops)
  */
 export type BlockType =
   | 'workflow' // Top-level container
-  | 'agent' // AI agent (can contain prompts, instructions, sub-agents)
-  | 'task' // Task with validation (contains agents, validators)
+  | 'task' // Task with validation (contains validators, commands)
+  | 'agent' // Autonomous orchestrator using tools (composite)
+  | 'tool' // Reusable capability with strict I/O (composite)
   | 'prompt' // Reusable prompt template (atomic)
   | 'instruction' // Instruction file reference (atomic)
-  | 'tool' // Executable tool (atomic)
+  | 'command' // Executable command (bash, git, file ops) (atomic)
   | 'decision' // Conditional branching (atomic)
   | 'validator' // Output validation (atomic)
   | 'trigger' // Workflow trigger (atomic)
   | 'inference' // LLM inference unit with dynamic inputs/outputs (atomic)
-  | 'script'; // Script block to run user-provided code (atomic)
+  | 'script' // Script block to run user-provided code (atomic)
+  | 'context'; // Context management for LLM conversations (atomic)
 
 /**
  * Input/Output port for block connections
@@ -101,17 +105,48 @@ export interface Block<TConfig = BlockConfig> {
   // User preferences
   isFavorite?: boolean; // Starred/favorited by user
 
+  // System blocks (Phase 2)
+  isSystem?: boolean; // true if this is a system-provided block
+  overridable?: boolean; // true if system block can be overridden by user
+  overridesSystemBlock?: string; // If user override, the ID of the system block being overridden
+
   // Metadata
   metadata: BlockMetadata;
+}
+
+/**
+ * Agent block configuration - autonomous orchestrator
+ */
+export interface AgentBlockConfig {
+  type: 'agent';
+  description?: string;
+  model?: string;
+  maxSteps?: number;
+  maxTokens?: number;
+  temperature?: number;
+  timeoutMs?: number;
+  requireApproval?: boolean;
+  systemPrompt?: string;
+  tools?: string[]; // IDs of available tools
+}
+
+/**
+ * Tool block configuration (composite) - reusable capability with strict I/O
+ */
+export interface FoundryToolBlockConfig {
+  type: 'tool';
+  description?: string;
+  inputSchema?: object;
+  outputSchema?: object;
+  category?: string;
 }
 
 /**
  * Base config type - all configs extend this
  */
 export type BlockConfig =
-  | AgentBlockConfig
   | TaskBlockConfig
-  | ToolBlockConfig
+  | CommandBlockConfig
   | PromptBlockConfig
   | InstructionBlockConfig
   | DecisionBlockConfig
@@ -119,7 +154,10 @@ export type BlockConfig =
   | TriggerBlockConfig
   | WorkflowBlockConfig
   | InferenceBlockConfig
-  | ScriptBlockConfig;
+  | ScriptBlockConfig
+  | AgentBlockConfig
+  | FoundryToolBlockConfig
+  | ContextBlockConfig;
 
 /**
  * Script block configuration - allows storing code in any language
@@ -150,21 +188,6 @@ export interface WorkflowVariable {
 }
 
 /**
- * Agent block configuration
- */
-export interface AgentBlockConfig {
-  type: 'agent';
-  agentType: 'Planner' | 'Coder' | 'Tester' | 'Reviewer' | 'Debugger' | 'Custom';
-  model?: string; // Legacy: Model name string (deprecated, use modelId)
-  modelId?: string; // Primary model ID from model registry
-  fallbackModelId?: string; // Fallback model if primary is unavailable
-  temperature?: number;
-  maxTokens?: number;
-  systemPrompt?: string;
-  tools?: string[]; // Tool IDs this agent can use
-}
-
-/**
  * Task block configuration
  */
 export interface TaskBlockConfig {
@@ -176,17 +199,23 @@ export interface TaskBlockConfig {
 }
 
 /**
- * Tool block configuration
+ * Command block configuration (formerly ToolBlockConfig)
+ * Renamed to avoid confusion with AgentFoundry Tools
  */
-export interface ToolBlockConfig {
-  type: 'tool';
-  toolType: 'Bash' | 'Git' | 'FileSystem' | 'HTTP' | 'Custom';
+export interface CommandBlockConfig {
+  type: 'command';
+  commandType: 'Bash' | 'Git' | 'FileSystem' | 'HTTP' | 'Custom';
   command?: string;
   script?: string;
   arguments?: string[];
   workingDirectory?: string;
   environment?: Record<string, string>;
 }
+
+/**
+ * @deprecated Use CommandBlockConfig instead. Alias for backward compatibility.
+ */
+export type ToolBlockConfig = CommandBlockConfig;
 
 /**
  * Prompt block configuration
@@ -264,19 +293,19 @@ export interface InferenceParameter {
  */
 export interface InferenceBlockConfig {
   type: 'inference';
-  
+
   // Prompts
   systemPrompt?: string;
   userPrompt: string; // Can use {{parameterName}} for dynamic parameters
-  
+
   // Dynamic inputs
   inputs: InferenceParameter[];
-  
+
   // Output schema (added to prompt to guide structure)
   // Note: Only raw_response and metadata outputs are generated.
   // Use other blocks (Tool, Decision) to parse/extract from raw_response.
   outputSchema?: string; // JSON schema definition (added to prompt, no auto-parsing)
-  
+
   // LLM configuration
   modelId?: string; // Model ID from model registry
   fallbackModelId?: string;
@@ -288,18 +317,44 @@ export interface InferenceBlockConfig {
 }
 
 /**
- * Type guards for block configs
+ * Context block configuration
+ * Manages conversation context for LLM calls using various strategies
  */
-export function isAgentConfig(config: BlockConfig): config is AgentBlockConfig {
-  return config.type === 'agent';
+export interface ContextBlockConfig {
+  type: 'context';
+
+  // Strategy for context management
+  strategy: 'sliding-window' | 'summarize' | 'rag' | 'none';
+
+  // Token limits
+  maxTokens?: number; // Maximum tokens for context window
+  reserveForResponse?: number; // Tokens to reserve for response
+
+  // Sliding window options
+  keepSystemPrompt?: boolean; // Always keep system prompt
+  keepLastN?: number; // Keep at least N recent messages
+
+  // Advanced options
+  summaryModel?: string; // Model to use for summarization
+  contextBlockRef?: string; // Reference to external context block
 }
 
+/**
+ * Type guards for block configs
+ */
 export function isTaskConfig(config: BlockConfig): config is TaskBlockConfig {
   return config.type === 'task';
 }
 
-export function isToolConfig(config: BlockConfig): config is ToolBlockConfig {
-  return config.type === 'tool';
+export function isCommandConfig(config: BlockConfig): config is CommandBlockConfig {
+  return config.type === 'command';
+}
+
+/**
+ * @deprecated Use isCommandConfig instead. Alias for backward compatibility.
+ */
+export function isToolConfig(config: BlockConfig): config is CommandBlockConfig {
+  return config.type === 'command';
 }
 
 export function isPromptConfig(config: BlockConfig): config is PromptBlockConfig {
@@ -332,6 +387,18 @@ export function isInferenceConfig(config: BlockConfig): config is InferenceBlock
 
 export function isScriptConfig(config: BlockConfig): config is ScriptBlockConfig {
   return config.type === 'script';
+}
+
+export function isAgentConfig(config: BlockConfig): config is AgentBlockConfig {
+  return config.type === 'agent';
+}
+
+export function isFoundryToolConfig(config: BlockConfig): config is FoundryToolBlockConfig {
+  return config.type === 'tool';
+}
+
+export function isContextConfig(config: BlockConfig): config is ContextBlockConfig {
+  return config.type === 'context';
 }
 
 /**

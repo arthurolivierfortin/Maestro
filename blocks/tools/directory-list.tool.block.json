@@ -1,0 +1,55 @@
+{
+  "$schema": "../../../docs/schemas/block.schema.json",
+  "id": "directory-list",
+  "name": "Directory List",
+  "blockType": "tool",
+  "version": "1.0.0",
+  "isAtomic": true,
+  "description": "Lists files and directories in a given path.",
+
+  "inputs": [
+    {
+      "id": "path",
+      "name": "Directory Path",
+      "type": "string",
+      "required": true,
+      "description": "The directory path to list"
+    },
+    {
+      "id": "workingDir",
+      "name": "Working Directory",
+      "type": "string",
+      "required": false,
+      "description": "Base directory for relative paths"
+    }
+  ],
+
+  "outputs": [
+    {
+      "id": "stdout",
+      "name": "Directory Listing",
+      "type": "string",
+      "description": "The directory listing output"
+    },
+    {
+      "id": "exitCode",
+      "name": "Exit Code",
+      "type": "number",
+      "description": "Command exit code"
+    }
+  ],
+
+  "config": {
+    "command": "powershell",
+    "args": ["-Command", "Get-ChildItem -Path '{{path}}' -Name | ForEach-Object { $_ }"],
+    "timeout": 30000
+  },
+
+  "metadata": {
+    "category": "filesystem",
+    "tags": ["directory", "list", "explore", "structure"],
+    "author": "maestro-team"
+  },
+
+  "capabilities": ["filesystem", "read"]
+}

@@ -1,0 +1,18 @@
+{
+  "id": "documenter-agent",
+  "name": "Documenter Agent",
+  "blockType": "agent",
+  "version": "1.0.0",
+  "isAtomic": true,
+  "description": null,
+  "config": {},
+  "metadata": {
+    "description": "Generates documentation for trained agents",
+    "tags": [
+      "documentation",
+      "reporting",
+      "changelog"
+    ]
+  },
+  "capabilities": []
+}

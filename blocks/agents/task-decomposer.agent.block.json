@@ -1,0 +1,62 @@
+{
+  "$schema": "../../../docs/schemas/block.schema.json",
+  "id": "task-decomposer",
+  "name": "Task Decomposer Agent",
+  "blockType": "agent",
+  "version": "1.0.0",
+  "isAtomic": false,
+  "description": "Breaks down a complex task into simple, atomic subtasks that a small LLM can execute",
+  "inputs": [
+    {
+      "id": "task",
+      "name": "Task Description",
+      "type": "string",
+      "required": true,
+      "description": "The complex task to decompose"
+    },
+    {
+      "id": "projectContext",
+      "name": "Project Context",
+      "type": "string",
+      "required": false,
+      "description": "Information about the project (structure, tech stack, etc.)"
+    },
+    {
+      "id": "maxSubtasks",
+      "name": "Maximum Subtasks",
+      "type": "number",
+      "required": false,
+      "description": "Maximum number of subtasks to generate (default: 5)"
+    }
+  ],
+  "outputs": [
+    {
+      "id": "subtasks",
+      "name": "Subtasks",
+      "type": "array",
+      "description": "List of simple subtasks with clear instructions"
+    },
+    {
+      "id": "plan",
+      "name": "Execution Plan",
+      "type": "string",
+      "description": "Human-readable execution plan"
+    },
+    {
+      "id": "dependencies",
+      "name": "Dependencies",
+      "type": "object",
+      "description": "Map of subtask dependencies (which must complete before others)"
+    }
+  ],
+  "config": {
+    "maxIterations": 3,
+    "systemPrompt": "You are a task planning assistant. Your job is to break down complex programming tasks into simple, atomic subtasks.\n\nRules:\n1. Each subtask must be simple enough for a basic LLM to execute\n2. Each subtask should do ONE thing (create ONE file, modify ONE function, etc.)\n3. Subtasks must have clear success criteria\n4. Output ONLY valid JSON\n\nRespond with this exact JSON structure:\n{\n  \"subtasks\": [\n    {\n      \"id\": \"1\",\n      \"description\": \"What to do\",\n      \"type\": \"file-create|file-modify|shell-command|validate\",\n      \"target\": \"path/to/file or command\",\n      \"content\": \"content to write or command to run\",\n      \"successCriteria\": \"How to verify success\"\n    }\n  ],\n  \"plan\": \"Human readable summary\",\n  \"dependencies\": {\"2\": [\"1\"], \"3\": [\"1\", \"2\"]}\n}",
+    "outputFormat": "json"
+  },
+  "metadata": {
+    "category": "orchestration",
+    "tags": ["agent", "planning", "decomposition", "orchestrator"]
+  },
+  "capabilities": ["llm", "planning"]
+}

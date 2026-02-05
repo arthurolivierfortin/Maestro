@@ -1,0 +1,133 @@
+{
+  "$schema": "../../../docs/schemas/block.schema.json",
+  "id": "git-describe-commit",
+  "name": "Git Describe & Commit",
+  "blockType": "tool",
+  "version": "1.0.0",
+  "isAtomic": true,
+  "description": "Analyzes staged git changes and generates a descriptive commit message using LLM.",
+
+  "inputs": [
+    {
+      "id": "workingDir",
+      "name": "Working Directory",
+      "type": "string",
+      "required": true,
+      "description": "Path to the git repository"
+    },
+    {
+      "id": "style",
+      "name": "Commit Style",
+      "type": "string",
+      "required": false,
+      "default": "conventional",
+      "description": "Commit message style: conventional, descriptive, or minimal"
+    }
+  ],
+
+  "outputs": [
+    {
+      "id": "commitMessage",
+      "name": "Commit Message",
+      "type": "string",
+      "description": "The generated commit message"
+    },
+    {
+      "id": "diff",
+      "name": "Git Diff",
+      "type": "string",
+      "description": "The staged changes diff"
+    },
+    {
+      "id": "filesChanged",
+      "name": "Files Changed",
+      "type": "array",
+      "description": "List of changed files"
+    }
+  ],
+
+  "config": {
+    "type": "composite",
+    "steps": [
+      {
+        "id": "get-diff",
+        "tool": "shell-execute",
+        "args": {
+          "command": "git diff --staged",
+          "workingDir": "{{workingDir}}"
+        }
+      },
+      {
+        "id": "get-files",
+        "tool": "shell-execute",
+        "args": {
+          "command": "git diff --staged --name-only",
+          "workingDir": "{{workingDir}}"
+        }
+      },
+      {
+        "id": "generate-message",
+        "tool": "llm-generate",
+        "args": {
+          "prompt": "Analyze these git changes and generate a {{style}} commit message.\n\nFiles changed:\n{{steps.get-files.stdout}}\n\nDiff:\n{{steps.get-diff.stdout}}\n\nGenerate ONLY the commit message, no explanations.",
+          "maxTokens": 200,
+          "temperature": 0.3
+        }
+      }
+    ],
+    "outputMapping": {
+      "commitMessage": "{{steps.generate-message.stdout}}",
+      "diff": "{{steps.get-diff.stdout}}",
+      "filesChanged": "{{steps.get-files.stdout}}"
+    }
+  },
+
+  "metadata": {
+    "category": "git",
+    "tags": ["git", "commit", "llm", "automation"],
+    "author": "maestro-team",
+    "createdAt": "2026-01-29T00:00:00Z",
+    "status": "active"
+  },
+
+  "capabilities": ["git", "llm", "code-analysis"],
+
+  "testConfig": {
+    "evaluationCriteria": [
+      {
+        "id": "relevance",
+        "name": "Relevance",
+        "description": "Does the message accurately describe the changes?",
+        "weight": 0.4
+      },
+      {
+        "id": "clarity",
+        "name": "Clarity",
+        "description": "Is the message clear and easy to understand?",
+        "weight": 0.3
+      },
+      {
+        "id": "format",
+        "name": "Format Compliance",
+        "description": "Does it follow the requested style (conventional, etc)?",
+        "weight": 0.2
+      },
+      {
+        "id": "conciseness",
+        "name": "Conciseness",
+        "description": "Is it appropriately brief without losing meaning?",
+        "weight": 0.1
+      }
+    ],
+    "sampleInputs": [
+      {
+        "workingDir": "C:/Meastro",
+        "style": "conventional"
+      },
+      {
+        "workingDir": "C:/Cantante",
+        "style": "descriptive"
+      }
+    ]
+  }
+}

@@ -17,7 +17,7 @@ export function HomePage() {
         <div className="hero__actions">
           <Link to="/demo">
             <Button variant="primary" size="lg">
-              🎯 Block System Demo
+              Block System Demo
             </Button>
           </Link>
           <Link to="/workflows/new">

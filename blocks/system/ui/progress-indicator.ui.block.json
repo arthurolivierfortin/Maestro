@@ -1,0 +1,67 @@
+{
+  "id": "system:progress-indicator",
+  "name": "Progress Indicator",
+  "blockType": "ui",
+  "version": "1.0.0",
+  "isSystem": true,
+  "isAtomic": true,
+  "overridable": true,
+  "description": "Displays progress for long-running tasks with percentage, status, and estimated time remaining.",
+
+  "config": {
+    "component": "ProgressIndicator",
+    "refreshInterval": 1000,
+    "showEstimate": true,
+    "animationEnabled": true
+  },
+
+  "inputs": {
+    "taskId": {
+      "type": "string",
+      "required": true,
+      "description": "ID of the task to track"
+    },
+    "label": {
+      "type": "string",
+      "required": false,
+      "description": "Display label for the progress bar"
+    },
+    "showDetails": {
+      "type": "boolean",
+      "default": true,
+      "description": "Show detailed status information"
+    },
+    "variant": {
+      "type": "string",
+      "enum": ["linear", "circular", "steps"],
+      "default": "linear",
+      "description": "Visual style of the progress indicator"
+    }
+  },
+
+  "outputs": {
+    "progress": {
+      "type": "number",
+      "description": "Current progress percentage (0-100)"
+    },
+    "status": {
+      "type": "string",
+      "description": "Current status (pending, running, completed, failed)"
+    },
+    "estimatedTimeRemaining": {
+      "type": "number",
+      "description": "Estimated time remaining in seconds"
+    }
+  },
+
+  "metadata": {
+    "author": "system",
+    "category": "ui",
+    "tags": ["progress", "visualization", "status"],
+    "uiCategory": "feedback"
+  },
+
+  "provides": {
+    "capabilities": ["progress-tracking", "status-display"]
+  }
+}

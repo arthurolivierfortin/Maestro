@@ -4,7 +4,8 @@
  * Displays the current backend connection status with visual indicator.
  */
 
-import React from 'react';
+import React, { ReactNode } from 'react';
+import { Loader, CheckCircle, XCircle } from 'lucide-react';
 import { useBackendConnection } from '../../hooks/useBackendConnection';
 import './ConnectionStatus.css';
 
@@ -54,10 +55,10 @@ export const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
     return 'Disconnected';
   };
 
-  const getStatusIcon = () => {
-    if (isConnecting) return '🔄';
-    if (isConnected) return '✓';
-    return '✗';
+  const getStatusIcon = (): ReactNode => {
+    if (isConnecting) return <Loader size={14} className="connection-status__spinner" />;
+    if (isConnected) return <CheckCircle size={14} />;
+    return <XCircle size={14} />;
   };
 
   return (

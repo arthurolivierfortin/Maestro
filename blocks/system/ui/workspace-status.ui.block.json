@@ -1,0 +1,64 @@
+{
+  "id": "system:workspace-status",
+  "name": "Workspace Status",
+  "blockType": "ui",
+  "version": "1.0.0",
+  "isSystem": true,
+  "isAtomic": true,
+  "overridable": true,
+  "description": "Displays comprehensive workspace status including active sessions, running tasks, and resource usage.",
+
+  "config": {
+    "component": "WorkspaceStatus",
+    "refreshInterval": 3000,
+    "compactMode": false
+  },
+
+  "inputs": {
+    "workspaceId": {
+      "type": "string",
+      "required": true,
+      "description": "Workspace to display status for"
+    },
+    "sections": {
+      "type": "array",
+      "default": ["sessions", "tasks", "resources", "agents"],
+      "description": "Sections to display"
+    },
+    "expandedByDefault": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether sections are expanded by default"
+    }
+  },
+
+  "outputs": {
+    "status": {
+      "type": "object",
+      "description": "Full workspace status object"
+    },
+    "activeSessions": {
+      "type": "number",
+      "description": "Number of active sessions"
+    },
+    "runningTasks": {
+      "type": "number",
+      "description": "Number of running tasks"
+    },
+    "resourceUsage": {
+      "type": "object",
+      "description": "CPU, memory, and GPU usage"
+    }
+  },
+
+  "metadata": {
+    "author": "system",
+    "category": "ui",
+    "tags": ["workspace", "status", "monitoring"],
+    "uiCategory": "monitoring"
+  },
+
+  "provides": {
+    "capabilities": ["workspace-monitoring", "session-tracking", "resource-monitoring"]
+  }
+}

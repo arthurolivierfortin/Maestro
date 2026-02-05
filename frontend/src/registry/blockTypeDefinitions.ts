@@ -6,9 +6,8 @@
 
 import type { BlockTypeInfo } from '../types/block-registry.types';
 import type {
-  AgentBlockConfig,
   TaskBlockConfig,
-  ToolBlockConfig,
+  CommandBlockConfig,
   PromptBlockConfig,
   InstructionBlockConfig,
   DecisionBlockConfig,
@@ -17,6 +16,9 @@ import type {
   WorkflowBlockConfig,
   InferenceBlockConfig,
   ScriptBlockConfig,
+  AgentBlockConfig,
+  FoundryToolBlockConfig,
+  ContextBlockConfig,
 } from '../types/block.types';
 
 /**
@@ -32,16 +34,18 @@ export const workflowTypeInfo: BlockTypeInfo = {
   // Allow any block type inside a workflow
   allowedChildren: [
     'workflow',
-    'agent',
     'task',
+    'agent',
+    'tool',
     'prompt',
     'instruction',
-    'tool',
+    'command',
     'decision',
     'validator',
     'trigger',
     'inference',
     'script',
+    'context',
   ],
   allowedParents: [],
   defaultConfig: {
@@ -55,44 +59,6 @@ export const workflowTypeInfo: BlockTypeInfo = {
 };
 
 /**
- * Agent block type
- */
-export const agentTypeInfo: BlockTypeInfo = {
-  type: 'agent',
-  label: 'Agent',
-  description: 'AI agent that can execute tasks',
-  icon: 'Bot',
-  color: '#7c3aed',
-  isAtomic: false,
-  allowedChildren: ['prompt', 'instruction', 'tool'],
-  allowedParents: ['workflow', 'task'],
-  defaultConfig: {
-    type: 'agent',
-    agentType: 'Custom',
-    temperature: 0.7,
-    maxTokens: 2000,
-  } as AgentBlockConfig,
-  defaultInputs: [
-    {
-      id: 'input',
-      name: 'Input',
-      dataType: 'any',
-      required: false,
-      multiple: false,
-    },
-  ],
-  defaultOutputs: [
-    {
-      id: 'output',
-      name: 'Output',
-      dataType: 'any',
-      required: false,
-      multiple: false,
-    },
-  ],
-};
-
-/**
  * Task block type
  */
 export const taskTypeInfo: BlockTypeInfo = {
@@ -102,7 +68,7 @@ export const taskTypeInfo: BlockTypeInfo = {
   icon: 'ListChecks',
   color: '#10b981',
   isAtomic: false,
-  allowedChildren: ['agent', 'tool', 'validator', 'decision'],
+  allowedChildren: ['command', 'validator', 'decision', 'inference', 'script'],
   allowedParents: ['workflow'],
   defaultConfig: {
     type: 'task',
@@ -132,6 +98,81 @@ export const taskTypeInfo: BlockTypeInfo = {
 };
 
 /**
+ * Agent block type - autonomous orchestrator
+ */
+export const agentTypeInfo: BlockTypeInfo = {
+  type: 'agent',
+  label: 'Agent',
+  description: 'Autonomous orchestrator using tools',
+  icon: 'Bot',
+  color: '#7c3aed',
+  isAtomic: false, // COMPOSITE - can contain children
+  allowedChildren: ['inference', 'decision', 'prompt', 'validator', 'script', 'tool', 'context'],
+  allowedParents: ['workflow'],
+  defaultConfig: {
+    type: 'agent',
+    maxSteps: 50,
+    temperature: 0.7,
+    tools: [],
+  } as AgentBlockConfig,
+  defaultInputs: [
+    {
+      id: 'goal',
+      name: 'Goal',
+      dataType: 'string',
+      required: true,
+      multiple: false,
+    },
+  ],
+  defaultOutputs: [
+    {
+      id: 'result',
+      name: 'Result',
+      dataType: 'any',
+      required: false,
+      multiple: false,
+    },
+  ],
+};
+
+/**
+ * Tool block type - reusable capability with strict I/O
+ */
+export const toolTypeInfo: BlockTypeInfo = {
+  type: 'tool',
+  label: 'Tool',
+  description: 'Reusable capability with strict I/O',
+  icon: 'Wrench',
+  color: '#0891b2',
+  isAtomic: false, // COMPOSITE - can contain children
+  allowedChildren: ['command', 'inference', 'validator', 'script', 'prompt'],
+  allowedParents: ['workflow', 'agent'],
+  defaultConfig: {
+    type: 'tool',
+    inputSchema: {},
+    outputSchema: {},
+  } as FoundryToolBlockConfig,
+  defaultInputs: [
+    {
+      id: 'input',
+      name: 'Input',
+      dataType: 'any',
+      required: true,
+      multiple: false,
+    },
+  ],
+  defaultOutputs: [
+    {
+      id: 'output',
+      name: 'Output',
+      dataType: 'any',
+      required: true,
+      multiple: false,
+    },
+  ],
+};
+
+/**
  * Prompt block type
  */
 export const promptTypeInfo: BlockTypeInfo = {
@@ -142,7 +183,7 @@ export const promptTypeInfo: BlockTypeInfo = {
   color: '#f59e0b',
   isAtomic: true,
   allowedChildren: [],
-  allowedParents: ['agent'],
+  allowedParents: ['workflow', 'task', 'inference'],
   defaultConfig: {
     type: 'prompt',
     template: '',
@@ -171,7 +212,7 @@ export const instructionTypeInfo: BlockTypeInfo = {
   color: '#f97316',
   isAtomic: true,
   allowedChildren: [],
-  allowedParents: ['agent'],
+  allowedParents: ['workflow', 'task', 'inference'],
   defaultConfig: {
     type: 'instruction',
     filePath: '',
@@ -189,23 +230,24 @@ export const instructionTypeInfo: BlockTypeInfo = {
 };
 
 /**
- * Tool block type
+ * Command block type (formerly 'tool')
+ * Renamed to avoid confusion with AgentFoundry Tools
  */
-export const toolTypeInfo: BlockTypeInfo = {
-  type: 'tool',
-  label: 'Tool',
-  description: 'Executable tool (bash, git, file ops)',
+export const commandTypeInfo: BlockTypeInfo = {
+  type: 'command',
+  label: 'Command',
+  description: 'Executable command (bash, git, file ops)',
   icon: 'Terminal',
   color: '#6b7280',
   isAtomic: true,
   allowedChildren: [],
-  allowedParents: ['workflow', 'task', 'agent'],
+  allowedParents: ['workflow', 'task'],
   defaultConfig: {
-    type: 'tool',
-    toolType: 'Bash',
+    type: 'command',
+    commandType: 'Bash',
     command: '',
     arguments: [],
-  } as ToolBlockConfig,
+  } as CommandBlockConfig,
   defaultInputs: [
     {
       id: 'input',
@@ -353,7 +395,7 @@ export const inferenceTypeInfo: BlockTypeInfo = {
   color: '#8b5cf6',
   isAtomic: true,
   allowedChildren: [],
-  allowedParents: ['workflow', 'task', 'agent'],
+  allowedParents: ['workflow', 'task'],
   defaultConfig: {
     type: 'inference',
     systemPrompt: '',
@@ -394,7 +436,7 @@ export const scriptTypeInfo: BlockTypeInfo = {
   color: '#f43f5e',
   isAtomic: true,
   allowedChildren: [],
-  allowedParents: ['workflow', 'task', 'agent'],
+  allowedParents: ['workflow', 'task'],
   defaultConfig: {
     type: 'script',
     language: 'javascript',
@@ -423,18 +465,88 @@ export const scriptTypeInfo: BlockTypeInfo = {
 };
 
 /**
+ * Context block type - manages conversation context for LLM calls
+ */
+export const contextTypeInfo: BlockTypeInfo = {
+  type: 'context',
+  label: 'Context',
+  description: 'Manages conversation context using sliding window or other strategies',
+  icon: 'History',
+  color: '#14b8a6',
+  isAtomic: true,
+  allowedChildren: [],
+  allowedParents: ['workflow', 'agent'],
+  defaultConfig: {
+    type: 'context',
+    strategy: 'sliding-window',
+    maxTokens: 4096,
+    reserveForResponse: 512,
+    keepSystemPrompt: true,
+    keepLastN: 10,
+  } as ContextBlockConfig,
+  defaultInputs: [
+    {
+      id: 'messages',
+      name: 'Messages',
+      dataType: 'array',
+      required: true,
+      multiple: false,
+    },
+    {
+      id: 'systemPrompt',
+      name: 'System Prompt',
+      dataType: 'string',
+      required: false,
+      multiple: false,
+    },
+    {
+      id: 'newMessage',
+      name: 'New Message',
+      dataType: 'string',
+      required: false,
+      multiple: false,
+    },
+  ],
+  defaultOutputs: [
+    {
+      id: 'messages',
+      name: 'Optimized Messages',
+      dataType: 'array',
+      required: true,
+      multiple: false,
+    },
+    {
+      id: 'estimatedTokens',
+      name: 'Estimated Tokens',
+      dataType: 'number',
+      required: true,
+      multiple: false,
+    },
+    {
+      id: 'wasTruncated',
+      name: 'Was Truncated',
+      dataType: 'boolean',
+      required: true,
+      multiple: false,
+    },
+  ],
+};
+
+/**
  * All block type definitions
  */
 export const blockTypeDefinitions: BlockTypeInfo[] = [
   workflowTypeInfo,
-  agentTypeInfo,
   taskTypeInfo,
+  agentTypeInfo,
+  toolTypeInfo,
   promptTypeInfo,
   instructionTypeInfo,
-  toolTypeInfo,
+  commandTypeInfo,
   decisionTypeInfo,
   validatorTypeInfo,
   triggerTypeInfo,
   inferenceTypeInfo,
   scriptTypeInfo,
+  contextTypeInfo,
 ];

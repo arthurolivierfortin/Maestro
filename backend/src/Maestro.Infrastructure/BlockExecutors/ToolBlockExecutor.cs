@@ -15,7 +15,16 @@ namespace Maestro.Infrastructure.BlockExecutors;
 /// </summary>
 public class ToolBlockExecutor : IBlockExecutor
 {
+    private readonly IServiceProvider? _serviceProvider;
+
     public string SupportedType => "tool";
+
+    public ToolBlockExecutor() { }
+
+    public ToolBlockExecutor(IServiceProvider serviceProvider)
+    {
+        _serviceProvider = serviceProvider;
+    }
 
     public async Task<BlockExecutionResult> ExecuteAsync(
         BlockDefinition block,
@@ -27,6 +36,13 @@ public class ToolBlockExecutor : IBlockExecutor
 
         // Basic config options
         var config = block.Config ?? new Dictionary<string, object?>();
+
+        // Handle CLI bridge executor type
+        var executorType = GetConfigString(config, "executorType");
+        if (executorType == "cli-bridge")
+        {
+            return await ExecuteCliBridgeAsync(block, context, inputs, sw, ct);
+        }
 
         // Support both "script" format and "command"+"args" format
         var script = GetConfigString(config, "script");
@@ -148,11 +164,92 @@ public class ToolBlockExecutor : IBlockExecutor
 
         try
         {
+            // Handle filesystem operations
+            var toolType = GetConfigString(config, "toolType");
+            if (toolType == "filesystem")
+            {
+                var operation = GetConfigString(config, "operation");
+                return await HandleFilesystemOperationAsync(block, inputs, operation, workingDir, logs, sw, ct);
+            }
+
+            // Handle shell tool type - get command from inputs
+            if (toolType == "shell")
+            {
+                var shellCmd = inputs.TryGetValue("command", out var cmdObj) ? cmdObj?.ToString() : null;
+                if (!string.IsNullOrEmpty(shellCmd))
+                {
+                    // Override working directory from inputs if provided
+                    if (inputs.TryGetValue("workingDir", out var wdInput) && wdInput is string wdStr && !string.IsNullOrEmpty(wdStr))
+                    {
+                        workingDir = wdStr;
+                    }
+
+                    // Get timeout from inputs
+                    var shellTimeout = timeoutMs;
+                    if (inputs.TryGetValue("timeout", out var toInput))
+                    {
+                        if (toInput is int toInt) shellTimeout = toInt;
+                        else if (toInput is long toLong) shellTimeout = (int)toLong;
+                        else if (int.TryParse(toInput?.ToString(), out var toParsed)) shellTimeout = toParsed;
+                    }
+
+                    logs.Add($"Executing shell command: {shellCmd}");
+                    logs.Add($"Working directory: {workingDir}");
+
+                    var shellPsi = new ProcessStartInfo
+                    {
+                        FileName = OperatingSystem.IsWindows() ? "cmd.exe" : "/bin/bash",
+                        Arguments = OperatingSystem.IsWindows() ? $"/c {shellCmd}" : $"-c \"{shellCmd}\"",
+                        RedirectStandardOutput = true,
+                        RedirectStandardError = true,
+                        WorkingDirectory = workingDir,
+                        CreateNoWindow = true,
+                        UseShellExecute = false,
+                    };
+
+                    using var shellProc = new Process { StartInfo = shellPsi };
+                    shellProc.Start();
+
+                    config.TryGetValue("maxOutputBytes", out var maxOutObjShell);
+                    var maxOutputBytesShell = maxOutObjShell is int mbShell ? mbShell : 200 * 1024;
+
+                    var outputTaskShell = ReadStreamWithLimitAsync(shellProc.StandardOutput, maxOutputBytesShell, ct);
+                    var errorTaskShell = ReadStreamWithLimitAsync(shellProc.StandardError, maxOutputBytesShell, ct);
+
+                    var completedShell = await Task.WhenAny(Task.Run(() => shellProc.WaitForExit()), Task.Delay(shellTimeout, ct));
+                    if (completedShell is Task delayTaskShell && delayTaskShell.IsCompleted && !shellProc.HasExited)
+                    {
+                        try { shellProc.Kill(true); } catch { }
+                        logs.Add($"Shell process killed after timeout {shellTimeout}ms");
+                    }
+
+                    var stdoutShell = await outputTaskShell;
+                    var stderrShell = await errorTaskShell;
+                    var exitCodeShell = shellProc.ExitCode;
+
+                    resultOutputs["stdout"] = stdoutShell?.Trim() ?? string.Empty;
+                    resultOutputs["stderr"] = stderrShell?.Trim() ?? string.Empty;
+                    resultOutputs["exitCode"] = exitCodeShell;
+                    resultOutputs["success"] = exitCodeShell == 0;
+
+                    sw.Stop();
+                    return new BlockExecutionResult
+                    {
+                        Outputs = resultOutputs.ToDictionary(kv => kv.Key, kv => kv.Value),
+                        Logs = logs,
+                        Success = exitCodeShell == 0,
+                        DurationMs = sw.ElapsedMilliseconds
+                    };
+                }
+            }
+
             // Handle command + args format (direct execution without shell wrapper)
             if (!string.IsNullOrEmpty(command))
             {
                 // Build command with args - execute directly
-                var cmdArgs = args != null ? string.Join(" ", args) : string.Empty;
+                // Support template substitution in args: {{inputName}} -> input value
+                var processedArgs = args?.Select(arg => SubstituteTemplates(arg, inputs)).ToList();
+                var cmdArgs = processedArgs != null ? string.Join(" ", processedArgs) : string.Empty;
 
                 // Check for workingDir input override
                 if (inputs.TryGetValue("workingDir", out var wdInput) && wdInput is string wdStr && !string.IsNullOrEmpty(wdStr))
@@ -451,6 +548,239 @@ public class ToolBlockExecutor : IBlockExecutor
     }
 
     /// <summary>
+    /// Handles filesystem operations (read, write, etc.)
+    /// </summary>
+    private async Task<BlockExecutionResult> HandleFilesystemOperationAsync(
+        BlockDefinition block,
+        Dictionary<string, object> inputs,
+        string operation,
+        string? workingDir,
+        List<string> logs,
+        Stopwatch sw,
+        CancellationToken ct)
+    {
+        var resultOutputs = new Dictionary<string, object?>();
+
+        try
+        {
+            // Get file path from inputs
+            var filePath = inputs.TryGetValue("path", out var pathObj) ? pathObj?.ToString() : null;
+            if (string.IsNullOrEmpty(filePath))
+            {
+                logs.Add("Missing required input: path");
+                return new BlockExecutionResult
+                {
+                    Outputs = resultOutputs.ToDictionary(kv => kv.Key, kv => kv.Value),
+                    Logs = logs,
+                    Success = false,
+                    DurationMs = sw.ElapsedMilliseconds
+                };
+            }
+
+            // Override working directory from inputs if provided (check this FIRST)
+            if (inputs.TryGetValue("workingDir", out var wdObj) && wdObj is string wdStr && !string.IsNullOrEmpty(wdStr))
+            {
+                workingDir = wdStr;
+            }
+
+            // Resolve path relative to working directory if not absolute
+            if (!Path.IsPathRooted(filePath) && !string.IsNullOrEmpty(workingDir))
+            {
+                filePath = Path.Combine(workingDir, filePath);
+            }
+
+            filePath = Path.GetFullPath(filePath);
+
+            switch (operation.ToLowerInvariant())
+            {
+                case "read":
+                    return await HandleFileReadAsync(filePath, inputs, logs, sw, ct);
+
+                case "write":
+                    return await HandleFileWriteAsync(filePath, inputs, logs, sw, ct);
+
+                default:
+                    logs.Add($"Unknown filesystem operation: {operation}");
+                    return new BlockExecutionResult
+                    {
+                        Outputs = resultOutputs.ToDictionary(kv => kv.Key, kv => kv.Value),
+                        Logs = logs,
+                        Success = false,
+                        DurationMs = sw.ElapsedMilliseconds
+                    };
+            }
+        }
+        catch (Exception ex)
+        {
+            logs.Add($"Filesystem error: {ex.Message}");
+            return new BlockExecutionResult
+            {
+                Outputs = resultOutputs.ToDictionary(kv => kv.Key, kv => kv.Value),
+                Logs = logs,
+                Success = false,
+                DurationMs = sw.ElapsedMilliseconds
+            };
+        }
+    }
+
+    private async Task<BlockExecutionResult> HandleFileReadAsync(
+        string filePath,
+        Dictionary<string, object> inputs,
+        List<string> logs,
+        Stopwatch sw,
+        CancellationToken ct)
+    {
+        var resultOutputs = new Dictionary<string, object?>();
+        var encoding = inputs.TryGetValue("encoding", out var encObj) ? encObj?.ToString() : "utf-8";
+
+        logs.Add($"Reading file: {filePath}");
+
+        if (!File.Exists(filePath))
+        {
+            logs.Add($"File not found: {filePath}");
+            resultOutputs["content"] = string.Empty;
+            resultOutputs["exists"] = false;
+            resultOutputs["size"] = 0;
+
+            return new BlockExecutionResult
+            {
+                Outputs = resultOutputs.ToDictionary(kv => kv.Key, kv => kv.Value),
+                Logs = logs,
+                Success = false,
+                DurationMs = sw.ElapsedMilliseconds
+            };
+        }
+
+        var fileInfo = new FileInfo(filePath);
+        var enc = GetEncodingFromString(encoding);
+        var content = await File.ReadAllTextAsync(filePath, enc, ct);
+
+        resultOutputs["content"] = content;
+        resultOutputs["exists"] = true;
+        resultOutputs["size"] = fileInfo.Length;
+
+        logs.Add($"Read {fileInfo.Length} bytes");
+
+        return new BlockExecutionResult
+        {
+            Outputs = resultOutputs.ToDictionary(kv => kv.Key, kv => kv.Value),
+            Logs = logs,
+            Success = true,
+            DurationMs = sw.ElapsedMilliseconds
+        };
+    }
+
+    private async Task<BlockExecutionResult> HandleFileWriteAsync(
+        string filePath,
+        Dictionary<string, object> inputs,
+        List<string> logs,
+        Stopwatch sw,
+        CancellationToken ct)
+    {
+        var resultOutputs = new Dictionary<string, object?>();
+        var encoding = inputs.TryGetValue("encoding", out var encObj) ? encObj?.ToString() : "utf-8";
+        var mode = inputs.TryGetValue("mode", out var modeObj) ? modeObj?.ToString() : "overwrite";
+        var createDirs = !inputs.TryGetValue("createDirectories", out var cdObj) || cdObj is not bool cdBool || cdBool;
+
+        // Get content to write
+        if (!inputs.TryGetValue("content", out var contentObj) || contentObj is not string content)
+        {
+            logs.Add("Missing required input: content");
+            resultOutputs["success"] = false;
+            resultOutputs["path"] = filePath;
+            resultOutputs["bytesWritten"] = 0;
+
+            return new BlockExecutionResult
+            {
+                Outputs = resultOutputs.ToDictionary(kv => kv.Key, kv => kv.Value),
+                Logs = logs,
+                Success = false,
+                DurationMs = sw.ElapsedMilliseconds
+            };
+        }
+
+        logs.Add($"Writing to file: {filePath}");
+
+        // Create directories if needed
+        var directory = Path.GetDirectoryName(filePath);
+        if (createDirs && !string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
+        {
+            Directory.CreateDirectory(directory);
+            logs.Add($"Created directory: {directory}");
+        }
+
+        // Handle write mode
+        switch (mode?.ToLowerInvariant())
+        {
+            case "create":
+                if (File.Exists(filePath))
+                {
+                    logs.Add($"File already exists: {filePath}");
+                    resultOutputs["success"] = false;
+                    resultOutputs["path"] = filePath;
+                    resultOutputs["bytesWritten"] = 0;
+
+                    return new BlockExecutionResult
+                    {
+                        Outputs = resultOutputs.ToDictionary(kv => kv.Key, kv => kv.Value),
+                        Logs = logs,
+                        Success = false,
+                        DurationMs = sw.ElapsedMilliseconds
+                    };
+                }
+                break;
+
+            case "append":
+                var enc = GetEncodingFromString(encoding);
+                await File.AppendAllTextAsync(filePath, content, enc, ct);
+                var appendedBytes = enc.GetByteCount(content);
+                logs.Add($"Appended {appendedBytes} bytes");
+
+                resultOutputs["success"] = true;
+                resultOutputs["path"] = filePath;
+                resultOutputs["bytesWritten"] = appendedBytes;
+
+                return new BlockExecutionResult
+                {
+                    Outputs = resultOutputs.ToDictionary(kv => kv.Key, kv => kv.Value),
+                    Logs = logs,
+                    Success = true,
+                    DurationMs = sw.ElapsedMilliseconds
+                };
+        }
+
+        // Default: overwrite
+        var writeEnc = GetEncodingFromString(encoding);
+        await File.WriteAllTextAsync(filePath, content, writeEnc, ct);
+        var bytesWritten = writeEnc.GetByteCount(content);
+        logs.Add($"Wrote {bytesWritten} bytes");
+
+        resultOutputs["success"] = true;
+        resultOutputs["path"] = filePath;
+        resultOutputs["bytesWritten"] = bytesWritten;
+
+        return new BlockExecutionResult
+        {
+            Outputs = resultOutputs.ToDictionary(kv => kv.Key, kv => kv.Value),
+            Logs = logs,
+            Success = true,
+            DurationMs = sw.ElapsedMilliseconds
+        };
+    }
+
+    private static System.Text.Encoding GetEncodingFromString(string? encoding)
+    {
+        return encoding?.ToLowerInvariant() switch
+        {
+            "utf-8" or "utf8" => System.Text.Encoding.UTF8,
+            "utf-16" or "utf16" or "unicode" => System.Text.Encoding.Unicode,
+            "ascii" => System.Text.Encoding.ASCII,
+            "utf-32" or "utf32" => System.Text.Encoding.UTF32,
+            _ => System.Text.Encoding.UTF8
+        };
+    }
+
+    /// <summary>
     /// Gets a string value from config, handling JsonElement conversion.
     /// </summary>
     private static string GetConfigString(Dictionary<string, object?> config, string key)
@@ -514,5 +844,111 @@ public class ToolBlockExecutor : IBlockExecutor
         }
         if (int.TryParse(value.ToString(), out var parsed)) return parsed;
         return defaultValue;
+    }
+
+    /// <summary>
+    /// Substitutes {{inputName}} templates in a string with actual input values.
+    /// </summary>
+    private static string SubstituteTemplates(string template, Dictionary<string, object> inputs)
+    {
+        if (string.IsNullOrEmpty(template) || !template.Contains("{{"))
+            return template;
+
+        var result = template;
+        foreach (var kvp in inputs)
+        {
+            var placeholder = "{{" + kvp.Key + "}}";
+            var value = kvp.Value?.ToString() ?? string.Empty;
+            result = result.Replace(placeholder, value);
+        }
+        return result;
+    }
+
+    /// <summary>
+    /// Executes a CLI bridge tool - routes commands through the CLI executor.
+    /// </summary>
+    private async Task<BlockExecutionResult> ExecuteCliBridgeAsync(
+        BlockDefinition block,
+        ExecutionContext context,
+        Dictionary<string, object> inputs,
+        Stopwatch sw,
+        CancellationToken ct)
+    {
+        var logs = new List<string>();
+        var resultOutputs = new Dictionary<string, object?>();
+
+        // Get command from inputs
+        if (!inputs.TryGetValue("command", out var commandObj) || commandObj == null)
+        {
+            logs.Add("CLI bridge error: 'command' input is required");
+            return new BlockExecutionResult
+            {
+                Outputs = new Dictionary<string, object> { ["success"] = false, ["error"] = "Command is required", ["exitCode"] = 1 },
+                Logs = logs,
+                Success = false,
+                DurationMs = sw.ElapsedMilliseconds
+            };
+        }
+
+        var command = commandObj.ToString() ?? string.Empty;
+        logs.Add($"CLI bridge executing: {command}");
+
+        // Resolve ICliExecutor from service provider
+        if (_serviceProvider == null)
+        {
+            logs.Add("CLI bridge error: Service provider not available");
+            return new BlockExecutionResult
+            {
+                Outputs = new Dictionary<string, object> { ["success"] = false, ["error"] = "CLI executor not available", ["exitCode"] = 1 },
+                Logs = logs,
+                Success = false,
+                DurationMs = sw.ElapsedMilliseconds
+            };
+        }
+
+        var cliExecutor = _serviceProvider.GetService(typeof(ICliExecutor)) as ICliExecutor;
+        if (cliExecutor == null)
+        {
+            logs.Add("CLI bridge error: ICliExecutor service not registered");
+            return new BlockExecutionResult
+            {
+                Outputs = new Dictionary<string, object> { ["success"] = false, ["error"] = "CLI executor not available", ["exitCode"] = 1 },
+                Logs = logs,
+                Success = false,
+                DurationMs = sw.ElapsedMilliseconds
+            };
+        }
+
+        // Build CLI execution context from domain ExecutionContext
+        // These values may be stored in the context Variables
+        var workspaceId = context.Variables.TryGetValue("workspaceId", out var wsObj) ? wsObj?.ToString() : null;
+        var sessionId = context.Variables.TryGetValue("sessionId", out var sessObj) ? sessObj?.ToString() : null;
+        var agentId = context.Variables.TryGetValue("agentId", out var agentObj) ? agentObj?.ToString() : null;
+
+        var cliContext = new CliExecutionContext
+        {
+            WorkspaceId = workspaceId,
+            SessionId = sessionId,
+            AgentId = agentId
+        };
+
+        // Execute command
+        var result = await cliExecutor.ExecuteAsync(command, cliContext, ct);
+
+        logs.Add($"CLI result: success={result.Success}, exitCode={result.ExitCode}");
+
+        resultOutputs["success"] = result.Success;
+        resultOutputs["output"] = result.Output;
+        resultOutputs["error"] = result.Error;
+        resultOutputs["exitCode"] = result.ExitCode;
+
+        sw.Stop();
+        return new BlockExecutionResult
+        {
+            Outputs = resultOutputs.ToDictionary(kv => kv.Key, kv => kv.Value ?? new object()),
+            Logs = logs,
+            Success = result.Success,
+            DurationMs = sw.ElapsedMilliseconds
+        };
     }
 }

@@ -26,15 +26,16 @@ const CATEGORIES: Array<{
   types?: BlockType[];
 }> = [
   { id: 'all', label: 'All Blocks' },
-  { id: 'agent', label: 'Agents' },
   { id: 'task', label: 'Tasks' },
-  { id: 'tool', label: 'Tools' },
+  { id: 'command', label: 'Commands' },
   { id: 'prompt', label: 'Prompts' },
   { id: 'instruction', label: 'Instructions' },
   { id: 'trigger', label: 'Triggers' },
   { id: 'workflow', label: 'Workflows' },
   { id: 'validator', label: 'Validators' },
   { id: 'decision', label: 'Decisions' },
+  { id: 'inference', label: 'Inference' },
+  { id: 'script', label: 'Scripts' },
 ];
 
 export function FoundrySidebar({

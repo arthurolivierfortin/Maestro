@@ -1,0 +1,18 @@
+{
+  "id": "sft-strategy",
+  "name": "SFT Strategy",
+  "blockType": "workflow",
+  "version": "1.0.0",
+  "isAtomic": true,
+  "description": null,
+  "config": {},
+  "metadata": {
+    "description": "Supervised fine-tuning strategy with fitness validation",
+    "tags": [
+      "strategy",
+      "supervised",
+      "fine-tuning"
+    ]
+  },
+  "capabilities": []
+}

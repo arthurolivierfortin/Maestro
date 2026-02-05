@@ -1,0 +1,191 @@
+{
+  "id": "180e567d-9c06-4a4a-a50e-eea8343f05f0",
+  "name": "Test File Read - 2026-01-30 12:42",
+  "blockId": "file-read",
+  "blockType": "tool",
+  "variantId": "v1",
+  "variantDescription": null,
+  "status": 3,
+  "totalIterations": 5,
+  "completedIterations": 5,
+  "evaluatedIterations": 5,
+  "evaluatorType": "manual",
+  "evaluatorModelId": null,
+  "criteria": [
+    {
+      "id": "correctness",
+      "name": "Correctness",
+      "description": "Does the output achieve the intended goal?",
+      "weight": 0.4
+    },
+    {
+      "id": "quality",
+      "name": "Quality",
+      "description": "Is the output well-formed and high quality?",
+      "weight": 0.3
+    },
+    {
+      "id": "efficiency",
+      "name": "Efficiency",
+      "description": "Was the execution efficient?",
+      "weight": 0.2
+    },
+    {
+      "id": "reliability",
+      "name": "Reliability",
+      "description": "Did it work consistently?",
+      "weight": 0.1
+    }
+  ],
+  "createdAt": "2026-01-30T17:42:59.615455+00:00",
+  "startedAt": "2026-01-30T17:42:59.6169762+00:00",
+  "completedAt": "2026-01-30T17:43:17.6040682+00:00",
+  "iterations": [
+    {
+      "id": "da91242c-5350-438d-95a5-e746fe3ffad3",
+      "iterationNumber": 1,
+      "inputs": {},
+      "outputs": {
+        "stdout": "[Iteration 1] Simulated output for tool block file-read. Inputs: {}"
+      },
+      "outputContent": "[Iteration 1] Simulated output for tool block file-read. Inputs: {}",
+      "logs": [
+        "Executed tool block file-read"
+      ],
+      "success": true,
+      "errorMessage": null,
+      "durationMs": 103,
+      "startedAt": "2026-01-30T17:42:59.6533149+00:00",
+      "completedAt": "2026-01-30T17:42:59.7571275+00:00",
+      "evaluation": {
+        "score": 95,
+        "method": 3,
+        "criteria": [],
+        "explanation": null,
+        "evaluatedAt": "2026-01-30T17:43:17.0379805+00:00",
+        "evaluatorModelId": null,
+        "confidence": 1
+      },
+      "evaluatedAt": "2026-01-30T17:43:17.0383412+00:00"
+    },
+    {
+      "id": "64481074-e9ad-4ae1-8a11-b7df6db78480",
+      "iterationNumber": 2,
+      "inputs": {},
+      "outputs": {
+        "stdout": "[Iteration 2] Simulated output for tool block file-read. Inputs: {}"
+      },
+      "outputContent": "[Iteration 2] Simulated output for tool block file-read. Inputs: {}",
+      "logs": [
+        "Executed tool block file-read"
+      ],
+      "success": true,
+      "errorMessage": null,
+      "durationMs": 107,
+      "startedAt": "2026-01-30T17:42:59.7574125+00:00",
+      "completedAt": "2026-01-30T17:42:59.8652811+00:00",
+      "evaluation": {
+        "score": 92,
+        "method": 3,
+        "criteria": [],
+        "explanation": null,
+        "evaluatedAt": "2026-01-30T17:43:17.1784415+00:00",
+        "evaluatorModelId": null,
+        "confidence": 1
+      },
+      "evaluatedAt": "2026-01-30T17:43:17.1784422+00:00"
+    },
+    {
+      "id": "c179cf1e-5270-4ac7-a120-1b4de21b0d00",
+      "iterationNumber": 3,
+      "inputs": {},
+      "outputs": {
+        "stdout": "[Iteration 3] Simulated output for tool block file-read. Inputs: {}"
+      },
+      "outputContent": "[Iteration 3] Simulated output for tool block file-read. Inputs: {}",
+      "logs": [
+        "Executed tool block file-read"
+      ],
+      "success": true,
+      "errorMessage": null,
+      "durationMs": 108,
+      "startedAt": "2026-01-30T17:42:59.8652965+00:00",
+      "completedAt": "2026-01-30T17:42:59.9733731+00:00",
+      "evaluation": {
+        "score": 94,
+        "method": 3,
+        "criteria": [],
+        "explanation": null,
+        "evaluatedAt": "2026-01-30T17:43:17.3223575+00:00",
+        "evaluatorModelId": null,
+        "confidence": 1
+      },
+      "evaluatedAt": "2026-01-30T17:43:17.3223585+00:00"
+    },
+    {
+      "id": "5093d66e-2014-4594-8588-04c4b14be66b",
+      "iterationNumber": 4,
+      "inputs": {},
+      "outputs": {
+        "stdout": "[Iteration 4] Simulated output for tool block file-read. Inputs: {}"
+      },
+      "outputContent": "[Iteration 4] Simulated output for tool block file-read. Inputs: {}",
+      "logs": [
+        "Executed tool block file-read"
+      ],
+      "success": true,
+      "errorMessage": null,
+      "durationMs": 111,
+      "startedAt": "2026-01-30T17:42:59.9733882+00:00",
+      "completedAt": "2026-01-30T17:43:00.0849837+00:00",
+      "evaluation": {
+        "score": 93,
+        "method": 3,
+        "criteria": [],
+        "explanation": null,
+        "evaluatedAt": "2026-01-30T17:43:17.4672242+00:00",
+        "evaluatorModelId": null,
+        "confidence": 1
+      },
+      "evaluatedAt": "2026-01-30T17:43:17.4672248+00:00"
+    },
+    {
+      "id": "ca9f2cd3-32c2-4b8f-ad4a-07e93748f5ca",
+      "iterationNumber": 5,
+      "inputs": {},
+      "outputs": {
+        "stdout": "[Iteration 5] Simulated output for tool block file-read. Inputs: {}"
+      },
+      "outputContent": "[Iteration 5] Simulated output for tool block file-read. Inputs: {}",
+      "logs": [
+        "Executed tool block file-read"
+      ],
+      "success": true,
+      "errorMessage": null,
+      "durationMs": 104,
+      "startedAt": "2026-01-30T17:43:00.0850012+00:00",
+      "completedAt": "2026-01-30T17:43:00.189674+00:00",
+      "evaluation": {
+        "score": 96,
+        "method": 3,
+        "criteria": [],
+        "explanation": null,
+        "evaluatedAt": "2026-01-30T17:43:17.6037956+00:00",
+        "evaluatorModelId": null,
+        "confidence": 1
+      },
+      "evaluatedAt": "2026-01-30T17:43:17.6037963+00:00"
+    }
+  ],
+  "metrics": {
+    "overallScore": 94,
+    "minScore": 92,
+    "maxScore": 96,
+    "scoreVariance": 2.5,
+    "criterionAverages": {},
+    "evaluatedCount": 5,
+    "totalCount": 5
+  },
+  "improvementSuggestions": [],
+  "tags": []
+}

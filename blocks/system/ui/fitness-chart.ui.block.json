@@ -1,0 +1,80 @@
+{
+  "id": "system:fitness-chart",
+  "name": "Fitness Chart",
+  "blockType": "ui",
+  "version": "1.0.0",
+  "isSystem": true,
+  "isAtomic": true,
+  "overridable": true,
+  "description": "Visualizes model fitness over time with breakdown of P, S, W components and cost factors.",
+
+  "config": {
+    "component": "FitnessChart",
+    "refreshInterval": 10000,
+    "defaultTimeRange": "24h"
+  },
+
+  "inputs": {
+    "modelId": {
+      "type": "string",
+      "required": false,
+      "description": "Filter to specific model"
+    },
+    "taskType": {
+      "type": "string",
+      "required": false,
+      "description": "Filter to specific task type"
+    },
+    "workspaceId": {
+      "type": "string",
+      "required": false,
+      "description": "Filter to specific workspace"
+    },
+    "timeRange": {
+      "type": "string",
+      "enum": ["1h", "6h", "24h", "7d", "30d"],
+      "default": "24h",
+      "description": "Time range for chart"
+    },
+    "showBreakdown": {
+      "type": "boolean",
+      "default": true,
+      "description": "Show P/S/W component breakdown"
+    },
+    "showCosts": {
+      "type": "boolean",
+      "default": false,
+      "description": "Show cost factor breakdown"
+    }
+  },
+
+  "outputs": {
+    "chartData": {
+      "type": "object",
+      "description": "Chart data for rendering"
+    },
+    "currentFitness": {
+      "type": "number",
+      "description": "Most recent fitness score"
+    },
+    "trend": {
+      "type": "string",
+      "description": "Trend direction (up, down, stable)"
+    },
+    "rank": {
+      "type": "string",
+      "description": "Current fitness rank (S/A/B/C/D/F)"
+    }
+  },
+
+  "metadata": {
+    "author": "system",
+    "category": "ui",
+    "tags": ["fitness", "chart", "visualization", "performance"],
+    "uiCategory": "analytics"
+  },
+
+  "provides": {
+    "capabilities": ["fitness-visualization", "trend-analysis", "component-breakdown"]
+  }
+}

@@ -10,6 +10,7 @@ import type {
   CreateBlockDto,
   UpdateBlockDto,
   BlockUsage,
+  BlockExecutionResult,
 } from '../interfaces/IBlockService';
 import type { Block, BlockType } from '../../types/block.types';
 import { useBlockStore } from '../../store/blockStore';
@@ -202,18 +203,18 @@ class MockBlockService implements IBlockService {
       }
     });
 
-    // Find tool references in agent configs
+    // Find command references in inference configs (if any have tool references)
     allBlocks
-      .filter((b) => b.blockType === 'agent')
-      .forEach((agent) => {
-        const config = agent.config as any;
+      .filter((b) => b.blockType === 'inference')
+      .forEach((inference) => {
+        const config = inference.config as any;
         if (config.tools?.includes(blockId)) {
           usages.push({
-            blockId: agent.id,
-            blockName: agent.name,
-            blockType: agent.blockType,
+            blockId: inference.id,
+            blockName: inference.name,
+            blockType: inference.blockType,
             usageType: 'reference',
-            context: `Used as a tool in agent ${agent.name}`,
+            context: `Used as a command in inference ${inference.name}`,
           });
         }
       });
@@ -260,6 +261,33 @@ class MockBlockService implements IBlockService {
     } catch (error) {
       throw createValidationError(`Invalid JSON format: ${(error as Error).message}`);
     }
+  }
+
+  async execute(id: string, inputs?: Record<string, any>): Promise<BlockExecutionResult> {
+    await delay(500, 1500);
+
+    const block = this.getStore().getBlock(id);
+    if (!block) {
+      throw createNotFoundError('Block', id);
+    }
+
+    const executionId = `exec-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const now = new Date().toISOString();
+
+    // Simulate execution result
+    return {
+      executionId,
+      blockId: id,
+      status: 'completed',
+      startedAt: now,
+      completedAt: new Date(Date.now() + 500).toISOString(),
+      duration: 500,
+      output: {
+        message: `Block ${block.name} executed successfully`,
+        inputs: inputs || {},
+        result: { success: true },
+      },
+    };
   }
 }
 

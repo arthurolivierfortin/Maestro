@@ -1,0 +1,33 @@
+{
+  "id": "ac1d5e0a-a7e1-46d2-b0e1-50cd3541d148",
+  "name": "cantante-developer-v1",
+  "description": null,
+  "workflowId": "cantante-developer",
+  "iterations": 10,
+  "parallelIterations": 1,
+  "delayBetweenIterationsMs": 0,
+  "optimizationGoal": 1,
+  "goalWeights": null,
+  "inputVariation": {
+    "type": 0,
+    "fixedInputs": null,
+    "datasetPath": null,
+    "generator": null
+  },
+  "qualityEvaluation": {
+    "enabled": false,
+    "method": "none",
+    "heuristics": null,
+    "llmEvaluation": null,
+    "customEvaluator": null
+  },
+  "constraints": null,
+  "modelOverrides": {},
+  "environmentVariables": {},
+  "containerRuntimeType": null,
+  "createdAt": "2026-01-30T17:46:56.8668844+00:00",
+  "updatedAt": "2026-01-30T17:46:56.8675131+00:00",
+  "createdBy": null,
+  "tags": [],
+  "isActive": true
+}

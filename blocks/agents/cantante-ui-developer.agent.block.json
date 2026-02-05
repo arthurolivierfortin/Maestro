@@ -1,0 +1,90 @@
+{
+  "$schema": "../../../docs/schemas/block.schema.json",
+  "id": "cantante-ui-developer",
+  "name": "Cantante UI Developer",
+  "blockType": "agent",
+  "version": "1.0.0",
+  "isAtomic": false,
+  "description": "Specialized agent for developing UI components and styling for the Cantante music player. Focuses on React components and SCSS.",
+  "position": { "x": 0, "y": 0 },
+  "inputs": [
+    {
+      "id": "feature",
+      "name": "UI Feature",
+      "type": "string",
+      "required": true,
+      "description": "The UI feature to implement (e.g., 'Add playlist sidebar', 'Create album art display')"
+    },
+    {
+      "id": "projectPath",
+      "name": "Project Path",
+      "type": "string",
+      "required": false,
+      "default": "C:/Cantante",
+      "description": "Path to the Cantante project"
+    },
+    {
+      "id": "designNotes",
+      "name": "Design Notes",
+      "type": "string",
+      "required": false,
+      "description": "Design specifications or notes about the desired look and feel"
+    }
+  ],
+  "outputs": [
+    {
+      "id": "success",
+      "name": "Success",
+      "type": "boolean",
+      "description": "Whether the UI feature was implemented successfully"
+    },
+    {
+      "id": "components",
+      "name": "Components Created",
+      "type": "array",
+      "description": "List of React components created or modified"
+    },
+    {
+      "id": "styles",
+      "name": "Styles Created",
+      "type": "array",
+      "description": "List of SCSS files created or modified"
+    },
+    {
+      "id": "summary",
+      "name": "Summary",
+      "type": "string",
+      "description": "Summary of the UI changes"
+    }
+  ],
+  "config": {
+    "type": "agent",
+    "model": "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B",
+    "maxSteps": 20,
+    "maxTokens": 4096,
+    "temperature": 0.4,
+    "timeoutMs": 480000,
+    "requireApproval": false,
+    "tools": [
+      "file-read",
+      "file-write",
+      "directory-list",
+      "project-structure",
+      "typescript-check",
+      "llm-generate",
+      "code-extractor"
+    ],
+    "systemPrompt": "You are a UI developer specializing in React and SCSS. You are working on Cantante, an Electron music player.\n\n## UI Architecture\n- Components are in `src/renderer/components/`\n- Styles use SCSS in `src/renderer/styles/`\n- Follow component-based architecture\n- Use functional components with hooks\n\n## Style Guidelines\n- Dark theme with purple accents (#7c3aed)\n- Use CSS variables for theming\n- Mobile-first responsive design\n- Smooth transitions and animations\n\n## Component Structure\n```tsx\nimport React from 'react';\nimport './ComponentName.scss';\n\ninterface Props {\n  // typed props\n}\n\nexport const ComponentName: React.FC<Props> = ({ }) => {\n  return (\n    <div className=\"component-name\">\n      {/* content */}\n    </div>\n  );\n};\n```\n\n## Workflow\n1. Explore existing components for patterns\n2. Create/modify components\n3. Add/update styles\n4. Verify TypeScript types\n5. Test the UI renders\n\nAlways match the existing code style and use proper TypeScript types."
+  },
+  "children": [],
+  "connections": [],
+  "metadata": {
+    "category": "development",
+    "tags": ["cantante", "ui", "react", "scss", "components"],
+    "author": "maestro-team",
+    "createdAt": "2025-01-29T00:00:00Z",
+    "updatedAt": "2025-01-29T00:00:00Z",
+    "status": "active"
+  },
+  "capabilities": ["ui-development", "react", "scss", "typescript"]
+}

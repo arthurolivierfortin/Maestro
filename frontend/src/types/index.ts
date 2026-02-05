@@ -21,9 +21,9 @@ export type {
   Block,
   BlockConfig,
   WorkflowBlockConfig,
-  AgentBlockConfig,
   TaskBlockConfig,
-  ToolBlockConfig,
+  CommandBlockConfig,
+  ToolBlockConfig, // Deprecated alias for CommandBlockConfig
   PromptBlockConfig,
   InstructionBlockConfig,
   DecisionBlockConfig,
@@ -33,3 +33,24 @@ export type {
 } from './block.types';
 
 export type { BlockTypeInfo, ValidationResult, IBlockTypeRegistry } from './block-registry.types';
+
+// Metrics types (Phase 9)
+export * from './metrics.types';
+
+// Training types (Phase 9)
+export * from './training.types';
+
+// Fitness types (Phase 11)
+export * from './fitness.types';
+
+// Workspace types (Phase 3)
+export * from './workspace.types';
+
+// Experiment types (Phase 7 - Training Strategies)
+export * from './experiment.types';
+
+// Session types (Phase 7.5 - Generic Sessions)
+export * from './session.types';
+
+// UI Block types (Phase 7.5 - UI as a Block)
+export * from './ui-block.types';

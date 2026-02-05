@@ -1,0 +1,18 @@
+{
+  "id": "research-team",
+  "name": "Research Team",
+  "blockType": "workflow",
+  "version": "1.0.0",
+  "isAtomic": true,
+  "description": null,
+  "config": {},
+  "metadata": {
+    "description": "Full research pipeline: analyze, train, test, document, publish",
+    "tags": [
+      "research",
+      "pipeline",
+      "team"
+    ]
+  },
+  "capabilities": []
+}

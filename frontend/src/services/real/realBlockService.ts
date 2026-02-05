@@ -10,6 +10,7 @@ import type {
   CreateBlockDto,
   UpdateBlockDto,
   BlockUsage,
+  BlockExecutionResult,
 } from '../interfaces/IBlockService';
 import type { Block, BlockType } from '../../types/block.types';
 import { apiClient } from '../api';
@@ -75,6 +76,10 @@ class RealBlockService implements IBlockService {
 
   async importFromJson(json: string): Promise<Block> {
     return apiClient.post<Block>(`${this.basePath}/import`, { json });
+  }
+
+  async execute(id: string, inputs?: Record<string, any>): Promise<BlockExecutionResult> {
+    return apiClient.post<BlockExecutionResult>(`${this.basePath}/${id}/execute`, { inputs });
   }
 }
 

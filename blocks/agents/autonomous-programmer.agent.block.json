@@ -1,0 +1,230 @@
+{
+  "$schema": "../../../docs/schemas/block.schema.json",
+  "id": "autonomous-programmer",
+  "name": "Autonomous Programmer",
+  "blockType": "agent",
+  "version": "1.0.0",
+  "isAtomic": false,
+  "description": "Agent de programmation totalement autonome capable de comprendre, planifier, implémenter et valider des tâches de développement complexes. Suit une méthodologie structurée: Analyser → Planifier → Implémenter → Valider → Itérer.",
+
+  "inputs": [
+    {
+      "id": "task",
+      "name": "Task Description",
+      "type": "string",
+      "required": true,
+      "description": "Description de la tâche à accomplir en langage naturel"
+    },
+    {
+      "id": "projectPath",
+      "name": "Project Path",
+      "type": "string",
+      "required": true,
+      "description": "Chemin racine du projet"
+    },
+    {
+      "id": "context",
+      "name": "Additional Context",
+      "type": "string",
+      "required": false,
+      "description": "Contexte additionnel, contraintes, ou informations sur l'architecture"
+    },
+    {
+      "id": "targetFiles",
+      "name": "Target Files",
+      "type": "array",
+      "required": false,
+      "description": "Fichiers spécifiques à modifier (optionnel, l'agent peut découvrir)"
+    },
+    {
+      "id": "testAfterChange",
+      "name": "Test After Change",
+      "type": "boolean",
+      "required": false,
+      "default": true,
+      "description": "Exécuter les tests après chaque modification"
+    },
+    {
+      "id": "commitChanges",
+      "name": "Commit Changes",
+      "type": "boolean",
+      "required": false,
+      "default": false,
+      "description": "Créer un commit git après la complétion"
+    },
+    {
+      "id": "maxIterations",
+      "name": "Max Iterations",
+      "type": "number",
+      "required": false,
+      "default": 5,
+      "description": "Nombre maximum de cycles correction si les tests échouent"
+    }
+  ],
+
+  "outputs": [
+    {
+      "id": "success",
+      "name": "Success",
+      "type": "boolean",
+      "description": "Si la tâche a été complétée avec succès"
+    },
+    {
+      "id": "status",
+      "name": "Status",
+      "type": "string",
+      "description": "Status final: completed, partial, failed, needs_review"
+    },
+    {
+      "id": "summary",
+      "name": "Summary",
+      "type": "string",
+      "description": "Résumé de ce qui a été fait"
+    },
+    {
+      "id": "filesCreated",
+      "name": "Files Created",
+      "type": "array",
+      "description": "Liste des fichiers créés"
+    },
+    {
+      "id": "filesModified",
+      "name": "Files Modified",
+      "type": "array",
+      "description": "Liste des fichiers modifiés"
+    },
+    {
+      "id": "filesDeleted",
+      "name": "Files Deleted",
+      "type": "array",
+      "description": "Liste des fichiers supprimés"
+    },
+    {
+      "id": "testResults",
+      "name": "Test Results",
+      "type": "object",
+      "description": "Résultats des tests si exécutés"
+    },
+    {
+      "id": "iterations",
+      "name": "Iterations",
+      "type": "number",
+      "description": "Nombre d'itérations effectuées"
+    },
+    {
+      "id": "plan",
+      "name": "Execution Plan",
+      "type": "object",
+      "description": "Le plan d'exécution qui a été suivi"
+    },
+    {
+      "id": "errors",
+      "name": "Errors",
+      "type": "array",
+      "description": "Erreurs rencontrées pendant l'exécution"
+    },
+    {
+      "id": "commitId",
+      "name": "Commit ID",
+      "type": "string",
+      "description": "ID du commit si commitChanges était true"
+    }
+  ],
+
+  "config": {
+    "model": "deepseek-ai/deepseek-coder-1.3b-instruct",
+    "maxSteps": 50,
+    "maxTokens": 20000,
+    "temperature": 0.3,
+    "timeoutMs": 900000,
+    "requireApproval": false,
+
+    "tools": [
+      "directory-list",
+      "file-read",
+      "file-write",
+      "code-search",
+      "shell-execute",
+      "test-runner",
+      "llm-generate",
+      "code-extractor",
+      "git-status",
+      "git-diff",
+      "git-log"
+    ],
+
+    "systemPrompt": "# Agent Autonome de Programmation\n\nTu es un développeur expert autonome. Tu dois accomplir des tâches de programmation de manière indépendante en suivant une méthodologie rigoureuse.\n\n## Ta Tâche\n{{task}}\n\n## Projet\nChemin: {{projectPath}}\n{{#if context}}Contexte: {{context}}{{/if}}\n\n## Méthodologie OBLIGATOIRE\n\n### Phase 1: ANALYSE (TOUJOURS commencer ici)\n1. Utilise `directory-list` pour comprendre la structure du projet\n2. Utilise `file-read` pour lire les fichiers clés (package.json, README, configs)\n3. Utilise `code-search` pour trouver le code pertinent\n4. Utilise `git-status` pour voir l'état actuel\n\n### Phase 2: PLANIFICATION\nAvant d'écrire du code, crée un plan mental:\n- Quels fichiers modifier/créer?\n- Dans quel ordre?\n- Quels sont les risques?\n- Comment valider le résultat?\n\n### Phase 3: IMPLÉMENTATION\n1. Lis TOUJOURS un fichier avant de le modifier\n2. Fais des modifications incrémentales\n3. Utilise `llm-generate` pour générer du code complexe\n4. Utilise `code-extractor` pour extraire le code proprement\n5. Utilise `file-write` pour écrire les modifications\n\n### Phase 4: VALIDATION\n1. Utilise `git-diff` pour vérifier les changements\n2. Utilise `test-runner` pour exécuter les tests\n3. Si les tests échouent, analyse l'erreur et corrige\n\n### Phase 5: ITÉRATION\nSi quelque chose ne fonctionne pas:\n1. Analyse l'erreur précisément\n2. Identifie la cause racine\n3. Propose une correction\n4. Implémente et re-teste\n\n## Règles STRICTES\n\n### À FAIRE\n- Toujours lire avant de modifier\n- Préserver le code existant qui fonctionne\n- Suivre les conventions du projet\n- Ajouter des commentaires si le code est complexe\n- Tester après chaque modification significative\n\n### À NE PAS FAIRE\n- Ne JAMAIS écraser un fichier sans le lire d'abord\n- Ne pas modifier des fichiers non liés à la tâche\n- Ne pas supprimer du code sans comprendre son rôle\n- Ne pas ignorer les erreurs de tests\n- Ne pas faire de modifications qui cassent le build\n\n## Tools Disponibles\n\n| Tool | Usage |\n|------|-------|\n| `directory-list` | Explorer la structure du projet |\n| `file-read` | Lire le contenu d'un fichier |\n| `file-write` | Écrire/modifier un fichier |\n| `code-search` | Chercher dans le code (grep) |\n| `shell-execute` | Exécuter des commandes shell |\n| `test-runner` | Exécuter les tests |\n| `llm-generate` | Générer du code avec le LLM |\n| `code-extractor` | Extraire du code d'une réponse LLM |\n| `git-status` | Voir l'état git |\n| `git-diff` | Voir les différences |\n| `git-log` | Voir l'historique |\n\n## Format de Réponse\n\nPour chaque action, explique:\n1. Ce que tu vas faire et pourquoi\n2. Le tool que tu utilises\n3. Le résultat obtenu\n4. La prochaine étape\n\n## Commencer\n\nCommence MAINTENANT par la Phase 1: ANALYSE. Explore le projet avec `directory-list`.",
+
+    "phases": [
+      {
+        "id": "analyze",
+        "name": "Analyse",
+        "description": "Explorer et comprendre le projet",
+        "tools": ["directory-list", "file-read", "code-search", "git-status"],
+        "maxSteps": 10
+      },
+      {
+        "id": "plan",
+        "name": "Planification",
+        "description": "Créer un plan d'implémentation",
+        "tools": ["llm-generate"],
+        "maxSteps": 2
+      },
+      {
+        "id": "implement",
+        "name": "Implémentation",
+        "description": "Implémenter les changements",
+        "tools": ["file-read", "file-write", "llm-generate", "code-extractor"],
+        "maxSteps": 20
+      },
+      {
+        "id": "validate",
+        "name": "Validation",
+        "description": "Valider les changements",
+        "tools": ["git-diff", "test-runner", "shell-execute"],
+        "maxSteps": 10
+      },
+      {
+        "id": "iterate",
+        "name": "Itération",
+        "description": "Corriger si nécessaire",
+        "tools": ["file-read", "file-write", "test-runner"],
+        "maxSteps": 8
+      }
+    ],
+
+    "errorHandling": {
+      "onTestFailure": "analyze_and_fix",
+      "onWriteFailure": "retry_with_backup",
+      "onToolFailure": "log_and_continue",
+      "maxRetries": 3
+    },
+
+    "validation": {
+      "requireTestPass": true,
+      "requireNoNewErrors": true,
+      "requireGitClean": false
+    }
+  },
+
+  "capabilities": [
+    "code-generation",
+    "code-modification",
+    "bug-fixing",
+    "feature-implementation",
+    "refactoring",
+    "testing",
+    "git-operations",
+    "project-exploration",
+    "self-correction"
+  ],
+
+  "metadata": {
+    "category": "development",
+    "tags": ["agent", "autonomous", "programming", "full-stack", "code-generation"],
+    "author": "maestro-team",
+    "createdAt": "2026-01-28T00:00:00Z",
+    "updatedAt": "2026-01-28T00:00:00Z",
+    "status": "active"
+  }
+}

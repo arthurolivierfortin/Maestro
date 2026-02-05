@@ -1,0 +1,32 @@
+{
+  "id": "system:metrics-aggregator",
+  "name": "Metrics Aggregator",
+  "blockType": "agent",
+  "version": "1.0.0",
+  "isSystem": true,
+  "overridable": true,
+  "description": "Aggregates metrics from multiple training iterations for analysis, trend detection, and anomaly identification",
+  "config": {
+    "windowSize": 10,
+    "aggregations": ["mean", "std", "min", "max", "trend"],
+    "anomalyDetection": {
+      "enabled": true,
+      "method": "zscore",
+      "threshold": 2.5
+    },
+    "trendAnalysis": {
+      "enabled": true,
+      "method": "linear_regression"
+    }
+  },
+  "inputs": {
+    "metricsHistory": { "type": "array", "required": true, "description": "Array of metrics from each iteration" }
+  },
+  "outputs": {
+    "aggregated": { "type": "object", "description": "Aggregated metrics (mean, std, min, max per metric)" },
+    "trends": { "type": "object", "description": "Trend analysis per metric (slope, direction)" },
+    "anomalies": { "type": "array", "description": "Detected anomalies with iteration and metric" },
+    "summary": { "type": "string", "description": "Human-readable summary of training progress" }
+  },
+  "systemPrompt": "You are the Metrics Aggregator agent. Analyze training metrics to identify patterns, trends, and anomalies. Provide clear summaries of training progress."
+}

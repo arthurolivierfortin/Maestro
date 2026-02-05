@@ -5,14 +5,30 @@
  * Hierarchical and collapsible structure.
  */
 
-import { useState } from 'react';
+import { useState, ReactNode } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import {
+  Home,
+  FolderKanban,
+  Hammer,
+  Bot,
+  GitBranch,
+  Play,
+  Clock,
+  Dumbbell,
+  FlaskConical,
+  Activity,
+  FileText,
+  BarChart3,
+  Plus,
+  ChevronRight,
+} from 'lucide-react';
 import './Sidebar.scss';
 
 interface SidebarItem {
   id: string;
   label: string;
-  icon: string;
+  icon: ReactNode;
   path?: string;
   children?: SidebarItem[];
 }
@@ -21,35 +37,59 @@ const navigationItems: SidebarItem[] = [
   {
     id: 'home',
     label: 'Home',
-    icon: '⌂',
+    icon: <Home size={16} />,
     path: '/',
   },
   {
     id: 'projects',
     label: 'Projects',
-    icon: '📁',
+    icon: <FolderKanban size={16} />,
     path: '/projects',
+  },
+  {
+    id: 'foundry',
+    label: 'Foundry',
+    icon: <Hammer size={16} />,
+    path: '/foundry',
+  },
+  {
+    id: 'agent-foundry',
+    label: 'Agent Foundry',
+    icon: <Bot size={16} />,
+    path: '/agent-foundry',
   },
   {
     id: 'workflows',
     label: 'Workflows',
-    icon: '≋',
+    icon: <GitBranch size={16} />,
     path: '/workflows',
-    children: [{ id: 'new-workflow', label: 'New Workflow', icon: '+', path: '/workflows/new' }],
+    children: [{ id: 'new-workflow', label: 'New Workflow', icon: <Plus size={16} />, path: '/workflows/new' }],
   },
   {
     id: 'executions',
     label: 'Executions',
-    icon: '▸',
-    children: [{ id: 'execution-history', label: 'History', icon: '⌚', path: '/history' }],
+    icon: <Play size={16} />,
+    children: [{ id: 'execution-history', label: 'History', icon: <Clock size={16} />, path: '/history' }],
+  },
+  {
+    id: 'training',
+    label: 'Training',
+    icon: <Dumbbell size={16} />,
+    path: '/training',
+  },
+  {
+    id: 'testing',
+    label: 'Testing',
+    icon: <FlaskConical size={16} />,
+    path: '/testing',
   },
   {
     id: 'monitoring',
     label: 'Monitoring',
-    icon: '◫',
+    icon: <Activity size={16} />,
     children: [
-      { id: 'logs', label: 'Logs', icon: '≡', path: '#' },
-      { id: 'metrics', label: 'Metrics', icon: '□', path: '#' },
+      { id: 'logs', label: 'Logs', icon: <FileText size={16} />, path: '#' },
+      { id: 'metrics', label: 'Metrics', icon: <BarChart3 size={16} />, path: '/metrics' },
     ],
   },
 ];
@@ -98,7 +138,7 @@ export function Sidebar() {
                 }}
               >
                 <span className={`expand-icon ${isExpanded ? 'expand-icon--expanded' : ''}`}>
-                  ▸
+                  <ChevronRight size={14} />
                 </span>
               </button>
             )}
@@ -111,7 +151,9 @@ export function Sidebar() {
             style={{ paddingLeft: `${level * 16 + 12}px` }}
             onClick={() => toggleExpand(item.id)}
           >
-            <span className={`expand-icon ${isExpanded ? 'expand-icon--expanded' : ''}`}>▸</span>
+            <span className={`expand-icon ${isExpanded ? 'expand-icon--expanded' : ''}`}>
+              <ChevronRight size={14} />
+            </span>
             <span className="sidebar-item__icon">{item.icon}</span>
             <span className="sidebar-item__label">{item.label}</span>
           </button>

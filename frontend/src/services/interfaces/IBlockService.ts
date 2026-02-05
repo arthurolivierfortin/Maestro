@@ -102,4 +102,21 @@ export interface IBlockService {
 
   /** Import a block from JSON string */
   importFromJson(json: string): Promise<Block>;
+
+  /** Execute a block with optional inputs */
+  execute(id: string, inputs?: Record<string, any>): Promise<BlockExecutionResult>;
+}
+
+/**
+ * Result of block execution
+ */
+export interface BlockExecutionResult {
+  executionId: string;
+  blockId: string;
+  status: 'pending' | 'running' | 'completed' | 'failed';
+  startedAt: string;
+  completedAt?: string;
+  duration?: number;
+  output?: any;
+  error?: string;
 }

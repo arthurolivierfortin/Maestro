@@ -1,0 +1,62 @@
+{
+  "id": "research-orchestrator",
+  "name": "Research Orchestrator",
+  "blockType": "agent",
+  "version": "1.0.0",
+  "description": "Orchestrates research experiments, coordinates data collection, and manages the experiment lifecycle.",
+
+  "config": {
+    "model": "smollm2:1.7b",
+    "maxSteps": 30,
+    "maxTokens": 2048,
+    "temperature": 0.2,
+    "tools": [
+      "system:fitness-calculator",
+      "system:data-store",
+      "system:metrics-collector",
+      "system:checkpoint-manager",
+      "file-read",
+      "directory-list"
+    ],
+    "systemPrompt": "You are the Research Orchestrator agent. Your responsibilities:\n\n1. Plan and execute research experiments\n2. Collect and organize experimental data\n3. Calculate fitness scores for model evaluations\n4. Manage checkpoints for experiment recovery\n5. Coordinate with other agents when needed\n\nUse the maestro_cli tool to interact with the system. Available commands:\n- run system:fitness-calculator --input modelId=... --input-json '{\"executionMetrics\":{...}}'\n- run system:data-store --input action=write --input collection=experiments\n- run system:metrics-collector --input action=record\n- run system:checkpoint-manager --input action=save\n\nAlways save checkpoints before and after significant operations."
+  },
+
+  "inputs": {
+    "task": {
+      "type": "string",
+      "required": true,
+      "description": "The research task to execute"
+    },
+    "experimentId": {
+      "type": "string",
+      "required": false,
+      "description": "Experiment identifier for tracking"
+    },
+    "modelId": {
+      "type": "string",
+      "default": "smollm2:1.7b",
+      "description": "Model to evaluate"
+    }
+  },
+
+  "outputs": {
+    "result": {
+      "type": "string",
+      "description": "Research findings summary"
+    },
+    "fitnessScore": {
+      "type": "number",
+      "description": "Calculated fitness score"
+    },
+    "checkpointId": {
+      "type": "string",
+      "description": "Final checkpoint identifier"
+    }
+  },
+
+  "metadata": {
+    "author": "Maestro",
+    "category": "research",
+    "tags": ["orchestrator", "research", "experiment"]
+  }
+}

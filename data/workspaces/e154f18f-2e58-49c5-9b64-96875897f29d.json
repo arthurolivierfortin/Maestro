@@ -1,0 +1,55 @@
+{
+  "id": "e154f18f-2e58-49c5-9b64-96875897f29d",
+  "name": "Test Workspace",
+  "description": "Test workspace for canvas view",
+  "type": "Research",
+  "status": "Active",
+  "path": null,
+  "sessionIds": [],
+  "projectIds": [],
+  "catalogRef": null,
+  "settings": {
+    "defaultModelId": null,
+    "maxConcurrentSessions": 20,
+    "maxConcurrentTrainingRuns": 5,
+    "autoPromotionEnabled": false,
+    "minFitnessForPromotion": 0.7,
+    "tags": []
+  },
+  "isolation": {
+    "enabled": false,
+    "network": null,
+    "resources": null,
+    "permissions": {
+      "canReadFrom": [],
+      "canWriteTo": [],
+      "canPromoteTo": [],
+      "allowReadFrom": [],
+      "allowWriteFrom": []
+    }
+  },
+  "permissions": {
+    "allowedCommands": [
+      "*"
+    ],
+    "allowedTools": [
+      "*"
+    ],
+    "allowedBlocks": [
+      "*"
+    ],
+    "canCreateBlocks": true,
+    "canCreateSessions": true,
+    "dataCollections": [
+      "*"
+    ],
+    "allowedPaths": [
+      "*"
+    ]
+  },
+  "sessionTemplates": {},
+  "entryPoints": {},
+  "createdAt": "2026-02-04T18:27:07.95197+00:00",
+  "updatedAt": "2026-02-04T18:27:07.9519703+00:00",
+  "createdBy": null
+}
