@@ -596,6 +596,247 @@ During execution, the tree shows real-time status:
 }
 ```
 
+### 5.3 Agent Improvement Loop with Validator
+
+This pattern is fundamental for agent training and iterative quality improvement.
+
+#### Visual Representation
+
+```
+▶ While: quality < threshold
+   │
+   └─ ▶ Workflow: Improve Solution
+        ├─ Agent: code-writer
+        └─ Validator: quality-check
+```
+
+#### Detailed Execution Flow
+
+```
+▶ Workflow: Iterative Code Improvement
+   │
+   ├─ ▶ Prompt: initial-task
+   │    "Write a function that calculates fibonacci"
+   │
+   ├─ ▶ While: validator.quality < 0.9
+   │    │
+   │    └─ ▶ Workflow: Improve Solution
+   │         │
+   │         ├─ ▶ Agent: code-writer
+   │         │    config:
+   │         │      model: "gpt-4"
+   │         │      systemPrompt: "You are a code improvement expert..."
+   │         │    inputs:
+   │         │      task: "Improve the code based on feedback"
+   │         │      previousCode: ${context.lastOutput.code}
+   │         │      feedback: ${context.lastOutput.feedback}
+   │         │
+   │         └─ ▶ Validator: quality-check
+   │              config:
+   │                checks:
+   │                  - type: "syntax"
+   │                  - type: "tests"
+   │                    command: "npm test"
+   │                  - type: "coverage"
+   │                    threshold: 80
+   │                  - type: "lint"
+   │                    command: "npm run lint"
+   │              outputs:
+   │                quality: 0.75  ← aggregated score
+   │                feedback: "Missing edge case for n=0"
+   │
+   └─ ▶ Command: save-final-result
+```
+
+#### Execution Visualization
+
+```
+Iteration 1:
+▶ While: quality < 0.9              [⟳ iteration 1, quality=0.0]
+   └─ ▶ Workflow: Improve Solution
+        ├─ Agent: code-writer       [✓ generated code]
+        └─ Validator: quality-check [✓ quality=0.65]
+                                    feedback: "No tests, missing edge cases"
+
+Iteration 2:
+▶ While: quality < 0.9              [⟳ iteration 2, quality=0.65]
+   └─ ▶ Workflow: Improve Solution
+        ├─ Agent: code-writer       [✓ improved code]
+        └─ Validator: quality-check [✓ quality=0.82]
+                                    feedback: "Coverage at 75%, needs 80%"
+
+Iteration 3:
+▶ While: quality < 0.9              [⟳ iteration 3, quality=0.82]
+   └─ ▶ Workflow: Improve Solution
+        ├─ Agent: code-writer       [✓ final improvements]
+        └─ Validator: quality-check [✓ quality=0.91]
+                                    feedback: "All checks passed"
+
+▶ While: quality < 0.9              [✓ condition false, exiting]
+                                    total iterations: 3
+```
+
+#### JSON Definition
+
+```json
+{
+  "id": "iterative-improvement",
+  "blockType": "workflow",
+  "name": "Iterative Code Improvement",
+  "children": [
+    {
+      "id": "initial-task",
+      "blockType": "prompt",
+      "config": {
+        "content": "Write a function that calculates fibonacci"
+      }
+    },
+    {
+      "id": "improvement-loop",
+      "blockType": "while",
+      "config": {
+        "condition": "blocks['quality-check'].outputs.quality < 0.9",
+        "maxIterations": 10
+      },
+      "children": {
+        "body": [
+          {
+            "id": "improve-solution",
+            "blockType": "workflow",
+            "children": [
+              {
+                "id": "code-writer",
+                "blockType": "agent",
+                "config": {
+                  "model": "gpt-4",
+                  "systemPrompt": "You are a code improvement expert. Analyze feedback and improve the code."
+                },
+                "inputs": {
+                  "task": "Improve the code based on validator feedback",
+                  "previousCode": "${context.lastIteration.outputs.code}",
+                  "feedback": "${context.lastIteration.outputs.feedback}"
+                }
+              },
+              {
+                "id": "quality-check",
+                "blockType": "validator",
+                "config": {
+                  "checks": [
+                    { "type": "syntax", "weight": 0.2 },
+                    { "type": "tests", "command": "npm test", "weight": 0.3 },
+                    { "type": "coverage", "threshold": 80, "weight": 0.3 },
+                    { "type": "lint", "command": "npm run lint", "weight": 0.2 }
+                  ],
+                  "aggregation": "weighted_average"
+                },
+                "outputs": {
+                  "quality": "number",
+                  "feedback": "string",
+                  "details": "object"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "save-result",
+      "blockType": "command",
+      "config": {
+        "command": "save-artifact --name final-code --content ${blocks['code-writer'].outputs.code}"
+      }
+    }
+  ]
+}
+```
+
+#### Validator Block Definition
+
+```json
+{
+  "id": "validator",
+  "name": "Validator",
+  "blockType": "validator",
+  "isAtomic": true,
+  "description": "Validates outputs against defined quality checks. Returns aggregated quality score and detailed feedback.",
+
+  "config": {
+    "checks": {
+      "type": "array",
+      "description": "List of validation checks to perform",
+      "items": {
+        "type": {
+          "enum": ["syntax", "tests", "coverage", "lint", "custom", "llm-judge"]
+        },
+        "command": "string (optional)",
+        "threshold": "number (optional)",
+        "weight": "number (default: 1.0)",
+        "prompt": "string (for llm-judge)"
+      }
+    },
+    "aggregation": {
+      "type": "string",
+      "enum": ["weighted_average", "min", "all_pass"],
+      "default": "weighted_average"
+    },
+    "failThreshold": {
+      "type": "number",
+      "default": 0.0,
+      "description": "Quality below this fails the validator"
+    }
+  },
+
+  "inputs": {
+    "content": {
+      "type": "any",
+      "description": "Content to validate (code, text, data)"
+    },
+    "context": {
+      "type": "object",
+      "description": "Additional context for validation"
+    }
+  },
+
+  "outputs": {
+    "quality": {
+      "type": "number",
+      "range": [0, 1],
+      "description": "Aggregated quality score"
+    },
+    "passed": {
+      "type": "boolean",
+      "description": "Whether quality >= failThreshold"
+    },
+    "feedback": {
+      "type": "string",
+      "description": "Human-readable feedback for improvement"
+    },
+    "details": {
+      "type": "object",
+      "description": "Per-check results and scores"
+    }
+  }
+}
+```
+
+#### Why This Pattern Matters
+
+| Aspect | Benefit |
+|--------|---------|
+| **Iterative Refinement** | Agent improves based on concrete feedback |
+| **Measurable Progress** | Quality score tracks improvement |
+| **Automatic Termination** | Loop exits when threshold reached |
+| **Safety Limit** | `maxIterations` prevents infinite loops |
+| **Debuggable** | Each iteration is visible in execution tree |
+| **Training Data** | Each iteration generates training pairs |
+
+This pattern is the foundation for:
+- Agent self-improvement loops
+- Automated code review cycles
+- Quality-driven content generation
+- Reinforcement learning from validator feedback
+
 ---
 
 ## 6. LLM Reasoning Example
