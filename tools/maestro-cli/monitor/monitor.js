@@ -138,38 +138,47 @@ class MonitorShell {
      * Renders the monitor display.
      */
     render() {
-        // Clear screen and move to top
-        process.stdout.write('\x1B[2J\x1B[0;0H');
+        // Build entire output in a buffer first
+        this.buffer = [];
 
         if (this.lastError) {
             this.renderError();
-            return;
-        }
-
-        if (!this.session) {
-            console.log('\n  Loading session data...\n');
-            return;
-        }
-
-        this.renderHeader();
-        this.renderSeparator();
-
-        if (this.showVariables) {
-            this.renderVariables();
+        } else if (!this.session) {
+            this.buffer.push('');
+            this.buffer.push('  Loading session data...');
+            this.buffer.push('');
+        } else {
+            this.renderHeader();
             this.renderSeparator();
+
+            if (this.showVariables) {
+                this.renderVariables();
+                this.renderSeparator();
+            }
+
+            if (this.showWidgets) {
+                this.renderWidgets();
+                this.renderSeparator();
+            }
+
+            if (this.showEvents) {
+                this.renderEvents();
+                this.renderSeparator();
+            }
+
+            this.renderControls();
         }
 
-        if (this.showWidgets) {
-            this.renderWidgets();
-            this.renderSeparator();
-        }
+        // Clear screen, move to top, then output everything at once
+        const output = this.buffer.join('\n');
+        process.stdout.write('\x1B[2J\x1B[H' + output);
+    }
 
-        if (this.showEvents) {
-            this.renderEvents();
-            this.renderSeparator();
-        }
-
-        this.renderControls();
+    /**
+     * Adds a line to the render buffer.
+     */
+    print(line = '') {
+        this.buffer.push(line);
     }
 
     /**
@@ -180,14 +189,14 @@ class MonitorShell {
         const statusIcon = this.getStatusIcon(session.status);
         const duration = this.formatDuration(session.startedAt, session.completedAt);
 
-        console.log('');
-        console.log(`  ${'='.repeat(64)}`);
-        console.log(`  MONITOR: ${session.name || session.id}`);
-        console.log(`  ${'='.repeat(64)}`);
-        console.log('');
-        console.log(`  Status: ${statusIcon} ${session.status.toUpperCase()}    Duration: ${duration}`);
-        console.log(`  Type: ${session.type || 'project'}    Authority: ${session.authority || 'human'}`);
-        console.log(`  Commands: ${session.commandCount || 0}`);
+        this.print('');
+        this.print(`  ${'═'.repeat(70)}`);
+        this.print(`  ║  MONITOR: ${(session.name || session.id).padEnd(54)} ║`);
+        this.print(`  ${'═'.repeat(70)}`);
+        this.print('');
+        this.print(`  Status: ${statusIcon} ${session.status.toUpperCase()}    Duration: ${duration}`);
+        this.print(`  Type: ${session.type || 'project'}    Authority: ${session.authority || 'human'}`);
+        this.print(`  Commands: ${session.commandCount || 0}`);
     }
 
     /**
@@ -197,17 +206,17 @@ class MonitorShell {
         const vars = this.session.variables || {};
         const keys = Object.keys(vars);
 
-        console.log('');
-        console.log('  VARIABLES');
-        console.log(`  ${'-'.repeat(64)}`);
+        this.print('');
+        this.print('  VARIABLES');
+        this.print(`  ${'─'.repeat(70)}`);
 
         if (keys.length === 0) {
-            console.log('  (no variables set)');
+            this.print('  (no variables set)');
         } else {
             for (const key of keys) {
                 const value = vars[key];
                 const displayValue = this.formatValue(value);
-                console.log(`  ${key}: ${displayValue}`);
+                this.print(`    ${key}: ${displayValue}`);
             }
         }
     }
@@ -218,12 +227,12 @@ class MonitorShell {
     renderWidgets() {
         const widgetConfigs = this.session.monitorWidgets || [];
 
-        console.log('');
-        console.log('  CUSTOM WIDGETS');
-        console.log(`  ${'-'.repeat(64)}`);
+        this.print('');
+        this.print('  CUSTOM WIDGETS');
+        this.print(`  ${'─'.repeat(70)}`);
 
         if (widgetConfigs.length === 0) {
-            console.log('  (no widgets registered for this session)');
+            this.print('  (no widgets registered for this session)');
             return;
         }
 
@@ -231,10 +240,13 @@ class MonitorShell {
             try {
                 const widget = this.createWidget(config);
                 if (widget) {
-                    widget.render(this.session);
+                    const lines = widget.renderToLines(this.session);
+                    for (const line of lines) {
+                        this.print(`    ${line}`);
+                    }
                 }
             } catch (error) {
-                console.log(`  Widget error (${config.id}): ${error.message}`);
+                this.print(`    Widget error (${config.id}): ${error.message}`);
             }
         }
     }
@@ -255,9 +267,9 @@ class MonitorShell {
      * Renders the events section.
      */
     renderEvents() {
-        console.log('');
-        console.log('  RECENT EVENTS');
-        console.log(`  ${'-'.repeat(64)}`);
+        this.print('');
+        this.print('  RECENT EVENTS');
+        this.print(`  ${'─'.repeat(70)}`);
 
         // Note: Events would come from the session if available
         // For now, show a placeholder or use the API to get events
@@ -266,10 +278,10 @@ class MonitorShell {
             for (const evt of events) {
                 const time = new Date(evt.timestamp).toLocaleTimeString();
                 const icon = this.getEventIcon(evt.type);
-                console.log(`  ${icon} [${time}] ${evt.message || evt.type}`);
+                this.print(`    ${icon} [${time}] ${evt.message || evt.type}`);
             }
         } else {
-            console.log('  (no recent events)');
+            this.print('    (no recent events)');
         }
     }
 
@@ -277,25 +289,25 @@ class MonitorShell {
      * Renders the controls footer.
      */
     renderControls() {
-        console.log('');
-        console.log(`  ${'-'.repeat(64)}`);
-        console.log('  Controls: [r] refresh  [v] toggle vars  [w] toggle widgets  [e] toggle events  [q] quit');
-        console.log('');
+        this.print('');
+        this.print(`  ${'─'.repeat(70)}`);
+        this.print('  [r] refresh  [v] vars  [w] widgets  [e] events  [q] quit');
+        this.print('');
     }
 
     /**
      * Renders an error message.
      */
     renderError() {
-        console.log('');
-        console.log(`  ${'='.repeat(64)}`);
-        console.log('  MONITOR ERROR');
-        console.log(`  ${'='.repeat(64)}`);
-        console.log('');
-        console.log(`  Error: ${this.lastError}`);
-        console.log('');
-        console.log('  Press [r] to retry, [q] to quit');
-        console.log('');
+        this.print('');
+        this.print(`  ${'═'.repeat(70)}`);
+        this.print('  MONITOR ERROR');
+        this.print(`  ${'═'.repeat(70)}`);
+        this.print('');
+        this.print(`  Error: ${this.lastError}`);
+        this.print('');
+        this.print('  Press [r] to retry, [q] to quit');
+        this.print('');
     }
 
     /**

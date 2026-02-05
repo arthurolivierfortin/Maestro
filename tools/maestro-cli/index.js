@@ -10,6 +10,37 @@ const DEBUG = process.env.MAESTRO_DEBUG === 'true';
 
 const client = new MaestroApiClient(API_URL, { debug: DEBUG });
 
+/**
+ * Logs a command to the session's command history variable.
+ * This allows the TUI monitor to display commands in real-time.
+ */
+async function logSessionCommand(sessionId, command, result = null, status = 'completed') {
+  try {
+    // Get current command log
+    const session = await client.getSession(sessionId);
+    const currentLog = session.variables?._commandLog || [];
+
+    // Add new command entry
+    const entry = {
+      timestamp: new Date().toISOString(),
+      command: command,
+      result: result,
+      status: status
+    };
+
+    // Keep only last 50 commands
+    const newLog = [...currentLog, entry].slice(-50);
+
+    // Save back to session
+    await client._fetch('PUT', `/api/sessions/${sessionId}/variables/_commandLog`, {
+      body: { value: newLog }
+    });
+  } catch (e) {
+    // Silently fail - logging shouldn't break the main command
+    if (DEBUG) console.error('Command logging failed:', e.message);
+  }
+}
+
 // Legacy fallback functions for backward compatibility
 function loadJson(p) {
   try { return JSON.parse(fs.readFileSync(p, 'utf8')); } catch(e) { return null; }
@@ -844,7 +875,7 @@ async function createSession(options) {
   }
 }
 
-async function startSession(id) {
+async function startSession(id, options = {}) {
   try {
     console.log(`\n▶️  Starting session: ${id}\n`);
     const session = await client.startSession(id);
@@ -852,6 +883,46 @@ async function startSession(id) {
     console.log(`  Authority:    ${session.authority || 'human'}`);
     console.log(`  Working Dir:  ${session.workingDirectory || 'N/A'}`);
     console.log('');
+
+    // Launch monitor in a new window unless --no-monitor flag is set
+    if (!options.noMonitor) {
+      console.log('  Launching monitor in new window...\n');
+      const { spawn } = require('child_process');
+      const cliPath = path.resolve(__dirname, 'index.js');
+
+      // On Windows, use cmd /c start to open a new detached window
+      if (process.platform === 'win32') {
+        const child = spawn('cmd', [
+          '/c', 'start',
+          `Maestro Monitor - ${id.substring(0, 8)}`,
+          'powershell', '-NoExit', '-Command',
+          `node "${cliPath}" monitor ${id}`
+        ], {
+          detached: true,
+          stdio: 'ignore',
+          windowsHide: true
+        });
+        child.unref();
+      } else {
+        // On Unix-like systems, try to open a new terminal
+        const terminals = ['gnome-terminal', 'xterm', 'konsole'];
+        for (const term of terminals) {
+          try {
+            spawn(term, ['--', 'node', cliPath, 'monitor', id], {
+              detached: true,
+              stdio: 'ignore'
+            }).unref();
+            break;
+          } catch (e) {
+            continue;
+          }
+        }
+      }
+
+      console.log('  Monitor window opened!');
+      console.log('');
+    }
+
     console.log('  Execute commands with: maestro session exec ' + id + ' "<command>"');
     console.log('  Stop session with:     maestro session stop ' + id);
     console.log('');
@@ -1170,6 +1241,9 @@ async function getSessionVariable(sessionId, key) {
 
 async function setSessionVariable(sessionId, key, value) {
   try {
+    // Don't log internal command log updates
+    const isInternalVar = key.startsWith('_');
+
     // Try to parse as JSON if it looks like JSON
     let parsedValue = value;
     if (typeof value === 'string') {
@@ -1190,8 +1264,14 @@ async function setSessionVariable(sessionId, key, value) {
       body: { value: parsedValue }
     });
 
-    console.log(`\n✅ Variable '${key}' set successfully\n`);
     const displayValue = typeof parsedValue === 'object' ? JSON.stringify(parsedValue) : parsedValue;
+
+    // Log the command to session history (but not for internal vars)
+    if (!isInternalVar) {
+      await logSessionCommand(sessionId, `vars set ${key} ${value}`, `${key}: ${displayValue}`);
+    }
+
+    console.log(`\n✅ Variable '${key}' set successfully\n`);
     console.log(`  ${key}: ${displayValue}`);
     console.log('');
   } catch (error) {
@@ -3993,7 +4073,7 @@ async function rejectBlock(id, reason, options = {}) {
 
 async function main() {
   const argv = minimist(process.argv.slice(2), {
-    boolean: ['mock', 'help', 'h', 'force', 'status', 'push', 'run-tests', 'run-linter', 'keep-changes', 'pending-approval'],
+    boolean: ['mock', 'help', 'h', 'force', 'status', 'push', 'run-tests', 'run-linter', 'keep-changes', 'pending-approval', 'no-monitor', 'list', 'no-back', 'debug'],
     string: ['api-url', 'u', 'name', 'path', 'description', 'runtime', 'image', 'work-dir', 'block-paths', 'model', 'lines', 'since', 'working-dir', 'workdir', 'workflow', 'iterations', 'parallel', 'delay', 'goal', 'tags', 'inputs', 'config', 'from', 'to', 'limit', 'block', 'category', 'version', 'author', 'capabilities', 'tools', 'agents', 'type', 'project', 'task', 'context', 'access', 'test-command', 'linter-command', 'max-steps', 'timeout', 'message', 'branch', 'scope', 'authority', 'allowed-paths', 'denied-paths', 'filter', 'offset', 'command', 'from-session', 'template', 'reason']
   });
 
@@ -4010,7 +4090,7 @@ async function main() {
     const shell = new MaestroShell(async (args) => {
       // Create a new argv-like object for the command
       const innerArgv = minimist(args, {
-        boolean: ['mock', 'help', 'h', 'force', 'status', 'push', 'run-tests', 'run-linter', 'keep-changes', 'pending-approval'],
+        boolean: ['mock', 'help', 'h', 'force', 'status', 'push', 'run-tests', 'run-linter', 'keep-changes', 'pending-approval', 'no-monitor', 'list', 'no-back', 'debug'],
         string: ['api-url', 'u', 'name', 'path', 'description', 'runtime', 'image', 'work-dir', 'block-paths', 'model', 'lines', 'since', 'working-dir', 'workdir', 'workflow', 'iterations', 'parallel', 'delay', 'goal', 'tags', 'inputs', 'config', 'from', 'to', 'limit', 'block', 'category', 'version', 'author', 'capabilities', 'tools', 'agents', 'type', 'project', 'task', 'context', 'access', 'test-command', 'linter-command', 'max-steps', 'timeout', 'message', 'branch', 'scope', 'authority', 'allowed-paths', 'denied-paths', 'filter', 'offset', 'command', 'json', 'from-session', 'template', 'reason']
       });
       await executeWithArgv(innerArgv);
@@ -4067,7 +4147,7 @@ Interactive Session Commands (Session Server Architecture):
   session list         List sessions with filters (--status, --project, --limit)
   session info <id>    Show session details
   session create       Create a new session (--type foundry|project, --name)
-  session start <id>   Start a session
+  session start <id>   Start session and launch monitor (--no-monitor to skip)
   session pause <id>   Pause a running session
   session resume <id>  Resume a paused session
   session stop <id>    Stop a session
@@ -4082,8 +4162,12 @@ Interactive Session Commands (Session Server Architecture):
   session delete <id>  Delete a session
 
 Monitor Commands:
-  monitor <id>         Launch real-time session monitor
-                       Options: --refresh <sec> --max-events <n>
+  monitor              Launch monitor with session list (global view)
+  monitor --list       Same as above (explicit)
+  monitor <id>         Launch monitor for specific session
+                       Options: --refresh <sec> --layout <auto|execution|idle>
+                                --view <tree|files|vars|logs|widgets>
+                                --no-back (disable Escape to return to list)
 
 Training Commands:
   training             List all training configurations
@@ -4478,20 +4562,28 @@ async function executeWithArgv(argv) {
     }
     if (cmd === 'health') return await checkHealth();
 
-    // Monitor command - launches session monitor
+    // Monitor command - launches session monitor (TUI)
     if (cmd === 'monitor') {
       const sessionId = argv._[1];
-      if (!sessionId) {
-        console.error('❌ Session ID required');
-        console.error('   Usage: maestro monitor <session-id>');
-        process.exit(1);
+      const listMode = argv.list || !sessionId;
+
+      const { startMonitor } = require('./monitor/tui-monitor.js');
+
+      const options = {
+        refreshInterval: argv.refresh ? parseInt(argv.refresh) * 1000 : (listMode ? 3000 : 2000),
+        layout: argv.layout || 'auto',
+        view: argv.view || null,
+        debug: argv.debug || false,
+        returnToList: !argv['no-back'] // Allow Escape to return to list by default
+      };
+
+      if (listMode) {
+        // Global monitor - show session list
+        return startMonitor(null, client, options);
+      } else {
+        // Session-specific monitor
+        return startMonitor(sessionId, client, options);
       }
-      const { MonitorShell } = require('./monitor/monitor.js');
-      const monitor = new MonitorShell(sessionId, client, {
-        refreshInterval: argv.refresh ? parseInt(argv.refresh) * 1000 : 2000,
-        maxEvents: argv['max-events'] ? parseInt(argv['max-events']) : 10
-      });
-      return monitor.start();
     }
 
     // Project commands
@@ -4690,7 +4782,7 @@ async function executeWithArgv(argv) {
       if (subCmd === 'start') {
         const id = argv._[2];
         if (!id) { console.error('❌ Session ID required'); process.exit(1); }
-        return await startSession(id);
+        return await startSession(id, { noMonitor: argv['no-monitor'] });
       }
 
       if (subCmd === 'pause') {

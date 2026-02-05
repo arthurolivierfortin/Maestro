@@ -832,6 +832,20 @@ class MaestroApiClient {
   }
 
   /**
+   * Get session command history.
+   * @param {string} id - Session ID
+   * @param {Object} options - Pagination options: limit, offset
+   */
+  async getSessionCommands(id, options = {}) {
+    if (!id) throw new Error('Session ID is required');
+    const params = new URLSearchParams();
+    if (options.limit) params.set('limit', options.limit.toString());
+    if (options.offset) params.set('offset', options.offset.toString());
+    const queryString = params.toString();
+    return this._fetch('GET', `/api/sessions/${id}/commands${queryString ? `?${queryString}` : ''}`);
+  }
+
+  /**
    * Delete a session.
    * @param {string} id - Session ID
    */

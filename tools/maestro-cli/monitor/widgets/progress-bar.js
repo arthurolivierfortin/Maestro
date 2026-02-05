@@ -27,9 +27,9 @@ class ProgressBarWidget {
     }
 
     /**
-     * Renders the widget.
+     * Renders the widget to an array of lines.
      */
-    render(session) {
+    renderToLines(session) {
         const current = this.resolvePath(session, this.currentPath);
         const max = this.resolvePath(session, this.maxPath);
 
@@ -43,7 +43,17 @@ class ProgressBarWidget {
         const bar = '\u2588'.repeat(filled) + '\u2591'.repeat(empty);
         const percentStr = this.showPercent ? ` ${Math.round(percent)}%` : '';
 
-        console.log(`  ${this.label}: [${bar}] ${numCurrent}/${numMax}${percentStr}`);
+        return [`${this.label}: [${bar}] ${numCurrent}/${numMax}${percentStr}`];
+    }
+
+    /**
+     * Renders the widget (legacy).
+     */
+    render(session) {
+        const lines = this.renderToLines(session);
+        for (const line of lines) {
+            console.log(`  ${line}`);
+        }
     }
 
     /**

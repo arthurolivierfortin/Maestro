@@ -30,9 +30,9 @@ class ScoreChartWidget {
     }
 
     /**
-     * Renders the widget.
+     * Renders the widget to an array of lines.
      */
-    render(session) {
+    renderToLines(session) {
         const value = this.resolvePath(session, this.valuePath);
         const threshold = this.thresholdPath ? this.resolvePath(session, this.thresholdPath) : null;
         const history = this.historyPath ? this.resolvePath(session, this.historyPath) : null;
@@ -58,7 +58,17 @@ class ScoreChartWidget {
             sparkline = ' ' + this.renderSparkline(history);
         }
 
-        console.log(`  ${statusIcon} ${this.label}: ${displayValue}${thresholdStr}${sparkline}`);
+        return [`${statusIcon} ${this.label}: ${displayValue}${thresholdStr}${sparkline}`];
+    }
+
+    /**
+     * Renders the widget (legacy).
+     */
+    render(session) {
+        const lines = this.renderToLines(session);
+        for (const line of lines) {
+            console.log(`  ${line}`);
+        }
     }
 
     /**

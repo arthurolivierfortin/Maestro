@@ -64,10 +64,11 @@ class StatusListWidget {
     }
 
     /**
-     * Renders the widget.
+     * Renders the widget to an array of lines.
      */
-    render(session) {
-        console.log(`  ${this.label}:`);
+    renderToLines(session) {
+        const lines = [];
+        lines.push(`${this.label}:`);
 
         let itemList = this.items;
 
@@ -83,8 +84,8 @@ class StatusListWidget {
         }
 
         if (itemList.length === 0) {
-            console.log('    (no items)');
-            return;
+            lines.push('  (no items)');
+            return lines;
         }
 
         for (const item of itemList) {
@@ -92,7 +93,19 @@ class StatusListWidget {
             const status = this.resolvePath(session, item.status);
             const statusStr = String(status).toLowerCase();
             const icon = this.statusIcons[statusStr] || '\u26AA';
-            console.log(`    ${icon} ${name}`);
+            lines.push(`  ${icon} ${name}`);
+        }
+
+        return lines;
+    }
+
+    /**
+     * Renders the widget (legacy).
+     */
+    render(session) {
+        const lines = this.renderToLines(session);
+        for (const line of lines) {
+            console.log(`  ${line}`);
         }
     }
 

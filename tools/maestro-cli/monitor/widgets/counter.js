@@ -26,9 +26,9 @@ class CounterWidget {
     }
 
     /**
-     * Renders the widget.
+     * Renders the widget to an array of lines.
      */
-    render(session) {
+    renderToLines(session) {
         const value = this.resolvePath(session, this.valuePath);
         const max = this.maxPath ? this.resolvePath(session, this.maxPath) : null;
 
@@ -38,7 +38,17 @@ class CounterWidget {
         const iconStr = this.icon ? `${this.icon} ` : '';
         const maxStr = numMax !== null ? `/${numMax}` : '';
 
-        console.log(`  ${iconStr}${this.label}: ${numValue}${maxStr}`);
+        return [`${iconStr}${this.label}: ${numValue}${maxStr}`];
+    }
+
+    /**
+     * Renders the widget (legacy).
+     */
+    render(session) {
+        const lines = this.renderToLines(session);
+        for (const line of lines) {
+            console.log(`  ${line}`);
+        }
     }
 
     /**
