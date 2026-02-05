@@ -1,0 +1,195 @@
+{
+  "$schema": "../../../../docs/schemas/block.schema.json",
+  "id": "foundry:collect-metrics",
+  "name": "Collect Session Metrics",
+  "blockType": "workflow",
+  "version": "1.0.0",
+  "isAtomic": false,
+  "description": "Aggregates and stores metrics from a Foundry session. Calculates fitness trends, pass rates, and performance statistics.",
+
+  "inputs": [
+    {
+      "id": "sessionId",
+      "name": "Session ID",
+      "type": "string",
+      "required": true,
+      "description": "ID of the session to collect metrics from"
+    },
+    {
+      "id": "runIds",
+      "name": "Run IDs",
+      "type": "array",
+      "required": false,
+      "description": "Specific run IDs to include (empty = all runs)"
+    },
+    {
+      "id": "timeRange",
+      "name": "Time Range",
+      "type": "object",
+      "required": false,
+      "description": "Time range filter { from: ISO date, to: ISO date }"
+    },
+    {
+      "id": "groupBy",
+      "name": "Group By",
+      "type": "string",
+      "required": false,
+      "default": "run",
+      "description": "Grouping: run, hour, day, or iteration"
+    }
+  ],
+
+  "outputs": [
+    {
+      "id": "summary",
+      "name": "Metrics Summary",
+      "type": "object",
+      "description": "High-level metrics summary"
+    },
+    {
+      "id": "trends",
+      "name": "Fitness Trends",
+      "type": "array",
+      "description": "Fitness score trend over time"
+    },
+    {
+      "id": "passRate",
+      "name": "Overall Pass Rate",
+      "type": "number",
+      "description": "Percentage of iterations that passed"
+    },
+    {
+      "id": "performanceStats",
+      "name": "Performance Statistics",
+      "type": "object",
+      "description": "Execution time statistics"
+    },
+    {
+      "id": "byRun",
+      "name": "Metrics by Run",
+      "type": "array",
+      "description": "Detailed metrics broken down by run"
+    }
+  ],
+
+  "config": {
+    "nodes": [
+      {
+        "id": "load-session",
+        "blockRef": "system:session-loader",
+        "inputs": {
+          "sessionId": "{{inputs.sessionId}}"
+        }
+      },
+      {
+        "id": "load-runs",
+        "blockRef": "system:run-tracker",
+        "inputs": {
+          "action": "list",
+          "sessionId": "{{inputs.sessionId}}",
+          "runIds": "{{inputs.runIds}}",
+          "timeRange": "{{inputs.timeRange}}"
+        }
+      },
+      {
+        "id": "aggregate-fitness",
+        "blockRef": "system:metrics-aggregator",
+        "inputs": {
+          "runs": "{{load-runs.runs}}",
+          "metric": "fitness",
+          "groupBy": "{{inputs.groupBy}}"
+        }
+      },
+      {
+        "id": "calculate-pass-rate",
+        "blockRef": "system:metrics-aggregator",
+        "inputs": {
+          "runs": "{{load-runs.runs}}",
+          "metric": "passRate",
+          "aggregation": "average"
+        }
+      },
+      {
+        "id": "calculate-performance",
+        "blockRef": "system:metrics-aggregator",
+        "inputs": {
+          "runs": "{{load-runs.runs}}",
+          "metric": "duration",
+          "aggregation": ["min", "max", "average", "p50", "p95", "p99"]
+        }
+      },
+      {
+        "id": "calculate-trends",
+        "blockRef": "system:trend-calculator",
+        "inputs": {
+          "data": "{{aggregate-fitness.byGroup}}",
+          "metric": "averageFitness",
+          "windowSize": 5
+        }
+      },
+      {
+        "id": "build-summary",
+        "blockRef": "system:data-transformer",
+        "inputs": {
+          "template": {
+            "totalRuns": "{{load-runs.runs.length}}",
+            "totalIterations": "{{aggregate-fitness.totalIterations}}",
+            "averageFitness": "{{aggregate-fitness.average}}",
+            "minFitness": "{{aggregate-fitness.min}}",
+            "maxFitness": "{{aggregate-fitness.max}}",
+            "passRate": "{{calculate-pass-rate.average}}",
+            "trend": "{{calculate-trends.direction}}",
+            "lastUpdated": "{{now}}"
+          }
+        }
+      },
+      {
+        "id": "update-session-metrics",
+        "blockRef": "system:session-vars",
+        "inputs": {
+          "sessionId": "{{inputs.sessionId}}",
+          "action": "set-multiple",
+          "values": {
+            "lastMetricsCollection": "{{now}}",
+            "currentFitness": "{{aggregate-fitness.latest}}",
+            "passRate": "{{calculate-pass-rate.average}}",
+            "iterationCount": "{{aggregate-fitness.totalIterations}}"
+          }
+        }
+      },
+      {
+        "id": "store-metrics",
+        "blockRef": "system:metrics-store",
+        "inputs": {
+          "sessionId": "{{inputs.sessionId}}",
+          "metrics": {
+            "summary": "{{build-summary}}",
+            "trends": "{{calculate-trends.values}}",
+            "performance": "{{calculate-performance}}",
+            "byRun": "{{aggregate-fitness.byGroup}}"
+          }
+        }
+      }
+    ],
+    "connections": [
+      { "from": "load-session", "to": "load-runs" },
+      { "from": "load-runs", "to": "aggregate-fitness" },
+      { "from": "load-runs", "to": "calculate-pass-rate" },
+      { "from": "load-runs", "to": "calculate-performance" },
+      { "from": "aggregate-fitness", "to": "calculate-trends" },
+      { "from": "aggregate-fitness", "to": "build-summary" },
+      { "from": "calculate-pass-rate", "to": "build-summary" },
+      { "from": "calculate-trends", "to": "build-summary" },
+      { "from": "build-summary", "to": "update-session-metrics" },
+      { "from": "update-session-metrics", "to": "store-metrics" }
+    ]
+  },
+
+  "metadata": {
+    "category": "foundry",
+    "tags": ["workflow", "foundry", "metrics", "analytics", "reporting"],
+    "entryPoint": "collect-metrics"
+  },
+
+  "capabilities": ["orchestration", "metrics", "analytics"]
+}

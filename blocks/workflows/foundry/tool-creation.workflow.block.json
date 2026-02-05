@@ -1,0 +1,183 @@
+{
+  "$schema": "../../../../docs/schemas/block.schema.json",
+  "id": "foundry:tool-creation",
+  "name": "Tool Creation Workflow",
+  "blockType": "workflow",
+  "version": "1.0.0",
+  "isAtomic": false,
+  "description": "Guided workflow for creating a new tool block. Generates scaffolding, implements logic, adds tests, and validates the tool.",
+
+  "inputs": [
+    {
+      "id": "name",
+      "name": "Tool Name",
+      "type": "string",
+      "required": true,
+      "description": "Name of the tool to create"
+    },
+    {
+      "id": "description",
+      "name": "Description",
+      "type": "string",
+      "required": true,
+      "description": "What the tool does"
+    },
+    {
+      "id": "category",
+      "name": "Category",
+      "type": "string",
+      "required": false,
+      "default": "utility",
+      "description": "Tool category (utility, data, integration, etc.)"
+    },
+    {
+      "id": "inputSchema",
+      "name": "Input Schema",
+      "type": "object",
+      "required": false,
+      "description": "JSON schema for tool inputs"
+    },
+    {
+      "id": "outputSchema",
+      "name": "Output Schema",
+      "type": "object",
+      "required": false,
+      "description": "JSON schema for tool outputs"
+    },
+    {
+      "id": "implementation",
+      "name": "Implementation Type",
+      "type": "string",
+      "required": false,
+      "default": "script",
+      "description": "Implementation type: script, http, cli, or llm"
+    }
+  ],
+
+  "outputs": [
+    {
+      "id": "toolId",
+      "name": "Tool ID",
+      "type": "string",
+      "description": "ID of the created tool"
+    },
+    {
+      "id": "blockPath",
+      "name": "Block Path",
+      "type": "string",
+      "description": "Filesystem path to the tool block"
+    },
+    {
+      "id": "validationResult",
+      "name": "Validation Result",
+      "type": "object",
+      "description": "Results of tool validation tests"
+    },
+    {
+      "id": "ready",
+      "name": "Ready for Use",
+      "type": "boolean",
+      "description": "Whether the tool passed all validations"
+    }
+  ],
+
+  "config": {
+    "nodes": [
+      {
+        "id": "generate-schema",
+        "blockRef": "inference/schema-generator",
+        "inputs": {
+          "name": "{{inputs.name}}",
+          "description": "{{inputs.description}}",
+          "inputHints": "{{inputs.inputSchema}}",
+          "outputHints": "{{inputs.outputSchema}}"
+        }
+      },
+      {
+        "id": "scaffold-tool",
+        "blockRef": "system:block-scaffolder",
+        "inputs": {
+          "blockType": "tool",
+          "name": "{{inputs.name}}",
+          "description": "{{inputs.description}}",
+          "category": "{{inputs.category}}",
+          "inputs": "{{generate-schema.inputs}}",
+          "outputs": "{{generate-schema.outputs}}"
+        }
+      },
+      {
+        "id": "generate-implementation",
+        "blockRef": "inference/implementation-generator",
+        "inputs": {
+          "blockType": "tool",
+          "implementationType": "{{inputs.implementation}}",
+          "schema": "{{generate-schema}}",
+          "description": "{{inputs.description}}"
+        }
+      },
+      {
+        "id": "write-implementation",
+        "blockRef": "system:file-writer",
+        "inputs": {
+          "path": "{{scaffold-tool.blockPath}}/implementation.js",
+          "content": "{{generate-implementation.code}}"
+        }
+      },
+      {
+        "id": "generate-tests",
+        "blockRef": "inference/test-generator",
+        "inputs": {
+          "blockType": "tool",
+          "schema": "{{generate-schema}}",
+          "implementation": "{{generate-implementation.code}}"
+        }
+      },
+      {
+        "id": "write-tests",
+        "blockRef": "system:file-writer",
+        "inputs": {
+          "path": "{{scaffold-tool.blockPath}}/tests.json",
+          "content": "{{generate-tests.tests}}"
+        }
+      },
+      {
+        "id": "validate-tool",
+        "blockRef": "foundry:block-validation",
+        "inputs": {
+          "blockId": "{{scaffold-tool.blockId}}",
+          "runTests": true
+        }
+      },
+      {
+        "id": "register-tool",
+        "type": "conditional",
+        "condition": "{{validate-tool.valid}}",
+        "then": {
+          "blockRef": "system:tool-registry",
+          "inputs": {
+            "action": "register",
+            "blockId": "{{scaffold-tool.blockId}}",
+            "category": "{{inputs.category}}"
+          }
+        }
+      }
+    ],
+    "connections": [
+      { "from": "generate-schema", "to": "scaffold-tool" },
+      { "from": "scaffold-tool", "to": "generate-implementation" },
+      { "from": "generate-implementation", "to": "write-implementation" },
+      { "from": "write-implementation", "to": "generate-tests" },
+      { "from": "generate-tests", "to": "write-tests" },
+      { "from": "write-tests", "to": "validate-tool" },
+      { "from": "validate-tool", "to": "register-tool" }
+    ]
+  },
+
+  "metadata": {
+    "category": "foundry",
+    "tags": ["workflow", "foundry", "creation", "tool", "scaffolding"],
+    "entryPoint": "create-tool"
+  },
+
+  "capabilities": ["orchestration", "llm", "file-write"]
+}

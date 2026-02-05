@@ -77,6 +77,18 @@ public abstract class Session : ContainerSession
     public string? ParentSessionId { get; protected set; }
 
     /// <summary>
+    /// Entry points mapping names to workflow IDs.
+    /// Sessions define their own entry points (e.g., "start" -> "workflow:main").
+    /// </summary>
+    public Dictionary<string, string> EntryPoints { get; protected set; } = new();
+
+    /// <summary>
+    /// Monitor widget configurations for this session.
+    /// Sessions register their own widgets using generic types.
+    /// </summary>
+    public List<MonitorWidgetConfig> MonitorWidgets { get; protected set; } = new();
+
+    /// <summary>
     /// Type of session (Project, Foundry).
     /// </summary>
     public abstract SessionType SessionType { get; }
@@ -383,6 +395,89 @@ public abstract class Session : ContainerSession
         }
 
         return MapStatusToSessionStatus(Status);
+    }
+
+    // ===== Entry Point Methods =====
+
+    /// <summary>
+    /// Registers an entry point mapping.
+    /// </summary>
+    /// <param name="name">The entry point name (e.g., "start", "custom").</param>
+    /// <param name="workflowId">The workflow ID to invoke.</param>
+    public virtual void RegisterEntryPoint(string name, string workflowId)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+            throw new ArgumentException("Entry point name cannot be empty", nameof(name));
+        if (string.IsNullOrWhiteSpace(workflowId))
+            throw new ArgumentException("Workflow ID cannot be empty", nameof(workflowId));
+
+        EntryPoints[name] = workflowId;
+        UpdatedAt = DateTimeOffset.UtcNow;
+        EmitEvent(SessionEvent.Info(Id, $"Entry point registered: {name} -> {workflowId}"));
+    }
+
+    /// <summary>
+    /// Gets the workflow ID for an entry point.
+    /// </summary>
+    /// <param name="name">The entry point name.</param>
+    /// <returns>The workflow ID or null if not found.</returns>
+    public virtual string? GetEntryPoint(string name)
+    {
+        return EntryPoints.TryGetValue(name, out var workflowId) ? workflowId : null;
+    }
+
+    /// <summary>
+    /// Removes an entry point mapping.
+    /// </summary>
+    /// <param name="name">The entry point name.</param>
+    /// <returns>True if the entry point was removed.</returns>
+    public virtual bool RemoveEntryPoint(string name)
+    {
+        if (EntryPoints.Remove(name))
+        {
+            UpdatedAt = DateTimeOffset.UtcNow;
+            EmitEvent(SessionEvent.Info(Id, $"Entry point removed: {name}"));
+            return true;
+        }
+        return false;
+    }
+
+    // ===== Widget Methods =====
+
+    /// <summary>
+    /// Registers a monitor widget configuration.
+    /// </summary>
+    /// <param name="widget">The widget configuration.</param>
+    public virtual void RegisterWidget(MonitorWidgetConfig widget)
+    {
+        ArgumentNullException.ThrowIfNull(widget);
+        if (string.IsNullOrWhiteSpace(widget.Id))
+            throw new ArgumentException("Widget ID cannot be empty");
+        if (string.IsNullOrWhiteSpace(widget.Type))
+            throw new ArgumentException("Widget type cannot be empty");
+
+        // Remove existing widget with same ID
+        MonitorWidgets.RemoveAll(w => w.Id == widget.Id);
+        MonitorWidgets.Add(widget);
+        UpdatedAt = DateTimeOffset.UtcNow;
+        EmitEvent(SessionEvent.Info(Id, $"Widget registered: {widget.Id} ({widget.Type})"));
+    }
+
+    /// <summary>
+    /// Removes a monitor widget.
+    /// </summary>
+    /// <param name="widgetId">The widget ID.</param>
+    /// <returns>True if the widget was removed.</returns>
+    public virtual bool RemoveWidget(string widgetId)
+    {
+        var removed = MonitorWidgets.RemoveAll(w => w.Id == widgetId);
+        if (removed > 0)
+        {
+            UpdatedAt = DateTimeOffset.UtcNow;
+            EmitEvent(SessionEvent.Info(Id, $"Widget removed: {widgetId}"));
+            return true;
+        }
+        return false;
     }
 
     // ===== Utility Properties =====

@@ -1,5 +1,9 @@
 # Foundry Session - Detailed Guide
 
+> **See also:**
+> - [Foundry Session Guide (Phase 8)](./foundry-session-guide.md) - Guide pratique avec entry points, variables, widgets et système d'approbation
+> - [Quick Start](./foundry-quickstart.md) - Démarrage rapide en 5 minutes
+
 ## Overview
 
 A **Foundry Session** is an **interactive server environment** for developing, training, and publishing blocks (tools, agents, workflows). The **Authority** (human, AI, or agent) works in an isolated sandbox to forge and validate blocks before publishing to the catalog.

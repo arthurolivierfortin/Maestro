@@ -1,0 +1,184 @@
+{
+  "$schema": "../../../../docs/schemas/block.schema.json",
+  "id": "foundry:block-validation",
+  "name": "Block Validation Workflow",
+  "blockType": "workflow",
+  "version": "1.0.0",
+  "isAtomic": false,
+  "description": "Comprehensive validation workflow for any block type. Checks schema validity, runs tests, evaluates quality, and generates a validation report.",
+
+  "inputs": [
+    {
+      "id": "blockId",
+      "name": "Block ID",
+      "type": "string",
+      "required": true,
+      "description": "ID of the block to validate"
+    },
+    {
+      "id": "runTests",
+      "name": "Run Tests",
+      "type": "boolean",
+      "required": false,
+      "default": true,
+      "description": "Execute block tests as part of validation"
+    },
+    {
+      "id": "testInputs",
+      "name": "Test Inputs",
+      "type": "array",
+      "required": false,
+      "description": "Custom test inputs to use"
+    },
+    {
+      "id": "strictMode",
+      "name": "Strict Mode",
+      "type": "boolean",
+      "required": false,
+      "default": false,
+      "description": "Fail on warnings (not just errors)"
+    }
+  ],
+
+  "outputs": [
+    {
+      "id": "valid",
+      "name": "Is Valid",
+      "type": "boolean",
+      "description": "Whether the block passed validation"
+    },
+    {
+      "id": "score",
+      "name": "Validation Score",
+      "type": "number",
+      "description": "Overall validation score (0.0-1.0)"
+    },
+    {
+      "id": "errors",
+      "name": "Errors",
+      "type": "array",
+      "description": "List of validation errors"
+    },
+    {
+      "id": "warnings",
+      "name": "Warnings",
+      "type": "array",
+      "description": "List of validation warnings"
+    },
+    {
+      "id": "testResults",
+      "name": "Test Results",
+      "type": "object",
+      "description": "Results from test execution"
+    },
+    {
+      "id": "report",
+      "name": "Validation Report",
+      "type": "object",
+      "description": "Complete validation report"
+    }
+  ],
+
+  "config": {
+    "nodes": [
+      {
+        "id": "load-block",
+        "blockRef": "system:block-loader",
+        "inputs": {
+          "blockId": "{{inputs.blockId}}",
+          "includeChildren": true
+        }
+      },
+      {
+        "id": "validate-schema",
+        "blockRef": "validators/json-schema",
+        "inputs": {
+          "data": "{{load-block.definition}}",
+          "schema": "block.schema.json"
+        }
+      },
+      {
+        "id": "validate-structure",
+        "blockRef": "validators/block-structure",
+        "inputs": {
+          "block": "{{load-block.definition}}",
+          "blockType": "{{load-block.blockType}}"
+        }
+      },
+      {
+        "id": "validate-references",
+        "blockRef": "validators/reference-resolver",
+        "inputs": {
+          "block": "{{load-block.definition}}",
+          "children": "{{load-block.children}}"
+        }
+      },
+      {
+        "id": "run-tests",
+        "type": "conditional",
+        "condition": "{{inputs.runTests}}",
+        "then": {
+          "blockRef": "system:test-runner",
+          "inputs": {
+            "blockId": "{{inputs.blockId}}",
+            "testInputs": "{{inputs.testInputs}}",
+            "timeout": 30000
+          }
+        },
+        "else": {
+          "type": "passthrough",
+          "value": { "skipped": true }
+        }
+      },
+      {
+        "id": "quality-check",
+        "blockRef": "inference/quality-evaluator",
+        "inputs": {
+          "block": "{{load-block.definition}}",
+          "testResults": "{{run-tests.results}}",
+          "criteria": ["completeness", "documentation", "error-handling", "naming"]
+        }
+      },
+      {
+        "id": "aggregate-results",
+        "blockRef": "system:result-aggregator",
+        "inputs": {
+          "schemaValidation": "{{validate-schema}}",
+          "structureValidation": "{{validate-structure}}",
+          "referenceValidation": "{{validate-references}}",
+          "testResults": "{{run-tests}}",
+          "qualityCheck": "{{quality-check}}",
+          "strictMode": "{{inputs.strictMode}}"
+        }
+      },
+      {
+        "id": "generate-report",
+        "blockRef": "system:report-generator",
+        "inputs": {
+          "blockId": "{{inputs.blockId}}",
+          "validationResults": "{{aggregate-results}}",
+          "format": "json"
+        }
+      }
+    ],
+    "connections": [
+      { "from": "load-block", "to": "validate-schema" },
+      { "from": "load-block", "to": "validate-structure" },
+      { "from": "load-block", "to": "validate-references" },
+      { "from": "validate-schema", "to": "run-tests" },
+      { "from": "validate-structure", "to": "run-tests" },
+      { "from": "validate-references", "to": "run-tests" },
+      { "from": "run-tests", "to": "quality-check" },
+      { "from": "quality-check", "to": "aggregate-results" },
+      { "from": "aggregate-results", "to": "generate-report" }
+    ]
+  },
+
+  "metadata": {
+    "category": "foundry",
+    "tags": ["workflow", "foundry", "validation", "testing", "quality"],
+    "entryPoint": "validate-block"
+  },
+
+  "capabilities": ["orchestration", "validation", "testing"]
+}

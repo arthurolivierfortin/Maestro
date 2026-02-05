@@ -1,0 +1,245 @@
+{
+  "$schema": "../../../../docs/schemas/block.schema.json",
+  "id": "foundry:evaluate-iteration",
+  "name": "Evaluate Training Iteration",
+  "blockType": "workflow",
+  "version": "1.0.0",
+  "isAtomic": false,
+  "description": "Evaluates a single training iteration result. Supports automatic (LLM), manual (human), and hybrid evaluation modes.",
+
+  "inputs": [
+    {
+      "id": "blockId",
+      "name": "Block ID",
+      "type": "string",
+      "required": true,
+      "description": "ID of the block being evaluated"
+    },
+    {
+      "id": "iterationNumber",
+      "name": "Iteration Number",
+      "type": "number",
+      "required": true,
+      "description": "Current iteration number"
+    },
+    {
+      "id": "inputs",
+      "name": "Inputs",
+      "type": "object",
+      "required": true,
+      "description": "Inputs provided to the block"
+    },
+    {
+      "id": "output",
+      "name": "Output",
+      "type": "any",
+      "required": true,
+      "description": "Output from the block execution"
+    },
+    {
+      "id": "duration",
+      "name": "Duration",
+      "type": "number",
+      "required": false,
+      "description": "Execution duration in milliseconds"
+    },
+    {
+      "id": "expectedOutput",
+      "name": "Expected Output",
+      "type": "any",
+      "required": false,
+      "description": "Expected output for comparison (if available)"
+    },
+    {
+      "id": "evaluationMode",
+      "name": "Evaluation Mode",
+      "type": "string",
+      "required": false,
+      "default": "auto",
+      "description": "Evaluation mode: auto, manual, or hybrid"
+    },
+    {
+      "id": "passThreshold",
+      "name": "Pass Threshold",
+      "type": "number",
+      "required": false,
+      "default": 0.7,
+      "description": "Score threshold for passing"
+    },
+    {
+      "id": "humanReviewThreshold",
+      "name": "Human Review Threshold",
+      "type": "number",
+      "required": false,
+      "default": 0.5,
+      "description": "Score below which human review is required (hybrid mode)"
+    },
+    {
+      "id": "criteria",
+      "name": "Evaluation Criteria",
+      "type": "array",
+      "required": false,
+      "default": ["correctness", "completeness", "efficiency"],
+      "description": "Criteria to evaluate against"
+    }
+  ],
+
+  "outputs": [
+    {
+      "id": "score",
+      "name": "Score",
+      "type": "number",
+      "description": "Evaluation score (0.0-1.0)"
+    },
+    {
+      "id": "passed",
+      "name": "Passed",
+      "type": "boolean",
+      "description": "Whether the iteration passed the threshold"
+    },
+    {
+      "id": "feedback",
+      "name": "Feedback",
+      "type": "string",
+      "description": "Evaluation feedback or reasoning"
+    },
+    {
+      "id": "needsReview",
+      "name": "Needs Human Review",
+      "type": "boolean",
+      "description": "Whether human review is required"
+    },
+    {
+      "id": "criteriaScores",
+      "name": "Criteria Scores",
+      "type": "object",
+      "description": "Individual scores per criterion"
+    }
+  ],
+
+  "config": {
+    "nodes": [
+      {
+        "id": "load-block-context",
+        "blockRef": "system:block-loader",
+        "inputs": {
+          "blockId": "{{inputs.blockId}}",
+          "fields": ["description", "outputs", "config"]
+        }
+      },
+      {
+        "id": "evaluate-by-mode",
+        "type": "switch",
+        "on": "{{inputs.evaluationMode}}",
+        "cases": {
+          "auto": {
+            "id": "auto-evaluate",
+            "blockRef": "inference/llm-evaluator",
+            "inputs": {
+              "blockDescription": "{{load-block-context.description}}",
+              "expectedOutputSchema": "{{load-block-context.outputs}}",
+              "inputs": "{{inputs.inputs}}",
+              "output": "{{inputs.output}}",
+              "expectedOutput": "{{inputs.expectedOutput}}",
+              "criteria": "{{inputs.criteria}}",
+              "model": "claude-haiku"
+            }
+          },
+          "manual": {
+            "id": "manual-evaluate",
+            "type": "passthrough",
+            "value": {
+              "score": null,
+              "passed": null,
+              "feedback": "Awaiting human evaluation",
+              "needsReview": true,
+              "criteriaScores": {}
+            }
+          },
+          "hybrid": {
+            "id": "hybrid-evaluate",
+            "type": "sequence",
+            "nodes": [
+              {
+                "id": "initial-auto-eval",
+                "blockRef": "inference/llm-evaluator",
+                "inputs": {
+                  "blockDescription": "{{load-block-context.description}}",
+                  "expectedOutputSchema": "{{load-block-context.outputs}}",
+                  "inputs": "{{inputs.inputs}}",
+                  "output": "{{inputs.output}}",
+                  "expectedOutput": "{{inputs.expectedOutput}}",
+                  "criteria": "{{inputs.criteria}}",
+                  "model": "claude-haiku"
+                }
+              },
+              {
+                "id": "check-confidence",
+                "type": "conditional",
+                "condition": "{{initial-auto-eval.score}} < {{inputs.humanReviewThreshold}}",
+                "then": {
+                  "type": "merge",
+                  "value": {
+                    "needsReview": true
+                  },
+                  "base": "{{initial-auto-eval}}"
+                },
+                "else": {
+                  "type": "merge",
+                  "value": {
+                    "needsReview": false
+                  },
+                  "base": "{{initial-auto-eval}}"
+                }
+              }
+            ]
+          }
+        },
+        "default": {
+          "blockRef": "inference/llm-evaluator",
+          "inputs": {
+            "blockDescription": "{{load-block-context.description}}",
+            "inputs": "{{inputs.inputs}}",
+            "output": "{{inputs.output}}",
+            "criteria": "{{inputs.criteria}}"
+          }
+        }
+      },
+      {
+        "id": "calculate-passed",
+        "blockRef": "system:threshold-checker",
+        "inputs": {
+          "score": "{{evaluate-by-mode.score}}",
+          "threshold": "{{inputs.passThreshold}}"
+        }
+      },
+      {
+        "id": "record-evaluation",
+        "blockRef": "system:metrics-collector",
+        "inputs": {
+          "entityId": "{{inputs.blockId}}",
+          "entityType": "block",
+          "metrics": {
+            "evaluationScore": "{{evaluate-by-mode.score}}",
+            "iterationNumber": "{{inputs.iterationNumber}}",
+            "passed": "{{calculate-passed.passed}}",
+            "duration": "{{inputs.duration}}"
+          }
+        }
+      }
+    ],
+    "connections": [
+      { "from": "load-block-context", "to": "evaluate-by-mode" },
+      { "from": "evaluate-by-mode", "to": "calculate-passed" },
+      { "from": "calculate-passed", "to": "record-evaluation" }
+    ]
+  },
+
+  "metadata": {
+    "category": "foundry",
+    "tags": ["workflow", "foundry", "evaluation", "training", "quality"],
+    "entryPoint": "evaluate-iteration"
+  },
+
+  "capabilities": ["orchestration", "llm", "evaluation"]
+}

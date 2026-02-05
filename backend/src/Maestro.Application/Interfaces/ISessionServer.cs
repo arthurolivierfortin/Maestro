@@ -188,6 +188,11 @@ public interface IProjectSessionServer
     /// Deletes a session.
     /// </summary>
     Task DeleteAsync(SessionId id, CancellationToken ct = default);
+
+    /// <summary>
+    /// Saves an updated session to storage.
+    /// </summary>
+    Task SaveAsync(ProjectSession session, CancellationToken ct = default);
 }
 
 /// <summary>

@@ -15,7 +15,9 @@ using Maestro.Infrastructure.Fitness;
 using Maestro.Infrastructure.Sessions;
 using Maestro.Infrastructure.Experiments;
 using Maestro.Infrastructure.Workspaces;
+using Maestro.Infrastructure.Repositories;
 using Maestro.Infrastructure.Cli;
+using Maestro.Application.Services;
 using Maestro.Infrastructure.Cli.CommandHandlers;
 using System.IO;
 using System;
@@ -329,6 +331,17 @@ builder.Services.AddSingleton<IExperimentRepository>(sp =>
     var logger = sp.GetService<ILogger<Maestro.Infrastructure.Experiments.FileSystemExperimentRepository>>();
     return new Maestro.Infrastructure.Experiments.FileSystemExperimentRepository(experimentsFolder, logger);
 });
+
+// Phase 8: Register block approval services (generic approval workflow)
+var maestroConfig = new MaestroConfiguration { DataPath = Path.Combine(pathConfig.RepoRootPath, "data") };
+builder.Services.AddSingleton(maestroConfig);
+builder.Services.AddSingleton<IBlockApprovalRepository>(sp =>
+{
+    var logger = sp.GetService<ILogger<FileSystemBlockApprovalRepository>>();
+    return new FileSystemBlockApprovalRepository(maestroConfig, logger);
+});
+builder.Services.AddScoped<IBlockApprovalService, BlockApprovalService>();
+Console.WriteLine($"[Maestro] Approvals data:  {Path.Combine(maestroConfig.DataPath, "pending-approvals")}");
 
 // Add CORS for frontend development and Docker
 builder.Services.AddCors(options =>

@@ -272,6 +272,12 @@ public class ProjectSessionServer : IProjectSessionServer
         return session;
     }
 
+    public async Task SaveAsync(ProjectSession session, CancellationToken ct = default)
+    {
+        await _repository.SaveAsync(session, ct);
+        _logger.LogDebug("Saved project session {SessionId}", session.Id);
+    }
+
     public async Task DeleteAsync(SessionId id, CancellationToken ct = default)
     {
         var session = await _repository.GetByIdAsync(id, ct);

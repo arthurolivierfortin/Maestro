@@ -1,0 +1,169 @@
+{
+  "$schema": "../../../../docs/schemas/block.schema.json",
+  "id": "foundry:submit-for-approval",
+  "name": "Submit Block for Approval",
+  "blockType": "workflow",
+  "version": "1.0.0",
+  "isAtomic": false,
+  "description": "Workflow for submitting a block to the approval queue. Validates the block, packages metadata, and creates an approval request.",
+
+  "inputs": [
+    {
+      "id": "blockId",
+      "name": "Block ID",
+      "type": "string",
+      "required": true,
+      "description": "ID of the block to submit for approval"
+    },
+    {
+      "id": "sessionId",
+      "name": "Session ID",
+      "type": "string",
+      "required": false,
+      "description": "Source session ID (for traceability)"
+    },
+    {
+      "id": "submittedBy",
+      "name": "Submitted By",
+      "type": "string",
+      "required": false,
+      "description": "User or agent submitting the block"
+    },
+    {
+      "id": "skipValidation",
+      "name": "Skip Validation",
+      "type": "boolean",
+      "required": false,
+      "default": false,
+      "description": "Skip pre-submission validation (not recommended)"
+    },
+    {
+      "id": "notes",
+      "name": "Submission Notes",
+      "type": "string",
+      "required": false,
+      "description": "Notes or comments for the reviewer"
+    }
+  ],
+
+  "outputs": [
+    {
+      "id": "approvalId",
+      "name": "Approval ID",
+      "type": "string",
+      "description": "ID of the created approval request"
+    },
+    {
+      "id": "status",
+      "name": "Status",
+      "type": "string",
+      "description": "Submission status (pending, rejected-validation)"
+    },
+    {
+      "id": "validationResult",
+      "name": "Validation Result",
+      "type": "object",
+      "description": "Results from pre-submission validation"
+    }
+  ],
+
+  "config": {
+    "nodes": [
+      {
+        "id": "load-block",
+        "blockRef": "system:block-loader",
+        "inputs": {
+          "blockId": "{{inputs.blockId}}"
+        }
+      },
+      {
+        "id": "pre-validate",
+        "type": "conditional",
+        "condition": "!{{inputs.skipValidation}}",
+        "then": {
+          "blockRef": "foundry:block-validation",
+          "inputs": {
+            "blockId": "{{inputs.blockId}}",
+            "runTests": true,
+            "strictMode": true
+          }
+        },
+        "else": {
+          "type": "passthrough",
+          "value": { "valid": true, "skipped": true }
+        }
+      },
+      {
+        "id": "check-validation",
+        "type": "conditional",
+        "condition": "{{pre-validate.valid}}",
+        "then": {
+          "id": "create-approval",
+          "blockRef": "system:approval-service",
+          "inputs": {
+            "action": "submit",
+            "blockId": "{{inputs.blockId}}",
+            "sessionId": "{{inputs.sessionId}}",
+            "submittedBy": "{{inputs.submittedBy}}",
+            "metadata": {
+              "blockName": "{{load-block.name}}",
+              "blockType": "{{load-block.blockType}}",
+              "version": "{{load-block.version}}",
+              "validationScore": "{{pre-validate.score}}",
+              "notes": "{{inputs.notes}}"
+            }
+          }
+        },
+        "else": {
+          "id": "reject-submission",
+          "type": "passthrough",
+          "value": {
+            "status": "rejected-validation",
+            "reason": "Block failed pre-submission validation",
+            "errors": "{{pre-validate.errors}}"
+          }
+        }
+      },
+      {
+        "id": "notify",
+        "blockRef": "system:notification-service",
+        "inputs": {
+          "type": "approval-submitted",
+          "payload": {
+            "blockId": "{{inputs.blockId}}",
+            "approvalId": "{{check-validation.approvalId}}",
+            "submittedBy": "{{inputs.submittedBy}}"
+          }
+        }
+      },
+      {
+        "id": "update-session-vars",
+        "type": "conditional",
+        "condition": "{{inputs.sessionId}}",
+        "then": {
+          "blockRef": "system:session-vars",
+          "inputs": {
+            "sessionId": "{{inputs.sessionId}}",
+            "action": "append",
+            "key": "pendingApprovals",
+            "value": "{{check-validation.approvalId}}"
+          }
+        }
+      }
+    ],
+    "connections": [
+      { "from": "load-block", "to": "pre-validate" },
+      { "from": "pre-validate", "to": "check-validation" },
+      { "from": "check-validation", "to": "notify" },
+      { "from": "notify", "to": "update-session-vars" }
+    ]
+  },
+
+  "metadata": {
+    "category": "foundry",
+    "tags": ["workflow", "foundry", "approval", "submission", "governance"],
+    "entryPoint": "submit-approval"
+  },
+
+  "capabilities": ["orchestration", "validation", "notification"]
+}

@@ -70,6 +70,102 @@ public abstract class ContainerSession
     /// </summary>
     public ContainerBinding Binding { get; protected set; } = ContainerBinding.None;
 
+    // ===== Session Variables =====
+
+    /// <summary>
+    /// Generic key-value store for session variables.
+    /// Sessions define their own keys - no predefined variable names.
+    /// This enables any session to store arbitrary state without schema changes.
+    /// </summary>
+    public Dictionary<string, object> Variables { get; protected set; } = new();
+
+    // ===== Variable Methods =====
+
+    /// <summary>
+    /// Sets a variable value. Creates new or updates existing.
+    /// </summary>
+    /// <param name="key">The variable key.</param>
+    /// <param name="value">The value to store.</param>
+    public virtual void SetVariable(string key, object value)
+    {
+        if (string.IsNullOrWhiteSpace(key))
+            throw new ArgumentException("Variable key cannot be empty", nameof(key));
+
+        Variables[key] = value;
+        UpdatedAt = DateTimeOffset.UtcNow;
+    }
+
+    /// <summary>
+    /// Gets a variable value with type conversion.
+    /// </summary>
+    /// <typeparam name="T">The expected type of the value.</typeparam>
+    /// <param name="key">The variable key.</param>
+    /// <param name="defaultValue">Default value if key not found or type mismatch.</param>
+    /// <returns>The value or default.</returns>
+    public virtual T GetVariable<T>(string key, T defaultValue = default!)
+    {
+        if (Variables.TryGetValue(key, out var value))
+        {
+            if (value is T typed)
+                return typed;
+
+            // Try to convert if it's a compatible type
+            try
+            {
+                return (T)Convert.ChangeType(value, typeof(T));
+            }
+            catch
+            {
+                return defaultValue;
+            }
+        }
+        return defaultValue;
+    }
+
+    /// <summary>
+    /// Gets a variable value as object.
+    /// </summary>
+    /// <param name="key">The variable key.</param>
+    /// <returns>The value or null if not found.</returns>
+    public virtual object? GetVariable(string key)
+    {
+        return Variables.TryGetValue(key, out var value) ? value : null;
+    }
+
+    /// <summary>
+    /// Checks if a variable exists.
+    /// </summary>
+    /// <param name="key">The variable key.</param>
+    /// <returns>True if the variable exists.</returns>
+    public virtual bool HasVariable(string key)
+    {
+        return Variables.ContainsKey(key);
+    }
+
+    /// <summary>
+    /// Removes a variable.
+    /// </summary>
+    /// <param name="key">The variable key.</param>
+    /// <returns>True if the variable was removed.</returns>
+    public virtual bool RemoveVariable(string key)
+    {
+        if (Variables.Remove(key))
+        {
+            UpdatedAt = DateTimeOffset.UtcNow;
+            return true;
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// Gets all variable keys.
+    /// </summary>
+    /// <returns>Collection of variable keys.</returns>
+    public virtual IEnumerable<string> GetVariableKeys()
+    {
+        return Variables.Keys;
+    }
+
     // ===== Abstract Methods =====
 
     /// <summary>

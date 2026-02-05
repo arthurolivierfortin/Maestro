@@ -1,0 +1,183 @@
+{
+  "$schema": "../../../../docs/schemas/block.schema.json",
+  "id": "foundry:agent-improvement-loop",
+  "name": "Agent Improvement Loop",
+  "blockType": "workflow",
+  "version": "1.0.0",
+  "isAtomic": false,
+  "description": "Iterative workflow for improving an agent through training, evaluation, and automatic refinement. Runs multiple iterations and tracks fitness improvements.",
+
+  "inputs": [
+    {
+      "id": "agentId",
+      "name": "Agent ID",
+      "type": "string",
+      "required": true,
+      "description": "ID of the agent to improve"
+    },
+    {
+      "id": "targetFitness",
+      "name": "Target Fitness",
+      "type": "number",
+      "required": false,
+      "default": 0.85,
+      "description": "Target fitness score to achieve (0.0-1.0)"
+    },
+    {
+      "id": "maxIterations",
+      "name": "Max Iterations",
+      "type": "number",
+      "required": false,
+      "default": 50,
+      "description": "Maximum number of improvement iterations"
+    },
+    {
+      "id": "testInputs",
+      "name": "Test Inputs",
+      "type": "array",
+      "required": false,
+      "description": "Array of test inputs for evaluation"
+    },
+    {
+      "id": "autoApprove",
+      "name": "Auto Approve Improvements",
+      "type": "boolean",
+      "required": false,
+      "default": false,
+      "description": "Automatically apply suggested improvements without human review"
+    }
+  ],
+
+  "outputs": [
+    {
+      "id": "success",
+      "name": "Success",
+      "type": "boolean",
+      "description": "Whether target fitness was achieved"
+    },
+    {
+      "id": "finalFitness",
+      "name": "Final Fitness",
+      "type": "number",
+      "description": "Final fitness score after all iterations"
+    },
+    {
+      "id": "iterationsRun",
+      "name": "Iterations Run",
+      "type": "number",
+      "description": "Number of iterations executed"
+    },
+    {
+      "id": "improvements",
+      "name": "Improvements Applied",
+      "type": "array",
+      "description": "List of improvements that were applied"
+    },
+    {
+      "id": "fitnessHistory",
+      "name": "Fitness History",
+      "type": "array",
+      "description": "Fitness scores over all iterations"
+    }
+  ],
+
+  "config": {
+    "nodes": [
+      {
+        "id": "load-agent",
+        "blockRef": "system:block-loader",
+        "inputs": {
+          "blockId": "{{inputs.agentId}}"
+        }
+      },
+      {
+        "id": "improvement-loop",
+        "type": "while",
+        "condition": "{{currentFitness}} < {{inputs.targetFitness}} && {{iteration}} < {{inputs.maxIterations}}",
+        "maxIterations": "{{inputs.maxIterations}}",
+        "nodes": [
+          {
+            "id": "run-training",
+            "blockRef": "foundry:training-run",
+            "inputs": {
+              "blockId": "{{inputs.agentId}}",
+              "testInputs": "{{inputs.testInputs}}",
+              "iterations": 5
+            }
+          },
+          {
+            "id": "evaluate-results",
+            "blockRef": "foundry:evaluate-iteration",
+            "inputs": {
+              "blockId": "{{inputs.agentId}}",
+              "trainingResults": "{{run-training.results}}",
+              "criteria": ["correctness", "efficiency", "reliability"]
+            }
+          },
+          {
+            "id": "generate-improvements",
+            "blockRef": "system:improvement-generator",
+            "inputs": {
+              "blockId": "{{inputs.agentId}}",
+              "evaluationResults": "{{evaluate-results.evaluation}}",
+              "currentConfig": "{{load-agent.config}}"
+            }
+          },
+          {
+            "id": "apply-improvements",
+            "type": "conditional",
+            "condition": "{{inputs.autoApprove}} || {{improvement.priority}} == 'critical'",
+            "then": {
+              "blockRef": "system:apply-improvement",
+              "inputs": {
+                "blockId": "{{inputs.agentId}}",
+                "improvement": "{{generate-improvements.suggestions[0]}}"
+              }
+            },
+            "else": {
+              "blockRef": "system:queue-for-review",
+              "inputs": {
+                "blockId": "{{inputs.agentId}}",
+                "improvement": "{{generate-improvements.suggestions[0]}}"
+              }
+            }
+          },
+          {
+            "id": "update-metrics",
+            "blockRef": "system:metrics-collector",
+            "inputs": {
+              "entityId": "{{inputs.agentId}}",
+              "entityType": "agent",
+              "metrics": {
+                "fitness": "{{evaluate-results.fitness}}",
+                "iteration": "{{iteration}}",
+                "improvementApplied": "{{apply-improvements.applied}}"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": "finalize",
+        "blockRef": "system:training-finalizer",
+        "inputs": {
+          "blockId": "{{inputs.agentId}}",
+          "loopResults": "{{improvement-loop.history}}",
+          "targetFitness": "{{inputs.targetFitness}}"
+        }
+      }
+    ],
+    "connections": [
+      { "from": "load-agent", "to": "improvement-loop" },
+      { "from": "improvement-loop", "to": "finalize" }
+    ]
+  },
+
+  "metadata": {
+    "category": "foundry",
+    "tags": ["workflow", "foundry", "training", "improvement", "agent"],
+    "entryPoint": "improve-agent"
+  },
+
+  "capabilities": ["orchestration", "llm", "training", "evaluation"]
+}

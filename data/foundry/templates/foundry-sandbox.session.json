@@ -1,0 +1,104 @@
+{
+  "id": "foundry-sandbox",
+  "name": "Foundry Sandbox Session",
+  "description": "Isolated sandbox for testing untested or potentially unstable blocks in a safe environment.",
+
+  "type": "foundry",
+  "authority": {
+    "type": "human",
+    "identifier": "sandbox-user",
+    "displayName": "Sandbox User"
+  },
+
+  "permissions": {
+    "allowedCommands": ["run", "list-tools", "describe"],
+    "allowedTools": [
+      "system:fitness-calculator",
+      "file-read",
+      "directory-list"
+    ],
+    "allowedBlocks": ["*"],
+    "canCreateBlocks": false,
+    "canCreateSessions": false,
+    "canAccessNetwork": false,
+    "canAccessFilesystem": false,
+    "sandboxed": true
+  },
+
+  "entryPoints": {
+    "test-block": "workflows/foundry/sandbox-test",
+    "validate-output": "workflows/foundry/validate-output"
+  },
+
+  "variables": {
+    "sessionMode": "sandbox",
+    "isolationLevel": "full",
+    "maxExecutionTime": 30000,
+    "testResults": [],
+    "safetyViolations": []
+  },
+
+  "monitorWidgets": [
+    {
+      "id": "safety-status",
+      "type": "status-list",
+      "zone": "top",
+      "config": {
+        "label": "Safety Status",
+        "variable": "safetyStatus",
+        "maxItems": 5
+      }
+    },
+    {
+      "id": "test-results",
+      "type": "status-list",
+      "zone": "main",
+      "config": {
+        "label": "Test Results",
+        "variable": "testResults",
+        "maxItems": 20,
+        "showTimestamp": true
+      }
+    },
+    {
+      "id": "violation-counter",
+      "type": "counter",
+      "zone": "sidebar",
+      "config": {
+        "label": "Safety Violations",
+        "variable": "violationCount",
+        "alertThreshold": 1,
+        "color": "red"
+      }
+    }
+  ],
+
+  "config": {
+    "maxIterations": 10,
+    "timeout": 300000,
+    "autoSave": false,
+    "sandboxed": true,
+    "resourceLimits": {
+      "maxMemoryMb": 256,
+      "maxCpuPercent": 25,
+      "maxDiskIo": 1000
+    }
+  },
+
+  "context": {
+    "systemPrompt": "You are operating in a sandboxed Foundry environment. All operations are isolated and monitored. Test blocks safely without risk to the main system.",
+    "initialVariables": {
+      "workspace": "sandbox",
+      "writeAccess": false,
+      "networkAccess": false
+    }
+  },
+
+  "metadata": {
+    "category": "sandbox",
+    "priority": "low",
+    "securityLevel": "high",
+    "version": "1.0.0",
+    "author": "maestro-system"
+  }
+}

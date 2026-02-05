@@ -1,0 +1,143 @@
+{
+  "id": "foundry-default",
+  "name": "Agent Foundry Session",
+  "description": "Interactive session for developing, testing, and improving agents and tools. Provides full Foundry capabilities with training loop support.",
+
+  "type": "foundry",
+  "authority": {
+    "type": "human",
+    "identifier": "default",
+    "displayName": "Foundry User"
+  },
+
+  "permissions": {
+    "allowedCommands": ["*"],
+    "allowedTools": ["*"],
+    "allowedBlocks": ["*"],
+    "canCreateBlocks": true,
+    "canCreateSessions": true,
+    "canAccessNetwork": true,
+    "canAccessFilesystem": true
+  },
+
+  "entryPoints": {
+    "start": "workflow:foundry/agent-improvement-loop",
+    "improve-agent": "workflow:foundry/agent-improvement-loop",
+    "create-tool": "workflow:foundry/tool-creation",
+    "validate-block": "workflow:foundry/block-validation",
+    "submit-approval": "workflow:foundry/submit-for-approval",
+    "run-training": "workflow:foundry/training-run"
+  },
+
+  "variables": {
+    "sessionMode": "development",
+    "autoEvaluate": true,
+    "targetFitness": 0.85,
+    "maxIterations": 50,
+    "currentPhase": "exploration",
+    "currentIteration": 0,
+    "currentFitness": 0,
+    "scoreHistory": [],
+    "improvementHistory": [],
+    "pendingApprovals": [],
+    "pendingApprovalCount": 0,
+    "recentEvents": []
+  },
+
+  "monitorWidgets": [
+    {
+      "id": "fitness-progress",
+      "type": "progress-bar",
+      "zone": "custom",
+      "config": {
+        "label": "Fitness Score",
+        "current": "$.variables.currentFitness",
+        "max": 1.0,
+        "showPercentage": true
+      }
+    },
+    {
+      "id": "iteration-counter",
+      "type": "counter",
+      "zone": "custom",
+      "config": {
+        "label": "Iteration",
+        "value": "$.variables.currentIteration"
+      }
+    },
+    {
+      "id": "score-history",
+      "type": "score-chart",
+      "zone": "custom",
+      "config": {
+        "label": "Score History",
+        "data": "$.variables.scoreHistory",
+        "threshold": "$.variables.targetFitness"
+      }
+    },
+    {
+      "id": "pending-approvals",
+      "type": "counter",
+      "zone": "custom",
+      "config": {
+        "label": "Pending Approvals",
+        "value": "$.variables.pendingApprovalCount",
+        "alertThreshold": 5
+      }
+    },
+    {
+      "id": "recent-events",
+      "type": "status-list",
+      "zone": "custom",
+      "config": {
+        "label": "Recent Events",
+        "items": "$.variables.recentEvents",
+        "maxItems": 10,
+        "showTimestamp": true
+      }
+    }
+  ],
+
+  "config": {
+    "maxIterations": 100,
+    "timeout": 7200000,
+    "autoSave": true,
+    "saveInterval": 30000,
+    "training": {
+      "iterations": 10,
+      "parallel": 1,
+      "delayMs": 500,
+      "timeoutMs": 60000
+    },
+    "evaluation": {
+      "mode": "hybrid",
+      "passThreshold": 0.7,
+      "humanReviewThreshold": 0.5,
+      "autoEvaluator": {
+        "type": "LLM",
+        "model": "claude-sonnet"
+      },
+      "criteria": [
+        "correctness",
+        "efficiency",
+        "readability",
+        "error-handling"
+      ]
+    }
+  },
+
+  "context": {
+    "systemPrompt": "You are operating within the Maestro Agent Foundry. Your purpose is to help develop, test, and improve agents and tools. You have full access to training workflows, evaluation tools, and the block approval system.",
+    "initialVariables": {
+      "workspace": "foundry",
+      "developmentMode": true
+    }
+  },
+
+  "metadata": {
+    "category": "foundry",
+    "priority": "high",
+    "version": "1.0.0",
+    "author": "maestro-system"
+  }
+}

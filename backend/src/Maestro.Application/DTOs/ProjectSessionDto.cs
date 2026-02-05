@@ -26,6 +26,9 @@ public record ProjectSessionDto
     public TestResultDto? TestResult { get; init; }
     public LinterResultDto? LinterResult { get; init; }
     public CommitInfoDto? CommitInfo { get; init; }
+    public Dictionary<string, object> Variables { get; init; } = new();
+    public Dictionary<string, string> EntryPoints { get; init; } = new();
+    public List<MonitorWidgetConfigDto> MonitorWidgets { get; init; } = new();
 
     public static ProjectSessionDto FromDomain(ProjectSession session)
     {
@@ -47,9 +50,27 @@ public record ProjectSessionDto
             ErrorMessage = session.ErrorMessage,
             TestResult = session.TestResult != null ? TestResultDto.FromDomain(session.TestResult) : null,
             LinterResult = session.LinterResult != null ? LinterResultDto.FromDomain(session.LinterResult) : null,
-            CommitInfo = session.CommitInfo != null ? CommitInfoDto.FromDomain(session.CommitInfo) : null
+            CommitInfo = session.CommitInfo != null ? CommitInfoDto.FromDomain(session.CommitInfo) : null,
+            Variables = new Dictionary<string, object>(session.Variables),
+            EntryPoints = new Dictionary<string, string>(session.EntryPoints),
+            MonitorWidgets = session.MonitorWidgets.Select(w => new MonitorWidgetConfigDto
+            {
+                Id = w.Id,
+                Type = w.Type,
+                Config = new Dictionary<string, object>(w.Config)
+            }).ToList()
         };
     }
+}
+
+/// <summary>
+/// DTO for monitor widget configuration.
+/// </summary>
+public record MonitorWidgetConfigDto
+{
+    public string Id { get; init; } = string.Empty;
+    public string Type { get; init; } = string.Empty;
+    public Dictionary<string, object> Config { get; init; } = new();
 }
 
 /// <summary>

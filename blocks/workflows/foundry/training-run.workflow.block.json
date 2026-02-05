@@ -1,0 +1,235 @@
+{
+  "$schema": "../../../../docs/schemas/block.schema.json",
+  "id": "foundry:training-run",
+  "name": "Training Run Workflow",
+  "blockType": "workflow",
+  "version": "1.0.0",
+  "isAtomic": false,
+  "description": "Executes a training run with multiple iterations, collecting metrics and evaluating performance. Supports parallel execution and automatic progress tracking.",
+
+  "inputs": [
+    {
+      "id": "blockId",
+      "name": "Block ID",
+      "type": "string",
+      "required": true,
+      "description": "ID of the block to train"
+    },
+    {
+      "id": "testInputs",
+      "name": "Test Inputs",
+      "type": "array",
+      "required": true,
+      "description": "Array of test input sets for training iterations"
+    },
+    {
+      "id": "iterations",
+      "name": "Iterations",
+      "type": "number",
+      "required": false,
+      "default": 10,
+      "description": "Number of training iterations to run"
+    },
+    {
+      "id": "parallel",
+      "name": "Parallel Executions",
+      "type": "number",
+      "required": false,
+      "default": 1,
+      "description": "Number of parallel executions (1 = sequential)"
+    },
+    {
+      "id": "evaluationMode",
+      "name": "Evaluation Mode",
+      "type": "string",
+      "required": false,
+      "default": "auto",
+      "description": "Evaluation mode: auto, manual, or hybrid"
+    },
+    {
+      "id": "passThreshold",
+      "name": "Pass Threshold",
+      "type": "number",
+      "required": false,
+      "default": 0.7,
+      "description": "Minimum score to pass (0.0-1.0)"
+    }
+  ],
+
+  "outputs": [
+    {
+      "id": "runId",
+      "name": "Run ID",
+      "type": "string",
+      "description": "Unique identifier for this training run"
+    },
+    {
+      "id": "results",
+      "name": "Results",
+      "type": "array",
+      "description": "Array of iteration results"
+    },
+    {
+      "id": "metrics",
+      "name": "Aggregated Metrics",
+      "type": "object",
+      "description": "Aggregated metrics across all iterations"
+    },
+    {
+      "id": "passRate",
+      "name": "Pass Rate",
+      "type": "number",
+      "description": "Percentage of iterations that passed"
+    },
+    {
+      "id": "averageFitness",
+      "name": "Average Fitness",
+      "type": "number",
+      "description": "Average fitness score across iterations"
+    },
+    {
+      "id": "pendingEvaluations",
+      "name": "Pending Evaluations",
+      "type": "number",
+      "description": "Number of iterations awaiting human evaluation"
+    }
+  ],
+
+  "config": {
+    "nodes": [
+      {
+        "id": "initialize-run",
+        "blockRef": "system:run-tracker",
+        "inputs": {
+          "action": "create",
+          "blockId": "{{inputs.blockId}}",
+          "runType": "training",
+          "config": {
+            "iterations": "{{inputs.iterations}}",
+            "parallel": "{{inputs.parallel}}",
+            "evaluationMode": "{{inputs.evaluationMode}}"
+          }
+        }
+      },
+      {
+        "id": "load-block",
+        "blockRef": "system:block-loader",
+        "inputs": {
+          "blockId": "{{inputs.blockId}}"
+        }
+      },
+      {
+        "id": "prepare-inputs",
+        "blockRef": "system:input-distributor",
+        "inputs": {
+          "testInputs": "{{inputs.testInputs}}",
+          "iterations": "{{inputs.iterations}}",
+          "strategy": "round-robin"
+        }
+      },
+      {
+        "id": "training-loop",
+        "type": "foreach",
+        "items": "{{prepare-inputs.distributedInputs}}",
+        "parallel": "{{inputs.parallel}}",
+        "node": {
+          "id": "execute-iteration",
+          "type": "sequence",
+          "nodes": [
+            {
+              "id": "run-block",
+              "blockRef": "system:block-executor",
+              "inputs": {
+                "blockId": "{{inputs.blockId}}",
+                "inputs": "{{item.inputs}}",
+                "timeout": 60000
+              }
+            },
+            {
+              "id": "evaluate",
+              "blockRef": "foundry:evaluate-iteration",
+              "inputs": {
+                "blockId": "{{inputs.blockId}}",
+                "iterationNumber": "{{item.index}}",
+                "inputs": "{{item.inputs}}",
+                "output": "{{run-block.output}}",
+                "duration": "{{run-block.duration}}",
+                "evaluationMode": "{{inputs.evaluationMode}}",
+                "passThreshold": "{{inputs.passThreshold}}"
+              }
+            },
+            {
+              "id": "record-result",
+              "blockRef": "system:run-tracker",
+              "inputs": {
+                "action": "record-iteration",
+                "runId": "{{initialize-run.runId}}",
+                "iteration": {
+                  "number": "{{item.index}}",
+                  "inputs": "{{item.inputs}}",
+                  "output": "{{run-block.output}}",
+                  "duration": "{{run-block.duration}}",
+                  "score": "{{evaluate.score}}",
+                  "passed": "{{evaluate.passed}}",
+                  "feedback": "{{evaluate.feedback}}",
+                  "needsReview": "{{evaluate.needsReview}}"
+                }
+              }
+            },
+            {
+              "id": "update-progress",
+              "blockRef": "system:session-vars",
+              "inputs": {
+                "action": "set",
+                "key": "trainingProgress",
+                "value": "{{(item.index + 1) / inputs.iterations * 100}}"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "id": "aggregate-metrics",
+        "blockRef": "system:metrics-aggregator",
+        "inputs": {
+          "results": "{{training-loop.results}}",
+          "passThreshold": "{{inputs.passThreshold}}"
+        }
+      },
+      {
+        "id": "finalize-run",
+        "blockRef": "system:run-tracker",
+        "inputs": {
+          "action": "finalize",
+          "runId": "{{initialize-run.runId}}",
+          "metrics": "{{aggregate-metrics}}"
+        }
+      },
+      {
+        "id": "update-fitness-history",
+        "blockRef": "system:session-vars",
+        "inputs": {
+          "action": "append",
+          "key": "fitnessHistory",
+          "value": "{{aggregate-metrics.averageFitness}}"
+        }
+      }
+    ],
+    "connections": [
+      { "from": "initialize-run", "to": "load-block" },
+      { "from": "load-block", "to": "prepare-inputs" },
+      { "from": "prepare-inputs", "to": "training-loop" },
+      { "from": "training-loop", "to": "aggregate-metrics" },
+      { "from": "aggregate-metrics", "to": "finalize-run" },
+      { "from": "finalize-run", "to": "update-fitness-history" }
+    ]
+  },
+
+  "metadata": {
+    "category": "foundry",
+    "tags": ["workflow", "foundry", "training", "execution", "metrics"],
+    "entryPoint": "run-training"
+  },
+
+  "capabilities": ["orchestration", "execution", "metrics", "evaluation"]
+}

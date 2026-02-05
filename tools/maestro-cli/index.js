@@ -1037,6 +1037,365 @@ async function cancelSession(id) {
   return stopSession(id);
 }
 
+async function importSessionTemplate(sessionId, templateName) {
+  try {
+    // Load template from foundry templates
+    const fs = require('fs');
+    const path = require('path');
+
+    // Look for template in data/foundry/templates/
+    const templatePath = path.join(__dirname, '../../data/foundry/templates', `${templateName}.session.json`);
+
+    if (!fs.existsSync(templatePath)) {
+      console.error(`❌ Template not found: ${templateName}`);
+      console.error(`   Looking in: ${templatePath}`);
+      console.error('   Available templates: foundry-default, foundry-training, foundry-sandbox');
+      process.exit(1);
+    }
+
+    const templateContent = JSON.parse(fs.readFileSync(templatePath, 'utf8'));
+
+    console.log(`\n📦 Importing template: ${templateName}\n`);
+
+    // Import variables
+    if (templateContent.variables) {
+      console.log('  Importing variables...');
+      for (const [key, value] of Object.entries(templateContent.variables)) {
+        await client._fetch('PUT', `/api/sessions/${sessionId}/variables/${key}`, {
+          body: { value }
+        });
+        console.log(`    ✓ ${key}`);
+      }
+    }
+
+    // Import entry points
+    if (templateContent.entryPoints) {
+      console.log('  Importing entry points...');
+      for (const [name, workflowId] of Object.entries(templateContent.entryPoints)) {
+        await client._fetch('POST', `/api/sessions/${sessionId}/entry-points`, {
+          body: { name, workflowId }
+        });
+        console.log(`    ✓ ${name} → ${workflowId}`);
+      }
+    }
+
+    // Import widgets
+    if (templateContent.monitorWidgets) {
+      console.log('  Importing widgets...');
+      for (const widget of templateContent.monitorWidgets) {
+        await client._fetch('POST', `/api/sessions/${sessionId}/widgets`, {
+          body: widget
+        });
+        console.log(`    ✓ ${widget.id} (${widget.type})`);
+      }
+    }
+
+    console.log('\n✅ Template imported successfully!\n');
+
+    // Show summary
+    const varCount = templateContent.variables ? Object.keys(templateContent.variables).length : 0;
+    const epCount = templateContent.entryPoints ? Object.keys(templateContent.entryPoints).length : 0;
+    const widgetCount = templateContent.monitorWidgets ? templateContent.monitorWidgets.length : 0;
+
+    console.log('  Imported:');
+    console.log(`    - ${varCount} variable(s)`);
+    console.log(`    - ${epCount} entry point(s)`);
+    console.log(`    - ${widgetCount} widget(s)`);
+    console.log('');
+
+  } catch (error) {
+    if (error.code === 'ENOENT') {
+      console.error(`❌ Template file not found: ${templateName}`);
+    } else if (error.status === 404) {
+      console.error(`❌ Session not found: ${sessionId}`);
+    } else {
+      handleApiError(error, 'importing session template');
+    }
+    process.exit(1);
+  }
+}
+
+// ============= Session Variables Functions =============
+
+async function listSessionVariables(sessionId) {
+  try {
+    const response = await client._fetch('GET', `/api/sessions/${sessionId}/variables`);
+
+    if (!response || Object.keys(response).length === 0) {
+      console.log('\n📝 No variables set for this session\n');
+      return;
+    }
+
+    console.log('\n📝 Session Variables:\n');
+    for (const [key, value] of Object.entries(response)) {
+      const displayValue = typeof value === 'object' ? JSON.stringify(value) : value;
+      console.log(`  ${key}: ${displayValue}`);
+    }
+    console.log('');
+    console.log('  Set variable:    maestro session vars ' + sessionId + ' set <key> <value>');
+    console.log('  Get variable:    maestro session vars ' + sessionId + ' get <key>');
+    console.log('  Remove variable: maestro session vars ' + sessionId + ' remove <key>');
+    console.log('');
+  } catch (error) {
+    if (error.status === 404) {
+      console.error(`❌ Session not found: ${sessionId}`);
+    } else {
+      handleApiError(error, 'listing session variables');
+    }
+    process.exit(1);
+  }
+}
+
+async function getSessionVariable(sessionId, key) {
+  try {
+    const response = await client._fetch('GET', `/api/sessions/${sessionId}/variables/${key}`);
+
+    console.log(`\n📝 ${key}:\n`);
+    const displayValue = typeof response.value === 'object' ? JSON.stringify(response.value, null, 2) : response.value;
+    console.log(`  ${displayValue}`);
+    console.log('');
+  } catch (error) {
+    if (error.status === 404) {
+      if (error.message?.includes('Variable')) {
+        console.error(`❌ Variable '${key}' not found in session ${sessionId}`);
+      } else {
+        console.error(`❌ Session not found: ${sessionId}`);
+      }
+    } else {
+      handleApiError(error, 'getting session variable');
+    }
+    process.exit(1);
+  }
+}
+
+async function setSessionVariable(sessionId, key, value) {
+  try {
+    // Try to parse as JSON if it looks like JSON
+    let parsedValue = value;
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      if ((trimmed.startsWith('{') && trimmed.endsWith('}')) ||
+          (trimmed.startsWith('[') && trimmed.endsWith(']')) ||
+          trimmed === 'true' || trimmed === 'false' ||
+          !isNaN(Number(trimmed))) {
+        try {
+          parsedValue = JSON.parse(trimmed);
+        } catch (e) {
+          // Keep as string
+        }
+      }
+    }
+
+    await client._fetch('PUT', `/api/sessions/${sessionId}/variables/${key}`, {
+      body: { value: parsedValue }
+    });
+
+    console.log(`\n✅ Variable '${key}' set successfully\n`);
+    const displayValue = typeof parsedValue === 'object' ? JSON.stringify(parsedValue) : parsedValue;
+    console.log(`  ${key}: ${displayValue}`);
+    console.log('');
+  } catch (error) {
+    if (error.status === 404) {
+      console.error(`❌ Session not found: ${sessionId}`);
+    } else {
+      handleApiError(error, 'setting session variable');
+    }
+    process.exit(1);
+  }
+}
+
+async function removeSessionVariable(sessionId, key) {
+  try {
+    await client._fetch('DELETE', `/api/sessions/${sessionId}/variables/${key}`);
+
+    console.log(`\n✅ Variable '${key}' removed from session ${sessionId}\n`);
+  } catch (error) {
+    if (error.status === 404) {
+      if (error.message?.includes('Variable')) {
+        console.error(`❌ Variable '${key}' not found in session ${sessionId}`);
+      } else {
+        console.error(`❌ Session not found: ${sessionId}`);
+      }
+    } else {
+      handleApiError(error, 'removing session variable');
+    }
+    process.exit(1);
+  }
+}
+
+// ============= Session Entry Points Functions =============
+
+async function listSessionEntryPoints(sessionId) {
+  try {
+    const response = await client._fetch('GET', `/api/sessions/${sessionId}/entry-points`);
+
+    if (!response || Object.keys(response).length === 0) {
+      console.log('\n📍 No entry points defined for this session\n');
+      console.log('  Register one: maestro session entry-points ' + sessionId + ' register <name> <workflow-id>');
+      console.log('');
+      return;
+    }
+
+    console.log('\n📍 Session Entry Points:\n');
+    for (const [name, workflowId] of Object.entries(response)) {
+      console.log(`  ${name}: ${workflowId}`);
+    }
+    console.log('');
+    console.log('  Invoke with: maestro session invoke ' + sessionId + ' <entry-point>');
+    console.log('');
+  } catch (error) {
+    if (error.status === 404) {
+      console.error(`❌ Session not found: ${sessionId}`);
+    } else {
+      handleApiError(error, 'listing session entry points');
+    }
+    process.exit(1);
+  }
+}
+
+async function registerSessionEntryPoint(sessionId, name, workflowId) {
+  try {
+    await client._fetch('PUT', `/api/sessions/${sessionId}/entry-points/${name}`, {
+      body: { workflowId }
+    });
+
+    console.log(`\n✅ Entry point '${name}' registered successfully\n`);
+    console.log(`  ${name} -> ${workflowId}`);
+    console.log('');
+    console.log('  Invoke with: maestro session invoke ' + sessionId + ' ' + name);
+    console.log('');
+  } catch (error) {
+    if (error.status === 404) {
+      console.error(`❌ Session not found: ${sessionId}`);
+    } else {
+      handleApiError(error, 'registering entry point');
+    }
+    process.exit(1);
+  }
+}
+
+async function removeSessionEntryPoint(sessionId, name) {
+  try {
+    await client._fetch('DELETE', `/api/sessions/${sessionId}/entry-points/${name}`);
+
+    console.log(`\n✅ Entry point '${name}' removed from session ${sessionId}\n`);
+  } catch (error) {
+    if (error.status === 404) {
+      if (error.message?.includes('Entry point')) {
+        console.error(`❌ Entry point '${name}' not found in session ${sessionId}`);
+      } else {
+        console.error(`❌ Session not found: ${sessionId}`);
+      }
+    } else {
+      handleApiError(error, 'removing entry point');
+    }
+    process.exit(1);
+  }
+}
+
+async function invokeSessionEntryPoint(sessionId, entryPoint) {
+  try {
+    const response = await client._fetch('POST', `/api/sessions/${sessionId}/invoke/${entryPoint}`, {
+      body: {}
+    });
+
+    console.log(`\n▶️  Entry Point Invoked: ${entryPoint}\n`);
+    console.log(`  Workflow: ${response.workflowId}`);
+    console.log(`  Status: ${response.status}`);
+    if (response.message) {
+      console.log(`  Message: ${response.message}`);
+    }
+    console.log('');
+  } catch (error) {
+    if (error.status === 404) {
+      if (error.message?.includes('Entry point')) {
+        console.error(`❌ Entry point '${entryPoint}' not found in session ${sessionId}`);
+      } else {
+        console.error(`❌ Session not found: ${sessionId}`);
+      }
+    } else {
+      handleApiError(error, 'invoking entry point');
+    }
+    process.exit(1);
+  }
+}
+
+// ============= Session Widgets Functions =============
+
+async function listSessionWidgets(sessionId) {
+  try {
+    const widgets = await client._fetch('GET', `/api/sessions/${sessionId}/widgets`);
+
+    if (!widgets || widgets.length === 0) {
+      console.log('\n🔲 No widgets registered for this session\n');
+      console.log('  Register one: maestro session widgets ' + sessionId + ' add --type progress-bar --id my-widget --config \'{"label": "Progress"}\'');
+      console.log('');
+      return;
+    }
+
+    console.log('\n🔲 Session Widgets:\n');
+    for (const widget of widgets) {
+      console.log(`  ${widget.id} (${widget.type})`);
+      if (widget.config && Object.keys(widget.config).length > 0) {
+        console.log(`    Config: ${JSON.stringify(widget.config)}`);
+      }
+    }
+    console.log('');
+  } catch (error) {
+    if (error.status === 404) {
+      console.error(`❌ Session not found: ${sessionId}`);
+    } else {
+      handleApiError(error, 'listing session widgets');
+    }
+    process.exit(1);
+  }
+}
+
+async function registerSessionWidget(sessionId, widgetId, widgetType, config) {
+  try {
+    await client._fetch('POST', `/api/sessions/${sessionId}/widgets`, {
+      body: {
+        id: widgetId,
+        type: widgetType,
+        config: config || {}
+      }
+    });
+
+    console.log(`\n✅ Widget '${widgetId}' registered successfully\n`);
+    console.log(`  Type: ${widgetType}`);
+    if (config && Object.keys(config).length > 0) {
+      console.log(`  Config: ${JSON.stringify(config)}`);
+    }
+    console.log('');
+  } catch (error) {
+    if (error.status === 404) {
+      console.error(`❌ Session not found: ${sessionId}`);
+    } else {
+      handleApiError(error, 'registering widget');
+    }
+    process.exit(1);
+  }
+}
+
+async function removeSessionWidget(sessionId, widgetId) {
+  try {
+    await client._fetch('DELETE', `/api/sessions/${sessionId}/widgets/${widgetId}`);
+
+    console.log(`\n✅ Widget '${widgetId}' removed from session ${sessionId}\n`);
+  } catch (error) {
+    if (error.status === 404) {
+      if (error.message?.includes('Widget')) {
+        console.error(`❌ Widget '${widgetId}' not found in session ${sessionId}`);
+      } else {
+        console.error(`❌ Session not found: ${sessionId}`);
+      }
+    } else {
+      handleApiError(error, 'removing widget');
+    }
+    process.exit(1);
+  }
+}
+
 // ============= Training Commands =============
 
 async function listTrainingConfigs() {
@@ -3493,10 +3852,149 @@ async function recommendStrategy(options) {
   }
 }
 
+// ===== Block Approval Functions =====
+
+async function listApprovals(options = {}) {
+  try {
+    const approvals = await client.get('/api/approvals/pending');
+
+    if (approvals.length === 0) {
+      console.log('\n✅ No pending approvals\n');
+      return;
+    }
+
+    console.log('\n📋 Pending Block Approvals:\n');
+    console.table(approvals.map(a => ({
+      'ID': a.id.substring(0, 8) + '...',
+      'Block': a.blockName,
+      'Type': a.blockType,
+      'Status': a.status,
+      'Submitted': new Date(a.submittedAt).toLocaleString(),
+      'By': a.submittedBy || 'unknown'
+    })));
+    console.log(`\nTotal: ${approvals.length} pending approval(s)\n`);
+  } catch (error) {
+    handleApiError(error, 'listing approvals');
+    process.exit(1);
+  }
+}
+
+async function getApprovalInfo(id) {
+  try {
+    const approval = await client.get(`/api/approvals/${encodeURIComponent(id)}`);
+
+    console.log('\n📋 Approval Details:\n');
+    console.log(`  ID:          ${approval.id}`);
+    console.log(`  Block ID:    ${approval.blockId}`);
+    console.log(`  Block Name:  ${approval.blockName}`);
+    console.log(`  Block Type:  ${approval.blockType}`);
+    console.log(`  Status:      ${approval.status}`);
+    console.log(`  Session:     ${approval.sourceSessionId || 'N/A'}`);
+    console.log(`  Submitted:   ${new Date(approval.submittedAt).toLocaleString()}`);
+    console.log(`  Submitted By: ${approval.submittedBy || 'unknown'}`);
+
+    if (approval.reviewedAt) {
+      console.log(`  Reviewed:    ${new Date(approval.reviewedAt).toLocaleString()}`);
+      console.log(`  Reviewed By: ${approval.reviewedBy || 'unknown'}`);
+    }
+
+    if (approval.rejectionReason) {
+      console.log(`  Rejection:   ${approval.rejectionReason}`);
+    }
+
+    if (approval.metadata && Object.keys(approval.metadata).length > 0) {
+      console.log('\n  Metadata:');
+      for (const [key, value] of Object.entries(approval.metadata)) {
+        console.log(`    ${key}: ${JSON.stringify(value)}`);
+      }
+    }
+    console.log('');
+  } catch (error) {
+    if (error.status === 404) {
+      console.error(`❌ Approval not found: ${id}`);
+    } else {
+      handleApiError(error, 'getting approval info');
+    }
+    process.exit(1);
+  }
+}
+
+async function submitBlockForApproval(blockId, options = {}) {
+  try {
+    const body = {
+      blockId,
+      sessionId: options.session,
+      submittedBy: options.submittedBy || 'cli-user',
+      metadata: options.metadata ? JSON.parse(options.metadata) : undefined
+    };
+
+    const approval = await client.post('/api/approvals', body);
+
+    console.log('\n✅ Block submitted for approval:\n');
+    console.log(`  Approval ID: ${approval.id}`);
+    console.log(`  Block:       ${approval.blockName} (${approval.blockType})`);
+    console.log(`  Status:      ${approval.status}`);
+    console.log('');
+  } catch (error) {
+    handleApiError(error, 'submitting block for approval');
+    process.exit(1);
+  }
+}
+
+async function approveBlock(id, options = {}) {
+  try {
+    const body = {
+      reviewedBy: options.reviewedBy || 'cli-user'
+    };
+
+    const approval = await client.post(`/api/approvals/${encodeURIComponent(id)}/approve`, body);
+
+    console.log('\n✅ Block approved:\n');
+    console.log(`  Approval ID: ${approval.id}`);
+    console.log(`  Block:       ${approval.blockName} (${approval.blockType})`);
+    console.log(`  Status:      ${approval.status}`);
+    console.log(`  Reviewed By: ${approval.reviewedBy}`);
+    console.log('');
+  } catch (error) {
+    if (error.status === 404) {
+      console.error(`❌ Approval not found: ${id}`);
+    } else {
+      handleApiError(error, 'approving block');
+    }
+    process.exit(1);
+  }
+}
+
+async function rejectBlock(id, reason, options = {}) {
+  try {
+    const body = {
+      reason,
+      reviewedBy: options.reviewedBy || 'cli-user'
+    };
+
+    const approval = await client.post(`/api/approvals/${encodeURIComponent(id)}/reject`, body);
+
+    console.log('\n❌ Block rejected:\n');
+    console.log(`  Approval ID: ${approval.id}`);
+    console.log(`  Block:       ${approval.blockName} (${approval.blockType})`);
+    console.log(`  Status:      ${approval.status}`);
+    console.log(`  Reason:      ${approval.rejectionReason}`);
+    console.log(`  Reviewed By: ${approval.reviewedBy}`);
+    console.log('');
+  } catch (error) {
+    if (error.status === 404) {
+      console.error(`❌ Approval not found: ${id}`);
+    } else {
+      handleApiError(error, 'rejecting block');
+    }
+    process.exit(1);
+  }
+}
+
 async function main() {
   const argv = minimist(process.argv.slice(2), {
-    boolean: ['mock', 'help', 'h', 'force', 'status', 'push', 'run-tests', 'run-linter', 'keep-changes'],
-    string: ['api-url', 'u', 'name', 'path', 'description', 'runtime', 'image', 'work-dir', 'block-paths', 'model', 'lines', 'since', 'working-dir', 'workdir', 'workflow', 'iterations', 'parallel', 'delay', 'goal', 'tags', 'inputs', 'config', 'from', 'to', 'limit', 'block', 'category', 'version', 'author', 'capabilities', 'tools', 'agents', 'type', 'project', 'task', 'context', 'access', 'test-command', 'linter-command', 'max-steps', 'timeout', 'message', 'branch', 'scope', 'authority', 'allowed-paths', 'denied-paths', 'filter', 'offset', 'command']
+    boolean: ['mock', 'help', 'h', 'force', 'status', 'push', 'run-tests', 'run-linter', 'keep-changes', 'pending-approval'],
+    string: ['api-url', 'u', 'name', 'path', 'description', 'runtime', 'image', 'work-dir', 'block-paths', 'model', 'lines', 'since', 'working-dir', 'workdir', 'workflow', 'iterations', 'parallel', 'delay', 'goal', 'tags', 'inputs', 'config', 'from', 'to', 'limit', 'block', 'category', 'version', 'author', 'capabilities', 'tools', 'agents', 'type', 'project', 'task', 'context', 'access', 'test-command', 'linter-command', 'max-steps', 'timeout', 'message', 'branch', 'scope', 'authority', 'allowed-paths', 'denied-paths', 'filter', 'offset', 'command', 'from-session', 'template', 'reason']
   });
 
   // Update client URL if provided
@@ -3506,12 +4004,27 @@ async function main() {
 
   const cmd = argv._[0];
 
-  // Help
-  if (!cmd || argv.help || argv.h) {
+  // No command: launch interactive shell
+  if (!cmd && !argv.help && !argv.h) {
+    const { MaestroShell } = require('./shell.js');
+    const shell = new MaestroShell(async (args) => {
+      // Create a new argv-like object for the command
+      const innerArgv = minimist(args, {
+        boolean: ['mock', 'help', 'h', 'force', 'status', 'push', 'run-tests', 'run-linter', 'keep-changes', 'pending-approval'],
+        string: ['api-url', 'u', 'name', 'path', 'description', 'runtime', 'image', 'work-dir', 'block-paths', 'model', 'lines', 'since', 'working-dir', 'workdir', 'workflow', 'iterations', 'parallel', 'delay', 'goal', 'tags', 'inputs', 'config', 'from', 'to', 'limit', 'block', 'category', 'version', 'author', 'capabilities', 'tools', 'agents', 'type', 'project', 'task', 'context', 'access', 'test-command', 'linter-command', 'max-steps', 'timeout', 'message', 'branch', 'scope', 'authority', 'allowed-paths', 'denied-paths', 'filter', 'offset', 'command', 'json', 'from-session', 'template', 'reason']
+      });
+      await executeWithArgv(innerArgv);
+    });
+    return shell.start();
+  }
+
+  // Help flag
+  if (argv.help || argv.h) {
     console.log(`
 Maestro CLI v2.0.0
 
 Usage: maestro <command> [options]
+       maestro                    Launch interactive shell
 
 Block Commands:
   blocks               List all available blocks
@@ -3519,6 +4032,13 @@ Block Commands:
   info <block-id>      Show block details
   children <block-id>  List children of a composite block (--recursive=false for direct only)
   search <query>       Search blocks by name or description
+
+Block Approval Commands:
+  block publish <id>              Submit block for approval (--from-session)
+  block --pending-approval        List pending approvals
+  block info <approval-id>        Show approval details
+  block approve <approval-id>     Approve pending block
+  block reject <id> --reason "x"  Reject with feedback
 
 Project Commands:
   projects             List all projects with container status
@@ -3546,18 +4066,24 @@ Interactive Session Commands (Session Server Architecture):
   session              List all interactive sessions
   session list         List sessions with filters (--status, --project, --limit)
   session info <id>    Show session details
-  session create       Create a new session (--project required, --authority optional)
+  session create       Create a new session (--type foundry|project, --name)
   session start <id>   Start a session
   session pause <id>   Pause a running session
   session resume <id>  Resume a paused session
   session stop <id>    Stop a session
+  session import <id> --template <name>  Import template (variables, entry-points, widgets)
+  session vars <id>    Manage session variables (list/get/set/remove)
+  session entry-points <id>  Manage entry points (list/register/remove)
+  session invoke <id> <entry-point>  Invoke session entry point
+  session widgets <id> Manage monitor widgets (list/add/remove)
   session take-control <id> Transfer session authority (--authority)
-  session exec <id> "<cmd>"  Execute command in session (shell, maestro, or control)
+  session exec <id> "<cmd>"  Execute command in session
   session events <id>  Show session event history
   session delete <id>  Delete a session
-  session diff <id>    Show changes made in session (legacy)
-  session test <id>    Run tests for session (legacy)
-  session commit <id>  Commit session changes (legacy)
+
+Monitor Commands:
+  monitor <id>         Launch real-time session monitor
+                       Options: --refresh <sec> --max-events <n>
 
 Training Commands:
   training             List all training configurations
@@ -3674,6 +4200,14 @@ Research Team Commands:
   research reject <proposal-id> --reason "..."
   research config      Show research team configuration
   research config set --threshold 0.85 --iterations 50
+
+Block Approval Commands:
+  approval             List pending block approvals
+  approval list        List all pending approvals
+  approval info <id>   Show approval details
+  approval submit <block-id>   Submit a block for approval
+  approval approve <id>        Approve a pending block
+  approval reject <id> --reason "..."  Reject a pending block
 
 System Commands:
   health               Check backend connection
@@ -3853,9 +4387,79 @@ Examples:
     return;
   }
 
+  // Execute with the parsed argv
+  return await executeWithArgv(argv);
+}
+
+/**
+ * Executes a command based on parsed arguments.
+ * This function is called by both main() and the interactive shell.
+ */
+async function executeWithArgv(argv) {
+  const cmd = argv._[0];
+
   try {
     if (cmd === 'blocks') return await listBlocks();
     if (cmd === 'workflows') return await listWorkflows();
+
+    // Block command (with subcommands for approval workflow)
+    if (cmd === 'block') {
+      const subCmd = argv._[1];
+
+      // block --pending-approval (list pending approvals)
+      if (argv['pending-approval']) {
+        return await listApprovals();
+      }
+
+      // block publish <block-id> --from-session <session-id>
+      if (subCmd === 'publish') {
+        const blockId = argv._[2];
+        if (!blockId) { console.error('❌ Block ID required'); process.exit(1); }
+        return await submitBlockForApproval(blockId, {
+          session: argv['from-session'] || argv.session,
+          submittedBy: argv['submitted-by'] || argv.by
+        });
+      }
+
+      // block approve <approval-id>
+      if (subCmd === 'approve') {
+        const id = argv._[2];
+        if (!id) { console.error('❌ Approval ID required'); process.exit(1); }
+        return await approveBlock(id, {
+          reviewedBy: argv['reviewed-by'] || argv.by
+        });
+      }
+
+      // block reject <approval-id> --reason "..."
+      if (subCmd === 'reject') {
+        const id = argv._[2];
+        const reason = argv.reason || argv._[3];
+        if (!id) { console.error('❌ Approval ID required'); process.exit(1); }
+        if (!reason) { console.error('❌ Rejection reason required (--reason "...")'); process.exit(1); }
+        return await rejectBlock(id, reason, {
+          reviewedBy: argv['reviewed-by'] || argv.by
+        });
+      }
+
+      // block info <id> - could be block or approval
+      if (subCmd === 'info') {
+        const id = argv._[2];
+        if (!id) { console.error('❌ Block/Approval ID required'); process.exit(1); }
+        // Try as approval first, then as block
+        try {
+          return await getApprovalInfo(id);
+        } catch (e) {
+          if (e.status === 404) {
+            return await getBlockInfo(id);
+          }
+          throw e;
+        }
+      }
+
+      console.error(`❌ Unknown block subcommand: ${subCmd}`);
+      console.error('   Available: publish, approve, reject, info, --pending-approval');
+      process.exit(1);
+    }
     if (cmd === 'info') {
       const blockId = argv._[1];
       if (!blockId) { console.error('❌ Block ID required'); process.exit(1); }
@@ -3873,7 +4477,23 @@ Examples:
       return await searchBlocks(query);
     }
     if (cmd === 'health') return await checkHealth();
-    
+
+    // Monitor command - launches session monitor
+    if (cmd === 'monitor') {
+      const sessionId = argv._[1];
+      if (!sessionId) {
+        console.error('❌ Session ID required');
+        console.error('   Usage: maestro monitor <session-id>');
+        process.exit(1);
+      }
+      const { MonitorShell } = require('./monitor/monitor.js');
+      const monitor = new MonitorShell(sessionId, client, {
+        refreshInterval: argv.refresh ? parseInt(argv.refresh) * 1000 : 2000,
+        maxEvents: argv['max-events'] ? parseInt(argv['max-events']) : 10
+      });
+      return monitor.start();
+    }
+
     // Project commands
     if (cmd === 'projects') {
       const subCmd = argv._[1];
@@ -4153,8 +4773,141 @@ Examples:
         return await cancelSession(id);
       }
 
+      // Session import command (imports templates with workflows, blocks, widgets)
+      if (subCmd === 'import') {
+        const id = argv._[2];
+        const template = argv.template || argv._[3];
+        if (!id) { console.error('❌ Session ID required'); process.exit(1); }
+        if (!template) { console.error('❌ Template name required (--template)'); process.exit(1); }
+        return await importSessionTemplate(id, template);
+      }
+
+      // Session variables commands
+      if (subCmd === 'vars' || subCmd === 'variables') {
+        const id = argv._[2];
+        const varsCmd = argv._[3];
+
+        if (!id) { console.error('❌ Session ID required'); process.exit(1); }
+
+        if (!varsCmd || varsCmd === 'list') {
+          return await listSessionVariables(id);
+        }
+
+        if (varsCmd === 'get') {
+          const key = argv._[4];
+          if (!key) { console.error('❌ Variable key required'); process.exit(1); }
+          return await getSessionVariable(id, key);
+        }
+
+        if (varsCmd === 'set') {
+          const key = argv._[4];
+          let value = argv._[5];
+          if (!key) { console.error('❌ Variable key required'); process.exit(1); }
+          if (value === undefined && !argv.json) { console.error('❌ Variable value required'); process.exit(1); }
+          // If --json flag is provided, parse the value as JSON
+          if (argv.json) {
+            try {
+              value = JSON.parse(argv.json);
+            } catch (e) {
+              console.error('❌ Invalid JSON value');
+              process.exit(1);
+            }
+          }
+          return await setSessionVariable(id, key, value);
+        }
+
+        if (varsCmd === 'remove' || varsCmd === 'delete') {
+          const key = argv._[4];
+          if (!key) { console.error('❌ Variable key required'); process.exit(1); }
+          return await removeSessionVariable(id, key);
+        }
+
+        console.error(`❌ Unknown vars command: ${varsCmd}`);
+        console.error('   Available: list, get <key>, set <key> <value>, remove <key>');
+        process.exit(1);
+      }
+
+      // Session entry points commands
+      if (subCmd === 'entry-points' || subCmd === 'endpoints') {
+        const id = argv._[2];
+        const epCmd = argv._[3];
+
+        if (!id) { console.error('❌ Session ID required'); process.exit(1); }
+
+        if (!epCmd || epCmd === 'list') {
+          return await listSessionEntryPoints(id);
+        }
+
+        if (epCmd === 'register' || epCmd === 'add') {
+          const name = argv._[4];
+          const workflowId = argv._[5] || argv.workflow;
+          if (!name) { console.error('❌ Entry point name required'); process.exit(1); }
+          if (!workflowId) { console.error('❌ Workflow ID required'); process.exit(1); }
+          return await registerSessionEntryPoint(id, name, workflowId);
+        }
+
+        if (epCmd === 'remove' || epCmd === 'delete') {
+          const name = argv._[4];
+          if (!name) { console.error('❌ Entry point name required'); process.exit(1); }
+          return await removeSessionEntryPoint(id, name);
+        }
+
+        console.error(`❌ Unknown entry-points command: ${epCmd}`);
+        console.error('   Available: list, register <name> <workflow-id>, remove <name>');
+        process.exit(1);
+      }
+
+      // Session invoke command
+      if (subCmd === 'invoke') {
+        const id = argv._[2];
+        const entryPoint = argv._[3] || 'start';
+
+        if (!id) { console.error('❌ Session ID required'); process.exit(1); }
+
+        return await invokeSessionEntryPoint(id, entryPoint);
+      }
+
+      // Session widgets commands
+      if (subCmd === 'widgets') {
+        const id = argv._[2];
+        const widgetCmd = argv._[3];
+
+        if (!id) { console.error('❌ Session ID required'); process.exit(1); }
+
+        if (!widgetCmd || widgetCmd === 'list') {
+          return await listSessionWidgets(id);
+        }
+
+        if (widgetCmd === 'add' || widgetCmd === 'register') {
+          const widgetType = argv.type;
+          const widgetId = argv.id || argv._[4];
+          if (!widgetType) { console.error('❌ --type required (progress-bar, score-chart, counter, status-list)'); process.exit(1); }
+          if (!widgetId) { console.error('❌ --id or widget ID required'); process.exit(1); }
+          let config = {};
+          if (argv.config) {
+            try {
+              config = JSON.parse(argv.config);
+            } catch (e) {
+              console.error('❌ Invalid JSON in --config');
+              process.exit(1);
+            }
+          }
+          return await registerSessionWidget(id, widgetId, widgetType, config);
+        }
+
+        if (widgetCmd === 'remove' || widgetCmd === 'delete') {
+          const widgetId = argv._[4];
+          if (!widgetId) { console.error('❌ Widget ID required'); process.exit(1); }
+          return await removeSessionWidget(id, widgetId);
+        }
+
+        console.error(`❌ Unknown widgets command: ${widgetCmd}`);
+        console.error('   Available: list, add --type <type> --id <id> [--config {...}], remove <id>');
+        process.exit(1);
+      }
+
       console.error(`❌ Unknown session command: ${subCmd}`);
-      console.error('   Available commands: list, info, create, start, pause, resume, stop, take-control, exec, events, delete');
+      console.error('   Available commands: list, info, create, start, pause, resume, stop, take-control, exec, events, delete, vars, entry-points, invoke, widgets');
       process.exit(1);
     }
 
@@ -4938,6 +5691,53 @@ Examples:
 
       console.error(`❌ Unknown experiment subcommand: ${subCmd}`);
       console.error('   Available: list, info, create, start, start-all, pause, stop, delete, progress, compare, strategies, strategy, recommend');
+      process.exit(1);
+    }
+
+    // Block Approval commands
+    if (cmd === 'approval' || cmd === 'approvals') {
+      const subCmd = argv._[1];
+
+      if (!subCmd || subCmd === 'list') {
+        return await listApprovals();
+      }
+
+      if (subCmd === 'info') {
+        const id = argv._[2];
+        if (!id) { console.error('❌ Approval ID required'); process.exit(1); }
+        return await getApprovalInfo(id);
+      }
+
+      if (subCmd === 'submit') {
+        const blockId = argv._[2] || argv.block;
+        if (!blockId) { console.error('❌ Block ID required'); process.exit(1); }
+        return await submitBlockForApproval(blockId, {
+          session: argv.session,
+          submittedBy: argv['submitted-by'] || argv.by,
+          metadata: argv.metadata
+        });
+      }
+
+      if (subCmd === 'approve') {
+        const id = argv._[2];
+        if (!id) { console.error('❌ Approval ID required'); process.exit(1); }
+        return await approveBlock(id, {
+          reviewedBy: argv['reviewed-by'] || argv.by
+        });
+      }
+
+      if (subCmd === 'reject') {
+        const id = argv._[2];
+        const reason = argv.reason || argv._[3];
+        if (!id) { console.error('❌ Approval ID required'); process.exit(1); }
+        if (!reason) { console.error('❌ Rejection reason required (--reason "...")'); process.exit(1); }
+        return await rejectBlock(id, reason, {
+          reviewedBy: argv['reviewed-by'] || argv.by
+        });
+      }
+
+      console.error(`❌ Unknown approval subcommand: ${subCmd}`);
+      console.error('   Available: list, info, submit, approve, reject');
       process.exit(1);
     }
 

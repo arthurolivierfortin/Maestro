@@ -299,7 +299,15 @@ public class FileSystemProjectSessionRepository : IProjectSessionRepository
                 Branch = session.CommitInfo.Branch,
                 Pushed = session.CommitInfo.Pushed,
                 CreatedAt = session.CommitInfo.CreatedAt
-            } : null
+            } : null,
+            Variables = session.Variables.Count > 0 ? new Dictionary<string, object>(session.Variables) : null,
+            EntryPoints = session.EntryPoints.Count > 0 ? new Dictionary<string, string>(session.EntryPoints) : null,
+            MonitorWidgets = session.MonitorWidgets.Count > 0 ? session.MonitorWidgets.Select(w => new MonitorWidgetJsonDto
+            {
+                Id = w.Id,
+                Type = w.Type,
+                Config = w.Config.Count > 0 ? new Dictionary<string, object>(w.Config) : null
+            }).ToList() : null
         };
 
         return JsonSerializer.Serialize(dto, JsonOptions);
@@ -407,6 +415,33 @@ public class FileSystemProjectSessionRepository : IProjectSessionRepository
             CreatedAt = dto.CommitInfo.CreatedAt
         } : null;
 
+        // Restore variables (handle JsonElement conversion)
+        var variables = new Dictionary<string, object>();
+        if (dto.Variables != null)
+        {
+            foreach (var kvp in dto.Variables)
+            {
+                variables[kvp.Key] = ConvertJsonElement(kvp.Value);
+            }
+        }
+
+        // Restore entry points
+        var entryPoints = dto.EntryPoints != null
+            ? new Dictionary<string, string>(dto.EntryPoints)
+            : new Dictionary<string, string>();
+
+        // Restore monitor widgets
+        var monitorWidgets = dto.MonitorWidgets != null
+            ? dto.MonitorWidgets.Select(w => new MonitorWidgetConfig
+            {
+                Id = w.Id,
+                Type = w.Type,
+                Config = w.Config != null
+                    ? w.Config.ToDictionary(kvp => kvp.Key, kvp => ConvertJsonElement(kvp.Value))
+                    : new Dictionary<string, object>()
+            }).ToList()
+            : new List<MonitorWidgetConfig>();
+
         // Use Reconstitute to create the session with all state
         return ProjectSession.Reconstitute(
             id: dto.Id,
@@ -431,8 +466,33 @@ public class FileSystemProjectSessionRepository : IProjectSessionRepository
             startedAt: dto.StartedAt,
             completedAt: dto.CompletedAt,
             updatedAt: dto.UpdatedAt,
-            createdBy: null
+            createdBy: null,
+            variables: variables,
+            entryPoints: entryPoints,
+            monitorWidgets: monitorWidgets
         );
+    }
+
+    /// <summary>
+    /// Converts JsonElement to appropriate CLR types.
+    /// </summary>
+    private static object ConvertJsonElement(object value)
+    {
+        if (value is JsonElement element)
+        {
+            return element.ValueKind switch
+            {
+                JsonValueKind.String => element.GetString() ?? string.Empty,
+                JsonValueKind.Number => element.TryGetInt64(out var l) ? l : element.GetDouble(),
+                JsonValueKind.True => true,
+                JsonValueKind.False => false,
+                JsonValueKind.Null => null!,
+                JsonValueKind.Array => element.EnumerateArray().Select(e => ConvertJsonElement(e)).ToList(),
+                JsonValueKind.Object => element.EnumerateObject().ToDictionary(p => p.Name, p => ConvertJsonElement(p.Value)),
+                _ => element.ToString()
+            };
+        }
+        return value;
     }
 
     private static ContainerSessionStatus MapSessionStatusToContainerStatus(SessionStatus status)
@@ -485,6 +545,16 @@ public class FileSystemProjectSessionRepository : IProjectSessionRepository
         public TestResultJsonDto? TestResult { get; set; }
         public LinterResultJsonDto? LinterResult { get; set; }
         public CommitInfoJsonDto? CommitInfo { get; set; }
+        public Dictionary<string, object>? Variables { get; set; }
+        public Dictionary<string, string>? EntryPoints { get; set; }
+        public List<MonitorWidgetJsonDto>? MonitorWidgets { get; set; }
+    }
+
+    private class MonitorWidgetJsonDto
+    {
+        public string Id { get; set; } = string.Empty;
+        public string Type { get; set; } = string.Empty;
+        public Dictionary<string, object>? Config { get; set; }
     }
 
     private class SessionConfigJsonDto

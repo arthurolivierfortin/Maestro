@@ -328,6 +328,263 @@ public class SessionsController : ControllerBase
 
         return Ok(dtos);
     }
+
+    // ========== Session Variables Endpoints ==========
+
+    /// <summary>
+    /// Get all session variables.
+    /// </summary>
+    [HttpGet("{id}/variables")]
+    public async Task<ActionResult<Dictionary<string, object>>> GetVariables(string id)
+    {
+        var sessionId = SessionId.From(id);
+        var session = await _sessionServer.GetAsync(sessionId);
+
+        if (session == null)
+            return NotFound(new { error = $"Session '{id}' not found" });
+
+        return Ok(session.Variables);
+    }
+
+    /// <summary>
+    /// Get a specific session variable.
+    /// </summary>
+    [HttpGet("{id}/variables/{key}")]
+    public async Task<ActionResult<object>> GetVariable(string id, string key)
+    {
+        var sessionId = SessionId.From(id);
+        var session = await _sessionServer.GetAsync(sessionId);
+
+        if (session == null)
+            return NotFound(new { error = $"Session '{id}' not found" });
+
+        if (!session.HasVariable(key))
+            return NotFound(new { error = $"Variable '{key}' not found" });
+
+        return Ok(new { key, value = session.GetVariable(key) });
+    }
+
+    /// <summary>
+    /// Set a session variable.
+    /// </summary>
+    [HttpPut("{id}/variables/{key}")]
+    public async Task<ActionResult> SetVariable(string id, string key, [FromBody] SetVariableRequest request)
+    {
+        var sessionId = SessionId.From(id);
+        var session = await _sessionServer.GetAsync(sessionId);
+
+        if (session == null)
+            return NotFound(new { error = $"Session '{id}' not found" });
+
+        try
+        {
+            session.SetVariable(key, request.Value);
+            await _sessionServer.SaveAsync(session);
+            _logger.LogInformation("Set variable '{Key}' on session {SessionId}", key, id);
+            return Ok(new { key, value = request.Value });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to set variable '{Key}' on session {SessionId}", key, id);
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Delete a session variable.
+    /// </summary>
+    [HttpDelete("{id}/variables/{key}")]
+    public async Task<ActionResult> DeleteVariable(string id, string key)
+    {
+        var sessionId = SessionId.From(id);
+        var session = await _sessionServer.GetAsync(sessionId);
+
+        if (session == null)
+            return NotFound(new { error = $"Session '{id}' not found" });
+
+        if (!session.RemoveVariable(key))
+            return NotFound(new { error = $"Variable '{key}' not found" });
+
+        await _sessionServer.SaveAsync(session);
+        _logger.LogInformation("Removed variable '{Key}' from session {SessionId}", key, id);
+        return NoContent();
+    }
+
+    // ========== Entry Points Endpoints ==========
+
+    /// <summary>
+    /// Get all entry points for a session.
+    /// </summary>
+    [HttpGet("{id}/entry-points")]
+    public async Task<ActionResult<Dictionary<string, string>>> GetEntryPoints(string id)
+    {
+        var sessionId = SessionId.From(id);
+        var session = await _sessionServer.GetAsync(sessionId);
+
+        if (session == null)
+            return NotFound(new { error = $"Session '{id}' not found" });
+
+        return Ok(session.EntryPoints);
+    }
+
+    /// <summary>
+    /// Register an entry point for a session.
+    /// </summary>
+    [HttpPut("{id}/entry-points/{name}")]
+    public async Task<ActionResult> RegisterEntryPoint(string id, string name, [FromBody] RegisterEntryPointRequest request)
+    {
+        var sessionId = SessionId.From(id);
+        var session = await _sessionServer.GetAsync(sessionId);
+
+        if (session == null)
+            return NotFound(new { error = $"Session '{id}' not found" });
+
+        try
+        {
+            session.RegisterEntryPoint(name, request.WorkflowId);
+            await _sessionServer.SaveAsync(session);
+            _logger.LogInformation("Registered entry point '{Name}' on session {SessionId}", name, id);
+            return Ok(new { name, workflowId = request.WorkflowId });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to register entry point '{Name}' on session {SessionId}", name, id);
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Remove an entry point from a session.
+    /// </summary>
+    [HttpDelete("{id}/entry-points/{name}")]
+    public async Task<ActionResult> RemoveEntryPoint(string id, string name)
+    {
+        var sessionId = SessionId.From(id);
+        var session = await _sessionServer.GetAsync(sessionId);
+
+        if (session == null)
+            return NotFound(new { error = $"Session '{id}' not found" });
+
+        if (!session.RemoveEntryPoint(name))
+            return NotFound(new { error = $"Entry point '{name}' not found" });
+
+        await _sessionServer.SaveAsync(session);
+        _logger.LogInformation("Removed entry point '{Name}' from session {SessionId}", name, id);
+        return NoContent();
+    }
+
+    /// <summary>
+    /// Invoke an entry point on a session.
+    /// </summary>
+    [HttpPost("{id}/invoke/{entryPoint}")]
+    public async Task<ActionResult> InvokeEntryPoint(string id, string entryPoint, [FromBody] InvokeEntryPointRequest? request = null)
+    {
+        var sessionId = SessionId.From(id);
+        var session = await _sessionServer.GetAsync(sessionId);
+
+        if (session == null)
+            return NotFound(new { error = $"Session '{id}' not found" });
+
+        var workflowId = session.GetEntryPoint(entryPoint);
+        if (workflowId == null)
+            return NotFound(new { error = $"Entry point '{entryPoint}' not found" });
+
+        // TODO: Actually invoke the workflow
+        // For now, return the workflow ID that would be invoked
+        _logger.LogInformation("Invoking entry point '{EntryPoint}' ({WorkflowId}) on session {SessionId}",
+            entryPoint, workflowId, id);
+
+        return Ok(new {
+            entryPoint,
+            workflowId,
+            status = "pending",
+            message = $"Entry point '{entryPoint}' would invoke workflow '{workflowId}'"
+        });
+    }
+
+    // ========== Widget Endpoints ==========
+
+    /// <summary>
+    /// Get all widgets for a session.
+    /// </summary>
+    [HttpGet("{id}/widgets")]
+    public async Task<ActionResult<List<MonitorWidgetConfigDto>>> GetWidgets(string id)
+    {
+        var sessionId = SessionId.From(id);
+        var session = await _sessionServer.GetAsync(sessionId);
+
+        if (session == null)
+            return NotFound(new { error = $"Session '{id}' not found" });
+
+        var widgets = session.MonitorWidgets.Select(w => new MonitorWidgetConfigDto
+        {
+            Id = w.Id,
+            Type = w.Type,
+            Config = new Dictionary<string, object>(w.Config)
+        }).ToList();
+
+        return Ok(widgets);
+    }
+
+    /// <summary>
+    /// Register a widget for a session.
+    /// </summary>
+    [HttpPost("{id}/widgets")]
+    public async Task<ActionResult> RegisterWidget(string id, [FromBody] MonitorWidgetConfigDto request)
+    {
+        var sessionId = SessionId.From(id);
+        var session = await _sessionServer.GetAsync(sessionId);
+
+        if (session == null)
+            return NotFound(new { error = $"Session '{id}' not found" });
+
+        try
+        {
+            var widget = new Maestro.Domain.ValueObjects.MonitorWidgetConfig
+            {
+                Id = request.Id,
+                Type = request.Type,
+                Config = request.Config ?? new Dictionary<string, object>()
+            };
+            session.RegisterWidget(widget);
+            await _sessionServer.SaveAsync(session);
+            _logger.LogInformation("Registered widget '{WidgetId}' on session {SessionId}", request.Id, id);
+            return Ok(request);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to register widget on session {SessionId}", id);
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Remove a widget from a session.
+    /// </summary>
+    [HttpDelete("{id}/widgets/{widgetId}")]
+    public async Task<ActionResult> RemoveWidget(string id, string widgetId)
+    {
+        var sessionId = SessionId.From(id);
+        var session = await _sessionServer.GetAsync(sessionId);
+
+        if (session == null)
+            return NotFound(new { error = $"Session '{id}' not found" });
+
+        if (!session.RemoveWidget(widgetId))
+            return NotFound(new { error = $"Widget '{widgetId}' not found" });
+
+        await _sessionServer.SaveAsync(session);
+        _logger.LogInformation("Removed widget '{WidgetId}' from session {SessionId}", widgetId, id);
+        return NoContent();
+    }
+}
+
+/// <summary>
+/// Request to set a session variable.
+/// </summary>
+public record SetVariableRequest
+{
+    public required object Value { get; init; }
 }
 
 /// <summary>
@@ -398,4 +655,30 @@ public record SessionEventDto
     public DateTime Timestamp { get; init; }
     public long Sequence { get; init; }
     public Dictionary<string, object> Data { get; init; } = new();
+}
+
+/// <summary>
+/// Request to register an entry point.
+/// </summary>
+public record RegisterEntryPointRequest
+{
+    public required string WorkflowId { get; init; }
+}
+
+/// <summary>
+/// Request to invoke an entry point.
+/// </summary>
+public record InvokeEntryPointRequest
+{
+    public Dictionary<string, object>? Inputs { get; init; }
+}
+
+/// <summary>
+/// DTO for monitor widget configuration.
+/// </summary>
+public record MonitorWidgetConfigDto
+{
+    public string Id { get; init; } = string.Empty;
+    public string Type { get; init; } = string.Empty;
+    public Dictionary<string, object>? Config { get; init; }
 }

@@ -1,0 +1,132 @@
+{
+  "id": "foundry-training",
+  "name": "Foundry Training Session",
+  "description": "Specialized session for intensive training runs with automated evaluation and metrics collection.",
+
+  "type": "foundry",
+  "authority": {
+    "type": "agent",
+    "identifier": "training-agent",
+    "displayName": "Training Agent"
+  },
+
+  "permissions": {
+    "allowedCommands": ["run", "list-tools", "data", "metrics"],
+    "allowedTools": [
+      "system:fitness-calculator",
+      "system:data-store",
+      "system:metrics-collector",
+      "system:block-executor"
+    ],
+    "allowedBlocks": ["*"],
+    "canCreateBlocks": false,
+    "canCreateSessions": false,
+    "canAccessNetwork": false,
+    "canAccessFilesystem": true
+  },
+
+  "entryPoints": {
+    "start-training": "workflows/foundry/training-run",
+    "evaluate-iteration": "workflows/foundry/evaluate-iteration",
+    "collect-metrics": "workflows/foundry/collect-metrics"
+  },
+
+  "variables": {
+    "sessionMode": "training",
+    "autoEvaluate": true,
+    "targetFitness": 0.90,
+    "maxIterations": 100,
+    "currentIteration": 0,
+    "fitnessHistory": [],
+    "metricsBuffer": []
+  },
+
+  "monitorWidgets": [
+    {
+      "id": "training-progress",
+      "type": "progress-bar",
+      "zone": "top",
+      "config": {
+        "label": "Training Progress",
+        "variable": "trainingProgress",
+        "max": 100,
+        "showPercentage": true,
+        "color": "blue"
+      }
+    },
+    {
+      "id": "fitness-chart",
+      "type": "score-chart",
+      "zone": "main",
+      "config": {
+        "label": "Fitness Over Time",
+        "variable": "fitnessHistory",
+        "targetLine": 0.90,
+        "chartType": "line",
+        "showTrend": true
+      }
+    },
+    {
+      "id": "iteration-stats",
+      "type": "counter",
+      "zone": "sidebar",
+      "config": {
+        "label": "Current Iteration",
+        "variable": "currentIteration",
+        "format": "{value} / {max}"
+      }
+    },
+    {
+      "id": "pass-rate",
+      "type": "counter",
+      "zone": "sidebar",
+      "config": {
+        "label": "Pass Rate",
+        "variable": "passRate",
+        "format": "{value}%",
+        "alertThreshold": 70
+      }
+    }
+  ],
+
+  "config": {
+    "maxIterations": 100,
+    "timeout": 14400000,
+    "autoSave": true,
+    "saveInterval": 10000,
+    "training": {
+      "iterations": 50,
+      "parallel": 2,
+      "delayMs": 100,
+      "timeoutMs": 30000
+    },
+    "evaluation": {
+      "mode": "auto",
+      "passThreshold": 0.8,
+      "autoEvaluator": {
+        "type": "LLM",
+        "model": "claude-haiku"
+      },
+      "criteria": [
+        "correctness",
+        "performance",
+        "reliability"
+      ]
+    }
+  },
+
+  "context": {
+    "systemPrompt": "You are a training agent within the Maestro Foundry. Execute training iterations, evaluate results, and collect metrics. Focus on improving fitness scores.",
+    "initialVariables": {
+      "workspace": "foundry-training",
+      "mode": "automated"
+    }
+  },
+
+  "metadata": {
+    "category": "training",
+    "priority": "normal",
+    "version": "1.0.0",
+    "author": "maestro-system"
+  }
+}

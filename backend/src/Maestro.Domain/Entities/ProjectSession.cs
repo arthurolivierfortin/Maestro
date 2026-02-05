@@ -160,7 +160,10 @@ public class ProjectSession : Session
         DateTimeOffset? updatedAt,
         string? createdBy,
         IEnumerable<SessionCommand>? commandHistory = null,
-        IEnumerable<SessionEvent>? eventHistory = null)
+        IEnumerable<SessionEvent>? eventHistory = null,
+        Dictionary<string, object>? variables = null,
+        Dictionary<string, string>? entryPoints = null,
+        List<MonitorWidgetConfig>? monitorWidgets = null)
     {
         var session = new ProjectSession
         {
@@ -186,7 +189,10 @@ public class ProjectSession : Session
             StartedAt = startedAt,
             CompletedAt = completedAt,
             UpdatedAt = updatedAt,
-            CreatedBy = createdBy
+            CreatedBy = createdBy,
+            Variables = variables ?? new Dictionary<string, object>(),
+            EntryPoints = entryPoints ?? new Dictionary<string, string>(),
+            MonitorWidgets = monitorWidgets ?? new List<MonitorWidgetConfig>()
         };
 
         // Restore command and event history
