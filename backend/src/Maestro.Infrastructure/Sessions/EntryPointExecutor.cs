@@ -168,7 +168,10 @@ public class EntryPointExecutor
             }
 
             // Mark phase done with summary
-            var fitness = ReadDoubleVariable(session, "currentFitness", 0);
+            // For plateau phases, use bestFitness (the write guard preserves the best version on disk)
+            var fitness = phaseStopCondition == "plateau"
+                ? ReadDoubleVariable(session, "_bestFitness", ReadDoubleVariable(session, "currentFitness", 0))
+                : ReadDoubleVariable(session, "currentFitness", 0);
             var iteration = ReadIntVariable(session, "currentIteration", 0);
             var tokens = ReadIntVariable(session, "_tokenCount", 0);
             UpdatePhaseStatus(session, activePhaseId, "done");
@@ -721,12 +724,24 @@ public class EntryPointExecutor
             return await ExecuteWriteNodeAsync(session, workflowConfig, workingDir, previousOutput);
         }
 
-        // Shell/evaluate nodes: run shell commands
-        if (nodeId.Contains("evaluate") || nodeId.Contains("load") || nodeId.Contains("training"))
+        // Load nodes: read the current artifact from disk (the file being improved)
+        if (nodeId.Contains("load"))
         {
-            var gitDiff = await RunShellAsync(workingDir, "git diff --stat");
-            var gitLog = await RunShellAsync(workingDir, "git log --oneline -5");
-            return $"Git Diff:\n{gitDiff}\n\nRecent Commits:\n{gitLog}";
+            return await ExecuteLoadNodeAsync(session, workflowConfig, workingDir);
+        }
+
+        // Training/run nodes: re-read the current artifact from disk.
+        // This ensures each iteration starts fresh from the actual file state,
+        // not from stale write-result messages like "Written to X" or "Write blocked".
+        if (nodeId.Contains("training") || nodeId.Contains("run-"))
+        {
+            return await ExecuteLoadNodeAsync(session, workflowConfig, workingDir);
+        }
+
+        // Evaluate nodes: passthrough (pass previous output as-is for next node)
+        if (nodeId.Contains("evaluate"))
+        {
+            return previousOutput ?? "(no input to evaluate)";
         }
 
         // LLM/generate nodes: call LLM with config-driven prompts
@@ -754,6 +769,29 @@ public class EntryPointExecutor
     }
 
     // ===== Node Type Executors (read config from session variables) =====
+
+    /// <summary>
+    /// Loads the current artifact file from disk. Reads output.filename from workflowConfig.
+    /// If the file doesn't exist yet (first iteration), returns a placeholder.
+    /// </summary>
+    private async Task<string> ExecuteLoadNodeAsync(
+        Domain.Entities.ProjectSession session,
+        Dictionary<string, object>? workflowConfig,
+        string workingDir)
+    {
+        var filename = GetConfigString(workflowConfig, "output.filename", "output.json");
+        var filePath = Path.Combine(workingDir, filename);
+
+        if (File.Exists(filePath))
+        {
+            var content = await File.ReadAllTextAsync(filePath);
+            AppendExecutionLog(session, "info", $"Loaded artifact: {filename} ({content.Length} chars)");
+            return content;
+        }
+
+        AppendExecutionLog(session, "info", $"Artifact not found: {filename} (first iteration, starting fresh)");
+        return "(no existing artifact — first iteration)";
+    }
 
     private async Task<string> ExecuteLLMNodeAsync(
         Domain.Entities.ProjectSession session,
@@ -801,6 +839,16 @@ public class EntryPointExecutor
         AppendToLLMActivity(session, activity);
 
         AppendExecutionLog(session, "success", $"LLM response received ({response.Content.Length} chars, {stopwatch.Elapsed.TotalSeconds:F1}s)");
+
+        // Try to extract clean JSON from LLM response — small LLMs often wrap JSON
+        // in markdown code blocks or add prose around it
+        var extracted = TryExtractJson(response.Content);
+        if (extracted != null && extracted != response.Content)
+        {
+            AppendExecutionLog(session, "info", $"Extracted JSON from LLM response ({response.Content.Length} → {extracted.Length} chars)");
+            return extracted;
+        }
+
         return response.Content;
     }
 
@@ -816,6 +864,21 @@ public class EntryPointExecutor
         if (string.IsNullOrEmpty(content))
         {
             return $"No content to write to {filename}";
+        }
+
+        // Quality gate: for .json files, only write valid JSON to prevent garbage feedback loops.
+        // If the LLM produced invalid output, keep the previous version on disk.
+        if (filename.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
+        {
+            try
+            {
+                JsonDocument.Parse(content);
+            }
+            catch (JsonException)
+            {
+                AppendExecutionLog(session, "warning", $"Write blocked: content is not valid JSON. Keeping previous {filename} on disk.");
+                return $"Write blocked: invalid JSON ({content.Length} chars). Previous version preserved.";
+            }
         }
 
         try
@@ -1164,6 +1227,62 @@ public class EntryPointExecutor
     {
         if (string.IsNullOrEmpty(text)) return 0;
         return (int)Math.Ceiling(text.Length / 4.0);
+    }
+
+    /// <summary>
+    /// Attempts to extract valid JSON from an LLM response that may contain surrounding prose.
+    /// Handles: markdown ```json blocks, bare JSON objects/arrays with leading/trailing text.
+    /// Returns the extracted JSON string, or null if no valid JSON found.
+    /// </summary>
+    private static string? TryExtractJson(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return null;
+
+        // If the text is already valid JSON, return as-is
+        var trimmed = text.Trim();
+        if ((trimmed.StartsWith("{") || trimmed.StartsWith("[")) && IsValidJson(trimmed))
+            return trimmed;
+
+        // Try to extract from markdown code block: ```json ... ``` or ``` ... ```
+        var codeBlockMatch = Regex.Match(text, @"```(?:json)?\s*\n?([\s\S]*?)```", RegexOptions.IgnoreCase);
+        if (codeBlockMatch.Success)
+        {
+            var inner = codeBlockMatch.Groups[1].Value.Trim();
+            if (IsValidJson(inner)) return inner;
+        }
+
+        // Try to find the outermost JSON object: first { to last matching }
+        var firstBrace = text.IndexOf('{');
+        var lastBrace = text.LastIndexOf('}');
+        if (firstBrace >= 0 && lastBrace > firstBrace)
+        {
+            var candidate = text[firstBrace..(lastBrace + 1)];
+            if (IsValidJson(candidate)) return candidate;
+        }
+
+        // Try to find outermost JSON array: first [ to last matching ]
+        var firstBracket = text.IndexOf('[');
+        var lastBracket = text.LastIndexOf(']');
+        if (firstBracket >= 0 && lastBracket > firstBracket)
+        {
+            var candidate = text[firstBracket..(lastBracket + 1)];
+            if (IsValidJson(candidate)) return candidate;
+        }
+
+        return null;
+    }
+
+    private static bool IsValidJson(string text)
+    {
+        try
+        {
+            JsonDocument.Parse(text);
+            return true;
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
     }
 
     private static string NormalizeBlockId(string workflowId)
