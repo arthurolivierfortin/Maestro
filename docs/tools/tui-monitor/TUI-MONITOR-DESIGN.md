@@ -349,7 +349,35 @@ monitor/
 - **Polling actuel**: 2s interval
 - **Future WebSocket**: Real-time push
 - **Smart refresh**: Ne rafraîchir que les panneaux visibles
-- **Diff-based**: Ne re-render que ce qui a changé
+
+### 6.4 Auto-Scroll & Follow Mode (Implémenté)
+
+Le TUI est un affichage **read-only** qui suit automatiquement l'exécution. L'utilisateur ne navigue pas manuellement dans les panels — le monitor fait le suivi pour lui.
+
+**Principe fondamental**: Chaque panel auto-scroll vers le contenu le plus pertinent à chaque cycle de refresh.
+
+| Panel | Comportement |
+|-------|-------------|
+| **Workflow Tree** | Auto-scroll pour centrer le nœud `running` dans le viewport. Le nœud actif est marqué `<<<`. Les nœuds `done` au-dessus scrollent naturellement hors vue. |
+| **Execution Log** | Mode `tail -f` : toujours affiche les dernières entrées. `setScrollPerc(100)` après chaque render. |
+| **Block Output** | Auto-scroll vers le bas pour montrer le dernier bloc exécuté ou le bloc en cours. |
+| **Metrics** | Auto-scroll vers le bas (sparkline grandit avec le temps). |
+| **Phases** | Pas de scroll (4 phases tiennent dans le panel). |
+
+**Implémentation technique**:
+```javascript
+// Après chaque setContent(), les panels scrollent automatiquement
+this.box.setContent(content);
+this.box.setScrollPerc(100);  // Scroll to bottom
+
+// Exception: le workflow tree scroll vers le nœud running
+if (this.runningNodeLine > 0) {
+    const targetLine = Math.max(0, this.runningNodeLine - Math.floor(boxHeight / 2));
+    this.box.scrollTo(targetLine);  // Center running node
+}
+```
+
+**Pas de navigation utilisateur dans les panels**: L'utilisateur interagit avec le monitor uniquement via les commandes CLI (`maestro session invoke`, `maestro session set-var`, etc.) dans un autre terminal. Le TUI est purement un écran de monitoring.
 
 ---
 
@@ -357,67 +385,47 @@ monitor/
 
 ### 7.1 Persistance Layout
 
-L'utilisateur devrait-il pouvoir sauvegarder son layout préféré?
+L'utilisateur devrait-il pouvoir sauvegarder son layout préféré? (Future)
 
-```bash
-# Sauvegarder le layout actuel
-maestro monitor --save-layout myconfig
+### 7.2 Multi-Monitor (Future)
 
-# Charger un layout
-maestro monitor <session> --layout myconfig
-```
-
-### 7.2 Responsive Design
-
-Comment gérer les petits terminaux?
-- Mode compact automatique
-- Priorité aux panneaux essentiels
-- Scroll horizontal pour les arbres larges
-
-### 7.3 Multi-Monitor
-
-Support pour afficher différentes vues sur différents moniteurs/terminaux?
+Support pour afficher différentes vues sur différents terminaux:
 
 ```bash
 # Terminal 1: Vue globale
 maestro monitor --view sessions
 
-# Terminal 2: Session spécifique avec workflow
-maestro monitor 13b28ebd --view workflow
-
-# Terminal 3: Logs en temps réel
-maestro monitor 13b28ebd --view logs --follow
+# Terminal 2: Session spécifique
+maestro monitor 13b28ebd
 ```
-
-### 7.4 Intégration IDE
-
-Devrait-on avoir une version intégrable dans VS Code ou autres?
 
 ---
 
 ## 8. Plan d'Implémentation
 
 ### Phase 1: Corrections Urgentes
-- [ ] Fixer les "undefined"
-- [ ] Afficher correctement les widgets du template
-- [ ] Corriger le calcul de duration
+- [x] Fixer les "undefined"
+- [x] Afficher correctement les widgets du template
+- [x] Corriger le calcul de duration
 
 ### Phase 2: Workflow Tree
-- [ ] Composant workflow-tree.js
-- [ ] Couleurs selon état
-- [ ] Mise à jour en temps réel
+- [x] Composant workflow-tree.js
+- [x] Couleurs selon état
+- [x] Mise à jour en temps réel
+- [x] Auto-scroll vers le nœud running (centré dans viewport)
+- [x] Marqueur `<<<` sur le nœud actif
 
-### Phase 3: Filesystem Panel
-- [ ] Composant filesystem.js
-- [ ] Couleurs selon accès
-- [ ] Binding workflow → filesystem
+### Phase 3: Auto-Scroll & Follow Mode
+- [x] Execution Log: mode tail -f (setScrollPerc(100))
+- [x] Block Output Browser: auto-scroll vers le dernier bloc
+- [x] Metrics Panel: auto-scroll vers le bas
+- [x] Workflow Tree: scroll vers le nœud running (scrollTo)
 
 ### Phase 4: Navigation
-- [ ] Raccourcis clavier
-- [ ] Toggle panneaux
-- [ ] Vue multi-sessions
+- [x] Toggle panneaux (t, f, w, v, l)
+- [x] Vue multi-sessions (GlobalMonitor)
 
-### Phase 5: Améliorations
+### Phase 5: Améliorations (Future)
 - [ ] WebSocket real-time
 - [ ] Layouts personnalisables
 - [ ] Persistance config

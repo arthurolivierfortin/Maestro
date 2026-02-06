@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using Newtonsoft.Json.Linq;
 using Maestro.Application.Interfaces;
 using Maestro.Domain.ValueObjects;
@@ -116,14 +117,30 @@ public class EntryPointExecutor
         AppendExecutionLog(session, "info", $"Starting workflow: {workflowId}");
         await _repository.SaveAsync(session);
 
-        // 7. Execute nodes sequentially
-        await ExecuteNodesAsync(session, tree, workflowConfig, workingDir, activePhaseId);
+        // 7. Execute config nodes (generic: handles while, conditional, regular nodes)
+        // The execution structure comes from the workflow block's config.nodes.
+        // Control flow (while, conditional) is defined in block JSON, not hardcoded here.
+        if (workflowBlock?.Config != null && workflowBlock.Config.ContainsKey("nodes"))
+        {
+            var configNodesObj = workflowBlock.Config["nodes"];
+            if (configNodesObj is JsonElement nodesEl && nodesEl.ValueKind == JsonValueKind.Array)
+            {
+                await ExecuteConfigNodesAsync(session, nodesEl, workflowConfig, workingDir, activePhaseId, tree);
+            }
+        }
+        else
+        {
+            // Fallback: no workflow block config, execute flat display tree sequentially
+            await ExecuteNodesAsync(session, tree, workflowConfig, workingDir, activePhaseId);
+        }
 
-        // 8. Finalize
+        // 8. Finalize — mark phase done when workflow completes
         if (!string.IsNullOrEmpty(activePhaseId))
         {
             UpdatePhaseStatus(session, activePhaseId, "done");
-            AppendExecutionLog(session, "info", $"Phase '{activePhaseId}' completed");
+            var fitness = ReadDoubleVariable(session, "currentFitness", 0);
+            var iteration = ReadIntVariable(session, "currentIteration", 0);
+            AppendExecutionLog(session, "info", $"Phase '{activePhaseId}' completed (fitness: {fitness:F2}, iterations: {iteration})");
         }
 
         ClearActiveBlock(session);
@@ -162,6 +179,9 @@ public class EntryPointExecutor
 
         if (!session.HasVariable("_artifacts"))
             session.SetVariable("_artifacts", new List<object>());
+
+        if (!session.HasVariable("_blockOutputs"))
+            session.SetVariable("_blockOutputs", new Dictionary<string, object>());
     }
 
     /// <summary>
@@ -237,8 +257,9 @@ public class EntryPointExecutor
     // ===== Execution Tree Building =====
 
     /// <summary>
-    /// Builds the execution tree from a workflow block's config.nodes.
-    /// Flattens nested structures (while/conditional) into a flat node list for TUI display.
+    /// Builds a HIERARCHICAL execution tree from a workflow block's config.nodes.
+    /// While/conditional nodes contain their children nested under them.
+    /// The TUI renders this tree recursively with indentation.
     /// </summary>
     private List<object> BuildExecutionTree(Domain.Entities.BlockDefinition? workflowBlock)
     {
@@ -247,49 +268,47 @@ public class EntryPointExecutor
             return new List<object> { CreateNode("execute", "Execute Workflow", "pending") };
         }
 
-        var tree = new List<object>();
         var nodesObj = workflowBlock.Config["nodes"];
 
-        IEnumerable<JsonElement>? nodeElements = null;
         if (nodesObj is JsonElement jsonEl && jsonEl.ValueKind == JsonValueKind.Array)
         {
-            nodeElements = jsonEl.EnumerateArray().ToList();
+            var tree = new List<object>();
+            foreach (var node in jsonEl.EnumerateArray())
+            {
+                var treeNode = BuildTreeNode(node);
+                if (treeNode != null) tree.Add(treeNode);
+            }
+            return tree.Count > 0 ? tree : new List<object> { CreateNode("execute", "Execute Workflow", "pending") };
         }
 
-        if (nodeElements == null)
-        {
-            return new List<object> { CreateNode("execute", "Execute Workflow", "pending") };
-        }
-
-        foreach (var node in nodeElements)
-        {
-            FlattenNode(node, tree);
-        }
-
-        return tree.Count > 0 ? tree : new List<object> { CreateNode("execute", "Execute Workflow", "pending") };
+        return new List<object> { CreateNode("execute", "Execute Workflow", "pending") };
     }
 
     /// <summary>
-    /// Recursively flattens a node (and its nested children for while/conditional types)
-    /// into the flat execution tree for TUI display.
+    /// Recursively builds a tree node, preserving hierarchy.
+    /// While/conditional nodes get their children nested under them.
     /// </summary>
-    private static void FlattenNode(JsonElement node, List<object> tree)
+    private static Dictionary<string, object>? BuildTreeNode(JsonElement node)
     {
-        if (node.ValueKind != JsonValueKind.Object) return;
+        if (node.ValueKind != JsonValueKind.Object) return null;
 
         var id = node.TryGetProperty("id", out var idProp) ? idProp.GetString() ?? "unknown" : "unknown";
         var displayName = NodeIdToDisplayName(id);
+        var treeNode = CreateNode(id, displayName, "pending");
 
-        tree.Add(CreateNode(id, displayName, "pending"));
-
-        // Flatten nested nodes (while loops, etc.)
+        // Nest children for while/conditional nodes
         if (node.TryGetProperty("nodes", out var nestedNodes) && nestedNodes.ValueKind == JsonValueKind.Array)
         {
+            var children = new List<object>();
             foreach (var child in nestedNodes.EnumerateArray())
             {
-                FlattenNode(child, tree);
+                var childNode = BuildTreeNode(child);
+                if (childNode != null) children.Add(childNode);
             }
+            treeNode["children"] = children;
         }
+
+        return treeNode;
     }
 
     // ===== Node Execution =====
@@ -315,12 +334,11 @@ public class EntryPointExecutor
             var nodeName = nodeDict["name"]?.ToString() ?? nodeId;
 
             // Set running
-            UpdateNodeStatus(tree, i, "running");
+            UpdateNodeById(tree, nodeId, "running");
             session.SetVariable("_executionTree", tree);
             SetActiveBlock(session, nodeId, nodeName, InferBlockType(nodeId), "running");
             AppendExecutionLog(session, "info", $"{nodeId}: Starting...");
 
-            // Update phase progress
             if (!string.IsNullOrEmpty(activePhaseId))
             {
                 var progress = (int)((double)i / totalNodes * 100);
@@ -329,7 +347,6 @@ public class EntryPointExecutor
 
             await _repository.SaveAsync(session);
 
-            // Execute the node
             string output;
             try
             {
@@ -339,7 +356,7 @@ public class EntryPointExecutor
             {
                 _logger.LogWarning(ex, "Node execution failed: {NodeId}", nodeId);
                 output = $"(error: {ex.Message})";
-                UpdateNodeStatus(tree, i, "error", output);
+                UpdateNodeById(tree, nodeId, "error", output);
                 session.SetVariable("_executionTree", tree);
                 UpdateActiveBlockStatus(session, "error");
                 AppendExecutionLog(session, "error", $"{nodeId}: {ex.Message}");
@@ -347,18 +364,287 @@ public class EntryPointExecutor
                 continue;
             }
 
-            // Set done
-            var truncatedOutput = output.Length > 200 ? output[..200] + "..." : output;
-            UpdateNodeStatus(tree, i, "done", truncatedOutput);
+            var truncatedOutput = output.Length > 500 ? output[..500] + "..." : output;
+            UpdateNodeById(tree, nodeId, "done", truncatedOutput);
             session.SetVariable("_executionTree", tree);
-            UpdateActiveBlockOutput(session, output.Length > 500 ? output[..500] + "..." : output);
+            UpdateActiveBlockOutput(session, output.Length > 2000 ? output[..2000] + "..." : output);
             UpdateActiveBlockStatus(session, "done");
-            AppendExecutionLog(session, "success", $"{nodeId}: Completed");
+            AppendExecutionLog(session, "success", $"{nodeId}: Completed ({output.Length} chars)");
+            StoreBlockOutput(session, nodeId, InferBlockType(nodeId), output);
+
             await _repository.SaveAsync(session);
             await Task.Delay(500);
 
             previousOutput = output;
         }
+    }
+
+    // ===== Config-Driven Node Execution (generic while/conditional support) =====
+
+    /// <summary>
+    /// Walks config.nodes from the workflow block JSON and executes based on node type.
+    /// Regular nodes are executed directly. "while" and "conditional" nodes are
+    /// dispatched to their respective handlers. This is the GENERIC infrastructure
+    /// that reads control flow from block JSON — no session-specific logic here.
+    /// </summary>
+    private async Task<string?> ExecuteConfigNodesAsync(
+        Domain.Entities.ProjectSession session,
+        JsonElement configNodes,
+        Dictionary<string, object>? workflowConfig,
+        string workingDir,
+        string? activePhaseId,
+        List<object> displayTree,
+        string? previousOutput = null)
+    {
+        string? lastOutput = previousOutput;
+
+        foreach (var configNode in configNodes.EnumerateArray())
+        {
+            if (configNode.ValueKind != JsonValueKind.Object) continue;
+
+            var nodeId = configNode.TryGetProperty("id", out var idProp) ? idProp.GetString() ?? "unknown" : "unknown";
+            var nodeType = configNode.TryGetProperty("type", out var typeProp) ? typeProp.GetString() : null;
+
+            switch (nodeType)
+            {
+                case "while":
+                    lastOutput = await ExecuteWhileNodeAsync(session, configNode, workflowConfig, workingDir, activePhaseId, displayTree, lastOutput);
+                    break;
+                case "conditional":
+                    lastOutput = await ExecuteConditionalNodeAsync(session, configNode, workflowConfig, workingDir, displayTree, lastOutput);
+                    break;
+                default:
+                    lastOutput = await ExecuteRegularNodeAsync(session, nodeId, workflowConfig, workingDir, activePhaseId, displayTree, lastOutput);
+                    break;
+            }
+        }
+
+        return lastOutput;
+    }
+
+    /// <summary>
+    /// Generic while loop execution. Reads condition and maxIterations from block JSON,
+    /// evaluates condition using session variables, and loops through children.
+    /// Phase progress is updated as iteration/maxIterations.
+    /// </summary>
+    private async Task<string?> ExecuteWhileNodeAsync(
+        Domain.Entities.ProjectSession session,
+        JsonElement whileNode,
+        Dictionary<string, object>? workflowConfig,
+        string workingDir,
+        string? activePhaseId,
+        List<object> displayTree,
+        string? previousOutput)
+    {
+        var nodeId = whileNode.TryGetProperty("id", out var idProp) ? idProp.GetString() ?? "while" : "while";
+        var condition = whileNode.TryGetProperty("condition", out var condProp) ? condProp.GetString() ?? "false" : "false";
+
+        // Read maxIterations from block config (may be a template reference)
+        var maxIterStr = "50";
+        if (whileNode.TryGetProperty("maxIterations", out var maxProp))
+        {
+            maxIterStr = maxProp.ValueKind == JsonValueKind.Number
+                ? maxProp.GetInt32().ToString()
+                : maxProp.GetString() ?? "50";
+        }
+        var resolvedMax = ResolveTemplate(maxIterStr, session);
+        var safetyMaxIterations = int.TryParse(resolvedMax, out var mi) ? mi : 50;
+
+        // Set while node to running in display tree
+        UpdateNodeById(displayTree, nodeId, "running");
+        session.SetVariable("_executionTree", displayTree);
+
+        var iteration = 0;
+        string? lastOutput = previousOutput;
+
+        // Initialize iteration variable for condition evaluation
+        session.SetVariable("iteration", iteration);
+        session.SetVariable("currentIteration", iteration);
+
+        AppendExecutionLog(session, "info", $"Entering while loop '{nodeId}' (max: {safetyMaxIterations})");
+        await _repository.SaveAsync(session);
+
+        while (iteration < safetyMaxIterations && EvaluateCondition(condition, session))
+        {
+            iteration++;
+            session.SetVariable("iteration", iteration);
+            session.SetVariable("currentIteration", iteration);
+
+            AppendExecutionLog(session, "info", $"While '{nodeId}': iteration {iteration}/{safetyMaxIterations}");
+
+            // Update phase progress based on iteration
+            if (!string.IsNullOrEmpty(activePhaseId))
+            {
+                var progress = (int)((double)iteration / safetyMaxIterations * 100);
+                UpdatePhaseStatus(session, activePhaseId, "running", Math.Min(progress, 99));
+            }
+
+            // Update while node display with iteration info
+            UpdateNodeById(displayTree, nodeId, "running", $"Iteration {iteration}/{safetyMaxIterations}");
+            session.SetVariable("_executionTree", displayTree);
+
+            // Reset children to pending for this iteration (except first)
+            if (iteration > 1)
+            {
+                var whileTreeNode = FindNodeById(displayTree, nodeId);
+                if (whileTreeNode != null &&
+                    whileTreeNode.TryGetValue("children", out var childrenObj) &&
+                    childrenObj is List<object> childrenList)
+                {
+                    ResetNodeTree(childrenList);
+                }
+                session.SetVariable("_executionTree", displayTree);
+            }
+
+            await _repository.SaveAsync(session);
+
+            // Execute child nodes
+            if (whileNode.TryGetProperty("nodes", out var children) && children.ValueKind == JsonValueKind.Array)
+            {
+                lastOutput = await ExecuteConfigNodesAsync(session, children, workflowConfig, workingDir, activePhaseId, displayTree, lastOutput);
+            }
+
+            // Log iteration result
+            var fitness = ReadDoubleVariable(session, "currentFitness", 0);
+            AppendExecutionLog(session, "info", $"Iteration {iteration} complete. Fitness: {fitness:F2}");
+            await _repository.SaveAsync(session);
+        }
+
+        // While loop done
+        var finalFitness = ReadDoubleVariable(session, "currentFitness", 0);
+        var conditionStillTrue = iteration < safetyMaxIterations && EvaluateCondition(condition, session);
+        var exitReason = !conditionStillTrue
+            ? $"condition met (fitness: {finalFitness:F2})"
+            : $"max iterations reached ({iteration}/{safetyMaxIterations})";
+
+        UpdateNodeById(displayTree, nodeId, "done", $"Completed: {exitReason}");
+        session.SetVariable("_executionTree", displayTree);
+
+        AppendExecutionLog(session, "success", $"While loop '{nodeId}' completed after {iteration} iterations: {exitReason}");
+        await _repository.SaveAsync(session);
+
+        return lastOutput;
+    }
+
+    /// <summary>
+    /// Generic conditional node execution. Reads condition from block JSON,
+    /// evaluates it, and executes the node (then/else branch selection is
+    /// a future evolution — currently executes the node via ExecuteNodeAsync).
+    /// </summary>
+    private async Task<string?> ExecuteConditionalNodeAsync(
+        Domain.Entities.ProjectSession session,
+        JsonElement condNode,
+        Dictionary<string, object>? workflowConfig,
+        string workingDir,
+        List<object> displayTree,
+        string? previousOutput)
+    {
+        var nodeId = condNode.TryGetProperty("id", out var idProp) ? idProp.GetString() ?? "conditional" : "conditional";
+        var condition = condNode.TryGetProperty("condition", out var condProp) ? condProp.GetString() ?? "true" : "true";
+        var displayName = NodeIdToDisplayName(nodeId);
+
+        var condResult = EvaluateCondition(condition, session);
+        AppendExecutionLog(session, "info", $"Conditional '{nodeId}': evaluated to {condResult}");
+
+        // Update display tree
+        UpdateNodeById(displayTree, nodeId, "running", $"Condition: {condResult}");
+        SetActiveBlock(session, nodeId, displayName, "conditional", "running");
+        session.SetVariable("_executionTree", displayTree);
+        await _repository.SaveAsync(session);
+
+        // Execute the node
+        string output;
+        try
+        {
+            output = await ExecuteNodeAsync(session, nodeId, workflowConfig, workingDir, previousOutput);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Conditional node execution failed: {NodeId}", nodeId);
+            output = $"(error: {ex.Message})";
+            UpdateNodeById(displayTree, nodeId, "error", output);
+            session.SetVariable("_executionTree", displayTree);
+            UpdateActiveBlockStatus(session, "error");
+            AppendExecutionLog(session, "error", $"{nodeId}: {ex.Message}");
+            await _repository.SaveAsync(session);
+            return previousOutput;
+        }
+
+        // Set done
+        var truncated = output.Length > 500 ? output[..500] + "..." : output;
+        UpdateNodeById(displayTree, nodeId, "done", truncated);
+        session.SetVariable("_executionTree", displayTree);
+        UpdateActiveBlockOutput(session, output.Length > 2000 ? output[..2000] + "..." : output);
+        UpdateActiveBlockStatus(session, "done");
+        StoreBlockOutput(session, nodeId, "conditional", output);
+        AppendExecutionLog(session, "success", $"{nodeId}: Completed ({output.Length} chars)");
+        await _repository.SaveAsync(session);
+
+        return output;
+    }
+
+    /// <summary>
+    /// Executes a single regular (non-control-flow) config node.
+    /// Updates the display tree, sets active block, and chains output.
+    /// </summary>
+    private async Task<string?> ExecuteRegularNodeAsync(
+        Domain.Entities.ProjectSession session,
+        string nodeId,
+        Dictionary<string, object>? workflowConfig,
+        string workingDir,
+        string? activePhaseId,
+        List<object> displayTree,
+        string? previousOutput)
+    {
+        var displayName = NodeIdToDisplayName(nodeId);
+        var blockType = InferBlockType(nodeId);
+
+        // Hint shown in the tree while the node is running
+        var runHint = blockType switch
+        {
+            "inference" => "Calling LLM...",
+            "script" => "Running...",
+            "validator" => "Evaluating...",
+            _ => null
+        };
+
+        // Set running with hint
+        UpdateNodeById(displayTree, nodeId, "running", runHint);
+        session.SetVariable("_executionTree", displayTree);
+        SetActiveBlock(session, nodeId, displayName, blockType, "running");
+        AppendExecutionLog(session, "info", $"{nodeId}: Starting...");
+        await _repository.SaveAsync(session);
+
+        // Execute the node
+        string output;
+        try
+        {
+            output = await ExecuteNodeAsync(session, nodeId, workflowConfig, workingDir, previousOutput);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Node execution failed: {NodeId}", nodeId);
+            output = $"(error: {ex.Message})";
+            UpdateNodeById(displayTree, nodeId, "error", output);
+            session.SetVariable("_executionTree", displayTree);
+            UpdateActiveBlockStatus(session, "error");
+            AppendExecutionLog(session, "error", $"{nodeId}: {ex.Message}");
+            await _repository.SaveAsync(session);
+            return previousOutput;
+        }
+
+        // Set done
+        var truncatedOutput = output.Length > 500 ? output[..500] + "..." : output;
+        UpdateNodeById(displayTree, nodeId, "done", truncatedOutput);
+        session.SetVariable("_executionTree", displayTree);
+        UpdateActiveBlockOutput(session, output.Length > 2000 ? output[..2000] + "..." : output);
+        UpdateActiveBlockStatus(session, "done");
+        AppendExecutionLog(session, "success", $"{nodeId}: Completed ({output.Length} chars)");
+        StoreBlockOutput(session, nodeId, blockType, output);
+        await _repository.SaveAsync(session);
+        await Task.Delay(500);
+
+        return output;
     }
 
     /// <summary>
@@ -483,17 +769,33 @@ public class EntryPointExecutor
         string? output)
     {
         var criteria = GetConfigStringList(workflowConfig, "evaluation.criteria");
-        var fitness = EvaluateFitness(output ?? "", criteria);
-        var currentIteration = session.GetVariable<int>("currentIteration", 0) + 1;
+        var (fitness, criteriaScores) = EvaluateFitnessDetailed(output ?? "", criteria);
 
-        session.SetVariable("currentIteration", currentIteration);
         session.SetVariable("currentFitness", fitness);
 
         var scoreHistory = GetScoreHistory(session);
         scoreHistory.Add(fitness);
         session.SetVariable("scoreHistory", scoreHistory);
 
-        return $"Fitness: {fitness:F2} | Iteration: {currentIteration}";
+        // Store detailed validation results in _blockOutputs
+        var validationDetail = new Dictionary<string, object>
+        {
+            ["type"] = "validator",
+            ["criteriaScores"] = criteriaScores,
+            ["totalScore"] = fitness,
+            ["passed"] = fitness >= session.GetVariable<double>("targetFitness", 0.85)
+        };
+        StoreBlockOutput(session, "validation", "validator", null, validationDetail);
+
+        // Build readable output with per-criteria detail
+        var sb = new StringBuilder();
+        sb.AppendLine($"Fitness: {fitness:F2}");
+        foreach (var kvp in criteriaScores)
+        {
+            var icon = (double)kvp.Value >= 0.5 ? "+" : "-";
+            sb.AppendLine($"  [{icon}] {kvp.Key}: {kvp.Value:F2}");
+        }
+        return sb.ToString().TrimEnd();
     }
 
     // ===== Config Helpers (navigate session variable _workflowConfig) =====
@@ -633,45 +935,48 @@ public class EntryPointExecutor
     }
 
     /// <summary>
-    /// Config-driven fitness evaluation. Uses criteria from _workflowConfig.evaluation.criteria
-    /// instead of hardcoded heuristics.
+    /// Config-driven fitness evaluation with per-criteria detail.
+    /// Returns (totalScore, criteriaScores dictionary).
     /// </summary>
-    private static double EvaluateFitness(string output, List<string> criteria)
+    private static (double totalScore, Dictionary<string, object> criteriaScores) EvaluateFitnessDetailed(string output, List<string> criteria)
     {
+        var criteriaScores = new Dictionary<string, object>();
+
         if (criteria.Count == 0)
         {
-            // No criteria defined — use simple length-based score
-            return Math.Min(0.5 + (output.Length > 100 ? 0.2 : 0) + (output.Length > 500 ? 0.15 : 0), 0.95);
+            var score = Math.Min(0.5 + (output.Length > 100 ? 0.2 : 0) + (output.Length > 500 ? 0.15 : 0), 0.95);
+            criteriaScores["lengthHeuristic"] = score;
+            return (score, criteriaScores);
         }
 
-        var score = 0.0;
+        var totalScore = 0.0;
         var weight = 1.0 / criteria.Count;
 
         foreach (var criterion in criteria)
         {
+            double criterionScore;
             switch (criterion.ToLowerInvariant())
             {
                 case "hasjsonstructure":
-                    if (output.TrimStart().StartsWith("{") || output.TrimStart().StartsWith("["))
-                        score += weight;
+                    criterionScore = (output.TrimStart().StartsWith("{") || output.TrimStart().StartsWith("[")) ? 1.0 : 0.0;
                     break;
                 case "hasrequiredfields":
                     var requiredFields = new[] { "\"name\"", "\"type\"", "\"description\"" };
                     var fieldsFound = requiredFields.Count(f => output.Contains(f));
-                    score += weight * ((double)fieldsFound / requiredFields.Length);
+                    criterionScore = (double)fieldsFound / requiredFields.Length;
                     break;
                 case "minlength":
-                    if (output.Length >= 100) score += weight;
-                    else score += weight * (output.Length / 100.0);
+                    criterionScore = output.Length >= 100 ? 1.0 : output.Length / 100.0;
                     break;
                 default:
-                    // Unknown criterion — partial credit
-                    score += weight * 0.5;
+                    criterionScore = 0.5;
                     break;
             }
+            criteriaScores[criterion] = Math.Round(criterionScore, 2);
+            totalScore += weight * criterionScore;
         }
 
-        return Math.Min(score, 0.95);
+        return (Math.Min(totalScore, 0.95), criteriaScores);
     }
 
     // ===== Utility Helpers =====
@@ -704,6 +1009,170 @@ public class EntryPointExecutor
         if (nodeId.Contains("check") || nodeId.Contains("fitness") || nodeId.Contains("validate"))
             return "validator";
         return "task";
+    }
+
+    // ===== Template Resolution & Condition Evaluation =====
+
+    /// <summary>
+    /// Resolves {{variable}} references in a template string using session variables.
+    /// Handles {{inputs.xxx}} by looking up session variable "xxx".
+    /// Returns the resolved string with all placeholders replaced.
+    /// </summary>
+    private static string ResolveTemplate(string template, Domain.Entities.ProjectSession session)
+    {
+        return Regex.Replace(template, @"\{\{([^}]+)\}\}", match =>
+        {
+            var varPath = match.Groups[1].Value.Trim();
+
+            // {{inputs.xxx}} → session variable "xxx"
+            if (varPath.StartsWith("inputs."))
+                varPath = varPath["inputs.".Length..];
+
+            var value = session.GetVariable(varPath);
+            if (value == null) return "0";
+
+            if (value is double d) return d.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            if (value is int i) return i.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            if (value is long l) return l.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            if (value is float f) return f.ToString(System.Globalization.CultureInfo.InvariantCulture);
+
+            if (value is JsonElement je)
+            {
+                return je.ValueKind switch
+                {
+                    JsonValueKind.Number => je.GetDouble().ToString(System.Globalization.CultureInfo.InvariantCulture),
+                    JsonValueKind.String => je.GetString() ?? "0",
+                    JsonValueKind.True => "true",
+                    JsonValueKind.False => "false",
+                    _ => je.ToString()
+                };
+            }
+
+            if (value is JValue jv)
+            {
+                if (jv.Value is double jd) return jd.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                return jv.Value?.ToString() ?? "0";
+            }
+
+            return value.ToString() ?? "0";
+        });
+    }
+
+    /// <summary>
+    /// Evaluates a boolean condition expression after resolving template variables.
+    /// Supports: &amp;&amp;, ||, &lt;, &gt;, &lt;=, &gt;=, ==, !=
+    /// Example: "0.25 &lt; 0.85 &amp;&amp; 1 &lt; 50" → true
+    /// </summary>
+    private static bool EvaluateCondition(string conditionTemplate, Domain.Entities.ProjectSession session)
+    {
+        var resolved = ResolveTemplate(conditionTemplate, session);
+
+        // Split on && (all parts must be true)
+        var andParts = resolved.Split(new[] { "&&" }, StringSplitOptions.TrimEntries);
+
+        foreach (var andPart in andParts)
+        {
+            // Each andPart may contain || (any sub-part must be true)
+            var orParts = andPart.Split(new[] { "||" }, StringSplitOptions.TrimEntries);
+            var anyTrue = false;
+
+            foreach (var orPart in orParts)
+            {
+                if (EvaluateSimpleComparison(orPart.Trim()))
+                {
+                    anyTrue = true;
+                    break;
+                }
+            }
+
+            if (!anyTrue) return false;
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Evaluates a single comparison expression (e.g., "0.25 &lt; 0.85").
+    /// Tries numeric comparison first, falls back to string comparison.
+    /// </summary>
+    private static bool EvaluateSimpleComparison(string expr)
+    {
+        // Try operators in specificity order: <=, >=, !=, ==, <, >
+        string[] operators = { "<=", ">=", "!=", "==", "<", ">" };
+
+        foreach (var op in operators)
+        {
+            var idx = expr.IndexOf(op, StringComparison.Ordinal);
+            if (idx > 0)
+            {
+                var left = expr[..idx].Trim();
+                var right = expr[(idx + op.Length)..].Trim();
+
+                // Numeric comparison
+                if (double.TryParse(left, System.Globalization.CultureInfo.InvariantCulture, out var leftNum) &&
+                    double.TryParse(right, System.Globalization.CultureInfo.InvariantCulture, out var rightNum))
+                {
+                    return op switch
+                    {
+                        "<" => leftNum < rightNum,
+                        ">" => leftNum > rightNum,
+                        "<=" => leftNum <= rightNum,
+                        ">=" => leftNum >= rightNum,
+                        "==" => Math.Abs(leftNum - rightNum) < 0.0001,
+                        "!=" => Math.Abs(leftNum - rightNum) >= 0.0001,
+                        _ => false
+                    };
+                }
+
+                // String comparison
+                return op switch
+                {
+                    "==" => left == right,
+                    "!=" => left != right,
+                    _ => false
+                };
+            }
+        }
+
+        // Boolean literal
+        if (bool.TryParse(expr, out var boolVal)) return boolVal;
+
+        // Truthy: non-empty, non-zero
+        if (double.TryParse(expr, System.Globalization.CultureInfo.InvariantCulture, out var numVal)) return numVal != 0;
+        return !string.IsNullOrEmpty(expr) && expr != "0" && expr.ToLowerInvariant() != "false";
+    }
+
+    /// <summary>
+    /// Reads a double from a session variable, handling JsonElement/JValue/etc.
+    /// </summary>
+    private static double ReadDoubleVariable(Domain.Entities.ProjectSession session, string key, double defaultValue)
+    {
+        var value = session.GetVariable(key);
+        if (value == null) return defaultValue;
+        if (value is double d) return d;
+        if (value is int i) return i;
+        if (value is long l) return l;
+        if (value is float f) return f;
+        if (value is JsonElement je && je.ValueKind == JsonValueKind.Number) return je.GetDouble();
+        if (value is JValue jv && jv.Value != null) return Convert.ToDouble(jv.Value);
+        if (double.TryParse(value.ToString(), System.Globalization.CultureInfo.InvariantCulture, out var parsed)) return parsed;
+        return defaultValue;
+    }
+
+    /// <summary>
+    /// Reads an int from a session variable, handling JsonElement/JValue/etc.
+    /// </summary>
+    private static int ReadIntVariable(Domain.Entities.ProjectSession session, string key, int defaultValue)
+    {
+        var value = session.GetVariable(key);
+        if (value == null) return defaultValue;
+        if (value is int i) return i;
+        if (value is long l) return (int)l;
+        if (value is double d) return (int)d;
+        if (value is JsonElement je && je.ValueKind == JsonValueKind.Number) return je.GetInt32();
+        if (value is JValue jv && jv.Value != null) return Convert.ToInt32(jv.Value);
+        if (int.TryParse(value.ToString(), out var parsed)) return parsed;
+        return defaultValue;
     }
 
     private static string? FindFirstPendingPhase(Domain.Entities.ProjectSession session)
@@ -821,6 +1290,34 @@ public class EntryPointExecutor
         }
     }
 
+    /// <summary>
+    /// Stores a block's output in _blockOutputs for the Block Output Browser.
+    /// Each block stores its latest output keyed by nodeId.
+    /// </summary>
+    private static void StoreBlockOutput(Domain.Entities.ProjectSession session, string nodeId, string blockType, string? rawOutput, Dictionary<string, object>? detailOverride = null)
+    {
+        var blockOutputs = session.GetVariable("_blockOutputs");
+        Dictionary<string, object> outputs;
+
+        if (blockOutputs is Dictionary<string, object> existing)
+            outputs = new Dictionary<string, object>(existing);
+        else
+            outputs = new Dictionary<string, object>();
+
+        var entry = detailOverride ?? new Dictionary<string, object>
+        {
+            ["type"] = blockType,
+            ["output"] = rawOutput ?? "",
+            ["timestamp"] = DateTimeOffset.UtcNow.ToString("HH:mm:ss")
+        };
+
+        if (!entry.ContainsKey("timestamp"))
+            entry["timestamp"] = DateTimeOffset.UtcNow.ToString("HH:mm:ss");
+
+        outputs[nodeId] = entry;
+        session.SetVariable("_blockOutputs", outputs);
+    }
+
     private static void ClearActiveBlock(Domain.Entities.ProjectSession session)
     {
         session.SetVariable("_activeBlock", null!);
@@ -902,13 +1399,56 @@ public class EntryPointExecutor
         return node;
     }
 
-    private static void UpdateNodeStatus(List<object> tree, int index, string status, string? output = null)
+    /// <summary>
+    /// Finds a node by ID in the hierarchical tree (recursive search).
+    /// </summary>
+    private static Dictionary<string, object>? FindNodeById(List<object> tree, string nodeId)
     {
-        if (index < tree.Count && tree[index] is Dictionary<string, object> node)
+        foreach (var item in tree)
         {
-            node["status"] = status;
-            if (output != null)
-                node["output"] = output;
+            if (item is Dictionary<string, object> node)
+            {
+                if (node.TryGetValue("id", out var id) && id?.ToString() == nodeId)
+                    return node;
+                if (node.TryGetValue("children", out var children) && children is List<object> childList)
+                {
+                    var found = FindNodeById(childList, nodeId);
+                    if (found != null) return found;
+                }
+            }
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// Updates a node's status (and optionally output) by ID in the hierarchical tree.
+    /// </summary>
+    private static void UpdateNodeById(List<object> tree, string nodeId, string status, string? output = null)
+    {
+        var node = FindNodeById(tree, nodeId);
+        if (node == null) return;
+        node["status"] = status;
+        if (output != null)
+            node["output"] = output;
+        else if (status == "pending")
+            node.Remove("output");
+    }
+
+    /// <summary>
+    /// Recursively resets all nodes in a list (and their children) to pending.
+    /// Used to reset while loop children between iterations.
+    /// </summary>
+    private static void ResetNodeTree(List<object> nodes)
+    {
+        foreach (var item in nodes)
+        {
+            if (item is Dictionary<string, object> node)
+            {
+                node["status"] = "pending";
+                node.Remove("output");
+                if (node.TryGetValue("children", out var children) && children is List<object> childList)
+                    ResetNodeTree(childList);
+            }
         }
     }
 

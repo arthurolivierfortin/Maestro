@@ -44,18 +44,21 @@ class StatusBarComponent {
     getShortcuts(mode, visiblePanels, hasBackOption = false) {
         const shortcuts = [];
 
-        // Panel toggles
-        shortcuts.push(this.shortcut('t', 'tree', visiblePanels.tree));
-        shortcuts.push(this.shortcut('f', 'files', visiblePanels.files));
-        shortcuts.push(this.shortcut('w', 'widgets', visiblePanels.widgets));
-        shortcuts.push(this.shortcut('v', 'vars', visiblePanels.vars));
-        shortcuts.push(this.shortcut('l', 'logs', visiblePanels.logs));
+        // Panel toggles only in execution/idle mode (not descriptor — layout is fixed)
+        if (mode !== 'descriptor') {
+            shortcuts.push(this.shortcut('t', 'tree', visiblePanels.tree));
+            shortcuts.push(this.shortcut('f', 'files', visiblePanels.files));
+            shortcuts.push(this.shortcut('w', 'widgets', visiblePanels.widgets));
+            shortcuts.push(this.shortcut('v', 'vars', visiblePanels.vars));
+            shortcuts.push(this.shortcut('l', 'logs', visiblePanels.logs));
+        }
 
         // Actions
         shortcuts.push(`${tag.dim('[')}${tag.muted('r')}${tag.dim(']')}efresh`);
         if (hasBackOption) {
             shortcuts.push(`${tag.dim('[')}${tag.muted('Esc')}${tag.dim(']')}back`);
         }
+        shortcuts.push(`${tag.dim('[')}${tag.muted('?')}${tag.dim(']')}help`);
         shortcuts.push(`${tag.dim('[')}${tag.muted('q')}${tag.dim(']')}uit`);
 
         return shortcuts.join('  ');

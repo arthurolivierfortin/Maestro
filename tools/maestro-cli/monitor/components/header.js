@@ -32,11 +32,43 @@ class HeaderComponent {
             workflowInfo = `\n  project: ${tag.muted(session.projectId?.substring(0, 8) || 'N/A')}`;
         }
 
+        // Iteration/fitness line
+        const vars = session.variables || {};
+        let iterFitnessLine = '';
+        const currentIteration = vars.currentIteration || 0;
+        const maxIterations = vars.maxIterations || 50;
+        const currentFitness = Number(vars.currentFitness || 0);
+        const targetFitness = Number(vars.targetFitness || 0.85);
+
+        if (currentIteration > 0 || currentFitness > 0) {
+            const fitnessPercent = currentFitness * 100;
+            let fitnessColor = 'red';
+            if (fitnessPercent >= 80) fitnessColor = 'green';
+            else if (fitnessPercent >= 50) fitnessColor = 'yellow';
+
+            // Find active phase name
+            let phaseName = '';
+            const phases = vars._phases;
+            if (Array.isArray(phases)) {
+                const running = phases.find(p => p.status === 'running');
+                if (running) phaseName = running.id || running.name || '';
+            }
+
+            const parts = [
+                `iter: ${tag.bold(String(currentIteration))}/${maxIterations}`,
+                `fitness: {${fitnessColor}-fg}${currentFitness.toFixed(2)}{/${fitnessColor}-fg}/${targetFitness.toFixed(2)}`
+            ];
+            if (phaseName) {
+                parts.push(`phase: ${tag.running(phaseName)}`);
+            }
+            iterFitnessLine = `\n  ${parts.join('  |  ')}`;
+        }
+
         const content = [
             '',
             `  {${statusColor}-fg}${statusIcon}{/} ${tag.bold(name)}  ${tag.dim(shortId)}  ${tag.muted(status)}`,
             workflowInfo ? workflowInfo : `  project: ${tag.muted(session.projectId?.substring(0, 8) || 'N/A')}`,
-            `  ${tag.dim('duration:')} ${tag.secondary(duration)}`
+            `  ${tag.dim('duration:')} ${tag.secondary(duration)}${iterFitnessLine}`
         ].join('\n');
 
         this.box.setContent(content);

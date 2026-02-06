@@ -16,7 +16,7 @@ class MetricsPanelComponent {
     render(session, context = {}) {
         const vars = session.variables || {};
 
-        let content = `${tag.label('METRICS')}\n\n`;
+        let content = `${tag.label('METRICS')}\n`;
 
         // Fitness progress bar
         const fitness = vars.currentFitness || vars.fitness || 0;
@@ -35,6 +35,7 @@ class MetricsPanelComponent {
         }
 
         this.box.setContent(content);
+        this.box.setScrollPerc(100);
     }
 
     renderProgressBar(label, current, max) {

@@ -91,13 +91,13 @@ class SessionMonitor {
             style: { bg: colors.bg }
         });
 
-        // Header (fixed)
+        // Header (fixed — 6 lines for iter/fitness display)
         this.headerBox = blessed.box({
             parent: this.mainBox,
             top: 0,
             left: 0,
             width: '100%',
-            height: 5,
+            height: 6,
             tags: true,
             border: { type: 'line' },
             style: {
@@ -110,10 +110,10 @@ class SessionMonitor {
         // Main content area - will be dynamically configured
         this.contentArea = blessed.box({
             parent: this.mainBox,
-            top: 5,
+            top: 6,
             left: 0,
             width: '100%',
-            height: '100%-8',
+            height: '100%-9',
             style: { bg: colors.bg }
         });
 
@@ -238,10 +238,10 @@ class SessionMonitor {
             hidden: true
         });
 
-        // Phase List (descriptor mode)
+        // Phase List (descriptor mode) — top-left 25% x 50%
         this.phasesBox = blessed.box({
             parent: this.contentArea,
-            top: 0, left: 0, width: '40%', height: '50%',
+            top: 0, left: 0, width: '25%', height: '50%',
             tags: true, scrollable: true, alwaysScroll: true,
             border: { type: 'line' },
             scrollbar: { style: { bg: 'white' } },
@@ -249,10 +249,10 @@ class SessionMonitor {
             hidden: true
         });
 
-        // Block Detail (descriptor mode)
+        // Block Detail / Block Output Browser (descriptor mode) — mid-right 65% x 25%
         this.blockDetailBox = blessed.box({
             parent: this.contentArea,
-            top: 0, left: '40%', width: '60%', height: '35%',
+            top: '50%', left: '35%', width: '65%', height: '25%',
             tags: true, scrollable: true, alwaysScroll: true,
             border: { type: 'line' },
             scrollbar: { style: { bg: 'white' } },
@@ -260,20 +260,20 @@ class SessionMonitor {
             hidden: true
         });
 
-        // Metrics Panel (descriptor mode)
+        // Metrics Panel (descriptor mode) — mid-left 35% x 25%
         this.metricsBox = blessed.box({
             parent: this.contentArea,
-            top: '35%', left: '40%', width: '60%', height: '35%',
+            top: '50%', left: 0, width: '35%', height: '25%',
             tags: true, scrollable: true,
             border: { type: 'line' },
             style: { bg: colors.bg, fg: colors.fg, border: { fg: 'white' } },
             hidden: true
         });
 
-        // Execution Log (descriptor mode)
+        // Execution Log (descriptor mode) — bottom 100% x 25%
         this.execLogBox = blessed.box({
             parent: this.contentArea,
-            top: '70%', left: 0, width: '60%', height: '30%',
+            top: '75%', left: 0, width: '100%', height: '25%',
             tags: true, scrollable: true, alwaysScroll: true,
             border: { type: 'line' },
             scrollbar: { style: { bg: 'white' } },
@@ -281,10 +281,10 @@ class SessionMonitor {
             hidden: true
         });
 
-        // Artifacts (descriptor mode)
+        // Artifacts (descriptor mode) — hidden by default in new layout
         this.artifactsBox = blessed.box({
             parent: this.contentArea,
-            top: '70%', left: '60%', width: '40%', height: '30%',
+            top: '75%', left: '75%', width: '25%', height: '25%',
             tags: true, scrollable: true,
             border: { type: 'line' },
             style: { bg: colors.bg, fg: colors.fg, border: { fg: 'white' } },
@@ -339,6 +339,8 @@ class SessionMonitor {
     }
 
     togglePanel(panel) {
+        // Panel toggles only apply to execution/idle mode, not descriptor mode
+        if (this.mode === 'descriptor') return;
         this.panels[panel] = !this.panels[panel];
         this.applyLayout();
         this.renderAll();
@@ -348,18 +350,20 @@ class SessionMonitor {
     showHelp() {
         const backText = this.onExit ? '    Esc     Back to session list\n' : '';
         const helpText = `
-  Maestro Session Monitor
+  Maestro Session Monitor (read-only)
 
-  Navigation:
-    t       Toggle workflow tree
-    f       Toggle filesystem
-    w       Toggle widgets
-    v       Toggle variables
-    l       Toggle command log
+  The monitor auto-scrolls to follow execution.
+  Use the CLI in another terminal for commands.
 
-  Actions:
+  Keys:
     r       Refresh now
 ${backText}    q       Quit
+    ?       This help
+
+  Auto-scroll behavior:
+    Workflow Tree  centers on running node
+    Execution Log  tail -f (latest at bottom)
+    Block Output   follows active block
 
   Press any key to close...
 `;
@@ -552,51 +556,40 @@ ${backText}    q       Quit
     }
 
     applyDescriptorLayout() {
-        // LEFT zone (40%): phases (top) + workflow tree (mid) + custom widgets (bottom)
+        // TOP-LEFT: Phases (25% x 50%)
         this.phasesBox.show();
         this.phasesBox.top = 0;
         this.phasesBox.left = 0;
-        this.phasesBox.width = '40%';
-        this.phasesBox.height = '35%';
+        this.phasesBox.width = '25%';
+        this.phasesBox.height = '50%';
 
+        // TOP-RIGHT: Workflow Tree (75% x 50%)
         this.treeBox.show();
-        this.treeBox.top = '35%';
-        this.treeBox.left = 0;
-        this.treeBox.width = '40%';
-        this.treeBox.height = '35%';
+        this.treeBox.top = 0;
+        this.treeBox.left = '25%';
+        this.treeBox.width = '75%';
+        this.treeBox.height = '50%';
 
-        // Custom widgets in left zone below tree
-        this.widgetsBox.show();
-        this.widgetsBox.top = '70%';
-        this.widgetsBox.left = 0;
-        this.widgetsBox.width = '40%';
-        this.widgetsBox.height = '30%';
-
-        // RIGHT zone (60%): block detail (top) + metrics (mid)
-        this.blockDetailBox.show();
-        this.blockDetailBox.top = 0;
-        this.blockDetailBox.left = '40%';
-        this.blockDetailBox.width = '60%';
-        this.blockDetailBox.height = '35%';
-
+        // MID-LEFT: Metrics (35% x 25%)
         this.metricsBox.show();
-        this.metricsBox.top = '35%';
-        this.metricsBox.left = '40%';
-        this.metricsBox.width = '60%';
-        this.metricsBox.height = '35%';
+        this.metricsBox.top = '50%';
+        this.metricsBox.left = 0;
+        this.metricsBox.width = '35%';
+        this.metricsBox.height = '25%';
 
-        // BOTTOM-RIGHT zone: execution log + artifacts
+        // MID-RIGHT: Block Output Browser (65% x 25%)
+        this.blockDetailBox.show();
+        this.blockDetailBox.top = '50%';
+        this.blockDetailBox.left = '35%';
+        this.blockDetailBox.width = '65%';
+        this.blockDetailBox.height = '25%';
+
+        // BOTTOM: Execution Log (100% x 25%)
         this.execLogBox.show();
-        this.execLogBox.top = '70%';
-        this.execLogBox.left = '40%';
-        this.execLogBox.width = '35%';
-        this.execLogBox.height = '30%';
-
-        this.artifactsBox.show();
-        this.artifactsBox.top = '70%';
-        this.artifactsBox.left = '75%';
-        this.artifactsBox.width = '25%';
-        this.artifactsBox.height = '30%';
+        this.execLogBox.top = '75%';
+        this.execLogBox.left = 0;
+        this.execLogBox.width = '100%';
+        this.execLogBox.height = '25%';
     }
 
     renderAll() {
@@ -611,6 +604,7 @@ ${backText}    q       Quit
             // Descriptor-specific context
             phases: vars._phases || null,
             activeBlock: vars._activeBlock || null,
+            blockOutputs: vars._blockOutputs || null,
             executionLog: vars._executionLog || null,
             artifacts: vars._artifacts || null,
             monitorDescriptor: vars._monitorDescriptor || null
@@ -629,15 +623,12 @@ ${backText}    q       Quit
         safeRender('header', () => this.header.render(this.session, context));
 
         if (this.mode === 'descriptor') {
-            // Descriptor mode components
+            // Descriptor mode components (new 5-zone layout)
             safeRender('phaseList', () => this.phaseList.render(this.session, context));
             safeRender('tree', () => this.tree.render(this.session, context));
-            safeRender('blockDetail', () => this.blockDetail.render(this.session, context));
             safeRender('metricsPanel', () => this.metricsPanel.render(this.session, context));
+            safeRender('blockDetail', () => this.blockDetail.render(this.session, context));
             safeRender('executionLog', () => this.executionLog.render(this.session, context));
-            safeRender('artifactsList', () => this.artifactsList.render(this.session, context));
-            // Custom widgets (monitorWidgets from session template)
-            safeRender('widgetsPanel', () => this.widgetsPanel.render(this.session, context));
         } else {
             // Existing execution/idle mode
             if (this.panels.tree && !this.treeBox.hidden) {

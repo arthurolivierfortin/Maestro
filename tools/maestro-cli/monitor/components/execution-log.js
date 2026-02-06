@@ -1,6 +1,9 @@
 /**
- * Execution Log Component
- * Displays a real-time scrollable log of workflow execution events
+ * Execution Log Component — tail -f style
+ *
+ * Always shows the most recent log entries at the bottom of the viewport.
+ * Auto-scrolls to the latest entry on every render cycle.
+ * The user sees new entries appear at the bottom, like `tail -f`.
  *
  * Data source: session.variables._executionLog (array)
  * Each entry: { time, level, msg }
@@ -12,13 +15,13 @@ const { colors, tag, icons } = require('./colors');
 class ExecutionLogComponent {
     constructor(box) {
         this.box = box;
-        this.maxEntries = 30;
+        this.maxEntries = 50;
     }
 
     render(session, context = {}) {
         const log = context.executionLog || session.variables?._executionLog || [];
 
-        let content = `${tag.label('EXECUTION LOG')}\n\n`;
+        let content = `${tag.label('EXECUTION LOG')}\n`;
 
         if (!Array.isArray(log) || log.length === 0) {
             content += tag.dim('  (no log entries yet)');
@@ -26,7 +29,7 @@ class ExecutionLogComponent {
             return;
         }
 
-        // Show most recent entries
+        // Show most recent entries (tail)
         const entries = log.slice(-this.maxEntries);
 
         for (const entry of entries) {
@@ -34,6 +37,8 @@ class ExecutionLogComponent {
         }
 
         this.box.setContent(content);
+        // Auto-scroll to bottom — tail -f behavior
+        this.box.setScrollPerc(100);
     }
 
     renderEntry(entry) {

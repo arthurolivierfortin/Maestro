@@ -313,39 +313,29 @@ maestro monitor --sessions 13b28ebd,a9f3c21d --split vertical
 
 ## Raccourcis Clavier (Dans le TUI)
 
-Le TUI garde des raccourcis simples pour la navigation **locale**:
+Le TUI est un **affichage read-only** qui suit automatiquement l'exécution. L'utilisateur ne navigue pas dans les panels — le monitor auto-scroll vers le contenu pertinent.
 
-### Navigation Panneaux
+**Principe**: Toute interaction avec la session se fait via la CLI dans un autre terminal (`maestro session invoke`, `maestro session set-var`, etc.). Le TUI est purement un écran de monitoring.
 
-| Touche | Action |
-|--------|--------|
-| `t` | Toggle Workflow Tree |
-| `f` | Toggle Filesystem |
-| `v` | Toggle Variables |
-| `l` | Toggle Command Log |
-| `w` | Toggle Widgets |
-| `Tab` | Panneau suivant |
+### Comportement Auto-Scroll
 
-### Actions Locales
+| Panel | Auto-Scroll |
+|-------|-------------|
+| Workflow Tree | Centré sur le nœud `running` (marqueur `<<<`) |
+| Execution Log | `tail -f` — toujours les dernières entrées visibles |
+| Block Output | Dernier bloc exécuté ou bloc en cours |
+| Metrics | Bas du panel (sparkline grandit) |
+
+### Commandes du Monitor
 
 | Touche | Action |
 |--------|--------|
 | `r` | Rafraîchir maintenant |
-| `↑↓` | Naviguer dans le panneau actif |
-| `←→` | Collapse/Expand (arbres) |
-| `/` | Recherche dans panneau |
 | `?` | Aide |
 | `q` | Quitter |
+| `Esc` | Retour à la liste des sessions (si lancé depuis GlobalMonitor) |
 
-### Actions Session (via prompt)
-
-| Touche | Action |
-|--------|--------|
-| `:` | Ouvrir prompt commande |
-| `i` | Invoquer entry point (ouvre sélecteur) |
-| `a` | Approuver (si pending) |
-
-**Note**: Les actions complexes (split, detach, multi-session) se font via CLI, pas dans le TUI.
+**Note**: Toute orchestration (invoke, set-var, start, stop, etc.) se fait via la CLI dans un terminal séparé.
 
 ---
 

@@ -1,6 +1,20 @@
 /**
- * Workflow Tree Component
- * Displays the execution tree of active workflows
+ * Workflow Tree Component — hierarchical display with auto-focus
+ *
+ * Renders the execution tree with nested indentation:
+ *   ├─ ✓ Load Agent  [done]
+ *   ├─ ● Improvement Loop  [running] → Iteration 3/50
+ *   │   ├─ ✓ Run Training  [done]
+ *   │   ├─ ✓ Evaluate Results  [done]
+ *   │   ├─ ● Generate Improvements  [running] →
+ *   │   │     Calling LLM...
+ *   │   ├─ ○ Apply Improvements  [...]
+ *   │   └─ ○ Update Metrics  [...]
+ *   └─ ○ Finalize  [...]
+ *
+ * Only the running node shows output detail.
+ * Auto-scrolls so the running node is always visible.
+ * Read-only display — no user navigation.
  */
 
 const { colors, tag, icons } = require('./colors');
@@ -8,167 +22,135 @@ const { colors, tag, icons } = require('./colors');
 class WorkflowTreeComponent {
     constructor(box) {
         this.box = box;
+        this.runningNodeLine = -1;
     }
 
     render(session, context = {}) {
         const workflow = context.activeWorkflow || session.activeWorkflow;
         const executionTree = context.executionTree || session.executionTree;
 
-        let content = `${tag.label('WORKFLOW TREE')}\n\n`;
+        this.runningNodeLine = -1;
+        this.currentLine = 0;
+
+        let content = `${tag.label('WORKFLOW TREE')}\n`;
+        this.currentLine++;
 
         if (!workflow && !executionTree) {
-            content += tag.dim('  (no active workflow)\n\n');
-            content += tag.dim(`  invoke with: maestro session invoke <id> <entry-point>`);
+            content += tag.dim('  (no active workflow)\n');
+            content += tag.dim('  invoke: maestro session invoke <id> <entry-point>');
             this.box.setContent(content);
             return;
         }
 
-        // If we have execution tree data (can be {nodes: [...]} or direct array)
         if (executionTree) {
-            const tree = Array.isArray(executionTree) ? { nodes: executionTree } : executionTree;
-            if (tree.nodes) {
-                content += this.renderTree(tree);
-            }
+            const nodes = Array.isArray(executionTree) ? executionTree : (executionTree.nodes || []);
+            content += this.renderNodes(nodes, '  ');
         } else if (workflow) {
-            // Simple workflow display
-            content += this.renderSimpleWorkflow(workflow, session);
+            content += `  ${tag.running(icons.running)} ${tag.bold(workflow)}  ${this.badge('running')}\n`;
+            this.currentLine++;
         }
 
         this.box.setContent(content);
+
+        // Auto-scroll: put the running node near the top third of viewport
+        if (this.runningNodeLine >= 0) {
+            const h = this.box.height || 10;
+            const target = Math.max(0, this.runningNodeLine - Math.floor(h / 3));
+            this.box.scrollTo(target);
+        } else {
+            this.box.setScrollPerc(100);
+        }
     }
 
-    renderTree(tree, indent = '') {
-        let output = '';
-
-        const nodes = Array.isArray(tree.nodes) ? tree.nodes : [tree];
-
+    renderNodes(nodes, indent) {
+        let out = '';
         for (let i = 0; i < nodes.length; i++) {
             const node = nodes[i];
             const isLast = i === nodes.length - 1;
-            const prefix = indent + (isLast ? icons.lastBranch : icons.branch) + ' ';
+            const branch = isLast ? icons.lastBranch : icons.branch;
             const childIndent = indent + (isLast ? '    ' : icons.vertical + '   ');
 
-            output += this.renderNode(node, prefix);
-
-            if (node.children && node.children.length > 0) {
-                output += this.renderTree({ nodes: node.children }, childIndent);
-            }
+            out += this.renderNode(node, indent + branch + ' ', childIndent);
         }
-
-        return output;
+        return out;
     }
 
-    renderNode(node, prefix = '') {
+    renderNode(node, prefix, childIndent) {
         const status = (node.status || 'pending').toLowerCase();
-        const icon = this.getStatusIcon(status);
-        const color = this.getStatusColor(status);
-        const name = node.name || node.type || 'node';
+        const icon = this.statusIcon(status);
+        const col = this.statusColor(status);
+        const name = node.name || node.id || 'node';
+        const isActive = status === 'running' || status === 'active';
 
-        let line = `${prefix}{${color}-fg}${icon}{/${color}-fg} ${name}`;
-
-        // Add status tag on the right
-        const statusTag = this.getStatusTag(status);
-        if (statusTag) {
-            line += `  ${statusTag}`;
+        if (isActive) {
+            this.runningNodeLine = this.currentLine;
         }
 
-        // Add output/result if available
-        if (node.output) {
-            line += `\n${prefix.replace(/[├└─]/g, ' ')}    ${tag.dim(icons.arrow)} ${tag.muted(this.truncate(node.output, 50))}`;
+        // Node line: prefix + icon + name + badge
+        let line = `${prefix}{${col}-fg}${icon}{/${col}-fg} ${isActive ? `{bold}${name}{/bold}` : name}`;
+        line += `  ${this.badge(status)}`;
+
+        if (isActive) {
+            line += ` {cyan-fg}${icons.arrow}{/cyan-fg}`;
         }
 
-        // Add progress if available
-        if (node.progress !== undefined && status === 'running') {
-            line += `\n${prefix.replace(/[├└─]/g, ' ')}    ${tag.dim('progress:')} ${tag.running(node.progress + '%')}`;
+        this.currentLine++;
+
+        // Show output ONLY for running/active node
+        if (isActive && node.output) {
+            const brief = this.truncate(String(node.output).replace(/[\n\r]+/g, ' '), 60);
+            line += `\n${childIndent}  ${tag.dim(brief)}`;
+            this.currentLine++;
         }
 
-        return line + '\n';
-    }
+        line += '\n';
 
-    renderSimpleWorkflow(workflow, session) {
-        // Generate a mock tree based on session variables
-        const vars = session.variables || {};
-        const iteration = vars.currentIteration || vars.iteration || 0;
-        const fitness = vars.currentFitness || vars.fitness || 0;
-
-        let output = '';
-
-        // Workflow header
-        output += `  ${tag.running(icons.expanded)} ${tag.bold(workflow)}  ${this.getStatusTag('running')}\n`;
-
-        // Mock nodes based on common workflow patterns
-        const mockNodes = [
-            { name: 'evaluate-current', status: fitness > 0 ? 'done' : 'pending', output: fitness > 0 ? `fitness: ${fitness}` : null },
-            { name: 'generate-improvement', status: fitness > 0 ? 'running' : 'pending' },
-            { name: 'apply-changes', status: 'pending' },
-            { name: 'check-fitness', status: 'pending' }
-        ];
-
-        for (let i = 0; i < mockNodes.length; i++) {
-            const node = mockNodes[i];
-            const isLast = i === mockNodes.length - 1;
-            const prefix = isLast ? icons.lastBranch : icons.branch;
-
-            output += this.renderNode(node, `    ${prefix} `);
+        // Render children recursively (for while/conditional nodes)
+        const children = node.children;
+        if (children && Array.isArray(children) && children.length > 0) {
+            line += this.renderNodes(children, childIndent);
         }
 
-        return output;
+        return line;
     }
 
-    getStatusIcon(status) {
-        const iconMap = {
-            'done': icons.done,
-            'completed': icons.done,
-            'success': icons.done,
-            'running': icons.running,
-            'active': icons.running,
-            'pending': icons.pending,
-            'waiting': icons.pending,
-            'failed': icons.failed,
-            'error': icons.failed,
-            'paused': icons.paused
-        };
-        return iconMap[status] || icons.pending;
-    }
+    // Helpers
 
-    getStatusColor(status) {
-        const colorMap = {
-            'done': 'green',
-            'completed': 'green',
-            'success': 'green',
-            'running': 'cyan',
-            'active': 'cyan',
-            'pending': 'gray',
-            'waiting': 'gray',
-            'failed': 'red',
-            'error': 'red',
-            'paused': 'yellow'
-        };
-        return colorMap[status] || 'gray';
-    }
-
-    getStatusTag(status) {
-        const color = this.getStatusColor(status);
-        const labels = {
-            'done': 'done',
-            'completed': 'done',
-            'success': 'done',
-            'running': 'running',
-            'active': 'active',
-            'pending': 'pending',
-            'waiting': 'waiting',
-            'failed': 'failed',
-            'error': 'error',
-            'paused': 'paused'
-        };
-        const label = labels[status] || status;
-        return `{gray-fg}[{/gray-fg}{${color}-fg}${label}{/${color}-fg}{gray-fg}]{/gray-fg}`;
-    }
-
-    truncate(str, maxLen) {
+    truncate(str, max) {
         if (!str) return '';
         const s = String(str);
-        return s.length > maxLen ? s.substring(0, maxLen - 3) + '...' : s;
+        return s.length > max ? s.substring(0, max - 3) + '...' : s;
+    }
+
+    statusIcon(status) {
+        const map = {
+            done: icons.done, completed: icons.done, success: icons.done,
+            running: icons.running, active: icons.running,
+            pending: icons.pending, waiting: icons.pending,
+            failed: icons.failed, error: icons.failed,
+            paused: icons.paused
+        };
+        return map[status] || icons.pending;
+    }
+
+    statusColor(status) {
+        const map = {
+            done: 'green', completed: 'green', success: 'green',
+            running: 'cyan', active: 'cyan',
+            pending: 'gray', waiting: 'gray',
+            failed: 'red', error: 'red',
+            paused: 'yellow'
+        };
+        return map[status] || 'gray';
+    }
+
+    badge(status) {
+        const col = this.statusColor(status);
+        const label = { done: 'done', completed: 'done', success: 'done',
+            running: 'running', active: 'active',
+            pending: '...', waiting: '...',
+            failed: 'FAIL', error: 'ERR', paused: 'paused' }[status] || status;
+        return `{gray-fg}[{/gray-fg}{${col}-fg}${label}{/${col}-fg}{gray-fg}]{/gray-fg}`;
     }
 }
 

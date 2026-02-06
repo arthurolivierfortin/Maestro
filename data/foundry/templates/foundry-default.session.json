@@ -48,22 +48,24 @@
       { "id": "validation", "name": "Phase 3: Validation", "status": "pending", "description": "Final validation and testing" },
       { "id": "publish", "name": "Phase 4: Publish", "status": "pending", "description": "Package and publish tool" }
     ],
+    "_blockOutputs": {},
     "_monitorDescriptor": {
       "layout": {
         "mode": "phased",
         "zones": {
-          "left": { "width": "40%", "components": ["phases", "workflow-tree"] },
-          "right": { "width": "60%", "components": ["block-detail", "metrics"] },
-          "bottom": { "height": "30%", "components": ["execution-log", "artifacts"] }
+          "top-left": { "width": "25%", "height": "50%", "components": ["phases"] },
+          "top-right": { "width": "75%", "height": "50%", "components": ["workflow-tree"] },
+          "mid-left": { "width": "35%", "height": "25%", "components": ["metrics"] },
+          "mid-right": { "width": "65%", "height": "25%", "components": ["block-output"] },
+          "bottom": { "width": "100%", "height": "25%", "components": ["execution-log"] }
         }
       },
       "components": [
         { "id": "phases", "type": "phase-list", "data": "$.variables._phases" },
         { "id": "workflow-tree", "type": "workflow-tree", "data": "$.variables._executionTree" },
-        { "id": "block-detail", "type": "block-detail", "data": "$.variables._activeBlock" },
+        { "id": "block-output", "type": "block-detail", "data": "$.variables._blockOutputs" },
         { "id": "metrics", "type": "metrics-panel" },
-        { "id": "execution-log", "type": "execution-log", "data": "$.variables._executionLog" },
-        { "id": "artifacts", "type": "artifacts", "data": "$.variables._artifacts" }
+        { "id": "execution-log", "type": "execution-log", "data": "$.variables._executionLog" }
       ]
     },
     "_workflowConfig": {
