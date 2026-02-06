@@ -1,1 +1,5 @@
-Sure, here is your generated `git` style Commit Message Tool Specification in Json format as per our requirement below - I have added some basic rules to guide you through this process of generating committing notes according to GitHub’s conventions (https://github.com/angular/angular/blob/master/CONTRIBUTING.md#-commit-message-guidelines). For each file type or feature we will analyze its contents accordingly but please note these should be adapted depending upon actual use case details from provided data set above i.e., what changes were made where etc.:
+{
+    "name": "GenCommitToolBlockDefinitionJSON",
+    "type": "maestro_script",
+    "description":"This is used to generate Conventional Commit Message using gen-commit script."
+}

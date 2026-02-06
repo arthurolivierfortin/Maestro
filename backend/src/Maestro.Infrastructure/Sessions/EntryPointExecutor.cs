@@ -716,7 +716,10 @@ public class EntryPointExecutor
         var maxTokens = GetConfigInt(workflowConfig, "llm.maxTokens", 1024);
         var temperature = GetConfigFloat(workflowConfig, "llm.temperature", 0.7f);
 
+        // Replace {{context}} placeholder first, then resolve remaining {{variable}} references
         var userPrompt = userTemplate.Replace("{{context}}", context ?? "(no context)");
+        userPrompt = ResolveTemplate(userPrompt, session);
+        systemPrompt = ResolveTemplate(systemPrompt, session);
 
         var request = new LLMRequest
         {
@@ -778,24 +781,32 @@ public class EntryPointExecutor
         session.SetVariable("scoreHistory", scoreHistory);
 
         // Store detailed validation results in _blockOutputs
+        var target = session.GetVariable<double>("targetFitness", 0.85);
         var validationDetail = new Dictionary<string, object>
         {
             ["type"] = "validator",
             ["criteriaScores"] = criteriaScores,
             ["totalScore"] = fitness,
-            ["passed"] = fitness >= session.GetVariable<double>("targetFitness", 0.85)
+            ["passed"] = fitness >= target
         };
         StoreBlockOutput(session, "validation", "validator", null, validationDetail);
 
-        // Build readable output with per-criteria detail
+        // Store validation feedback for the LLM to use in next iteration
         var sb = new StringBuilder();
-        sb.AppendLine($"Fitness: {fitness:F2}");
+        sb.AppendLine($"Score: {fitness:F2} / {target:F2}");
         foreach (var kvp in criteriaScores)
         {
-            var icon = (double)kvp.Value >= 0.5 ? "+" : "-";
+            var icon = (double)kvp.Value >= 0.5 ? "PASS" : "FAIL";
             sb.AppendLine($"  [{icon}] {kvp.Key}: {kvp.Value:F2}");
         }
-        return sb.ToString().TrimEnd();
+        if (fitness < target)
+        {
+            sb.AppendLine("Failing criteria need improvement. Output must start with { or [ for hasJsonStructure. Must contain \"name\", \"type\", \"description\" fields for hasRequiredFields.");
+        }
+        session.SetVariable("_lastValidationFeedback", sb.ToString().TrimEnd());
+
+        // Pass through the original content so the next node receives it (not the fitness summary)
+        return output ?? "";
     }
 
     // ===== Config Helpers (navigate session variable _workflowConfig) =====
@@ -1006,7 +1017,7 @@ public class EntryPointExecutor
             return "script";
         if (nodeId.Contains("generate") || nodeId.Contains("improvement"))
             return "inference";
-        if (nodeId.Contains("check") || nodeId.Contains("fitness") || nodeId.Contains("validate"))
+        if (nodeId.Contains("check") || nodeId.Contains("fitness") || nodeId.Contains("validate") || nodeId.Contains("metrics"))
             return "validator";
         return "task";
     }

@@ -124,6 +124,18 @@
             }
           },
           {
+            "id": "update-metrics",
+            "blockRef": "system:metrics-collector",
+            "inputs": {
+              "entityId": "{{inputs.agentId}}",
+              "entityType": "agent",
+              "metrics": {
+                "fitness": "{{evaluate-results.fitness}}",
+                "iteration": "{{iteration}}"
+              }
+            }
+          },
+          {
             "id": "apply-improvements",
             "type": "conditional",
             "condition": "{{inputs.autoApprove}} || {{improvement.priority}} == 'critical'",
@@ -139,19 +151,6 @@
               "inputs": {
                 "blockId": "{{inputs.agentId}}",
                 "improvement": "{{generate-improvements.suggestions[0]}}"
-              }
-            }
-          },
-          {
-            "id": "update-metrics",
-            "blockRef": "system:metrics-collector",
-            "inputs": {
-              "entityId": "{{inputs.agentId}}",
-              "entityType": "agent",
-              "metrics": {
-                "fitness": "{{evaluate-results.fitness}}",
-                "iteration": "{{iteration}}",
-                "improvementApplied": "{{apply-improvements.applied}}"
               }
             }
           }

@@ -72,10 +72,10 @@
       "agent-improvement-loop": {
         "phaseId": "creation",
         "llm": {
-          "systemPrompt": "You are an expert developer assistant. Generate a high-quality commit message tool based on the project state.",
-          "userPromptTemplate": "Based on the following project state, generate a commit message tool specification:\n\n{{context}}\n\nGenerate a JSON block definition for a 'gen-commit' tool that analyzes git diffs and generates conventional commit messages.",
-          "maxTokens": 1024,
-          "temperature": 0.7
+          "systemPrompt": "You are an expert developer assistant that generates Maestro block definitions as raw JSON. CRITICAL RULES:\n1. Output ONLY valid JSON — no markdown, no code fences, no explanation text before or after.\n2. The JSON must be a single object starting with { and ending with }.\n3. Required top-level fields: \"name\" (string), \"type\" (string), \"description\" (string).\n4. Do NOT wrap in ```json``` or any other formatting.",
+          "userPromptTemplate": "Generate a JSON block definition for a 'gen-commit' tool that analyzes git diffs and generates conventional commit messages.\n\nProject context:\n{{context}}\n\nIteration: {{currentIteration}} / {{maxIterations}}\nCurrent fitness: {{currentFitness}}\n\nPrevious validation feedback:\n{{_lastValidationFeedback}}\n\nRemember: Output ONLY raw JSON starting with { — no markdown, no code fences, no text before or after the JSON.",
+          "maxTokens": 2048,
+          "temperature": 0.5
         },
         "output": { "filename": "gen-commit-tool.json" },
         "evaluation": { "criteria": ["hasJsonStructure", "hasRequiredFields", "minLength"] }
