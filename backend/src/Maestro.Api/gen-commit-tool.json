@@ -1,0 +1,26 @@
+{
+  "type": "tool",
+  "name": "gen-commit",
+  "version": "1.0.0",
+  "description": "Generates conventional commit messages from git diffs",
+  "config": {
+    "input": {
+      "type": "git-diff",
+      "source": "working-directory"
+    },
+    "output": {
+      "type": "commit-message",
+      "format": "conventional"
+    },
+    "parameters": {
+      "style": "conventional",
+      "maxLength": 72,
+      "includeBody": true,
+      "includeScope": true
+    }
+  },
+  "prompts": {
+    "system": "You are a commit message generator. Analyze the git diff and produce a conventional commit message.",
+    "template": "Given the following git diff, generate a conventional commit message:\n\n{{diff}}"
+  }
+}

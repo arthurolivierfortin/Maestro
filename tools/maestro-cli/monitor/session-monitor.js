@@ -19,6 +19,11 @@ const { VariablesComponent } = require('./components/variables');
 const { CommandLogComponent } = require('./components/command-log');
 const { WidgetsPanelComponent } = require('./components/widgets-panel');
 const { StatusBarComponent } = require('./components/status-bar');
+const { PhaseListComponent } = require('./components/phase-list');
+const { BlockDetailComponent } = require('./components/block-detail');
+const { MetricsPanelComponent } = require('./components/metrics-panel');
+const { ExecutionLogComponent } = require('./components/execution-log');
+const { ArtifactsComponent } = require('./components/artifacts');
 const { colors } = require('./components/colors');
 
 class SessionMonitor {
@@ -231,6 +236,59 @@ class SessionMonitor {
             },
             hidden: true
         });
+
+        // Phase List (descriptor mode)
+        this.phasesBox = blessed.box({
+            parent: this.contentArea,
+            top: 0, left: 0, width: '40%', height: '50%',
+            tags: true, scrollable: true, alwaysScroll: true,
+            border: { type: 'line' },
+            scrollbar: { style: { bg: 'white' } },
+            style: { bg: colors.bg, fg: colors.fg, border: { fg: 'white' } },
+            hidden: true
+        });
+
+        // Block Detail (descriptor mode)
+        this.blockDetailBox = blessed.box({
+            parent: this.contentArea,
+            top: 0, left: '40%', width: '60%', height: '35%',
+            tags: true, scrollable: true, alwaysScroll: true,
+            border: { type: 'line' },
+            scrollbar: { style: { bg: 'white' } },
+            style: { bg: colors.bg, fg: colors.fg, border: { fg: 'white' } },
+            hidden: true
+        });
+
+        // Metrics Panel (descriptor mode)
+        this.metricsBox = blessed.box({
+            parent: this.contentArea,
+            top: '35%', left: '40%', width: '60%', height: '35%',
+            tags: true, scrollable: true,
+            border: { type: 'line' },
+            style: { bg: colors.bg, fg: colors.fg, border: { fg: 'white' } },
+            hidden: true
+        });
+
+        // Execution Log (descriptor mode)
+        this.execLogBox = blessed.box({
+            parent: this.contentArea,
+            top: '70%', left: 0, width: '60%', height: '30%',
+            tags: true, scrollable: true, alwaysScroll: true,
+            border: { type: 'line' },
+            scrollbar: { style: { bg: 'white' } },
+            style: { bg: colors.bg, fg: colors.fg, border: { fg: 'white' } },
+            hidden: true
+        });
+
+        // Artifacts (descriptor mode)
+        this.artifactsBox = blessed.box({
+            parent: this.contentArea,
+            top: '70%', left: '60%', width: '40%', height: '30%',
+            tags: true, scrollable: true,
+            border: { type: 'line' },
+            style: { bg: colors.bg, fg: colors.fg, border: { fg: 'white' } },
+            hidden: true
+        });
     }
 
     initComponents() {
@@ -241,6 +299,13 @@ class SessionMonitor {
         this.commandLog = new CommandLogComponent(this.logsBox);
         this.widgetsPanel = new WidgetsPanelComponent(this.widgetsBox);
         this.statusBar = new StatusBarComponent(this.statusBox);
+
+        // Descriptor mode components
+        this.phaseList = new PhaseListComponent(this.phasesBox);
+        this.blockDetail = new BlockDetailComponent(this.blockDetailBox);
+        this.metricsPanel = new MetricsPanelComponent(this.metricsBox);
+        this.executionLog = new ExecutionLogComponent(this.execLogBox);
+        this.artifactsList = new ArtifactsComponent(this.artifactsBox);
     }
 
     setupKeys() {
@@ -381,28 +446,42 @@ ${backText}    q       Quit
         const session = this.session;
         const vars = session.variables || {};
 
-        // Check for active workflow indicators
-        const hasActiveWorkflow = session.activeWorkflow ||
-            session.status === 'running' && (
+        // Priority 1: descriptor mode if _monitorDescriptor exists
+        if (vars._monitorDescriptor) {
+            this.mode = 'descriptor';
+            return;
+        }
+
+        // Priority 2: execution mode if active workflow
+        const hasActiveWorkflow = vars._activeWorkflow || session.activeWorkflow ||
+            (session.status === 'running' && (
+                vars._executionTree ||
                 vars.currentIteration > 0 ||
                 vars.iteration > 0 ||
                 vars.currentPhase === 'execution' ||
                 vars.phase === 'execution' ||
                 vars.phase === 'optimization'
-            );
+            ));
 
         this.mode = hasActiveWorkflow ? 'execution' : 'idle';
     }
 
     applyLayout() {
-        // Hide all panels first
+        // Hide ALL panels first
         this.treeBox.hide();
         this.filesBox.hide();
         this.widgetsBox.hide();
         this.varsBox.hide();
         this.logsBox.hide();
+        this.phasesBox.hide();
+        this.blockDetailBox.hide();
+        this.metricsBox.hide();
+        this.execLogBox.hide();
+        this.artifactsBox.hide();
 
-        if (this.mode === 'execution') {
+        if (this.mode === 'descriptor') {
+            this.applyDescriptorLayout();
+        } else if (this.mode === 'execution') {
             this.applyExecutionLayout();
         } else {
             this.applyIdleLayout();
@@ -465,40 +544,95 @@ ${backText}    q       Quit
         }
     }
 
+    applyDescriptorLayout() {
+        // LEFT zone (40%): phases + workflow tree
+        this.phasesBox.show();
+        this.phasesBox.top = 0;
+        this.phasesBox.left = 0;
+        this.phasesBox.width = '40%';
+        this.phasesBox.height = '50%';
+
+        this.treeBox.show();
+        this.treeBox.top = '50%';
+        this.treeBox.left = 0;
+        this.treeBox.width = '40%';
+        this.treeBox.height = '20%';
+
+        // RIGHT zone (60%): block detail + metrics
+        this.blockDetailBox.show();
+        this.blockDetailBox.top = 0;
+        this.blockDetailBox.left = '40%';
+        this.blockDetailBox.width = '60%';
+        this.blockDetailBox.height = '35%';
+
+        this.metricsBox.show();
+        this.metricsBox.top = '35%';
+        this.metricsBox.left = '40%';
+        this.metricsBox.width = '60%';
+        this.metricsBox.height = '35%';
+
+        // BOTTOM zone (30%): execution log + artifacts
+        this.execLogBox.show();
+        this.execLogBox.top = '70%';
+        this.execLogBox.left = 0;
+        this.execLogBox.width = '60%';
+        this.execLogBox.height = '30%';
+
+        this.artifactsBox.show();
+        this.artifactsBox.top = '70%';
+        this.artifactsBox.left = '60%';
+        this.artifactsBox.width = '40%';
+        this.artifactsBox.height = '30%';
+    }
+
     renderAll() {
         if (!this.session) return;
 
+        const vars = this.session.variables || {};
         const context = {
             mode: this.mode,
-            activeWorkflow: this.session.activeWorkflow || this.detectActiveWorkflow(),
-            workingDirectory: this.session.workingDirectory
+            activeWorkflow: vars._activeWorkflow || this.session.activeWorkflow || this.detectActiveWorkflow(),
+            executionTree: vars._executionTree || null,
+            workingDirectory: this.session.workingDirectory,
+            // Descriptor-specific context
+            phases: vars._phases || null,
+            activeBlock: vars._activeBlock || null,
+            executionLog: vars._executionLog || null,
+            artifacts: vars._artifacts || null,
+            monitorDescriptor: vars._monitorDescriptor || null
         };
 
-        // Header
+        // Header (always)
         this.header.render(this.session, context);
 
-        // Panels based on visibility
-        if (this.panels.tree && !this.treeBox.hidden) {
+        if (this.mode === 'descriptor') {
+            // Descriptor mode components
+            this.phaseList.render(this.session, context);
             this.tree.render(this.session, context);
+            this.blockDetail.render(this.session, context);
+            this.metricsPanel.render(this.session, context);
+            this.executionLog.render(this.session, context);
+            this.artifactsList.render(this.session, context);
+        } else {
+            // Existing execution/idle mode
+            if (this.panels.tree && !this.treeBox.hidden) {
+                this.tree.render(this.session, context);
+            }
+            if (this.panels.files && !this.filesBox.hidden) {
+                this.filesystem.render(this.session, context);
+            }
+            if (this.panels.widgets && !this.widgetsBox.hidden) {
+                this.widgetsPanel.render(this.session, context);
+            }
+            if (this.panels.vars && !this.varsBox.hidden) {
+                this.variables.render(this.session, context);
+            }
+            if (this.panels.logs && !this.logsBox.hidden) {
+                this.commandLog.render(this.session, context);
+            }
         }
 
-        if (this.panels.files && !this.filesBox.hidden) {
-            this.filesystem.render(this.session, context);
-        }
-
-        if (this.panels.widgets && !this.widgetsBox.hidden) {
-            this.widgetsPanel.render(this.session, context);
-        }
-
-        if (this.panels.vars && !this.varsBox.hidden) {
-            this.variables.render(this.session, context);
-        }
-
-        if (this.panels.logs && !this.logsBox.hidden) {
-            this.commandLog.render(this.session, context);
-        }
-
-        // Status bar
+        // Status bar (always)
         this.statusBar.render({
             connectionStatus: this.connectionStatus,
             latency: this.refreshLatency,

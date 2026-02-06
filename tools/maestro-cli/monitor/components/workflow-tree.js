@@ -23,9 +23,12 @@ class WorkflowTreeComponent {
             return;
         }
 
-        // If we have execution tree data
-        if (executionTree && executionTree.nodes) {
-            content += this.renderTree(executionTree);
+        // If we have execution tree data (can be {nodes: [...]} or direct array)
+        if (executionTree) {
+            const tree = Array.isArray(executionTree) ? { nodes: executionTree } : executionTree;
+            if (tree.nodes) {
+                content += this.renderTree(tree);
+            }
         } else if (workflow) {
             // Simple workflow display
             content += this.renderSimpleWorkflow(workflow, session);

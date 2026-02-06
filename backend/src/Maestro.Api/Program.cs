@@ -176,6 +176,16 @@ builder.Services.AddScoped<ICommandExecutor, Maestro.Infrastructure.Sessions.Com
 builder.Services.AddScoped<ICommandExecutor, Maestro.Infrastructure.Sessions.CommandExecutors.MaestroCommandExecutor>();
 builder.Services.AddScoped<ICommandExecutor, Maestro.Infrastructure.Sessions.CommandExecutors.ControlCommandExecutor>();
 
+// Phase 10: Register EntryPointExecutor for background workflow execution
+builder.Services.AddScoped<Maestro.Infrastructure.Sessions.EntryPointExecutor>(sp =>
+{
+    var sessionRepo = sp.GetRequiredService<IProjectSessionRepository>();
+    var llmGateway = sp.GetRequiredService<ILLMGateway>();
+    var blockRepo = sp.GetRequiredService<IBlockRepository>();
+    var logger = sp.GetRequiredService<ILogger<Maestro.Infrastructure.Sessions.EntryPointExecutor>>();
+    return new Maestro.Infrastructure.Sessions.EntryPointExecutor(sessionRepo, llmGateway, blockRepo, logger);
+});
+
 // Phase 10: Register Project Session Server
 builder.Services.AddScoped<IProjectSessionServer>(sp =>
 {
@@ -184,8 +194,9 @@ builder.Services.AddScoped<IProjectSessionServer>(sp =>
     var blockRepo = sp.GetRequiredService<IBlockRepository>();
     var commandExecutors = sp.GetServices<ICommandExecutor>();
     var contextStorage = sp.GetRequiredService<Maestro.Infrastructure.Sessions.SessionContextStorage>();
+    var entryPointExecutor = sp.GetRequiredService<Maestro.Infrastructure.Sessions.EntryPointExecutor>();
     var logger = sp.GetRequiredService<ILogger<ProjectSessionServer>>();
-    return new ProjectSessionServer(sessionRepo, projectRepo, blockRepo, commandExecutors, contextStorage, logger);
+    return new ProjectSessionServer(sessionRepo, projectRepo, blockRepo, commandExecutors, contextStorage, entryPointExecutor, logger);
 });
 
 // Phase 8: Register file system browser

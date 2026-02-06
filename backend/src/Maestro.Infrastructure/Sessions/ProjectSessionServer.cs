@@ -20,6 +20,7 @@ public class ProjectSessionServer : IProjectSessionServer
     private readonly IBlockRepository _blockRepository;
     private readonly IEnumerable<ICommandExecutor> _commandExecutors;
     private readonly SessionContextStorage _contextStorage;
+    private readonly EntryPointExecutor _entryPointExecutor;
     private readonly ILogger<ProjectSessionServer> _logger;
 
     public ProjectSessionServer(
@@ -28,6 +29,7 @@ public class ProjectSessionServer : IProjectSessionServer
         IBlockRepository blockRepository,
         IEnumerable<ICommandExecutor> commandExecutors,
         SessionContextStorage contextStorage,
+        EntryPointExecutor entryPointExecutor,
         ILogger<ProjectSessionServer> logger)
     {
         _repository = repository;
@@ -35,6 +37,7 @@ public class ProjectSessionServer : IProjectSessionServer
         _blockRepository = blockRepository;
         _commandExecutors = commandExecutors;
         _contextStorage = contextStorage;
+        _entryPointExecutor = entryPointExecutor;
         _logger = logger;
     }
 
@@ -300,6 +303,37 @@ public class ProjectSessionServer : IProjectSessionServer
         await _repository.DeleteAsync(id, ct);
 
         _logger.LogInformation("Deleted project session {SessionId}", id.Value);
+    }
+
+    public async Task<EntryPointInvocationResult> InvokeEntryPointAsync(
+        SessionId id,
+        string entryPoint,
+        Dictionary<string, object>? inputs = null,
+        CancellationToken ct = default)
+    {
+        var session = await _repository.GetByIdAsync(id, ct)
+            ?? throw new InvalidOperationException($"Session {id.Value} not found");
+
+        if (!session.IsRunning)
+            throw new InvalidOperationException($"Session is not running (status: {session.Status})");
+
+        var workflowId = session.GetEntryPoint(entryPoint)
+            ?? throw new InvalidOperationException($"Entry point '{entryPoint}' not found");
+
+        // Fire background execution and return immediately
+        var invocationId = _entryPointExecutor.StartExecution(id, entryPoint, workflowId, inputs);
+
+        _logger.LogInformation(
+            "Invoked entry point '{EntryPoint}' ({WorkflowId}) on session {SessionId}, invocation {InvocationId}",
+            entryPoint, workflowId, id.Value, invocationId);
+
+        return new EntryPointInvocationResult
+        {
+            InvocationId = invocationId,
+            EntryPoint = entryPoint,
+            WorkflowId = workflowId,
+            Status = "started"
+        };
     }
 
     private async Task<Project?> FindProjectAsync(string projectId, CancellationToken ct)

@@ -89,6 +89,51 @@ node index.js execute <block-id>  # Execute a block
 - **BlockDefinition** at `backend/src/Maestro.Domain/Entities/BlockDefinition.cs` is the domain entity
 - **isAtomic property** MUST be included in API responses - missing this causes UI bugs
 
+### Session Architecture Principles
+
+#### Generic vs Specific Separation (CRITICAL)
+
+Infrastructure code (`backend/src/Maestro.Infrastructure/`) MUST NOT contain session-specific logic:
+- **Phase definitions** → session template variables (`_phases`), never hardcoded in C#
+- **Monitor descriptors** → session template variables (`_monitorDescriptor`), never hardcoded
+- **Workflow structure** → workflow block JSON (`config.nodes`), never hardcoded
+- **LLM prompts, output paths, evaluation criteria** → session template variables (`_workflowConfig`), never hardcoded
+- **Workflow routing** → read from block metadata, never `if (workflowId.Contains(...))`
+
+**Litmus test**: Can a new session type be created with ONLY JSON changes (template + block)?
+If the answer is no, the architecture is violated.
+
+#### Entry Point Execution
+- `EntryPointExecutor` bridges Session layer and Execution layer
+- Reads workflow structure from `IBlockRepository` (block's `config.nodes`)
+- Reads display config from session variables (set by template import)
+- New workflows require only new JSON data, zero C# changes
+
+#### Session Variable Conventions
+`_` prefix = system/infrastructure variables:
+
+| Variable | Purpose |
+|----------|---------|
+| `_phases` | Phase definitions for TUI phase-list component |
+| `_monitorDescriptor` | TUI layout and component configuration |
+| `_executionTree` | Runtime execution tree state |
+| `_activeBlock` | Currently executing block detail |
+| `_executionLog` | Execution log entries (FIFO 50) |
+| `_artifacts` | Files produced by the session |
+| `_activeWorkflow` | Currently active workflow ID |
+| `_workflowConfig` | Per-workflow config (prompts, paths, eval criteria) |
+
+No-prefix = session-specific state (`currentFitness`, `scoreHistory`, etc.)
+
+#### Template-Driven Configuration
+Session templates (`data/foundry/templates/*.session.json`) carry ALL session-specific data:
+- `variables` — Initial state including `_phases`, `_monitorDescriptor`, `_workflowConfig`
+- `entryPoints` — Maps names to workflow block IDs
+- `monitorWidgets` — Widget configs (legacy, used when no `_monitorDescriptor`)
+- Template import is done by CLI (`importSessionTemplate` in `tools/maestro-cli/index.js`)
+- CLI reads JSON, calls PUT APIs for variables, entry points, widgets
+- No backend code changes needed for new session types
+
 ### API Contract
 
 When adding properties to domain entities:
@@ -121,6 +166,11 @@ When adding properties to domain entities:
 **Fix**:
 - Never use `.Result` inside async methods - use `await` instead
 - Check for circular DI dependencies (e.g., AgentBlockExecutor ↔ BlockExecutorRegistry)
+
+### Session-specific logic hardcoded in infrastructure
+**Cause**: Putting phase names, LLM prompts, workflow steps, or output paths directly in C# code (e.g., `EntryPointExecutor`)
+**Fix**: Put data in session template variables (`_workflowConfig`, `_phases`) and workflow block JSON (`config.nodes`)
+**Test**: If adding a new session type requires C# changes, the architecture is wrong
 
 ### Shell commands fail on Windows
 **Cause**: Unix commands like `mkdir -p` don't work on Windows cmd

@@ -41,7 +41,59 @@
     "improvementHistory": [],
     "pendingApprovals": [],
     "pendingApprovalCount": 0,
-    "recentEvents": []
+    "recentEvents": [],
+    "_phases": [
+      { "id": "creation", "name": "Phase 1: Creation", "status": "pending", "description": "Create initial gen-commit tool" },
+      { "id": "optimization", "name": "Phase 2: Optimization", "status": "pending", "description": "Reduce tokens, improve quality" },
+      { "id": "validation", "name": "Phase 3: Validation", "status": "pending", "description": "Final validation and testing" },
+      { "id": "publish", "name": "Phase 4: Publish", "status": "pending", "description": "Package and publish tool" }
+    ],
+    "_monitorDescriptor": {
+      "layout": {
+        "mode": "phased",
+        "zones": {
+          "left": { "width": "40%", "components": ["phases", "workflow-tree"] },
+          "right": { "width": "60%", "components": ["block-detail", "metrics"] },
+          "bottom": { "height": "30%", "components": ["execution-log", "artifacts"] }
+        }
+      },
+      "components": [
+        { "id": "phases", "type": "phase-list", "data": "$.variables._phases" },
+        { "id": "workflow-tree", "type": "workflow-tree", "data": "$.variables._executionTree" },
+        { "id": "block-detail", "type": "block-detail", "data": "$.variables._activeBlock" },
+        { "id": "metrics", "type": "metrics-panel" },
+        { "id": "execution-log", "type": "execution-log", "data": "$.variables._executionLog" },
+        { "id": "artifacts", "type": "artifacts", "data": "$.variables._artifacts" }
+      ]
+    },
+    "_workflowConfig": {
+      "agent-improvement-loop": {
+        "phaseId": "creation",
+        "llm": {
+          "systemPrompt": "You are an expert developer assistant. Generate a high-quality commit message tool based on the project state.",
+          "userPromptTemplate": "Based on the following project state, generate a commit message tool specification:\n\n{{context}}\n\nGenerate a JSON block definition for a 'gen-commit' tool that analyzes git diffs and generates conventional commit messages.",
+          "maxTokens": 1024,
+          "temperature": 0.7
+        },
+        "output": { "filename": "gen-commit-tool.json" },
+        "evaluation": { "criteria": ["hasJsonStructure", "hasRequiredFields", "minLength"] },
+        "fallback": {
+          "type": "tool",
+          "name": "gen-commit",
+          "version": "1.0.0",
+          "description": "Generates conventional commit messages from git diffs",
+          "config": {
+            "input": { "type": "git-diff", "source": "working-directory" },
+            "output": { "type": "commit-message", "format": "conventional" },
+            "parameters": { "style": "conventional", "maxLength": 72, "includeBody": true, "includeScope": true }
+          },
+          "prompts": {
+            "system": "You are a commit message generator. Analyze the git diff and produce a conventional commit message.",
+            "template": "Given the following git diff, generate a conventional commit message:\n\n{{diff}}"
+          }
+        }
+      }
+    }
   },
 
   "monitorWidgets": [

@@ -1143,8 +1143,8 @@ async function importSessionTemplate(sessionId, templateName) {
     if (templateContent.entryPoints) {
       console.log('  Importing entry points...');
       for (const [name, workflowId] of Object.entries(templateContent.entryPoints)) {
-        await client._fetch('POST', `/api/sessions/${sessionId}/entry-points`, {
-          body: { name, workflowId }
+        await client._fetch('PUT', `/api/sessions/${sessionId}/entry-points/${encodeURIComponent(name)}`, {
+          body: { workflowId }
         });
         console.log(`    ✓ ${name} → ${workflowId}`);
       }

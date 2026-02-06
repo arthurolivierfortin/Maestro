@@ -5,6 +5,17 @@ using Maestro.Domain.ValueObjects;
 namespace Maestro.Application.Interfaces;
 
 /// <summary>
+/// Result of invoking an entry point.
+/// </summary>
+public class EntryPointInvocationResult
+{
+    public required string InvocationId { get; init; }
+    public required string EntryPoint { get; init; }
+    public required string WorkflowId { get; init; }
+    public string Status { get; init; } = "started";
+}
+
+/// <summary>
 /// Result of a command execution.
 /// </summary>
 public class CommandResult
@@ -193,6 +204,16 @@ public interface IProjectSessionServer
     /// Saves an updated session to storage.
     /// </summary>
     Task SaveAsync(ProjectSession session, CancellationToken ct = default);
+
+    /// <summary>
+    /// Invokes an entry point workflow as a background task.
+    /// Returns immediately with an invocation result.
+    /// </summary>
+    Task<EntryPointInvocationResult> InvokeEntryPointAsync(
+        SessionId id,
+        string entryPoint,
+        Dictionary<string, object>? inputs = null,
+        CancellationToken ct = default);
 }
 
 /// <summary>

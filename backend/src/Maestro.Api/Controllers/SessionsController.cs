@@ -480,26 +480,30 @@ public class SessionsController : ControllerBase
     public async Task<ActionResult> InvokeEntryPoint(string id, string entryPoint, [FromBody] InvokeEntryPointRequest? request = null)
     {
         var sessionId = SessionId.From(id);
-        var session = await _sessionServer.GetAsync(sessionId);
 
-        if (session == null)
-            return NotFound(new { error = $"Session '{id}' not found" });
+        try
+        {
+            var result = await _sessionServer.InvokeEntryPointAsync(
+                sessionId,
+                entryPoint,
+                request?.Inputs);
 
-        var workflowId = session.GetEntryPoint(entryPoint);
-        if (workflowId == null)
-            return NotFound(new { error = $"Entry point '{entryPoint}' not found" });
+            _logger.LogInformation("Invoked entry point '{EntryPoint}' ({WorkflowId}) on session {SessionId}, invocation {InvocationId}",
+                result.EntryPoint, result.WorkflowId, id, result.InvocationId);
 
-        // TODO: Actually invoke the workflow
-        // For now, return the workflow ID that would be invoked
-        _logger.LogInformation("Invoking entry point '{EntryPoint}' ({WorkflowId}) on session {SessionId}",
-            entryPoint, workflowId, id);
-
-        return Ok(new {
-            entryPoint,
-            workflowId,
-            status = "pending",
-            message = $"Entry point '{entryPoint}' would invoke workflow '{workflowId}'"
-        });
+            return Ok(new
+            {
+                entryPoint = result.EntryPoint,
+                workflowId = result.WorkflowId,
+                status = result.Status,
+                invocationId = result.InvocationId
+            });
+        }
+        catch (InvalidOperationException ex)
+        {
+            _logger.LogWarning(ex, "Failed to invoke entry point '{EntryPoint}' on session {SessionId}", entryPoint, id);
+            return BadRequest(new { error = ex.Message });
+        }
     }
 
     // ========== Widget Endpoints ==========
