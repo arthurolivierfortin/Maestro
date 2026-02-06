@@ -51,34 +51,71 @@
     "_blockOutputs": {},
     "_monitorDescriptor": {
       "layout": {
-        "mode": "phased",
+        "mode": "phased-v2",
         "zones": {
-          "top-left": { "width": "25%", "height": "50%", "components": ["phases"] },
-          "top-right": { "width": "75%", "height": "50%", "components": ["workflow-tree"] },
-          "mid-left": { "width": "35%", "height": "25%", "components": ["metrics"] },
-          "mid-right": { "width": "65%", "height": "25%", "components": ["block-output"] },
+          "header-left": { "width": "60%", "height": 7, "components": ["header"] },
+          "header-right": { "width": "40%", "height": 7, "components": ["session-metrics"] },
+          "left": { "width": "55%", "height": "75%", "components": ["phase-workflow"] },
+          "right": { "width": "45%", "height": "75%", "components": ["llm-activity"] },
           "bottom": { "width": "100%", "height": "25%", "components": ["execution-log"] }
         }
       },
       "components": [
-        { "id": "phases", "type": "phase-list", "data": "$.variables._phases" },
-        { "id": "workflow-tree", "type": "workflow-tree", "data": "$.variables._executionTree" },
-        { "id": "block-output", "type": "block-detail", "data": "$.variables._blockOutputs" },
-        { "id": "metrics", "type": "metrics-panel" },
-        { "id": "execution-log", "type": "execution-log", "data": "$.variables._executionLog" }
+        { "id": "phase-workflow", "type": "phase-workflow", "data": ["$.variables._phases", "$.variables._executionTree"] },
+        { "id": "llm-activity", "type": "llm-activity", "data": "$.variables._llmActivity" },
+        { "id": "execution-log", "type": "execution-log", "data": "$.variables._executionLog" },
+        { "id": "session-metrics", "type": "widgets", "data": "$.monitorWidgets" }
       ]
     },
+    "_llmActivity": [],
     "_workflowConfig": {
       "agent-improvement-loop": {
-        "phaseId": "creation",
-        "llm": {
-          "systemPrompt": "You are an expert developer assistant that generates Maestro block definitions as raw JSON. CRITICAL RULES:\n1. Output ONLY valid JSON — no markdown, no code fences, no explanation text before or after.\n2. The JSON must be a single object starting with { and ending with }.\n3. Required top-level fields: \"name\" (string), \"type\" (string), \"description\" (string).\n4. Do NOT wrap in ```json``` or any other formatting.",
-          "userPromptTemplate": "Generate a JSON block definition for a 'gen-commit' tool that analyzes git diffs and generates conventional commit messages.\n\nProject context:\n{{context}}\n\nIteration: {{currentIteration}} / {{maxIterations}}\nCurrent fitness: {{currentFitness}}\n\nPrevious validation feedback:\n{{_lastValidationFeedback}}\n\nRemember: Output ONLY raw JSON starting with { — no markdown, no code fences, no text before or after the JSON.",
-          "maxTokens": 2048,
-          "temperature": 0.5
+        "creation": {
+          "llm": {
+            "systemPrompt": "You are an expert developer assistant that generates Maestro block definitions as raw JSON. CRITICAL RULES:\n1. Output ONLY valid JSON — no markdown, no code fences, no explanation text before or after.\n2. The JSON must be a single object starting with { and ending with }.\n3. Required top-level fields: \"name\" (string), \"type\" (string), \"description\" (string).\n4. Do NOT wrap in ```json``` or any other formatting.",
+            "userPromptTemplate": "Generate a JSON block definition for a 'gen-commit' tool that analyzes git diffs and generates conventional commit messages.\n\nProject context:\n{{context}}\n\nIteration: {{currentIteration}} / {{maxIterations}}\nCurrent fitness: {{currentFitness}}\n\nPrevious validation feedback:\n{{_lastValidationFeedback}}\n\nRemember: Output ONLY raw JSON starting with { — no markdown, no code fences, no text before or after the JSON.",
+            "maxTokens": 2048,
+            "temperature": 0.5
+          },
+          "output": { "filename": "gen-commit-tool.json" },
+          "evaluation": { "criteria": ["hasJsonStructure", "hasRequiredFields", "minLength"] }
         },
-        "output": { "filename": "gen-commit-tool.json" },
-        "evaluation": { "criteria": ["hasJsonStructure", "hasRequiredFields", "minLength"] }
+        "optimization": {
+          "llm": {
+            "systemPrompt": "You are an optimization expert. Your task is to make a Maestro block definition MORE COMPACT without losing quality. CRITICAL RULES:\n1. Output ONLY valid JSON — no markdown, no code fences, no explanation.\n2. The JSON must be a single object starting with { and ending with }.\n3. Required top-level fields: \"name\" (string), \"type\" (string), \"description\" (string).\n4. GOAL: Reduce the total character count. Shorter descriptions, remove redundant fields, simplify structure. Every character counts.",
+            "userPromptTemplate": "Make this tool definition MORE COMPACT (fewer characters) without losing required fields or structure:\n{{context}}\n\nCurrent token count: ~{{_tokenCount}}\nFitness: {{currentFitness}}\nIteration: {{currentIteration}} / {{maxIterations}}\nFeedback: {{_lastValidationFeedback}}\n\nREMEMBER: Output ONLY raw JSON starting with {. Keep name, type, description. Remove everything else that isn't essential.",
+            "maxTokens": 2048,
+            "temperature": 0.3
+          },
+          "output": { "filename": "gen-commit-tool.json" },
+          "evaluation": {
+            "criteria": ["hasJsonStructure", "hasRequiredFields", "tokenEfficiency"],
+            "qualityCriteria": ["hasJsonStructure", "hasRequiredFields"],
+            "qualityFloor": 0.85,
+            "stopCondition": "plateau",
+            "plateauRuns": 5
+          }
+        },
+        "validation": {
+          "llm": {
+            "systemPrompt": "You are a QA validation expert. Review and fix the tool definition for production readiness. CRITICAL RULES:\n1. Output ONLY valid JSON — no markdown, no code fences, no explanation.\n2. The JSON must be a single object starting with { and ending with }.\n3. Required top-level fields: \"name\" (string), \"type\" (string), \"description\" (string).\n4. Ensure: all required fields, valid JSON, proper types, complete description.",
+            "userPromptTemplate": "Validate and fix this tool:\n{{context}}\n\nIteration: {{currentIteration}} / {{maxIterations}}\nFeedback: {{_lastValidationFeedback}}\n\nEnsure: all required fields, valid JSON, proper types, complete description.\nOutput ONLY raw JSON starting with {.",
+            "maxTokens": 2048,
+            "temperature": 0.2
+          },
+          "output": { "filename": "gen-commit-tool.json" },
+          "evaluation": { "criteria": ["hasJsonStructure", "hasRequiredFields", "minLength"] }
+        },
+        "publish": {
+          "llm": {
+            "systemPrompt": "You are a packaging expert. Finalize the tool for publication. CRITICAL RULES:\n1. Output ONLY valid JSON — no markdown, no code fences, no explanation.\n2. The JSON must be a single object starting with { and ending with }.\n3. Required top-level fields: \"name\" (string), \"type\" (string), \"description\" (string).\n4. Add version, author metadata, ensure completeness.",
+            "userPromptTemplate": "Finalize for publication:\n{{context}}\n\nAdd version, author metadata, ensure completeness.\nOutput ONLY raw JSON starting with {.",
+            "maxTokens": 1024,
+            "temperature": 0.1
+          },
+          "output": { "filename": "gen-commit-tool.json" },
+          "evaluation": { "criteria": ["hasJsonStructure", "hasRequiredFields", "minLength"] }
+        }
       }
     }
   },

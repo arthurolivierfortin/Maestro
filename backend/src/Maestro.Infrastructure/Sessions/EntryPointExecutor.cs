@@ -96,51 +96,88 @@ public class EntryPointExecutor
         session.SetVariable("_executionTree", tree);
         session.SetVariable("_activeWorkflow", workflowId);
 
-        // 5. Get workflow-specific config from session variable _workflowConfig
-        var workflowConfig = GetWorkflowConfig(session, workflowId);
-        _logger.LogInformation("WorkflowConfig found: {Found}", workflowConfig != null);
-
-        // 6. Activate the first pending phase
-        var activePhaseId = GetConfigString(workflowConfig, "phaseId", null);
-        _logger.LogInformation("Phase from config: '{PhaseId}'", activePhaseId ?? "(null)");
-        if (string.IsNullOrEmpty(activePhaseId))
-        {
-            activePhaseId = FindFirstPendingPhase(session);
-            _logger.LogInformation("Phase from FindFirstPending: '{PhaseId}'", activePhaseId ?? "(null)");
-        }
-        if (!string.IsNullOrEmpty(activePhaseId))
-        {
-            UpdatePhaseStatus(session, activePhaseId, "running", 0);
-            _logger.LogInformation("Phase '{PhaseId}' set to running", activePhaseId);
-        }
-
         AppendExecutionLog(session, "info", $"Starting workflow: {workflowId}");
         await _repository.SaveAsync(session);
 
-        // 7. Execute config nodes (generic: handles while, conditional, regular nodes)
-        // The execution structure comes from the workflow block's config.nodes.
-        // Control flow (while, conditional) is defined in block JSON, not hardcoded here.
-        if (workflowBlock?.Config != null && workflowBlock.Config.ContainsKey("nodes"))
+        // 5. Phase auto-chaining: loop over all pending phases sequentially
+        // Each phase gets its own config from _workflowConfig[workflowKey][phaseId]
+        while (true)
         {
-            var configNodesObj = workflowBlock.Config["nodes"];
-            if (configNodesObj is JsonElement nodesEl && nodesEl.ValueKind == JsonValueKind.Array)
+            // Find the next pending phase
+            var activePhaseId = FindFirstPendingPhase(session);
+            if (activePhaseId == null)
             {
-                await ExecuteConfigNodesAsync(session, nodesEl, workflowConfig, workingDir, activePhaseId, tree);
+                _logger.LogInformation("No more pending phases. Workflow complete.");
+                break;
             }
-        }
-        else
-        {
-            // Fallback: no workflow block config, execute flat display tree sequentially
-            await ExecuteNodesAsync(session, tree, workflowConfig, workingDir, activePhaseId);
-        }
 
-        // 8. Finalize — mark phase done when workflow completes
-        if (!string.IsNullOrEmpty(activePhaseId))
-        {
-            UpdatePhaseStatus(session, activePhaseId, "done");
+            _logger.LogInformation("Starting phase '{PhaseId}'", activePhaseId);
+
+            // Get phase-aware workflow config
+            var workflowConfig = GetWorkflowConfig(session, workflowId, activePhaseId);
+            _logger.LogInformation("WorkflowConfig for phase '{PhaseId}': {Found}", activePhaseId, workflowConfig != null);
+
+            // Reset iteration state for each new phase
+            session.SetVariable("currentIteration", 0);
+            session.SetVariable("currentFitness", 0);
+            session.SetVariable("scoreHistory", new List<object>());
+            session.SetVariable("_lastValidationFeedback", "");
+            session.SetVariable("_bestFitness", 0.0);
+            session.SetVariable("_plateauCount", 0);
+            session.SetVariable("_shouldStop", false);
+            session.SetVariable("_tokenCount", 0);
+            session.SetVariable("_qualityScore", 0.0);
+
+            // For plateau-based phases, override targetFitness so the while condition
+            // (currentFitness < targetFitness) stays true — _shouldStop is the real exit
+            var phaseStopCondition = GetConfigString(workflowConfig, "evaluation.stopCondition", "target");
+            var originalTarget = ReadDoubleVariable(session, "targetFitness", 0.85);
+            if (phaseStopCondition == "plateau")
+            {
+                session.SetVariable("targetFitness", 1.0); // Unreachable; plateau stops the loop
+                AppendExecutionLog(session, "info", $"Phase '{activePhaseId}' uses plateau detection (runs: {GetConfigInt(workflowConfig, "evaluation.plateauRuns", 5)})");
+            }
+
+            // Rebuild fresh execution tree for each phase
+            tree = BuildExecutionTree(workflowBlock);
+            session.SetVariable("_executionTree", tree);
+
+            // Mark phase as running
+            UpdatePhaseStatus(session, activePhaseId, "running", 0);
+            AppendExecutionLog(session, "info", $"Starting phase '{activePhaseId}'");
+            await _repository.SaveAsync(session);
+
+            // Execute config nodes (generic: handles while, conditional, regular nodes)
+            if (workflowBlock?.Config != null && workflowBlock.Config.ContainsKey("nodes"))
+            {
+                var configNodesObj = workflowBlock.Config["nodes"];
+                if (configNodesObj is JsonElement nodesEl && nodesEl.ValueKind == JsonValueKind.Array)
+                {
+                    await ExecuteConfigNodesAsync(session, nodesEl, workflowConfig, workingDir, activePhaseId, tree);
+                }
+            }
+            else
+            {
+                await ExecuteNodesAsync(session, tree, workflowConfig, workingDir, activePhaseId);
+            }
+
+            // Restore original targetFitness if it was overridden for plateau mode
+            if (phaseStopCondition == "plateau")
+            {
+                session.SetVariable("targetFitness", originalTarget);
+            }
+
+            // Mark phase done with summary
             var fitness = ReadDoubleVariable(session, "currentFitness", 0);
             var iteration = ReadIntVariable(session, "currentIteration", 0);
-            AppendExecutionLog(session, "info", $"Phase '{activePhaseId}' completed (fitness: {fitness:F2}, iterations: {iteration})");
+            var tokens = ReadIntVariable(session, "_tokenCount", 0);
+            UpdatePhaseStatus(session, activePhaseId, "done");
+            StorePhaseSummary(session, activePhaseId, iteration, fitness);
+            var logMsg = $"Phase '{activePhaseId}' completed (fitness: {fitness:F2}, iterations: {iteration}";
+            if (tokens > 0) logMsg += $", ~{tokens} tokens";
+            logMsg += ")";
+            AppendExecutionLog(session, "success", logMsg);
+            await _repository.SaveAsync(session);
         }
 
         ClearActiveBlock(session);
@@ -182,6 +219,9 @@ public class EntryPointExecutor
 
         if (!session.HasVariable("_blockOutputs"))
             session.SetVariable("_blockOutputs", new Dictionary<string, object>());
+
+        if (!session.HasVariable("_llmActivity"))
+            session.SetVariable("_llmActivity", new List<object>());
     }
 
     /// <summary>
@@ -466,6 +506,13 @@ public class EntryPointExecutor
 
         while (iteration < safetyMaxIterations && EvaluateCondition(condition, session))
         {
+            // Check for early stop signal (plateau detection, etc.)
+            if (session.GetVariable<bool>("_shouldStop", false))
+            {
+                AppendExecutionLog(session, "info", $"Early stop: plateau detected at iteration {iteration}");
+                break;
+            }
+
             iteration++;
             session.SetVariable("iteration", iteration);
             session.SetVariable("currentIteration", iteration);
@@ -512,10 +559,14 @@ public class EntryPointExecutor
 
         // While loop done
         var finalFitness = ReadDoubleVariable(session, "currentFitness", 0);
-        var conditionStillTrue = iteration < safetyMaxIterations && EvaluateCondition(condition, session);
-        var exitReason = !conditionStillTrue
-            ? $"condition met (fitness: {finalFitness:F2})"
-            : $"max iterations reached ({iteration}/{safetyMaxIterations})";
+        var earlyStopped = session.GetVariable<bool>("_shouldStop", false);
+        string exitReason;
+        if (earlyStopped)
+            exitReason = $"plateau (best: {ReadDoubleVariable(session, "_bestFitness", 0):F2}, no improvement for {ReadIntVariable(session, "_plateauCount", 0)} runs)";
+        else if (!EvaluateCondition(condition, session))
+            exitReason = $"condition met (fitness: {finalFitness:F2})";
+        else
+            exitReason = $"max iterations reached ({iteration}/{safetyMaxIterations})";
 
         UpdateNodeById(displayTree, nodeId, "done", $"Completed: {exitReason}");
         session.SetVariable("_executionTree", displayTree);
@@ -681,7 +732,7 @@ public class EntryPointExecutor
         // LLM/generate nodes: call LLM with config-driven prompts
         if (nodeId.Contains("generate"))
         {
-            return await ExecuteLLMNodeAsync(session, workflowConfig, previousOutput);
+            return await ExecuteLLMNodeAsync(session, nodeId, workflowConfig, previousOutput);
         }
 
         // Validation/fitness/metrics nodes: evaluate with config-driven criteria
@@ -706,6 +757,7 @@ public class EntryPointExecutor
 
     private async Task<string> ExecuteLLMNodeAsync(
         Domain.Entities.ProjectSession session,
+        string nodeId,
         Dictionary<string, object>? workflowConfig,
         string? context)
     {
@@ -732,8 +784,23 @@ public class EntryPointExecutor
             Temperature = temperature
         };
 
+        var stopwatch = Stopwatch.StartNew();
         var response = await _llmGateway.SendAsync(request);
-        AppendExecutionLog(session, "success", $"LLM response received ({response.Content.Length} chars)");
+        stopwatch.Stop();
+
+        // Track LLM activity for TUI chat view
+        var activity = new Dictionary<string, object>
+        {
+            ["time"] = DateTime.Now.ToString("HH:mm:ss"),
+            ["nodeId"] = nodeId,
+            ["promptPreview"] = userPrompt.Length > 200 ? userPrompt[..200] + "..." : userPrompt,
+            ["responsePreview"] = response.Content.Length > 300 ? response.Content[..300] + "..." : response.Content,
+            ["responseLength"] = response.Content.Length,
+            ["duration"] = Math.Round(stopwatch.Elapsed.TotalSeconds, 1)
+        };
+        AppendToLLMActivity(session, activity);
+
+        AppendExecutionLog(session, "success", $"LLM response received ({response.Content.Length} chars, {stopwatch.Elapsed.TotalSeconds:F1}s)");
         return response.Content;
     }
 
@@ -774,11 +841,64 @@ public class EntryPointExecutor
         var criteria = GetConfigStringList(workflowConfig, "evaluation.criteria");
         var (fitness, criteriaScores) = EvaluateFitnessDetailed(output ?? "", criteria);
 
+        // Token count tracking (generic: always available)
+        var tokenCount = EstimateTokenCount(output ?? "");
+        session.SetVariable("_tokenCount", tokenCount);
+
+        // Read phase-specific stop condition from config
+        var stopCondition = GetConfigString(workflowConfig, "evaluation.stopCondition", "target");
+
+        // Quality floor check (optimization phases: don't let quality drop)
+        var qualityFloor = (double)GetConfigFloat(workflowConfig, "evaluation.qualityFloor", -1f);
+        if (qualityFloor > 0)
+        {
+            // Compute quality score from quality-only criteria (excluding optimization criteria like tokenEfficiency)
+            var qualityCriteria = GetConfigStringList(workflowConfig, "evaluation.qualityCriteria");
+            if (qualityCriteria.Count > 0)
+            {
+                var (qualityScore, _) = EvaluateFitnessDetailed(output ?? "", qualityCriteria);
+                session.SetVariable("_qualityScore", Math.Round(qualityScore, 2));
+
+                // If quality dropped below floor, penalize fitness heavily
+                if (qualityScore < qualityFloor)
+                {
+                    fitness = qualityScore * 0.5; // Heavy penalty signals: don't go this direction
+                    AppendExecutionLog(session, "warning",
+                        $"Quality below floor ({qualityScore:F2} < {qualityFloor:F2}). Fitness penalized to {fitness:F2}.");
+                }
+            }
+        }
+
         session.SetVariable("currentFitness", fitness);
 
         var scoreHistory = GetScoreHistory(session);
         scoreHistory.Add(fitness);
         session.SetVariable("scoreHistory", scoreHistory);
+
+        // Plateau detection (optimization phases: stop after N non-improving iterations)
+        if (stopCondition == "plateau")
+        {
+            var plateauRuns = GetConfigInt(workflowConfig, "evaluation.plateauRuns", 5);
+            var bestFitness = ReadDoubleVariable(session, "_bestFitness", 0);
+            var plateauCount = ReadIntVariable(session, "_plateauCount", 0);
+
+            if (fitness > bestFitness)
+            {
+                session.SetVariable("_bestFitness", fitness);
+                session.SetVariable("_plateauCount", 0);
+            }
+            else
+            {
+                plateauCount++;
+                session.SetVariable("_plateauCount", plateauCount);
+                if (plateauCount >= plateauRuns)
+                {
+                    session.SetVariable("_shouldStop", true);
+                    AppendExecutionLog(session, "info",
+                        $"Plateau detected: {plateauCount} consecutive iterations without improvement (best: {bestFitness:F2}). Stopping phase.");
+                }
+            }
+        }
 
         // Store detailed validation results in _blockOutputs
         var target = session.GetVariable<double>("targetFitness", 0.85);
@@ -787,21 +907,31 @@ public class EntryPointExecutor
             ["type"] = "validator",
             ["criteriaScores"] = criteriaScores,
             ["totalScore"] = fitness,
-            ["passed"] = fitness >= target
+            ["tokenCount"] = tokenCount,
+            ["passed"] = stopCondition == "plateau" ? !session.GetVariable<bool>("_shouldStop", false) : fitness >= target
         };
         StoreBlockOutput(session, "validation", "validator", null, validationDetail);
 
         // Store validation feedback for the LLM to use in next iteration
         var sb = new StringBuilder();
         sb.AppendLine($"Score: {fitness:F2} / {target:F2}");
+        if (tokenCount > 0) sb.AppendLine($"Tokens: ~{tokenCount}");
         foreach (var kvp in criteriaScores)
         {
             var icon = (double)kvp.Value >= 0.5 ? "PASS" : "FAIL";
             sb.AppendLine($"  [{icon}] {kvp.Key}: {kvp.Value:F2}");
         }
-        if (fitness < target)
+        if (stopCondition == "target" && fitness < target)
         {
-            sb.AppendLine("Failing criteria need improvement. Output must start with { or [ for hasJsonStructure. Must contain \"name\", \"type\", \"description\" fields for hasRequiredFields.");
+            var failing = criteriaScores.Where(kvp => (double)kvp.Value < 0.5).Select(kvp => kvp.Key);
+            sb.AppendLine($"Failing criteria need improvement: {string.Join(", ", failing)}");
+        }
+        if (stopCondition == "plateau")
+        {
+            var best = ReadDoubleVariable(session, "_bestFitness", 0);
+            var plateau = ReadIntVariable(session, "_plateauCount", 0);
+            sb.AppendLine($"Best fitness: {best:F2} | Plateau: {plateau}/{GetConfigInt(workflowConfig, "evaluation.plateauRuns", 5)}");
+            sb.AppendLine("Focus: reduce token count while maintaining quality.");
         }
         session.SetVariable("_lastValidationFeedback", sb.ToString().TrimEnd());
 
@@ -813,45 +943,74 @@ public class EntryPointExecutor
 
     /// <summary>
     /// Extracts the workflow-specific config from session variable _workflowConfig.
-    /// Matches by workflow ID (tries multiple key formats).
+    /// Phase-aware: if phaseId is provided, looks for config[workflowKey][phaseId] first,
+    /// then falls back to config[workflowKey] for backward compatibility.
     /// </summary>
-    private static Dictionary<string, object>? GetWorkflowConfig(Domain.Entities.ProjectSession session, string workflowId)
+    private static Dictionary<string, object>? GetWorkflowConfig(Domain.Entities.ProjectSession session, string workflowId, string? phaseId = null)
     {
         var configVar = session.GetVariable("_workflowConfig");
         if (configVar == null) return null;
 
         var keys = ExtractWorkflowKeys(workflowId);
 
+        // First, find the workflow-level config
+        Dictionary<string, object>? workflowLevelConfig = null;
+
         if (configVar is Dictionary<string, object> dict)
         {
             foreach (var key in keys)
             {
-                if (dict.TryGetValue(key, out var value))
-                    return value as Dictionary<string, object>;
+                if (dict.TryGetValue(key, out var value) && value is Dictionary<string, object> wc)
+                {
+                    workflowLevelConfig = wc;
+                    break;
+                }
             }
         }
 
-        // Handle Newtonsoft.Json JObject (from API deserialization)
-        if (configVar is JObject jObj)
+        if (workflowLevelConfig == null && configVar is JObject jObj)
         {
             foreach (var key in keys)
             {
                 if (jObj.TryGetValue(key, out var prop))
-                    return JObjectToDict(prop as JObject);
+                {
+                    workflowLevelConfig = JObjectToDict(prop as JObject);
+                    break;
+                }
             }
         }
 
-        // Handle System.Text.Json JsonElement (from block config)
-        if (configVar is JsonElement jsonEl && jsonEl.ValueKind == JsonValueKind.Object)
+        if (workflowLevelConfig == null && configVar is JsonElement jsonEl && jsonEl.ValueKind == JsonValueKind.Object)
         {
             foreach (var key in keys)
             {
                 if (jsonEl.TryGetProperty(key, out var prop))
-                    return JsonElementToDict(prop);
+                {
+                    workflowLevelConfig = JsonElementToDict(prop);
+                    break;
+                }
             }
         }
 
-        return null;
+        if (workflowLevelConfig == null) return null;
+
+        // If phaseId provided, look for phase-specific sub-config
+        if (!string.IsNullOrEmpty(phaseId))
+        {
+            // Try to get phase-specific config from the workflow config
+            if (workflowLevelConfig.TryGetValue(phaseId, out var phaseConfig))
+            {
+                if (phaseConfig is Dictionary<string, object> phaseDict)
+                    return phaseDict;
+                if (phaseConfig is JObject phaseJObj)
+                    return JObjectToDict(phaseJObj);
+                if (phaseConfig is JsonElement phaseEl && phaseEl.ValueKind == JsonValueKind.Object)
+                    return JsonElementToDict(phaseEl);
+            }
+        }
+
+        // Fallback: return workflow-level config (backward compat)
+        return workflowLevelConfig;
     }
 
     private static string[] ExtractWorkflowKeys(string workflowId)
@@ -979,6 +1138,12 @@ public class EntryPointExecutor
                 case "minlength":
                     criterionScore = output.Length >= 100 ? 1.0 : output.Length / 100.0;
                     break;
+                case "tokenefficiency":
+                    // Fewer tokens = higher score. Rewards compact output.
+                    // 200 chars → 1.0, 500 chars → 0.8, 1000 → 0.6, 2000 → 0.4, 5000+ → 0.2
+                    var charCount = output.Length;
+                    criterionScore = charCount <= 200 ? 1.0 : Math.Max(0.2, 1.0 - (charCount - 200) / 6000.0);
+                    break;
                 default:
                     criterionScore = 0.5;
                     break;
@@ -991,6 +1156,15 @@ public class EntryPointExecutor
     }
 
     // ===== Utility Helpers =====
+
+    /// <summary>
+    /// Rough token count estimate. Approximates ~4 chars per token for English/JSON text.
+    /// </summary>
+    private static int EstimateTokenCount(string text)
+    {
+        if (string.IsNullOrEmpty(text)) return 0;
+        return (int)Math.Ceiling(text.Length / 4.0);
+    }
 
     private static string NormalizeBlockId(string workflowId)
     {
@@ -1332,6 +1506,60 @@ public class EntryPointExecutor
     private static void ClearActiveBlock(Domain.Entities.ProjectSession session)
     {
         session.SetVariable("_activeBlock", null!);
+    }
+
+    /// <summary>
+    /// Stores iteration/fitness result in the phase object within _phases.
+    /// Allows the TUI to display phase summaries for completed phases.
+    /// </summary>
+    private static void StorePhaseSummary(Domain.Entities.ProjectSession session, string phaseId, int iterations, double fitness)
+    {
+        var phases = session.GetVariable("_phases");
+        if (phases is List<object> phaseList)
+        {
+            foreach (var item in phaseList)
+            {
+                if (item is Dictionary<string, object> phase && phase.TryGetValue("id", out var id) && id?.ToString() == phaseId)
+                {
+                    var result = new Dictionary<string, object>
+                    {
+                        ["iterations"] = iterations,
+                        ["fitness"] = Math.Round(fitness, 2)
+                    };
+                    // Include token count and quality score if available
+                    var tokenCount = session.GetVariable<int>("_tokenCount", 0);
+                    if (tokenCount > 0) result["tokenCount"] = tokenCount;
+                    var qualityScore = session.GetVariable<double>("_qualityScore", 0);
+                    if (qualityScore > 0) result["qualityScore"] = Math.Round(qualityScore, 2);
+
+                    phase["result"] = result;
+                    break;
+                }
+            }
+            session.SetVariable("_phases", phaseList);
+        }
+    }
+
+    /// <summary>
+    /// Appends an LLM activity entry to _llmActivity (FIFO 20).
+    /// Used by the TUI LLM Activity component to show prompt/response chat view.
+    /// </summary>
+    private static void AppendToLLMActivity(Domain.Entities.ProjectSession session, Dictionary<string, object> activity)
+    {
+        var existing = session.GetVariable("_llmActivity");
+        List<object> list;
+        if (existing is List<object> l)
+            list = new List<object>(l);
+        else
+            list = new List<object>();
+
+        list.Add(activity);
+
+        // Keep last 20 entries
+        if (list.Count > 20)
+            list = list.Skip(list.Count - 20).ToList();
+
+        session.SetVariable("_llmActivity", list);
     }
 
     private static void AppendExecutionLog(Domain.Entities.ProjectSession session, string level, string message)

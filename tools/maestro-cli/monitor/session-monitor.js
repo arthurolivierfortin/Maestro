@@ -24,6 +24,8 @@ const { BlockDetailComponent } = require('./components/block-detail');
 const { MetricsPanelComponent } = require('./components/metrics-panel');
 const { ExecutionLogComponent } = require('./components/execution-log');
 const { ArtifactsComponent } = require('./components/artifacts');
+const { PhaseWorkflowComponent } = require('./components/phase-workflow');
+const { LLMActivityComponent } = require('./components/llm-activity');
 const { colors } = require('./components/colors');
 
 class SessionMonitor {
@@ -91,13 +93,13 @@ class SessionMonitor {
             style: { bg: colors.bg }
         });
 
-        // Header (fixed — 6 lines for iter/fitness display)
+        // Header (fixed — 7 lines for status + metrics line)
         this.headerBox = blessed.box({
             parent: this.mainBox,
             top: 0,
             left: 0,
             width: '100%',
-            height: 6,
+            height: 7,
             tags: true,
             border: { type: 'line' },
             style: {
@@ -107,13 +109,31 @@ class SessionMonitor {
             }
         });
 
+        // Header Metrics (right side of header row, descriptor mode only)
+        this.headerMetricsBox = blessed.box({
+            parent: this.mainBox,
+            top: 0,
+            left: '60%',
+            width: '40%',
+            height: 7,
+            tags: true,
+            scrollable: true,
+            border: { type: 'line' },
+            style: {
+                bg: colors.bg,
+                fg: colors.fg,
+                border: { fg: 'white' }
+            },
+            hidden: true
+        });
+
         // Main content area - will be dynamically configured
         this.contentArea = blessed.box({
             parent: this.mainBox,
-            top: 6,
+            top: 7,
             left: 0,
             width: '100%',
-            height: '100%-9',
+            height: '100%-10',
             style: { bg: colors.bg }
         });
 
@@ -290,6 +310,28 @@ class SessionMonitor {
             style: { bg: colors.bg, fg: colors.fg, border: { fg: 'white' } },
             hidden: true
         });
+
+        // Phase-Workflow merged (descriptor v2 mode) — left 55% x 75%
+        this.phaseWorkflowBox = blessed.box({
+            parent: this.contentArea,
+            top: 0, left: 0, width: '55%', height: '75%',
+            tags: true, scrollable: true, alwaysScroll: true,
+            border: { type: 'line' },
+            scrollbar: { style: { bg: 'white' } },
+            style: { bg: colors.bg, fg: colors.fg, border: { fg: 'white' } },
+            hidden: true
+        });
+
+        // LLM Activity (descriptor v2 mode) — right 45% x 75%
+        this.llmActivityBox = blessed.box({
+            parent: this.contentArea,
+            top: 0, left: '55%', width: '45%', height: '75%',
+            tags: true, scrollable: true, alwaysScroll: true,
+            border: { type: 'line' },
+            scrollbar: { style: { bg: 'white' } },
+            style: { bg: colors.bg, fg: colors.fg, border: { fg: 'white' } },
+            hidden: true
+        });
     }
 
     initComponents() {
@@ -307,6 +349,11 @@ class SessionMonitor {
         this.metricsPanel = new MetricsPanelComponent(this.metricsBox);
         this.executionLog = new ExecutionLogComponent(this.execLogBox);
         this.artifactsList = new ArtifactsComponent(this.artifactsBox);
+
+        // Descriptor v2 components (merged)
+        this.phaseWorkflow = new PhaseWorkflowComponent(this.phaseWorkflowBox);
+        this.llmActivity = new LLMActivityComponent(this.llmActivityBox);
+        this.headerMetrics = new MetricsPanelComponent(this.headerMetricsBox);
     }
 
     setupKeys() {
@@ -463,15 +510,12 @@ ${backText}    q       Quit
             return;
         }
 
-        // Priority 2: execution mode if active workflow
+        // Priority 2: execution mode if active workflow (generic detection)
         const hasActiveWorkflow = vars._activeWorkflow || session.activeWorkflow ||
             (session.status === 'running' && (
                 vars._executionTree ||
                 vars.currentIteration > 0 ||
-                vars.iteration > 0 ||
-                vars.currentPhase === 'execution' ||
-                vars.phase === 'execution' ||
-                vars.phase === 'optimization'
+                vars.iteration > 0
             ));
 
         this.mode = hasActiveWorkflow ? 'execution' : 'idle';
@@ -489,6 +533,12 @@ ${backText}    q       Quit
         this.metricsBox.hide();
         this.execLogBox.hide();
         this.artifactsBox.hide();
+        this.phaseWorkflowBox.hide();
+        this.llmActivityBox.hide();
+        this.headerMetricsBox.hide();
+
+        // Reset header to full width (descriptor mode narrows it)
+        this.headerBox.width = '100%';
 
         if (this.mode === 'descriptor') {
             this.applyDescriptorLayout();
@@ -556,33 +606,23 @@ ${backText}    q       Quit
     }
 
     applyDescriptorLayout() {
-        // TOP-LEFT: Phases (25% x 50%)
-        this.phasesBox.show();
-        this.phasesBox.top = 0;
-        this.phasesBox.left = 0;
-        this.phasesBox.width = '25%';
-        this.phasesBox.height = '50%';
+        // HEADER: Shrink to 60% width, show metrics beside it
+        this.headerBox.width = '60%';
+        this.headerMetricsBox.show();
 
-        // TOP-RIGHT: Workflow Tree (75% x 50%)
-        this.treeBox.show();
-        this.treeBox.top = 0;
-        this.treeBox.left = '25%';
-        this.treeBox.width = '75%';
-        this.treeBox.height = '50%';
+        // LEFT: Phase-Workflow merged (55% x 75%)
+        this.phaseWorkflowBox.show();
+        this.phaseWorkflowBox.top = 0;
+        this.phaseWorkflowBox.left = 0;
+        this.phaseWorkflowBox.width = '55%';
+        this.phaseWorkflowBox.height = '75%';
 
-        // MID-LEFT: Metrics (35% x 25%)
-        this.metricsBox.show();
-        this.metricsBox.top = '50%';
-        this.metricsBox.left = 0;
-        this.metricsBox.width = '35%';
-        this.metricsBox.height = '25%';
-
-        // MID-RIGHT: Block Output Browser (65% x 25%)
-        this.blockDetailBox.show();
-        this.blockDetailBox.top = '50%';
-        this.blockDetailBox.left = '35%';
-        this.blockDetailBox.width = '65%';
-        this.blockDetailBox.height = '25%';
+        // RIGHT: LLM Activity (45% x 75%)
+        this.llmActivityBox.show();
+        this.llmActivityBox.top = 0;
+        this.llmActivityBox.left = '55%';
+        this.llmActivityBox.width = '45%';
+        this.llmActivityBox.height = '75%';
 
         // BOTTOM: Execution Log (100% x 25%)
         this.execLogBox.show();
@@ -607,7 +647,8 @@ ${backText}    q       Quit
             blockOutputs: vars._blockOutputs || null,
             executionLog: vars._executionLog || null,
             artifacts: vars._artifacts || null,
-            monitorDescriptor: vars._monitorDescriptor || null
+            monitorDescriptor: vars._monitorDescriptor || null,
+            llmActivity: vars._llmActivity || []
         };
 
         // Safe render helper — catches per-component errors
@@ -623,12 +664,12 @@ ${backText}    q       Quit
         safeRender('header', () => this.header.render(this.session, context));
 
         if (this.mode === 'descriptor') {
-            // Descriptor mode components (new 5-zone layout)
-            safeRender('phaseList', () => this.phaseList.render(this.session, context));
-            safeRender('tree', () => this.tree.render(this.session, context));
-            safeRender('metricsPanel', () => this.metricsPanel.render(this.session, context));
-            safeRender('blockDetail', () => this.blockDetail.render(this.session, context));
+            // Descriptor mode: 3-zone layout (phase-workflow + llm-activity + exec-log)
+            // + header-level metrics panel
+            safeRender('phaseWorkflow', () => this.phaseWorkflow.render(this.session, context));
+            safeRender('llmActivity', () => this.llmActivity.render(this.session, context));
             safeRender('executionLog', () => this.executionLog.render(this.session, context));
+            safeRender('headerMetrics', () => this.headerMetrics.render(this.session, context));
         } else {
             // Existing execution/idle mode
             if (this.panels.tree && !this.treeBox.hidden) {
@@ -660,21 +701,9 @@ ${backText}    q       Quit
     }
 
     detectActiveWorkflow() {
+        // Generic: read from session variables only — no hardcoded workflow names
         const vars = this.session?.variables || {};
-
-        // Try to detect workflow name from variables
-        if (vars.currentPhase || vars.phase) {
-            const phase = vars.currentPhase || vars.phase;
-            if (phase === 'exploration' || phase === 'optimization' || phase === 'validation') {
-                return 'agent-improvement-loop';
-            }
-        }
-
-        if (vars.iteration > 0 || vars.currentIteration > 0) {
-            return 'agent-improvement-loop';
-        }
-
-        return null;
+        return vars._activeWorkflow || null;
     }
 
     renderError() {

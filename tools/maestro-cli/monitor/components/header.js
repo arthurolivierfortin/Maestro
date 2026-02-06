@@ -42,9 +42,11 @@ class HeaderComponent {
 
         if (currentIteration > 0 || currentFitness > 0) {
             const fitnessPercent = currentFitness * 100;
+            // Color based on progress toward target
+            const progressToTarget = targetFitness > 0 ? (currentFitness / targetFitness) * 100 : 0;
             let fitnessColor = 'red';
-            if (fitnessPercent >= 80) fitnessColor = 'green';
-            else if (fitnessPercent >= 50) fitnessColor = 'yellow';
+            if (progressToTarget >= 80) fitnessColor = 'green';
+            else if (progressToTarget >= 50) fitnessColor = 'yellow';
 
             // Find active phase name
             let phaseName = '';
@@ -54,22 +56,48 @@ class HeaderComponent {
                 if (running) phaseName = running.id || running.name || '';
             }
 
+            // Fitness bar (relative to target)
+            const barWidth = 7;
+            const filled = Math.min(barWidth, Math.round((progressToTarget / 100) * barWidth));
+            const empty = barWidth - filled;
+            const fitnessBar = '\u2593'.repeat(filled) + '\u2591'.repeat(empty);
+
+            // Score sparkline (normalized min/max)
+            let sparkline = '';
+            const scoreHistory = vars.scoreHistory;
+            if (Array.isArray(scoreHistory) && scoreHistory.length > 0) {
+                const sparkChars = '\u2581\u2582\u2583\u2584\u2585\u2586\u2587\u2588';
+                const recent = scoreHistory.slice(-8).map(s => Number(s) || 0);
+                const min = Math.min(...recent);
+                const max = Math.max(...recent);
+                const range = max - min || 1;
+                sparkline = recent.map(s => {
+                    const idx = Math.min(Math.floor(((s - min) / range) * 7), 7);
+                    return sparkChars[idx] || sparkChars[0];
+                }).join('');
+                sparkline = ` ${tag.dim(sparkline)}`;
+            }
+
+            const targetStr = targetFitness !== 1 ? `${tag.dim('/' + (targetFitness * 100).toFixed(0) + '%')}` : '';
             const parts = [
-                `iter: ${tag.bold(String(currentIteration))}/${maxIterations}`,
-                `fitness: {${fitnessColor}-fg}${currentFitness.toFixed(2)}{/${fitnessColor}-fg}/${targetFitness.toFixed(2)}`
+                `{${fitnessColor}-fg}${fitnessBar}{/${fitnessColor}-fg} ${fitnessPercent.toFixed(0)}%${targetStr}`,
+                `iter ${tag.bold(String(currentIteration))}/${maxIterations}${sparkline}`
             ];
             if (phaseName) {
-                parts.push(`phase: ${tag.running(phaseName)}`);
+                parts.push(`Phase: ${tag.running(phaseName)}`);
             }
-            iterFitnessLine = `\n  ${parts.join('  |  ')}`;
+            iterFitnessLine = `  ${parts.join('  |  ')}`;
         }
 
-        const content = [
+        const lines = [
             '',
-            `  {${statusColor}-fg}${statusIcon}{/} ${tag.bold(name)}  ${tag.dim(shortId)}  ${tag.muted(status)}`,
-            workflowInfo ? workflowInfo : `  project: ${tag.muted(session.projectId?.substring(0, 8) || 'N/A')}`,
-            `  ${tag.dim('duration:')} ${tag.secondary(duration)}${iterFitnessLine}`
-        ].join('\n');
+            `  {${statusColor}-fg}${statusIcon}{/} ${tag.bold(name)}  ${tag.dim(shortId)}  ${tag.muted(status)}  ${tag.dim('duration:')} ${tag.secondary(duration)}`,
+            workflowInfo ? workflowInfo : `  project: ${tag.muted(session.projectId?.substring(0, 8) || 'N/A')}`
+        ];
+        if (iterFitnessLine) {
+            lines.push(iterFitnessLine);
+        }
+        const content = lines.join('\n');
 
         this.box.setContent(content);
     }
