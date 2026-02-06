@@ -181,9 +181,9 @@ builder.Services.AddScoped<Maestro.Infrastructure.Sessions.EntryPointExecutor>(s
 {
     var sessionRepo = sp.GetRequiredService<IProjectSessionRepository>();
     var llmGateway = sp.GetRequiredService<ILLMGateway>();
-    var blockRepo = sp.GetRequiredService<IBlockRepository>();
+    var blockDiscovery = sp.GetRequiredService<IBlockDiscoveryService>();
     var logger = sp.GetRequiredService<ILogger<Maestro.Infrastructure.Sessions.EntryPointExecutor>>();
-    return new Maestro.Infrastructure.Sessions.EntryPointExecutor(sessionRepo, llmGateway, blockRepo, logger);
+    return new Maestro.Infrastructure.Sessions.EntryPointExecutor(sessionRepo, llmGateway, blockDiscovery, logger);
 });
 
 // Phase 10: Register Project Session Server

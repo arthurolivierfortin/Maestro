@@ -52,13 +52,14 @@ class SessionMonitor {
             logs: true
         };
 
-        // Debug
+        // Logging (always enabled for diagnostics)
         this.debugMode = options.debug || process.env.MAESTRO_MONITOR_DEBUG === 'true';
         this.logFile = path.join(process.env.TEMP || '/tmp', `maestro-monitor-${sessionId.substring(0, 8)}.log`);
 
-        if (this.debugMode) {
-            fs.writeFileSync(this.logFile, `=== Maestro Session Monitor ===\nSession: ${sessionId}\nStarted: ${new Date().toISOString()}\n\n`);
-        }
+        // Always write log file for troubleshooting
+        try {
+            fs.writeFileSync(this.logFile, `=== Maestro Session Monitor ===\nSession: ${sessionId}\nStarted: ${new Date().toISOString()}\nDebug: ${this.debugMode}\n\n`);
+        } catch (e) { /* ignore log write failures */ }
 
         this.initScreen();
         this.initBoxes();
@@ -67,9 +68,9 @@ class SessionMonitor {
     }
 
     log(msg) {
-        if (this.debugMode) {
+        try {
             fs.appendFileSync(this.logFile, `[${new Date().toISOString()}] ${msg}\n`);
-        }
+        } catch (e) { /* ignore */ }
     }
 
     initScreen() {
@@ -389,6 +390,11 @@ ${backText}    q       Quit
     async start() {
         this.log('Starting session monitor...');
 
+        // Show immediate feedback before first API call
+        this.headerBox.setContent(`\n  {cyan-fg}●{/cyan-fg} Connecting to session ${this.sessionId.substring(0, 8)}...`);
+        this.statusBox.setContent(` {yellow-fg}●{/yellow-fg} {gray-fg}connecting{/gray-fg}      {gray-fg}[q]uit{/gray-fg}`);
+        this.screen.render();
+
         await this.refresh();
 
         this.intervalId = setInterval(() => this.refresh(), this.refreshInterval);
@@ -418,6 +424,7 @@ ${backText}    q       Quit
 
             // Detect mode
             this.detectMode();
+            this.log(`Mode: ${this.mode}, vars: ${Object.keys(this.session.variables || {}).length}`);
 
             // Apply layout based on mode
             this.applyLayout();
@@ -425,13 +432,13 @@ ${backText}    q       Quit
             // Render all components
             this.renderAll();
 
-            this.log(`Fetched: status=${this.session.status}, mode=${this.mode}`);
+            this.log(`Rendered: status=${this.session.status}, mode=${this.mode}`);
         } catch (err) {
             this.refreshLatency = Date.now() - startTime;
             this.lastError = err.message;
             this.connectionStatus = 'error';
             this.renderError();
-            this.log(`Error: ${err.message}`);
+            this.log(`Error: ${err.message}\n${err.stack}`);
         }
 
         this.screen.render();
@@ -545,20 +552,27 @@ ${backText}    q       Quit
     }
 
     applyDescriptorLayout() {
-        // LEFT zone (40%): phases + workflow tree
+        // LEFT zone (40%): phases (top) + workflow tree (mid) + custom widgets (bottom)
         this.phasesBox.show();
         this.phasesBox.top = 0;
         this.phasesBox.left = 0;
         this.phasesBox.width = '40%';
-        this.phasesBox.height = '50%';
+        this.phasesBox.height = '35%';
 
         this.treeBox.show();
-        this.treeBox.top = '50%';
+        this.treeBox.top = '35%';
         this.treeBox.left = 0;
         this.treeBox.width = '40%';
-        this.treeBox.height = '20%';
+        this.treeBox.height = '35%';
 
-        // RIGHT zone (60%): block detail + metrics
+        // Custom widgets in left zone below tree
+        this.widgetsBox.show();
+        this.widgetsBox.top = '70%';
+        this.widgetsBox.left = 0;
+        this.widgetsBox.width = '40%';
+        this.widgetsBox.height = '30%';
+
+        // RIGHT zone (60%): block detail (top) + metrics (mid)
         this.blockDetailBox.show();
         this.blockDetailBox.top = 0;
         this.blockDetailBox.left = '40%';
@@ -571,17 +585,17 @@ ${backText}    q       Quit
         this.metricsBox.width = '60%';
         this.metricsBox.height = '35%';
 
-        // BOTTOM zone (30%): execution log + artifacts
+        // BOTTOM-RIGHT zone: execution log + artifacts
         this.execLogBox.show();
         this.execLogBox.top = '70%';
-        this.execLogBox.left = 0;
-        this.execLogBox.width = '60%';
+        this.execLogBox.left = '40%';
+        this.execLogBox.width = '35%';
         this.execLogBox.height = '30%';
 
         this.artifactsBox.show();
         this.artifactsBox.top = '70%';
-        this.artifactsBox.left = '60%';
-        this.artifactsBox.width = '40%';
+        this.artifactsBox.left = '75%';
+        this.artifactsBox.width = '25%';
         this.artifactsBox.height = '30%';
     }
 
@@ -602,45 +616,56 @@ ${backText}    q       Quit
             monitorDescriptor: vars._monitorDescriptor || null
         };
 
+        // Safe render helper — catches per-component errors
+        const safeRender = (name, fn) => {
+            try {
+                fn();
+            } catch (err) {
+                this.log(`[ERROR] Component ${name}: ${err.message}\n${err.stack}`);
+            }
+        };
+
         // Header (always)
-        this.header.render(this.session, context);
+        safeRender('header', () => this.header.render(this.session, context));
 
         if (this.mode === 'descriptor') {
             // Descriptor mode components
-            this.phaseList.render(this.session, context);
-            this.tree.render(this.session, context);
-            this.blockDetail.render(this.session, context);
-            this.metricsPanel.render(this.session, context);
-            this.executionLog.render(this.session, context);
-            this.artifactsList.render(this.session, context);
+            safeRender('phaseList', () => this.phaseList.render(this.session, context));
+            safeRender('tree', () => this.tree.render(this.session, context));
+            safeRender('blockDetail', () => this.blockDetail.render(this.session, context));
+            safeRender('metricsPanel', () => this.metricsPanel.render(this.session, context));
+            safeRender('executionLog', () => this.executionLog.render(this.session, context));
+            safeRender('artifactsList', () => this.artifactsList.render(this.session, context));
+            // Custom widgets (monitorWidgets from session template)
+            safeRender('widgetsPanel', () => this.widgetsPanel.render(this.session, context));
         } else {
             // Existing execution/idle mode
             if (this.panels.tree && !this.treeBox.hidden) {
-                this.tree.render(this.session, context);
+                safeRender('tree', () => this.tree.render(this.session, context));
             }
             if (this.panels.files && !this.filesBox.hidden) {
-                this.filesystem.render(this.session, context);
+                safeRender('filesystem', () => this.filesystem.render(this.session, context));
             }
             if (this.panels.widgets && !this.widgetsBox.hidden) {
-                this.widgetsPanel.render(this.session, context);
+                safeRender('widgetsPanel', () => this.widgetsPanel.render(this.session, context));
             }
             if (this.panels.vars && !this.varsBox.hidden) {
-                this.variables.render(this.session, context);
+                safeRender('variables', () => this.variables.render(this.session, context));
             }
             if (this.panels.logs && !this.logsBox.hidden) {
-                this.commandLog.render(this.session, context);
+                safeRender('commandLog', () => this.commandLog.render(this.session, context));
             }
         }
 
         // Status bar (always)
-        this.statusBar.render({
+        safeRender('statusBar', () => this.statusBar.render({
             connectionStatus: this.connectionStatus,
             latency: this.refreshLatency,
             lastRefresh: this.lastRefresh,
             mode: this.mode,
             visiblePanels: this.panels,
             hasBackOption: !!this.onExit
-        });
+        }));
     }
 
     detectActiveWorkflow() {
@@ -662,14 +687,9 @@ ${backText}    q       Quit
     }
 
     renderError() {
-        this.headerBox.setContent(`
-  {red-fg}● Connection Error{/red-fg}
-
-  Session: ${this.sessionId.substring(0, 8)}
-  Error: ${this.lastError}
-
-  Press [r] to retry, [q] to quit${this.onExit ? ', [Esc] back to list' : ''}
-`);
+        this.headerBox.setContent(`\n  {red-fg}● Connection Error{/red-fg}\n  Session: ${this.sessionId.substring(0, 8)}\n  Error: ${this.lastError}`);
+        // Also show error in content area for visibility
+        this.statusBox.setContent(` {red-fg}●{/red-fg} {gray-fg}error{/gray-fg}  Press {white-fg}[r]{/white-fg} retry  {white-fg}[q]{/white-fg} quit${this.onExit ? '  {white-fg}[Esc]{/white-fg} back' : ''}  Log: ${this.logFile}`);
     }
 }
 

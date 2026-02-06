@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
+using Newtonsoft.Json.Linq;
 using Maestro.Application.Interfaces;
 using Maestro.Domain.ValueObjects;
 using Microsoft.Extensions.Logging;
@@ -19,18 +20,18 @@ public class EntryPointExecutor
 {
     private readonly IProjectSessionRepository _repository;
     private readonly ILLMGateway _llmGateway;
-    private readonly IBlockRepository _blockRepository;
+    private readonly IBlockDiscoveryService _blockDiscovery;
     private readonly ILogger<EntryPointExecutor> _logger;
 
     public EntryPointExecutor(
         IProjectSessionRepository repository,
         ILLMGateway llmGateway,
-        IBlockRepository blockRepository,
+        IBlockDiscoveryService blockDiscovery,
         ILogger<EntryPointExecutor> logger)
     {
         _repository = repository;
         _llmGateway = llmGateway;
-        _blockRepository = blockRepository;
+        _blockDiscovery = blockDiscovery;
         _logger = logger;
     }
 
@@ -78,7 +79,7 @@ public class EntryPointExecutor
 
         // 1. Load workflow block (optional — execution still works without it)
         var blockId = NormalizeBlockId(workflowId);
-        var workflowBlock = await _blockRepository.GetByIdAsync(blockId);
+        var workflowBlock = await _blockDiscovery.GetByIdAsync(blockId);
         if (workflowBlock == null)
         {
             _logger.LogWarning("Workflow block not found: {BlockId}. Using minimal execution.", blockId);
@@ -96,16 +97,20 @@ public class EntryPointExecutor
 
         // 5. Get workflow-specific config from session variable _workflowConfig
         var workflowConfig = GetWorkflowConfig(session, workflowId);
+        _logger.LogInformation("WorkflowConfig found: {Found}", workflowConfig != null);
 
         // 6. Activate the first pending phase
         var activePhaseId = GetConfigString(workflowConfig, "phaseId", null);
-        if (activePhaseId == null)
+        _logger.LogInformation("Phase from config: '{PhaseId}'", activePhaseId ?? "(null)");
+        if (string.IsNullOrEmpty(activePhaseId))
         {
             activePhaseId = FindFirstPendingPhase(session);
+            _logger.LogInformation("Phase from FindFirstPending: '{PhaseId}'", activePhaseId ?? "(null)");
         }
-        if (activePhaseId != null)
+        if (!string.IsNullOrEmpty(activePhaseId))
         {
             UpdatePhaseStatus(session, activePhaseId, "running", 0);
+            _logger.LogInformation("Phase '{PhaseId}' set to running", activePhaseId);
         }
 
         AppendExecutionLog(session, "info", $"Starting workflow: {workflowId}");
@@ -115,7 +120,7 @@ public class EntryPointExecutor
         await ExecuteNodesAsync(session, tree, workflowConfig, workingDir, activePhaseId);
 
         // 8. Finalize
-        if (activePhaseId != null)
+        if (!string.IsNullOrEmpty(activePhaseId))
         {
             UpdatePhaseStatus(session, activePhaseId, "done");
             AppendExecutionLog(session, "info", $"Phase '{activePhaseId}' completed");
@@ -140,6 +145,13 @@ public class EntryPointExecutor
     {
         if (!session.HasVariable("_phases"))
             _logger.LogWarning("Session {SessionId} missing _phases variable. TUI phase display will be empty.", session.Id);
+        else
+        {
+            var beforeType = session.GetVariable("_phases")?.GetType().Name ?? "null";
+            NormalizeJsonElementToList(session, "_phases");
+            var afterType = session.GetVariable("_phases")?.GetType().Name ?? "null";
+            _logger.LogInformation("_phases normalized: {Before} -> {After}", beforeType, afterType);
+        }
 
         if (!session.HasVariable("_monitorDescriptor"))
             _logger.LogWarning("Session {SessionId} missing _monitorDescriptor variable. TUI will use default layout.", session.Id);
@@ -150,6 +162,76 @@ public class EntryPointExecutor
 
         if (!session.HasVariable("_artifacts"))
             session.SetVariable("_artifacts", new List<object>());
+    }
+
+    /// <summary>
+    /// Converts a session variable from JsonElement (from API) to a mutable List so
+    /// methods like UpdatePhaseStatus can modify it in-place.
+    /// </summary>
+    private static void NormalizeJsonElementToList(Domain.Entities.ProjectSession session, string key)
+    {
+        var value = session.GetVariable(key);
+
+        // Handle Newtonsoft.Json JArray (from API deserialization)
+        if (value is JArray jArray)
+        {
+            var list = new List<object>();
+            foreach (var item in jArray)
+            {
+                if (item is JObject jObj)
+                {
+                    var dict = new Dictionary<string, object>();
+                    foreach (var prop in jObj.Properties())
+                    {
+                        dict[prop.Name] = prop.Value.Type switch
+                        {
+                            JTokenType.String => prop.Value.Value<string>()!,
+                            JTokenType.Integer => prop.Value.Value<long>(),
+                            JTokenType.Float => prop.Value.Value<double>(),
+                            JTokenType.Boolean => prop.Value.Value<bool>(),
+                            _ => prop.Value.ToString()
+                        };
+                    }
+                    list.Add(dict);
+                }
+                else
+                {
+                    list.Add(item.ToString());
+                }
+            }
+            session.SetVariable(key, list);
+            return;
+        }
+
+        // Handle System.Text.Json JsonElement (from block config)
+        if (value is JsonElement jsonEl && jsonEl.ValueKind == JsonValueKind.Array)
+        {
+            var list = new List<object>();
+            foreach (var item in jsonEl.EnumerateArray())
+            {
+                if (item.ValueKind == JsonValueKind.Object)
+                {
+                    var dict = new Dictionary<string, object>();
+                    foreach (var prop in item.EnumerateObject())
+                    {
+                        dict[prop.Name] = prop.Value.ValueKind switch
+                        {
+                            JsonValueKind.String => prop.Value.GetString()!,
+                            JsonValueKind.Number => prop.Value.GetDouble(),
+                            JsonValueKind.True => true,
+                            JsonValueKind.False => false,
+                            _ => prop.Value.ToString()!
+                        };
+                    }
+                    list.Add(dict);
+                }
+                else
+                {
+                    list.Add(item.ToString()!);
+                }
+            }
+            session.SetVariable(key, list);
+        }
     }
 
     // ===== Execution Tree Building =====
@@ -239,7 +321,7 @@ public class EntryPointExecutor
             AppendExecutionLog(session, "info", $"{nodeId}: Starting...");
 
             // Update phase progress
-            if (activePhaseId != null)
+            if (!string.IsNullOrEmpty(activePhaseId))
             {
                 var progress = (int)((double)i / totalNodes * 100);
                 UpdatePhaseStatus(session, activePhaseId, "running", progress);
@@ -294,8 +376,16 @@ public class EntryPointExecutor
         string workingDir,
         string? previousOutput)
     {
+        // Order matters: more specific patterns first, broader patterns last.
+
+        // Apply/write nodes: write output to file (before "generate" to avoid "apply-improvements" matching "improvement")
+        if (nodeId.Contains("apply") || nodeId.Contains("write"))
+        {
+            return await ExecuteWriteNodeAsync(session, workflowConfig, workingDir, previousOutput);
+        }
+
         // Shell/evaluate nodes: run shell commands
-        if (nodeId.Contains("evaluate") || nodeId.Contains("load"))
+        if (nodeId.Contains("evaluate") || nodeId.Contains("load") || nodeId.Contains("training"))
         {
             var gitDiff = await RunShellAsync(workingDir, "git diff --stat");
             var gitLog = await RunShellAsync(workingDir, "git log --oneline -5");
@@ -303,19 +393,13 @@ public class EntryPointExecutor
         }
 
         // LLM/generate nodes: call LLM with config-driven prompts
-        if (nodeId.Contains("generate") || nodeId.Contains("improvement"))
+        if (nodeId.Contains("generate"))
         {
             return await ExecuteLLMNodeAsync(session, workflowConfig, previousOutput);
         }
 
-        // Apply/write nodes: write output to file
-        if (nodeId.Contains("apply") || nodeId.Contains("write"))
-        {
-            return await ExecuteWriteNodeAsync(session, workflowConfig, workingDir, previousOutput);
-        }
-
-        // Validation/fitness nodes: evaluate with config-driven criteria
-        if (nodeId.Contains("check") || nodeId.Contains("fitness") || nodeId.Contains("validate"))
+        // Validation/fitness/metrics nodes: evaluate with config-driven criteria
+        if (nodeId.Contains("check") || nodeId.Contains("fitness") || nodeId.Contains("validate") || nodeId.Contains("metrics"))
         {
             return ExecuteValidationNode(session, workflowConfig, previousOutput);
         }
@@ -348,29 +432,20 @@ public class EntryPointExecutor
 
         var userPrompt = userTemplate.Replace("{{context}}", context ?? "(no context)");
 
-        try
+        var request = new LLMRequest
         {
-            var request = new LLMRequest
+            Messages = new List<ChatMessage>
             {
-                Messages = new List<ChatMessage>
-                {
-                    ChatMessage.System(systemPrompt),
-                    ChatMessage.User(userPrompt)
-                },
-                MaxNewTokens = maxTokens,
-                Temperature = temperature
-            };
+                ChatMessage.System(systemPrompt),
+                ChatMessage.User(userPrompt)
+            },
+            MaxNewTokens = maxTokens,
+            Temperature = temperature
+        };
 
-            var response = await _llmGateway.SendAsync(request);
-            AppendExecutionLog(session, "success", $"LLM response received ({response.Content.Length} chars)");
-            return response.Content;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "LLM call failed, using fallback");
-            AppendExecutionLog(session, "warning", "LLM unavailable, using fallback content");
-            return GetFallbackContent(workflowConfig);
-        }
+        var response = await _llmGateway.SendAsync(request);
+        AppendExecutionLog(session, "success", $"LLM response received ({response.Content.Length} chars)");
+        return response.Content;
     }
 
     private async Task<string> ExecuteWriteNodeAsync(
@@ -443,6 +518,17 @@ public class EntryPointExecutor
             }
         }
 
+        // Handle Newtonsoft.Json JObject (from API deserialization)
+        if (configVar is JObject jObj)
+        {
+            foreach (var key in keys)
+            {
+                if (jObj.TryGetValue(key, out var prop))
+                    return JObjectToDict(prop as JObject);
+            }
+        }
+
+        // Handle System.Text.Json JsonElement (from block config)
         if (configVar is JsonElement jsonEl && jsonEl.ValueKind == JsonValueKind.Object)
         {
             foreach (var key in keys)
@@ -478,6 +564,11 @@ public class EntryPointExecutor
             {
                 if (!dict.TryGetValue(part, out current)) return defaultValue ?? "";
             }
+            else if (current is JObject jObj)
+            {
+                if (!jObj.TryGetValue(part, out var jToken)) return defaultValue ?? "";
+                current = jToken;
+            }
             else if (current is JsonElement jsonEl && jsonEl.ValueKind == JsonValueKind.Object)
             {
                 if (!jsonEl.TryGetProperty(part, out var prop)) return defaultValue ?? "";
@@ -490,6 +581,8 @@ public class EntryPointExecutor
         }
 
         if (current is string s) return s;
+        if (current is JValue jVal) return jVal.Value?.ToString() ?? defaultValue ?? "";
+        if (current is JToken jt) return jt.ToString();
         if (current is JsonElement je && je.ValueKind == JsonValueKind.String) return je.GetString() ?? defaultValue ?? "";
         return current?.ToString() ?? defaultValue ?? "";
     }
@@ -519,6 +612,11 @@ public class EntryPointExecutor
             {
                 if (!dict.TryGetValue(part, out current)) return new List<string>();
             }
+            else if (current is JObject jObj)
+            {
+                if (!jObj.TryGetValue(part, out var jToken)) return new List<string>();
+                current = jToken;
+            }
             else if (current is JsonElement jsonEl && jsonEl.ValueKind == JsonValueKind.Object)
             {
                 if (!jsonEl.TryGetProperty(part, out var prop)) return new List<string>();
@@ -528,6 +626,7 @@ public class EntryPointExecutor
         }
 
         if (current is List<object> list) return list.Select(x => x.ToString() ?? "").ToList();
+        if (current is JArray jArr) return jArr.Select(x => x.ToString()).ToList();
         if (current is JsonElement je && je.ValueKind == JsonValueKind.Array)
             return je.EnumerateArray().Select(x => x.GetString() ?? "").ToList();
         return new List<string>();
@@ -575,24 +674,6 @@ public class EntryPointExecutor
         return Math.Min(score, 0.95);
     }
 
-    /// <summary>
-    /// Gets fallback content from _workflowConfig.fallback, or returns a minimal default.
-    /// </summary>
-    private static string GetFallbackContent(Dictionary<string, object>? workflowConfig)
-    {
-        if (workflowConfig == null) return "{}";
-
-        if (workflowConfig.TryGetValue("fallback", out var fallback))
-        {
-            if (fallback is string s) return s;
-            if (fallback is JsonElement je) return je.GetRawText();
-            if (fallback is Dictionary<string, object>)
-                return JsonSerializer.Serialize(fallback, new JsonSerializerOptions { WriteIndented = true });
-        }
-
-        return "{}";
-    }
-
     // ===== Utility Helpers =====
 
     private static string NormalizeBlockId(string workflowId)
@@ -638,6 +719,15 @@ public class EntryPointExecutor
                     return id?.ToString();
             }
         }
+        if (phases is JArray jArr)
+        {
+            foreach (var item in jArr)
+            {
+                if (item is JObject jObj &&
+                    jObj.Value<string>("status") == "pending")
+                    return jObj.Value<string>("id");
+            }
+        }
         if (phases is JsonElement jsonEl && jsonEl.ValueKind == JsonValueKind.Array)
         {
             foreach (var item in jsonEl.EnumerateArray())
@@ -648,6 +738,17 @@ public class EntryPointExecutor
             }
         }
         return null;
+    }
+
+    private static Dictionary<string, object>? JObjectToDict(JObject? jObj)
+    {
+        if (jObj == null) return null;
+        var dict = new Dictionary<string, object>();
+        foreach (var prop in jObj.Properties())
+        {
+            dict[prop.Name] = prop.Value;
+        }
+        return dict;
     }
 
     private static Dictionary<string, object>? JsonElementToDict(JsonElement element)

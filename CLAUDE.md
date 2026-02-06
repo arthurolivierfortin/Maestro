@@ -1,6 +1,120 @@
 # Claude Code Guidelines for Maestro
 
-This document establishes development practices and testing requirements for the Maestro project.
+This document establishes the philosophy, architecture principles, and development practices for the Maestro project.
+
+## Maestro Core Philosophy
+
+**Read the full philosophy documents before making architectural decisions:**
+- `docs/system/philosophy/MAESTRO-PHILOSOPHY.md` — Core vision (specialization, orchestration, block hierarchy)
+- `docs/system/philosophy/MAESTRO-PHILOSOPHY-V2.md` — V2 evolution (fitness model, self-improvement)
+- `docs/phases/PHASE-8/README.md` — Generic vs Specific separation (the cardinal rule)
+
+### The Cardinal Rule: Generic Infrastructure, Specific Content
+
+> *"L'infrastructure est generique, le contenu est specifique. C'est la force de Maestro."*
+
+**Infrastructure** (C# backend, CLI, TUI monitor) is GENERIC — it works with ANY session type.
+**Content** (phases, prompts, workflows, evaluation criteria) is SPECIFIC — it lives in JSON templates and session variables.
+
+**Litmus test**: Can a new session type be created with ONLY JSON changes (template + block)?
+If the answer is no, the architecture is violated.
+
+Concrete examples of what this means:
+
+| WRONG (specific in infrastructure) | RIGHT (specific in data) |
+|-------------------------------------|--------------------------|
+| `if (workflowId.Contains("agent-improvement"))` in C# | Read workflow block from `IBlockDiscoveryService`, dispatch generically |
+| `InitializePhases()` creating 4 hardcoded phases in C# | `_phases` defined in session template JSON |
+| Hardcoded LLM prompts in `EntryPointExecutor` | `_workflowConfig.*.llm.systemPrompt` in session variables |
+| `GenerateFallbackCommitTool()` in C# | No fallback — error is an error |
+| CLI command `session reset-phases` for a specific session type | Generic `session set-var <id> <key> <value>` via CLI |
+| PowerShell script to set up a specific session | CLI commands: `session create`, `session import-template`, `session start`, `session invoke` |
+
+### CLI-First: Everything Goes Through the CLI
+
+> *"An agent has ONE tool: the maestro-cli block. Through this block, it can do EVERYTHING."*
+
+- **ALL operations** go through the CLI — for humans AND agents
+- The CLI provides **generic operations** on sessions, blocks, variables, entry points
+- The CLI NEVER contains session-specific logic
+- **NEVER write custom scripts** (PowerShell, bash) for operations the CLI should handle
+- If the CLI doesn't support an operation, **add it to the CLI as a generic command** — don't work around it
+
+```bash
+# GOOD: Generic CLI commands
+node index.js session create --type foundry --name "My Session"
+node index.js session import-template <id> foundry-default
+node index.js session start <id>
+node index.js session invoke <id> start
+node index.js session set-var <id> _phases '[...]'
+node index.js monitor <id>
+
+# BAD: Custom scripts for specific sessions
+powershell.exe -File scripts/setup-foundry-session.ps1
+powershell.exe -File scripts/reset-and-restart-session.ps1
+```
+
+### No Silent Failures
+
+Errors must be visible. If the LLM Provider is down, the node fails with status `error` in the execution tree. There is no fallback content, no fake data, no silent degradation. The monitor shows the error in red. The user decides what to do.
+
+### Self-Describing Sessions
+
+Sessions carry their own behavior entirely through variables and template data:
+- **`_phases`** — The session defines what its phases are (or has none)
+- **`_monitorDescriptor`** — The session defines how the TUI displays it (or uses default)
+- **`_workflowConfig`** — The session defines prompts, output paths, eval criteria
+- **`entryPoints`** — The session maps command names to workflow block IDs
+- **`monitorWidgets`** — The session defines custom widgets with `$.variables.xxx` data binding
+
+The infrastructure reads these — it NEVER creates them. If a variable is missing, log a warning and continue with empty/default display. Don't invent data.
+
+### Everything is a Block
+
+> *"Le type d'un block definit son interface (comment on l'utilise), pas son implementation (ce qu'il contient)."*
+
+- Blocks form a hierarchy: Workflows (orchestration) > Agents (specialization) > Tools (atomic)
+- A tool can internally contain workflows, agents, validators — its complexity is invisible to callers
+- Conditions, loops, and parallelism are BLOCKS, not arrows (tree structure, not graph)
+- Even system agents are blocks with the same interface, metrics, and fitness tracking
+
+### Specialization over Generality
+
+- Small specialized LLMs with focused context > large generalist LLMs
+- One tool = one responsibility
+- Composition and orchestration over monolithic solutions
+- Model selection is configuration-driven via `ILLMGateway`, never hardcoded
+
+### Documentation Structure
+
+The docs are organized hierarchically. Start from general, drill down to specific:
+
+```
+docs/
+├── system/              ← Architecture & philosophy (start here)
+│   ├── philosophy/      ← WHY Maestro exists
+│   ├── architecture/    ← HOW it's built (blocks, sessions, execution)
+│   ├── design-decisions/← ADRs
+│   └── conventions/     ← Rules (variables, errors, schema)
+├── tools/               ← CLI, TUI monitor, frontend reference
+├── guides/              ← For AI agents and users
+├── phases/              ← Per-phase docs (PHASE-4..10, current = PHASE-8)
+├── operations/          ← Deployment, Docker, security
+└── archive/             ← Completed/outdated
+```
+
+### Key Reference Documents
+
+| Document | When to read |
+|----------|-------------|
+| `docs/system/README.md` | First — system overview, cardinal rules |
+| `docs/system/architecture/sessions.md` | Before ANY session/infrastructure work |
+| `docs/system/architecture/blocks.md` | Before block/workflow work |
+| `docs/system/architecture/execution.md` | Before execution engine work |
+| `docs/system/conventions/error-handling.md` | Before adding error handling |
+| `docs/tools/cli/README.md` | Before proposing CLI commands |
+| `docs/phases/PHASE-8/README.md` | For current phase context |
+| `docs/system/philosophy/MAESTRO-PHILOSOPHY-V2.md` | Core philosophy and fitness model |
 
 ## Development Environment Startup
 
@@ -171,6 +285,19 @@ When adding properties to domain entities:
 **Cause**: Putting phase names, LLM prompts, workflow steps, or output paths directly in C# code (e.g., `EntryPointExecutor`)
 **Fix**: Put data in session template variables (`_workflowConfig`, `_phases`) and workflow block JSON (`config.nodes`)
 **Test**: If adding a new session type requires C# changes, the architecture is wrong
+
+### Writing custom scripts instead of using the CLI
+**Cause**: Writing PowerShell/bash scripts to create sessions, set variables, invoke entry points
+**Fix**: Use existing CLI commands (`session create`, `session start`, `session invoke`, `session set-var`). If a generic command is missing, add it to the CLI — don't write a one-off script.
+**Rule**: The CLI is the universal interface. Scripts hide operations from metrics, logging, and audit.
+
+### Using fallback content when a service is down
+**Cause**: Catching LLM/service errors and returning fake data to keep the workflow running
+**Fix**: Let the error propagate. The node gets status `error` in the execution tree. The monitor shows it. The user decides. No silent degradation.
+
+### Proposing session-specific CLI commands
+**Cause**: Suggesting commands like `session reset-phases` or `session restart-workflow` that only make sense for one session type
+**Fix**: Use generic operations: `session set-var <id> <key> <value>` to reset any variable. The CLI operates on generic abstractions (sessions, variables, blocks, entry points), never on session-specific concepts (phases, fitness, iterations).
 
 ### Shell commands fail on Windows
 **Cause**: Unix commands like `mkdir -p` don't work on Windows cmd

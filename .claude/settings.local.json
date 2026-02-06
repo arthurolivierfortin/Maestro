@@ -94,7 +94,10 @@
       "Bash(del \"C:\\\\Meastro\\\\backend\\\\src\\\\Maestro.Infrastructure\\\\Cli\\\\CommandHandlers\\\\SessionCommandHandler.cs\")",
       "Bash(cmd.exe /c \"cd /d C:\\\\Meastro\\\\frontend && npx tsc --noEmit\")",
       "Bash(cmd.exe /c \"cd /d C:\\\\Meastro\\\\frontend && npx tsc --noEmit 2>&1\")",
-      "Bash(cmd.exe /c \"cd /d C:\\\\Meastro\\\\frontend && npm run build 2>&1\")"
+      "Bash(cmd.exe /c \"cd /d C:\\\\Meastro\\\\frontend && npm run build 2>&1\")",
+      "Bash(test:*)",
+      "Bash(git mv:*)",
+      "Bash(git reset:*)"
     ]
   }
 }
