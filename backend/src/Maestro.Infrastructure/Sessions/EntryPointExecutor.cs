@@ -99,88 +99,22 @@ public class EntryPointExecutor
         AppendExecutionLog(session, "info", $"Starting workflow: {workflowId}");
         await _repository.SaveAsync(session);
 
-        // 5. Phase auto-chaining: loop over all pending phases sequentially
-        // Each phase gets its own config from _workflowConfig[workflowKey][phaseId]
-        while (true)
+        // 5. Execute workflow nodes — control flow (for-each, while, conditional) is handled
+        // by the node dispatch in ExecuteConfigNodesAsync. Phase iteration is explicit
+        // via for-each nodes in the workflow JSON, not implicit in C#.
+        var workflowConfig = GetWorkflowConfig(session, workflowId, null);
+
+        if (workflowBlock?.Config != null && workflowBlock.Config.ContainsKey("nodes"))
         {
-            // Find the next pending phase
-            var activePhaseId = FindFirstPendingPhase(session);
-            if (activePhaseId == null)
+            var configNodesObj = workflowBlock.Config["nodes"];
+            if (configNodesObj is JsonElement nodesEl && nodesEl.ValueKind == JsonValueKind.Array)
             {
-                _logger.LogInformation("No more pending phases. Workflow complete.");
-                break;
+                await ExecuteConfigNodesAsync(session, nodesEl, workflowConfig, workingDir, workflowId, null, tree);
             }
-
-            _logger.LogInformation("Starting phase '{PhaseId}'", activePhaseId);
-
-            // Get phase-aware workflow config
-            var workflowConfig = GetWorkflowConfig(session, workflowId, activePhaseId);
-            _logger.LogInformation("WorkflowConfig for phase '{PhaseId}': {Found}", activePhaseId, workflowConfig != null);
-
-            // Reset iteration state for each new phase
-            session.SetVariable("currentIteration", 0);
-            session.SetVariable("currentFitness", 0);
-            session.SetVariable("scoreHistory", new List<object>());
-            session.SetVariable("_lastValidationFeedback", "");
-            session.SetVariable("_bestFitness", 0.0);
-            session.SetVariable("_plateauCount", 0);
-            session.SetVariable("_shouldStop", false);
-            session.SetVariable("_tokenCount", 0);
-            session.SetVariable("_qualityScore", 0.0);
-
-            // For plateau-based phases, override targetFitness so the while condition
-            // (currentFitness < targetFitness) stays true — _shouldStop is the real exit
-            var phaseStopCondition = GetConfigString(workflowConfig, "evaluation.stopCondition", "target");
-            var originalTarget = ReadDoubleVariable(session, "targetFitness", 0.85);
-            if (phaseStopCondition == "plateau")
-            {
-                session.SetVariable("targetFitness", 1.0); // Unreachable; plateau stops the loop
-                AppendExecutionLog(session, "info", $"Phase '{activePhaseId}' uses plateau detection (runs: {GetConfigInt(workflowConfig, "evaluation.plateauRuns", 5)})");
-            }
-
-            // Rebuild fresh execution tree for each phase
-            tree = BuildExecutionTree(workflowBlock);
-            session.SetVariable("_executionTree", tree);
-
-            // Mark phase as running
-            UpdatePhaseStatus(session, activePhaseId, "running", 0);
-            AppendExecutionLog(session, "info", $"Starting phase '{activePhaseId}'");
-            await _repository.SaveAsync(session);
-
-            // Execute config nodes (generic: handles while, conditional, regular nodes)
-            if (workflowBlock?.Config != null && workflowBlock.Config.ContainsKey("nodes"))
-            {
-                var configNodesObj = workflowBlock.Config["nodes"];
-                if (configNodesObj is JsonElement nodesEl && nodesEl.ValueKind == JsonValueKind.Array)
-                {
-                    await ExecuteConfigNodesAsync(session, nodesEl, workflowConfig, workingDir, activePhaseId, tree);
-                }
-            }
-            else
-            {
-                await ExecuteNodesAsync(session, tree, workflowConfig, workingDir, activePhaseId);
-            }
-
-            // Restore original targetFitness if it was overridden for plateau mode
-            if (phaseStopCondition == "plateau")
-            {
-                session.SetVariable("targetFitness", originalTarget);
-            }
-
-            // Mark phase done with summary
-            // For plateau phases, use bestFitness (the write guard preserves the best version on disk)
-            var fitness = phaseStopCondition == "plateau"
-                ? ReadDoubleVariable(session, "_bestFitness", ReadDoubleVariable(session, "currentFitness", 0))
-                : ReadDoubleVariable(session, "currentFitness", 0);
-            var iteration = ReadIntVariable(session, "currentIteration", 0);
-            var tokens = ReadIntVariable(session, "_tokenCount", 0);
-            UpdatePhaseStatus(session, activePhaseId, "done");
-            StorePhaseSummary(session, activePhaseId, iteration, fitness);
-            var logMsg = $"Phase '{activePhaseId}' completed (fitness: {fitness:F2}, iterations: {iteration}";
-            if (tokens > 0) logMsg += $", ~{tokens} tokens";
-            logMsg += ")";
-            AppendExecutionLog(session, "success", logMsg);
-            await _repository.SaveAsync(session);
+        }
+        else
+        {
+            await ExecuteNodesAsync(session, tree, workflowConfig, workingDir, null);
         }
 
         ClearActiveBlock(session);
@@ -225,6 +159,9 @@ public class EntryPointExecutor
 
         if (!session.HasVariable("_llmActivity"))
             session.SetVariable("_llmActivity", new List<object>());
+
+        if (!session.HasVariable("_phaseMetrics"))
+            session.SetVariable("_phaseMetrics", new Dictionary<string, object>());
     }
 
     /// <summary>
@@ -435,6 +372,7 @@ public class EntryPointExecutor
         JsonElement configNodes,
         Dictionary<string, object>? workflowConfig,
         string workingDir,
+        string workflowId,
         string? activePhaseId,
         List<object> displayTree,
         string? previousOutput = null)
@@ -451,7 +389,10 @@ public class EntryPointExecutor
             switch (nodeType)
             {
                 case "while":
-                    lastOutput = await ExecuteWhileNodeAsync(session, configNode, workflowConfig, workingDir, activePhaseId, displayTree, lastOutput);
+                    lastOutput = await ExecuteWhileNodeAsync(session, configNode, workflowConfig, workingDir, workflowId, activePhaseId, displayTree, lastOutput);
+                    break;
+                case "for-each":
+                    lastOutput = await ExecuteForEachNodeAsync(session, configNode, workflowConfig, workingDir, workflowId, displayTree, lastOutput);
                     break;
                 case "conditional":
                     lastOutput = await ExecuteConditionalNodeAsync(session, configNode, workflowConfig, workingDir, displayTree, lastOutput);
@@ -475,6 +416,7 @@ public class EntryPointExecutor
         JsonElement whileNode,
         Dictionary<string, object>? workflowConfig,
         string workingDir,
+        string workflowId,
         string? activePhaseId,
         List<object> displayTree,
         string? previousOutput)
@@ -551,11 +493,12 @@ public class EntryPointExecutor
             // Execute child nodes
             if (whileNode.TryGetProperty("nodes", out var children) && children.ValueKind == JsonValueKind.Array)
             {
-                lastOutput = await ExecuteConfigNodesAsync(session, children, workflowConfig, workingDir, activePhaseId, displayTree, lastOutput);
+                lastOutput = await ExecuteConfigNodesAsync(session, children, workflowConfig, workingDir, workflowId, activePhaseId, displayTree, lastOutput);
             }
 
-            // Log iteration result
+            // Log iteration result and store detailed metrics
             var fitness = ReadDoubleVariable(session, "currentFitness", 0);
+            StoreIterationMetrics(session, activePhaseId, iteration, fitness);
             AppendExecutionLog(session, "info", $"Iteration {iteration} complete. Fitness: {fitness:F2}");
             await _repository.SaveAsync(session);
         }
@@ -635,6 +578,173 @@ public class EntryPointExecutor
         await _repository.SaveAsync(session);
 
         return output;
+    }
+
+    /// <summary>
+    /// Generic for-each iteration execution. Reads a list from a session variable,
+    /// iterates over each item, resets scoped variables, updates item status,
+    /// and executes child nodes for each iteration.
+    ///
+    /// ARCHITECTURE: This is GENERIC infrastructure. The list variable name,
+    /// item ID field, variables to reset, and status tracking are all read from
+    /// the for-each node's JSON configuration. No session-specific logic.
+    /// </summary>
+    private async Task<string?> ExecuteForEachNodeAsync(
+        Domain.Entities.ProjectSession session,
+        JsonElement forEachNode,
+        Dictionary<string, object>? workflowConfig,
+        string workingDir,
+        string workflowId,
+        List<object> displayTree,
+        string? previousOutput)
+    {
+        var nodeId = forEachNode.TryGetProperty("id", out var idProp) ? idProp.GetString() ?? "for-each" : "for-each";
+        var source = forEachNode.TryGetProperty("source", out var srcProp) ? srcProp.GetString() ?? "" : "";
+        var itemIdField = forEachNode.TryGetProperty("itemId", out var iidProp) ? iidProp.GetString() ?? "id" : "id";
+        var configLookup = !forEachNode.TryGetProperty("configLookup", out var clProp) || clProp.GetBoolean();
+
+        if (string.IsNullOrEmpty(source))
+        {
+            AppendExecutionLog(session, "error", $"for-each '{nodeId}': missing 'source' property");
+            return previousOutput;
+        }
+
+        // Read the source list from session variable
+        var sourceVar = session.GetVariable(source);
+        if (sourceVar is not List<object> items || items.Count == 0)
+        {
+            AppendExecutionLog(session, "warning", $"for-each '{nodeId}': source '{source}' is empty or not a list");
+            return previousOutput;
+        }
+
+        // Read resetVariables from JSON config (data-driven, not hardcoded)
+        var resetVars = new Dictionary<string, object?>();
+        if (forEachNode.TryGetProperty("resetVariables", out var rvProp) && rvProp.ValueKind == JsonValueKind.Object)
+        {
+            foreach (var prop in rvProp.EnumerateObject())
+            {
+                resetVars[prop.Name] = prop.Value.ValueKind switch
+                {
+                    JsonValueKind.Number => prop.Value.TryGetInt32(out var i) ? (object)i : prop.Value.GetDouble(),
+                    JsonValueKind.String => prop.Value.GetString() ?? "",
+                    JsonValueKind.True => true,
+                    JsonValueKind.False => false,
+                    JsonValueKind.Array => new List<object>(),
+                    _ => null
+                };
+            }
+        }
+
+        // Set for-each node to running in display tree
+        UpdateNodeById(displayTree, nodeId, "running", $"0/{items.Count}");
+        session.SetVariable("_executionTree", displayTree);
+
+        AppendExecutionLog(session, "info", $"Entering for-each '{nodeId}' over '{source}' ({items.Count} items)");
+        await _repository.SaveAsync(session);
+
+        string? lastOutput = previousOutput;
+        var itemIndex = 0;
+
+        foreach (var item in items)
+        {
+            if (item is not Dictionary<string, object> itemDict) continue;
+
+            // Extract item ID
+            var itemId = itemDict.TryGetValue(itemIdField, out var idVal) ? idVal?.ToString() : null;
+            if (string.IsNullOrEmpty(itemId)) continue;
+
+            // Check if item is already done (skip completed items on resume)
+            if (itemDict.TryGetValue("status", out var statusVal) && statusVal?.ToString() == "done")
+            {
+                itemIndex++;
+                continue;
+            }
+
+            itemIndex++;
+            _logger.LogInformation("for-each '{NodeId}': starting item '{ItemId}' ({Index}/{Total})",
+                nodeId, itemId, itemIndex, items.Count);
+
+            // Get per-item config via GetWorkflowConfig if configLookup is enabled
+            var iterationConfig = configLookup
+                ? GetWorkflowConfig(session, workflowId, itemId) ?? workflowConfig
+                : workflowConfig;
+
+            // Reset scoped variables (data-driven from JSON)
+            foreach (var (varName, defaultValue) in resetVars)
+            {
+                session.SetVariable(varName, defaultValue ?? 0);
+            }
+
+            // Handle plateau-based phases
+            var phaseStopCondition = GetConfigString(iterationConfig, "evaluation.stopCondition", "target");
+            var originalTarget = ReadDoubleVariable(session, "targetFitness", 0.85);
+            if (phaseStopCondition == "plateau")
+            {
+                session.SetVariable("targetFitness", 1.0); // Unreachable; plateau stops via _shouldStop
+                AppendExecutionLog(session, "info", $"Item '{itemId}' uses plateau detection (runs: {GetConfigInt(iterationConfig, "evaluation.plateauRuns", 5)})");
+            }
+
+            // Update item status to running (if item has a status field)
+            if (itemDict.ContainsKey("status"))
+            {
+                UpdatePhaseStatus(session, itemId, "running", 0);
+            }
+
+            // Reset child nodes in display tree for this iteration
+            var forEachTreeNode = FindNodeById(displayTree, nodeId);
+            if (forEachTreeNode != null &&
+                forEachTreeNode.TryGetValue("children", out var childrenObj) &&
+                childrenObj is List<object> childrenList)
+            {
+                ResetNodeTree(childrenList);
+            }
+
+            UpdateNodeById(displayTree, nodeId, "running", $"Item {itemIndex}/{items.Count}: {itemId}");
+            session.SetVariable("_executionTree", displayTree);
+            AppendExecutionLog(session, "info", $"Starting item '{itemId}' ({itemIndex}/{items.Count})");
+            await _repository.SaveAsync(session);
+
+            // Execute child nodes with per-item config and itemId as activePhaseId
+            if (forEachNode.TryGetProperty("nodes", out var children) && children.ValueKind == JsonValueKind.Array)
+            {
+                lastOutput = await ExecuteConfigNodesAsync(
+                    session, children, iterationConfig, workingDir, workflowId, itemId, displayTree, lastOutput);
+            }
+
+            // Restore targetFitness if overridden for plateau mode
+            if (phaseStopCondition == "plateau")
+            {
+                session.SetVariable("targetFitness", originalTarget);
+            }
+
+            // Collect results
+            var fitness = phaseStopCondition == "plateau"
+                ? ReadDoubleVariable(session, "_bestFitness", ReadDoubleVariable(session, "currentFitness", 0))
+                : ReadDoubleVariable(session, "currentFitness", 0);
+            var iteration = ReadIntVariable(session, "currentIteration", 0);
+            var tokens = ReadIntVariable(session, "_tokenCount", 0);
+
+            // Update item status to done and store summary
+            if (itemDict.ContainsKey("status"))
+            {
+                UpdatePhaseStatus(session, itemId, "done");
+                StorePhaseSummary(session, itemId, iteration, fitness);
+            }
+
+            var logMsg = $"Item '{itemId}' completed (fitness: {fitness:F2}, iterations: {iteration}";
+            if (tokens > 0) logMsg += $", ~{tokens} tokens";
+            logMsg += ")";
+            AppendExecutionLog(session, "success", logMsg);
+            await _repository.SaveAsync(session);
+        }
+
+        // For-each loop done
+        UpdateNodeById(displayTree, nodeId, "done", $"Completed: {items.Count} items");
+        session.SetVariable("_executionTree", displayTree);
+        AppendExecutionLog(session, "success", $"for-each '{nodeId}' completed ({items.Count} items)");
+        await _repository.SaveAsync(session);
+
+        return lastOutput;
     }
 
     /// <summary>
@@ -723,7 +833,7 @@ public class EntryPointExecutor
         // Apply/write nodes: write output to file (before "generate" to avoid "apply-improvements" matching "improvement")
         if (nodeId.Contains("apply") || nodeId.Contains("write"))
         {
-            return await ExecuteWriteNodeAsync(session, workflowConfig, workingDir, previousOutput);
+            return await ExecuteWriteNodeAsync(session, workflowConfig, workingDir, previousOutput, nodeConfig);
         }
 
         // Load nodes: read the current artifact from disk (the file being improved)
@@ -764,6 +874,18 @@ public class EntryPointExecutor
             var fitness = session.GetVariable<double>("currentFitness", 0);
             var iteration = session.GetVariable<int>("currentIteration", 0);
             return $"Workflow finalized. Fitness: {fitness:F2}, Iterations: {iteration}";
+        }
+
+        // Tree documenter: generates session workflow/block tree as markdown
+        if (nodeId.Contains("doc-tree") || nodeId.Contains("tree-doc"))
+        {
+            return await ExecuteTreeDocumenterAsync(session, workflowConfig, workingDir, nodeConfig);
+        }
+
+        // Shell/script nodes: execute a command specified in inputs.command
+        if (nodeId.Contains("shell") || nodeId.Contains("script"))
+        {
+            return await ExecuteShellNodeAsync(session, workingDir, nodeConfig);
         }
 
         // Default: passthrough
@@ -820,11 +942,16 @@ public class EntryPointExecutor
         var nodeUserPrompt = GetNodeInput(nodeConfig, "userPromptTemplate");
         if (!string.IsNullOrEmpty(nodeUserPrompt)) userTemplate = nodeUserPrompt;
 
+        long modelSwitchMs = 0;
         if (!string.IsNullOrEmpty(modelId))
         {
             AppendExecutionLog(session, "info", $"Switching to model: {modelId}");
             await _repository.SaveAsync(session);
+            var switchWatch = Stopwatch.StartNew();
             await _llmGateway.SwitchModelAsync(modelId);
+            switchWatch.Stop();
+            modelSwitchMs = switchWatch.ElapsedMilliseconds;
+            AppendExecutionLog(session, "info", $"Model switch: {modelId} ({modelSwitchMs}ms)");
         }
 
         // Replace {{context}} placeholder first, then resolve remaining {{variable}} references
@@ -848,19 +975,31 @@ public class EntryPointExecutor
         var response = await _llmGateway.SendAsync(request);
         stopwatch.Stop();
 
-        // Track LLM activity for TUI chat view
+        var inferenceMs = stopwatch.ElapsedMilliseconds;
+
+        // Track LLM activity for TUI chat view (enriched with timing + tokens)
         var activity = new Dictionary<string, object>
         {
             ["time"] = DateTime.Now.ToString("HH:mm:ss"),
             ["nodeId"] = nodeId,
+            ["model"] = modelId ?? "default",
+            ["modelSwitchMs"] = modelSwitchMs,
+            ["inferenceMs"] = inferenceMs,
+            ["totalMs"] = modelSwitchMs + inferenceMs,
+            ["promptTokens"] = response.PromptTokens,
+            ["completionTokens"] = response.CompletionTokens,
+            ["totalTokens"] = response.TotalTokens,
+            ["systemPrompt"] = systemPrompt,
+            ["userPrompt"] = userPrompt,
             ["promptPreview"] = userPrompt.Length > 200 ? userPrompt[..200] + "..." : userPrompt,
             ["responsePreview"] = response.Content.Length > 300 ? response.Content[..300] + "..." : response.Content,
+            ["fullResponse"] = response.Content,
             ["responseLength"] = response.Content.Length,
             ["duration"] = Math.Round(stopwatch.Elapsed.TotalSeconds, 1)
         };
         AppendToLLMActivity(session, activity);
 
-        AppendExecutionLog(session, "success", $"LLM response received ({response.Content.Length} chars, {stopwatch.Elapsed.TotalSeconds:F1}s)");
+        AppendExecutionLog(session, "success", $"LLM response received ({response.Content.Length} chars, {inferenceMs}ms, switch: {modelSwitchMs}ms, tokens: {response.TotalTokens})");
 
         // Try to extract clean JSON from LLM response — small LLMs often wrap JSON
         // in markdown code blocks or add prose around it
@@ -878,10 +1017,29 @@ public class EntryPointExecutor
         Domain.Entities.ProjectSession session,
         Dictionary<string, object>? workflowConfig,
         string workingDir,
-        string? content)
+        string? content,
+        JsonElement? nodeConfig = null)
     {
-        var filename = GetConfigString(workflowConfig, "output.filename", "output.json");
+        // Support inputs.filename override from node config
+        var filename = GetNodeInput(nodeConfig, "filename")
+            ?? GetConfigString(workflowConfig, "output.filename", "output.json");
         var outputPath = Path.Combine(workingDir, filename);
+
+        // Support inputs.source: write a session variable instead of previousOutput
+        var sourceVar = GetNodeInput(nodeConfig, "source");
+        if (!string.IsNullOrEmpty(sourceVar))
+        {
+            var varValue = session.GetVariable(sourceVar);
+            if (varValue != null)
+            {
+                content = JsonSerializer.Serialize(varValue, new JsonSerializerOptions { WriteIndented = true });
+                AppendExecutionLog(session, "info", $"Writing session variable '{sourceVar}' to {filename}");
+            }
+            else
+            {
+                return $"Variable '{sourceVar}' not found";
+            }
+        }
 
         if (string.IsNullOrEmpty(content))
         {
@@ -916,6 +1074,383 @@ public class EntryPointExecutor
             _logger.LogWarning(ex, "Failed to write output file: {Path}", outputPath);
             return $"Write failed: {ex.Message}. Content length: {content.Length} chars";
         }
+    }
+
+    /// <summary>
+    /// Generates a markdown document describing the session's workflow/block tree.
+    /// Reads entry points, loads blocks recursively, and documents each block.
+    /// Generic — works for any session type and any block type (workflow, agent, task).
+    /// Non-atomic blocks are traversed recursively via config.nodes.
+    /// </summary>
+    private async Task<string> ExecuteTreeDocumenterAsync(
+        Domain.Entities.ProjectSession session,
+        Dictionary<string, object>? workflowConfig,
+        string workingDir,
+        JsonElement? nodeConfig = null)
+    {
+        var sb = new System.Text.StringBuilder();
+        // Collect node details during traversal for the details section
+        var nodeDetails = new List<Dictionary<string, object>>();
+
+        // Header bar (TUI style)
+        sb.AppendLine("```");
+        sb.AppendLine("\u250c\u2500 SESSION \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510");
+        var shortId = session.Id.Length >= 8 ? session.Id[..8] : session.Id;
+        sb.AppendLine($"\u2502  {session.Name,-50} {shortId}  {session.Status,-8} \u2502");
+        if (!string.IsNullOrEmpty(session.RepositoryPath))
+            sb.AppendLine($"\u2502  repo: {session.RepositoryPath,-60} \u2502");
+        sb.AppendLine("\u2502                                                                              \u2502");
+
+        // Entry points
+        if (session.EntryPoints.Count > 0)
+        {
+            sb.AppendLine("\u2502  Entry Points:                                                              \u2502");
+            foreach (var ep in session.EntryPoints)
+                sb.AppendLine($"\u2502    {ep.Key,-16} \u2192 {ep.Value,-52} \u2502");
+        }
+
+        sb.AppendLine("\u251c\u2500 BLOCK TREE \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2524");
+        sb.AppendLine("\u2502                                                                              \u2502");
+
+        // Collect unique block IDs from entry points
+        var entryBlockIds = session.EntryPoints.Values.Distinct().ToList();
+        var documentedBlocks = new HashSet<string>();
+
+        foreach (var rawId in entryBlockIds)
+        {
+            var normalizedId = NormalizeBlockId(rawId);
+            var block = await _blockDiscovery.GetByIdAsync(normalizedId);
+            if (block == null)
+            {
+                sb.AppendLine($"\u2502  \u2717 {rawId,-64} [not found] \u2502");
+                continue;
+            }
+
+            // Root block header with type symbol
+            var typeSymbol = block.BlockType switch
+            {
+                "workflow" => "\u25bc",
+                "agent" => "\u25c6",
+                "task" => "\u25b6",
+                _ => "\u25cb"
+            };
+            sb.AppendLine($"\u2502  {typeSymbol} {block.Name,-56} [{block.BlockType}] \u2502");
+            sb.AppendLine($"\u2502    {block.Id}  v{block.Version}");
+            sb.AppendLine("\u2502");
+
+            // Non-atomic blocks may have config.nodes — walk them as a tree
+            if (!block.IsAtomic && block.Config != null && block.Config.TryGetValue("nodes", out var nodesObj))
+            {
+                var nodesJson = JsonSerializer.Serialize(nodesObj);
+                var nodes = JsonDocument.Parse(nodesJson).RootElement;
+                if (nodes.ValueKind == JsonValueKind.Array)
+                {
+                    var nodeCount = nodes.GetArrayLength();
+                    await DocumentNodesRecursive(sb, nodes, documentedBlocks, nodeDetails, "    ", nodeCount);
+                }
+            }
+
+            documentedBlocks.Add(block.Id);
+        }
+
+        sb.AppendLine("\u2502");
+
+        // NODE DETAILS section
+        sb.AppendLine("\u251c\u2500 NODE DETAILS \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2524");
+        sb.AppendLine("\u2502");
+
+        foreach (var nd in nodeDetails)
+        {
+            var ndId = nd["nodeId"] as string ?? "?";
+            var ndRef = nd.TryGetValue("blockRef", out var brVal) ? brVal as string : null;
+            var ndType = nd["blockType"] as string ?? "tool";
+            var ndDesc = nd.TryGetValue("description", out var dVal) ? dVal as string : null;
+            var ndInputs = nd.TryGetValue("nodeInputs", out var niVal) ? niVal as Dictionary<string, string> : null;
+
+            if (!string.IsNullOrEmpty(ndRef))
+                sb.AppendLine($"\u2502  {ndId,-30} \u2192 {ndRef,-22} [{ndType}]");
+            else
+                sb.AppendLine($"\u2502  {ndId,-30}                        [{ndType}]");
+
+            if (!string.IsNullOrEmpty(ndDesc))
+                sb.AppendLine($"\u2502  {ndDesc}");
+
+            if (ndInputs != null && ndInputs.Count > 0)
+            {
+                sb.AppendLine($"\u2502  Params:");
+                foreach (var (key, value) in ndInputs)
+                {
+                    var displayVal = value.Length > 60 ? value[..57] + "..." : value;
+                    sb.AppendLine($"\u2502    {key,-20} = {displayVal}");
+                }
+            }
+
+            sb.AppendLine("\u2502");
+        }
+
+        // Root block details (with inputs/outputs from source JSON)
+        foreach (var blockId in documentedBlocks.OrderBy(b => b))
+        {
+            var block = await _blockDiscovery.GetByIdAsync(blockId);
+            if (block == null) continue;
+
+            sb.AppendLine($"\u2502  \u2500\u2500 {block.Name} \u2500\u2500");
+            sb.AppendLine($"\u2502  ID: {block.Id}  Type: {block.BlockType}  Atomic: {(block.IsAtomic ? "yes" : "no")}");
+            if (!string.IsNullOrEmpty(block.Description))
+                sb.AppendLine($"\u2502  {block.Description}");
+
+            // Try to read inputs/outputs from source JSON file
+            if (block.Metadata?.TryGetValue("_sourcePath", out var spObj) == true
+                && spObj is string sourcePath && File.Exists(sourcePath))
+            {
+                try
+                {
+                    var rawJson = await File.ReadAllTextAsync(sourcePath);
+                    using var sourceDoc = JsonDocument.Parse(rawJson);
+                    var root = sourceDoc.RootElement;
+
+                    if (root.TryGetProperty("inputs", out var inputsEl) && inputsEl.ValueKind == JsonValueKind.Array)
+                    {
+                        sb.AppendLine("\u2502  Inputs:");
+                        foreach (var inp in inputsEl.EnumerateArray())
+                        {
+                            var iId = inp.TryGetProperty("id", out var ii) ? ii.GetString() : "?";
+                            var iType = inp.TryGetProperty("type", out var it) ? it.GetString() : "any";
+                            var iDesc = inp.TryGetProperty("description", out var id) ? id.GetString() : "";
+                            var iReq = inp.TryGetProperty("required", out var ir) && ir.GetBoolean();
+                            sb.AppendLine($"\u2502    {iId,-20} ({iType,-8}) {(iReq ? "*" : " ")} {iDesc}");
+                        }
+                    }
+
+                    if (root.TryGetProperty("outputs", out var outputsEl) && outputsEl.ValueKind == JsonValueKind.Array)
+                    {
+                        sb.AppendLine("\u2502  Outputs:");
+                        foreach (var outp in outputsEl.EnumerateArray())
+                        {
+                            var oId = outp.TryGetProperty("id", out var oi) ? oi.GetString() : "?";
+                            var oType = outp.TryGetProperty("type", out var ot) ? ot.GetString() : "any";
+                            var oDesc = outp.TryGetProperty("description", out var od) ? od.GetString() : "";
+                            sb.AppendLine($"\u2502    {oId,-20} ({oType,-8})   {oDesc}");
+                        }
+                    }
+                }
+                catch { /* skip if source JSON is unreadable */ }
+            }
+
+            sb.AppendLine("\u2502");
+        }
+
+        sb.AppendLine("\u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518");
+        sb.AppendLine("```");
+
+        var markdown = sb.ToString();
+
+        // If a filename is specified in node inputs, write directly to file
+        var outputFilename = GetNodeInput(nodeConfig, "filename");
+        if (!string.IsNullOrEmpty(outputFilename))
+        {
+            var outputPath = Path.Combine(workingDir, outputFilename);
+            var dir = Path.GetDirectoryName(outputPath);
+            if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
+                Directory.CreateDirectory(dir);
+            await File.WriteAllTextAsync(outputPath, markdown);
+            AddArtifact(session, outputFilename, "documentation", $"{markdown.Length} B", "new");
+            AppendExecutionLog(session, "success", $"Tree documentation written to {outputFilename}");
+        }
+
+        return markdown;
+    }
+
+    /// <summary>
+    /// Recursively documents config.nodes using TUI box-drawing characters.
+    /// Collects node details (blockRef, type, description, inputs) for the details section.
+    /// </summary>
+    private async Task DocumentNodesRecursive(
+        System.Text.StringBuilder sb,
+        JsonElement nodes,
+        HashSet<string> documentedBlocks,
+        List<Dictionary<string, object>> nodeDetails,
+        string linePrefix,
+        int totalSiblings)
+    {
+        var index = 0;
+        foreach (var node in nodes.EnumerateArray())
+        {
+            index++;
+            var nodeId = node.TryGetProperty("id", out var idP) ? idP.GetString() ?? "?" : "?";
+            var blockRef = node.TryGetProperty("blockRef", out var brP) ? brP.GetString() : null;
+            var nodeType = node.TryGetProperty("type", out var ntP) ? ntP.GetString() : null;
+            var isLast = index == totalSiblings;
+            var branch = isLast ? "\u2514\u2500" : "\u251c\u2500";
+            var childPrefix = isLast ? "  " : "\u2502 ";
+
+            // Extract node-level inputs for the details section
+            var nodeInputs = new Dictionary<string, string>();
+            if (node.TryGetProperty("inputs", out var inputsEl) && inputsEl.ValueKind == JsonValueKind.Object)
+            {
+                foreach (var prop in inputsEl.EnumerateObject())
+                {
+                    nodeInputs[prop.Name] = prop.Value.ValueKind == JsonValueKind.String
+                        ? prop.Value.GetString() ?? "" : prop.Value.ToString();
+                }
+            }
+
+            if (nodeType == "while")
+            {
+                var condition = node.TryGetProperty("condition", out var cP) ? cP.GetString() : "?";
+                sb.AppendLine($"\u2502{linePrefix}{branch} \u21bb {nodeId,-30} (while: {condition})");
+
+                nodeDetails.Add(new Dictionary<string, object>
+                {
+                    ["nodeId"] = nodeId, ["blockType"] = "while",
+                    ["description"] = $"Loop: {condition}"
+                });
+
+                if (node.TryGetProperty("nodes", out var children) && children.ValueKind == JsonValueKind.Array)
+                {
+                    var childCount = children.GetArrayLength();
+                    await DocumentNodesRecursive(sb, children, documentedBlocks, nodeDetails,
+                        linePrefix + childPrefix, childCount);
+                }
+            }
+            else if (nodeType == "for-each")
+            {
+                var source = node.TryGetProperty("source", out var sP) ? sP.GetString() : "?";
+                sb.AppendLine($"\u2502{linePrefix}{branch} \u2200 {nodeId,-30} (for-each: {source})");
+
+                nodeDetails.Add(new Dictionary<string, object>
+                {
+                    ["nodeId"] = nodeId, ["blockType"] = "for-each",
+                    ["description"] = $"Iterate over: {source}"
+                });
+
+                if (node.TryGetProperty("nodes", out var children) && children.ValueKind == JsonValueKind.Array)
+                {
+                    var childCount = children.GetArrayLength();
+                    await DocumentNodesRecursive(sb, children, documentedBlocks, nodeDetails,
+                        linePrefix + childPrefix, childCount);
+                }
+            }
+            else if (nodeType == "conditional")
+            {
+                var condition = node.TryGetProperty("condition", out var cP) ? cP.GetString() : "?";
+                sb.AppendLine($"\u2502{linePrefix}{branch} \u25c7 {nodeId,-30} (if: {condition})");
+
+                nodeDetails.Add(new Dictionary<string, object>
+                {
+                    ["nodeId"] = nodeId, ["blockType"] = "conditional",
+                    ["description"] = $"Condition: {condition}"
+                });
+
+                if (node.TryGetProperty("nodes", out var children) && children.ValueKind == JsonValueKind.Array)
+                {
+                    var childCount = children.GetArrayLength();
+                    await DocumentNodesRecursive(sb, children, documentedBlocks, nodeDetails,
+                        linePrefix + childPrefix, childCount);
+                }
+            }
+            else
+            {
+                // Resolve block type from discovery or infer from blockRef
+                string blockType = "tool";
+                string? blockDescription = null;
+
+                if (!string.IsNullOrEmpty(blockRef))
+                {
+                    var block = await _blockDiscovery.GetByIdAsync(blockRef);
+                    if (block != null)
+                    {
+                        blockType = block.BlockType;
+                        blockDescription = block.Description;
+                        documentedBlocks.Add(block.Id);
+
+                        if (!block.IsAtomic && block.Config != null
+                            && block.Config.TryGetValue("nodes", out var childNodesObj))
+                        {
+                            var childJson = JsonSerializer.Serialize(childNodesObj);
+                            var childNodes = JsonDocument.Parse(childJson).RootElement;
+                            if (childNodes.ValueKind == JsonValueKind.Array)
+                            {
+                                var childCount = childNodes.GetArrayLength();
+                                await DocumentNodesRecursive(sb, childNodes, documentedBlocks, nodeDetails,
+                                    linePrefix + childPrefix, childCount);
+                            }
+                        }
+                    }
+                    else
+                    {
+                        // System built-in: infer type and description from blockRef name
+                        (blockType, blockDescription) = InferSystemBlockInfo(blockRef);
+                    }
+                }
+
+                sb.AppendLine($"\u2502{linePrefix}{branch} \u25cb {nodeId,-24} \u2192 {blockRef ?? "",-20} [{blockType}]");
+
+                var detail = new Dictionary<string, object>
+                {
+                    ["nodeId"] = nodeId,
+                    ["blockType"] = blockType
+                };
+                if (!string.IsNullOrEmpty(blockRef)) detail["blockRef"] = blockRef;
+                if (!string.IsNullOrEmpty(blockDescription)) detail["description"] = blockDescription;
+                if (nodeInputs.Count > 0) detail["nodeInputs"] = nodeInputs;
+                nodeDetails.Add(detail);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Infers block type and description for system built-in blocks
+    /// that don't have a block definition JSON file.
+    /// </summary>
+    private static (string type, string description) InferSystemBlockInfo(string blockRef)
+    {
+        var name = blockRef.Contains(':') ? blockRef.Split(':').Last() : blockRef;
+        return name switch
+        {
+            "block-loader" => ("tool", "Loads block definitions from the registry"),
+            "artifact-loader" => ("tool", "Loads the current artifact file from disk"),
+            "inference" => ("inference", "Calls LLM gateway for text generation"),
+            "validator" => ("validator", "Evaluates output against configured criteria"),
+            "file-writer" => ("tool", "Writes content to a file in the repository"),
+            "shell" => ("tool", "Executes a shell command in the working directory"),
+            "tree-documenter" => ("tool", "Generates session block tree documentation"),
+            "training-finalizer" => ("tool", "Finalizes phase with summary metrics"),
+            _ when name.Contains("inference") || name.Contains("generate") => ("inference", "LLM inference block"),
+            _ when name.Contains("valid") || name.Contains("check") => ("validator", "Validation block"),
+            _ => ("tool", $"System built-in: {name}")
+        };
+    }
+
+    /// <summary>
+    /// Executes a shell command specified in inputs.command.
+    /// Generic: any session can use system:shell nodes to run arbitrary commands.
+    /// Supports {{variable}} template resolution in the command string.
+    /// </summary>
+    private async Task<string> ExecuteShellNodeAsync(
+        Domain.Entities.ProjectSession session,
+        string workingDir,
+        JsonElement? nodeConfig)
+    {
+        var command = GetNodeInput(nodeConfig, "command");
+        if (string.IsNullOrEmpty(command))
+            return "(error: shell node missing inputs.command)";
+
+        // Resolve {{variable}} templates in the command
+        command = ResolveTemplate(command, session);
+
+        // Optional timeout from inputs (default 60s)
+        var timeoutStr = GetNodeInput(nodeConfig, "timeout");
+        var timeoutSec = int.TryParse(timeoutStr, out var ts) ? ts : 60;
+
+        AppendExecutionLog(session, "info", $"Shell: {command}");
+
+        var result = await RunShellAsync(workingDir, command, timeoutSec);
+
+        AppendExecutionLog(session, "info",
+            $"Shell output: {(result.Length > 200 ? result[..200] + "..." : result)}");
+
+        return result;
     }
 
     private string ExecuteValidationNode(
@@ -1697,6 +2232,7 @@ public class EntryPointExecutor
     /// <summary>
     /// Stores iteration/fitness result in the phase object within _phases.
     /// Allows the TUI to display phase summaries for completed phases.
+    /// Enriched with cold/warm timing and token totals from _phaseMetrics.
     /// </summary>
     private static void StorePhaseSummary(Domain.Entities.ProjectSession session, string phaseId, int iterations, double fitness)
     {
@@ -1718,12 +2254,104 @@ public class EntryPointExecutor
                     var qualityScore = session.GetVariable<double>("_qualityScore", 0);
                     if (qualityScore > 0) result["qualityScore"] = Math.Round(qualityScore, 2);
 
+                    // Add timing aggregates from _phaseMetrics
+                    var phaseMetrics = session.GetVariable("_phaseMetrics") as Dictionary<string, object>;
+                    if (phaseMetrics?.TryGetValue(phaseId, out var pm) == true
+                        && pm is Dictionary<string, object> phaseData
+                        && phaseData.TryGetValue("iterations", out var iters)
+                        && iters is List<object> iterList)
+                    {
+                        if (iterList.Count > 0 && iterList[0] is Dictionary<string, object> first)
+                        {
+                            if (first.TryGetValue("totalMs", out var cs)) result["coldStartMs"] = cs;
+                            if (first.TryGetValue("model", out var m)) result["model"] = m;
+                        }
+                        if (iterList.Count > 1 && iterList[^1] is Dictionary<string, object> last)
+                        {
+                            if (last.TryGetValue("totalMs", out var ws)) result["warmStartMs"] = ws;
+                        }
+
+                        var totalPrompt = iterList.OfType<Dictionary<string, object>>()
+                            .Sum(d => d.TryGetValue("promptTokens", out var v) && v is int i ? i : 0);
+                        var totalCompletion = iterList.OfType<Dictionary<string, object>>()
+                            .Sum(d => d.TryGetValue("completionTokens", out var v) && v is int i ? i : 0);
+                        if (totalPrompt > 0) result["totalPromptTokens"] = totalPrompt;
+                        if (totalCompletion > 0) result["totalCompletionTokens"] = totalCompletion;
+                    }
+
                     phase["result"] = result;
                     break;
                 }
             }
             session.SetVariable("_phases", phaseList);
         }
+    }
+
+    /// <summary>
+    /// Stores per-iteration detailed metrics in _phaseMetrics.
+    /// Collects timing, tokens, fitness, criteria scores, and full response from latest _llmActivity and _blockOutputs.
+    /// Generic — any session with a while loop and LLM nodes benefits from this.
+    /// </summary>
+    private static void StoreIterationMetrics(Domain.Entities.ProjectSession session, string? phaseId, int iteration, double fitness)
+    {
+        if (string.IsNullOrEmpty(phaseId)) return;
+
+        var metrics = session.GetVariable("_phaseMetrics") as Dictionary<string, object>
+            ?? new Dictionary<string, object>();
+
+        // Get latest LLM activity entry for timing/token data
+        var llmActivity = session.GetVariable("_llmActivity") as List<object>;
+        var latestLlm = llmActivity?.LastOrDefault() as Dictionary<string, object>;
+
+        // Get validation data from _blockOutputs
+        var blockOutputs = session.GetVariable("_blockOutputs") as Dictionary<string, object>;
+        var validation = blockOutputs?.GetValueOrDefault("validation") as Dictionary<string, object>;
+
+        var iterationData = new Dictionary<string, object>
+        {
+            ["iteration"] = iteration,
+            ["timestamp"] = DateTime.UtcNow.ToString("o"),
+            ["fitness"] = Math.Round(fitness, 4),
+            ["passed"] = fitness >= ReadDoubleVariable(session, "targetFitness", 0.85)
+        };
+
+        // Copy timing and token data from latest LLM activity
+        if (latestLlm != null)
+        {
+            foreach (var key in new[] { "modelSwitchMs", "inferenceMs", "totalMs",
+                "promptTokens", "completionTokens", "totalTokens",
+                "systemPrompt", "userPrompt", "fullResponse", "model" })
+            {
+                if (latestLlm.TryGetValue(key, out var v)) iterationData[key] = v;
+            }
+        }
+
+        // Copy criteria scores from validation
+        if (validation?.TryGetValue("criteriaScores", out var scores) == true)
+            iterationData["criteriaScores"] = scores;
+
+        // Get or create phase entry
+        Dictionary<string, object> phaseEntry;
+        if (metrics.TryGetValue(phaseId, out var existing) && existing is Dictionary<string, object> pe)
+        {
+            phaseEntry = pe;
+        }
+        else
+        {
+            phaseEntry = new Dictionary<string, object>
+            {
+                ["model"] = latestLlm?.GetValueOrDefault("model") ?? "unknown",
+                ["iterations"] = new List<object>()
+            };
+            metrics[phaseId] = phaseEntry;
+        }
+
+        // Update model name from latest data (may have been "unknown" initially)
+        if (latestLlm?.TryGetValue("model", out var modelVal) == true)
+            phaseEntry["model"] = modelVal;
+
+        (phaseEntry["iterations"] as List<object>)?.Add(iterationData);
+        session.SetVariable("_phaseMetrics", metrics);
     }
 
     /// <summary>
@@ -1877,7 +2505,7 @@ public class EntryPointExecutor
         }
     }
 
-    private async Task<string> RunShellAsync(string workingDirectory, string command)
+    private async Task<string> RunShellAsync(string workingDirectory, string command, int timeoutSeconds = 60)
     {
         try
         {
@@ -1905,7 +2533,7 @@ public class EntryPointExecutor
             process.Start();
             process.BeginOutputReadLine();
 
-            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(timeoutSeconds));
             try
             {
                 await process.WaitForExitAsync(cts.Token);

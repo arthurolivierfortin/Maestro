@@ -3,9 +3,9 @@
   "id": "foundry:compliance-test-loop",
   "name": "LLM Compliance Test Loop",
   "blockType": "workflow",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "isAtomic": false,
-  "description": "Tests LLM models on their ability to produce structured output (valid JSON). Each phase tests one model with multiple iterations. Evaluation criteria measure JSON validity, structure compliance, and instruction following.",
+  "description": "Tests LLM models on their ability to produce structured output (valid JSON). Iterates over _phases using for-each, testing one model per phase with multiple iterations. Evaluation criteria measure JSON validity, structure compliance, and instruction following.",
 
   "inputs": [
     {
@@ -38,47 +38,90 @@
   "config": {
     "nodes": [
       {
-        "id": "load-artifact",
-        "blockRef": "system:block-loader",
-        "inputs": {}
-      },
-      {
-        "id": "test-loop",
-        "type": "while",
-        "condition": "{{currentFitness}} < {{targetFitness}} && {{iteration}} < {{maxIterations}}",
-        "maxIterations": "{{maxIterations}}",
+        "id": "test-all-models",
+        "type": "for-each",
+        "source": "_phases",
+        "itemId": "id",
+        "configLookup": true,
+        "resetVariables": {
+          "currentIteration": 0,
+          "currentFitness": 0,
+          "scoreHistory": [],
+          "_lastValidationFeedback": "",
+          "_bestFitness": 0.0,
+          "_plateauCount": 0,
+          "_shouldStop": false,
+          "_tokenCount": 0,
+          "_qualityScore": 0.0
+        },
         "nodes": [
           {
-            "id": "run-test",
-            "blockRef": "system:artifact-loader",
+            "id": "load-artifact",
+            "blockRef": "system:block-loader",
             "inputs": {}
           },
           {
-            "id": "generate-structured-output",
-            "blockRef": "system:inference",
-            "inputs": {}
+            "id": "test-loop",
+            "type": "while",
+            "condition": "{{currentFitness}} < {{targetFitness}} && {{iteration}} < {{maxIterations}}",
+            "maxIterations": "{{maxIterations}}",
+            "nodes": [
+              {
+                "id": "run-test",
+                "blockRef": "system:artifact-loader",
+                "inputs": {}
+              },
+              {
+                "id": "generate-structured-output",
+                "blockRef": "system:inference",
+                "inputs": {}
+              },
+              {
+                "id": "check-compliance",
+                "blockRef": "system:validator",
+                "inputs": {}
+              },
+              {
+                "id": "apply-result",
+                "blockRef": "system:file-writer",
+                "inputs": {}
+              }
+            ]
           },
           {
-            "id": "check-compliance",
-            "blockRef": "system:validator",
-            "inputs": {}
-          },
-          {
-            "id": "apply-result",
-            "blockRef": "system:file-writer",
+            "id": "finalize-test",
+            "blockRef": "system:training-finalizer",
             "inputs": {}
           }
         ]
       },
       {
-        "id": "finalize-test",
-        "blockRef": "system:training-finalizer",
-        "inputs": {}
+        "id": "doc-tree",
+        "blockRef": "system:tree-documenter",
+        "inputs": {
+          "filename": ".maestro/docs/session-tree.md"
+        }
+      },
+      {
+        "id": "write-metrics",
+        "blockRef": "system:file-writer",
+        "inputs": {
+          "source": "_phaseMetrics",
+          "filename": ".maestro/metrics/compliance-metrics.json"
+        }
+      },
+      {
+        "id": "shell-format-report",
+        "blockRef": "system:shell",
+        "inputs": {
+          "command": "node C:\\Meastro\\tools\\format-metrics-report.js .maestro/metrics/compliance-metrics.json .maestro/docs"
+        }
       }
     ],
     "connections": [
-      { "from": "load-artifact", "to": "test-loop" },
-      { "from": "test-loop", "to": "finalize-test" }
+      { "from": "test-all-models", "to": "doc-tree" },
+      { "from": "doc-tree", "to": "write-metrics" },
+      { "from": "write-metrics", "to": "shell-format-report" }
     ]
   },
 

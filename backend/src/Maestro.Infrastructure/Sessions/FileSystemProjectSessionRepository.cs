@@ -21,6 +21,12 @@ public class FileSystemProjectSessionRepository : IProjectSessionRepository
     private readonly IProjectRepository _projectRepository;
     private readonly ILogger<FileSystemProjectSessionRepository>? _logger;
 
+    /// <summary>
+    /// Tracks repository paths for sessions created with --repo (no project).
+    /// These paths are not covered by the project list and must be scanned separately.
+    /// </summary>
+    private readonly ConcurrentDictionary<string, byte> _knownRepoPaths = new();
+
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
@@ -51,6 +57,21 @@ public class FileSystemProjectSessionRepository : IProjectSessionRepository
         foreach (var project in projects)
         {
             var sessionPath = GetSessionFilePath(project.RootPath, sessionId);
+            if (File.Exists(sessionPath))
+            {
+                var session = await LoadSessionFromFileAsync(sessionPath, ct);
+                if (session != null)
+                {
+                    _cache[sessionId] = session;
+                    return session;
+                }
+            }
+        }
+
+        // Search repo-only sessions (created with --repo, no project)
+        foreach (var repoPath in _knownRepoPaths.Keys)
+        {
+            var sessionPath = GetSessionFilePath(repoPath, sessionId);
             if (File.Exists(sessionPath))
             {
                 var session = await LoadSessionFromFileAsync(sessionPath, ct);
@@ -98,9 +119,20 @@ public class FileSystemProjectSessionRepository : IProjectSessionRepository
         {
             // Load sessions from all projects
             var projects = await _projectRepository.GetAllAsync(ct);
+            var scannedPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             foreach (var project in projects)
             {
                 allSessions.AddRange(await LoadSessionsFromProjectAsync(project, ct));
+                scannedPaths.Add(project.RootPath);
+            }
+
+            // Also scan repo-only sessions (created with --repo, no project)
+            foreach (var repoPath in _knownRepoPaths.Keys)
+            {
+                if (!scannedPaths.Contains(repoPath))
+                {
+                    allSessions.AddRange(await LoadSessionsFromPathAsync(repoPath, ct));
+                }
             }
         }
 
@@ -169,6 +201,12 @@ public class FileSystemProjectSessionRepository : IProjectSessionRepository
         // Update cache
         _cache[session.Id] = session;
 
+        // Track repo path for sessions without a project (so GetAllAsync can find them)
+        if (string.IsNullOrEmpty(session.Config.ProjectId) && !string.IsNullOrEmpty(session.RepositoryPath))
+        {
+            _knownRepoPaths.TryAdd(session.RepositoryPath, 0);
+        }
+
         _logger?.LogInformation("Saved session {SessionId}", session.Id);
     }
 
@@ -222,6 +260,35 @@ public class FileSystemProjectSessionRepository : IProjectSessionRepository
         {
             return sessions;
         }
+
+        var sessionFiles = Directory.GetFiles(sessionsFolder, "*.json");
+        foreach (var file in sessionFiles)
+        {
+            try
+            {
+                var session = await LoadSessionFromFileAsync(file, ct);
+                if (session != null)
+                {
+                    _cache[session.Id] = session;
+                    sessions.Add(session);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogWarning(ex, "Failed to load session from {Path}", file);
+            }
+        }
+
+        return sessions;
+    }
+
+    private async Task<IEnumerable<ProjectSession>> LoadSessionsFromPathAsync(string repoPath, CancellationToken ct)
+    {
+        var sessions = new List<ProjectSession>();
+        var sessionsFolder = GetSessionsFolderPath(repoPath);
+
+        if (!Directory.Exists(sessionsFolder))
+            return sessions;
 
         var sessionFiles = Directory.GetFiles(sessionsFolder, "*.json");
         foreach (var file in sessionFiles)

@@ -28,8 +28,8 @@
   "variables": {
     "sessionMode": "testing",
     "autoEvaluate": true,
-    "targetFitness": 0.85,
-    "maxIterations": 3,
+    "targetFitness": 1.0,
+    "maxIterations": 2,
     "currentPhase": "discovery",
     "currentIteration": 0,
     "currentFitness": 0,
@@ -44,8 +44,7 @@
       { "id": "test-deepseek-coder", "name": "Test: DeepSeek Coder 1.3B", "status": "pending", "description": "Code-focused model - should handle JSON well" },
       { "id": "test-smollm2-1.7b", "name": "Test: SmolLM2 1.7B", "status": "pending", "description": "Medium instruct model - better instruction following" },
       { "id": "test-deepseek-r1", "name": "Test: DeepSeek R1 1.5B", "status": "pending", "description": "Reasoning model - analytical capabilities" },
-      { "id": "test-qwen-coder", "name": "Test: Qwen2.5 Coder 3B", "status": "pending", "description": "Largest code model - highest expected compliance" },
-      { "id": "documentation", "name": "Phase 7: Documentation", "status": "pending", "description": "Generate compliance report from all test results" }
+      { "id": "documentation", "name": "Phase 6: Documentation", "status": "pending", "description": "Generate compliance report from all test results" }
     ],
     "_blockOutputs": {},
     "_monitorDescriptor": {
@@ -124,22 +123,11 @@
           "output": { "filename": "test-results.json" },
           "evaluation": { "criteria": ["hasJsonStructure", "validJsonParse", "noMarkdownFences", "purejsonoutput", "hasRequiredFields"] }
         },
-        "test-qwen-coder": {
-          "llm": {
-            "model": "Qwen/Qwen2.5-Coder-3B-Instruct",
-            "systemPrompt": "You are a JSON generator. Output ONLY valid JSON. No text, no markdown, no explanation. Just a raw JSON object.",
-            "userPromptTemplate": "Generate a JSON object with these exact fields:\n- \"name\": a string\n- \"type\": a string (value: \"tool\")\n- \"description\": a string describing a code analysis tool\n- \"version\": a string (semver format)\n- \"capabilities\": an array of strings\n\nPrevious attempt feedback:\n{{_lastValidationFeedback}}\n\nOutput ONLY the JSON object. Start with { and end with }. No other text.",
-            "maxTokens": 512,
-            "temperature": 0.3
-          },
-          "output": { "filename": "test-results.json" },
-          "evaluation": { "criteria": ["hasJsonStructure", "validJsonParse", "noMarkdownFences", "purejsonoutput", "hasRequiredFields", "hasschemafields"] }
-        },
         "documentation": {
           "llm": {
             "model": "HuggingFaceTB/SmolLM2-1.7B-Instruct",
             "systemPrompt": "You are a technical documentation writer. Generate a Markdown compliance report. Output ONLY valid Markdown. No JSON, no code fences around the entire output.",
-            "userPromptTemplate": "Generate a Markdown compliance report for LLM structured output testing.\n\nTest Results Summary (from _phases variable):\n{{_phases}}\n\nFor each model tested, include:\n- Model name and category\n- Compliance score (from phase results)\n- Whether it passed or failed\n- Key observations\n\nEnd with a recommendation section listing which models are suitable for structured output tasks.\n\nFormat as clean Markdown with headers, tables, and bullet points.",
+            "userPromptTemplate": "Generate a Markdown compliance report for LLM structured output testing.\n\nPhase Results:\n{{_phases}}\n\nDetailed Metrics (per-model timing, tokens, fitness):\n{{_phaseMetrics}}\n\nFor each model tested, include:\n- Model name and ID\n- Compliance score and pass/fail\n- Cold start vs warm start timing\n- Token usage (prompt + completion)\n- Key observations\n\nEnd with a recommendation section listing which models are suitable for structured output tasks.\n\nFormat as clean Markdown with headers, tables, and bullet points.",
             "maxTokens": 1024,
             "temperature": 0.4
           },
@@ -184,7 +172,7 @@
   ],
 
   "config": {
-    "maxIterations": 3,
+    "maxIterations": 2,
     "timeout": 3600000,
     "autoSave": true,
     "saveInterval": 30000

@@ -70,7 +70,11 @@ public class LLMProviderGateway : ILLMGateway, IDisposable
 
         return new LLMResponse
         {
-            Content = response?.GeneratedText ?? string.Empty
+            Content = response?.GeneratedText ?? string.Empty,
+            PromptTokens = response?.PromptTokens ?? 0,
+            CompletionTokens = response?.CompletionTokens ?? 0,
+            TotalTokens = response?.TotalTokens ?? 0,
+            Model = response?.Model
         };
     }
 

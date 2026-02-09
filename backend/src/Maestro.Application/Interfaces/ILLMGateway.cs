@@ -78,4 +78,8 @@ public class LLMRequest
 public class LLMResponse
 {
     public required string Content { get; init; }
+    public int PromptTokens { get; init; }
+    public int CompletionTokens { get; init; }
+    public int TotalTokens { get; init; }
+    public string? Model { get; init; }
 }
