@@ -3,12 +3,17 @@ const fs = require('fs');
 const path = require('path');
 const minimist = require('minimist');
 const { MaestroApiClient, ApiError } = require('../shared/api-client');
+const { OutputFormatter } = require('./output-formatter');
+const { JsonInputParser } = require('./json-parser');
 
 // Configuration
 const API_URL = process.env.MAESTRO_API_URL || 'http://localhost:5000';
 const DEBUG = process.env.MAESTRO_DEBUG === 'true';
 
 const client = new MaestroApiClient(API_URL, { debug: DEBUG });
+
+// Module-level formatter — set to JSON mode in main() when --json is used
+let formatter = new OutputFormatter(false);
 
 /**
  * Logs a command to the session's command history variable.
@@ -207,21 +212,13 @@ async function getBlockChildren(id, recursive = true) {
 }
 
 async function checkHealth() {
+  formatter.setCommand('health');
   try {
     const health = await client.getHealth();
-    console.log('\n✅ Backend Health Check:\n');
-    console.log(`  Status:       ${health.status}`);
-    console.log(`  Version:      ${health.version}`);
-    console.log(`  Uptime:       ${health.uptime || 'N/A'}`);
-    console.log(`  Block Count:  ${health.blockCount}`);
-    console.log(`  Services:     ${Object.entries(health.services).map(([k, v]) => `${k}=${v}`).join(', ')}`);
-    console.log('');
+    formatter.success(health, `\n✅ Backend Health Check:\n\n  Status:       ${health.status}\n  Version:      ${health.version}\n  Uptime:       ${health.uptime || 'N/A'}\n  Block Count:  ${health.blockCount}\n  Services:     ${Object.entries(health.services).map(([k, v]) => `${k}=${v}`).join(', ')}\n`);
   } catch (error) {
-    console.error(`❌ Backend is not responding at ${API_URL}`);
-    if (error.code === 'ECONNREFUSED' || error.message.includes('ECONNREFUSED')) {
-      console.error('   Start the backend with:');
-      console.error('   $ dotnet run --project backend/src/Maestro.Api');
-    }
+    formatter.error(`Backend is not responding at ${API_URL}`, 'ECONNREFUSED',
+      'Start the backend with: dotnet run --project backend/src/Maestro.Api');
     process.exit(1);
   }
 }
@@ -744,27 +741,25 @@ async function listProjectsWithStatus() {
 
 function handleApiError(error, action) {
   if (error.code === 'ECONNREFUSED' || error.message?.includes('ECONNREFUSED')) {
-    console.error(`❌ Cannot connect to backend at ${client.baseUrl}`);
-    console.error('   Make sure the backend is running:');
-    console.error('   $ dotnet run --project backend/src/Maestro.Api');
+    formatter.error(`Cannot connect to backend at ${client.baseUrl}`, 'ECONNREFUSED',
+      'Make sure the backend is running: dotnet run --project backend/src/Maestro.Api');
   } else {
-    console.error(`❌ Error ${action}: ${error.message}`);
+    formatter.error(`Error ${action}: ${error.message}`, error.status ? `HTTP_${error.status}` : 'ERROR');
   }
 }
 
 // ============= Interactive Session Commands (Session Server Architecture) =============
 
 async function listSessions(filter = {}) {
+  formatter.setCommand('session.list');
   try {
     const sessions = await client.listSessions(filter);
     if (!sessions || sessions.length === 0) {
-      console.log('\nNo interactive sessions found');
-      console.log('  Create one with: maestro session create --project <id> --authority human');
+      formatter.success([], '\nNo interactive sessions found\n  Create one with: maestro session create --project <id> --authority human');
       return;
     }
 
-    console.log('\n📋 Interactive Sessions:\n');
-    console.table(sessions.map(s => ({
+    const rows = sessions.map(s => ({
       'ID': s.id.substring(0, 12) + '...',
       'Name': s.name || '-',
       'Status': s.status,
@@ -772,7 +767,8 @@ async function listSessions(filter = {}) {
       'Project': s.config?.projectId?.substring(0, 8) + '...' || '-',
       'Commands': s.commandCount || 0,
       'Created': new Date(s.createdAt).toLocaleDateString()
-    })));
+    }));
+    formatter.table(rows, '\n📋 Interactive Sessions:\n');
   } catch (error) {
     handleApiError(error, 'listing sessions');
     process.exit(1);
@@ -780,34 +776,14 @@ async function listSessions(filter = {}) {
 }
 
 async function getSessionInfo(id) {
+  formatter.setCommand('session.info');
   try {
     const session = await client.getSession(id);
-    console.log('\n📋 Session Details:\n');
-    console.log(`  ID:           ${session.id}`);
-    console.log(`  Name:         ${session.name || 'N/A'}`);
-    console.log(`  Status:       ${session.status}`);
-    console.log(`  Authority:    ${session.authority || 'human'}`);
-    console.log(`  Project ID:   ${session.config?.projectId || 'N/A'}`);
-    console.log(`  Workflow ID:  ${session.config?.workflowId || 'N/A'}`);
-    console.log(`  Task:         ${session.config?.task || 'N/A'}`);
-    console.log(`  Access Level: ${session.config?.access?.level || 'controlled'}`);
-    console.log(`  Working Dir:  ${session.workingDirectory || 'N/A'}`);
-    console.log(`  Commands:     ${session.commandCount || 0}`);
-    console.log(`  Created:      ${session.createdAt}`);
-    console.log(`  Started:      ${session.startedAt || 'Not started'}`);
-    console.log(`  Completed:    ${session.completedAt || 'Not completed'}`);
-    if (session.errorMessage) {
-      console.log(`  Error:        ${session.errorMessage}`);
-    }
-    console.log('');
-    console.log('  Commands:');
-    console.log('    maestro session exec ' + id + ' "ls -la"');
-    console.log('    maestro session exec ' + id + ' "blocks list"');
-    console.log('    maestro session exec ' + id + ' "diff"');
-    console.log('');
+    const message = `\n📋 Session Details:\n\n  ID:           ${session.id}\n  Name:         ${session.name || 'N/A'}\n  Status:       ${session.status}\n  Authority:    ${session.authority || 'human'}\n  Project ID:   ${session.config?.projectId || 'N/A'}\n  Workflow ID:  ${session.config?.workflowId || 'N/A'}\n  Task:         ${session.config?.task || 'N/A'}\n  Access Level: ${session.config?.access?.level || 'controlled'}\n  Working Dir:  ${session.workingDirectory || 'N/A'}\n  Commands:     ${session.commandCount || 0}\n  Created:      ${session.createdAt}\n  Started:      ${session.startedAt || 'Not started'}\n  Completed:    ${session.completedAt || 'Not completed'}${session.errorMessage ? '\n  Error:        ' + session.errorMessage : ''}\n`;
+    formatter.success(session, message);
   } catch (error) {
     if (error.status === 404) {
-      console.error(`❌ Session not found: ${id}`);
+      formatter.error(`Session not found: ${id}`, 'NOT_FOUND');
     } else {
       handleApiError(error, 'getting session');
     }
@@ -816,12 +792,13 @@ async function getSessionInfo(id) {
 }
 
 async function createSession(options) {
+  formatter.setCommand('session.create');
   try {
-    if (!options.projectId) { console.error('❌ --project is required'); process.exit(1); }
+    if (!options.projectId) { formatter.error('--project is required', 'MISSING_PARAM'); process.exit(1); }
 
     // Validate repository source requires path
     if (options.source === 'repository' && !options.repositoryPath) {
-      console.error('❌ --repository-path is required when using --source repository');
+      formatter.error('--repository-path is required when using --source repository', 'MISSING_PARAM');
       process.exit(1);
     }
 
@@ -852,23 +829,8 @@ async function createSession(options) {
     };
 
     const session = await client.createSession(request);
-    console.log('\n✅ Session created!\n');
-    console.log(`  ID:        ${session.id}`);
-    console.log(`  Name:      ${session.name}`);
-    console.log(`  Status:    ${session.status}`);
-    console.log(`  Authority: ${session.authority || 'human'}`);
-    console.log(`  Source:    ${request.source}`);
-    if (request.source === 'repository' && request.repositoryConfig) {
-      console.log(`  Repo Path: ${request.repositoryConfig.repositoryPath}`);
-      console.log(`  Access:    ${request.repositoryConfig.accessLevel}`);
-      if (request.repositoryConfig.branch) {
-        console.log(`  Branch:    ${request.repositoryConfig.branch}`);
-      }
-    }
-    console.log('');
-    console.log('  Start it with: maestro session start ' + session.id);
-    console.log('  Execute cmd:   maestro session exec ' + session.id + ' "ls -la"');
-    console.log('');
+    const message = `\n✅ Session created!\n\n  ID:        ${session.id}\n  Name:      ${session.name}\n  Status:    ${session.status}\n  Authority: ${session.authority || 'human'}\n  Source:    ${request.source}\n\n  Start it with: maestro session start ${session.id}\n`;
+    formatter.success(session, message);
   } catch (error) {
     handleApiError(error, 'creating session');
     process.exit(1);
@@ -876,9 +838,17 @@ async function createSession(options) {
 }
 
 async function startSession(id, options = {}) {
+  formatter.setCommand('session.start');
   try {
-    console.log(`\n▶️  Starting session: ${id}\n`);
     const session = await client.startSession(id);
+
+    // In JSON mode, return data without launching monitor
+    if (formatter.jsonMode) {
+      formatter.success(session);
+      return;
+    }
+
+    console.log(`\n▶️  Starting session: ${id}\n`);
     console.log(`✅ Session ${session.status}\n`);
     console.log(`  Authority:    ${session.authority || 'human'}`);
     console.log(`  Working Dir:  ${session.workingDirectory || 'N/A'}`);
@@ -933,12 +903,10 @@ async function startSession(id, options = {}) {
 }
 
 async function pauseSession(id) {
+  formatter.setCommand('session.pause');
   try {
-    console.log(`\n⏸️  Pausing session: ${id}\n`);
     const session = await client.pauseSession(id);
-    console.log(`✅ Session ${session.status}\n`);
-    console.log('  Resume with: maestro session resume ' + id);
-    console.log('');
+    formatter.success(session, `\n⏸️  Session ${session.status}\n\n  Resume with: maestro session resume ${id}\n`);
   } catch (error) {
     handleApiError(error, 'pausing session');
     process.exit(1);
@@ -946,11 +914,10 @@ async function pauseSession(id) {
 }
 
 async function resumeSession(id) {
+  formatter.setCommand('session.resume');
   try {
-    console.log(`\n▶️  Resuming session: ${id}\n`);
     const session = await client.resumeSession(id);
-    console.log(`✅ Session ${session.status}\n`);
-    console.log('');
+    formatter.success(session, `\n▶️  Session ${session.status}\n`);
   } catch (error) {
     handleApiError(error, 'resuming session');
     process.exit(1);
@@ -958,11 +925,10 @@ async function resumeSession(id) {
 }
 
 async function stopSession(id) {
+  formatter.setCommand('session.stop');
   try {
-    console.log(`\n🛑 Stopping session: ${id}\n`);
     const session = await client.stopSession(id);
-    console.log(`✅ Session ${session.status}\n`);
-    console.log('');
+    formatter.success(session, `\n🛑 Session ${session.status}\n`);
   } catch (error) {
     handleApiError(error, 'stopping session');
     process.exit(1);
@@ -970,13 +936,10 @@ async function stopSession(id) {
 }
 
 async function takeControlSession(id, authority) {
+  formatter.setCommand('session.take-control');
   try {
-    console.log(`\n🔄 Transferring session control to: ${authority}\n`);
     const session = await client.takeControlSession(id, authority);
-    console.log(`✅ Control transferred!\n`);
-    console.log(`  New Authority: ${session.authority}`);
-    console.log(`  Status:        ${session.status}`);
-    console.log('');
+    formatter.success(session, `\n✅ Control transferred!\n\n  New Authority: ${session.authority}\n  Status:        ${session.status}\n`);
   } catch (error) {
     handleApiError(error, 'transferring session control');
     process.exit(1);
@@ -984,22 +947,15 @@ async function takeControlSession(id, authority) {
 }
 
 async function executeSessionCommand(id, command, args = null) {
+  formatter.setCommand('session.exec');
   try {
     const result = await client.executeSessionCommand(id, command, args);
 
     if (result.success) {
-      console.log(`✅ ${result.commandType || 'shell'} [${result.commandId?.substring(0, 8) || ''}]`);
-      if (result.output) {
-        console.log(result.output);
-      }
+      formatter.success(result, `✅ ${result.commandType || 'shell'} [${result.commandId?.substring(0, 8) || ''}]${result.output ? '\n' + result.output : ''}`);
     } else {
-      console.log(`❌ ${result.commandType || 'shell'} [${result.commandId?.substring(0, 8) || ''}]`);
-      if (result.error) {
-        console.error(result.error);
-      }
-      if (result.output) {
-        console.log(result.output);
-      }
+      formatter.error(`${result.commandType || 'shell'} failed`, 'EXEC_FAILED',
+        result.error || result.output || null);
       process.exitCode = result.exitCode || 1;
     }
   } catch (error) {
@@ -1009,23 +965,28 @@ async function executeSessionCommand(id, command, args = null) {
 }
 
 async function getSessionEvents(id, options = {}) {
+  formatter.setCommand('session.events');
   try {
     const events = await client.getSessionEvents(id, options);
     if (!events || events.length === 0) {
-      console.log('\nNo events found for this session');
+      formatter.success([], '\nNo events found for this session');
       return;
     }
 
-    console.log(`\n📜 Session Events (${events.length}):\n`);
-    for (const evt of events) {
-      const time = new Date(evt.timestamp).toLocaleTimeString();
-      const icon = evt.type === 'error' ? '❌' : evt.type === 'warning' ? '⚠️' : evt.type === 'command' ? '💻' : '📝';
-      console.log(`  ${icon} [${time}] ${evt.type}: ${evt.message}`);
-      if (evt.data && Object.keys(evt.data).length > 0) {
-        console.log(`     Data: ${JSON.stringify(evt.data)}`);
+    if (formatter.jsonMode) {
+      formatter.success(events);
+    } else {
+      console.log(`\n📜 Session Events (${events.length}):\n`);
+      for (const evt of events) {
+        const time = new Date(evt.timestamp).toLocaleTimeString();
+        const icon = evt.type === 'error' ? '❌' : evt.type === 'warning' ? '⚠️' : evt.type === 'command' ? '💻' : '📝';
+        console.log(`  ${icon} [${time}] ${evt.type}: ${evt.message}`);
+        if (evt.data && Object.keys(evt.data).length > 0) {
+          console.log(`     Data: ${JSON.stringify(evt.data)}`);
+        }
       }
+      console.log('');
     }
-    console.log('');
   } catch (error) {
     handleApiError(error, 'getting session events');
     process.exit(1);
@@ -1033,10 +994,10 @@ async function getSessionEvents(id, options = {}) {
 }
 
 async function deleteSession(id) {
+  formatter.setCommand('session.delete');
   try {
-    console.log(`\n🗑️  Deleting session: ${id}\n`);
     await client.deleteSession(id);
-    console.log(`✅ Session deleted\n`);
+    formatter.success({ id, deleted: true }, `\n✅ Session deleted\n`);
   } catch (error) {
     handleApiError(error, 'deleting session');
     process.exit(1);
@@ -1189,27 +1150,28 @@ async function importSessionTemplate(sessionId, templateName) {
 // ============= Session Variables Functions =============
 
 async function listSessionVariables(sessionId) {
+  formatter.setCommand('session.vars.list');
   try {
     const response = await client._fetch('GET', `/api/sessions/${sessionId}/variables`);
 
     if (!response || Object.keys(response).length === 0) {
-      console.log('\n📝 No variables set for this session\n');
+      formatter.success({}, '\n📝 No variables set for this session\n');
       return;
     }
 
-    console.log('\n📝 Session Variables:\n');
-    for (const [key, value] of Object.entries(response)) {
-      const displayValue = typeof value === 'object' ? JSON.stringify(value) : value;
-      console.log(`  ${key}: ${displayValue}`);
+    if (formatter.jsonMode) {
+      formatter.success(response);
+    } else {
+      console.log('\n📝 Session Variables:\n');
+      for (const [key, value] of Object.entries(response)) {
+        const displayValue = typeof value === 'object' ? JSON.stringify(value) : value;
+        console.log(`  ${key}: ${displayValue}`);
+      }
+      console.log('');
     }
-    console.log('');
-    console.log('  Set variable:    maestro session vars ' + sessionId + ' set <key> <value>');
-    console.log('  Get variable:    maestro session vars ' + sessionId + ' get <key>');
-    console.log('  Remove variable: maestro session vars ' + sessionId + ' remove <key>');
-    console.log('');
   } catch (error) {
     if (error.status === 404) {
-      console.error(`❌ Session not found: ${sessionId}`);
+      formatter.error(`Session not found: ${sessionId}`, 'NOT_FOUND');
     } else {
       handleApiError(error, 'listing session variables');
     }
@@ -1218,20 +1180,16 @@ async function listSessionVariables(sessionId) {
 }
 
 async function getSessionVariable(sessionId, key) {
+  formatter.setCommand('session.vars.get');
   try {
     const response = await client._fetch('GET', `/api/sessions/${sessionId}/variables/${key}`);
-
-    console.log(`\n📝 ${key}:\n`);
-    const displayValue = typeof response.value === 'object' ? JSON.stringify(response.value, null, 2) : response.value;
-    console.log(`  ${displayValue}`);
-    console.log('');
+    formatter.success(response.value, `\n📝 ${key}:\n\n  ${typeof response.value === 'object' ? JSON.stringify(response.value, null, 2) : response.value}\n`);
   } catch (error) {
     if (error.status === 404) {
-      if (error.message?.includes('Variable')) {
-        console.error(`❌ Variable '${key}' not found in session ${sessionId}`);
-      } else {
-        console.error(`❌ Session not found: ${sessionId}`);
-      }
+      const msg = error.message?.includes('Variable')
+        ? `Variable '${key}' not found in session ${sessionId}`
+        : `Session not found: ${sessionId}`;
+      formatter.error(msg, 'NOT_FOUND');
     } else {
       handleApiError(error, 'getting session variable');
     }
@@ -1240,6 +1198,7 @@ async function getSessionVariable(sessionId, key) {
 }
 
 async function setSessionVariable(sessionId, key, value) {
+  formatter.setCommand('session.vars.set');
   try {
     // Don't log internal command log updates
     const isInternalVar = key.startsWith('_');
@@ -1271,12 +1230,10 @@ async function setSessionVariable(sessionId, key, value) {
       await logSessionCommand(sessionId, `vars set ${key} ${value}`, `${key}: ${displayValue}`);
     }
 
-    console.log(`\n✅ Variable '${key}' set successfully\n`);
-    console.log(`  ${key}: ${displayValue}`);
-    console.log('');
+    formatter.success({ key, value: parsedValue }, `\n✅ Variable '${key}' set successfully\n\n  ${key}: ${displayValue}\n`);
   } catch (error) {
     if (error.status === 404) {
-      console.error(`❌ Session not found: ${sessionId}`);
+      formatter.error(`Session not found: ${sessionId}`, 'NOT_FOUND');
     } else {
       handleApiError(error, 'setting session variable');
     }
@@ -1285,17 +1242,16 @@ async function setSessionVariable(sessionId, key, value) {
 }
 
 async function removeSessionVariable(sessionId, key) {
+  formatter.setCommand('session.vars.remove');
   try {
     await client._fetch('DELETE', `/api/sessions/${sessionId}/variables/${key}`);
-
-    console.log(`\n✅ Variable '${key}' removed from session ${sessionId}\n`);
+    formatter.success({ key, removed: true }, `\n✅ Variable '${key}' removed from session ${sessionId}\n`);
   } catch (error) {
     if (error.status === 404) {
-      if (error.message?.includes('Variable')) {
-        console.error(`❌ Variable '${key}' not found in session ${sessionId}`);
-      } else {
-        console.error(`❌ Session not found: ${sessionId}`);
-      }
+      const msg = error.message?.includes('Variable')
+        ? `Variable '${key}' not found in session ${sessionId}`
+        : `Session not found: ${sessionId}`;
+      formatter.error(msg, 'NOT_FOUND');
     } else {
       handleApiError(error, 'removing session variable');
     }
@@ -1306,26 +1262,29 @@ async function removeSessionVariable(sessionId, key) {
 // ============= Session Entry Points Functions =============
 
 async function listSessionEntryPoints(sessionId) {
+  formatter.setCommand('session.entry-points');
   try {
     const response = await client._fetch('GET', `/api/sessions/${sessionId}/entry-points`);
 
     if (!response || Object.keys(response).length === 0) {
-      console.log('\n📍 No entry points defined for this session\n');
-      console.log('  Register one: maestro session entry-points ' + sessionId + ' register <name> <workflow-id>');
-      console.log('');
+      formatter.success({}, '\n📍 No entry points defined for this session\n');
       return;
     }
 
-    console.log('\n📍 Session Entry Points:\n');
-    for (const [name, workflowId] of Object.entries(response)) {
-      console.log(`  ${name}: ${workflowId}`);
+    if (formatter.jsonMode) {
+      formatter.success(response);
+    } else {
+      console.log('\n📍 Session Entry Points:\n');
+      for (const [name, workflowId] of Object.entries(response)) {
+        console.log(`  ${name}: ${workflowId}`);
+      }
+      console.log('');
+      console.log('  Invoke with: maestro session invoke ' + sessionId + ' <entry-point>');
+      console.log('');
     }
-    console.log('');
-    console.log('  Invoke with: maestro session invoke ' + sessionId + ' <entry-point>');
-    console.log('');
   } catch (error) {
     if (error.status === 404) {
-      console.error(`❌ Session not found: ${sessionId}`);
+      formatter.error(`Session not found: ${sessionId}`, 'NOT_FOUND');
     } else {
       handleApiError(error, 'listing session entry points');
     }
@@ -1334,19 +1293,15 @@ async function listSessionEntryPoints(sessionId) {
 }
 
 async function registerSessionEntryPoint(sessionId, name, workflowId) {
+  formatter.setCommand('session.entry-points.register');
   try {
     await client._fetch('PUT', `/api/sessions/${sessionId}/entry-points/${name}`, {
       body: { workflowId }
     });
-
-    console.log(`\n✅ Entry point '${name}' registered successfully\n`);
-    console.log(`  ${name} -> ${workflowId}`);
-    console.log('');
-    console.log('  Invoke with: maestro session invoke ' + sessionId + ' ' + name);
-    console.log('');
+    formatter.success({ name, workflowId }, `\n✅ Entry point '${name}' registered successfully\n\n  ${name} -> ${workflowId}\n`);
   } catch (error) {
     if (error.status === 404) {
-      console.error(`❌ Session not found: ${sessionId}`);
+      formatter.error(`Session not found: ${sessionId}`, 'NOT_FOUND');
     } else {
       handleApiError(error, 'registering entry point');
     }
@@ -1355,17 +1310,16 @@ async function registerSessionEntryPoint(sessionId, name, workflowId) {
 }
 
 async function removeSessionEntryPoint(sessionId, name) {
+  formatter.setCommand('session.entry-points.remove');
   try {
     await client._fetch('DELETE', `/api/sessions/${sessionId}/entry-points/${name}`);
-
-    console.log(`\n✅ Entry point '${name}' removed from session ${sessionId}\n`);
+    formatter.success({ name, removed: true }, `\n✅ Entry point '${name}' removed from session ${sessionId}\n`);
   } catch (error) {
     if (error.status === 404) {
-      if (error.message?.includes('Entry point')) {
-        console.error(`❌ Entry point '${name}' not found in session ${sessionId}`);
-      } else {
-        console.error(`❌ Session not found: ${sessionId}`);
-      }
+      const msg = error.message?.includes('Entry point')
+        ? `Entry point '${name}' not found in session ${sessionId}`
+        : `Session not found: ${sessionId}`;
+      formatter.error(msg, 'NOT_FOUND');
     } else {
       handleApiError(error, 'removing entry point');
     }
@@ -1374,25 +1328,18 @@ async function removeSessionEntryPoint(sessionId, name) {
 }
 
 async function invokeSessionEntryPoint(sessionId, entryPoint) {
+  formatter.setCommand('session.invoke');
   try {
     const response = await client._fetch('POST', `/api/sessions/${sessionId}/invoke/${entryPoint}`, {
       body: {}
     });
-
-    console.log(`\n▶️  Entry Point Invoked: ${entryPoint}\n`);
-    console.log(`  Workflow: ${response.workflowId}`);
-    console.log(`  Status: ${response.status}`);
-    if (response.message) {
-      console.log(`  Message: ${response.message}`);
-    }
-    console.log('');
+    formatter.success(response, `\n▶️  Entry Point Invoked: ${entryPoint}\n\n  Workflow: ${response.workflowId}\n  Status: ${response.status}${response.message ? '\n  Message: ' + response.message : ''}\n`);
   } catch (error) {
     if (error.status === 404) {
-      if (error.message?.includes('Entry point')) {
-        console.error(`❌ Entry point '${entryPoint}' not found in session ${sessionId}`);
-      } else {
-        console.error(`❌ Session not found: ${sessionId}`);
-      }
+      const msg = error.message?.includes('Entry point')
+        ? `Entry point '${entryPoint}' not found in session ${sessionId}`
+        : `Session not found: ${sessionId}`;
+      formatter.error(msg, 'NOT_FOUND');
     } else {
       handleApiError(error, 'invoking entry point');
     }
@@ -2126,11 +2073,13 @@ async function getWorkspaceInfo(id) {
 }
 
 async function createWorkspace(options) {
+  formatter.setCommand('workspace.create');
   try {
     const request = {
       name: options.name,
       type: options.type || 'Custom',
       description: options.description,
+      repositoryPath: options.repoPath || null,
       isolated: options.isolated || false
     };
 
@@ -2153,12 +2102,8 @@ async function createWorkspace(options) {
     }
 
     const workspace = await client.post('/api/workspaces', request);
-    console.log('\n✅ Workspace created successfully!\n');
-    console.log(`  ID:       ${workspace.id}`);
-    console.log(`  Name:     ${workspace.name}`);
-    console.log(`  Type:     ${workspace.type}`);
-    console.log(`  Isolated: ${workspace.isolation?.enabled ? 'Yes' : 'No'}`);
-    console.log('');
+    const repoInfo = workspace.repositoryPath ? `\n  Repo:     ${workspace.repositoryPath}` : '';
+    formatter.success(workspace, `\n✅ Workspace created successfully!\n\n  ID:       ${workspace.id}\n  Name:     ${workspace.name}\n  Type:     ${workspace.type}\n  Isolated: ${workspace.isolation?.enabled ? 'Yes' : 'No'}${repoInfo}\n`);
   } catch (error) {
     handleApiError(error, 'creating workspace');
     process.exit(1);
@@ -4072,10 +4017,28 @@ async function rejectBlock(id, reason, options = {}) {
 }
 
 async function main() {
-  const argv = minimist(process.argv.slice(2), {
-    boolean: ['mock', 'help', 'h', 'force', 'status', 'push', 'run-tests', 'run-linter', 'keep-changes', 'pending-approval', 'no-monitor', 'list', 'no-back', 'debug'],
-    string: ['api-url', 'u', 'name', 'path', 'description', 'runtime', 'image', 'work-dir', 'block-paths', 'model', 'lines', 'since', 'working-dir', 'workdir', 'workflow', 'iterations', 'parallel', 'delay', 'goal', 'tags', 'inputs', 'config', 'from', 'to', 'limit', 'block', 'category', 'version', 'author', 'capabilities', 'tools', 'agents', 'type', 'project', 'task', 'context', 'access', 'test-command', 'linter-command', 'max-steps', 'timeout', 'message', 'branch', 'scope', 'authority', 'allowed-paths', 'denied-paths', 'filter', 'offset', 'command', 'from-session', 'template', 'reason']
-  });
+  // Check if first argument is a JSON object (agent input mode)
+  const firstArg = process.argv[2];
+  let argv;
+
+  if (firstArg && firstArg.trim().startsWith('{')) {
+    try {
+      argv = JsonInputParser.parse(firstArg);
+    } catch (e) {
+      formatter = new OutputFormatter(true);
+      formatter.error(e.message, 'PARSE_ERROR');
+      process.exit(1);
+    }
+  } else {
+    argv = minimist(process.argv.slice(2), {
+      boolean: ['mock', 'help', 'h', 'force', 'status', 'push', 'run-tests', 'run-linter', 'keep-changes', 'pending-approval', 'no-monitor', 'list', 'no-back', 'debug'],
+      string: ['api-url', 'u', 'name', 'path', 'description', 'runtime', 'image', 'work-dir', 'block-paths', 'model', 'lines', 'since', 'working-dir', 'workdir', 'workflow', 'iterations', 'parallel', 'delay', 'goal', 'tags', 'inputs', 'config', 'from', 'to', 'limit', 'block', 'category', 'version', 'author', 'capabilities', 'tools', 'agents', 'type', 'project', 'task', 'context', 'access', 'test-command', 'linter-command', 'max-steps', 'timeout', 'message', 'branch', 'scope', 'authority', 'allowed-paths', 'denied-paths', 'filter', 'offset', 'command', 'from-session', 'template', 'reason', 'repo-path']
+    });
+  }
+
+  // Detect JSON output mode (--json flag without value, or set by JsonInputParser)
+  const isJsonMode = argv.json === true;
+  formatter = new OutputFormatter(isJsonMode);
 
   // Update client URL if provided
   if (argv['api-url'] || argv.u) {
@@ -4091,7 +4054,7 @@ async function main() {
       // Create a new argv-like object for the command
       const innerArgv = minimist(args, {
         boolean: ['mock', 'help', 'h', 'force', 'status', 'push', 'run-tests', 'run-linter', 'keep-changes', 'pending-approval', 'no-monitor', 'list', 'no-back', 'debug'],
-        string: ['api-url', 'u', 'name', 'path', 'description', 'runtime', 'image', 'work-dir', 'block-paths', 'model', 'lines', 'since', 'working-dir', 'workdir', 'workflow', 'iterations', 'parallel', 'delay', 'goal', 'tags', 'inputs', 'config', 'from', 'to', 'limit', 'block', 'category', 'version', 'author', 'capabilities', 'tools', 'agents', 'type', 'project', 'task', 'context', 'access', 'test-command', 'linter-command', 'max-steps', 'timeout', 'message', 'branch', 'scope', 'authority', 'allowed-paths', 'denied-paths', 'filter', 'offset', 'command', 'json', 'from-session', 'template', 'reason']
+        string: ['api-url', 'u', 'name', 'path', 'description', 'runtime', 'image', 'work-dir', 'block-paths', 'model', 'lines', 'since', 'working-dir', 'workdir', 'workflow', 'iterations', 'parallel', 'delay', 'goal', 'tags', 'inputs', 'config', 'from', 'to', 'limit', 'block', 'category', 'version', 'author', 'capabilities', 'tools', 'agents', 'type', 'project', 'task', 'context', 'access', 'test-command', 'linter-command', 'max-steps', 'timeout', 'message', 'branch', 'scope', 'authority', 'allowed-paths', 'denied-paths', 'filter', 'offset', 'command', 'from-session', 'template', 'reason', 'repo-path']
       });
       await executeWithArgv(innerArgv);
     });
@@ -4104,6 +4067,7 @@ async function main() {
 Maestro CLI v2.0.0
 
 Usage: maestro <command> [options]
+       maestro '{"command":"...", "params":{...}}'   JSON input (agent mode)
        maestro                    Launch interactive shell
 
 Block Commands:
@@ -4237,7 +4201,7 @@ System Block Commands:
 Workspace Commands:
   workspace            List all workspaces
   workspace info <id>  Show workspace details
-  workspace create     Create a new workspace
+  workspace create     Create a new workspace (--repo-path to bind to repo)
   workspace delete <id> Delete a workspace (--force required)
   workspace add-session <ws-id> <session-id>  Add session to workspace
   workspace add-project <ws-id> <project-id>  Add project to workspace
@@ -4295,6 +4259,7 @@ Block Approval Commands:
 
 System Commands:
   health               Check backend connection
+  schema               Show available commands and parameters (for agents)
 
 Options:
   --api-url <url>      Backend API URL (default: http://localhost:5000)
@@ -4302,6 +4267,7 @@ Options:
   --mock               Use mock execution (for offline workflow testing)
   --input <key=value>  Input parameters for execution (can be repeated)
   --working-dir <path> Working directory for execution (e.g., git repo path)
+  --json               Output structured JSON (for agent consumption)
   --help, -h           Show this help message
 
 Project Create Options:
@@ -4894,17 +4860,17 @@ async function executeWithArgv(argv) {
         if (varsCmd === 'set') {
           const key = argv._[4];
           let value = argv._[5];
-          if (!key) { console.error('❌ Variable key required'); process.exit(1); }
-          if (value === undefined && !argv.json) { console.error('❌ Variable value required'); process.exit(1); }
-          // If --json flag is provided, parse the value as JSON
-          if (argv.json) {
+          if (!key) { formatter.error('Variable key required', 'MISSING_PARAM'); process.exit(1); }
+          // --json with a string value = legacy JSON value mode (not --json boolean output flag)
+          if (typeof argv.json === 'string' && argv.json) {
             try {
               value = JSON.parse(argv.json);
             } catch (e) {
-              console.error('❌ Invalid JSON value');
+              formatter.error('Invalid JSON value', 'PARSE_ERROR');
               process.exit(1);
             }
           }
+          if (value === undefined) { formatter.error('Variable value required', 'MISSING_PARAM'); process.exit(1); }
           return await setSessionVariable(id, key, value);
         }
 
@@ -5186,10 +5152,12 @@ async function executeWithArgv(argv) {
 
       if (subCmd === 'create') {
         const name = argv._[2] || argv.name;
-        if (!name) { console.error('❌ Workspace name required'); process.exit(1); }
-        return await createWorkspace(name, {
+        if (!name) { formatter.error('Workspace name required', 'MISSING_PARAM'); process.exit(1); }
+        return await createWorkspace({
+          name,
           type: argv.type,
           description: argv.description,
+          repoPath: argv['repo-path'],
           isolated: argv.isolated
         });
       }
@@ -5833,11 +5801,65 @@ async function executeWithArgv(argv) {
       process.exit(1);
     }
 
-    console.error(`❌ Unknown command: ${cmd}`);
-    console.error('   Run "maestro --help" for usage information');
+    // Schema command — outputs available commands and their parameters
+    if (cmd === 'schema') {
+      formatter.setCommand('schema');
+      const schema = {
+        version: '2.0.0',
+        inputFormat: '{"command": "session.create", "params": {"type": "foundry", "name": "Test"}}',
+        commands: {
+          'health': { params: {} },
+          'blocks': { params: {} },
+          'workflows': { params: {} },
+          'info': { params: { id: { type: 'string', required: true, positional: 1 } } },
+          'search': { params: { query: { type: 'string', required: true, positional: 1 } } },
+          'children': { params: { id: { type: 'string', required: true, positional: 1 }, recursive: { type: 'boolean', default: true } } },
+          'session': { params: {} },
+          'session.list': { params: { status: { type: 'string' }, project: { type: 'string' }, limit: { type: 'number' } } },
+          'session.info': { params: { id: { type: 'string', required: true, positional: 2 } } },
+          'session.create': { params: { project: { type: 'string', required: true }, name: { type: 'string' }, authority: { type: 'string', default: 'human' }, type: { type: 'string' }, source: { type: 'string', default: 'sandbox' }, repositoryPath: { type: 'string' } } },
+          'session.start': { params: { id: { type: 'string', required: true, positional: 2 }, noMonitor: { type: 'boolean', default: false } } },
+          'session.stop': { params: { id: { type: 'string', required: true, positional: 2 } } },
+          'session.pause': { params: { id: { type: 'string', required: true, positional: 2 } } },
+          'session.resume': { params: { id: { type: 'string', required: true, positional: 2 } } },
+          'session.delete': { params: { id: { type: 'string', required: true, positional: 2 } } },
+          'session.exec': { params: { id: { type: 'string', required: true, positional: 2 }, command: { type: 'string', required: true, positional: 3 } } },
+          'session.invoke': { params: { id: { type: 'string', required: true, positional: 2 }, entryPoint: { type: 'string', default: 'start', positional: 3 } } },
+          'session.events': { params: { id: { type: 'string', required: true, positional: 2 }, limit: { type: 'number' }, offset: { type: 'number' }, filter: { type: 'string' } } },
+          'session.vars': { params: { id: { type: 'string', required: true, positional: 2 } } },
+          'session.vars.list': { params: { id: { type: 'string', required: true, positional: 2 } } },
+          'session.vars.get': { params: { id: { type: 'string', required: true, positional: 2 }, key: { type: 'string', required: true, positional: 4 } } },
+          'session.vars.set': { params: { id: { type: 'string', required: true, positional: 2 }, key: { type: 'string', required: true, positional: 4 }, value: { type: 'any', required: true, positional: 5 } } },
+          'session.vars.remove': { params: { id: { type: 'string', required: true, positional: 2 }, key: { type: 'string', required: true, positional: 4 } } },
+          'session.entry-points': { params: { id: { type: 'string', required: true, positional: 2 } } },
+          'session.import': { params: { id: { type: 'string', required: true, positional: 2 }, template: { type: 'string', required: true } } },
+          'session.take-control': { params: { id: { type: 'string', required: true, positional: 2 }, authority: { type: 'string', default: 'human' } } },
+          'session.widgets': { params: { id: { type: 'string', required: true, positional: 2 } } },
+          'execute': { params: { workflow: { type: 'string', required: true, positional: 1 }, input: { type: 'string', repeated: true }, workingDir: { type: 'string' } } },
+          'run': { params: { blockId: { type: 'string', required: true, positional: 1 } } },
+          'validate': { params: { workflow: { type: 'string', required: true, positional: 1 } } },
+          'monitor': { params: { id: { type: 'string', positional: 1 } } },
+          'projects': { params: {} },
+          'projects.info': { params: { id: { type: 'string', required: true, positional: 2 } } },
+          'projects.create': { params: { name: { type: 'string', required: true }, path: { type: 'string', required: true } } },
+          'projects.delete': { params: { id: { type: 'string', required: true, positional: 2 }, force: { type: 'boolean' } } },
+          'workspace': { params: {} },
+          'workspace.info': { params: { id: { type: 'string', required: true, positional: 2 } } },
+          'workspace.create': { params: { name: { type: 'string', required: true, positional: 2 } } },
+          'workspace.delete': { params: { id: { type: 'string', required: true, positional: 2 }, force: { type: 'boolean' } } },
+          'block.publish': { params: { id: { type: 'string', required: true, positional: 2 }, fromSession: { type: 'string' } } },
+          'block.approve': { params: { id: { type: 'string', required: true, positional: 2 } } },
+          'block.reject': { params: { id: { type: 'string', required: true, positional: 2 }, reason: { type: 'string', required: true } } },
+        }
+      };
+      formatter.success(schema, JSON.stringify(schema, null, 2));
+      return;
+    }
+
+    formatter.error(`Unknown command: ${cmd}`, 'UNKNOWN_COMMAND');
     process.exit(1);
   } catch (error) {
-    console.error(`❌ Fatal error: ${error.message}`);
+    formatter.error(`Fatal error: ${error.message}`, 'FATAL');
     process.exit(1);
   }
 }

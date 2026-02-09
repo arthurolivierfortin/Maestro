@@ -441,6 +441,80 @@ public class ContainerSessionTests
         Assert.Equal("/project:/workspace:rw", mountString);
     }
 
+    // ===== Repository Binding Tests (Phase 12) =====
+
+    [Fact]
+    public void BindToRepository_SetsRepositoryPathAndBinding()
+    {
+        var session = TestRootSession.Create("Test");
+
+        session.BindToRepository("/path/to/repo");
+
+        Assert.NotNull(session.RepositoryPath);
+        Assert.Contains("repo", session.RepositoryPath!);
+        Assert.True(session.IsBoundToRepository);
+        Assert.Equal(ContainerBindingType.Repository, session.Binding.Type);
+    }
+
+    [Fact]
+    public void BindToRepository_WithAccessLevel_SetsCorrectBinding()
+    {
+        var session = TestRootSession.Create("Test");
+
+        session.BindToRepository("/path/to/repo", RepositoryAccessLevel.ReadOnly);
+
+        Assert.True(session.IsBoundToRepository);
+        Assert.Equal(RepositoryAccessLevel.ReadOnly, session.Binding.AccessLevel);
+    }
+
+    [Fact]
+    public void BindToRepository_AfterStart_ThrowsException()
+    {
+        var session = TestRootSession.Create("Test");
+        session.TestTransitionTo(ContainerSessionStatus.Active);
+
+        Assert.Throws<InvalidOperationException>(() =>
+            session.BindToRepository("/path/to/repo"));
+    }
+
+    [Fact]
+    public void BindToRepository_WithEmptyPath_ThrowsException()
+    {
+        var session = TestRootSession.Create("Test");
+
+        Assert.Throws<ArgumentException>(() =>
+            session.BindToRepository(""));
+        Assert.Throws<ArgumentException>(() =>
+            session.BindToRepository("   "));
+    }
+
+    [Fact]
+    public void IsBoundToRepository_WhenNotBound_ReturnsFalse()
+    {
+        var session = TestRootSession.Create("Test");
+
+        Assert.False(session.IsBoundToRepository);
+        Assert.Null(session.RepositoryPath);
+    }
+
+    [Fact]
+    public void MaestroDataPath_WhenBound_ReturnsCorrectPath()
+    {
+        var session = TestRootSession.Create("Test");
+        session.BindToRepository("/path/to/repo");
+
+        Assert.NotNull(session.MaestroDataPath);
+        Assert.Contains(".maestro", session.MaestroDataPath!);
+    }
+
+    [Fact]
+    public void MaestroDataPath_WhenNotBound_ReturnsNull()
+    {
+        var session = TestRootSession.Create("Test");
+
+        Assert.Null(session.MaestroDataPath);
+    }
+
     // ===== ToString Tests =====
 
     [Fact]

@@ -125,7 +125,7 @@ public class Workspace : ContainerSession
 
     private Workspace()
     {
-        // Workspace doesn't bind to containers directly
+        // Default: no container binding. Can be overridden via BindToRepository().
         Binding = ContainerBinding.None;
     }
 
@@ -138,18 +138,19 @@ public class Workspace : ContainerSession
         string name,
         WorkspaceType type,
         string? description = null,
-        string? createdBy = null)
+        string? createdBy = null,
+        string? repositoryPath = null)
     {
         if (string.IsNullOrWhiteSpace(name))
             throw new ArgumentException("Workspace name is required", nameof(name));
 
-        return new Workspace
+        var ws = new Workspace
         {
             Id = Guid.NewGuid().ToString(),
             Name = name,
             Description = description,
             Type = type,
-            Status = ContainerSessionStatus.Active,
+            Status = ContainerSessionStatus.Created,
             Permissions = ContextPermissions.Full,
             CreatedAt = DateTimeOffset.UtcNow,
             UpdatedAt = DateTimeOffset.UtcNow,
@@ -157,6 +158,16 @@ public class Workspace : ContainerSession
             Settings = WorkspaceSettings.DefaultForType(type),
             Isolation = new WorkspaceIsolation()
         };
+
+        if (repositoryPath != null)
+        {
+            ws.BindToRepository(repositoryPath, RepositoryAccessLevel.Full);
+        }
+
+        // Workspaces start as Active
+        ws.Status = ContainerSessionStatus.Active;
+
+        return ws;
     }
 
     /// <summary>
@@ -216,9 +227,11 @@ public class Workspace : ContainerSession
         Dictionary<string, string> entryPoints,
         DateTimeOffset createdAt,
         DateTimeOffset? updatedAt,
-        string? createdBy)
+        string? createdBy,
+        string? repositoryPath = null,
+        ContainerBinding? binding = null)
     {
-        return new Workspace
+        var ws = new Workspace
         {
             Id = id,
             Name = name,
@@ -238,6 +251,19 @@ public class Workspace : ContainerSession
             UpdatedAt = updatedAt,
             CreatedBy = createdBy
         };
+
+        if (repositoryPath != null)
+        {
+            ws.RepositoryPath = repositoryPath;
+            ws.Binding = binding ?? ContainerBinding.CreateRepositoryBound(repositoryPath);
+        }
+        else if (binding != null && binding.Type == ContainerBindingType.Repository)
+        {
+            ws.RepositoryPath = binding.RepositoryPath;
+            ws.Binding = binding;
+        }
+
+        return ws;
     }
 
     // ===== Update Methods =====

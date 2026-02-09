@@ -33,11 +33,6 @@ public class ProjectSession : Session
     public string WorkingDirectory { get; private set; } = ".";
 
     /// <summary>
-    /// Repository path for this session.
-    /// </summary>
-    public string? RepositoryPath { get; private set; }
-
-    /// <summary>
     /// Currently running agent executions.
     /// </summary>
     public IReadOnlyDictionary<string, AgentExecution> RunningAgents => _runningAgents;
@@ -95,22 +90,23 @@ public class ProjectSession : Session
         ArgumentNullException.ThrowIfNull(authority);
         ArgumentNullException.ThrowIfNull(config);
 
-        var accessLevel = MapAccessLevel(config.Access.Level);
-
         var session = new ProjectSession
         {
             Id = Guid.NewGuid().ToString(),
             Name = name,
             Authority = authority,
             Config = config,
-            RepositoryPath = repositoryPath,
             Status = ContainerSessionStatus.Created,
             Permissions = permissions ?? ContextPermissions.Full,
-            Binding = repositoryPath != null
-                ? ContainerBinding.CreateRepositoryBound(repositoryPath, accessLevel)
-                : ContainerBinding.CreateSandbox(),
+            Binding = ContainerBinding.CreateSandbox(), // Default, may be overridden
             CreatedAt = DateTimeOffset.UtcNow
         };
+
+        if (repositoryPath != null)
+        {
+            var accessLevel = MapAccessLevel(config.Access.Level);
+            session.BindToRepository(repositoryPath, accessLevel);
+        }
 
         session.EmitEvent(SessionEvent.Info(session.Id, $"Session created with authority: {authority}"));
         return session;

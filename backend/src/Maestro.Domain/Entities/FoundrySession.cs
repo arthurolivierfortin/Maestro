@@ -84,19 +84,13 @@ public class FoundrySession : Session
         string name,
         Authority authority,
         FoundrySessionConfig? config = null,
+        string? repositoryPath = null,
         ContextPermissions? permissions = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         ArgumentNullException.ThrowIfNull(authority);
 
         config ??= FoundrySessionConfig.Default;
-
-        // Determine binding based on config source
-        var binding = config.Source == SessionSource.Repository && config.RepositoryConfig != null
-            ? ContainerBinding.CreateRepositoryBound(
-                config.RepositoryConfig.RepositoryPath,
-                MapAccessLevel(config.RepositoryConfig.AccessLevel))
-            : ContainerBinding.CreateSandbox();
 
         var session = new FoundrySession
         {
@@ -106,9 +100,25 @@ public class FoundrySession : Session
             Config = config,
             Status = ContainerSessionStatus.Created,
             Permissions = permissions ?? ContextPermissions.Full,
-            Binding = binding,
+            Binding = ContainerBinding.CreateSandbox(), // Default
             CreatedAt = DateTimeOffset.UtcNow
         };
+
+        // Priority: explicit repositoryPath > config.Source/RepositoryConfig
+        if (repositoryPath != null)
+        {
+            var accessLevel = config.RepositoryConfig != null
+                ? MapAccessLevel(config.RepositoryConfig.AccessLevel)
+                : ValueObjects.RepositoryAccessLevel.Controlled;
+            session.BindToRepository(repositoryPath, accessLevel);
+        }
+        else if (config.Source == SessionSource.Repository && config.RepositoryConfig != null)
+        {
+            // Backwards compatibility: use config source
+            session.BindToRepository(
+                config.RepositoryConfig.RepositoryPath,
+                MapAccessLevel(config.RepositoryConfig.AccessLevel));
+        }
 
         session.EmitEvent(SessionEvent.Info(session.Id, $"Foundry session created with authority: {authority}"));
 
@@ -130,9 +140,10 @@ public class FoundrySession : Session
         Authority authority,
         FoundrySessionConfig config,
         string workspaceId,
+        string? repositoryPath = null,
         ContextPermissions? permissions = null)
     {
-        var session = Create(name, authority, config, permissions);
+        var session = Create(name, authority, config, repositoryPath, permissions);
         session.ParentWorkspaceId = workspaceId;
         return session;
     }
@@ -164,7 +175,8 @@ public class FoundrySession : Session
         DateTimeOffset? updatedAt,
         string? createdBy,
         IEnumerable<SessionCommand>? commandHistory = null,
-        IEnumerable<SessionEvent>? eventHistory = null)
+        IEnumerable<SessionEvent>? eventHistory = null,
+        string? repositoryPath = null)
     {
         var session = new FoundrySession
         {
@@ -182,6 +194,7 @@ public class FoundrySession : Session
             Binding = binding,
             BlockRegistry = blockRegistry,
             Metrics = metrics,
+            RepositoryPath = repositoryPath ?? binding.RepositoryPath,
             ErrorMessage = errorMessage,
             CreatedAt = createdAt,
             StartedAt = startedAt,

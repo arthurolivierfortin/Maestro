@@ -89,6 +89,7 @@ public class WorkspacesController : ControllerBase
                 request.Description,
                 request.Isolated,
                 request.IsolationConfig?.ToDomain(),
+                request.RepositoryPath,
                 ct);
 
             _logger.LogInformation("Created workspace {Id}: {Name}", workspace.Id, workspace.Name);

@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
+using System.Text;
 using Maestro.Application.Interfaces;
 using Maestro.Domain.ValueObjects;
 using Microsoft.Extensions.Logging;
@@ -12,6 +13,19 @@ namespace Maestro.Infrastructure.Containers;
 /// </summary>
 public class ProcessContainerRuntime : IContainerRuntime
 {
+    private const int MaxOutputBytes = 1_048_576; // 1 MB
+
+    private static readonly HashSet<string> BlockedEnvPrefixes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "ASPNETCORE_", "DOTNET_", "ConnectionStrings__",
+        "LLM_", "API_KEY", "SECRET_", "MAESTRO_INTERNAL_"
+    };
+
+    private static readonly HashSet<string> RequiredEnvKeys = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "PATH", "HOME", "USERPROFILE", "TEMP", "TMP", "LANG"
+    };
+
     private readonly ILogger<ProcessContainerRuntime> _logger;
     private readonly ConcurrentDictionary<string, ProcessContainer> _containers = new();
 
@@ -114,7 +128,37 @@ public class ProcessContainerRuntime : IContainerRuntime
             throw new InvalidOperationException($"Container is not running: {containerId}");
         }
 
-        var workDir = request.WorkingDirectory ?? container.Config.WorkDir ?? Directory.GetCurrentDirectory();
+        var rootDir = container.Config.WorkDir;
+        string workDir;
+        if (request.WorkingDirectory != null)
+        {
+            if (rootDir != null)
+            {
+                try
+                {
+                    workDir = PathValidator.ValidateAndResolve(request.WorkingDirectory, rootDir);
+                }
+                catch (InvalidOperationException ex)
+                {
+                    return new ContainerExecResult
+                    {
+                        ExitCode = -1,
+                        StandardOutput = "",
+                        StandardError = $"Path access denied: {ex.Message}",
+                        Duration = TimeSpan.Zero,
+                        TimedOut = false
+                    };
+                }
+            }
+            else
+            {
+                workDir = request.WorkingDirectory;
+            }
+        }
+        else
+        {
+            workDir = rootDir ?? Directory.GetCurrentDirectory();
+        }
 
         using var process = new Process
         {
@@ -131,17 +175,7 @@ public class ProcessContainerRuntime : IContainerRuntime
             }
         };
 
-        // Add environment variables from container config
-        foreach (var env in container.Config.Environment)
-        {
-            process.StartInfo.Environment[env.Key] = env.Value;
-        }
-
-        // Add request-specific environment variables
-        foreach (var env in request.Environment)
-        {
-            process.StartInfo.Environment[env.Key] = env.Value;
-        }
+        ConfigureEnvironment(process.StartInfo, container.Config, request);
 
         var stopwatch = Stopwatch.StartNew();
         var timedOut = false;
@@ -156,11 +190,8 @@ public class ProcessContainerRuntime : IContainerRuntime
                 process.StandardInput.Close();
             }
 
-            var stdoutTask = process.StandardOutput.ReadToEndAsync();
-            var stderrTask = process.StandardError.ReadToEndAsync();
-
             var timeout = request.Timeout ?? TimeSpan.FromMinutes(5);
-            
+
             // Apply resource timeout if configured
             if (container.Config.Resources?.TimeoutSeconds is > 0 and int timeoutSec)
             {
@@ -173,6 +204,9 @@ public class ProcessContainerRuntime : IContainerRuntime
 
             using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             timeoutCts.CancelAfter(timeout);
+
+            var stdoutTask = ReadBoundedAsync(process.StandardOutput, MaxOutputBytes, timeoutCts.Token);
+            var stderrTask = ReadBoundedAsync(process.StandardError, MaxOutputBytes, timeoutCts.Token);
 
             try
             {
@@ -256,9 +290,14 @@ public class ProcessContainerRuntime : IContainerRuntime
         CancellationToken cancellationToken = default)
     {
         // For process runtime, just copy files locally
-        if (!_containers.TryGetValue(containerId, out _))
+        if (!_containers.TryGetValue(containerId, out var container))
         {
             throw new InvalidOperationException($"Container not found: {containerId}");
+        }
+
+        if (container.Config.WorkDir != null)
+        {
+            PathValidator.ValidateAndResolve(destinationPath, container.Config.WorkDir);
         }
 
         if (File.Exists(sourcePath))
@@ -319,6 +358,87 @@ public class ProcessContainerRuntime : IContainerRuntime
         // Process-based containers don't have resource monitoring
         // Could potentially use Process.TotalProcessorTime and WorkingSet64 in the future
         return Task.FromResult<ContainerResourceStats?>(null);
+    }
+
+    private void ConfigureEnvironment(ProcessStartInfo startInfo, RuntimeConfiguration config, ContainerExecRequest request)
+    {
+        // Clear inherited env vars to prevent leaking backend secrets
+        startInfo.Environment.Clear();
+
+        // Add required system env vars from current process
+        foreach (var key in RequiredEnvKeys)
+        {
+            var value = Environment.GetEnvironmentVariable(key);
+            if (value != null)
+                startInfo.Environment[key] = value;
+        }
+
+        // Add container config env vars (explicitly configured)
+        foreach (var env in config.Environment)
+        {
+            if (!IsBlockedEnvVar(env.Key))
+                startInfo.Environment[env.Key] = env.Value;
+        }
+
+        // Add request-specific env vars
+        foreach (var env in request.Environment)
+        {
+            if (!IsBlockedEnvVar(env.Key))
+                startInfo.Environment[env.Key] = env.Value;
+        }
+    }
+
+    private static bool IsBlockedEnvVar(string key)
+    {
+        return BlockedEnvPrefixes.Any(prefix => key.StartsWith(prefix, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static async Task<string> ReadBoundedAsync(StreamReader reader, int maxChars, CancellationToken ct)
+    {
+        var sb = new StringBuilder();
+        var buffer = new char[4096];
+        var totalRead = 0;
+        var truncated = false;
+
+        while (!ct.IsCancellationRequested)
+        {
+            int read;
+            try
+            {
+                read = await reader.ReadAsync(buffer, ct);
+            }
+            catch (OperationCanceledException)
+            {
+                break;
+            }
+
+            if (read == 0) break;
+
+            var remaining = maxChars - totalRead;
+            if (remaining <= 0)
+            {
+                truncated = true;
+                break;
+            }
+
+            var toAppend = Math.Min(read, remaining);
+            sb.Append(buffer, 0, toAppend);
+            totalRead += toAppend;
+
+            if (toAppend < read)
+            {
+                truncated = true;
+                break;
+            }
+        }
+
+        if (truncated)
+        {
+            sb.AppendLine();
+            sb.Append($"--- OUTPUT TRUNCATED (exceeded {maxChars} characters) ---");
+        }
+
+        return sb.ToString();
     }
 
     private static string EscapeArg(string arg)

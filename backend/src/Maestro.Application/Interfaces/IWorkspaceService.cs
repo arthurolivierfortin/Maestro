@@ -20,6 +20,7 @@ public interface IWorkspaceService
         string? description = null,
         bool isolated = false,
         WorkspaceIsolation? isolationConfig = null,
+        string? repositoryPath = null,
         CancellationToken ct = default);
 
     /// <summary>

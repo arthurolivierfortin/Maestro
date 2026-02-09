@@ -158,6 +158,7 @@ public class FileSystemWorkspaceRepository : IWorkspaceRepository
         public DateTimeOffset CreatedAt { get; set; }
         public DateTimeOffset? UpdatedAt { get; set; }
         public string? CreatedBy { get; set; }
+        public string? RepositoryPath { get; set; }
 
         public static WorkspaceData FromDomain(Workspace workspace)
         {
@@ -181,7 +182,8 @@ public class FileSystemWorkspaceRepository : IWorkspaceRepository
                 EntryPoints = new Dictionary<string, string>(workspace.EntryPoints),
                 CreatedAt = workspace.CreatedAt,
                 UpdatedAt = workspace.UpdatedAt,
-                CreatedBy = workspace.CreatedBy
+                CreatedBy = workspace.CreatedBy,
+                RepositoryPath = workspace.RepositoryPath
             };
         }
 
@@ -209,7 +211,8 @@ public class FileSystemWorkspaceRepository : IWorkspaceRepository
                 entryPoints: new Dictionary<string, string>(EntryPoints),
                 createdAt: CreatedAt,
                 updatedAt: UpdatedAt,
-                createdBy: CreatedBy
+                createdBy: CreatedBy,
+                repositoryPath: RepositoryPath
             );
         }
 

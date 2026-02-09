@@ -70,6 +70,44 @@ public abstract class ContainerSession
     /// </summary>
     public ContainerBinding Binding { get; protected set; } = ContainerBinding.None;
 
+    // ===== Repository Binding =====
+
+    /// <summary>
+    /// Path to the bound repository. Null if the session is in sandbox mode.
+    /// This is the source of truth — the Binding is derived from this.
+    /// </summary>
+    public string? RepositoryPath { get; protected set; }
+
+    /// <summary>
+    /// True if this session is bound to a repository.
+    /// </summary>
+    public bool IsBoundToRepository => RepositoryPath != null && Binding.Type == ContainerBindingType.Repository;
+
+    /// <summary>
+    /// Path to the .maestro data directory within the bound repo. Null if not bound.
+    /// </summary>
+    public string? MaestroDataPath => RepositoryPath != null
+        ? Path.Combine(RepositoryPath, ".maestro")
+        : null;
+
+    /// <summary>
+    /// Binds this session to a local repository.
+    /// Must be called at creation time only (before Start).
+    /// </summary>
+    public void BindToRepository(
+        string repositoryPath,
+        RepositoryAccessLevel accessLevel = RepositoryAccessLevel.Controlled)
+    {
+        if (Status != ContainerSessionStatus.Created)
+            throw new InvalidOperationException("Cannot bind after session has started");
+
+        if (string.IsNullOrWhiteSpace(repositoryPath))
+            throw new ArgumentException("Repository path cannot be empty", nameof(repositoryPath));
+
+        RepositoryPath = Path.GetFullPath(repositoryPath);
+        Binding = ContainerBinding.CreateRepositoryBound(RepositoryPath, accessLevel);
+    }
+
     // ===== Session Variables =====
 
     /// <summary>

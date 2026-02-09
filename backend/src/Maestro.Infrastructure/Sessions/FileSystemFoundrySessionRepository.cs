@@ -235,7 +235,8 @@ public class FileSystemFoundrySessionRepository : IFoundrySessionRepository
             StartedAt = session.StartedAt,
             CompletedAt = session.CompletedAt,
             UpdatedAt = session.UpdatedAt,
-            CreatedBy = session.CreatedBy
+            CreatedBy = session.CreatedBy,
+            RepositoryPath = session.RepositoryPath
         };
     }
 
@@ -286,7 +287,8 @@ public class FileSystemFoundrySessionRepository : IFoundrySessionRepository
             startedAt: dto.StartedAt,
             completedAt: dto.CompletedAt,
             updatedAt: dto.UpdatedAt,
-            createdBy: dto.CreatedBy);
+            createdBy: dto.CreatedBy,
+            repositoryPath: dto.RepositoryPath);
     }
 
     // ===== Authority Mapping =====
@@ -605,6 +607,7 @@ public class FileSystemFoundrySessionRepository : IFoundrySessionRepository
         public DateTimeOffset? CompletedAt { get; set; }
         public DateTimeOffset? UpdatedAt { get; set; }
         public string? CreatedBy { get; set; }
+        public string? RepositoryPath { get; set; }
     }
 
     private class AuthorityJsonDto

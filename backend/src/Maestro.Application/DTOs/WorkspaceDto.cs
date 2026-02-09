@@ -27,6 +27,8 @@ public class WorkspaceDto
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset? UpdatedAt { get; set; }
     public string? CreatedBy { get; set; }
+    public string? RepositoryPath { get; set; }
+    public bool IsBoundToRepository { get; set; }
 
     public static WorkspaceDto FromDomain(Workspace workspace)
     {
@@ -50,7 +52,9 @@ public class WorkspaceDto
             EntryPoints = new Dictionary<string, string>(workspace.EntryPoints),
             CreatedAt = workspace.CreatedAt,
             UpdatedAt = workspace.UpdatedAt,
-            CreatedBy = workspace.CreatedBy
+            CreatedBy = workspace.CreatedBy,
+            RepositoryPath = workspace.RepositoryPath,
+            IsBoundToRepository = workspace.IsBoundToRepository
         };
     }
 }
@@ -241,6 +245,7 @@ public class CreateWorkspaceRequest
     public string Type { get; set; } = "Custom";
     public string? Description { get; set; }
     public string? Path { get; set; }
+    public string? RepositoryPath { get; set; }
     public bool Isolated { get; set; }
     public WorkspaceIsolationDto? IsolationConfig { get; set; }
     public WorkspaceSettingsDto? Settings { get; set; }

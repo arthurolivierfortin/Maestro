@@ -30,6 +30,7 @@ public class WorkspaceService : IWorkspaceService
         string? description = null,
         bool isolated = false,
         WorkspaceIsolation? isolationConfig = null,
+        string? repositoryPath = null,
         CancellationToken ct = default)
     {
         Workspace workspace;
@@ -45,7 +46,7 @@ public class WorkspaceService : IWorkspaceService
         }
         else
         {
-            workspace = Workspace.Create(name, type, description);
+            workspace = Workspace.Create(name, type, description, repositoryPath: repositoryPath);
         }
 
         await _repository.SaveAsync(workspace, ct);

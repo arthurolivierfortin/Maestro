@@ -29,6 +29,8 @@ public record ProjectSessionDto
     public Dictionary<string, object> Variables { get; init; } = new();
     public Dictionary<string, string> EntryPoints { get; init; } = new();
     public List<MonitorWidgetConfigDto> MonitorWidgets { get; init; } = new();
+    public string? RepositoryPath { get; init; }
+    public bool IsBoundToRepository { get; init; }
 
     public static ProjectSessionDto FromDomain(ProjectSession session)
     {
@@ -58,7 +60,9 @@ public record ProjectSessionDto
                 Id = w.Id,
                 Type = w.Type,
                 Config = new Dictionary<string, object>(w.Config)
-            }).ToList()
+            }).ToList(),
+            RepositoryPath = session.RepositoryPath,
+            IsBoundToRepository = session.IsBoundToRepository
         };
     }
 }
