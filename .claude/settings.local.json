@@ -97,7 +97,8 @@
       "Bash(cmd.exe /c \"cd /d C:\\\\Meastro\\\\frontend && npm run build 2>&1\")",
       "Bash(test:*)",
       "Bash(git mv:*)",
-      "Bash(git reset:*)"
+      "Bash(git reset:*)",
+      "Bash(find:*)"
     ]
   }
 }
