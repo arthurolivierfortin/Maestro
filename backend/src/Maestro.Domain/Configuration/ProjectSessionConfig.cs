@@ -8,9 +8,10 @@ namespace Maestro.Domain.Configuration;
 public class ProjectSessionConfig
 {
     /// <summary>
-    /// The project ID where the session runs.
+    /// The project ID where the session runs. Optional — sessions can be created
+    /// directly with a RepositoryPath without a registered Project.
     /// </summary>
-    public required string ProjectId { get; set; }
+    public string? ProjectId { get; set; }
 
     /// <summary>
     /// The workflow ID to execute (optional for interactive sessions).

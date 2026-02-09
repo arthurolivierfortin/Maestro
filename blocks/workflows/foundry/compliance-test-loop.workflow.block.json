@@ -1,0 +1,91 @@
+{
+  "$schema": "../../../../docs/schemas/block.schema.json",
+  "id": "foundry:compliance-test-loop",
+  "name": "LLM Compliance Test Loop",
+  "blockType": "workflow",
+  "version": "1.0.0",
+  "isAtomic": false,
+  "description": "Tests LLM models on their ability to produce structured output (valid JSON). Each phase tests one model with multiple iterations. Evaluation criteria measure JSON validity, structure compliance, and instruction following.",
+
+  "inputs": [
+    {
+      "id": "targetFitness",
+      "name": "Target Fitness",
+      "type": "number",
+      "required": false,
+      "default": 0.85,
+      "description": "Target fitness score (0.0-1.0)"
+    },
+    {
+      "id": "maxIterations",
+      "name": "Max Iterations",
+      "type": "number",
+      "required": false,
+      "default": 3,
+      "description": "Maximum test iterations per phase"
+    }
+  ],
+
+  "outputs": [
+    {
+      "id": "success",
+      "name": "Success",
+      "type": "boolean",
+      "description": "Whether all tests completed"
+    }
+  ],
+
+  "config": {
+    "nodes": [
+      {
+        "id": "load-artifact",
+        "blockRef": "system:block-loader",
+        "inputs": {}
+      },
+      {
+        "id": "test-loop",
+        "type": "while",
+        "condition": "{{currentFitness}} < {{targetFitness}} && {{iteration}} < {{maxIterations}}",
+        "maxIterations": "{{maxIterations}}",
+        "nodes": [
+          {
+            "id": "run-test",
+            "blockRef": "system:artifact-loader",
+            "inputs": {}
+          },
+          {
+            "id": "generate-structured-output",
+            "blockRef": "system:inference",
+            "inputs": {}
+          },
+          {
+            "id": "check-compliance",
+            "blockRef": "system:validator",
+            "inputs": {}
+          },
+          {
+            "id": "apply-result",
+            "blockRef": "system:file-writer",
+            "inputs": {}
+          }
+        ]
+      },
+      {
+        "id": "finalize-test",
+        "blockRef": "system:training-finalizer",
+        "inputs": {}
+      }
+    ],
+    "connections": [
+      { "from": "load-artifact", "to": "test-loop" },
+      { "from": "test-loop", "to": "finalize-test" }
+    ]
+  },
+
+  "metadata": {
+    "category": "foundry",
+    "tags": ["workflow", "foundry", "compliance", "testing", "llm", "structured-output"]
+  },
+
+  "capabilities": ["orchestration", "llm", "evaluation"]
+}

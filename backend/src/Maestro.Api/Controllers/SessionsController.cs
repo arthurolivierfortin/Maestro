@@ -67,8 +67,8 @@ public class SessionsController : ControllerBase
     [HttpPost]
     public async Task<ActionResult<ProjectSessionDto>> Create([FromBody] CreateInteractiveSessionRequest request)
     {
-        if (string.IsNullOrWhiteSpace(request.ProjectId))
-            return BadRequest(new { error = "ProjectId is required" });
+        if (string.IsNullOrWhiteSpace(request.ProjectId) && string.IsNullOrWhiteSpace(request.RepositoryPath))
+            return BadRequest(new { error = "Either ProjectId or RepositoryPath is required" });
 
         try
         {
@@ -104,10 +104,10 @@ public class SessionsController : ControllerBase
             };
 
             var sessionName = request.Name ?? $"Session-{DateTime.UtcNow:yyyyMMdd-HHmmss}";
-            var session = await _sessionServer.CreateAsync(sessionName, authority, config);
+            var session = await _sessionServer.CreateAsync(sessionName, authority, config, request.RepositoryPath);
 
             _logger.LogInformation("Created session {SessionId} for project {ProjectId} with authority {Authority}",
-                session.Id, request.ProjectId, authority);
+                session.Id, request.ProjectId ?? "(direct repo)", authority);
 
             var dto = ProjectSessionDto.FromDomain(session);
             return CreatedAtAction(nameof(GetById), new { id = session.Id }, dto);
@@ -224,6 +224,32 @@ public class SessionsController : ControllerBase
         catch (InvalidOperationException ex)
         {
             _logger.LogWarning(ex, "Failed to take control of session {SessionId}", id);
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Bind a session to a repository.
+    /// </summary>
+    [HttpPost("{id}/bind-repository")]
+    public async Task<ActionResult<ProjectSessionDto>> BindRepository(
+        string id, [FromBody] BindRepositoryRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.RepositoryPath))
+            return BadRequest(new { error = "RepositoryPath is required" });
+
+        var sessionId = SessionId.From(id);
+
+        try
+        {
+            var session = await _sessionServer.BindToRepositoryAsync(
+                sessionId, request.RepositoryPath);
+            _logger.LogInformation("Bound session {SessionId} to repository {Path}", id, request.RepositoryPath);
+            return Ok(ProjectSessionDto.FromDomain(session));
+        }
+        catch (InvalidOperationException ex)
+        {
+            _logger.LogWarning(ex, "Failed to bind session {SessionId} to repository", id);
             return BadRequest(new { error = ex.Message });
         }
     }
@@ -597,7 +623,8 @@ public record SetVariableRequest
 public record CreateInteractiveSessionRequest
 {
     public string? Name { get; init; }
-    public required string ProjectId { get; init; }
+    public string? ProjectId { get; init; }
+    public string? RepositoryPath { get; init; }
     public string Authority { get; init; } = "human";
     public string? WorkflowId { get; init; }
     public string? Task { get; init; }
@@ -621,6 +648,14 @@ public record CreateInteractiveSessionRequest
 public record TakeControlRequest
 {
     public string? Authority { get; init; }
+}
+
+/// <summary>
+/// Request to bind a session to a repository.
+/// </summary>
+public record BindRepositoryRequest
+{
+    public required string RepositoryPath { get; init; }
 }
 
 /// <summary>

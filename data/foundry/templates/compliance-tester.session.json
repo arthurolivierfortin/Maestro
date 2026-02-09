@@ -1,0 +1,207 @@
+{
+  "id": "compliance-tester",
+  "name": "LLM Structured Output Compliance Tester",
+  "description": "Tests all locally available LLM models on their ability to produce valid structured output (JSON). Each phase tests one model, with a final documentation phase generating a compliance report.",
+
+  "type": "foundry",
+  "authority": {
+    "type": "human",
+    "identifier": "default",
+    "displayName": "Compliance Tester"
+  },
+
+  "permissions": {
+    "allowedCommands": ["*"],
+    "allowedTools": ["*"],
+    "allowedBlocks": ["*"],
+    "canCreateBlocks": true,
+    "canCreateSessions": false,
+    "canAccessNetwork": true,
+    "canAccessFilesystem": true
+  },
+
+  "entryPoints": {
+    "start": "workflow:foundry/compliance-test-loop",
+    "run-tests": "workflow:foundry/compliance-test-loop"
+  },
+
+  "variables": {
+    "sessionMode": "testing",
+    "autoEvaluate": true,
+    "targetFitness": 0.85,
+    "maxIterations": 3,
+    "currentPhase": "discovery",
+    "currentIteration": 0,
+    "currentFitness": 0,
+    "scoreHistory": [],
+    "improvementHistory": [],
+    "pendingApprovals": [],
+    "pendingApprovalCount": 0,
+    "recentEvents": [],
+    "_phases": [
+      { "id": "test-distilgpt2", "name": "Test: DistilGPT2 (baseline)", "status": "pending", "description": "Baseline test - text-gen only model, expected low compliance" },
+      { "id": "test-smollm2-360m", "name": "Test: SmolLM2 360M", "status": "pending", "description": "Smallest instruct model - instruction-following capabilities" },
+      { "id": "test-deepseek-coder", "name": "Test: DeepSeek Coder 1.3B", "status": "pending", "description": "Code-focused model - should handle JSON well" },
+      { "id": "test-smollm2-1.7b", "name": "Test: SmolLM2 1.7B", "status": "pending", "description": "Medium instruct model - better instruction following" },
+      { "id": "test-deepseek-r1", "name": "Test: DeepSeek R1 1.5B", "status": "pending", "description": "Reasoning model - analytical capabilities" },
+      { "id": "test-qwen-coder", "name": "Test: Qwen2.5 Coder 3B", "status": "pending", "description": "Largest code model - highest expected compliance" },
+      { "id": "documentation", "name": "Phase 7: Documentation", "status": "pending", "description": "Generate compliance report from all test results" }
+    ],
+    "_blockOutputs": {},
+    "_monitorDescriptor": {
+      "layout": {
+        "mode": "phased-v2",
+        "zones": {
+          "header-left": { "width": "60%", "height": 7, "components": ["header"] },
+          "header-right": { "width": "40%", "height": 7, "components": ["session-metrics"] },
+          "left": { "width": "55%", "height": "75%", "components": ["phase-workflow"] },
+          "right": { "width": "45%", "height": "75%", "components": ["llm-activity"] },
+          "bottom": { "width": "100%", "height": "25%", "components": ["execution-log"] }
+        }
+      },
+      "components": [
+        { "id": "phase-workflow", "type": "phase-workflow", "data": ["$.variables._phases", "$.variables._executionTree"] },
+        { "id": "llm-activity", "type": "llm-activity", "data": "$.variables._llmActivity" },
+        { "id": "execution-log", "type": "execution-log", "data": "$.variables._executionLog" },
+        { "id": "session-metrics", "type": "widgets", "data": "$.monitorWidgets" }
+      ]
+    },
+    "_llmActivity": [],
+    "_workflowConfig": {
+      "compliance-test-loop": {
+        "test-distilgpt2": {
+          "llm": {
+            "model": "distilgpt2",
+            "systemPrompt": "You are a JSON generator. Output ONLY valid JSON. No text, no markdown, no explanation. Just a raw JSON object.",
+            "userPromptTemplate": "Generate a JSON object with these exact fields:\n- \"name\": a string\n- \"type\": a string (value: \"tool\")\n- \"description\": a string describing a code analysis tool\n- \"version\": a string (semver format)\n- \"capabilities\": an array of strings\n\nPrevious attempt feedback:\n{{_lastValidationFeedback}}\n\nOutput ONLY the JSON object. Start with { and end with }. No other text.",
+            "maxTokens": 512,
+            "temperature": 0.3
+          },
+          "output": { "filename": "test-results.json" },
+          "evaluation": { "criteria": ["hasJsonStructure", "validJsonParse", "noMarkdownFences", "purejsonoutput"] }
+        },
+        "test-smollm2-360m": {
+          "llm": {
+            "model": "HuggingFaceTB/SmolLM2-360M-Instruct",
+            "systemPrompt": "You are a JSON generator. Output ONLY valid JSON. No text, no markdown, no explanation. Just a raw JSON object.",
+            "userPromptTemplate": "Generate a JSON object with these exact fields:\n- \"name\": a string\n- \"type\": a string (value: \"tool\")\n- \"description\": a string describing a code analysis tool\n- \"version\": a string (semver format)\n- \"capabilities\": an array of strings\n\nPrevious attempt feedback:\n{{_lastValidationFeedback}}\n\nOutput ONLY the JSON object. Start with { and end with }. No other text.",
+            "maxTokens": 512,
+            "temperature": 0.3
+          },
+          "output": { "filename": "test-results.json" },
+          "evaluation": { "criteria": ["hasJsonStructure", "validJsonParse", "noMarkdownFences", "purejsonoutput"] }
+        },
+        "test-deepseek-coder": {
+          "llm": {
+            "model": "deepseek-ai/deepseek-coder-1.3b-instruct",
+            "systemPrompt": "You are a JSON generator. Output ONLY valid JSON. No text, no markdown, no explanation. Just a raw JSON object.",
+            "userPromptTemplate": "Generate a JSON object with these exact fields:\n- \"name\": a string\n- \"type\": a string (value: \"tool\")\n- \"description\": a string describing a code analysis tool\n- \"version\": a string (semver format)\n- \"capabilities\": an array of strings\n\nPrevious attempt feedback:\n{{_lastValidationFeedback}}\n\nOutput ONLY the JSON object. Start with { and end with }. No other text.",
+            "maxTokens": 512,
+            "temperature": 0.3
+          },
+          "output": { "filename": "test-results.json" },
+          "evaluation": { "criteria": ["hasJsonStructure", "validJsonParse", "noMarkdownFences", "purejsonoutput", "hasRequiredFields"] }
+        },
+        "test-smollm2-1.7b": {
+          "llm": {
+            "model": "HuggingFaceTB/SmolLM2-1.7B-Instruct",
+            "systemPrompt": "You are a JSON generator. Output ONLY valid JSON. No text, no markdown, no explanation. Just a raw JSON object.",
+            "userPromptTemplate": "Generate a JSON object with these exact fields:\n- \"name\": a string\n- \"type\": a string (value: \"tool\")\n- \"description\": a string describing a code analysis tool\n- \"version\": a string (semver format)\n- \"capabilities\": an array of strings\n\nPrevious attempt feedback:\n{{_lastValidationFeedback}}\n\nOutput ONLY the JSON object. Start with { and end with }. No other text.",
+            "maxTokens": 512,
+            "temperature": 0.3
+          },
+          "output": { "filename": "test-results.json" },
+          "evaluation": { "criteria": ["hasJsonStructure", "validJsonParse", "noMarkdownFences", "purejsonoutput", "hasRequiredFields"] }
+        },
+        "test-deepseek-r1": {
+          "llm": {
+            "model": "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B",
+            "systemPrompt": "You are a JSON generator. Output ONLY valid JSON. No text, no markdown, no explanation. Just a raw JSON object.",
+            "userPromptTemplate": "Generate a JSON object with these exact fields:\n- \"name\": a string\n- \"type\": a string (value: \"tool\")\n- \"description\": a string describing a code analysis tool\n- \"version\": a string (semver format)\n- \"capabilities\": an array of strings\n\nPrevious attempt feedback:\n{{_lastValidationFeedback}}\n\nOutput ONLY the JSON object. Start with { and end with }. No other text.",
+            "maxTokens": 512,
+            "temperature": 0.3
+          },
+          "output": { "filename": "test-results.json" },
+          "evaluation": { "criteria": ["hasJsonStructure", "validJsonParse", "noMarkdownFences", "purejsonoutput", "hasRequiredFields"] }
+        },
+        "test-qwen-coder": {
+          "llm": {
+            "model": "Qwen/Qwen2.5-Coder-3B-Instruct",
+            "systemPrompt": "You are a JSON generator. Output ONLY valid JSON. No text, no markdown, no explanation. Just a raw JSON object.",
+            "userPromptTemplate": "Generate a JSON object with these exact fields:\n- \"name\": a string\n- \"type\": a string (value: \"tool\")\n- \"description\": a string describing a code analysis tool\n- \"version\": a string (semver format)\n- \"capabilities\": an array of strings\n\nPrevious attempt feedback:\n{{_lastValidationFeedback}}\n\nOutput ONLY the JSON object. Start with { and end with }. No other text.",
+            "maxTokens": 512,
+            "temperature": 0.3
+          },
+          "output": { "filename": "test-results.json" },
+          "evaluation": { "criteria": ["hasJsonStructure", "validJsonParse", "noMarkdownFences", "purejsonoutput", "hasRequiredFields", "hasschemafields"] }
+        },
+        "documentation": {
+          "llm": {
+            "model": "HuggingFaceTB/SmolLM2-1.7B-Instruct",
+            "systemPrompt": "You are a technical documentation writer. Generate a Markdown compliance report. Output ONLY valid Markdown. No JSON, no code fences around the entire output.",
+            "userPromptTemplate": "Generate a Markdown compliance report for LLM structured output testing.\n\nTest Results Summary (from _phases variable):\n{{_phases}}\n\nFor each model tested, include:\n- Model name and category\n- Compliance score (from phase results)\n- Whether it passed or failed\n- Key observations\n\nEnd with a recommendation section listing which models are suitable for structured output tasks.\n\nFormat as clean Markdown with headers, tables, and bullet points.",
+            "maxTokens": 1024,
+            "temperature": 0.4
+          },
+          "output": { "filename": ".maestro/docs/compliance-report.md" },
+          "evaluation": { "criteria": ["minLength"] }
+        }
+      }
+    }
+  },
+
+  "monitorWidgets": [
+    {
+      "id": "fitness-progress",
+      "type": "progress-bar",
+      "zone": "custom",
+      "config": {
+        "label": "Compliance Score",
+        "current": "$.variables.currentFitness",
+        "max": 1.0,
+        "showPercentage": true
+      }
+    },
+    {
+      "id": "iteration-counter",
+      "type": "counter",
+      "zone": "custom",
+      "config": {
+        "label": "Iteration",
+        "value": "$.variables.currentIteration"
+      }
+    },
+    {
+      "id": "score-history",
+      "type": "score-chart",
+      "zone": "custom",
+      "config": {
+        "label": "Score History",
+        "data": "$.variables.scoreHistory",
+        "threshold": "$.variables.targetFitness"
+      }
+    }
+  ],
+
+  "config": {
+    "maxIterations": 3,
+    "timeout": 3600000,
+    "autoSave": true,
+    "saveInterval": 30000
+  },
+
+  "context": {
+    "systemPrompt": "You are operating within the Maestro Compliance Testing framework. Your purpose is to test LLM models on their ability to produce structured output.",
+    "initialVariables": {
+      "workspace": "foundry",
+      "testMode": true
+    }
+  },
+
+  "metadata": {
+    "category": "foundry",
+    "priority": "high",
+    "version": "1.0.0",
+    "author": "maestro-system"
+  }
+}

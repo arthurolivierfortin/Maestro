@@ -138,6 +138,7 @@ public interface IProjectSessionServer
         string name,
         Authority authority,
         Domain.Configuration.ProjectSessionConfig config,
+        string? repositoryPath = null,
         CancellationToken ct = default);
 
     /// <summary>
@@ -213,6 +214,15 @@ public interface IProjectSessionServer
         SessionId id,
         string entryPoint,
         Dictionary<string, object>? inputs = null,
+        CancellationToken ct = default);
+
+    /// <summary>
+    /// Binds a session to a repository after creation.
+    /// Initializes the .maestro/ directory structure.
+    /// </summary>
+    Task<ProjectSession> BindToRepositoryAsync(
+        SessionId id,
+        string repositoryPath,
         CancellationToken ct = default);
 }
 

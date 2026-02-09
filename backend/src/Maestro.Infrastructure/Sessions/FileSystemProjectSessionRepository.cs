@@ -133,24 +133,43 @@ public class FileSystemProjectSessionRepository : IProjectSessionRepository
     {
         ArgumentNullException.ThrowIfNull(session);
 
-        var project = await FindProjectByIdAsync(session.Config.ProjectId, ct);
-        if (project == null)
+        string sessionsFolder;
+
+        if (!string.IsNullOrEmpty(session.Config.ProjectId))
         {
-            throw new InvalidOperationException($"Project {session.Config.ProjectId} not found");
+            var project = await FindProjectByIdAsync(session.Config.ProjectId, ct);
+            if (project != null)
+            {
+                sessionsFolder = GetSessionsFolderPath(project.RootPath);
+            }
+            else if (!string.IsNullOrEmpty(session.RepositoryPath))
+            {
+                sessionsFolder = GetSessionsFolderPath(session.RepositoryPath);
+            }
+            else
+            {
+                throw new InvalidOperationException($"Cannot save session: Project {session.Config.ProjectId} not found and no RepositoryPath");
+            }
+        }
+        else if (!string.IsNullOrEmpty(session.RepositoryPath))
+        {
+            sessionsFolder = GetSessionsFolderPath(session.RepositoryPath);
+        }
+        else
+        {
+            throw new InvalidOperationException("Cannot save session: no ProjectId or RepositoryPath");
         }
 
-        var sessionsFolder = GetSessionsFolderPath(project.RootPath);
         Directory.CreateDirectory(sessionsFolder);
 
-        var sessionPath = GetSessionFilePath(project.RootPath, session.Id);
+        var sessionPath = Path.Combine(sessionsFolder, $"{session.Id}.json");
         var json = SerializeSession(session);
         await File.WriteAllTextAsync(sessionPath, json, ct);
 
         // Update cache
         _cache[session.Id] = session;
 
-        _logger?.LogInformation("Saved session {SessionId} for project {ProjectId}",
-            session.Id, session.Config.ProjectId);
+        _logger?.LogInformation("Saved session {SessionId}", session.Id);
     }
 
     public async Task DeleteAsync(SessionId id, CancellationToken ct = default)
@@ -159,13 +178,29 @@ public class FileSystemProjectSessionRepository : IProjectSessionRepository
         var session = await GetByIdAsync(id, ct);
         if (session == null) return;
 
-        var project = await FindProjectByIdAsync(session.Config.ProjectId, ct);
-        if (project == null) return;
+        string? sessionsFolder = null;
 
-        var sessionPath = GetSessionFilePath(project.RootPath, sessionId);
-        if (File.Exists(sessionPath))
+        if (!string.IsNullOrEmpty(session.Config.ProjectId))
         {
-            File.Delete(sessionPath);
+            var project = await FindProjectByIdAsync(session.Config.ProjectId, ct);
+            if (project != null)
+            {
+                sessionsFolder = GetSessionsFolderPath(project.RootPath);
+            }
+        }
+
+        if (sessionsFolder == null && !string.IsNullOrEmpty(session.RepositoryPath))
+        {
+            sessionsFolder = GetSessionsFolderPath(session.RepositoryPath);
+        }
+
+        if (sessionsFolder != null)
+        {
+            var sessionPath = Path.Combine(sessionsFolder, $"{sessionId}.json");
+            if (File.Exists(sessionPath))
+            {
+                File.Delete(sessionPath);
+            }
         }
 
         _cache.TryRemove(sessionId, out _);
@@ -307,6 +342,25 @@ public class FileSystemProjectSessionRepository : IProjectSessionRepository
                 Id = w.Id,
                 Type = w.Type,
                 Config = w.Config.Count > 0 ? new Dictionary<string, object>(w.Config) : null
+            }).ToList() : null,
+            // Session-level configuration (from ContainerSession)
+            BlockSearchPaths = session.BlockSearchPaths?.Count > 0 ? session.BlockSearchPaths.ToList() : null,
+            DefaultModel = session.DefaultModel,
+            ModelOverrides = session.ModelOverrides?.Count > 0
+                ? new Dictionary<string, string>(session.ModelOverrides)
+                : null,
+            FileAccessRulesConfig = session.FileAccessRules?.Count > 0 ? session.FileAccessRules.Select(r => new FileAccessRuleJsonDto
+            {
+                Path = r.Path,
+                Type = r.Type.ToString().ToLowerInvariant(),
+                Permission = r.Permission.ToString().ToLowerInvariant(),
+                Reason = r.Reason
+            }).ToList() : null,
+            BlockPermissionsConfig = session.BlockPermissions?.Count > 0 ? session.BlockPermissions.Select(p => new BlockPermissionJsonDto
+            {
+                BlockPattern = p.BlockPattern,
+                Permission = p.Permission.ToString().ToLowerInvariant(),
+                Reason = p.Reason
             }).ToList() : null
         };
 
@@ -443,7 +497,7 @@ public class FileSystemProjectSessionRepository : IProjectSessionRepository
             : new List<MonitorWidgetConfig>();
 
         // Use Reconstitute to create the session with all state
-        return ProjectSession.Reconstitute(
+        var session = ProjectSession.Reconstitute(
             id: dto.Id,
             name: dto.Name,
             authority: authority,
@@ -471,6 +525,35 @@ public class FileSystemProjectSessionRepository : IProjectSessionRepository
             entryPoints: entryPoints,
             monitorWidgets: monitorWidgets
         );
+
+        // Restore session-level configuration (from ContainerSession)
+        if (dto.BlockSearchPaths != null && dto.BlockSearchPaths.Count > 0)
+            session.SetBlockSearchPaths(dto.BlockSearchPaths.AsReadOnly());
+        if (dto.DefaultModel != null)
+            session.SetDefaultModel(dto.DefaultModel);
+        if (dto.ModelOverrides != null && dto.ModelOverrides.Count > 0)
+            session.SetModelOverrides(dto.ModelOverrides);
+        if (dto.FileAccessRulesConfig != null && dto.FileAccessRulesConfig.Count > 0)
+        {
+            session.SetFileAccessRules(dto.FileAccessRulesConfig.Select(r => new FileAccessRule
+            {
+                Path = r.Path,
+                Type = Enum.Parse<FileAccessType>(r.Type, ignoreCase: true),
+                Permission = Enum.Parse<FileAccessPermission>(r.Permission, ignoreCase: true),
+                Reason = r.Reason
+            }).ToList().AsReadOnly());
+        }
+        if (dto.BlockPermissionsConfig != null && dto.BlockPermissionsConfig.Count > 0)
+        {
+            session.SetBlockPermissions(dto.BlockPermissionsConfig.Select(p => new BlockPermission
+            {
+                BlockPattern = p.BlockPattern,
+                Permission = Enum.Parse<BlockPermissionLevel>(p.Permission, ignoreCase: true),
+                Reason = p.Reason
+            }).ToList().AsReadOnly());
+        }
+
+        return session;
     }
 
     /// <summary>
@@ -548,6 +631,12 @@ public class FileSystemProjectSessionRepository : IProjectSessionRepository
         public Dictionary<string, object>? Variables { get; set; }
         public Dictionary<string, string>? EntryPoints { get; set; }
         public List<MonitorWidgetJsonDto>? MonitorWidgets { get; set; }
+        // Session-level configuration (from ContainerSession)
+        public List<string>? BlockSearchPaths { get; set; }
+        public string? DefaultModel { get; set; }
+        public Dictionary<string, string>? ModelOverrides { get; set; }
+        public List<FileAccessRuleJsonDto>? FileAccessRulesConfig { get; set; }
+        public List<BlockPermissionJsonDto>? BlockPermissionsConfig { get; set; }
     }
 
     private class MonitorWidgetJsonDto
@@ -559,7 +648,7 @@ public class FileSystemProjectSessionRepository : IProjectSessionRepository
 
     private class SessionConfigJsonDto
     {
-        public string ProjectId { get; set; } = string.Empty;
+        public string? ProjectId { get; set; }
         public string? WorkflowId { get; set; }
         public string? Task { get; set; }
         public string? Context { get; set; }
@@ -618,5 +707,20 @@ public class FileSystemProjectSessionRepository : IProjectSessionRepository
         public string Branch { get; set; } = string.Empty;
         public bool Pushed { get; set; }
         public DateTime CreatedAt { get; set; }
+    }
+
+    private class FileAccessRuleJsonDto
+    {
+        public string Path { get; set; } = string.Empty;
+        public string Type { get; set; } = "file";
+        public string Permission { get; set; } = "readWrite";
+        public string? Reason { get; set; }
+    }
+
+    private class BlockPermissionJsonDto
+    {
+        public string BlockPattern { get; set; } = string.Empty;
+        public string Permission { get; set; } = "allowed";
+        public string? Reason { get; set; }
     }
 }

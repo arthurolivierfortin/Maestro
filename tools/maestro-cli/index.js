@@ -794,7 +794,10 @@ async function getSessionInfo(id) {
 async function createSession(options) {
   formatter.setCommand('session.create');
   try {
-    if (!options.projectId) { formatter.error('--project is required', 'MISSING_PARAM'); process.exit(1); }
+    if (!options.projectId && !options.repo) {
+      formatter.error('Either --project or --repo is required', 'MISSING_PARAM');
+      process.exit(1);
+    }
 
     // Validate repository source requires path
     if (options.source === 'repository' && !options.repositoryPath) {
@@ -803,7 +806,8 @@ async function createSession(options) {
     }
 
     const request = {
-      projectId: options.projectId,
+      projectId: options.projectId || undefined,
+      repositoryPath: options.repo || undefined,
       authority: options.authority || 'human',
       name: options.name,
       workflowId: options.workflowId,
@@ -942,6 +946,19 @@ async function takeControlSession(id, authority) {
     formatter.success(session, `\n✅ Control transferred!\n\n  New Authority: ${session.authority}\n  Status:        ${session.status}\n`);
   } catch (error) {
     handleApiError(error, 'transferring session control');
+    process.exit(1);
+  }
+}
+
+async function bindSessionToRepository(id, repoPath) {
+  formatter.setCommand('session.bind-repo');
+  try {
+    const session = await client.post(`/api/sessions/${id}/bind-repository`, {
+      repositoryPath: repoPath
+    });
+    formatter.success(session, `\nSession ${id} bound to repository: ${repoPath}\n`);
+  } catch (error) {
+    handleApiError(error, 'binding session to repository');
     process.exit(1);
   }
 }
@@ -4121,6 +4138,7 @@ Interactive Session Commands (Session Server Architecture):
   session invoke <id> <entry-point>  Invoke session entry point
   session widgets <id> Manage monitor widgets (list/add/remove)
   session take-control <id> Transfer session authority (--authority)
+  session bind-repo <id>  Bind session to a repository (--path <repo-path>)
   session exec <id> "<cmd>"  Execute command in session
   session events <id>  Show session event history
   session delete <id>  Delete a session
@@ -4280,7 +4298,8 @@ Project Create Options:
   --block-paths <paths> Comma-separated block search paths
 
 Session Create Options:
-  --project <id>        Project ID (required)
+  --project <id>        Project ID (optional if --repo is provided)
+  --repo <path>         Repository path (optional if --project is provided)
   --authority <auth>    Authority type: human, ai:<name>, agent:<id> (default: human)
   --workflow <id>       Workflow ID (optional, for automated sessions)
   --task <desc>         Task description (optional)
@@ -4722,6 +4741,7 @@ async function executeWithArgv(argv) {
       if (subCmd === 'create') {
         return await createSession({
           projectId: argv.project,
+          repo: argv.repo,
           authority: argv.authority,
           workflowId: argv.workflow,
           task: argv.task,
@@ -4774,6 +4794,14 @@ async function executeWithArgv(argv) {
         if (!id) { console.error('❌ Session ID required'); process.exit(1); }
         const authority = argv.authority || argv._[3] || 'human';
         return await takeControlSession(id, authority);
+      }
+
+      if (subCmd === 'bind-repo') {
+        const id = argv._[2];
+        const repoPath = argv.path || argv._[3];
+        if (!id) { console.error('❌ Session ID required'); process.exit(1); }
+        if (!repoPath) { console.error('❌ --path <repo-path> required'); process.exit(1); }
+        return await bindSessionToRepository(id, repoPath);
       }
 
       if (subCmd === 'exec') {
@@ -4965,7 +4993,7 @@ async function executeWithArgv(argv) {
       }
 
       console.error(`❌ Unknown session command: ${subCmd}`);
-      console.error('   Available commands: list, info, create, start, pause, resume, stop, take-control, exec, events, delete, vars, entry-points, invoke, widgets');
+      console.error('   Available commands: list, info, create, start, pause, resume, stop, take-control, bind-repo, exec, events, delete, vars, entry-points, invoke, widgets');
       process.exit(1);
     }
 
@@ -5834,6 +5862,7 @@ async function executeWithArgv(argv) {
           'session.entry-points': { params: { id: { type: 'string', required: true, positional: 2 } } },
           'session.import': { params: { id: { type: 'string', required: true, positional: 2 }, template: { type: 'string', required: true } } },
           'session.take-control': { params: { id: { type: 'string', required: true, positional: 2 }, authority: { type: 'string', default: 'human' } } },
+          'session.bind-repo': { params: { id: { type: 'string', required: true, positional: 2 }, path: { type: 'string', required: true } } },
           'session.widgets': { params: { id: { type: 'string', required: true, positional: 2 } } },
           'execute': { params: { workflow: { type: 'string', required: true, positional: 1 }, input: { type: 'string', repeated: true }, workingDir: { type: 'string' } } },
           'run': { params: { blockId: { type: 'string', required: true, positional: 1 } } },

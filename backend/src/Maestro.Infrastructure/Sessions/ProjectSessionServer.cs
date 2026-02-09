@@ -45,17 +45,41 @@ public class ProjectSessionServer : IProjectSessionServer
         string name,
         Authority authority,
         ProjectSessionConfig config,
+        string? repositoryPath = null,
         CancellationToken ct = default)
     {
-        // Validate project exists
-        var project = await FindProjectAsync(config.ProjectId, ct);
-        if (project == null)
+        Project? project = null;
+        string? repoPath = repositoryPath;
+
+        // If ProjectId is specified, validate the project exists
+        if (!string.IsNullOrEmpty(config.ProjectId))
         {
-            throw new InvalidOperationException($"Project {config.ProjectId} not found");
+            project = await FindProjectAsync(config.ProjectId, ct);
+            if (project == null)
+            {
+                throw new InvalidOperationException($"Project {config.ProjectId} not found");
+            }
+            repoPath = project.RootPath;
         }
 
-        // Create session
-        var session = ProjectSession.Create(name, authority, config);
+        // Create session with repository path (from project or direct)
+        var session = ProjectSession.Create(name, authority, config, repoPath);
+
+        // If project found, inherit project-level config into session
+        if (project != null)
+        {
+            session.SetBlockSearchPaths(project.BlockSearchPaths);
+            session.SetDefaultModel(project.DefaultModel);
+            session.SetModelOverrides(project.ModelOverrides);
+            session.SetFileAccessRules(project.FileAccessRules);
+            session.SetBlockPermissions(project.BlockPermissions);
+        }
+
+        // Initialize .maestro/ directory structure in bound repository
+        if (!string.IsNullOrEmpty(repoPath))
+        {
+            MaestroDirectoryInitializer.Initialize(repoPath, _logger);
+        }
 
         // Initialize block registry with all available blocks
         var blocks = await _blockRepository.GetAllAsync(ct);
@@ -72,7 +96,7 @@ public class ProjectSessionServer : IProjectSessionServer
 
         _logger.LogInformation(
             "Created project session {SessionId} for project {ProjectId} with authority {Authority}",
-            session.Id, config.ProjectId, authority);
+            session.Id, config.ProjectId ?? "(no project)", authority);
 
         return session;
     }
@@ -96,8 +120,26 @@ public class ProjectSessionServer : IProjectSessionServer
         var session = await _repository.GetByIdAsync(id, ct)
             ?? throw new InvalidOperationException($"Session {id.Value} not found");
 
-        var project = await FindProjectAsync(session.Config.ProjectId, ct)
-            ?? throw new InvalidOperationException($"Project {session.Config.ProjectId} not found");
+        // Determine project path: try Project first, then RepositoryPath
+        string projectPath;
+        if (!string.IsNullOrEmpty(session.Config.ProjectId))
+        {
+            var project = await FindProjectAsync(session.Config.ProjectId, ct)
+                ?? throw new InvalidOperationException($"Project {session.Config.ProjectId} not found");
+            projectPath = project.RootPath;
+        }
+        else if (!string.IsNullOrEmpty(session.RepositoryPath))
+        {
+            projectPath = session.RepositoryPath;
+        }
+        else
+        {
+            _logger.LogWarning("Session {SessionId} has no ProjectId or RepositoryPath, using current directory", id.Value);
+            projectPath = Environment.CurrentDirectory;
+        }
+
+        // Ensure .maestro/ directory structure exists in bound repository
+        MaestroDirectoryInitializer.Initialize(projectPath, _logger);
 
         // Subscribe to session events if not already subscribed
         session.OnEvent += (_, evt) => BroadcastEvent(session.Id, evt);
@@ -108,7 +150,7 @@ public class ProjectSessionServer : IProjectSessionServer
         // Create session context and store in singleton storage
         var context = new ProjectSessionContext(
             session,
-            project.RootPath,
+            projectPath,
             evt => BroadcastEvent(session.Id, evt));
         _contextStorage.SetContext(session.Id, context);
 
@@ -271,6 +313,28 @@ public class ProjectSessionServer : IProjectSessionServer
         _logger.LogInformation(
             "Control of session {SessionId} transferred to {Authority}",
             id.Value, newAuthority);
+
+        return session;
+    }
+
+    public async Task<ProjectSession> BindToRepositoryAsync(
+        SessionId id,
+        string repositoryPath,
+        CancellationToken ct = default)
+    {
+        var session = await _repository.GetByIdAsync(id, ct)
+            ?? throw new InvalidOperationException($"Session {id.Value} not found");
+
+        session.BindToRepository(repositoryPath);
+
+        // Initialize .maestro/ directory structure
+        MaestroDirectoryInitializer.Initialize(repositoryPath, _logger);
+
+        await _repository.SaveAsync(session, ct);
+
+        _logger.LogInformation(
+            "Bound session {SessionId} to repository {Path}",
+            id.Value, repositoryPath);
 
         return session;
     }

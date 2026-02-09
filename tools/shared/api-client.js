@@ -726,7 +726,8 @@ class MaestroApiClient {
   /**
    * Create a new interactive session.
    * @param {Object} request - Session creation request
-   * @param {string} request.projectId - Project ID (required)
+   * @param {string} [request.projectId] - Project ID (optional if repositoryPath provided)
+   * @param {string} [request.repositoryPath] - Repository path (optional if projectId provided)
    * @param {string} request.authority - Authority type: "human", "ai:<name>", "agent:<id>" (default: "human")
    * @param {string} request.name - Session name (optional)
    * @param {string} request.workflowId - Workflow ID (optional)
@@ -744,8 +745,8 @@ class MaestroApiClient {
    * @param {Object} request.inputs - Input variables for the session (optional)
    */
   async createSession(request) {
-    if (!request || !request.projectId) {
-      throw new Error('Session requires projectId');
+    if (!request || (!request.projectId && !request.repositoryPath)) {
+      throw new Error('Session requires either projectId or repositoryPath');
     }
     return this._fetch('POST', '/api/sessions', { body: request });
   }

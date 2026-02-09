@@ -468,13 +468,24 @@ public class ContainerSessionTests
     }
 
     [Fact]
-    public void BindToRepository_AfterStart_ThrowsException()
+    public void BindToRepository_AfterStart_Succeeds()
     {
         var session = TestRootSession.Create("Test");
         session.TestTransitionTo(ContainerSessionStatus.Active);
 
+        session.BindToRepository("/path/to/repo");
+
+        Assert.True(session.IsBoundToRepository);
+    }
+
+    [Fact]
+    public void BindToRepository_WhenAlreadyBound_ThrowsException()
+    {
+        var session = TestRootSession.Create("Test");
+        session.BindToRepository("/path/to/repo");
+
         Assert.Throws<InvalidOperationException>(() =>
-            session.BindToRepository("/path/to/repo"));
+            session.BindToRepository("/path/to/other-repo"));
     }
 
     [Fact]

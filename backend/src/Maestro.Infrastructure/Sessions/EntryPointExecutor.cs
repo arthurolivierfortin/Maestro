@@ -457,7 +457,7 @@ public class EntryPointExecutor
                     lastOutput = await ExecuteConditionalNodeAsync(session, configNode, workflowConfig, workingDir, displayTree, lastOutput);
                     break;
                 default:
-                    lastOutput = await ExecuteRegularNodeAsync(session, nodeId, workflowConfig, workingDir, activePhaseId, displayTree, lastOutput);
+                    lastOutput = await ExecuteRegularNodeAsync(session, nodeId, workflowConfig, workingDir, activePhaseId, displayTree, lastOutput, configNode);
                     break;
             }
         }
@@ -648,7 +648,8 @@ public class EntryPointExecutor
         string workingDir,
         string? activePhaseId,
         List<object> displayTree,
-        string? previousOutput)
+        string? previousOutput,
+        JsonElement? nodeConfig = null)
     {
         var displayName = NodeIdToDisplayName(nodeId);
         var blockType = InferBlockType(nodeId);
@@ -673,7 +674,7 @@ public class EntryPointExecutor
         string output;
         try
         {
-            output = await ExecuteNodeAsync(session, nodeId, workflowConfig, workingDir, previousOutput);
+            output = await ExecuteNodeAsync(session, nodeId, workflowConfig, workingDir, previousOutput, nodeConfig);
         }
         catch (Exception ex)
         {
@@ -714,7 +715,8 @@ public class EntryPointExecutor
         string nodeId,
         Dictionary<string, object>? workflowConfig,
         string workingDir,
-        string? previousOutput)
+        string? previousOutput,
+        JsonElement? nodeConfig = null)
     {
         // Order matters: more specific patterns first, broader patterns last.
 
@@ -747,7 +749,7 @@ public class EntryPointExecutor
         // LLM/generate nodes: call LLM with config-driven prompts
         if (nodeId.Contains("generate"))
         {
-            return await ExecuteLLMNodeAsync(session, nodeId, workflowConfig, previousOutput);
+            return await ExecuteLLMNodeAsync(session, nodeId, workflowConfig, previousOutput, nodeConfig);
         }
 
         // Validation/fitness/metrics nodes: evaluate with config-driven criteria
@@ -797,7 +799,8 @@ public class EntryPointExecutor
         Domain.Entities.ProjectSession session,
         string nodeId,
         Dictionary<string, object>? workflowConfig,
-        string? context)
+        string? context,
+        JsonElement? nodeConfig = null)
     {
         var systemPrompt = GetConfigString(workflowConfig, "llm.systemPrompt",
             "You are an assistant. Process the following context and generate output.");
@@ -805,6 +808,24 @@ public class EntryPointExecutor
             "Process the following:\n\n{{context}}");
         var maxTokens = GetConfigInt(workflowConfig, "llm.maxTokens", 1024);
         var temperature = GetConfigFloat(workflowConfig, "llm.temperature", 0.7f);
+
+        // Node-level model selection: read from node inputs first, then phase config, then default
+        // Priority: node.inputs.model > _workflowConfig.llm.model > appsettings default
+        var modelId = GetNodeInput(nodeConfig, "model")
+            ?? GetConfigString(workflowConfig, "llm.model", null);
+
+        // Node-level prompt overrides (allows per-node customization in config.nodes)
+        var nodeSystemPrompt = GetNodeInput(nodeConfig, "systemPrompt");
+        if (!string.IsNullOrEmpty(nodeSystemPrompt)) systemPrompt = nodeSystemPrompt;
+        var nodeUserPrompt = GetNodeInput(nodeConfig, "userPromptTemplate");
+        if (!string.IsNullOrEmpty(nodeUserPrompt)) userTemplate = nodeUserPrompt;
+
+        if (!string.IsNullOrEmpty(modelId))
+        {
+            AppendExecutionLog(session, "info", $"Switching to model: {modelId}");
+            await _repository.SaveAsync(session);
+            await _llmGateway.SwitchModelAsync(modelId);
+        }
 
         // Replace {{context}} placeholder first, then resolve remaining {{variable}} references
         var userPrompt = userTemplate.Replace("{{context}}", context ?? "(no context)");
@@ -819,7 +840,8 @@ public class EntryPointExecutor
                 ChatMessage.User(userPrompt)
             },
             MaxNewTokens = maxTokens,
-            Temperature = temperature
+            Temperature = temperature,
+            ModelId = !string.IsNullOrEmpty(modelId) ? modelId : null
         };
 
         var stopwatch = Stopwatch.StartNew();
@@ -1000,6 +1022,29 @@ public class EntryPointExecutor
 
         // Pass through the original content so the next node receives it (not the fitness summary)
         return output ?? "";
+    }
+
+    // ===== Node Config Helpers (read inputs from config.nodes[].inputs) =====
+
+    /// <summary>
+    /// Reads a string value from a config node's inputs.
+    /// Supports template resolution via session variables.
+    /// Returns null if the node or input is not found.
+    /// </summary>
+    private static string? GetNodeInput(JsonElement? nodeConfig, string inputName)
+    {
+        if (nodeConfig == null) return null;
+        var node = nodeConfig.Value;
+
+        if (node.TryGetProperty("inputs", out var inputs) && inputs.ValueKind == JsonValueKind.Object)
+        {
+            if (inputs.TryGetProperty(inputName, out var value))
+            {
+                return value.ValueKind == JsonValueKind.String ? value.GetString() : value.ToString();
+            }
+        }
+
+        return null;
     }
 
     // ===== Config Helpers (navigate session variable _workflowConfig) =====
@@ -1206,6 +1251,28 @@ public class EntryPointExecutor
                     // 200 chars → 1.0, 500 chars → 0.8, 1000 → 0.6, 2000 → 0.4, 5000+ → 0.2
                     var charCount = output.Length;
                     criterionScore = charCount <= 200 ? 1.0 : Math.Max(0.2, 1.0 - (charCount - 200) / 6000.0);
+                    break;
+                case "validjsonparse":
+                    // Can the output be parsed as valid JSON?
+                    try { JsonDocument.Parse(output.Trim()); criterionScore = 1.0; }
+                    catch { criterionScore = 0.0; }
+                    break;
+                case "nomarkdownfences":
+                    // Output should not contain markdown code fences
+                    criterionScore = output.Contains("```") ? 0.0 : 1.0;
+                    break;
+                case "purejsonoutput":
+                    // Output should start with { or [ and end with } or ] (no surrounding prose)
+                    var trimmed = output.Trim();
+                    var startsOk = trimmed.StartsWith("{") || trimmed.StartsWith("[");
+                    var endsOk = trimmed.EndsWith("}") || trimmed.EndsWith("]");
+                    criterionScore = (startsOk && endsOk) ? 1.0 : (startsOk || endsOk) ? 0.5 : 0.0;
+                    break;
+                case "hasschemafields":
+                    // Check for schema-specific fields: name, version, capabilities
+                    var schemaFields = new[] { "\"name\"", "\"version\"", "\"capabilities\"" };
+                    var schemaFound = schemaFields.Count(f => output.Contains(f));
+                    criterionScore = (double)schemaFound / schemaFields.Length;
                     break;
                 default:
                     criterionScore = 0.5;
@@ -1862,6 +1929,10 @@ public class EntryPointExecutor
     {
         if (!string.IsNullOrEmpty(session.WorkingDirectory) && session.WorkingDirectory != ".")
             return session.WorkingDirectory;
+
+        // Fall back to repository path for repo-bound sessions
+        if (!string.IsNullOrEmpty(session.RepositoryPath))
+            return session.RepositoryPath;
 
         return Environment.CurrentDirectory;
     }

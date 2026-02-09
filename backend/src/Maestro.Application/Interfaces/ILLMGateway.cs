@@ -13,6 +13,13 @@ public interface ILLMGateway
     /// Implementations may throw NotSupportedException if streaming isn't available.
     /// </summary>
     IAsyncEnumerable<string> StreamAsync(LLMRequest request, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Switches the active model on the LLM provider.
+    /// Ensures the model is loaded and ready before returning.
+    /// No-op if the provider doesn't support model switching.
+    /// </summary>
+    Task SwitchModelAsync(string modelId, CancellationToken cancellationToken = default) => Task.CompletedTask;
 }
 
 /// <summary>

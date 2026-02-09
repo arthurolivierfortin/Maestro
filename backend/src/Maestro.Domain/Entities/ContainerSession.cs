@@ -63,6 +63,34 @@ public abstract class ContainerSession
     /// </summary>
     public ContextPermissions Permissions { get; protected set; } = ContextPermissions.None;
 
+    // ===== Configuration (available to all session types) =====
+
+    /// <summary>
+    /// Additional search paths for block discovery, relative to RepositoryPath.
+    /// </summary>
+    public IReadOnlyList<string> BlockSearchPaths { get; protected set; } = Array.Empty<string>();
+
+    /// <summary>
+    /// Default LLM model for this session's operations.
+    /// </summary>
+    public string? DefaultModel { get; protected set; }
+
+    /// <summary>
+    /// Per-block model overrides (blockId or pattern -> modelId).
+    /// </summary>
+    public IReadOnlyDictionary<string, string> ModelOverrides { get; protected set; } =
+        new Dictionary<string, string>();
+
+    /// <summary>
+    /// File access rules controlling visibility and permissions within the session context.
+    /// </summary>
+    public IReadOnlyList<FileAccessRule> FileAccessRules { get; protected set; } = Array.Empty<FileAccessRule>();
+
+    /// <summary>
+    /// Block permission rules controlling which blocks are available to this session.
+    /// </summary>
+    public IReadOnlyList<BlockPermission> BlockPermissions { get; protected set; } = Array.Empty<BlockPermission>();
+
     // ===== Container Binding =====
 
     /// <summary>
@@ -92,20 +120,21 @@ public abstract class ContainerSession
 
     /// <summary>
     /// Binds this session to a local repository.
-    /// Must be called at creation time only (before Start).
+    /// Can be called at any lifecycle state, but only once (cannot re-bind).
     /// </summary>
     public void BindToRepository(
         string repositoryPath,
         RepositoryAccessLevel accessLevel = RepositoryAccessLevel.Controlled)
     {
-        if (Status != ContainerSessionStatus.Created)
-            throw new InvalidOperationException("Cannot bind after session has started");
-
         if (string.IsNullOrWhiteSpace(repositoryPath))
             throw new ArgumentException("Repository path cannot be empty", nameof(repositoryPath));
 
+        if (IsBoundToRepository)
+            throw new InvalidOperationException("Session is already bound to a repository");
+
         RepositoryPath = Path.GetFullPath(repositoryPath);
         Binding = ContainerBinding.CreateRepositoryBound(RepositoryPath, accessLevel);
+        UpdatedAt = DateTimeOffset.UtcNow;
     }
 
     // ===== Session Variables =====
@@ -332,6 +361,53 @@ public abstract class ContainerSession
     public virtual void UpdateDescription(string? newDescription)
     {
         Description = newDescription;
+        UpdatedAt = DateTimeOffset.UtcNow;
+    }
+
+    // ===== Configuration Mutators =====
+
+    /// <summary>
+    /// Sets additional block search paths.
+    /// </summary>
+    public void SetBlockSearchPaths(IReadOnlyList<string> paths)
+    {
+        BlockSearchPaths = paths ?? Array.Empty<string>();
+        UpdatedAt = DateTimeOffset.UtcNow;
+    }
+
+    /// <summary>
+    /// Sets the default LLM model.
+    /// </summary>
+    public void SetDefaultModel(string? model)
+    {
+        DefaultModel = model;
+        UpdatedAt = DateTimeOffset.UtcNow;
+    }
+
+    /// <summary>
+    /// Sets per-block model overrides.
+    /// </summary>
+    public void SetModelOverrides(IReadOnlyDictionary<string, string> overrides)
+    {
+        ModelOverrides = overrides ?? new Dictionary<string, string>();
+        UpdatedAt = DateTimeOffset.UtcNow;
+    }
+
+    /// <summary>
+    /// Sets file access rules.
+    /// </summary>
+    public void SetFileAccessRules(IReadOnlyList<FileAccessRule> rules)
+    {
+        FileAccessRules = rules ?? Array.Empty<FileAccessRule>();
+        UpdatedAt = DateTimeOffset.UtcNow;
+    }
+
+    /// <summary>
+    /// Sets block permission rules.
+    /// </summary>
+    public void SetBlockPermissions(IReadOnlyList<BlockPermission> permissions)
+    {
+        BlockPermissions = permissions ?? Array.Empty<BlockPermission>();
         UpdatedAt = DateTimeOffset.UtcNow;
     }
 

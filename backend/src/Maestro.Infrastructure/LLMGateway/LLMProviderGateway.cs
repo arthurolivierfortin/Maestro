@@ -168,6 +168,29 @@ public class LLMProviderGateway : ILLMGateway, IDisposable
         return null;
     }
 
+    public async Task SwitchModelAsync(string modelId, CancellationToken cancellationToken = default)
+    {
+        _logger?.LogInformation("Switching LLM model to {ModelId}", modelId);
+        try
+        {
+            var request = new { model_id = modelId };
+            var response = await _httpClient.PostAsJsonAsync("/v1/switch-model", request, cancellationToken);
+            if (response.IsSuccessStatusCode)
+            {
+                _logger?.LogInformation("Model switched to {ModelId}", modelId);
+            }
+            else
+            {
+                var error = await response.Content.ReadAsStringAsync(cancellationToken);
+                _logger?.LogWarning("Model switch to {ModelId} returned {Status}: {Error}", modelId, response.StatusCode, error);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogWarning(ex, "Failed to switch model to {ModelId}, proceeding with current model", modelId);
+        }
+    }
+
     public void Dispose()
     {
         if (_disposed) return;

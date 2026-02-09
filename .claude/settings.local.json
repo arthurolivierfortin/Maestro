@@ -98,7 +98,8 @@
       "Bash(test:*)",
       "Bash(git mv:*)",
       "Bash(git reset:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(SID=f2915ccf-3f56-49ef-8813-4072011ce1b9)"
     ]
   }
 }
