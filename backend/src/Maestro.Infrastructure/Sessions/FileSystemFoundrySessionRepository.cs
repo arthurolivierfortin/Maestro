@@ -12,7 +12,7 @@ namespace Maestro.Infrastructure.Sessions;
 
 /// <summary>
 /// Filesystem-based implementation of IFoundrySessionRepository.
-/// Sessions are stored in data/foundry/sessions/{session-id}.session.json
+/// Sessions are stored in content/user/sessions/{session-id}.session.json
 /// </summary>
 public class FileSystemFoundrySessionRepository : IFoundrySessionRepository
 {
@@ -31,7 +31,7 @@ public class FileSystemFoundrySessionRepository : IFoundrySessionRepository
         ILogger<FileSystemFoundrySessionRepository>? logger = null,
         string? basePath = null)
     {
-        _basePath = basePath ?? Path.Combine("data", "foundry", "sessions");
+        _basePath = basePath ?? Path.Combine("content", "user", "sessions");
         _logger = logger;
 
         // Ensure directory exists

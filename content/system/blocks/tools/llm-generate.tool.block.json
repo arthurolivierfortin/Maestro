@@ -58,7 +58,7 @@
     "command": "powershell",
     "args": [
       "-ExecutionPolicy", "Bypass",
-      "-File", "C:/Meastro/scripts/llm-generate.ps1",
+      "-File", "C:/Meastro/content/system/blocks/scripts/llm-generate.ps1",
       "-Prompt", "\"{{prompt}}\"",
       "-MaxTokens", "{{maxTokens}}",
       "-Temperature", "{{temperature}}"

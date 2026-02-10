@@ -122,22 +122,22 @@ docs/
 
 ### Starting Services
 
-Use the PowerShell script at `scripts/dev-start.ps1`:
+Use the PowerShell script at `dev-scripts/dev-start.ps1`:
 
 ```powershell
 # Start all services (LLM-Provider, Backend, Frontend) - local mode
-powershell.exe -File C:\Meastro\scripts\dev-start.ps1
+powershell.exe -File C:\Meastro\dev-scripts\dev-start.ps1
 
 # Start with specific options
-powershell.exe -File C:\Meastro\scripts\dev-start.ps1 -BackendOnly    # Backend + LLM only
-powershell.exe -File C:\Meastro\scripts\dev-start.ps1 -SkipLLM        # No LLM-Provider
-powershell.exe -File C:\Meastro\scripts\dev-start.ps1 -Mode docker    # Use Docker
+powershell.exe -File C:\Meastro\dev-scripts\dev-start.ps1 -BackendOnly    # Backend + LLM only
+powershell.exe -File C:\Meastro\dev-scripts\dev-start.ps1 -SkipLLM        # No LLM-Provider
+powershell.exe -File C:\Meastro\dev-scripts\dev-start.ps1 -Mode docker    # Use Docker
 ```
 
 ### Stopping Services
 
 ```powershell
-powershell.exe -File C:\Meastro\scripts\dev-start.ps1 -Stop
+powershell.exe -File C:\Meastro\dev-scripts\dev-start.ps1 -Stop
 ```
 
 ### Service Ports
@@ -150,10 +150,10 @@ powershell.exe -File C:\Meastro\scripts\dev-start.ps1 -Stop
 
 ### CLI Commands
 
-The Maestro CLI is at `tools/maestro-cli/index.js`:
+The Maestro CLI is at `maestro-cli/index.js`:
 
 ```bash
-cd C:\Meastro\tools\maestro-cli
+cd C:\Meastro\maestro-cli
 node index.js health              # Check services health
 node index.js list-blocks         # List all blocks
 node index.js llm                 # Check LLM status
@@ -240,11 +240,11 @@ If the answer is no, the architecture is violated.
 No-prefix = session-specific state (`currentFitness`, `scoreHistory`, etc.)
 
 #### Template-Driven Configuration
-Session templates (`data/foundry/templates/*.session.json`) carry ALL session-specific data:
+Session templates (`content/system/templates/sessions/*.session.json`) carry ALL session-specific data:
 - `variables` — Initial state including `_phases`, `_monitorDescriptor`, `_workflowConfig`
 - `entryPoints` — Maps names to workflow block IDs
 - `monitorWidgets` — Widget configs (legacy, used when no `_monitorDescriptor`)
-- Template import is done by CLI (`importSessionTemplate` in `tools/maestro-cli/index.js`)
+- Template import is done by CLI (`importSessionTemplate` in `maestro-cli/index.js`)
 - CLI reads JSON, calls PUT APIs for variables, entry points, widgets
 - No backend code changes needed for new session types
 

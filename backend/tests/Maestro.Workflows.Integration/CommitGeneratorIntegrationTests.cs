@@ -29,12 +29,12 @@ namespace Maestro.Workflows.Integration
         {
             // Resolve blocks path relative to test assembly location
             var assemblyDir = Path.GetDirectoryName(typeof(CommitGeneratorIntegrationTests).Assembly.Location);
-            _blocksPath = Path.GetFullPath(Path.Combine(assemblyDir!, "../../../../../../../../blocks"));
-            
+            _blocksPath = Path.GetFullPath(Path.Combine(assemblyDir!, "../../../../../../../../content/system/blocks"));
+
             // Fallback if running from different location
             if (!Directory.Exists(_blocksPath))
             {
-                _blocksPath = Path.GetFullPath(Path.Combine(Directory.GetCurrentDirectory(), "../../../../../../../blocks"));
+                _blocksPath = Path.GetFullPath(Path.Combine(Directory.GetCurrentDirectory(), "../../../../../../../content/system/blocks"));
             }
         }
 

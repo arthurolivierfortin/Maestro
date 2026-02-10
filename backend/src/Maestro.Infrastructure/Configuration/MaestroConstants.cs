@@ -110,7 +110,7 @@ namespace Maestro.Infrastructure.Configuration
         /// <summary>
         /// Default relative path for global blocks from repository root.
         /// </summary>
-        public const string DefaultGlobalBlocksRelativePath = "blocks";
+        public const string DefaultGlobalBlocksRelativePath = "content/system/blocks";
         
         /// <summary>
         /// Default relative path for user blocks from user home.

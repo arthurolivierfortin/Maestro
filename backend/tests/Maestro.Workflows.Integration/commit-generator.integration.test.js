@@ -6,7 +6,7 @@ const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
 
-const BLOCKS_PATH = path.join(__dirname, '../../../../blocks');
+const BLOCKS_PATH = path.join(__dirname, '../../../../content/system/blocks');
 
 describe('commit-generator workflow integration', function() {
   this.timeout(10000);
@@ -192,7 +192,7 @@ describe('commit-generator workflow integration', function() {
   describe('CLI mock execution', function() {
     it('should be executable via CLI', function() {
       const cp = require('child_process');
-      const cliPath = path.join(__dirname, '../../../../tools/maestro-cli/index.js');
+      const cliPath = path.join(__dirname, '../../../../maestro-cli/index.js');
       
       const result = cp.spawnSync('node', [cliPath, 'execute', 'commit-generator', '--mock'], {
         encoding: 'utf8',

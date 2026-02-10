@@ -233,7 +233,7 @@ Console.WriteLine($"[Maestro] Agents registry: {agentsFolder}");
 
 // Phase 9: Register training services
 // Use repo root for persistent storage (not bin directory which is cleared on rebuild)
-var trainingFolder = Path.Combine(pathConfig.RepoRootPath, "data", "training");
+var trainingFolder = Path.Combine(pathConfig.RepoRootPath, "content", "user", "training");
 Directory.CreateDirectory(trainingFolder);
 Console.WriteLine($"[Maestro] Training data:   {trainingFolder}");
 builder.Services.AddSingleton<ITrainingConfigurationRepository>(sp =>
@@ -248,7 +248,7 @@ builder.Services.AddSingleton<ITrainingRunRepository>(sp =>
 });
 
 // Block Testing: Register test repository for persistent storage
-var testingFolder = Path.Combine(pathConfig.RepoRootPath, "data", "testing");
+var testingFolder = Path.Combine(pathConfig.RepoRootPath, "content", "user", "testing");
 Directory.CreateDirectory(testingFolder);
 Console.WriteLine($"[Maestro] Testing data:    {testingFolder}");
 builder.Services.AddSingleton<Maestro.Infrastructure.Testing.FileSystemBlockTestRepository>(sp =>
@@ -274,7 +274,7 @@ builder.Services.AddSingleton<IQualityEvaluator, CompositeQualityEvaluator>(sp =
 });
 
 // Phase 11: Register fitness services
-var fitnessFolder = Path.Combine(pathConfig.RepoRootPath, "data", "fitness");
+var fitnessFolder = Path.Combine(pathConfig.RepoRootPath, "content", "user", "fitness");
 Directory.CreateDirectory(fitnessFolder);
 Console.WriteLine($"[Maestro] Fitness data:    {fitnessFolder}");
 builder.Services.AddSingleton<IModelProfileRepository>(sp =>
@@ -295,7 +295,7 @@ builder.Services.AddScoped<IFitnessService, FitnessService>();
 builder.Services.AddScoped<ITrainingService, TrainingService>();
 
 // Phase 3: Register workspace services
-var workspaceFolder = Path.Combine(pathConfig.RepoRootPath, "data", "workspaces");
+var workspaceFolder = Path.Combine(pathConfig.RepoRootPath, "content", "user", "workspaces");
 Directory.CreateDirectory(workspaceFolder);
 Console.WriteLine($"[Maestro] Workspace data:  {workspaceFolder}");
 builder.Services.AddSingleton<IWorkspaceRepository>(sp =>
@@ -334,7 +334,7 @@ builder.Services.AddScoped<IOrchestratorService, Maestro.Infrastructure.Orchestr
 builder.Services.AddScoped<IResearchTeamService, Maestro.Infrastructure.Research.ResearchTeamService>();
 
 // Phase 7: Register experiment services (Training Strategies)
-var experimentsFolder = Path.Combine(pathConfig.RepoRootPath, "data", "experiments");
+var experimentsFolder = Path.Combine(pathConfig.RepoRootPath, "content", "user", "experiments");
 Directory.CreateDirectory(experimentsFolder);
 Console.WriteLine($"[Maestro] Experiments data: {experimentsFolder}");
 builder.Services.AddSingleton<IExperimentRepository>(sp =>
@@ -344,7 +344,7 @@ builder.Services.AddSingleton<IExperimentRepository>(sp =>
 });
 
 // Phase 8: Register block approval services (generic approval workflow)
-var maestroConfig = new MaestroConfiguration { DataPath = Path.Combine(pathConfig.RepoRootPath, "data") };
+var maestroConfig = new MaestroConfiguration { DataPath = Path.Combine(pathConfig.RepoRootPath, "content", "user") };
 builder.Services.AddSingleton(maestroConfig);
 builder.Services.AddSingleton<IBlockApprovalRepository>(sp =>
 {

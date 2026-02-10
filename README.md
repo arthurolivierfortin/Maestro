@@ -98,7 +98,7 @@ The AI landscape evolves rapidly. New models emerge, APIs change, and organizati
 ```
 ┌──────────────────────────────────────────────────────────────────┐
 │                    FILESYSTEM (Real Blocks)                      │
-│         blocks/, .maestro/blocks/, ~/.maestro/blocks/            │
+│    content/system/blocks/, .maestro/blocks/, ~/.maestro/blocks/  │
 └─────────────────────────┬────────────────────────────────────────┘
                           │ READ/WRITE (exclusive)
                           ▼
@@ -132,7 +132,7 @@ The backend discovers blocks from multiple locations (in priority order):
 |----------|---------|--------------|
 | Project | Project-specific blocks | `./.maestro/blocks/` |
 | User | User's personal blocks | `~/.maestro/blocks/` |
-| Global | Shipped with Maestro | `{install}/blocks/` |
+| Global | Shipped with Maestro | `{install}/content/system/blocks/` |
 
 ### API-First Design
 
@@ -732,7 +732,7 @@ curl http://localhost:5000/api/discovery/health
 
 # 5. Connect CLI/MCP/Frontend
 export MAESTRO_API_URL=http://localhost:5000
-node tools/maestro-cli/index.js blocks
+node maestro-cli/index.js blocks
 ```
 
 ### Development Mode with Hot Reload
@@ -760,7 +760,7 @@ Blocks are persisted through volume mounts:
 
 | Host Path | Container Path | Purpose |
 |-----------|----------------|---------|
-| `./blocks` | `/app/blocks` | Global project blocks |
+| `./content/system/blocks` | `/app/content/system/blocks` | Global project blocks |
 | `./.maestro` | `/app/.maestro` | Project-specific blocks |
 | `~/.maestro/blocks` | `/root/.maestro/blocks` | User blocks (read-only) |
 

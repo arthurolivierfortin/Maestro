@@ -114,7 +114,7 @@
         "id": "shell-format-report",
         "blockRef": "system:shell",
         "inputs": {
-          "command": "node C:\\Meastro\\scripts\\format-metrics-report.js .maestro/metrics/compliance-metrics.json .maestro/docs"
+          "command": "node C:\\Meastro\\content\\system\\blocks\\scripts\\format-metrics-report.js .maestro/metrics/compliance-metrics.json .maestro/docs"
         }
       }
     ],

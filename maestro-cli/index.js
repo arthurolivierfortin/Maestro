@@ -52,7 +52,7 @@ function loadJson(p) {
 }
 
 function findWorkflow(id) {
-  const wfPath = path.join(__dirname, '../../blocks/workflows', id);
+  const wfPath = path.join(__dirname, '../content/system/blocks/workflows', id);
   if (!fs.existsSync(wfPath)) return null;
   const block = loadJson(path.join(wfPath, 'block.json'));
   const nodes = loadJson(path.join(wfPath, 'nodes.json'));
@@ -68,7 +68,7 @@ function runMockWorkflow(id, inputs) {
     const ref = node.blockRef;
     const parts = ref.split('/');
     const kind = parts[0];
-    const refPath = path.join(__dirname, '../../blocks', ...parts);
+    const refPath = path.join(__dirname, '../content/system/blocks', ...parts);
     const mock = loadJson(path.join(refPath, 'mock-response.json'));
     if (mock) {
       result[node.id] = mock;
@@ -1092,8 +1092,8 @@ async function importSessionTemplate(sessionId, templateName) {
     const fs = require('fs');
     const path = require('path');
 
-    // Look for template in data/foundry/templates/
-    const templatePath = path.join(__dirname, '../../data/foundry/templates', `${templateName}.session.json`);
+    // Look for template in content/system/templates/sessions/
+    const templatePath = path.join(__dirname, '../content/system/templates/sessions', `${templateName}.session.json`);
 
     if (!fs.existsSync(templatePath)) {
       console.error(`❌ Template not found: ${templateName}`);

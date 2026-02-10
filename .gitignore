@@ -168,3 +168,9 @@ docker-compose.override.yml
 # User-specific workflows (if private)
 # workflows/*.json
 # (Commented out - workflows ARE meant to be committed by default)
+
+# Maestro runtime data (content/user/)
+content/user/training/
+content/user/testing/
+content/user/fitness/
+content/user/experiments/
