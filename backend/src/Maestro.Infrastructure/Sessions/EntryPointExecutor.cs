@@ -394,6 +394,9 @@ public class EntryPointExecutor
                 case "for-each":
                     lastOutput = await ExecuteForEachNodeAsync(session, configNode, workflowConfig, workingDir, workflowId, displayTree, lastOutput);
                     break;
+                case "phase":
+                    lastOutput = await ExecutePhaseNodeAsync(session, configNode, workflowConfig, workingDir, workflowId, displayTree, lastOutput);
+                    break;
                 case "conditional":
                     lastOutput = await ExecuteConditionalNodeAsync(session, configNode, workflowConfig, workingDir, displayTree, lastOutput);
                     break;
@@ -609,6 +612,9 @@ public class EntryPointExecutor
             return previousOutput;
         }
 
+        // Normalize source variable (may be JArray/JsonElement from API — convert to List<object>)
+        NormalizeJsonElementToList(session, source);
+
         // Read the source list from session variable
         var sourceVar = session.GetVariable(source);
         if (sourceVar is not List<object> items || items.Count == 0)
@@ -742,6 +748,68 @@ public class EntryPointExecutor
         UpdateNodeById(displayTree, nodeId, "done", $"Completed: {items.Count} items");
         session.SetVariable("_executionTree", displayTree);
         AppendExecutionLog(session, "success", $"for-each '{nodeId}' completed ({items.Count} items)");
+        await _repository.SaveAsync(session);
+
+        return lastOutput;
+    }
+
+    /// <summary>
+    /// Executes a "phase" scope node. A phase is a named grouping of child nodes
+    /// that share a config section and phase status tracking, but do NOT iterate.
+    /// Unlike for-each (iterates over a list) or while (loops on a condition),
+    /// a phase executes its children exactly once.
+    ///
+    /// JSON schema:
+    ///   "type": "phase"
+    ///   "configSection": "validation"   — key in _workflowConfig for per-phase config
+    ///   "nodes": [...]                  — child nodes to execute
+    ///
+    /// ARCHITECTURE: This is GENERIC infrastructure. The config section name
+    /// and child nodes come from the workflow block JSON.
+    /// </summary>
+    private async Task<string?> ExecutePhaseNodeAsync(
+        Domain.Entities.ProjectSession session,
+        JsonElement phaseNode,
+        Dictionary<string, object>? workflowConfig,
+        string workingDir,
+        string workflowId,
+        List<object> displayTree,
+        string? previousOutput)
+    {
+        var nodeId = phaseNode.TryGetProperty("id", out var idProp) ? idProp.GetString() ?? "phase" : "phase";
+        var configSection = phaseNode.TryGetProperty("configSection", out var csProp) ? csProp.GetString() ?? nodeId : nodeId;
+
+        // Resolve per-phase config from _workflowConfig
+        var phaseConfig = GetWorkflowConfig(session, workflowId, configSection) ?? workflowConfig;
+
+        // Update phase status to running
+        UpdatePhaseStatus(session, configSection, "running", 0);
+        UpdateNodeById(displayTree, nodeId, "running", configSection);
+        session.SetVariable("_executionTree", displayTree);
+        AppendExecutionLog(session, "info", $"Starting phase '{configSection}'");
+        await _repository.SaveAsync(session);
+
+        // Execute child nodes with the per-phase config
+        string? lastOutput = previousOutput;
+        if (phaseNode.TryGetProperty("nodes", out var children) && children.ValueKind == JsonValueKind.Array)
+        {
+            lastOutput = await ExecuteConfigNodesAsync(
+                session, children, phaseConfig, workingDir, workflowId, configSection, displayTree, lastOutput);
+        }
+
+        // Collect results and finalize phase
+        var fitness = ReadDoubleVariable(session, "currentFitness", 0);
+        var iteration = ReadIntVariable(session, "currentIteration", 0);
+
+        // Store metrics for this phase (single iteration — phase nodes are one-shot)
+        StoreIterationMetrics(session, configSection, Math.Max(iteration, 1), fitness);
+
+        UpdatePhaseStatus(session, configSection, "done");
+        StorePhaseSummary(session, configSection, Math.Max(iteration, 1), fitness);
+
+        UpdateNodeById(displayTree, nodeId, "done", $"Phase '{configSection}' complete (fitness: {fitness:F2})");
+        session.SetVariable("_executionTree", displayTree);
+        AppendExecutionLog(session, "success", $"Phase '{configSection}' completed (fitness: {fitness:F2})");
         await _repository.SaveAsync(session);
 
         return lastOutput;
@@ -909,7 +977,10 @@ public class EntryPointExecutor
         if (File.Exists(filePath))
         {
             var content = await File.ReadAllTextAsync(filePath);
-            AppendExecutionLog(session, "info", $"Loaded artifact: {filename} ({content.Length} chars)");
+            // Pre-populate _tokenCount so first iteration prompts have context
+            var tokenCount = content.Split(new[] { ' ', '\n', '\t', '\r' }, StringSplitOptions.RemoveEmptyEntries).Length;
+            session.SetVariable("_tokenCount", tokenCount);
+            AppendExecutionLog(session, "info", $"Loaded artifact: {filename} ({content.Length} chars, ~{tokenCount} tokens)");
             return content;
         }
 
@@ -1322,6 +1393,24 @@ public class EntryPointExecutor
                 {
                     ["nodeId"] = nodeId, ["blockType"] = "for-each",
                     ["description"] = $"Iterate over: {source}"
+                });
+
+                if (node.TryGetProperty("nodes", out var children) && children.ValueKind == JsonValueKind.Array)
+                {
+                    var childCount = children.GetArrayLength();
+                    await DocumentNodesRecursive(sb, children, documentedBlocks, nodeDetails,
+                        linePrefix + childPrefix, childCount);
+                }
+            }
+            else if (nodeType == "phase")
+            {
+                var configSection = node.TryGetProperty("configSection", out var csP) ? csP.GetString() : nodeId;
+                sb.AppendLine($"\u2502{linePrefix}{branch} \u25b6 {nodeId,-30} (phase: {configSection})");
+
+                nodeDetails.Add(new Dictionary<string, object>
+                {
+                    ["nodeId"] = nodeId, ["blockType"] = "phase",
+                    ["description"] = $"Phase scope: {configSection}"
                 });
 
                 if (node.TryGetProperty("nodes", out var children) && children.ValueKind == JsonValueKind.Array)

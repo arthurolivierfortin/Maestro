@@ -3,18 +3,11 @@
   "id": "foundry:agent-improvement-loop",
   "name": "Agent Improvement Loop",
   "blockType": "workflow",
-  "version": "1.0.0",
+  "version": "3.0.0",
   "isAtomic": false,
-  "description": "Iterative workflow for improving an agent through training, evaluation, and automatic refinement. Runs multiple iterations and tracks fitness improvements.",
+  "description": "Workflow for developing an agent tool through iterative improvement phases (creation, optimization) followed by one-shot validation and publish phases. Uses for-each for iterative phases and phase nodes for one-shot steps.",
 
   "inputs": [
-    {
-      "id": "agentId",
-      "name": "Agent ID",
-      "type": "string",
-      "required": true,
-      "description": "ID of the agent to improve"
-    },
     {
       "id": "targetFitness",
       "name": "Target Fitness",
@@ -29,22 +22,7 @@
       "type": "number",
       "required": false,
       "default": 50,
-      "description": "Maximum number of improvement iterations"
-    },
-    {
-      "id": "testInputs",
-      "name": "Test Inputs",
-      "type": "array",
-      "required": false,
-      "description": "Array of test inputs for evaluation"
-    },
-    {
-      "id": "autoApprove",
-      "name": "Auto Approve Improvements",
-      "type": "boolean",
-      "required": false,
-      "default": false,
-      "description": "Automatically apply suggested improvements without human review"
+      "description": "Maximum number of improvement iterations per phase"
     }
   ],
 
@@ -60,115 +38,152 @@
       "name": "Final Fitness",
       "type": "number",
       "description": "Final fitness score after all iterations"
-    },
-    {
-      "id": "iterationsRun",
-      "name": "Iterations Run",
-      "type": "number",
-      "description": "Number of iterations executed"
-    },
-    {
-      "id": "improvements",
-      "name": "Improvements Applied",
-      "type": "array",
-      "description": "List of improvements that were applied"
-    },
-    {
-      "id": "fitnessHistory",
-      "name": "Fitness History",
-      "type": "array",
-      "description": "Fitness scores over all iterations"
     }
   ],
 
   "config": {
     "nodes": [
       {
-        "id": "load-agent",
-        "blockRef": "system:block-loader",
-        "inputs": {
-          "blockId": "{{inputs.agentId}}"
-        }
-      },
-      {
-        "id": "improvement-loop",
-        "type": "while",
-        "condition": "{{currentFitness}} < {{inputs.targetFitness}} && {{iteration}} < {{inputs.maxIterations}}",
-        "maxIterations": "{{inputs.maxIterations}}",
+        "id": "improve-phases",
+        "type": "for-each",
+        "source": "_improvementPhases",
+        "itemId": "id",
+        "configLookup": true,
+        "resetVariables": {
+          "currentIteration": 0,
+          "currentFitness": 0,
+          "scoreHistory": [],
+          "_lastValidationFeedback": "",
+          "_bestFitness": 0.0,
+          "_plateauCount": 0,
+          "_shouldStop": false,
+          "_tokenCount": 0,
+          "_qualityScore": 0.0
+        },
         "nodes": [
           {
-            "id": "run-training",
-            "blockRef": "foundry:training-run",
-            "inputs": {
-              "blockId": "{{inputs.agentId}}",
-              "testInputs": "{{inputs.testInputs}}",
-              "iterations": 5
-            }
+            "id": "load-artifact",
+            "blockRef": "system:block-loader",
+            "inputs": {}
           },
           {
-            "id": "evaluate-results",
-            "blockRef": "foundry:evaluate-iteration",
-            "inputs": {
-              "blockId": "{{inputs.agentId}}",
-              "trainingResults": "{{run-training.results}}",
-              "criteria": ["correctness", "efficiency", "reliability"]
-            }
-          },
-          {
-            "id": "generate-improvements",
-            "blockRef": "system:improvement-generator",
-            "inputs": {
-              "blockId": "{{inputs.agentId}}",
-              "evaluationResults": "{{evaluate-results.evaluation}}",
-              "currentConfig": "{{load-agent.config}}"
-            }
-          },
-          {
-            "id": "update-metrics",
-            "blockRef": "system:metrics-collector",
-            "inputs": {
-              "entityId": "{{inputs.agentId}}",
-              "entityType": "agent",
-              "metrics": {
-                "fitness": "{{evaluate-results.fitness}}",
-                "iteration": "{{iteration}}"
+            "id": "improvement-loop",
+            "type": "while",
+            "condition": "{{currentFitness}} < {{targetFitness}} && {{iteration}} < {{maxIterations}}",
+            "maxIterations": "{{maxIterations}}",
+            "nodes": [
+              {
+                "id": "run-training",
+                "blockRef": "system:artifact-loader",
+                "inputs": {}
+              },
+              {
+                "id": "generate-improvements",
+                "blockRef": "system:inference",
+                "inputs": {}
+              },
+              {
+                "id": "check-quality",
+                "blockRef": "system:validator",
+                "inputs": {}
+              },
+              {
+                "id": "apply-result",
+                "blockRef": "system:file-writer",
+                "inputs": {}
               }
-            }
+            ]
           },
           {
-            "id": "apply-improvements",
-            "type": "conditional",
-            "condition": "{{inputs.autoApprove}} || {{improvement.priority}} == 'critical'",
-            "then": {
-              "blockRef": "system:apply-improvement",
-              "inputs": {
-                "blockId": "{{inputs.agentId}}",
-                "improvement": "{{generate-improvements.suggestions[0]}}"
-              }
-            },
-            "else": {
-              "blockRef": "system:queue-for-review",
-              "inputs": {
-                "blockId": "{{inputs.agentId}}",
-                "improvement": "{{generate-improvements.suggestions[0]}}"
-              }
-            }
+            "id": "finalize-improvement",
+            "blockRef": "system:training-finalizer",
+            "inputs": {}
           }
         ]
       },
       {
-        "id": "finalize",
-        "blockRef": "system:training-finalizer",
+        "id": "validation",
+        "type": "phase",
+        "configSection": "validation",
+        "nodes": [
+          {
+            "id": "load-for-validation",
+            "blockRef": "system:artifact-loader",
+            "inputs": {}
+          },
+          {
+            "id": "validate-artifact",
+            "blockRef": "system:inference",
+            "inputs": {}
+          },
+          {
+            "id": "check-validation",
+            "blockRef": "system:validator",
+            "inputs": {}
+          },
+          {
+            "id": "write-validated",
+            "blockRef": "system:file-writer",
+            "inputs": {}
+          }
+        ]
+      },
+      {
+        "id": "publish",
+        "type": "phase",
+        "configSection": "publish",
+        "nodes": [
+          {
+            "id": "load-for-publish",
+            "blockRef": "system:artifact-loader",
+            "inputs": {}
+          },
+          {
+            "id": "enrich-metadata",
+            "blockRef": "system:inference",
+            "inputs": {}
+          },
+          {
+            "id": "check-publish",
+            "blockRef": "system:validator",
+            "inputs": {}
+          },
+          {
+            "id": "write-final",
+            "blockRef": "system:file-writer",
+            "inputs": {}
+          }
+        ]
+      },
+      {
+        "id": "doc-tree",
+        "blockRef": "system:tree-documenter",
         "inputs": {
-          "blockId": "{{inputs.agentId}}",
-          "loopResults": "{{improvement-loop.history}}",
-          "targetFitness": "{{inputs.targetFitness}}"
+          "filename": ".maestro/docs/session-tree.md"
+        }
+      },
+      {
+        "id": "write-metrics",
+        "blockRef": "system:file-writer",
+        "inputs": {
+          "source": "_phaseMetrics",
+          "filename": ".maestro/metrics/training-metrics.json"
+        }
+      },
+      {
+        "id": "shell-format-report",
+        "blockRef": "system:shell",
+        "inputs": {
+          "command": "node C:\\Meastro\\tools\\format-metrics-report.js .maestro/metrics/training-metrics.json .maestro/docs"
         }
       }
     ],
     "connections": [
-      { "from": "load-agent", "to": "improvement-loop" },
-      { "from": "improvement-loop", "to": "finalize" }
+      { "from": "improve-phases", "to": "validation" },
+      { "from": "validation", "to": "publish" },
+      { "from": "publish", "to": "doc-tree" },
+      { "from": "doc-tree", "to": "write-metrics" },
+      { "from": "write-metrics", "to": "shell-format-report" }
     ]
   },
 
