@@ -10,8 +10,9 @@ services:
     ports:
       - "5000:5000"
     volumes:
-      # Mount blocks directories (read-write)
-      - ./blocks:/app/blocks:rw
+      # Mount content directories (read-write)
+      - ./content/blocks:/app/content/blocks:rw
+      - ./content/user:/app/content/user:rw
       - ./.maestro:/app/.maestro:rw
       # Mount schemas for block validation
       - ./docs/schemas:/app/docs/schemas:ro
@@ -24,7 +25,7 @@ services:
       - LLM__Providers__OpenAI__ApiKey=${OPENAI_API_KEY:-}
       - LLM__Providers__Anthropic__ApiKey=${ANTHROPIC_API_KEY:-}
       - LLM__Providers__Ollama__BaseUrl=${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
-      - Blocks__SearchPaths__0=/app/blocks
+      - Blocks__SearchPaths__0=/app/content/blocks
       - Blocks__SearchPaths__1=/app/.maestro/blocks
       - Blocks__SearchPaths__2=/root/.maestro/blocks
       - Cors__AllowedOrigins=${CORS_ALLOWED_ORIGINS:-http://localhost:5173,http://localhost:3000}
