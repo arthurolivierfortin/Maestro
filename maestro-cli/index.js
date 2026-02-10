@@ -5139,7 +5139,8 @@ async function executeWithArgv(argv) {
         layout: argv.layout || 'auto',
         view: argv.view || null,
         debug: argv.debug || false,
-        returnToList: !argv['no-back'] // Allow Escape to return to list by default
+        returnToList: !argv['no-back'], // Allow Escape to return to list by default
+        legacy: argv.legacy || false    // --legacy flag uses old blessed monitor
       };
 
       if (listMode) {

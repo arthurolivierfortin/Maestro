@@ -1,0 +1,580 @@
+{
+  "id": "467c0be0-498c-4944-9c98-408798c79f10",
+  "name": "Model Compliance Test",
+  "status": "running",
+  "terminalReason": "none",
+  "authority": "human",
+  "workingDirectory": ".",
+  "repositoryPath": "C:\\Meastro",
+  "parentWorkspaceId": null,
+  "parentSessionId": null,
+  "config": {
+    "projectId": null,
+    "workflowId": null,
+    "task": null,
+    "context": null,
+    "access": {
+      "level": "controlled",
+      "allowedPaths": [],
+      "deniedPaths": [
+        ".env",
+        "*.env",
+        "secrets/**"
+      ],
+      "requireApprovalPaths": []
+    },
+    "validation": {
+      "runTests": false,
+      "testCommand": null,
+      "runLinter": false,
+      "linterCommand": null,
+      "requireCleanDiff": false,
+      "maxSteps": 50,
+      "timeoutMs": 600000
+    },
+    "inputs": {}
+  },
+  "createdAt": "2026-02-10T19:05:28.5585081+00:00",
+  "startedAt": "2026-02-10T19:06:00.1770134+00:00",
+  "completedAt": null,
+  "updatedAt": "2026-02-10T19:06:00.1770122+00:00",
+  "commandCount": 0,
+  "modifiedFiles": [],
+  "errorMessage": null,
+  "testResult": null,
+  "linterResult": null,
+  "commitInfo": null,
+  "variables": {
+    "sessionMode": "testing",
+    "autoEvaluate": true,
+    "targetFitness": 1,
+    "maxIterations": 2,
+    "currentPhase": "discovery",
+    "currentIteration": 0,
+    "currentFitness": 0,
+    "scoreHistory": [],
+    "improvementHistory": [],
+    "pendingApprovals": [],
+    "pendingApprovalCount": 0,
+    "recentEvents": [],
+    "_phases": [
+      [
+        [
+          []
+        ],
+        [
+          []
+        ],
+        [
+          []
+        ],
+        [
+          []
+        ]
+      ],
+      [
+        [
+          []
+        ],
+        [
+          []
+        ],
+        [
+          []
+        ],
+        [
+          []
+        ]
+      ],
+      [
+        [
+          []
+        ],
+        [
+          []
+        ],
+        [
+          []
+        ],
+        [
+          []
+        ]
+      ],
+      [
+        [
+          []
+        ],
+        [
+          []
+        ],
+        [
+          []
+        ],
+        [
+          []
+        ]
+      ],
+      [
+        [
+          []
+        ],
+        [
+          []
+        ],
+        [
+          []
+        ],
+        [
+          []
+        ]
+      ],
+      [
+        [
+          []
+        ],
+        [
+          []
+        ],
+        [
+          []
+        ],
+        [
+          []
+        ]
+      ]
+    ],
+    "_blockOutputs": {},
+    "_monitorDescriptor": {
+      "layout": [
+        [
+          []
+        ],
+        [
+          [
+            [
+              [
+                [
+                  []
+                ],
+                [
+                  []
+                ],
+                [
+                  [
+                    []
+                  ]
+                ]
+              ]
+            ],
+            [
+              [
+                [
+                  []
+                ],
+                [
+                  []
+                ],
+                [
+                  [
+                    []
+                  ]
+                ]
+              ]
+            ],
+            [
+              [
+                [
+                  []
+                ],
+                [
+                  []
+                ],
+                [
+                  [
+                    []
+                  ]
+                ]
+              ]
+            ],
+            [
+              [
+                [
+                  []
+                ],
+                [
+                  []
+                ],
+                [
+                  [
+                    []
+                  ]
+                ]
+              ]
+            ],
+            [
+              [
+                [
+                  []
+                ],
+                [
+                  []
+                ],
+                [
+                  [
+                    []
+                  ]
+                ]
+              ]
+            ]
+          ]
+        ]
+      ],
+      "components": [
+        [
+          [
+            []
+          ],
+          [
+            []
+          ],
+          [
+            [
+              [],
+              []
+            ]
+          ]
+        ],
+        [
+          [
+            []
+          ],
+          [
+            []
+          ],
+          [
+            []
+          ]
+        ],
+        [
+          [
+            []
+          ],
+          [
+            []
+          ],
+          [
+            []
+          ]
+        ],
+        [
+          [
+            []
+          ],
+          [
+            []
+          ],
+          [
+            []
+          ]
+        ]
+      ]
+    },
+    "_llmActivity": [],
+    "_workflowConfig": {
+      "compliance-test-loop": [
+        [
+          [
+            [
+              [
+                [
+                  []
+                ],
+                [
+                  []
+                ],
+                [
+                  []
+                ],
+                [
+                  []
+                ],
+                [
+                  []
+                ]
+              ]
+            ],
+            [
+              [
+                [
+                  []
+                ]
+              ]
+            ],
+            [
+              [
+                [
+                  [
+                    [],
+                    [],
+                    [],
+                    []
+                  ]
+                ]
+              ]
+            ]
+          ]
+        ],
+        [
+          [
+            [
+              [
+                [
+                  []
+                ],
+                [
+                  []
+                ],
+                [
+                  []
+                ],
+                [
+                  []
+                ],
+                [
+                  []
+                ]
+              ]
+            ],
+            [
+              [
+                [
+                  []
+                ]
+              ]
+            ],
+            [
+              [
+                [
+                  [
+                    [],
+                    [],
+                    [],
+                    []
+                  ]
+                ]
+              ]
+            ]
+          ]
+        ],
+        [
+          [
+            [
+              [
+                [
+                  []
+                ],
+                [
+                  []
+                ],
+                [
+                  []
+                ],
+                [
+                  []
+                ],
+                [
+                  []
+                ]
+              ]
+            ],
+            [
+              [
+                [
+                  []
+                ]
+              ]
+            ],
+            [
+              [
+                [
+                  [
+                    [],
+                    [],
+                    [],
+                    [],
+                    []
+                  ]
+                ]
+              ]
+            ]
+          ]
+        ],
+        [
+          [
+            [
+              [
+                [
+                  []
+                ],
+                [
+                  []
+                ],
+                [
+                  []
+                ],
+                [
+                  []
+                ],
+                [
+                  []
+                ]
+              ]
+            ],
+            [
+              [
+                [
+                  []
+                ]
+              ]
+            ],
+            [
+              [
+                [
+                  [
+                    [],
+                    [],
+                    [],
+                    [],
+                    []
+                  ]
+                ]
+              ]
+            ]
+          ]
+        ],
+        [
+          [
+            [
+              [
+                [
+                  []
+                ],
+                [
+                  []
+                ],
+                [
+                  []
+                ],
+                [
+                  []
+                ],
+                [
+                  []
+                ]
+              ]
+            ],
+            [
+              [
+                [
+                  []
+                ]
+              ]
+            ],
+            [
+              [
+                [
+                  [
+                    [],
+                    [],
+                    [],
+                    [],
+                    []
+                  ]
+                ]
+              ]
+            ]
+          ]
+        ],
+        [
+          [
+            [
+              [
+                [
+                  []
+                ],
+                [
+                  []
+                ],
+                [
+                  []
+                ],
+                [
+                  []
+                ],
+                [
+                  []
+                ]
+              ]
+            ],
+            [
+              [
+                [
+                  []
+                ]
+              ]
+            ],
+            [
+              [
+                [
+                  [
+                    []
+                  ]
+                ]
+              ]
+            ]
+          ]
+        ]
+      ]
+    }
+  },
+  "entryPoints": {
+    "start": "workflow:foundry/compliance-test-loop",
+    "run-tests": "workflow:foundry/compliance-test-loop"
+  },
+  "monitorWidgets": [
+    {
+      "id": "fitness-progress",
+      "type": "progress-bar",
+      "config": {
+        "label": "Compliance Score",
+        "current": "$.variables.currentFitness",
+        "max": 1,
+        "showPercentage": true
+      }
+    },
+    {
+      "id": "iteration-counter",
+      "type": "counter",
+      "config": {
+        "label": "Iteration",
+        "value": "$.variables.currentIteration"
+      }
+    },
+    {
+      "id": "score-history",
+      "type": "score-chart",
+      "config": {
+        "label": "Score History",
+        "data": "$.variables.scoreHistory",
+        "threshold": "$.variables.targetFitness"
+      }
+    }
+  ],
+  "blockSearchPaths": [
+    "C:\\Meastro\\.maestro\\blocks"
+  ],
+  "defaultModel": null,
+  "modelOverrides": null,
+  "fileAccessRulesConfig": null,
+  "blockPermissionsConfig": null
+}
