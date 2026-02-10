@@ -80,7 +80,7 @@ public class EntryPointExecutor
 
         // 1. Load workflow block (optional — execution still works without it)
         var blockId = NormalizeBlockId(workflowId);
-        var workflowBlock = await _blockDiscovery.GetByIdAsync(blockId);
+        var workflowBlock = await _blockDiscovery.GetByIdAsync(blockId, session.BlockSearchPaths);
         if (workflowBlock == null)
         {
             _logger.LogWarning("Workflow block not found: {BlockId}. Using minimal execution.", blockId);
@@ -1190,7 +1190,7 @@ public class EntryPointExecutor
         foreach (var rawId in entryBlockIds)
         {
             var normalizedId = NormalizeBlockId(rawId);
-            var block = await _blockDiscovery.GetByIdAsync(normalizedId);
+            var block = await _blockDiscovery.GetByIdAsync(normalizedId, session.BlockSearchPaths);
             if (block == null)
             {
                 sb.AppendLine($"\u2502  \u2717 {rawId,-64} [not found] \u2502");
@@ -1217,7 +1217,7 @@ public class EntryPointExecutor
                 if (nodes.ValueKind == JsonValueKind.Array)
                 {
                     var nodeCount = nodes.GetArrayLength();
-                    await DocumentNodesRecursive(sb, nodes, documentedBlocks, nodeDetails, "    ", nodeCount);
+                    await DocumentNodesRecursive(sb, nodes, documentedBlocks, nodeDetails, "    ", nodeCount, session.BlockSearchPaths);
                 }
             }
 
@@ -1262,7 +1262,7 @@ public class EntryPointExecutor
         // Root block details (with inputs/outputs from source JSON)
         foreach (var blockId in documentedBlocks.OrderBy(b => b))
         {
-            var block = await _blockDiscovery.GetByIdAsync(blockId);
+            var block = await _blockDiscovery.GetByIdAsync(blockId, session.BlockSearchPaths);
             if (block == null) continue;
 
             sb.AppendLine($"\u2502  \u2500\u2500 {block.Name} \u2500\u2500");
@@ -1342,7 +1342,8 @@ public class EntryPointExecutor
         HashSet<string> documentedBlocks,
         List<Dictionary<string, object>> nodeDetails,
         string linePrefix,
-        int totalSiblings)
+        int totalSiblings,
+        IReadOnlyList<string>? blockSearchPaths = null)
     {
         var index = 0;
         foreach (var node in nodes.EnumerateArray())
@@ -1381,7 +1382,7 @@ public class EntryPointExecutor
                 {
                     var childCount = children.GetArrayLength();
                     await DocumentNodesRecursive(sb, children, documentedBlocks, nodeDetails,
-                        linePrefix + childPrefix, childCount);
+                        linePrefix + childPrefix, childCount, blockSearchPaths);
                 }
             }
             else if (nodeType == "for-each")
@@ -1399,7 +1400,7 @@ public class EntryPointExecutor
                 {
                     var childCount = children.GetArrayLength();
                     await DocumentNodesRecursive(sb, children, documentedBlocks, nodeDetails,
-                        linePrefix + childPrefix, childCount);
+                        linePrefix + childPrefix, childCount, blockSearchPaths);
                 }
             }
             else if (nodeType == "phase")
@@ -1417,7 +1418,7 @@ public class EntryPointExecutor
                 {
                     var childCount = children.GetArrayLength();
                     await DocumentNodesRecursive(sb, children, documentedBlocks, nodeDetails,
-                        linePrefix + childPrefix, childCount);
+                        linePrefix + childPrefix, childCount, blockSearchPaths);
                 }
             }
             else if (nodeType == "conditional")
@@ -1435,7 +1436,7 @@ public class EntryPointExecutor
                 {
                     var childCount = children.GetArrayLength();
                     await DocumentNodesRecursive(sb, children, documentedBlocks, nodeDetails,
-                        linePrefix + childPrefix, childCount);
+                        linePrefix + childPrefix, childCount, blockSearchPaths);
                 }
             }
             else
@@ -1446,7 +1447,7 @@ public class EntryPointExecutor
 
                 if (!string.IsNullOrEmpty(blockRef))
                 {
-                    var block = await _blockDiscovery.GetByIdAsync(blockRef);
+                    var block = await _blockDiscovery.GetByIdAsync(blockRef, blockSearchPaths ?? Array.Empty<string>());
                     if (block != null)
                     {
                         blockType = block.BlockType;
@@ -1462,7 +1463,7 @@ public class EntryPointExecutor
                             {
                                 var childCount = childNodes.GetArrayLength();
                                 await DocumentNodesRecursive(sb, childNodes, documentedBlocks, nodeDetails,
-                                    linePrefix + childPrefix, childCount);
+                                    linePrefix + childPrefix, childCount, blockSearchPaths);
                             }
                         }
                     }

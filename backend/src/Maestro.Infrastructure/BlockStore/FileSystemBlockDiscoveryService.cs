@@ -510,6 +510,43 @@ namespace Maestro.Infrastructure.BlockStore
             return Task.FromResult(b);
         }
 
+        public Task<BlockDefinition?> GetByIdAsync(string blockId, IReadOnlyList<string> additionalSearchPaths, CancellationToken ct = default)
+        {
+            // First check global cache
+            if (_cache.TryGetValue(blockId, out var cached))
+                return Task.FromResult<BlockDefinition?>(cached);
+
+            // Search additional paths on-demand
+            if (additionalSearchPaths == null || additionalSearchPaths.Count == 0)
+                return Task.FromResult<BlockDefinition?>(null);
+
+            foreach (var searchPath in additionalSearchPaths)
+            {
+                if (!Directory.Exists(searchPath)) continue;
+
+                try
+                {
+                    foreach (var file in Directory.EnumerateFiles(searchPath, MaestroConstants.BlockFileGlobPattern, SearchOption.AllDirectories))
+                    {
+                        try
+                        {
+                            var block = LoadBlockFromFile(file);
+                            if (block != null && string.Equals(block.Id, blockId, StringComparison.OrdinalIgnoreCase))
+                            {
+                                // Cache for future lookups
+                                _cache[block.Id] = block;
+                                return Task.FromResult<BlockDefinition?>(block);
+                            }
+                        }
+                        catch { /* skip invalid files */ }
+                    }
+                }
+                catch { /* skip inaccessible paths */ }
+            }
+
+            return Task.FromResult<BlockDefinition?>(null);
+        }
+
         public Task<BlockDefinition?> GetByPathAsync(string filePath, CancellationToken ct = default)
         {
             try

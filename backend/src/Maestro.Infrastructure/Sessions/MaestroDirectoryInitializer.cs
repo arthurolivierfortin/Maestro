@@ -13,6 +13,7 @@ public static class MaestroDirectoryInitializer
     /// </summary>
     private static readonly string[] StandardDirectories =
     {
+        "blocks",
         "docs",
         "logs",
         "artifacts",

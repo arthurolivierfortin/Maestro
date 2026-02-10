@@ -134,6 +134,15 @@ public abstract class ContainerSession
 
         RepositoryPath = Path.GetFullPath(repositoryPath);
         Binding = ContainerBinding.CreateRepositoryBound(RepositoryPath, accessLevel);
+
+        // Ensure .maestro/blocks in bound repo is included in block search paths
+        var repoBlocksPath = Path.Combine(RepositoryPath, ".maestro", "blocks");
+        if (!BlockSearchPaths.Contains(repoBlocksPath))
+        {
+            var updatedPaths = new List<string>(BlockSearchPaths) { repoBlocksPath };
+            BlockSearchPaths = updatedPaths.AsReadOnly();
+        }
+
         UpdatedAt = DateTimeOffset.UtcNow;
     }
 

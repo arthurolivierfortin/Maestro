@@ -1,0 +1,345 @@
+{
+  "id": "research-exp-003",
+  "name": "Research: Few-Shot Example",
+  "description": "Experiment EXP-003: Few-shot learning: showing a concrete before/after example should trigger the model to apply the same transformation pattern (shorter descriptions).",
+  "type": "foundry",
+  "authority": {
+    "type": "human",
+    "identifier": "default",
+    "displayName": "Foundry User"
+  },
+  "permissions": {
+    "allowedCommands": [
+      "*"
+    ],
+    "allowedTools": [
+      "*"
+    ],
+    "allowedBlocks": [
+      "*"
+    ],
+    "canCreateBlocks": true,
+    "canCreateSessions": true,
+    "canAccessNetwork": true,
+    "canAccessFilesystem": true
+  },
+  "entryPoints": {
+    "start": "workflow:foundry/agent-improvement-loop",
+    "improve-agent": "workflow:foundry/agent-improvement-loop",
+    "create-tool": "workflow:foundry/tool-creation",
+    "validate-block": "workflow:foundry/block-validation",
+    "submit-approval": "workflow:foundry/submit-for-approval",
+    "run-training": "workflow:foundry/training-run"
+  },
+  "variables": {
+    "sessionMode": "development",
+    "autoEvaluate": true,
+    "targetFitness": 0.85,
+    "maxIterations": 10,
+    "currentPhase": "exploration",
+    "currentIteration": 0,
+    "currentFitness": 0,
+    "scoreHistory": [],
+    "improvementHistory": [],
+    "pendingApprovals": [],
+    "pendingApprovalCount": 0,
+    "recentEvents": [],
+    "_phases": [
+      {
+        "id": "creation",
+        "name": "Phase 1: Creation",
+        "status": "pending",
+        "description": "Create initial gen-commit tool"
+      },
+      {
+        "id": "optimization",
+        "name": "Phase 2: Optimization",
+        "status": "pending",
+        "description": "Reduce tokens, improve quality"
+      },
+      {
+        "id": "validation",
+        "name": "Phase 3: Validation",
+        "status": "pending",
+        "description": "Final validation and testing"
+      },
+      {
+        "id": "publish",
+        "name": "Phase 4: Publish",
+        "status": "pending",
+        "description": "Package and publish tool"
+      }
+    ],
+    "_improvementPhases": [
+      {
+        "id": "creation",
+        "name": "Phase 1: Creation",
+        "status": "pending",
+        "description": "Create initial gen-commit tool"
+      },
+      {
+        "id": "optimization",
+        "name": "Phase 2: Optimization",
+        "status": "pending",
+        "description": "Reduce tokens, improve quality"
+      }
+    ],
+    "_blockOutputs": {},
+    "_monitorDescriptor": {
+      "layout": {
+        "mode": "phased-v2",
+        "zones": {
+          "header-left": {
+            "width": "60%",
+            "height": 7,
+            "components": [
+              "header"
+            ]
+          },
+          "header-right": {
+            "width": "40%",
+            "height": 7,
+            "components": [
+              "session-metrics"
+            ]
+          },
+          "left": {
+            "width": "55%",
+            "height": "75%",
+            "components": [
+              "phase-workflow"
+            ]
+          },
+          "right": {
+            "width": "45%",
+            "height": "75%",
+            "components": [
+              "llm-activity"
+            ]
+          },
+          "bottom": {
+            "width": "100%",
+            "height": "25%",
+            "components": [
+              "execution-log"
+            ]
+          }
+        }
+      },
+      "components": [
+        {
+          "id": "phase-workflow",
+          "type": "phase-workflow",
+          "data": [
+            "$.variables._phases",
+            "$.variables._executionTree"
+          ]
+        },
+        {
+          "id": "llm-activity",
+          "type": "llm-activity",
+          "data": "$.variables._llmActivity"
+        },
+        {
+          "id": "execution-log",
+          "type": "execution-log",
+          "data": "$.variables._executionLog"
+        },
+        {
+          "id": "session-metrics",
+          "type": "widgets",
+          "data": "$.monitorWidgets"
+        }
+      ]
+    },
+    "_llmActivity": [],
+    "_workflowConfig": {
+      "agent-improvement-loop": {
+        "creation": {
+          "llm": {
+            "model": "HuggingFaceTB/SmolLM2-1.7B-Instruct",
+            "systemPrompt": "You are a JSON generator. Output ONLY valid JSON. No text, no markdown, no explanation. Just a raw JSON object.",
+            "userPromptTemplate": "Generate a JSON block definition for a 'gen-commit' tool that analyzes git diffs and generates conventional commit messages.\n\nRequired top-level fields: \"name\" (string), \"type\" (string), \"description\" (string).\nAlso include: \"version\" (semver), \"inputs\" (array), \"outputs\" (array).\n\nProject context:\n{{context}}\n\nPrevious validation feedback:\n{{_lastValidationFeedback}}\n\nOutput ONLY the JSON object. Start with { and end with }. No other text.",
+            "maxTokens": 1024,
+            "temperature": 0.3
+          },
+          "output": {
+            "filename": "gen-commit-tool.json"
+          },
+          "evaluation": {
+            "criteria": [
+              "hasJsonStructure",
+              "validJsonParse",
+              "noMarkdownFences",
+              "hasRequiredFields",
+              "minLength"
+            ]
+          }
+        },
+        "optimization": {
+          "llm": {
+            "model": "HuggingFaceTB/SmolLM2-1.7B-Instruct",
+            "systemPrompt": "You are a JSON generator. Output ONLY valid JSON. No text, no markdown, no explanation. Just a raw JSON object.",
+            "userPromptTemplate": "Compress this JSON like the example below.\n\nEXAMPLE INPUT:\n{\"name\":\"analyzer\",\"type\":\"/tools/codeTools\",\"description\":\"Analyzes source code structure and dependencies.\",\"version\":\"1.0.0\",\"inputs\":[{\"name\":\"sourcePath\",\"description\":\"The path to the source code directory to analyze.\"}],\"outputs\":[{\"name\":\"report\",\"description\":\"A detailed analysis report of the code structure.\"}]}\n\nEXAMPLE OUTPUT:\n{\"name\":\"analyzer\",\"type\":\"/tools/codeTools\",\"description\":\"Code analysis.\",\"version\":\"1.0.0\",\"inputs\":[{\"name\":\"sourcePath\",\"description\":\"Source path.\"}],\"outputs\":[{\"name\":\"report\",\"description\":\"Analysis report.\"}]}\n\nNow compress this JSON the same way:\n{{context}}\n\nOutput ONLY the JSON object. Start with { and end with }. No other text.",
+            "maxTokens": 1024,
+            "temperature": 0.3
+          },
+          "output": {
+            "filename": "gen-commit-tool.json"
+          },
+          "evaluation": {
+            "criteria": [
+              "hasJsonStructure",
+              "validJsonParse",
+              "noMarkdownFences",
+              "tokenEfficiency"
+            ],
+            "qualityCriteria": [
+              "hasJsonStructure",
+              "validJsonParse",
+              "hasRequiredFields"
+            ],
+            "qualityFloor": 0.85,
+            "stopCondition": "plateau",
+            "plateauRuns": 5
+          }
+        },
+        "validation": {
+          "llm": {
+            "model": "HuggingFaceTB/SmolLM2-1.7B-Instruct",
+            "systemPrompt": "You are a JSON generator. Output ONLY valid JSON. No text, no markdown, no explanation. Just a raw JSON object.",
+            "userPromptTemplate": "Validate and fix this tool definition for production readiness:\n{{context}}\n\nEnsure: all required fields (name, type, description), valid JSON, proper types.\nFeedback: {{_lastValidationFeedback}}\n\nOutput ONLY the JSON object. Start with { and end with }. No other text.",
+            "maxTokens": 1024,
+            "temperature": 0.2
+          },
+          "output": {
+            "filename": "gen-commit-tool.json"
+          },
+          "evaluation": {
+            "criteria": [
+              "hasJsonStructure",
+              "validJsonParse",
+              "noMarkdownFences",
+              "hasRequiredFields",
+              "minLength"
+            ]
+          }
+        },
+        "publish": {
+          "llm": {
+            "model": "HuggingFaceTB/SmolLM2-1.7B-Instruct",
+            "systemPrompt": "You are a JSON generator. Output ONLY valid JSON. No text, no markdown, no explanation. Just a raw JSON object.",
+            "userPromptTemplate": "Finalize this tool for publication. Add version and author metadata:\n{{context}}\n\nOutput ONLY the JSON object. Start with { and end with }. No other text.",
+            "maxTokens": 1024,
+            "temperature": 0.1
+          },
+          "output": {
+            "filename": "gen-commit-tool.json"
+          },
+          "evaluation": {
+            "criteria": [
+              "hasJsonStructure",
+              "validJsonParse",
+              "noMarkdownFences",
+              "hasRequiredFields",
+              "minLength"
+            ]
+          }
+        }
+      }
+    }
+  },
+  "monitorWidgets": [
+    {
+      "id": "fitness-progress",
+      "type": "progress-bar",
+      "zone": "custom",
+      "config": {
+        "label": "Fitness Score",
+        "current": "$.variables.currentFitness",
+        "max": 1,
+        "showPercentage": true
+      }
+    },
+    {
+      "id": "iteration-counter",
+      "type": "counter",
+      "zone": "custom",
+      "config": {
+        "label": "Iteration",
+        "value": "$.variables.currentIteration"
+      }
+    },
+    {
+      "id": "score-history",
+      "type": "score-chart",
+      "zone": "custom",
+      "config": {
+        "label": "Score History",
+        "data": "$.variables.scoreHistory",
+        "threshold": "$.variables.targetFitness"
+      }
+    },
+    {
+      "id": "pending-approvals",
+      "type": "counter",
+      "zone": "custom",
+      "config": {
+        "label": "Pending Approvals",
+        "value": "$.variables.pendingApprovalCount",
+        "alertThreshold": 5
+      }
+    },
+    {
+      "id": "recent-events",
+      "type": "status-list",
+      "zone": "custom",
+      "config": {
+        "label": "Recent Events",
+        "items": "$.variables.recentEvents",
+        "maxItems": 10,
+        "showTimestamp": true
+      }
+    }
+  ],
+  "config": {
+    "maxIterations": 100,
+    "timeout": 7200000,
+    "autoSave": true,
+    "saveInterval": 30000,
+    "training": {
+      "iterations": 10,
+      "parallel": 1,
+      "delayMs": 500,
+      "timeoutMs": 60000
+    },
+    "evaluation": {
+      "mode": "hybrid",
+      "passThreshold": 0.7,
+      "humanReviewThreshold": 0.5,
+      "autoEvaluator": {
+        "type": "LLM",
+        "model": "claude-sonnet"
+      },
+      "criteria": [
+        "correctness",
+        "efficiency",
+        "readability",
+        "error-handling"
+      ]
+    }
+  },
+  "context": {
+    "systemPrompt": "You are operating within the Maestro Agent Foundry. Your purpose is to help develop, test, and improve agents and tools. You have full access to training workflows, evaluation tools, and the block approval system.",
+    "initialVariables": {
+      "workspace": "foundry",
+      "developmentMode": true
+    }
+  },
+  "metadata": {
+    "category": "foundry",
+    "priority": "high",
+    "version": "1.0.0",
+    "author": "maestro-system"
+  }
+}

@@ -1,0 +1,66 @@
+{
+  "id": "3914f3ce-f9cb-4457-82e6-d00abaf28586",
+  "name": "Training Research",
+  "description": "Research workspace for optimal prompt/model/training methodology",
+  "type": "Research",
+  "status": "Active",
+  "path": null,
+  "sessionIds": [
+    "22d699ed-a1a4-4d45-b4fa-d8ad08688645",
+    "100aec7c-a371-44ad-909b-14f0a4f968da",
+    "715e30c6-82c2-4ba6-a82f-7f7d303d41cf",
+    "5c60f4b7-77fc-47b0-b4de-f86536b9ed14",
+    "a1c00d6d-fdd8-406a-a4da-b171c236ec0e",
+    "e6e9f0ba-0794-452c-a30f-c84ee0cfeacd",
+    "6409ddc1-539e-414b-aeb9-3351d962a09a",
+    "1190a70e-8402-4eb5-a8ed-ae9a06e1189d",
+    "fd0e04a3-f769-40d6-b236-d7e3fce69090"
+  ],
+  "projectIds": [],
+  "catalogRef": null,
+  "settings": {
+    "defaultModelId": null,
+    "maxConcurrentSessions": 20,
+    "maxConcurrentTrainingRuns": 5,
+    "autoPromotionEnabled": false,
+    "minFitnessForPromotion": 0.7,
+    "tags": []
+  },
+  "isolation": {
+    "enabled": false,
+    "network": null,
+    "resources": null,
+    "permissions": {
+      "canReadFrom": [],
+      "canWriteTo": [],
+      "canPromoteTo": [],
+      "allowReadFrom": [],
+      "allowWriteFrom": []
+    }
+  },
+  "permissions": {
+    "allowedCommands": [
+      "*"
+    ],
+    "allowedTools": [
+      "*"
+    ],
+    "allowedBlocks": [
+      "*"
+    ],
+    "canCreateBlocks": true,
+    "canCreateSessions": true,
+    "dataCollections": [
+      "*"
+    ],
+    "allowedPaths": [
+      "*"
+    ]
+  },
+  "sessionTemplates": {},
+  "entryPoints": {},
+  "createdAt": "2026-02-10T12:11:11.3357163+00:00",
+  "updatedAt": "2026-02-10T12:54:09.0013646+00:00",
+  "createdBy": null,
+  "repositoryPath": "C:\\Meastro\\test-repos\\training-research"
+}
