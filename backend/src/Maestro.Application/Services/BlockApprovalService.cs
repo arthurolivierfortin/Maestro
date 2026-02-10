@@ -54,15 +54,18 @@ public class BlockApprovalService : IBlockApprovalService
 {
     private readonly IBlockApprovalRepository _approvalRepository;
     private readonly IBlockRepository _blockRepository;
+    private readonly IBlockPublisher _publisher;
     private readonly ILogger<BlockApprovalService> _logger;
 
     public BlockApprovalService(
         IBlockApprovalRepository approvalRepository,
         IBlockRepository blockRepository,
+        IBlockPublisher publisher,
         ILogger<BlockApprovalService> logger)
     {
         _approvalRepository = approvalRepository;
         _blockRepository = blockRepository;
+        _publisher = publisher;
         _logger = logger;
     }
 
@@ -124,10 +127,28 @@ public class BlockApprovalService : IBlockApprovalService
         approval.Approve(reviewedBy);
         await _approvalRepository.SaveAsync(approval, ct);
 
-        // TODO: Publish the block to the global catalog
-        _logger.LogInformation(
-            "Block '{BlockId}' approved for publication (approval: {ApprovalId})",
-            approval.BlockId, approval.Id);
+        // Publish the approved block to the user catalog
+        try
+        {
+            var manifest = await _publisher.PublishBlockAsync(
+                approval.BlockId,
+                approval.BlockName,
+                approval.BlockType,
+                approval.SubmittedBy,
+                approval.Metadata.Count > 0 ? approval.Metadata : null,
+                ct);
+
+            _logger.LogInformation(
+                "Block '{BlockId}' approved and published (approval: {ApprovalId}, version: {Version})",
+                approval.BlockId, approval.Id, manifest.Version);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex,
+                "Block '{BlockId}' approved (approval: {ApprovalId}) but publishing failed",
+                approval.BlockId, approval.Id);
+            throw;
+        }
 
         return approval;
     }

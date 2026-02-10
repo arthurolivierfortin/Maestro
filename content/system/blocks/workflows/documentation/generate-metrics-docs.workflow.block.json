@@ -1,0 +1,107 @@
+{
+  "$schema": "../../../../docs/schemas/block.schema.json",
+  "id": "documentation:generate-metrics-docs",
+  "name": "Generate Metrics Documentation",
+  "blockType": "workflow",
+  "version": "1.0.0",
+  "isAtomic": false,
+  "description": "Pipeline 1: Deterministic documentation generation. Extracts metrics from completed sessions and generates structured reports (JSON + Markdown). No LLM involved — purely script-based extraction and formatting.",
+
+  "inputs": [
+    {
+      "id": "scope",
+      "name": "Scope",
+      "type": "string",
+      "required": false,
+      "default": "user",
+      "description": "Documentation scope: 'user' writes to content/user/docs/, 'system' writes to content/system/docs/"
+    },
+    {
+      "id": "sessionId",
+      "name": "Session ID",
+      "type": "string",
+      "required": false,
+      "description": "Specific session to document. If omitted, processes all recent sessions."
+    },
+    {
+      "id": "category",
+      "name": "Category",
+      "type": "string",
+      "required": false,
+      "default": "all",
+      "description": "Category to generate: 'all', 'sessions', 'models'"
+    }
+  ],
+
+  "outputs": [
+    {
+      "id": "success",
+      "name": "Success",
+      "type": "boolean",
+      "description": "Whether documentation was generated successfully"
+    },
+    {
+      "id": "filesWritten",
+      "name": "Files Written",
+      "type": "number",
+      "description": "Number of documentation files created or updated"
+    },
+    {
+      "id": "summary",
+      "name": "Summary",
+      "type": "string",
+      "description": "Summary of what was generated"
+    }
+  ],
+
+  "config": {
+    "nodes": [
+      {
+        "id": "scan-sessions",
+        "type": "regular",
+        "blockRef": "tool:directory-list",
+        "description": "Scan for completed sessions with metrics",
+        "inputs": {
+          "path": "{{inputs.sessionsPath}}"
+        }
+      },
+      {
+        "id": "extract-metrics",
+        "type": "regular",
+        "blockRef": "tool:file-read",
+        "description": "Read _phaseMetrics and _phases from session variables",
+        "inputs": {
+          "path": "{{previousOutput.metricsPath}}"
+        }
+      },
+      {
+        "id": "format-session-reports",
+        "type": "regular",
+        "blockRef": "system:shell",
+        "description": "Generate per-session markdown reports using format-metrics-report.js",
+        "inputs": {
+          "command": "node {{scriptsPath}}/format-metrics-report.js {{metricsJsonPath}} {{outputDir}}"
+        }
+      },
+      {
+        "id": "aggregate-model-data",
+        "type": "regular",
+        "blockRef": "system:shell",
+        "description": "Aggregate test results per model across sessions into model test-history files",
+        "inputs": {
+          "command": "node {{scriptsPath}}/aggregate-model-metrics.js {{metricsDir}} {{modelsOutputDir}}"
+        }
+      },
+      {
+        "id": "update-metrics-index",
+        "type": "regular",
+        "blockRef": "tool:file-write",
+        "description": "Update the metrics/index.json with new entries",
+        "inputs": {
+          "path": "{{outputBase}}/metrics/index.json",
+          "content": "{{updatedIndex}}"
+        }
+      }
+    ]
+  }
+}

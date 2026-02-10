@@ -1,0 +1,95 @@
+{
+  "id": "doc-generator",
+  "name": "Documentation Generator",
+  "type": "foundry",
+  "description": "Generates and maintains documentation from session metrics and knowledge synthesis. Supports two pipelines: deterministic metrics extraction (pipeline 1) and LLM-powered knowledge synthesis (pipeline 2).",
+
+  "variables": {
+    "sessionMode": "documentation",
+    "_phases": [
+      { "id": "extract-metrics", "name": "Phase 1: Extract Metrics", "status": "pending", "type": "one-shot", "description": "Deterministic extraction of session metrics into structured reports" },
+      { "id": "synthesize-knowledge", "name": "Phase 2: Synthesize Knowledge", "status": "pending", "type": "one-shot", "description": "LLM-powered synthesis of patterns into encyclopedia articles" },
+      { "id": "update-indexes", "name": "Phase 3: Update Indexes", "status": "pending", "type": "one-shot", "description": "Update all index.json files for discovery" }
+    ],
+
+    "_monitorDescriptor": {
+      "layout": {
+        "mode": "phased-v2",
+        "zones": {
+          "header-left": { "width": "60%", "height": 7, "components": ["header"] },
+          "header-right": { "width": "40%", "height": 7, "components": ["session-metrics"] },
+          "left": { "width": "55%", "height": "75%", "components": ["phase-workflow"] },
+          "right": { "width": "45%", "height": "75%", "components": ["llm-activity"] },
+          "bottom": { "width": "100%", "height": "25%", "components": ["execution-log"] }
+        }
+      },
+      "components": [
+        { "id": "phase-workflow", "type": "phase-workflow", "data": ["$.variables._phases", "$.variables._executionTree"] },
+        { "id": "llm-activity", "type": "llm-activity", "data": "$.variables._llmActivity" },
+        { "id": "execution-log", "type": "execution-log", "data": "$.variables._executionLog" },
+        { "id": "session-metrics", "type": "widgets", "data": "$.monitorWidgets" }
+      ]
+    },
+
+    "_workflowConfig": {
+      "generate-metrics-docs": {
+        "extract-metrics": {
+          "output": {
+            "basePath": "content/user/docs/metrics"
+          }
+        }
+      },
+      "generate-knowledge": {
+        "synthesize-knowledge": {
+          "llm": {
+            "model": "HuggingFaceTB/SmolLM2-1.7B-Instruct",
+            "temperature": 0.3,
+            "maxTokens": 2048
+          },
+          "output": {
+            "basePath": "content/user/docs/knowledge"
+          }
+        }
+      }
+    },
+
+    "targetScope": "user",
+    "metricsGenerated": 0,
+    "articlesGenerated": 0,
+    "articlesUpdated": 0
+  },
+
+  "entryPoints": {
+    "start": "workflow:documentation/generate-metrics-docs",
+    "generate-metrics": "workflow:documentation/generate-metrics-docs",
+    "generate-knowledge": "workflow:documentation/generate-knowledge"
+  },
+
+  "monitorWidgets": [
+    {
+      "type": "counter",
+      "id": "metrics-count",
+      "config": {
+        "label": "Metrics Generated",
+        "value": "$.variables.metricsGenerated"
+      }
+    },
+    {
+      "type": "counter",
+      "id": "articles-count",
+      "config": {
+        "label": "Articles Generated",
+        "value": "$.variables.articlesGenerated"
+      }
+    }
+  ],
+
+  "permissions": {
+    "allowedCommands": ["run", "list-tools", "list-blocks", "describe", "data", "help"],
+    "allowedTools": ["file-read", "file-write", "directory-list", "llm-generate"],
+    "fileAccess": {
+      "read": ["content/user/docs/**", "content/system/docs/**", "content/user/sessions/**"],
+      "write": ["content/user/docs/**", "content/system/docs/**"]
+    }
+  }
+}

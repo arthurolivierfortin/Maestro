@@ -1,0 +1,13 @@
+{
+  "type": "knowledge-index",
+  "version": "1.0.0",
+  "generatedAt": null,
+  "generatedBy": null,
+  "articles": [],
+  "statistics": {
+    "totalArticles": 0,
+    "byConfidence": {},
+    "byStatus": {},
+    "byCategory": {}
+  }
+}

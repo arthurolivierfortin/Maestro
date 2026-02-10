@@ -1,0 +1,131 @@
+{
+  "$schema": "../../../../docs/schemas/block.schema.json",
+  "id": "documentation:generate-knowledge",
+  "name": "Generate Knowledge Documentation",
+  "blockType": "workflow",
+  "version": "1.0.0",
+  "isAtomic": false,
+  "description": "Pipeline 2: LLM-powered knowledge synthesis. Reads metrics from pipeline 1, identifies cross-session patterns, and produces structured encyclopedia articles. The LLM enriches but never fabricates data — all referenced metrics come from deterministic pipeline 1 output.",
+
+  "inputs": [
+    {
+      "id": "scope",
+      "name": "Scope",
+      "type": "string",
+      "required": false,
+      "default": "user",
+      "description": "Documentation scope: 'user' writes to content/user/docs/knowledge/, 'system' writes to content/system/docs/"
+    },
+    {
+      "id": "model",
+      "name": "LLM Model",
+      "type": "string",
+      "required": false,
+      "description": "Model to use for knowledge synthesis. Falls back to session default."
+    },
+    {
+      "id": "category",
+      "name": "Category",
+      "type": "string",
+      "required": false,
+      "default": "all",
+      "description": "Knowledge category to update: 'all', 'models', 'workflows', 'observations'"
+    }
+  ],
+
+  "outputs": [
+    {
+      "id": "success",
+      "name": "Success",
+      "type": "boolean",
+      "description": "Whether knowledge generation completed successfully"
+    },
+    {
+      "id": "articlesCreated",
+      "name": "Articles Created",
+      "type": "number",
+      "description": "Number of new knowledge articles created"
+    },
+    {
+      "id": "articlesUpdated",
+      "name": "Articles Updated",
+      "type": "number",
+      "description": "Number of existing articles updated"
+    },
+    {
+      "id": "articlesDeprecated",
+      "name": "Articles Deprecated",
+      "type": "number",
+      "description": "Number of articles marked as deprecated"
+    }
+  ],
+
+  "config": {
+    "nodes": [
+      {
+        "id": "collect-sources",
+        "type": "regular",
+        "blockRef": "tool:file-read",
+        "description": "Read metrics index and existing knowledge base",
+        "inputs": {
+          "paths": ["{{metricsIndexPath}}", "{{knowledgeIndexPath}}"]
+        }
+      },
+      {
+        "id": "analyze-patterns",
+        "type": "regular",
+        "blockRef": "inference:llm-generate",
+        "description": "LLM identifies patterns, confirmations, and contradictions across metrics data",
+        "inputs": {
+          "model": "{{inputs.model}}",
+          "systemPrompt": "You are a research analyst for an AI model encyclopedia. Your task is to identify patterns across experiment metrics. You MUST reference specific session IDs and exact metric values — never fabricate numbers. Output a JSON array of observations with: topic, category, confidence (low/medium/high), evidence (array of {sessionId, metric, value}), recommendation, and whether it confirms/contradicts/is-new relative to existing knowledge.",
+          "userPrompt": "Metrics data:\n{{previousOutput.metrics}}\n\nExisting knowledge articles:\n{{previousOutput.knowledge}}\n\nIdentify patterns, confirmations, and contradictions.",
+          "temperature": 0.3,
+          "maxTokens": 2048
+        }
+      },
+      {
+        "id": "for-each-article",
+        "type": "for-each",
+        "source": "_articlesToProcess",
+        "itemId": "topic",
+        "description": "Process each identified observation into a knowledge article",
+        "nodes": [
+          {
+            "id": "write-article",
+            "type": "regular",
+            "blockRef": "inference:llm-generate",
+            "description": "Generate or update a knowledge article in standard format",
+            "inputs": {
+              "model": "{{inputs.model}}",
+              "systemPrompt": "You are a technical writer for an AI research encyclopedia. Write a knowledge article in Markdown with YAML frontmatter. The frontmatter MUST include: topic, category, title, confidence, status, sources (array with sessionId, date, relevance), contradictions, lastUpdated, relatedArticles. The body MUST include sections: ## Observation clé, ## Evidence (with data table), ## Recommandation, ## Limites, ## Historique. Never invent metrics — only reference data provided in the input.",
+              "userPrompt": "Write/update this knowledge article:\n{{currentItem}}",
+              "temperature": 0.3,
+              "maxTokens": 1024
+            }
+          },
+          {
+            "id": "save-article",
+            "type": "regular",
+            "blockRef": "tool:file-write",
+            "description": "Save the article to the knowledge directory",
+            "inputs": {
+              "path": "{{outputBase}}/knowledge/{{currentItem.category}}/{{currentItem.topic}}.md",
+              "content": "{{previousOutput}}"
+            }
+          }
+        ]
+      },
+      {
+        "id": "update-knowledge-index",
+        "type": "regular",
+        "blockRef": "tool:file-write",
+        "description": "Update knowledge/index.json with article metadata",
+        "inputs": {
+          "path": "{{outputBase}}/knowledge/index.json",
+          "content": "{{updatedKnowledgeIndex}}"
+        }
+      }
+    ]
+  }
+}

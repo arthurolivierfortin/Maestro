@@ -16,6 +16,7 @@ using Maestro.Infrastructure.Sessions;
 using Maestro.Infrastructure.Experiments;
 using Maestro.Infrastructure.Workspaces;
 using Maestro.Infrastructure.Repositories;
+using Maestro.Infrastructure.Publishing;
 using Maestro.Infrastructure.Cli;
 using Maestro.Application.Services;
 using Maestro.Infrastructure.Cli.CommandHandlers;
@@ -351,6 +352,7 @@ builder.Services.AddSingleton<IBlockApprovalRepository>(sp =>
     var logger = sp.GetService<ILogger<FileSystemBlockApprovalRepository>>();
     return new FileSystemBlockApprovalRepository(maestroConfig, logger);
 });
+builder.Services.AddScoped<IBlockPublisher, FileSystemBlockPublisher>();
 builder.Services.AddScoped<IBlockApprovalService, BlockApprovalService>();
 Console.WriteLine($"[Maestro] Approvals data:  {Path.Combine(maestroConfig.DataPath, "pending-approvals")}");
 

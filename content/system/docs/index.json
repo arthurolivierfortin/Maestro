@@ -1,0 +1,19 @@
+{
+  "type": "documentation-index",
+  "version": "1.0.0",
+  "scope": "system",
+  "categories": {
+    "models": {
+      "path": "models/",
+      "description": "Model documentation and compliance results"
+    },
+    "blocks": {
+      "path": "blocks/",
+      "description": "Auto-generated block documentation"
+    },
+    "guides": {
+      "path": "guides/",
+      "description": "User and developer guides"
+    }
+  }
+}

@@ -1,0 +1,57 @@
+{
+  "type": "model-documentation-index",
+  "version": "1.0.0",
+  "generatedAt": "2026-02-10T00:00:00Z",
+  "entries": [
+    {
+      "modelId": "HuggingFaceTB/SmolLM2-1.7B-Instruct",
+      "docPath": "smollm2-1.7b.md",
+      "category": "small-language-model",
+      "parameters": "1.7B",
+      "fitnessRange": [0.85, 0.95],
+      "bestFor": ["json-generation", "structured-output", "instruction-following"],
+      "lastTested": "2026-02-10",
+      "status": "active"
+    },
+    {
+      "modelId": "HuggingFaceTB/SmolLM2-360M-Instruct",
+      "docPath": "smollm2-360m.md",
+      "category": "small-language-model",
+      "parameters": "360M",
+      "fitnessRange": [0.50, 0.70],
+      "bestFor": ["lightweight-tasks", "basic-instruction-following"],
+      "lastTested": "2026-02-10",
+      "status": "active"
+    },
+    {
+      "modelId": "Qwen/Qwen2.5-Coder-1.5B-Instruct",
+      "docPath": "qwen25-coder.md",
+      "category": "code-generation-model",
+      "parameters": "1.5B",
+      "fitnessRange": [0.60, 0.80],
+      "bestFor": ["code-generation"],
+      "lastTested": "2026-02-10",
+      "status": "active"
+    },
+    {
+      "modelId": "deepseek-ai/deepseek-coder-1.3b-instruct",
+      "docPath": "deepseek-coder.md",
+      "category": "code-generation-model",
+      "parameters": "1.3B",
+      "fitnessRange": [0.00, 0.00],
+      "bestFor": [],
+      "lastTested": "2026-02-10",
+      "status": "non-functional"
+    },
+    {
+      "modelId": "distilgpt2",
+      "docPath": "distilgpt2.md",
+      "category": "text-generation-model",
+      "parameters": "82M",
+      "fitnessRange": [0.20, 0.30],
+      "bestFor": ["text-generation-only", "baseline-testing"],
+      "lastTested": "2026-02-10",
+      "status": "warning"
+    }
+  ]
+}

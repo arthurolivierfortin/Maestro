@@ -1,0 +1,15 @@
+{
+  "type": "documentation-index",
+  "version": "1.0.0",
+  "scope": "user",
+  "categories": {
+    "metrics": {
+      "path": "metrics/",
+      "description": "Session and model metrics (pipeline 1, deterministic)"
+    },
+    "knowledge": {
+      "path": "knowledge/",
+      "description": "Synthesized knowledge articles (pipeline 2, LLM-powered)"
+    }
+  }
+}

@@ -86,6 +86,10 @@ class WidgetsPanelComponent {
                 return this.renderScoreChartWidget(widget, session);
             case 'status-list':
                 return this.renderStatusListWidget(widget, session);
+            case 'fitness-summary':
+                return this.renderFitnessSummaryWidget(widget, session);
+            case 'knowledge-status':
+                return this.renderKnowledgeStatusWidget(widget, session);
             default:
                 return tag.dim(`  Unknown widget: ${widget.type}\n`);
         }
@@ -140,6 +144,127 @@ class WidgetsPanelComponent {
         }
 
         return content + '\n';
+    }
+
+    renderFitnessSummaryWidget(widget, session) {
+        const config = widget.config || {};
+        const label = config.label || 'Fitness';
+        const data = this.resolvePath(session, config.data) || {};
+
+        let content = `  ${tag.muted(label)}\n`;
+
+        const levels = ['block', 'task', 'value'];
+        const levelLabels = { block: 'Block', task: 'Task ', value: 'Value' };
+
+        for (const level of levels) {
+            const entry = data[level];
+            const lbl = levelLabels[level];
+
+            if (entry && entry.score !== null && entry.score !== undefined) {
+                const score = Number(entry.score) || 0;
+                const bar = this.renderMiniBar(score);
+                content += `  ${tag.dim(lbl + ':')} ${tag.primary(score.toFixed(2))} ${bar}\n`;
+
+                // Show sub-dimensions for task fitness
+                if (level === 'task' && typeof entry === 'object') {
+                    const dims = [
+                        ['Completion', entry.completion],
+                        ['Quality', entry.quality],
+                        ['Cost-Eff', entry.costEfficiency],
+                        ['Reliability', entry.reliability],
+                        ['Resilience', entry.resilience]
+                    ];
+                    for (const [dimName, dimValue] of dims) {
+                        if (dimValue !== null && dimValue !== undefined) {
+                            const pct = Math.round(Number(dimValue) * 100);
+                            content += `    ${tag.dim(dimName + ':')}${' '.repeat(Math.max(1, 13 - dimName.length))}${tag.muted(pct + '%')}\n`;
+                        }
+                    }
+                }
+            } else {
+                content += `  ${tag.dim(lbl + ':')} ${tag.dim('--')}\n`;
+            }
+        }
+
+        return content + '\n';
+    }
+
+    renderMiniBar(score) {
+        const width = 16;
+        const percent = Math.min(100, Math.max(0, score * 100));
+        const filled = Math.round((percent / 100) * width);
+        const empty = width - filled;
+
+        const barColor = percent >= 80 ? colors.status.success :
+                        percent >= 50 ? colors.status.warning :
+                        colors.status.error;
+
+        const bar = '\u2588'.repeat(filled) + '\u2591'.repeat(empty);
+        return `{${barColor}-fg}${bar}{/}`;
+    }
+
+    renderKnowledgeStatusWidget(widget, session) {
+        const config = widget.config || {};
+        const label = config.label || 'Knowledge Base';
+        const data = this.resolvePath(session, config.data) || {};
+
+        let content = `  ${tag.muted(label)}\n`;
+
+        // Total articles
+        const total = data.totalArticles;
+        if (total !== null && total !== undefined) {
+            content += `  ${tag.dim('Articles:')} ${tag.primary(String(total))}\n`;
+        } else {
+            content += `  ${tag.dim('Articles:')} ${tag.dim('--')}\n`;
+        }
+
+        // Confidence breakdown
+        const conf = data.byConfidence || {};
+        const high = conf.high || 0;
+        const med = conf.medium || 0;
+        const low = conf.low || 0;
+        if (high || med || low) {
+            content += `  ${tag.success('High: ' + high)} ${tag.dim('|')} ${tag.warning('Med: ' + med)} ${tag.dim('|')} ${tag.error('Low: ' + low)}\n`;
+        }
+
+        // Under review count
+        const byStatus = data.byStatus || {};
+        const review = byStatus['under-review'] || byStatus['underReview'] || 0;
+        if (review > 0) {
+            content += `  ${tag.dim('Review:')} ${tag.warning(String(review))}\n`;
+        }
+
+        // Last generated (relative time)
+        if (data.lastGenerated) {
+            const relTime = this.formatRelativeTime(data.lastGenerated);
+            content += `  ${tag.dim('Last gen:')} ${tag.muted(relTime)}\n`;
+        }
+
+        return content + '\n';
+    }
+
+    formatRelativeTime(isoString) {
+        try {
+            const then = new Date(isoString);
+            const now = new Date();
+            const diffMs = now - then;
+
+            if (diffMs < 0) return 'just now';
+
+            const diffSec = Math.floor(diffMs / 1000);
+            if (diffSec < 60) return `${diffSec}s ago`;
+
+            const diffMin = Math.floor(diffSec / 60);
+            if (diffMin < 60) return `${diffMin} min ago`;
+
+            const diffHr = Math.floor(diffMin / 60);
+            if (diffHr < 24) return `${diffHr}h ago`;
+
+            const diffDays = Math.floor(diffHr / 24);
+            return `${diffDays}d ago`;
+        } catch {
+            return String(isoString);
+        }
     }
 
     renderProgressBar(label, current, max, showPercent = true) {

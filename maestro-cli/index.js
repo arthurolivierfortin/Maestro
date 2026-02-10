@@ -93,6 +93,12 @@ function runMockWorkflow(id, inputs) {
   console.log(JSON.stringify(output, null, 2));
 }
 
+// Content path helper
+function getContentPath(scope = 'user') {
+  const root = path.resolve(__dirname, '..');
+  return path.join(root, 'content', scope);
+}
+
 // New API-based functions
 
 async function listBlocks() {
@@ -4048,7 +4054,7 @@ async function main() {
     }
   } else {
     argv = minimist(process.argv.slice(2), {
-      boolean: ['mock', 'help', 'h', 'force', 'status', 'push', 'run-tests', 'run-linter', 'keep-changes', 'pending-approval', 'no-monitor', 'list', 'no-back', 'debug'],
+      boolean: ['mock', 'help', 'h', 'force', 'status', 'push', 'run-tests', 'run-linter', 'keep-changes', 'pending-approval', 'no-monitor', 'list', 'no-back', 'debug', 'knowledge', 'metrics', 'full'],
       string: ['api-url', 'u', 'name', 'path', 'description', 'runtime', 'image', 'work-dir', 'block-paths', 'model', 'lines', 'since', 'working-dir', 'workdir', 'workflow', 'iterations', 'parallel', 'delay', 'goal', 'tags', 'inputs', 'config', 'from', 'to', 'limit', 'block', 'category', 'version', 'author', 'capabilities', 'tools', 'agents', 'type', 'project', 'task', 'context', 'access', 'test-command', 'linter-command', 'max-steps', 'timeout', 'message', 'branch', 'scope', 'authority', 'allowed-paths', 'denied-paths', 'filter', 'offset', 'command', 'from-session', 'template', 'reason', 'repo-path']
     });
   }
@@ -4070,7 +4076,7 @@ async function main() {
     const shell = new MaestroShell(async (args) => {
       // Create a new argv-like object for the command
       const innerArgv = minimist(args, {
-        boolean: ['mock', 'help', 'h', 'force', 'status', 'push', 'run-tests', 'run-linter', 'keep-changes', 'pending-approval', 'no-monitor', 'list', 'no-back', 'debug'],
+        boolean: ['mock', 'help', 'h', 'force', 'status', 'push', 'run-tests', 'run-linter', 'keep-changes', 'pending-approval', 'no-monitor', 'list', 'no-back', 'debug', 'knowledge', 'metrics', 'full'],
         string: ['api-url', 'u', 'name', 'path', 'description', 'runtime', 'image', 'work-dir', 'block-paths', 'model', 'lines', 'since', 'working-dir', 'workdir', 'workflow', 'iterations', 'parallel', 'delay', 'goal', 'tags', 'inputs', 'config', 'from', 'to', 'limit', 'block', 'category', 'version', 'author', 'capabilities', 'tools', 'agents', 'type', 'project', 'task', 'context', 'access', 'test-command', 'linter-command', 'max-steps', 'timeout', 'message', 'branch', 'scope', 'authority', 'allowed-paths', 'denied-paths', 'filter', 'offset', 'command', 'from-session', 'template', 'reason', 'repo-path']
       });
       await executeWithArgv(innerArgv);
@@ -4458,6 +4464,580 @@ Examples:
 
   // Execute with the parsed argv
   return await executeWithArgv(argv);
+}
+
+// ============================================================
+// Documentation commands
+// ============================================================
+
+async function listDocs(options = {}) {
+  try {
+    // Read system docs index
+    const systemIndexPath = path.join(getContentPath('system'), 'docs', 'index.json');
+    const systemIndex = loadJson(systemIndexPath);
+
+    // Read user docs index
+    const userIndexPath = path.join(getContentPath('user'), 'docs', 'index.json');
+    const userIndex = loadJson(userIndexPath);
+
+    // Display system docs
+    formatter.info('System Documentation');
+    if (systemIndex && systemIndex.categories) {
+      const cats = Object.entries(systemIndex.categories);
+      if (options.category) {
+        const filtered = cats.filter(([key]) => key === options.category);
+        if (filtered.length === 0) {
+          console.log(`  No system category matching "${options.category}"`);
+        }
+        filtered.forEach(([key, val]) => {
+          console.log(`  [${key}] ${val.description} (${val.path})`);
+        });
+      } else {
+        cats.forEach(([key, val]) => {
+          console.log(`  [${key}] ${val.description} (${val.path})`);
+        });
+      }
+
+      // List model entries if models category exists
+      const modelsIndexPath = path.join(getContentPath('system'), 'docs', 'models', 'index.json');
+      const modelsIndex = loadJson(modelsIndexPath);
+      if (modelsIndex && modelsIndex.entries && (!options.category || options.category === 'models')) {
+        console.log('');
+        formatter.info('Model Documentation');
+        const rows = modelsIndex.entries.map(e => ({
+          'Model': e.modelId,
+          'Parameters': e.parameters,
+          'Fitness': Array.isArray(e.fitnessRange) ? e.fitnessRange.join(' - ') : 'N/A',
+          'Status': e.status,
+          'Doc': e.docPath
+        }));
+        formatter.table(rows);
+      }
+    } else {
+      console.log('  No system documentation index found.');
+    }
+
+    // Display user docs
+    console.log('');
+    formatter.info('User Documentation');
+    if (userIndex && userIndex.categories) {
+      const cats = Object.entries(userIndex.categories);
+      if (options.category) {
+        const filtered = cats.filter(([key]) => key === options.category);
+        if (filtered.length === 0) {
+          console.log(`  No user category matching "${options.category}"`);
+        }
+        filtered.forEach(([key, val]) => {
+          console.log(`  [${key}] ${val.description} (${val.path})`);
+        });
+      } else {
+        cats.forEach(([key, val]) => {
+          console.log(`  [${key}] ${val.description} (${val.path})`);
+        });
+      }
+    } else {
+      console.log('  No user documentation index found.');
+    }
+
+    // Display knowledge articles if --knowledge flag
+    if (options.knowledge) {
+      console.log('');
+      formatter.info('Knowledge Articles');
+      const knowledgeIndexPath = path.join(getContentPath('user'), 'docs', 'knowledge', 'index.json');
+      const knowledgeIndex = loadJson(knowledgeIndexPath);
+      if (knowledgeIndex && knowledgeIndex.articles && knowledgeIndex.articles.length > 0) {
+        const rows = knowledgeIndex.articles.map(a => ({
+          'Title': a.title || a.id || 'Untitled',
+          'Category': a.category || 'N/A',
+          'Confidence': a.confidence || 'N/A',
+          'Status': a.status || 'N/A'
+        }));
+        formatter.table(rows);
+      } else {
+        console.log('  No knowledge articles found.');
+      }
+      if (knowledgeIndex && knowledgeIndex.statistics) {
+        console.log(`  Statistics: ${knowledgeIndex.statistics.totalArticles || 0} total articles`);
+      }
+    }
+  } catch (error) {
+    formatter.error(`Failed to list docs: ${error.message}`, 'DOCS_ERROR');
+  }
+}
+
+async function showDoc(topic, options = {}) {
+  try {
+    let filePath = null;
+
+    // Search in system docs models
+    const modelsDir = path.join(getContentPath('system'), 'docs', 'models');
+    if (fs.existsSync(modelsDir)) {
+      const files = fs.readdirSync(modelsDir).filter(f => f.endsWith('.md'));
+      const match = files.find(f => {
+        const name = f.replace(/\.md$/, '');
+        return name === topic || name.toLowerCase() === topic.toLowerCase();
+      });
+      if (match) {
+        filePath = path.join(modelsDir, match);
+      }
+    }
+
+    // Search in user docs knowledge subdirs
+    if (!filePath) {
+      const knowledgeDir = path.join(getContentPath('user'), 'docs', 'knowledge');
+      if (fs.existsSync(knowledgeDir)) {
+        const subdirs = fs.readdirSync(knowledgeDir).filter(d => {
+          try { return fs.statSync(path.join(knowledgeDir, d)).isDirectory(); } catch { return false; }
+        });
+        for (const subdir of subdirs) {
+          const subPath = path.join(knowledgeDir, subdir);
+          const files = fs.readdirSync(subPath).filter(f => f.endsWith('.md'));
+          const match = files.find(f => {
+            const name = f.replace(/\.md$/, '');
+            return name === topic || name.toLowerCase() === topic.toLowerCase();
+          });
+          if (match) {
+            filePath = path.join(subPath, match);
+            break;
+          }
+        }
+      }
+    }
+
+    // Also search in system docs guides, blocks dirs
+    if (!filePath) {
+      const searchDirs = [
+        path.join(getContentPath('system'), 'docs', 'guides'),
+        path.join(getContentPath('system'), 'docs', 'blocks'),
+        path.join(getContentPath('user'), 'docs', 'metrics')
+      ];
+      for (const dir of searchDirs) {
+        if (!fs.existsSync(dir)) continue;
+        const files = fs.readdirSync(dir).filter(f => f.endsWith('.md'));
+        const match = files.find(f => {
+          const name = f.replace(/\.md$/, '');
+          return name === topic || name.toLowerCase() === topic.toLowerCase();
+        });
+        if (match) {
+          filePath = path.join(dir, match);
+          break;
+        }
+      }
+    }
+
+    if (!filePath) {
+      formatter.error(`Documentation not found for topic: ${topic}`, 'NOT_FOUND');
+      return;
+    }
+
+    const content = fs.readFileSync(filePath, 'utf8');
+
+    if (options.json) {
+      // Extract YAML frontmatter
+      const fmMatch = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+      if (fmMatch) {
+        const fmText = fmMatch[1];
+        const frontmatter = {};
+        fmText.split('\n').forEach(line => {
+          const colonIdx = line.indexOf(':');
+          if (colonIdx > 0) {
+            const key = line.substring(0, colonIdx).trim();
+            const value = line.substring(colonIdx + 1).trim();
+            frontmatter[key] = value;
+          }
+        });
+        formatter.success({ path: filePath, frontmatter }, JSON.stringify({ path: filePath, frontmatter }, null, 2));
+      } else {
+        formatter.success({ path: filePath, frontmatter: null }, JSON.stringify({ path: filePath, frontmatter: null }, null, 2));
+      }
+    } else {
+      formatter.info(`Documentation: ${topic} (${filePath})`);
+      console.log('');
+      console.log(content);
+    }
+  } catch (error) {
+    formatter.error(`Failed to show doc: ${error.message}`, 'DOCS_ERROR');
+  }
+}
+
+async function searchDocs(query) {
+  try {
+    const results = [];
+    const queryLower = query.toLowerCase();
+
+    // Search index files
+    const indexFiles = [
+      { path: path.join(getContentPath('system'), 'docs', 'index.json'), scope: 'system' },
+      { path: path.join(getContentPath('user'), 'docs', 'index.json'), scope: 'user' },
+      { path: path.join(getContentPath('system'), 'docs', 'models', 'index.json'), scope: 'system/models' },
+      { path: path.join(getContentPath('user'), 'docs', 'knowledge', 'index.json'), scope: 'user/knowledge' }
+    ];
+
+    for (const idx of indexFiles) {
+      if (!fs.existsSync(idx.path)) continue;
+      const content = fs.readFileSync(idx.path, 'utf8');
+      if (content.toLowerCase().includes(queryLower)) {
+        results.push({ File: idx.path, Scope: idx.scope, Type: 'index' });
+      }
+    }
+
+    // Search .md files in docs directories
+    const searchDirs = [
+      { dir: path.join(getContentPath('system'), 'docs', 'models'), scope: 'system/models' },
+      { dir: path.join(getContentPath('system'), 'docs', 'guides'), scope: 'system/guides' },
+      { dir: path.join(getContentPath('system'), 'docs', 'blocks'), scope: 'system/blocks' },
+      { dir: path.join(getContentPath('user'), 'docs', 'metrics'), scope: 'user/metrics' }
+    ];
+
+    // Also search knowledge subdirs
+    const knowledgeDir = path.join(getContentPath('user'), 'docs', 'knowledge');
+    if (fs.existsSync(knowledgeDir)) {
+      const subdirs = fs.readdirSync(knowledgeDir).filter(d => {
+        try { return fs.statSync(path.join(knowledgeDir, d)).isDirectory(); } catch { return false; }
+      });
+      for (const subdir of subdirs) {
+        searchDirs.push({ dir: path.join(knowledgeDir, subdir), scope: `user/knowledge/${subdir}` });
+      }
+    }
+
+    for (const { dir, scope } of searchDirs) {
+      if (!fs.existsSync(dir)) continue;
+      let files;
+      try { files = fs.readdirSync(dir).filter(f => f.endsWith('.md')); } catch { continue; }
+      for (const file of files) {
+        const filePath = path.join(dir, file);
+        try {
+          const content = fs.readFileSync(filePath, 'utf8');
+          if (content.toLowerCase().includes(queryLower)) {
+            // Extract a snippet around the match
+            const idx = content.toLowerCase().indexOf(queryLower);
+            const start = Math.max(0, idx - 40);
+            const end = Math.min(content.length, idx + query.length + 40);
+            const snippet = content.substring(start, end).replace(/\n/g, ' ').trim();
+            results.push({ File: file, Scope: scope, Type: 'doc', Snippet: `...${snippet}...` });
+          }
+        } catch { /* skip unreadable files */ }
+      }
+    }
+
+    if (results.length === 0) {
+      console.log(`No documentation found matching "${query}"`);
+      return;
+    }
+
+    formatter.info(`Search results for "${query}" (${results.length} matches)`);
+    formatter.table(results);
+  } catch (error) {
+    formatter.error(`Failed to search docs: ${error.message}`, 'DOCS_ERROR');
+  }
+}
+
+async function generateDocs(options = {}) {
+  try {
+    if (options.metrics) {
+      formatter.info('Metrics Documentation Pipeline');
+      console.log('  This would invoke the metrics documentation pipeline workflow.');
+      console.log('  The pipeline reads session metrics from content/user/training/ and content/user/testing/');
+      console.log('  and generates documentation in content/user/docs/metrics/.');
+      console.log('');
+      console.log('  To run this pipeline, start a session with the docs-metrics workflow:');
+      console.log('    maestro session create --type foundry --name "Metrics Docs"');
+      console.log('    maestro session invoke <id> generate-metrics-docs');
+      return;
+    }
+
+    if (options.knowledge) {
+      formatter.info('Knowledge Documentation Pipeline');
+      console.log('  This would invoke the knowledge synthesis pipeline workflow.');
+      console.log('  The pipeline reads observations and metrics to generate knowledge articles');
+      console.log('  in content/user/docs/knowledge/.');
+      console.log('');
+      console.log('  To run this pipeline, start a session with the docs-knowledge workflow:');
+      console.log('    maestro session create --type foundry --name "Knowledge Synthesis"');
+      console.log('    maestro session invoke <id> generate-knowledge');
+      return;
+    }
+
+    // Default: show both pipelines
+    formatter.info('Documentation Generation Pipelines');
+    console.log('');
+    console.log('  Available pipelines:');
+    console.log('    --metrics     Generate metrics documentation (deterministic pipeline)');
+    console.log('    --knowledge   Generate knowledge articles (LLM-powered pipeline)');
+    console.log('');
+    console.log(`  Scope: ${options.scope || 'user'}`);
+    console.log('');
+    console.log('  Usage:');
+    console.log('    maestro docs generate --metrics');
+    console.log('    maestro docs generate --knowledge');
+    console.log('    maestro docs generate --knowledge --scope system');
+  } catch (error) {
+    formatter.error(`Failed to generate docs: ${error.message}`, 'DOCS_ERROR');
+  }
+}
+
+// ============================================================
+// Catalog commands
+// ============================================================
+
+async function listCatalog(options = {}) {
+  try {
+    const allEntries = [];
+
+    // Read system catalog
+    const systemCatalogPath = path.join(getContentPath('system'), 'catalog', 'index.json');
+    const systemCatalog = loadJson(systemCatalogPath);
+    if (systemCatalog && systemCatalog.entries) {
+      systemCatalog.entries.forEach(e => {
+        allEntries.push({ ...e, scope: 'system' });
+      });
+    }
+
+    // Read user catalog
+    const userCatalogPath = path.join(getContentPath('user'), 'catalog', 'index.json');
+    const userCatalog = loadJson(userCatalogPath);
+    if (userCatalog && userCatalog.entries) {
+      userCatalog.entries.forEach(e => {
+        allEntries.push({ ...e, scope: 'user' });
+      });
+    }
+
+    if (allEntries.length === 0) {
+      console.log('No catalog entries found.');
+      console.log('  System catalog: ' + systemCatalogPath);
+      console.log('  User catalog:   ' + userCatalogPath);
+      return;
+    }
+
+    // Filter by category if specified
+    let filtered = allEntries;
+    if (options.category) {
+      filtered = allEntries.filter(e =>
+        (e.category || '').toLowerCase() === options.category.toLowerCase() ||
+        (e.type || '').toLowerCase() === options.category.toLowerCase()
+      );
+    }
+
+    if (filtered.length === 0) {
+      console.log(`No catalog entries matching category "${options.category}"`);
+      return;
+    }
+
+    formatter.info(`Block Catalog (${filtered.length} entries)`);
+    const rows = filtered.map(e => ({
+      'ID': e.id || e.blockId || 'N/A',
+      'Type': e.type || 'N/A',
+      'Fitness': e.fitness != null ? String(e.fitness) : (Array.isArray(e.fitnessRange) ? e.fitnessRange.join('-') : 'N/A'),
+      'Requires': Array.isArray(e.requires) ? e.requires.join(', ') : (e.requires || 'N/A'),
+      'Author': e.author || 'N/A',
+      'Scope': e.scope
+    }));
+    formatter.table(rows);
+  } catch (error) {
+    formatter.error(`Failed to list catalog: ${error.message}`, 'CATALOG_ERROR');
+  }
+}
+
+async function showCatalogEntry(blockId) {
+  try {
+    let entry = null;
+    let catalogScope = null;
+
+    // Search system catalog
+    const systemCatalogPath = path.join(getContentPath('system'), 'catalog', 'index.json');
+    const systemCatalog = loadJson(systemCatalogPath);
+    if (systemCatalog && systemCatalog.entries) {
+      entry = systemCatalog.entries.find(e => (e.id || e.blockId) === blockId);
+      if (entry) catalogScope = 'system';
+    }
+
+    // Search user catalog if not found
+    if (!entry) {
+      const userCatalogPath = path.join(getContentPath('user'), 'catalog', 'index.json');
+      const userCatalog = loadJson(userCatalogPath);
+      if (userCatalog && userCatalog.entries) {
+        entry = userCatalog.entries.find(e => (e.id || e.blockId) === blockId);
+        if (entry) catalogScope = 'user';
+      }
+    }
+
+    if (!entry) {
+      formatter.error(`Catalog entry not found: ${blockId}`, 'NOT_FOUND');
+      return;
+    }
+
+    formatter.info(`Catalog Entry: ${blockId} (${catalogScope})`);
+    console.log('');
+
+    // Display all entry fields
+    Object.entries(entry).forEach(([key, value]) => {
+      if (Array.isArray(value)) {
+        console.log(`  ${key}: ${value.join(', ')}`);
+      } else if (typeof value === 'object' && value !== null) {
+        console.log(`  ${key}: ${JSON.stringify(value)}`);
+      } else {
+        console.log(`  ${key}: ${value}`);
+      }
+    });
+
+    // Look for manifest.json in the block directory
+    const manifestPaths = [
+      path.join(getContentPath('system'), 'catalog', blockId, 'manifest.json'),
+      path.join(getContentPath('user'), 'catalog', blockId, 'manifest.json'),
+      path.join(getContentPath('system'), 'blocks', blockId, 'manifest.json'),
+      path.join(getContentPath('user'), 'blocks', blockId, 'manifest.json')
+    ];
+
+    for (const mp of manifestPaths) {
+      if (fs.existsSync(mp)) {
+        console.log('');
+        formatter.info('Manifest');
+        const manifest = loadJson(mp);
+        if (manifest) {
+          if (manifest.fitness) {
+            console.log('  Fitness Levels:');
+            Object.entries(manifest.fitness).forEach(([key, val]) => {
+              console.log(`    ${key}: ${val}`);
+            });
+          }
+          if (manifest.requirements) {
+            console.log('  Requirements:');
+            (Array.isArray(manifest.requirements) ? manifest.requirements : [manifest.requirements]).forEach(r => {
+              console.log(`    - ${typeof r === 'string' ? r : JSON.stringify(r)}`);
+            });
+          }
+          if (manifest.metrics) {
+            console.log('  Metrics:');
+            Object.entries(manifest.metrics).forEach(([key, val]) => {
+              console.log(`    ${key}: ${val}`);
+            });
+          }
+        }
+        break;
+      }
+    }
+  } catch (error) {
+    formatter.error(`Failed to show catalog entry: ${error.message}`, 'CATALOG_ERROR');
+  }
+}
+
+async function searchCatalog(query) {
+  try {
+    const queryLower = query.toLowerCase();
+    const allEntries = [];
+
+    // Read both catalogs
+    const catalogPaths = [
+      { path: path.join(getContentPath('system'), 'catalog', 'index.json'), scope: 'system' },
+      { path: path.join(getContentPath('user'), 'catalog', 'index.json'), scope: 'user' }
+    ];
+
+    for (const cp of catalogPaths) {
+      const catalog = loadJson(cp.path);
+      if (catalog && catalog.entries) {
+        catalog.entries.forEach(e => {
+          allEntries.push({ ...e, scope: cp.scope });
+        });
+      }
+    }
+
+    // Search by name, description, tags, id
+    const results = allEntries.filter(e => {
+      const searchable = [
+        e.id, e.blockId, e.name, e.description,
+        ...(Array.isArray(e.tags) ? e.tags : []),
+        e.type, e.category, e.author
+      ].filter(Boolean).join(' ').toLowerCase();
+      return searchable.includes(queryLower);
+    });
+
+    if (results.length === 0) {
+      console.log(`No catalog entries matching "${query}"`);
+      return;
+    }
+
+    formatter.info(`Catalog search results for "${query}" (${results.length} matches)`);
+    const rows = results.map(e => ({
+      'ID': e.id || e.blockId || 'N/A',
+      'Type': e.type || 'N/A',
+      'Name': e.name || 'N/A',
+      'Description': (e.description || '').substring(0, 60),
+      'Scope': e.scope
+    }));
+    formatter.table(rows);
+  } catch (error) {
+    formatter.error(`Failed to search catalog: ${error.message}`, 'CATALOG_ERROR');
+  }
+}
+
+async function getBlockInfoExtended(blockId) {
+  try {
+    // Try API first
+    let block = null;
+    try {
+      block = await client.getBlock(blockId);
+    } catch {
+      // API may not be running, that's OK
+    }
+
+    if (block) {
+      formatter.info(`Block: ${block.name || blockId}`);
+      console.log(`  ID:       ${block.id}`);
+      console.log(`  Type:     ${block.type}`);
+      console.log(`  Atomic:   ${block.isAtomic}`);
+      if (block.description) console.log(`  Desc:     ${block.description}`);
+      if (block.parentId) console.log(`  Parent:   ${block.parentId}`);
+    } else {
+      formatter.info(`Block: ${blockId} (API unavailable, showing local data only)`);
+    }
+
+    // Look for manifest.json to add fitness data
+    const manifestPaths = [
+      path.join(getContentPath('system'), 'blocks', blockId, 'manifest.json'),
+      path.join(getContentPath('user'), 'blocks', blockId, 'manifest.json'),
+      path.join(getContentPath('system'), 'catalog', blockId, 'manifest.json'),
+      path.join(getContentPath('user'), 'catalog', blockId, 'manifest.json')
+    ];
+
+    let manifestFound = false;
+    for (const mp of manifestPaths) {
+      if (fs.existsSync(mp)) {
+        const manifest = loadJson(mp);
+        if (manifest) {
+          manifestFound = true;
+          console.log('');
+          formatter.info('Extended Info (from manifest)');
+          if (manifest.fitness) {
+            console.log('  Fitness Levels:');
+            Object.entries(manifest.fitness).forEach(([key, val]) => {
+              console.log(`    ${key}: ${val}`);
+            });
+          }
+          if (manifest.requirements) {
+            console.log('  Requirements:');
+            (Array.isArray(manifest.requirements) ? manifest.requirements : [manifest.requirements]).forEach(r => {
+              console.log(`    - ${typeof r === 'string' ? r : JSON.stringify(r)}`);
+            });
+          }
+          if (manifest.version) console.log(`  Version:  ${manifest.version}`);
+          if (manifest.author) console.log(`  Author:   ${manifest.author}`);
+          if (manifest.metrics) {
+            console.log('  Metrics:');
+            Object.entries(manifest.metrics).forEach(([key, val]) => {
+              console.log(`    ${key}: ${val}`);
+            });
+          }
+        }
+        break;
+      }
+    }
+
+    if (!manifestFound && !block) {
+      formatter.error(`Block not found: ${blockId}`, 'NOT_FOUND');
+    }
+  } catch (error) {
+    formatter.error(`Failed to get block info: ${error.message}`, 'BLOCK_ERROR');
+  }
 }
 
 /**
@@ -5829,6 +6409,77 @@ async function executeWithArgv(argv) {
       process.exit(1);
     }
 
+    // Documentation commands
+    if (cmd === 'docs') {
+      const subCmd = argv._[1];
+
+      if (!subCmd || subCmd === 'list') {
+        return await listDocs({
+          knowledge: argv.knowledge,
+          category: argv.category
+        });
+      }
+
+      if (subCmd === 'show') {
+        const topic = argv._[2];
+        if (!topic) { console.error('Error: Topic required'); process.exit(1); }
+        return await showDoc(topic, {
+          json: argv.json,
+          full: argv.full
+        });
+      }
+
+      if (subCmd === 'generate') {
+        return await generateDocs({
+          metrics: argv.metrics,
+          knowledge: argv.knowledge,
+          scope: argv.scope || 'user'
+        });
+      }
+
+      if (subCmd === 'search') {
+        const query = argv._[2];
+        if (!query) { console.error('Error: Search query required'); process.exit(1); }
+        return await searchDocs(query);
+      }
+
+      console.error('Unknown docs subcommand: ' + subCmd);
+      console.error('Available: list, show, generate, search');
+      process.exit(1);
+    }
+
+    // Catalog commands
+    if (cmd === 'catalog') {
+      const subCmd = argv._[1];
+
+      if (!subCmd || subCmd === 'list') {
+        return await listCatalog({ category: argv.category });
+      }
+
+      if (subCmd === 'show') {
+        const blockId = argv._[2];
+        if (!blockId) { console.error('Error: Block ID required'); process.exit(1); }
+        return await showCatalogEntry(blockId);
+      }
+
+      if (subCmd === 'search') {
+        const query = argv._[2];
+        if (!query) { console.error('Error: Search query required'); process.exit(1); }
+        return await searchCatalog(query);
+      }
+
+      console.error('Unknown catalog subcommand: ' + subCmd);
+      console.error('Available: list, show, search');
+      process.exit(1);
+    }
+
+    // Block info extended (with fitness data)
+    if (cmd === 'block-info') {
+      const blockId = argv._[1];
+      if (!blockId) { console.error('Error: Block ID required'); process.exit(1); }
+      return await getBlockInfoExtended(blockId);
+    }
+
     // Schema command — outputs available commands and their parameters
     if (cmd === 'schema') {
       formatter.setCommand('schema');
@@ -5879,6 +6530,16 @@ async function executeWithArgv(argv) {
           'block.publish': { params: { id: { type: 'string', required: true, positional: 2 }, fromSession: { type: 'string' } } },
           'block.approve': { params: { id: { type: 'string', required: true, positional: 2 } } },
           'block.reject': { params: { id: { type: 'string', required: true, positional: 2 }, reason: { type: 'string', required: true } } },
+          'docs': { params: {} },
+          'docs.list': { params: { knowledge: { type: 'boolean' }, category: { type: 'string' } } },
+          'docs.show': { params: { topic: { type: 'string', required: true, positional: 2 }, json: { type: 'boolean' }, full: { type: 'boolean' } } },
+          'docs.generate': { params: { metrics: { type: 'boolean' }, knowledge: { type: 'boolean' }, scope: { type: 'string', default: 'user' } } },
+          'docs.search': { params: { query: { type: 'string', required: true, positional: 2 } } },
+          'catalog': { params: {} },
+          'catalog.list': { params: { category: { type: 'string' } } },
+          'catalog.show': { params: { id: { type: 'string', required: true, positional: 2 } } },
+          'catalog.search': { params: { query: { type: 'string', required: true, positional: 2 } } },
+          'block-info': { params: { id: { type: 'string', required: true, positional: 1 } } },
         }
       };
       formatter.success(schema, JSON.stringify(schema, null, 2));
