@@ -32,7 +32,8 @@
       "@store/*": ["./src/store/*"],
       "@utils/*": ["./src/utils/*"],
       "@styles/*": ["./src/styles/*"],
-      "@electron/*": ["./src/electron/*"]
+      "@electron/*": ["./src/electron/*"],
+      "@shared/*": ["../shared/*"]
     }
   },
   "include": ["src", "electron"],

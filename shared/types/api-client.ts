@@ -1,0 +1,51 @@
+/**
+ * IApiClient — TypeScript interface for the Maestro API client.
+ *
+ * Both MockApiClient and MaestroApiClient implement this contract.
+ */
+
+import type { Session } from './session.js';
+import type { Block } from './block.js';
+import type { Workspace } from './workspace.js';
+import type { Project } from './project.js';
+import type { LLMHealth, LLMModel, LLMStatus, ModelPerformance } from './llm.js';
+
+export interface HealthResponse {
+  status: string;
+  uptime?: string;
+  version?: string;
+}
+
+export interface IApiClient {
+  // Sessions
+  listSessions(): Promise<Session[]>;
+  getSession(id: string): Promise<Session>;
+
+  // Health
+  getHealth(): Promise<HealthResponse>;
+
+  // LLM
+  getLLMHealth(): Promise<LLMHealth>;
+  listLLMModels(): Promise<LLMModel[]>;
+  getLLMStatus(): Promise<LLMStatus>;
+
+  // Blocks
+  listBlocks(): Promise<Block[]>;
+  getBlock(id: string): Promise<Block | null>;
+
+  // Model performance
+  getModelPerformance(modelId: string): Promise<ModelPerformance>;
+
+  // Projects
+  listProjects(): Promise<Project[]>;
+  getProject(id: string): Promise<Project>;
+
+  // Workspaces
+  getWorkspace(id: string): Promise<Workspace>;
+
+  // Generic
+  get(path: string): Promise<unknown>;
+
+  // URL
+  getApiUrl(): string;
+}

@@ -1,6 +1,6 @@
 # ADR: TypeScript Migration & Shared Layer
 
-**Status**: Proposed
+**Status**: Accepted
 **Phase**: 16
 **Date**: 2026-02-11
 
