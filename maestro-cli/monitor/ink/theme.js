@@ -218,12 +218,9 @@ const Badge = ({ status }) => {
     failed: 'FAIL', error: 'ERR', paused: 'paused',
   };
   const text = labelMap[(status || '').toLowerCase()] || status;
-  // Pad text to fixed width (longest = "running" = 7) to prevent terminal
-  // artifacts when status text changes length (e.g. [running] → [done]).
-  const padded = text.padEnd(7);
   return h(Text, {},
     h(Text, { color: theme.shortcut.bracket }, '['),
-    h(Text, { color: col }, padded),
+    h(Text, { color: col }, text),
     h(Text, { color: theme.shortcut.bracket }, ']')
   );
 };
@@ -276,10 +273,29 @@ const resolvePath = (session, pathStr) => {
   return isNaN(num) ? pathStr : num;
 };
 
+// ── TypeBadge: [type] with colored label, dynamic width ─────
+
+const typeBadgeColorMap = {
+  workflow: 'cyan', agent: 'magenta', tool: 'green',
+  template: 'yellow', prompt: 'blue', instruction: 'gray',
+  decision: 'yellow', validator: 'red', trigger: 'magenta',
+  inference: 'cyan', script: 'green', task: 'blue',
+};
+
+const TypeBadge = ({ type }) => {
+  const t = (type || 'unknown').toLowerCase();
+  const color = typeBadgeColorMap[t] || 'gray';
+  return h(Text, null,
+    h(Text, { color }, '['),
+    h(Text, { color }, t),
+    h(Text, { color }, ']'),
+  );
+};
+
 export {
   theme, icons,
   T, primary, secondary, muted, dim, success, running, error, warning, label, bold, highlight,
   statusColor, statusIcon,
   formatDuration, formatTime, truncate,
-  Badge, sparkline, progressBar, progressColor, resolvePath,
+  Badge, TypeBadge, sparkline, progressBar, progressColor, resolvePath,
 };

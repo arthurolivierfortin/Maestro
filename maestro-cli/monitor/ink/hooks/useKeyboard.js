@@ -50,6 +50,11 @@ const useKeyboard = (handlers = {}) => {
     if (input === 'z' && handlers.z) handlers.z();
     if (input === 'k' && handlers.k) handlers.k();
     if (input === 'j' && handlers.j) handlers.j();
+    if (input === 's' && handlers.s) handlers.s();
+    if (input === 'c' && handlers.c) handlers.c();
+    if (input === 'm' && handlers.m) handlers.m();
+    if (input === 'n' && handlers.n) handlers.n();
+    if (input === 'a' && handlers.a) handlers.a();
 
     // Number keys (1-9)
     const num = parseInt(input, 10);

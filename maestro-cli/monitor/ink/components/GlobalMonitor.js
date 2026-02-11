@@ -113,8 +113,9 @@ const ListHeader = ({ sessions = [], connectionStatus, errorMessage }) => {
 
 // ── GlobalMonitor component ────────────────────────────────────
 
-const GlobalMonitor = ({ apiClient, onSessionSelect }) => {
+const GlobalMonitor = ({ apiClient, onSessionSelect, onQuit }) => {
   const { exit } = useApp();
+  const doQuit = onQuit || (() => exit());
 
   // Data fetching: poll every 3 seconds in list mode (sessionId = null)
   const {
@@ -166,7 +167,8 @@ const GlobalMonitor = ({ apiClient, onSessionSelect }) => {
     j: () => setSelectedIndex(i => Math.min(sessions.length - 1, i + 1)),
     enter: openSelected,
     number: quickSelect,
-    q: () => exit(),
+    q: () => doQuit(),
+    escape: () => doQuit(),
     '?': () => setShowHelp(true),
     h: () => setShowHelp(true),
   });
@@ -182,9 +184,10 @@ const GlobalMonitor = ({ apiClient, onSessionSelect }) => {
 
   // Help overlay takes over the entire area
   if (showHelp) {
-    return h(Box, { flexDirection: 'column', width: '100%', height: '100%' },
+    return h(Box, { flexDirection: 'column', width: '100%', flexGrow: 1 },
       h(ListHeader, { sessions, connectionStatus, errorMessage: fetchError }),
       h(HelpOverlay, { onClose: () => setShowHelp(false) }),
+      h(Box, { flexGrow: 1 }),
       h(StatusBar, statusBarProps),
     );
   }
@@ -193,7 +196,7 @@ const GlobalMonitor = ({ apiClient, onSessionSelect }) => {
   return h(Box, {
     flexDirection: 'column',
     width: '100%',
-    height: '100%',
+    flexGrow: 1,
   },
     h(ListHeader, { sessions, connectionStatus, errorMessage: fetchError }),
 

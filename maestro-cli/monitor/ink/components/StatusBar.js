@@ -12,6 +12,7 @@
  *   hasBackOption     boolean
  *   focusedPanel      string | null — currently focused panel name
  *   zoomedPanel       string | null — currently zoomed panel name
+ *   currentPage       string | null — current page name (for global page navigation shortcuts)
  */
 
 import { createElement as h } from 'react';
@@ -47,6 +48,7 @@ const StatusBar = ({
   hasBackOption = false,
   focusedPanel = null,
   zoomedPanel = null,
+  currentPage = null,
 }) => {
   const connColor = connectionStatus === 'connected'
     ? theme.status.success
@@ -60,15 +62,25 @@ const StatusBar = ({
   // Build compact shortcuts
   const shortcuts = [];
 
-  // Navigation + actions (always shown, compact)
-  shortcuts.push(h(Shortcut, { key: 'sc-tab', keyChar: 'Tab', labelText: '', active: true }));
-  shortcuts.push(h(Shortcut, { key: 'sc-z', keyChar: 'z', labelText: 'oom', active: !!focusedPanel }));
-  shortcuts.push(h(Shortcut, { key: 'sc-r', keyChar: 'r', labelText: '', active: true }));
-  if (hasBackOption) {
-    shortcuts.push(h(Shortcut, { key: 'sc-esc', keyChar: 'Esc', labelText: '', active: true }));
+  if (currentPage && !focusedPanel && !zoomedPanel) {
+    // Global page navigation mode — show page shortcuts
+    shortcuts.push(h(Shortcut, { key: 'sc-h', keyChar: 'H', labelText: 'ome', active: currentPage === 'home' }));
+    shortcuts.push(h(Shortcut, { key: 'sc-s', keyChar: 'S', labelText: 'paces', active: currentPage === 'spaces' }));
+    shortcuts.push(h(Shortcut, { key: 'sc-f', keyChar: 'F', labelText: 'oundry', active: currentPage === 'foundry' }));
+    shortcuts.push(h(Shortcut, { key: 'sc-c', keyChar: 'C', labelText: 'atalog', active: currentPage === 'catalog' }));
+    shortcuts.push(h(Shortcut, { key: 'sc-m', keyChar: 'M', labelText: 'odels', active: currentPage === 'models' }));
+    shortcuts.push(h(Shortcut, { key: 'sc-q', keyChar: 'q', labelText: 'uit', active: true }));
+  } else {
+    // Session detail mode — show panel shortcuts
+    shortcuts.push(h(Shortcut, { key: 'sc-tab', keyChar: 'Tab', labelText: '', active: true }));
+    shortcuts.push(h(Shortcut, { key: 'sc-z', keyChar: 'z', labelText: 'oom', active: !!focusedPanel }));
+    shortcuts.push(h(Shortcut, { key: 'sc-r', keyChar: 'r', labelText: '', active: true }));
+    if (hasBackOption) {
+      shortcuts.push(h(Shortcut, { key: 'sc-esc', keyChar: 'Esc', labelText: '', active: true }));
+    }
+    shortcuts.push(h(Shortcut, { key: 'sc-?', keyChar: '?', labelText: '', active: true }));
+    shortcuts.push(h(Shortcut, { key: 'sc-q', keyChar: 'q', labelText: 'uit', active: true }));
   }
-  shortcuts.push(h(Shortcut, { key: 'sc-?', keyChar: '?', labelText: '', active: true }));
-  shortcuts.push(h(Shortcut, { key: 'sc-q', keyChar: 'q', labelText: 'uit', active: true }));
 
   const shortcutElements = [];
   for (let i = 0; i < shortcuts.length; i++) {

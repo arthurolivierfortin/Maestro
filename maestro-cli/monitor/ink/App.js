@@ -2,10 +2,12 @@
  * Maestro TUI Monitor — Ink App (Root)
  *
  * Entry point for the Ink-based monitor. Routes between:
- * - GlobalMonitor (session list) when no sessionId
- * - SessionMonitor (single session) when sessionId provided
+ * - Multi-page navigation (Home, Spaces, Foundry, Catalog, Models)
+ * - SessionMonitor (single session detail) when a session is selected
  *
- * Supports navigation: GlobalMonitor → select → SessionMonitor → Esc → GlobalMonitor
+ * Navigation flow:
+ *   Home/Spaces/Foundry/Catalog/Models ←→ (letter keys)
+ *   Spaces → Enter → SessionMonitor → Esc → back to currentPage
  *
  * FullscreenBox provides explicit terminal height to Yoga so that
  * percentage heights and flexGrow work correctly in child layouts.
@@ -14,8 +16,12 @@
 import { createElement as h, useState, useCallback, useEffect } from 'react';
 import { render, useApp, useStdout, Box } from 'ink';
 import { theme } from './theme.js';
-import { GlobalMonitor } from './components/GlobalMonitor.js';
 import { SessionMonitor } from './components/SessionMonitor.js';
+import { HomeScreen } from './components/HomeScreen.js';
+import { SpacesScreen } from './components/SpacesScreen.js';
+import { FoundryScreen } from './components/FoundryScreen.js';
+import { CatalogScreen } from './components/CatalogScreen.js';
+import { ModelsScreen } from './components/ModelsScreen.js';
 
 // ── Terminal background color control ──────────────────────────
 //
@@ -71,6 +77,7 @@ const FullscreenBox = ({ children }) => {
 const App = ({ initialSessionId, apiClient }) => {
   const { exit } = useApp();
   const [currentSessionId, setCurrentSessionId] = useState(initialSessionId || null);
+  const [currentPage, setCurrentPage] = useState(initialSessionId ? 'spaces' : 'home');
 
   const handleSessionSelect = useCallback((sessionId) => {
     setCurrentSessionId(sessionId);
@@ -88,6 +95,11 @@ const App = ({ initialSessionId, apiClient }) => {
     exit();
   }, [exit]);
 
+  const handleNavigate = useCallback((page) => {
+    setCurrentPage(page);
+  }, []);
+
+  // When a session is selected, show SessionMonitor (unchanged)
   if (currentSessionId) {
     return h(FullscreenBox, null,
       h(SessionMonitor, {
@@ -99,13 +111,35 @@ const App = ({ initialSessionId, apiClient }) => {
     );
   }
 
-  return h(FullscreenBox, null,
-    h(GlobalMonitor, {
-      apiClient,
-      onSessionSelect: handleSessionSelect,
-      onQuit: handleQuit,
-    })
-  );
+  // Multi-page routing
+  const pageProps = {
+    apiClient,
+    onNavigate: handleNavigate,
+    onSessionSelect: handleSessionSelect,
+    onQuit: handleQuit,
+  };
+
+  let pageComponent;
+  switch (currentPage) {
+    case 'spaces':
+      pageComponent = h(SpacesScreen, pageProps);
+      break;
+    case 'foundry':
+      pageComponent = h(FoundryScreen, pageProps);
+      break;
+    case 'catalog':
+      pageComponent = h(CatalogScreen, pageProps);
+      break;
+    case 'models':
+      pageComponent = h(ModelsScreen, pageProps);
+      break;
+    case 'home':
+    default:
+      pageComponent = h(HomeScreen, pageProps);
+      break;
+  }
+
+  return h(FullscreenBox, null, pageComponent);
 };
 
 // ── Public entry point (called from CJS tui-monitor.js) ────────

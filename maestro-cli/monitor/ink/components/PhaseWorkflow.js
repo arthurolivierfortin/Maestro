@@ -13,7 +13,7 @@
  * Props: { session, context, treeNav }
  */
 
-import { createElement as h, useMemo, useEffect } from 'react';
+import { createElement as h, useMemo, useEffect, useRef } from 'react';
 import { Box, Text } from 'ink';
 import {
   icons, dim, muted, bold,
@@ -21,16 +21,38 @@ import {
   Badge, theme,
 } from '../theme.js';
 
-// ── Flatten helper ────────────────────────────────────────────
+// ── Flatten helpers ───────────────────────────────────────────
 
 /**
- * Flattens phases into FlatNode[].
- * Phases are depth-0 nodes. Running phase children are execution tree nodes.
- * Done phase children are summary lines. Pending phases have no children.
+ * Extracts the raw exec tree nodes array from executionTree variable.
  */
+const getExecNodes = (executionTree) => {
+  if (!executionTree) return [];
+  return Array.isArray(executionTree)
+    ? executionTree
+    : (executionTree.nodes || executionTree.children || []);
+};
+
+/**
+ * Clones execution tree nodes with a forced status override.
+ * Used to show done phases (all blocks done) and pending phases (all blocks pending).
+ */
+const cloneTreeWithStatus = (nodes, overrideStatus) => {
+  if (!Array.isArray(nodes)) return [];
+  return nodes.map(node => ({
+    ...node,
+    status: overrideStatus,
+    children: Array.isArray(node.children)
+      ? cloneTreeWithStatus(node.children, overrideStatus)
+      : [],
+  }));
+};
+
 const flattenPhaseWorkflow = (phases, executionTree, expandedSet) => {
   const result = [];
   if (!Array.isArray(phases) || phases.length === 0) return result;
+
+  const execNodes = getExecNodes(executionTree);
 
   for (const phase of phases) {
     const status = (phase.status || 'pending').toLowerCase();
@@ -38,17 +60,8 @@ const flattenPhaseWorkflow = (phases, executionTree, expandedSet) => {
     const isDone = status === 'done' || status === 'completed';
     const isRunning = status === 'running' || status === 'active';
 
-    // Determine children
-    let hasChildren = false;
-    if (isRunning) {
-      const nodes = executionTree
-        ? (Array.isArray(executionTree) ? executionTree : (executionTree.nodes || executionTree.children || []))
-        : [];
-      hasChildren = nodes.length > 0;
-    } else if (isDone) {
-      hasChildren = true; // summary children
-    }
-
+    // All phases with an execution tree template get children
+    const hasChildren = execNodes.length > 0;
     const isExpanded = expandedSet.has(phaseId);
 
     result.push({
@@ -62,32 +75,37 @@ const flattenPhaseWorkflow = (phases, executionTree, expandedSet) => {
     });
 
     if (hasChildren && isExpanded) {
+      let phaseNodes;
       if (isRunning) {
-        // Add execution tree nodes as children
-        const nodes = executionTree
-          ? (Array.isArray(executionTree) ? executionTree : (executionTree.nodes || executionTree.children || []))
-          : [];
-        for (const node of nodes) {
-          flattenExecNode(node, result, 1, phaseId, expandedSet);
-        }
+        // Running phase: real execution tree with live statuses
+        phaseNodes = execNodes;
       } else if (isDone) {
-        // Add summary line as child
-        const r = phase.result || {};
-        const iter = r.iterations || '?';
-        const fitness = typeof r.fitness === 'number'
-          ? Math.round(r.fitness * 100) + '%' : '?';
-        const parts = [`${iter} iter`, `fitness ${fitness}`];
-        if (r.tokenCount) parts.push(`~${r.tokenCount} tok`);
+        // Done phase: same structure, all statuses forced to 'done'
+        phaseNodes = cloneTreeWithStatus(execNodes, 'done');
+      } else {
+        // Pending phase: same structure, all statuses forced to 'pending'
+        phaseNodes = cloneTreeWithStatus(execNodes, 'pending');
+      }
 
-        result.push({
-          id: phaseId + '__summary',
-          depth: 1,
-          hasChildren: false,
-          isExpanded: false,
-          parentId: phaseId,
-          label: parts.join(', '),
-          data: { _type: 'summary', status: 'done' },
-        });
+      for (const node of phaseNodes) {
+        flattenExecNode(node, result, 1, phaseId, expandedSet, phaseId, status);
+      }
+
+      // For done phases, also add result summary as last child
+      if (isDone && phase.result) {
+        const r = phase.result;
+        const parts = [];
+        if (r.iterations !== undefined) parts.push(`${r.iterations} iter`);
+        if (typeof r.fitness === 'number') parts.push(`fitness ${Math.round(r.fitness * 100)}%`);
+        if (r.tokenCount) parts.push(`~${r.tokenCount} tok`);
+        if (parts.length > 0) {
+          result.push({
+            id: phaseId + '__summary',
+            depth: 1, hasChildren: false, isExpanded: false, parentId: phaseId,
+            label: parts.join(', '),
+            data: { _type: 'detail', status: 'done', field: 'summary' },
+          });
+        }
       }
     }
   }
@@ -95,9 +113,12 @@ const flattenPhaseWorkflow = (phases, executionTree, expandedSet) => {
   return result;
 };
 
-/** Recursively flatten execution tree nodes into result. */
-const flattenExecNode = (node, result, depth, parentId, expandedSet) => {
-  const id = node.id || `exec-${depth}-${result.length}`;
+/** Recursively flatten execution tree nodes into result.
+ *  phasePrefix namespaces IDs so different phases don't collide.
+ *  phaseStatus propagates the parent phase's status for styling. */
+const flattenExecNode = (node, result, depth, parentId, expandedSet, phasePrefix, phaseStatus) => {
+  const rawId = node.id || `exec-${depth}-${result.length}`;
+  const id = phasePrefix ? `${phasePrefix}/${rawId}` : rawId;
   const children = node.children;
   const hasChildren = Array.isArray(children) && children.length > 0;
   const isExpanded = expandedSet.has(id);
@@ -109,12 +130,12 @@ const flattenExecNode = (node, result, depth, parentId, expandedSet) => {
     isExpanded,
     parentId,
     label: node.name || node.id || 'node',
-    data: { ...node, _type: 'exec' },
+    data: { ...node, _type: 'exec', _phaseStatus: phaseStatus },
   });
 
   if (hasChildren && isExpanded) {
     for (const child of children) {
-      flattenExecNode(child, result, depth + 1, id, expandedSet);
+      flattenExecNode(child, result, depth + 1, id, expandedSet, phasePrefix, phaseStatus);
     }
   }
 };
@@ -127,17 +148,28 @@ const FlatPhaseRow = ({ node, isSelected }) => {
   const indent = '  '.repeat(depth);
 
   // Different rendering for different types
-  if (data._type === 'summary') {
-    // Summary line: dimmed info
+  if (data._type === 'summary' || data._type === 'detail') {
+    // Detail/summary line: key-value with color coding
     const parts = [];
     if (isSelected) {
-      parts.push(h(Text, { key: 'cur', color: theme.tree.cursor }, '> '));
+      parts.push(h(Text, { key: 'cur', color: 'blue' }, '> '));
     } else {
       parts.push(h(Text, { key: 'cur' }, '  '));
     }
     parts.push(h(Text, { key: 'indent' }, indent));
     parts.push(h(Text, { key: 'sp' }, '  ')); // align with expand icon space
-    parts.push(dim(node.label));
+
+    // Color-coded based on field type
+    if (data.field === 'fitness' && data.value !== undefined) {
+      const pct = data.value * 100;
+      const col = pct >= 80 ? theme.status.success : pct >= 50 ? theme.status.warning : theme.status.error;
+      parts.push(muted('fitness: '));
+      parts.push(h(Text, { key: 'val', color: col, bold: true }, `${Math.round(pct)}%`));
+    } else if (data.field === 'description') {
+      parts.push(h(Text, { key: 'val', color: theme.text.muted, italic: true }, node.label));
+    } else {
+      parts.push(muted(node.label));
+    }
     return h(Box, { flexDirection: 'row' }, ...parts);
   }
 
@@ -145,8 +177,13 @@ const FlatPhaseRow = ({ node, isSelected }) => {
     // Execution tree node
     const status = (data.status || 'pending').toLowerCase();
     const icon = statusIcon(status);
-    const col = statusColor(status);
     const isActive = status === 'running' || status === 'active';
+    // Gray out icon/name when parent phase is done or pending (not running)
+    const pStatus = (data._phaseStatus || '').toLowerCase();
+    const isDonePhase = pStatus === 'done' || pStatus === 'completed';
+    const isPendingPhase = pStatus === 'pending' || pStatus === 'waiting';
+    const isGrayedOut = isDonePhase || isPendingPhase;
+    const col = isGrayedOut ? 'gray' : statusColor(status);
 
     let expandIcon = '  ';
     if (node.hasChildren) {
@@ -155,33 +192,37 @@ const FlatPhaseRow = ({ node, isSelected }) => {
 
     const parts = [];
     if (isSelected) {
-      parts.push(h(Text, { key: 'cur', color: theme.tree.cursor }, '> '));
+      parts.push(h(Text, { key: 'cur', color: 'blue' }, '> '));
     } else {
       parts.push(h(Text, { key: 'cur' }, '  '));
     }
     parts.push(h(Text, { key: 'indent' }, indent));
     if (node.hasChildren) {
-      parts.push(h(Text, { key: 'exp', color: theme.tree.expandIcon }, expandIcon));
+      parts.push(h(Text, { key: 'exp', color: isSelected ? 'blue' : theme.tree.expandIcon }, expandIcon));
     } else {
       parts.push(h(Text, { key: 'exp' }, expandIcon));
     }
     parts.push(h(Text, { key: 'icon', color: col }, icon));
     parts.push(h(Text, { key: 'sp' }, ' '));
-    const nameColor = isSelected ? theme.tree.cursor : undefined;
+    const nameColor = isSelected ? 'blue' : isGrayedOut ? 'gray' : undefined;
     parts.push(h(Text, { key: 'name', color: nameColor, bold: isSelected || isActive }, node.label));
     parts.push(h(Text, { key: 'bsp' }, '  '));
+    // Badge keeps its real status color (not grayed out)
     parts.push(h(Badge, { key: 'badge', status }));
     if (isActive) {
       parts.push(h(Text, { key: 'arrow', color: 'cyan' }, ` ${icons.arrow}`));
     }
+    parts.push(h(Text, { key: 'clr' }, '     '));
     return h(Box, { flexDirection: 'row' }, ...parts);
   }
 
   // Phase node (depth 0)
   const status = (data.status || 'pending').toLowerCase();
   const icon = statusIcon(status);
-  const col = statusColor(status);
+  const isDone = status === 'done' || status === 'completed';
   const isActive = status === 'running' || status === 'active';
+  // Done phases: gray. Selected: blue. Running: default statusColor.
+  const col = isDone ? 'gray' : statusColor(status);
 
   let expandIcon = '  ';
   if (node.hasChildren) {
@@ -190,25 +231,26 @@ const FlatPhaseRow = ({ node, isSelected }) => {
 
   const parts = [];
   if (isSelected) {
-    parts.push(h(Text, { key: 'cur', color: theme.tree.cursor }, '> '));
+    parts.push(h(Text, { key: 'cur', color: 'blue' }, '> '));
   } else {
     parts.push(h(Text, { key: 'cur' }, '  '));
   }
   parts.push(h(Text, { key: 'indent' }, indent));
   if (node.hasChildren) {
-    parts.push(h(Text, { key: 'exp', color: theme.tree.expandIcon }, expandIcon));
+    parts.push(h(Text, { key: 'exp', color: isSelected ? 'blue' : theme.tree.expandIcon }, expandIcon));
   } else {
     parts.push(h(Text, { key: 'exp' }, expandIcon));
   }
   parts.push(h(Text, { key: 'icon', color: col }, icon));
   parts.push(h(Text, { key: 'sp' }, ' '));
-  const nameColor = isSelected ? theme.tree.cursor : undefined;
+  const nameColor = isSelected ? 'blue' : isDone ? 'gray' : undefined;
   parts.push(h(Text, { key: 'name', color: nameColor, bold: isSelected || isActive }, node.label));
   parts.push(h(Text, { key: 'bsp' }, ' '));
   parts.push(h(Badge, { key: 'badge', status }));
   if (isActive) {
     parts.push(h(Text, { key: 'arrow', color: 'cyan' }, ` ${icons.arrow}`));
   }
+  parts.push(h(Text, { key: 'clr' }, '     '));
   return h(Box, { flexDirection: 'row' }, ...parts);
 };
 
@@ -344,16 +386,18 @@ const PhaseWorkflow = ({ session, context = {}, treeNav = null }) => {
 
   // IMPORTANT: All hooks must be called unconditionally (React rules of hooks).
 
-  // Auto-expand running phases
+  // Auto-expand running phases (once per phase — ref prevents re-expand after user collapse)
+  const autoExpandedRef = useRef(new Set());
   useEffect(() => {
-    if (!tnExpand || !tnExpanded || !Array.isArray(phases)) return;
+    if (!tnExpand || !Array.isArray(phases)) return;
     for (const phase of phases) {
       const status = (phase.status || '').toLowerCase();
-      if ((status === 'running' || status === 'active') && !tnExpanded.has(phase.id)) {
+      if ((status === 'running' || status === 'active') && !autoExpandedRef.current.has(phase.id)) {
+        autoExpandedRef.current.add(phase.id);
         tnExpand(phase.id);
       }
     }
-  }, [phases, tnExpanded, tnExpand]);
+  }, [phases, tnExpand]);
 
   // Flatten phases — guarded for null treeNav
   const flatNodes = useMemo(() => {

@@ -146,6 +146,9 @@ const FlatTreeNodeRow = ({ node, isSelected, depth }) => {
     parts.push(h(Text, { key: 'arrow', color: 'cyan' }, ` ${icons.arrow}`));
   }
 
+  // Trailing clear: overwrite leftover chars when status text shrinks
+  parts.push(h(Text, { key: 'clr' }, '     '));
+
   return h(Box, { flexDirection: 'row' }, ...parts);
 };
 

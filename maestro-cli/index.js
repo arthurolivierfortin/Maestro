@@ -5140,7 +5140,8 @@ async function executeWithArgv(argv) {
         view: argv.view || null,
         debug: argv.debug || false,
         returnToList: !argv['no-back'], // Allow Escape to return to list by default
-        legacy: argv.legacy || false    // --legacy flag uses old blessed monitor
+        legacy: argv.legacy || false,   // --legacy flag uses old blessed monitor
+        mock: argv.mock || false        // --mock flag uses mock data for visual testing
       };
 
       if (listMode) {

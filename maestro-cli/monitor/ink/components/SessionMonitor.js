@@ -4,7 +4,7 @@
  * The main orchestrator — replaces the blessed SessionMonitor class.
  * Polls session data, detects mode, renders layout with child panels.
  *
- * Props: { sessionId, apiClient, onExit }
+ * Props: { sessionId, apiClient, onExit, onQuit }
  *
  * Modes:
  *   'descriptor' — session has _monitorDescriptor variable
@@ -127,10 +127,6 @@ const getPanelAtPosition = (x, y, mode, rows, cols) => {
 // ── Help Overlay ────────────────────────────────────────────────
 
 const HelpOverlay = ({ hasBackOption }) => {
-  const backLine = hasBackOption
-    ? h(Text, { key: 'back' }, '    Esc        Back / unzoom')
-    : null;
-
   return h(Box, {
     flexDirection: 'column',
     borderStyle: 'single',
@@ -155,7 +151,9 @@ const HelpOverlay = ({ hasBackOption }) => {
     h(Text, {}, ''),
     h(Text, { bold: true }, '  Actions:'),
     h(Text, {}, '    r          Refresh now'),
-    backLine,
+    hasBackOption
+      ? h(Text, { key: 'back' }, '    Esc        Back to session list')
+      : null,
     h(Text, {}, '    q          Quit'),
     h(Text, {}, '    ?          This help'),
     h(Text, {}, ''),
@@ -163,7 +161,7 @@ const HelpOverlay = ({ hasBackOption }) => {
     h(Text, {}, '    Click       Focus panel'),
     h(Text, {}, '    Scroll      Scroll focused panel'),
     h(Text, {}, ''),
-    h(Text, { color: 'gray' }, '  Press q, Esc, or Enter to close...')
+    h(Text, { color: 'gray' }, '  Press any key to close...')
   );
 };
 
@@ -389,7 +387,7 @@ const IdleLayout = ({ session, context, panels, isFocused, scrollOffset, treeNav
 
 // ── SessionMonitor ──────────────────────────────────────────────
 
-const SessionMonitor = ({ sessionId, apiClient, onExit }) => {
+const SessionMonitor = ({ sessionId, apiClient, onExit, onQuit }) => {
   // ── Data polling ──
   const {
     session,
@@ -503,28 +501,39 @@ const SessionMonitor = ({ sessionId, apiClient, onExit }) => {
     setMaxScroll('logs', Math.max(0, cmdLen));
   }, [session, treeNavTree, setMaxScroll]);
 
-  // ── Auto-scroll: follow cursor in tree panels ──
+  // ── Auto-scroll: follow cursor and expand/collapse in tree panels ──
   const prevCursorRef = useRef({});
+  const prevExpandedSizeRef = useRef({});
+  const activeExpandedSize = activeTreeNav?.expanded?.size ?? 0;
   useEffect(() => {
     if (!activeTreeNav || !focusedPanel) return;
     const cur = activeTreeNav.cursor;
-    const prev = prevCursorRef.current[focusedPanel];
-    if (prev !== cur) {
-      prevCursorRef.current[focusedPanel] = cur;
-      // Estimate visible lines (~panel height - borders - title).
-      // Use scroll offset to keep cursor visible.
-      const offset = getOffset(focusedPanel);
-      const rows = process.stdout.rows || 24;
-      const visibleLines = Math.max(5, Math.floor(rows / 3) - 3);
+    const offset = getOffset(focusedPanel);
+    const rows = process.stdout.rows || 24;
+    const visibleLines = Math.max(5, Math.floor(rows / 3) - 3);
+
+    const prevCur = prevCursorRef.current[focusedPanel];
+    const prevExpSize = prevExpandedSizeRef.current[focusedPanel];
+
+    prevCursorRef.current[focusedPanel] = cur;
+    prevExpandedSizeRef.current[focusedPanel] = activeExpandedSize;
+
+    if (prevCur !== cur) {
+      // Cursor moved — ensure cursor is visible
       if (cur < offset) {
-        // Cursor above visible area → scroll up
         scrollTo(focusedPanel, cur);
       } else if (cur >= offset + visibleLines) {
-        // Cursor below visible area → scroll down
+        scrollTo(focusedPanel, cur - visibleLines + 1);
+      }
+    } else if (prevExpSize !== undefined && prevExpSize !== activeExpandedSize) {
+      // Expanded set changed (toggle) — only scroll if cursor went out of view
+      if (cur < offset) {
+        scrollTo(focusedPanel, cur);
+      } else if (cur >= offset + visibleLines) {
         scrollTo(focusedPanel, cur - visibleLines + 1);
       }
     }
-  }, [activeTreeNav?.cursor, focusedPanel, getOffset, scrollTo]);
+  }, [activeTreeNav?.cursor, activeExpandedSize, focusedPanel, getOffset, scrollTo]);
 
   // ── Keyboard handling ──
   // Tab/Shift-Tab = cycle panels
@@ -533,7 +542,9 @@ const SessionMonitor = ({ sessionId, apiClient, onExit }) => {
   useKeyboard({
     q: () => {
       if (showHelp) { setShowHelp(false); return; }
-      if (onExit) onExit();
+      // q = quit the entire app
+      if (onQuit) onQuit();
+      else if (onExit) onExit();
       else process.exit(0);
     },
     r: () => { if (showHelp) setShowHelp(false); },
@@ -578,6 +589,7 @@ const SessionMonitor = ({ sessionId, apiClient, onExit }) => {
     escape: () => {
       if (showHelp) { setShowHelp(false); return; }
       if (zoomedPanel) { setZoomedPanel(null); return; }
+      // Escape = navigate back to session list
       if (onExit) onExit();
     },
     '?': () => setShowHelp(prev => !prev),

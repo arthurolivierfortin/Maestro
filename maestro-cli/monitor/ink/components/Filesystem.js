@@ -197,6 +197,9 @@ const FlatFileRow = ({ node, isSelected, depth }) => {
   parts.push(h(Text, { key: 'sp' }, '  '));
   parts.push(h(Text, { key: 'access', color: ignored ? 'gray' : color }, accessLabel));
 
+  // Trailing clear: overwrite leftover chars from previous renders
+  parts.push(h(Text, { key: 'clr' }, '     '));
+
   return h(Box, { flexDirection: 'row' }, ...parts);
 };
 

@@ -66,6 +66,22 @@ async function startMonitor(sessionId, apiClient, options = {}) {
         return startLegacyMonitor(sessionId, apiClient, options);
     }
 
+    // Mock mode: use mock API client for visual testing
+    // Usage: monitor --mock          (global view with mock sessions)
+    //        monitor --mock <id>     (session detail with mock data)
+    if (options.mock) {
+        try {
+            const { MockApiClient } = await import('./ink/mock-api-client.js');
+            const { startInkMonitor } = await import('./ink/App.js');
+            const mockClient = new MockApiClient();
+            await startInkMonitor(sessionId || null, mockClient, options);
+            return;
+        } catch (err) {
+            console.error(`Mock monitor failed: ${err.message}`);
+            process.exit(1);
+        }
+    }
+
     // Default: Ink monitor (ESM, loaded via dynamic import)
     try {
         const { startInkMonitor } = await import('./ink/App.js');
