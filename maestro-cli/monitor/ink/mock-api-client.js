@@ -56,30 +56,32 @@ const makePhases = () => [
 ];
 
 const makeExecTree = () => [
-  { id: 'load-config', name: 'Load Configuration', status: 'done', children: [] },
+  { id: 'load-config', name: 'Load Configuration', status: 'done', type: 'tool', children: [] },
   {
     id: 'improvement-loop',
     name: 'Improvement Loop',
     status: 'running',
+    type: 'while',
     children: [
-      { id: 'read-artifact', name: 'Read Artifact', status: 'done', children: [] },
-      { id: 'run-training', name: 'Run Training', status: 'done', children: [] },
+      { id: 'read-artifact', name: 'Read Artifact', status: 'done', type: 'tool', children: [] },
+      { id: 'run-training', name: 'Run Training', status: 'done', type: 'inference', children: [] },
       {
         id: 'evaluate',
         name: 'Evaluate Results',
         status: 'running',
+        type: 'validator',
         children: [
-          { id: 'parse-output', name: 'Parse Output', status: 'done', children: [] },
-          { id: 'compute-fitness', name: 'Compute Fitness', status: 'running', children: [] },
-          { id: 'check-threshold', name: 'Check Threshold', status: 'pending', children: [] },
+          { id: 'parse-output', name: 'Parse Output', status: 'done', type: 'tool', children: [] },
+          { id: 'compute-fitness', name: 'Compute Fitness', status: 'running', type: 'tool', children: [] },
+          { id: 'check-threshold', name: 'Check Threshold', status: 'pending', type: 'decision', children: [] },
         ],
       },
-      { id: 'generate-improvements', name: 'Generate Improvements', status: 'pending', children: [] },
-      { id: 'apply-improvements', name: 'Apply Improvements', status: 'pending', children: [] },
-      { id: 'update-metrics', name: 'Update Metrics', status: 'pending', children: [] },
+      { id: 'generate-improvements', name: 'Generate Improvements', status: 'pending', type: 'inference', children: [] },
+      { id: 'apply-improvements', name: 'Apply Improvements', status: 'pending', type: 'tool', children: [] },
+      { id: 'update-metrics', name: 'Update Metrics', status: 'pending', type: 'script', children: [] },
     ],
   },
-  { id: 'finalize', name: 'Finalize & Report', status: 'pending', children: [] },
+  { id: 'finalize', name: 'Finalize & Report', status: 'pending', type: 'tool', children: [] },
 ];
 
 const makeLLMActivity = () => [
@@ -219,18 +221,19 @@ const makeExecSession = () => ({
   variables: {
     _activeWorkflow: 'compliance-workflow',
     _executionTree: [
-      { id: 'setup', name: 'Setup Environment', status: 'done', children: [] },
+      { id: 'setup', name: 'Setup Environment', status: 'done', type: 'tool', children: [] },
       {
         id: 'test-models',
         name: 'Test Models',
         status: 'running',
+        type: 'for-each',
         children: [
-          { id: 'test-smol', name: 'Test SmolLM2', status: 'done', children: [] },
-          { id: 'test-qwen', name: 'Test Qwen2.5', status: 'running', children: [] },
-          { id: 'test-phi', name: 'Test Phi-3', status: 'pending', children: [] },
+          { id: 'test-smol', name: 'Test SmolLM2', status: 'done', type: 'inference', children: [] },
+          { id: 'test-qwen', name: 'Test Qwen2.5', status: 'running', type: 'inference', children: [] },
+          { id: 'test-phi', name: 'Test Phi-3', status: 'pending', type: 'inference', children: [] },
         ],
       },
-      { id: 'generate-report', name: 'Generate Report', status: 'pending', children: [] },
+      { id: 'generate-report', name: 'Generate Report', status: 'pending', type: 'script', children: [] },
     ],
     currentIteration: 2,
     fitness: 0.88,
@@ -273,12 +276,43 @@ const MOCK_BLOCKS = [
   { id: 'metrics-reporter', name: 'Metrics Reporter', type: 'tool', version: '1.0.0', description: 'Formats and writes metrics reports', fitness: null, isAtomic: true },
 ];
 
+// ── Workspaces (enriched) ─────────────────────────────────────────
+
+const MOCK_WORKSPACES = [
+  {
+    id: 'ws-001', name: 'training-research', type: 'research',
+    status: 'Active', description: 'Training optimization workspace',
+    repositoryPath: 'C:\\Projects\\my-repo',
+    sessionIds: [MOCK_SESSION_ID, MOCK_SESSION_IDLE_ID],
+    settings: { maxConcurrentSessions: 20, autoPromotionEnabled: false, minFitnessForPromotion: 0.7 },
+  },
+  {
+    id: 'ws-002', name: 'gen-commit-dev', type: 'development',
+    status: 'Active', description: 'Commit message generator development',
+    repositoryPath: 'C:\\Projects\\api-service',
+    sessionIds: [MOCK_SESSION_EXEC_ID],
+    settings: { maxConcurrentSessions: 10, autoPromotionEnabled: true, minFitnessForPromotion: 0.85 },
+  },
+];
+
 // ── Projects ────────────────────────────────────────────────────
 
 const MOCK_PROJECTS = [
-  { id: 'proj-001', name: 'my-repo', rootPath: 'C:\\Projects\\my-repo', containerStatus: 'running' },
-  { id: 'proj-002', name: 'api-service', rootPath: 'C:\\Projects\\api-service', containerStatus: 'idle' },
-  { id: 'proj-003', name: 'frontend-app', rootPath: 'C:\\Projects\\frontend-app', containerStatus: 'idle' },
+  {
+    id: 'proj-001', name: 'my-repo', rootPath: 'C:\\Projects\\my-repo', containerStatus: 'running',
+    maestroInfo: { blocks: 3, artifacts: 5, metrics: 2, logs: 8 },
+    sessionIds: [MOCK_SESSION_ID, MOCK_SESSION_IDLE_ID],
+  },
+  {
+    id: 'proj-002', name: 'api-service', rootPath: 'C:\\Projects\\api-service', containerStatus: 'idle',
+    maestroInfo: { blocks: 1, artifacts: 2, metrics: 1, logs: 3 },
+    sessionIds: [MOCK_SESSION_EXEC_ID],
+  },
+  {
+    id: 'proj-003', name: 'frontend-app', rootPath: 'C:\\Projects\\frontend-app', containerStatus: 'idle',
+    maestroInfo: { blocks: 0, artifacts: 0, metrics: 0, logs: 0 },
+    sessionIds: [],
+  },
 ];
 
 // ── LLM models ──────────────────────────────────────────────────
@@ -371,14 +405,22 @@ class MockApiClient {
     return MOCK_PROJECTS;
   }
 
+  // ── Workspaces ──
+  async getWorkspace(id) {
+    await this._delay();
+    return MOCK_WORKSPACES.find(w => w.id === id) || MOCK_WORKSPACES[0];
+  }
+
+  async getProject(id) {
+    await this._delay();
+    return MOCK_PROJECTS.find(p => p.id === id) || MOCK_PROJECTS[0];
+  }
+
   // ── Generic GET (workspaces etc.) ──
   async get(path) {
     await this._delay();
     if (path === '/api/workspaces') {
-      return [
-        { id: 'ws-001', name: 'training-research', type: 'research' },
-        { id: 'ws-002', name: 'gen-commit-dev', type: 'development' },
-      ];
+      return MOCK_WORKSPACES;
     }
     return [];
   }

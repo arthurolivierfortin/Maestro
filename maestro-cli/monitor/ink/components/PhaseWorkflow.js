@@ -18,7 +18,7 @@ import { Box, Text } from 'ink';
 import {
   icons, dim, muted, bold,
   statusColor, statusIcon, truncate,
-  Badge, theme,
+  Badge, TypeBadge, theme,
 } from '../theme.js';
 
 // ── Flatten helpers ───────────────────────────────────────────
@@ -207,8 +207,8 @@ const FlatPhaseRow = ({ node, isSelected }) => {
     const nameColor = isSelected ? 'blue' : isGrayedOut ? 'gray' : undefined;
     parts.push(h(Text, { key: 'name', color: nameColor, bold: isSelected || isActive }, node.label));
     parts.push(h(Text, { key: 'bsp' }, '  '));
-    // Badge keeps its real status color (not grayed out)
-    parts.push(h(Badge, { key: 'badge', status }));
+    // TypeBadge shows block type (not redundant status)
+    parts.push(h(TypeBadge, { key: 'badge', type: data.type || data.nodeType || 'node' }));
     if (isActive) {
       parts.push(h(Text, { key: 'arrow', color: 'cyan' }, ` ${icons.arrow}`));
     }
@@ -273,7 +273,7 @@ const TreeNode = ({ node, prefix, childIndent }) => {
       ? h(Text, { key: 'name', bold: true }, name)
       : h(Text, { key: 'name' }, name),
     h(Text, { key: 'bsp' }, '  '),
-    h(Badge, { key: 'badge', status }),
+    h(TypeBadge, { key: 'badge', type: node.type || node.nodeType || 'node' }),
   ];
 
   if (isActive) {

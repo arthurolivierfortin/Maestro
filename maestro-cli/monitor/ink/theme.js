@@ -280,6 +280,8 @@ const typeBadgeColorMap = {
   template: 'yellow', prompt: 'blue', instruction: 'gray',
   decision: 'yellow', validator: 'red', trigger: 'magenta',
   inference: 'cyan', script: 'green', task: 'blue',
+  'while': 'yellow', 'for-each': 'yellow', conditional: 'yellow',
+  phase: 'magenta', node: 'gray',
 };
 
 const TypeBadge = ({ type }) => {

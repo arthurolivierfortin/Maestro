@@ -217,7 +217,7 @@ const WorkspaceRow = ({ workspace, isSelected }) => {
 
 // ── SpacesScreen component ───────────────────────────────────
 
-const SpacesScreen = ({ apiClient, onNavigate, onSessionSelect, onQuit }) => {
+const SpacesScreen = ({ apiClient, onNavigate, onSessionSelect, onWorkspaceSelect, onRepoSelect, onQuit }) => {
   const { stdout } = useStdout();
   const [activeTab, setActiveTab] = useState('sessions');
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -295,6 +295,12 @@ const SpacesScreen = ({ apiClient, onNavigate, onSessionSelect, onQuit }) => {
       if (activeTab === 'sessions' && filteredSessions.length > 0) {
         const session = filteredSessions[selectedIndex];
         if (session) onSessionSelect(session.id);
+      } else if (activeTab === 'workspaces' && workspaceList.length > 0 && onWorkspaceSelect) {
+        const ws = workspaceList[selectedIndex];
+        if (ws) onWorkspaceSelect(ws.id);
+      } else if (activeTab === 'repos' && projectList.length > 0 && onRepoSelect) {
+        const proj = projectList[selectedIndex];
+        if (proj) onRepoSelect(proj.id);
       }
     },
     number: (num) => {

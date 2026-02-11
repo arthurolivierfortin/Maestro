@@ -14,7 +14,7 @@ import { Box, Text } from 'ink';
 import {
   icons, dim, bold,
   statusColor, statusIcon, truncate,
-  Badge, theme,
+  Badge, TypeBadge, theme,
 } from '../theme.js';
 
 // ── Flatten helpers ────────────────────────────────────────────
@@ -137,9 +137,9 @@ const FlatTreeNodeRow = ({ node, isSelected, depth }) => {
   // Name
   parts.push(h(Text, { key: 'name', color: nameColor, bold: nameBold }, node.label));
 
-  // Badge
+  // TypeBadge (shows block type instead of redundant status)
   parts.push(h(Text, { key: 'bsp' }, '  '));
-  parts.push(h(Badge, { key: 'badge', status }));
+  parts.push(h(TypeBadge, { key: 'badge', type: data.type || data.nodeType || 'node' }));
 
   // Arrow for active
   if (isActive) {
@@ -171,7 +171,7 @@ const TreeNode = ({ node, prefix, childIndent }) => {
       ? h(Text, { key: 'name', bold: true }, name)
       : h(Text, { key: 'name' }, name),
     h(Text, { key: 'bsp' }, '  '),
-    h(Badge, { key: 'badge', status }),
+    h(TypeBadge, { key: 'badge', type: node.type || node.nodeType || 'node' }),
   ];
 
   if (isActive) {

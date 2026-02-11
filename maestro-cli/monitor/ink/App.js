@@ -22,6 +22,9 @@ import { SpacesScreen } from './components/SpacesScreen.js';
 import { FoundryScreen } from './components/FoundryScreen.js';
 import { CatalogScreen } from './components/CatalogScreen.js';
 import { ModelsScreen } from './components/ModelsScreen.js';
+import { WorkspaceDetail } from './components/WorkspaceDetail.js';
+import { RepoDetail } from './components/RepoDetail.js';
+import { ModelDetail } from './components/ModelDetail.js';
 
 // ── Terminal background color control ──────────────────────────
 //
@@ -76,20 +79,34 @@ const FullscreenBox = ({ children }) => {
 
 const App = ({ initialSessionId, apiClient }) => {
   const { exit } = useApp();
-  const [currentSessionId, setCurrentSessionId] = useState(initialSessionId || null);
+  const [detailView, setDetailView] = useState(
+    initialSessionId ? { type: 'session', id: initialSessionId } : null
+  );
   const [currentPage, setCurrentPage] = useState(initialSessionId ? 'spaces' : 'home');
 
   const handleSessionSelect = useCallback((sessionId) => {
-    setCurrentSessionId(sessionId);
+    setDetailView({ type: 'session', id: sessionId });
+  }, []);
+
+  const handleWorkspaceSelect = useCallback((workspaceId) => {
+    setDetailView({ type: 'workspace', id: workspaceId });
+  }, []);
+
+  const handleRepoSelect = useCallback((repoId) => {
+    setDetailView({ type: 'repo', id: repoId });
+  }, []);
+
+  const handleModelSelect = useCallback((modelId) => {
+    setDetailView({ type: 'model', id: modelId });
   }, []);
 
   const handleBack = useCallback(() => {
-    if (currentSessionId) {
-      setCurrentSessionId(null);
+    if (detailView) {
+      setDetailView(null);
     } else {
       exit();
     }
-  }, [currentSessionId, exit]);
+  }, [detailView, exit]);
 
   const handleQuit = useCallback(() => {
     exit();
@@ -99,16 +116,55 @@ const App = ({ initialSessionId, apiClient }) => {
     setCurrentPage(page);
   }, []);
 
-  // When a session is selected, show SessionMonitor (unchanged)
-  if (currentSessionId) {
-    return h(FullscreenBox, null,
-      h(SessionMonitor, {
-        sessionId: currentSessionId,
-        apiClient,
-        onExit: handleBack,
-        onQuit: handleQuit,
-      })
-    );
+  // Detail view routing
+  if (detailView) {
+    const detailProps = {
+      apiClient,
+      onExit: handleBack,
+      onQuit: handleQuit,
+      onSessionSelect: handleSessionSelect,
+    };
+
+    let detailComponent;
+    switch (detailView.type) {
+      case 'session':
+        detailComponent = h(SessionMonitor, {
+          sessionId: detailView.id,
+          apiClient,
+          onExit: handleBack,
+          onQuit: handleQuit,
+        });
+        break;
+      case 'workspace':
+        detailComponent = h(WorkspaceDetail, {
+          workspaceId: detailView.id,
+          ...detailProps,
+        });
+        break;
+      case 'repo':
+        detailComponent = h(RepoDetail, {
+          repoId: detailView.id,
+          ...detailProps,
+        });
+        break;
+      case 'model':
+        detailComponent = h(ModelDetail, {
+          modelId: detailView.id,
+          apiClient,
+          onExit: handleBack,
+          onQuit: handleQuit,
+        });
+        break;
+      default:
+        detailComponent = h(SessionMonitor, {
+          sessionId: detailView.id,
+          apiClient,
+          onExit: handleBack,
+          onQuit: handleQuit,
+        });
+    }
+
+    return h(FullscreenBox, null, detailComponent);
   }
 
   // Multi-page routing
@@ -116,6 +172,8 @@ const App = ({ initialSessionId, apiClient }) => {
     apiClient,
     onNavigate: handleNavigate,
     onSessionSelect: handleSessionSelect,
+    onWorkspaceSelect: handleWorkspaceSelect,
+    onRepoSelect: handleRepoSelect,
     onQuit: handleQuit,
   };
 
@@ -131,7 +189,7 @@ const App = ({ initialSessionId, apiClient }) => {
       pageComponent = h(CatalogScreen, pageProps);
       break;
     case 'models':
-      pageComponent = h(ModelsScreen, pageProps);
+      pageComponent = h(ModelsScreen, { ...pageProps, onModelSelect: handleModelSelect });
       break;
     case 'home':
     default:
