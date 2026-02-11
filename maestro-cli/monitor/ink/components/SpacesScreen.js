@@ -12,7 +12,7 @@
  *   onQuit           () => void
  */
 
-import { createElement as h, useState, useEffect, useCallback } from 'react';
+import { createElement as h, useState, useEffect, useCallback, useRef } from 'react';
 import { Box, Text, useStdout } from 'ink';
 import {
   theme, icons,
@@ -217,11 +217,11 @@ const WorkspaceRow = ({ workspace, isSelected }) => {
 
 // ── SpacesScreen component ───────────────────────────────────
 
-const SpacesScreen = ({ apiClient, onNavigate, onSessionSelect, onWorkspaceSelect, onRepoSelect, onQuit }) => {
+const SpacesScreen = ({ apiClient, onNavigate, onSessionSelect, onWorkspaceSelect, onRepoSelect, onQuit, initialState }) => {
   const { stdout } = useStdout();
-  const [activeTab, setActiveTab] = useState('sessions');
-  const [selectedIndex, setSelectedIndex] = useState(0);
-  const [statusFilter, setStatusFilter] = useState('all');
+  const [activeTab, setActiveTab] = useState(initialState?.activeTab ?? 'sessions');
+  const [selectedIndex, setSelectedIndex] = useState(initialState?.selectedIndex ?? 0);
+  const [statusFilter, setStatusFilter] = useState(initialState?.statusFilter ?? 'all');
 
   // Terminal rows for scroll calculation
   // NavBar(3) + TabHeader(3) + PanelBorder(2) + title(1) + spacer(1) + headerLines(2) + StatusBar(3) = 15 fixed
@@ -274,8 +274,15 @@ const SpacesScreen = ({ apiClient, onNavigate, onSessionSelect, onWorkspaceSelec
     }
   }, [currentItems.length]);
 
-  // Reset index on tab/filter change
-  useEffect(() => { setSelectedIndex(0); }, [activeTab, statusFilter]);
+  // Reset index on tab/filter change (skip initial mount to preserve restored state)
+  const prevTabFilter = useRef(`${activeTab}:${statusFilter}`);
+  useEffect(() => {
+    const key = `${activeTab}:${statusFilter}`;
+    if (prevTabFilter.current !== key) {
+      setSelectedIndex(0);
+      prevTabFilter.current = key;
+    }
+  }, [activeTab, statusFilter]);
 
   // Scroll window
   const scrollStart = Math.max(0,
@@ -292,15 +299,16 @@ const SpacesScreen = ({ apiClient, onNavigate, onSessionSelect, onWorkspaceSelec
     k: () => setSelectedIndex(i => Math.max(0, i - 1)),
     j: () => setSelectedIndex(i => Math.min(currentItems.length - 1, i + 1)),
     enter: () => {
+      const state = { selectedIndex, activeTab, statusFilter };
       if (activeTab === 'sessions' && filteredSessions.length > 0) {
         const session = filteredSessions[selectedIndex];
-        if (session) onSessionSelect(session.id);
+        if (session) onSessionSelect(session.id, state);
       } else if (activeTab === 'workspaces' && workspaceList.length > 0 && onWorkspaceSelect) {
         const ws = workspaceList[selectedIndex];
-        if (ws) onWorkspaceSelect(ws.id);
+        if (ws) onWorkspaceSelect(ws.id, state);
       } else if (activeTab === 'repos' && projectList.length > 0 && onRepoSelect) {
         const proj = projectList[selectedIndex];
-        if (proj) onRepoSelect(proj.id);
+        if (proj) onRepoSelect(proj.id, state);
       }
     },
     number: (num) => {

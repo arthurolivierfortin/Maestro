@@ -264,16 +264,88 @@ const makeDoneSession = () => ({
 // ── Blocks catalog ──────────────────────────────────────────────
 
 const MOCK_BLOCKS = [
-  { id: 'gen-commit-workflow', name: 'Gen Commit Message', type: 'workflow', version: '1.2.0', description: 'Generate conventional commit messages from diffs', fitness: 0.95, isAtomic: false },
-  { id: 'gen-readme-workflow', name: 'Gen README', type: 'workflow', version: '1.0.0', description: 'Generate README.md from codebase analysis', fitness: 0.88, isAtomic: false },
-  { id: 'compliance-workflow', name: 'Compliance Tester', type: 'workflow', version: '2.1.0', description: 'Test multiple LLM models against compliance criteria', fitness: null, isAtomic: false },
-  { id: 'code-reviewer', name: 'Code Reviewer', type: 'agent', version: '1.0.0', description: 'Reviews pull requests for code quality', fitness: 0.82, isAtomic: false },
-  { id: 'llm-generate', name: 'LLM Generate', type: 'tool', version: '3.0.0', description: 'Core inference tool — calls LLM provider', fitness: null, isAtomic: true },
-  { id: 'json-validator', name: 'JSON Validator', type: 'tool', version: '1.1.0', description: 'Validates JSON output against schema', fitness: null, isAtomic: true },
-  { id: 'fitness-evaluator', name: 'Fitness Evaluator', type: 'tool', version: '2.0.0', description: 'Computes fitness score from quality criteria', fitness: null, isAtomic: true },
-  { id: 'file-writer', name: 'File Writer', type: 'tool', version: '1.0.0', description: 'Writes content to filesystem paths', fitness: null, isAtomic: true },
-  { id: 'diff-parser', name: 'Diff Parser', type: 'tool', version: '1.0.0', description: 'Parses git diff into structured format', fitness: null, isAtomic: true },
-  { id: 'metrics-reporter', name: 'Metrics Reporter', type: 'tool', version: '1.0.0', description: 'Formats and writes metrics reports', fitness: null, isAtomic: true },
+  {
+    id: 'gen-commit-workflow', name: 'Gen Commit Message', type: 'workflow', version: '1.2.0',
+    description: 'Generate conventional commit messages from diffs',
+    author: 'system', fitness: 0.95, isAtomic: false,
+    children: ['llm-generate', 'json-validator', 'fitness-evaluator', 'file-writer'],
+    fitnessDimensions: { performance: 0.92, specialization: 0.88, composability: 0.95 },
+    taskFitness: {
+      score: 0.78,
+      dimensions: { completion: 0.82, quality: 0.75, costEfficiency: 0.70, reliability: 0.85 },
+    },
+    sessionIds: [MOCK_SESSION_ID, 'd4e5f6a7-b8c9-0123-defa-234567890123'],
+  },
+  {
+    id: 'gen-readme-workflow', name: 'Gen README', type: 'workflow', version: '1.0.0',
+    description: 'Generate README.md from codebase analysis',
+    author: 'system', fitness: 0.88, isAtomic: false,
+    children: ['llm-generate', 'file-writer'],
+    fitnessDimensions: { performance: 0.85, specialization: 0.82, composability: 0.90 },
+    taskFitness: {
+      score: 0.72,
+      dimensions: { completion: 0.78, quality: 0.70, costEfficiency: 0.65, reliability: 0.80 },
+    },
+    sessionIds: ['d4e5f6a7-b8c9-0123-defa-234567890123'],
+  },
+  {
+    id: 'compliance-workflow', name: 'Compliance Tester', type: 'workflow', version: '2.1.0',
+    description: 'Test multiple LLM models against compliance criteria',
+    author: 'system', fitness: null, isAtomic: false,
+    children: ['llm-generate', 'json-validator', 'metrics-reporter'],
+    fitnessDimensions: null, taskFitness: null,
+    sessionIds: [MOCK_SESSION_EXEC_ID],
+  },
+  {
+    id: 'code-reviewer', name: 'Code Reviewer', type: 'agent', version: '1.0.0',
+    description: 'Reviews pull requests for code quality',
+    author: 'user', fitness: 0.82, isAtomic: false,
+    children: ['llm-generate', 'diff-parser'],
+    fitnessDimensions: { performance: 0.80, specialization: 0.78, composability: 0.85 },
+    taskFitness: {
+      score: 0.68,
+      dimensions: { completion: 0.72, quality: 0.65, costEfficiency: 0.60, reliability: 0.75 },
+    },
+    sessionIds: [],
+  },
+  {
+    id: 'llm-generate', name: 'LLM Generate', type: 'tool', version: '3.0.0',
+    description: 'Core inference tool — calls LLM provider',
+    author: 'system', fitness: null, isAtomic: true,
+    children: [], fitnessDimensions: null, taskFitness: null, sessionIds: [],
+  },
+  {
+    id: 'json-validator', name: 'JSON Validator', type: 'tool', version: '1.1.0',
+    description: 'Validates JSON output against schema',
+    author: 'system', fitness: 0.99, isAtomic: true,
+    children: [],
+    fitnessDimensions: { performance: 0.99, specialization: 0.98, composability: 1.0 },
+    taskFitness: null, sessionIds: [],
+  },
+  {
+    id: 'fitness-evaluator', name: 'Fitness Evaluator', type: 'tool', version: '2.0.0',
+    description: 'Computes fitness score from quality criteria',
+    author: 'system', fitness: null, isAtomic: true,
+    children: [], fitnessDimensions: null, taskFitness: null, sessionIds: [],
+  },
+  {
+    id: 'file-writer', name: 'File Writer', type: 'tool', version: '1.0.0',
+    description: 'Writes content to filesystem paths',
+    author: 'system', fitness: null, isAtomic: true,
+    children: [], fitnessDimensions: null, taskFitness: null, sessionIds: [],
+  },
+  {
+    id: 'diff-parser', name: 'Diff Parser', type: 'tool', version: '1.0.0',
+    description: 'Parses git diff into structured format',
+    author: 'system', fitness: null, isAtomic: true,
+    children: [], fitnessDimensions: null, taskFitness: null, sessionIds: [],
+  },
+  {
+    id: 'metrics-reporter', name: 'Metrics Reporter', type: 'tool', version: '1.0.0',
+    description: 'Formats and writes metrics reports',
+    author: 'system', fitness: null, isAtomic: true,
+    children: [], fitnessDimensions: null, taskFitness: null, sessionIds: [],
+  },
 ];
 
 // ── Workspaces (enriched) ─────────────────────────────────────────
@@ -338,6 +410,51 @@ const MOCK_LLM_STATUS = {
   temperature: 0.3,
   totalRequests: 47,
   avgLatency: 2.1,
+  peakLatency: 4.8,
+  errorCount: 0,
+  tokensIn: 12400,
+  tokensOut: 8200,
+  throughput: 142,
+  uptime: '2h 15m',
+  load: 'idle',
+};
+
+// ── Model performance data (per-model) ───────────────────────────
+
+const MOCK_MODEL_PERFORMANCE = {
+  'SmolLM2-1.7B-Instruct': {
+    bestFitness: 0.95,
+    sessionCount: 3,
+    taskFitness: [
+      { task: 'JSON generation', fitness: 0.95 },
+      { task: 'Commit message', fitness: 0.92 },
+      { task: 'Code review', fitness: 0.78 },
+    ],
+    fitnessHistory: [0.65, 0.72, 0.78, 0.85, 0.88, 0.92, 0.95, 0.95],
+  },
+  'Qwen2.5-Coder-1.5B-Instruct': {
+    bestFitness: 0.72,
+    sessionCount: 1,
+    taskFitness: [
+      { task: 'JSON generation', fitness: 0.72 },
+      { task: 'Commit message', fitness: 0.68 },
+    ],
+    fitnessHistory: [0.50, 0.58, 0.65, 0.70, 0.72],
+  },
+  'SmolLM2-360M-Instruct': {
+    bestFitness: 0.45,
+    sessionCount: 1,
+    taskFitness: [
+      { task: 'JSON generation', fitness: 0.45 },
+    ],
+    fitnessHistory: [0.20, 0.30, 0.38, 0.42, 0.45],
+  },
+  'Phi-3-mini-4k-instruct': {
+    bestFitness: null,
+    sessionCount: 0,
+    taskFitness: [],
+    fitnessHistory: [],
+  },
 };
 
 // ── Mock API Client class ───────────────────────────────────────
@@ -397,6 +514,17 @@ class MockApiClient {
   async listBlocks() {
     await this._delay();
     return MOCK_BLOCKS;
+  }
+
+  async getBlock(id) {
+    await this._delay();
+    return MOCK_BLOCKS.find(b => b.id === id) || null;
+  }
+
+  // ── Model performance ──
+  async getModelPerformance(modelId) {
+    await this._delay();
+    return MOCK_MODEL_PERFORMANCE[modelId] || { bestFitness: null, sessionCount: 0, taskFitness: [], fitnessHistory: [] };
   }
 
   // ── Projects ──

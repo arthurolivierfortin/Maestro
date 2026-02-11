@@ -1,310 +1,361 @@
 /**
- * BlockDetail — Block output browser.
+ * BlockDetail — Block detail page.
  *
- * Ink equivalent of the blessed BlockDetailComponent.
+ * Shows block info, fitness dimensions, linked sessions, and actions.
+ * 4 panels: INFO, FITNESS, SESSIONS, ACTIONS.
  *
- * Active block: live detail (status, metadata, output lines).
- * Historical: per-block entries with typed output (inference, validator, shell, write).
- * Includes miniBar helper for criteria scores.
- *
- * Props: { session, context }
+ * Props:
+ *   blockId          string
+ *   apiClient        API client instance
+ *   onExit           () => void — back to catalog
+ *   onQuit           () => void — quit app
+ *   onSessionSelect  (sessionId: string) => void
  */
 
-import { createElement as h } from 'react';
+import { createElement as h, useState, useCallback } from 'react';
 import { Box, Text } from 'ink';
 import {
-  icons, label, dim, muted, bold,
+  theme, icons,
+  T, muted, primary, bold, dim,
   statusColor, statusIcon,
-  formatTime, truncate,
+  TypeBadge,
+  progressBar, progressColor,
 } from '../theme.js';
+import { useApiData } from '../hooks/useApiData.js';
+import { useKeyboard } from '../hooks/useKeyboard.js';
+import { Panel } from './Panel.js';
+import { StatusBar } from './StatusBar.js';
 
-// ── Type color mapping ─────────────────────────────────────────
+// ── Info panel content ───────────────────────────────────────
 
-const typeColor = (type) => {
-  const map = {
-    inference: 'cyan',
-    validator: 'yellow',
-    shell: 'magenta',
-    script: 'magenta',
-    write: 'green',
-    task: 'white',
-  };
-  return map[type] || 'gray';
-};
+const InfoContent = ({ block }) => {
+  if (!block) return muted('(loading...)');
 
-// ── Mini bar for criteria scores ───────────────────────────────
+  const children = block.children || [];
 
-const MiniBar = ({ value, width = 8 }) => {
-  const filled = Math.round(value * width);
-  const empty = width - filled;
-  return h(Text, null,
-    h(Text, { color: 'green' }, '\u2588'.repeat(filled)),
-    h(Text, { color: 'gray' }, '\u2591'.repeat(empty)),
-  );
-};
+  return h(Box, { flexDirection: 'column', paddingLeft: 1 },
+    h(Box, { flexDirection: 'row' },
+      muted('ID:      '),
+      primary(block.id || '-'),
+    ),
+    h(Box, { flexDirection: 'row' },
+      muted('Type:    '),
+      h(TypeBadge, { type: block.type || 'unknown' }),
+    ),
+    h(Box, { flexDirection: 'row' },
+      muted('Atomic:  '),
+      primary(block.isAtomic ? 'yes' : 'no'),
+    ),
+    h(Box, { flexDirection: 'row' },
+      muted('Version: '),
+      primary(block.version || '-'),
+    ),
+    h(Box, { flexDirection: 'row' },
+      muted('Author:  '),
+      primary(block.author || '-'),
+    ),
 
-// ── Node ID to display name ────────────────────────────────────
-
-const nodeIdToDisplayName = (nodeId) =>
-  nodeId.split('-').map(w =>
-    w.length > 0 ? w[0].toUpperCase() + w.slice(1) : w
-  ).join(' ');
-
-// ── Output lines with pipe prefix ──────────────────────────────
-
-const OutputLines = ({ text, maxLines = 8, maxWidth = 100 }) => {
-  if (!text) return null;
-  const allLines = String(text).split('\n');
-  const visibleLines = allLines.slice(0, maxLines);
-
-  const children = visibleLines.map((line, i) => {
-    const truncated = line.length > maxWidth ? line.substring(0, maxWidth - 3) + '...' : line;
-    return h(Box, { key: `ol-${i}`, flexDirection: 'row' },
-      h(Text, null, '  '),
-      dim('\u2502'),
-      h(Text, null, ` ${truncated}`),
-    );
-  });
-
-  if (allLines.length > maxLines) {
-    children.push(
-      h(Box, { key: 'more', flexDirection: 'row' },
-        h(Text, null, '  '),
-        dim('\u2502'),
-        h(Text, null, ' '),
-        dim(`... ${allLines.length - maxLines} more lines`),
-      )
-    );
-  }
-
-  return h(Box, { flexDirection: 'column' }, ...children);
-};
-
-// ── Active block (live detail) ─────────────────────────────────
-
-const ActiveBlockView = ({ block }) => {
-  const status = (block.status || 'running').toLowerCase();
-  const icon = statusIcon(status);
-  const col = statusColor(status);
-  const blockType = block.type || '';
-
-  const children = [];
-
-  // Header: icon + name + [type]
-  const headerParts = [
-    h(Text, { key: 'pad' }, '  '),
-    h(Text, { key: 'icon', color: col }, icon),
-    h(Text, { key: 'sp' }, ' '),
-    bold(block.name || block.id),
-  ];
-  if (blockType) {
-    headerParts.push(
-      h(Text, { key: 'tsp' }, '  '),
-      h(Text, { key: 'type', color: 'gray' }, `[${blockType}]`),
-    );
-  }
-  children.push(h(Box, { key: 'header', flexDirection: 'row' }, ...headerParts));
-
-  // Metadata line
-  const metaParts = [];
-  if (block.startedAt) {
-    metaParts.push(`Started: ${formatTime(block.startedAt)}`);
-  }
-  if (block.metadata?.tokensUsed) {
-    metaParts.push(`Tokens: ${block.metadata.tokensUsed}`);
-  }
-  if (metaParts.length > 0) {
-    children.push(
-      h(Box, { key: 'meta', flexDirection: 'row' },
-        h(Text, null, '  '),
-        dim(metaParts.join('  |  ')),
-      )
-    );
-  }
-
-  // Blank spacer
-  children.push(h(Box, { key: 'spacer', height: 1 }));
-
-  // Output section
-  if (block.output) {
-    children.push(
-      h(Box, { key: 'out-label', flexDirection: 'row' },
-        h(Text, null, '  '),
-        muted('Output:'),
-      )
-    );
-    children.push(
-      h(OutputLines, { key: 'out-lines', text: block.output, maxLines: 15, maxWidth: 100 })
-    );
-  }
-
-  return h(Box, { flexDirection: 'column' }, ...children);
-};
-
-// ── Typed output renderers ─────────────────────────────────────
-
-const InferenceOutput = ({ data }) => {
-  const output = data.output || data.response || '';
-  if (!output) return null;
-  return h(OutputLines, { text: output, maxLines: 10, maxWidth: 100 });
-};
-
-const ValidatorOutput = ({ data }) => {
-  const criteriaScores = data.criteriaScores || {};
-  const totalScore = data.totalScore ?? 0;
-  const passed = data.passed;
-
-  const children = [];
-
-  // Per-criteria scores
-  for (const [criterion, score] of Object.entries(criteriaScores)) {
-    const numScore = Number(score);
-    const cIcon = numScore >= 0.5 ? icons.done : icons.failed;
-    const cColor = numScore >= 0.5 ? 'green' : 'red';
-
-    children.push(
-      h(Box, { key: `c-${criterion}`, flexDirection: 'row' },
-        h(Text, null, '  '),
-        dim('\u2502'),
-        h(Text, null, ' '),
-        h(Text, { color: cColor }, cIcon),
-        h(Text, null, ` ${criterion}: `),
-        h(MiniBar, { value: numScore }),
-        h(Text, null, ` ${numScore.toFixed(2)}`),
-      )
-    );
-  }
-
-  // Total line
-  const totalColor = passed ? 'green' : 'red';
-  const passLabel = passed ? 'PASSED' : 'FAILED';
-  children.push(
-    h(Box, { key: 'total', flexDirection: 'row' },
-      h(Text, null, '  '),
-      dim('\u2502'),
-      h(Text, null, ' '),
-      h(Text, { color: totalColor }, `Total: ${totalScore.toFixed(2)} [${passLabel}]`),
-    )
-  );
-
-  return h(Box, { flexDirection: 'column' }, ...children);
-};
-
-const ShellOutput = ({ data }) => {
-  const output = data.output || data.commands || '';
-  if (!output) return null;
-  return h(OutputLines, { text: output, maxLines: 8, maxWidth: 100 });
-};
-
-const WriteOutput = ({ data }) => {
-  const output = data.output || '';
-  if (!output) return null;
-  return h(OutputLines, { text: output, maxLines: 3, maxWidth: 200 });
-};
-
-const GenericOutput = ({ data }) => {
-  const output = data.output || '';
-  if (!output) return null;
-  return h(OutputLines, { text: output, maxLines: 8, maxWidth: 100 });
-};
-
-// ── Block entry (historical) ───────────────────────────────────
-
-const BlockEntry = ({ nodeId, data }) => {
-  const type = data?.type || 'unknown';
-  const tColor = typeColor(type);
-  const displayName = nodeIdToDisplayName(nodeId);
-  const timestamp = data?.timestamp || '';
-
-  const children = [];
-
-  // Header: arrow + name + [type] + timestamp
-  const headerParts = [
-    h(Text, { key: 'pad' }, '  '),
-    h(Text, { key: 'arrow', color: tColor }, icons.arrow),
-    h(Text, { key: 'sp' }, ' '),
-    bold(displayName),
-    h(Text, { key: 'tsp' }, '  '),
-    h(Text, { key: 'type', color: 'gray' }, `[${type}]`),
-  ];
-  if (timestamp) {
-    headerParts.push(
-      h(Text, { key: 'ts-sp' }, '  '),
-      dim(timestamp),
-    );
-  }
-  children.push(h(Box, { key: 'header', flexDirection: 'row' }, ...headerParts));
-
-  // Typed output
-  switch (type) {
-    case 'inference':
-      children.push(h(InferenceOutput, { key: 'out', data }));
-      break;
-    case 'validator':
-      children.push(h(ValidatorOutput, { key: 'out', data }));
-      break;
-    case 'shell':
-    case 'script':
-      children.push(h(ShellOutput, { key: 'out', data }));
-      break;
-    case 'write':
-      children.push(h(WriteOutput, { key: 'out', data }));
-      break;
-    default:
-      children.push(h(GenericOutput, { key: 'out', data }));
-      break;
-  }
-
-  // Trailing blank line
-  children.push(h(Box, { key: 'blank', height: 1 }));
-
-  return h(Box, { flexDirection: 'column' }, ...children);
-};
-
-// ── Main component ─────────────────────────────────────────────
-
-const BlockDetail = ({ session, context = {} }) => {
-  const activeBlock = context.activeBlock || session?.variables?._activeBlock;
-  const blockOutputs = context.blockOutputs || session?.variables?._blockOutputs;
-
-  const children = [
-    h(Box, { key: 'header' }, label('BLOCK OUTPUT BROWSER')),
-  ];
-
-  // If a block is currently running, show its live detail
-  if (activeBlock && activeBlock.status === 'running') {
-    children.push(h(ActiveBlockView, { key: 'active', block: activeBlock }));
-    return h(Box, { flexDirection: 'column' }, ...children);
-  }
-
-  // Otherwise show historical block outputs
-  if (blockOutputs && typeof blockOutputs === 'object') {
-    const entries = Object.entries(blockOutputs);
-    if (entries.length === 0) {
-      children.push(
-        h(Box, { key: 'empty', flexDirection: 'row' },
-          h(Text, null, '  '),
-          dim('(no block outputs yet)'),
+    // Children list for composite blocks
+    children.length > 0
+      ? h(Box, { flexDirection: 'column', marginTop: 1 },
+          muted(`Children: ${children.length} block(s)`),
+          ...children.map((childId, i) => {
+            const isLast = i === children.length - 1;
+            const branch = isLast ? icons.lastBranch : icons.branch;
+            return h(Box, { key: `ch-${i}`, flexDirection: 'row', paddingLeft: 1 },
+              muted(branch + ' '),
+              primary(childId),
+            );
+          }),
         )
-      );
-    } else {
-      for (const [nodeId, data] of entries) {
-        children.push(h(BlockEntry, { key: `be-${nodeId}`, nodeId, data }));
+      : null,
+  );
+};
+
+// ── Fitness panel content ────────────────────────────────────
+
+const FitnessContent = ({ block }) => {
+  if (!block) return muted('(loading...)');
+
+  const fitness = block.fitness;
+  const dims = block.fitnessDimensions;
+  const taskFit = block.taskFitness;
+
+  if (fitness == null && !dims && !taskFit) {
+    return h(Box, { flexDirection: 'column', paddingLeft: 1 },
+      muted('(no fitness data)'),
+      h(Text, null, ''),
+      muted('Run a training session to'),
+      muted('generate fitness metrics.'),
+    );
+  }
+
+  const elements = [];
+
+  // Block fitness
+  if (fitness != null) {
+    const pct = Math.round(fitness * 100);
+    const col = progressColor(pct);
+    elements.push(
+      h(Box, { key: 'bf-title', flexDirection: 'row' },
+        bold('Block Fitness'),
+      ),
+      h(Box, { key: 'bf-score', flexDirection: 'row' },
+        muted('  Score: '),
+        T(col, `${pct}%`, { bold: true }),
+      ),
+      h(Box, { key: 'bf-bar', flexDirection: 'row' },
+        muted('  '),
+        T(col, progressBar(pct, 16)),
+      ),
+    );
+  }
+
+  // Block fitness dimensions (P/S/W)
+  if (dims) {
+    const dimList = [
+      { label: 'Performance', value: dims.performance },
+      { label: 'Specialization', value: dims.specialization },
+      { label: 'Composability', value: dims.composability },
+    ];
+    elements.push(h(Text, { key: 'bf-dims-space' }, ''));
+    for (const d of dimList) {
+      if (d.value != null) {
+        const pct = Math.round(d.value * 100);
+        elements.push(
+          h(Box, { key: `bd-${d.label}`, flexDirection: 'row' },
+            muted(`  ${d.label.padEnd(16)}`),
+            T(progressColor(pct), progressBar(pct, 10)),
+            h(Text, null, ' '),
+            T(progressColor(pct), `${pct}%`),
+          ),
+        );
       }
     }
-  } else if (activeBlock) {
-    // Fall back to active block if available (even if done)
-    children.push(h(ActiveBlockView, { key: 'active', block: activeBlock }));
-  } else {
-    children.push(
-      h(Box, { key: 'empty', flexDirection: 'row' },
-        h(Text, null, '  '),
-        dim('(no block outputs yet)'),
-      )
-    );
   }
 
-  return h(Box, { flexDirection: 'column' }, ...children);
+  // Task fitness (for composite blocks)
+  if (taskFit) {
+    elements.push(h(Text, { key: 'tf-space' }, ''));
+    const tPct = Math.round(taskFit.score * 100);
+    const tCol = progressColor(tPct);
+    elements.push(
+      h(Box, { key: 'tf-title', flexDirection: 'row' },
+        bold('Task Fitness'),
+        h(Text, null, ' '),
+        T(tCol, `${tPct}%`, { bold: true }),
+      ),
+    );
+
+    if (taskFit.dimensions) {
+      const taskDims = [
+        { label: 'Completion', value: taskFit.dimensions.completion },
+        { label: 'Quality', value: taskFit.dimensions.quality },
+        { label: 'Cost-Eff', value: taskFit.dimensions.costEfficiency },
+        { label: 'Reliability', value: taskFit.dimensions.reliability },
+      ];
+      for (const d of taskDims) {
+        if (d.value != null) {
+          const pct = Math.round(d.value * 100);
+          elements.push(
+            h(Box, { key: `td-${d.label}`, flexDirection: 'row' },
+              muted(`  ${d.label.padEnd(16)}`),
+              T(progressColor(pct), progressBar(pct, 10)),
+              h(Text, null, ' '),
+              T(progressColor(pct), `${pct}%`),
+            ),
+          );
+        }
+      }
+    }
+  }
+
+  return h(Box, { flexDirection: 'column', paddingLeft: 1 }, ...elements);
+};
+
+// ── Session row (compact) ────────────────────────────────────
+
+const SessionRow = ({ session, isSelected }) => {
+  const status = (session.status || 'unknown').toLowerCase();
+  const sColor = statusColor(status);
+  const sIcon = statusIcon(status);
+  const name = session.name || 'Unnamed';
+  const selector = isSelected ? icons.arrow : ' ';
+
+  return h(Box, { flexDirection: 'row', paddingLeft: 1 },
+    h(Text, { color: isSelected ? theme.panel.borderFocused : undefined }, selector),
+    h(Text, null, ' '),
+    T(sColor, sIcon),
+    h(Text, null, ' '),
+    h(Text, { color: isSelected ? 'cyan' : 'white' },
+      name.length > 25 ? name.substring(0, 25) : name.padEnd(25)),
+    h(Text, null, ' '),
+    T(sColor, status),
+  );
+};
+
+// ── Actions panel content ────────────────────────────────────
+
+const ActionsContent = () => {
+  const actions = [
+    { key: 'v', label: 'View source JSON', available: true },
+    { key: 'd', label: 'Download block package', available: false },
+    { key: 'p', label: 'Publish to catalog', available: false },
+    { key: 'i', label: 'Import to workspace', available: false },
+  ];
+
+  return h(Box, { flexDirection: 'column', paddingLeft: 1 },
+    ...actions.map(a =>
+      h(Box, { key: `act-${a.key}`, flexDirection: 'row' },
+        a.available
+          ? h(Text, null,
+              h(Text, { color: theme.shortcut.bracket }, '['),
+              h(Text, { color: theme.shortcut.key }, a.key),
+              h(Text, { color: theme.shortcut.bracket }, '] '),
+              primary(a.label),
+            )
+          : h(Text, null,
+              h(Text, { dimColor: true }, `[${a.key}] `),
+              dim(a.label),
+              dim(' (coming soon)'),
+            ),
+      )
+    ),
+  );
+};
+
+// ── BlockDetail component ────────────────────────────────────
+
+const BlockDetail = ({ blockId, apiClient, onExit, onQuit, onSessionSelect, initialState }) => {
+  const [selectedIndex, setSelectedIndex] = useState(initialState?.selectedIndex ?? 0);
+  const [activePanel, setActivePanel] = useState(initialState?.activePanel ?? 'sessions'); // 'sessions' | 'actions'
+
+  // Fetch block detail
+  const {
+    data: block,
+    connectionStatus,
+    latency,
+    lastRefresh,
+  } = useApiData(
+    useCallback(() => apiClient.getBlock(blockId), [apiClient, blockId]),
+    10000
+  );
+
+  // Fetch all sessions to filter by block
+  const { data: allSessions } = useApiData(
+    useCallback(() => apiClient.listSessions().catch(() => []), [apiClient]),
+    5000
+  );
+
+  // Filter sessions linked to this block
+  const sessionIds = block?.sessionIds || [];
+  const sessions = (allSessions || []).filter(s => sessionIds.includes(s.id));
+
+  const maxIndex = Math.max(0, sessions.length - 1);
+  const clampedIndex = Math.min(selectedIndex, maxIndex);
+
+  // Keyboard
+  useKeyboard({
+    up: () => {
+      if (activePanel === 'sessions') setSelectedIndex(i => Math.max(0, i - 1));
+    },
+    down: () => {
+      if (activePanel === 'sessions') setSelectedIndex(i => Math.min(maxIndex, i + 1));
+    },
+    k: () => {
+      if (activePanel === 'sessions') setSelectedIndex(i => Math.max(0, i - 1));
+    },
+    j: () => {
+      if (activePanel === 'sessions') setSelectedIndex(i => Math.min(maxIndex, i + 1));
+    },
+    tab: () => setActivePanel(p => p === 'sessions' ? 'actions' : 'sessions'),
+    enter: () => {
+      if (activePanel === 'sessions' && sessions.length > 0) {
+        const session = sessions[clampedIndex];
+        if (session) onSessionSelect(session.id, { selectedIndex, activePanel });
+      }
+    },
+    escape: onExit,
+    q: onQuit,
+  });
+
+  const b = block || {};
+  const fitnessStr = b.fitness != null ? `${Math.round(b.fitness * 100)}%` : '-';
+  const fitCol = b.fitness != null ? progressColor(b.fitness * 100) : theme.text.muted;
+
+  return h(Box, { flexDirection: 'column', width: '100%', flexGrow: 1 },
+    // Header
+    h(Panel, { title: 'BLOCK', width: '100%' },
+      h(Box, { flexDirection: 'column', paddingLeft: 1 },
+        h(Box, { flexDirection: 'row' },
+          h(TypeBadge, { type: b.type || 'unknown' }),
+          h(Text, null, ' '),
+          bold(b.name || blockId),
+          h(Text, null, '  '),
+          muted('v' + (b.version || '?')),
+          h(Text, null, '   '),
+          muted('fit: '),
+          T(fitCol, fitnessStr),
+        ),
+        b.description
+          ? h(Box, { flexDirection: 'row' },
+              muted(b.description),
+            )
+          : null,
+      ),
+    ),
+
+    // Top row: INFO + FITNESS
+    h(Box, { flexDirection: 'row', flexGrow: 1, width: '100%' },
+      h(Panel, { title: 'INFO', width: '40%' },
+        h(InfoContent, { block: b }),
+      ),
+      h(Panel, { title: 'FITNESS', flexGrow: 1 },
+        h(FitnessContent, { block: b }),
+      ),
+    ),
+
+    // Bottom row: SESSIONS + ACTIONS
+    h(Box, { flexDirection: 'row', width: '100%', height: '40%' },
+      h(Panel, {
+        title: 'SESSIONS',
+        focused: activePanel === 'sessions',
+        width: '60%',
+      },
+        h(Box, { flexDirection: 'column' },
+          h(Box, { paddingLeft: 2 },
+            muted(`${sessions.length} session(s) use this block`),
+          ),
+          sessions.length === 0
+            ? h(Box, { paddingLeft: 2 }, muted('(none)'))
+            : h(Box, { flexDirection: 'column' },
+                ...sessions.map((s, i) =>
+                  h(SessionRow, {
+                    key: s.id,
+                    session: s,
+                    isSelected: activePanel === 'sessions' && i === clampedIndex,
+                  })
+                ),
+              ),
+        ),
+      ),
+      h(Panel, {
+        title: 'ACTIONS',
+        focused: activePanel === 'actions',
+        flexGrow: 1,
+      },
+        h(ActionsContent),
+      ),
+    ),
+
+    // Status bar
+    h(StatusBar, {
+      connectionStatus,
+      latency,
+      lastRefresh,
+      currentPage: 'catalog',
+    }),
+  );
 };
 
 export { BlockDetail };

@@ -5,12 +5,13 @@
  * Supports scrolling when items exceed visible area.
  *
  * Props:
- *   apiClient    API client instance
- *   onNavigate   (page: string) => void
- *   onQuit       () => void
+ *   apiClient      API client instance
+ *   onNavigate     (page: string) => void
+ *   onBlockSelect  (blockId: string) => void — open block detail
+ *   onQuit         () => void
  */
 
-import { createElement as h, useState, useEffect, useCallback } from 'react';
+import { createElement as h, useState, useEffect, useCallback, useRef } from 'react';
 import { Box, Text, useStdout } from 'ink';
 import {
   theme, icons,
@@ -119,11 +120,11 @@ const CatalogBlockRow = ({ block, isSelected, isExpanded }) => {
 
 // ── CatalogScreen component ──────────────────────────────────
 
-const CatalogScreen = ({ apiClient, onNavigate, onQuit }) => {
+const CatalogScreen = ({ apiClient, onNavigate, onBlockSelect, onQuit, initialState }) => {
   const { stdout } = useStdout();
-  const [selectedIndex, setSelectedIndex] = useState(0);
-  const [expandedIndex, setExpandedIndex] = useState(-1);
-  const [typeFilter, setTypeFilter] = useState('all');
+  const [selectedIndex, setSelectedIndex] = useState(initialState?.selectedIndex ?? 0);
+  const [expandedIndex, setExpandedIndex] = useState(initialState?.expandedIndex ?? -1);
+  const [typeFilter, setTypeFilter] = useState(initialState?.typeFilter ?? 'all');
 
   // Terminal rows for scroll: NavBar(3) + PanelBorder(2) + header(2) + StatusBar(3) = 10
   const termRows = stdout.rows || 40;
@@ -167,8 +168,14 @@ const CatalogScreen = ({ apiClient, onNavigate, onQuit }) => {
     }
   }, [sortedBlocks.length]);
 
-  // Reset index on filter change
-  useEffect(() => { setSelectedIndex(0); }, [typeFilter]);
+  // Reset index on filter change (skip initial mount to preserve restored state)
+  const prevTypeFilter = useRef(typeFilter);
+  useEffect(() => {
+    if (prevTypeFilter.current !== typeFilter) {
+      setSelectedIndex(0);
+      prevTypeFilter.current = typeFilter;
+    }
+  }, [typeFilter]);
 
   // Scroll window
   const scrollStart = Math.max(0,
@@ -192,6 +199,12 @@ const CatalogScreen = ({ apiClient, onNavigate, onQuit }) => {
     k: () => setSelectedIndex(i => Math.max(0, i - 1)),
     j: () => setSelectedIndex(i => Math.min(sortedBlocks.length - 1, i + 1)),
     enter: () => {
+      if (sortedBlocks.length > 0 && onBlockSelect) {
+        const block = sortedBlocks[selectedIndex];
+        if (block) onBlockSelect(block.id, { selectedIndex, expandedIndex, typeFilter });
+      }
+    },
+    space: () => {
       setExpandedIndex(prev => prev === selectedIndex ? -1 : selectedIndex);
     },
     tab: cycleTypeFilter,

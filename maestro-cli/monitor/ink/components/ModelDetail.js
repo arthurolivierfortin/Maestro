@@ -1,7 +1,8 @@
 /**
  * ModelDetail — Model detail page.
  *
- * Shows model health info, usage stats, and configuration.
+ * Shows model health, usage stats, and performance metrics.
+ * 3 panels: HEALTH, USAGE, PERFORMANCE.
  *
  * Props:
  *   modelId    string — model ID/name
@@ -16,6 +17,8 @@ import {
   theme, icons,
   T, muted, primary, bold,
   statusColor, statusIcon,
+  progressBar, progressColor,
+  sparkline,
 } from '../theme.js';
 import { useApiData } from '../hooks/useApiData.js';
 import { useKeyboard } from '../hooks/useKeyboard.js';
@@ -24,7 +27,7 @@ import { StatusBar } from './StatusBar.js';
 
 // ── Health panel content ─────────────────────────────────────
 
-const HealthContent = ({ health, model }) => {
+const HealthContent = ({ health, llmStatus, model }) => {
   const isHealthy = health && !health.error;
   const healthColor = isHealthy ? theme.status.success : theme.status.error;
   const healthIcon = isHealthy ? icons.done : icons.failed;
@@ -32,6 +35,12 @@ const HealthContent = ({ health, model }) => {
   const backend = health?.backend || health?.framework || '-';
   const device = health?.device || '-';
   const gpuMemory = health?.gpuMemory || '-';
+  const uptime = llmStatus?.uptime || '-';
+  const load = llmStatus?.load || '-';
+  const loadColor = load === 'idle' ? theme.status.success
+    : load === 'high' ? theme.status.error
+    : load === 'medium' ? theme.status.warning
+    : theme.status.pending;
 
   return h(Box, { flexDirection: 'column', paddingLeft: 1 },
     h(Box, { flexDirection: 'row' },
@@ -58,6 +67,14 @@ const HealthContent = ({ health, model }) => {
           primary(String(model.size)),
         )
       : null,
+    h(Box, { flexDirection: 'row' },
+      muted('Uptime:     '),
+      primary(String(uptime)),
+    ),
+    h(Box, { flexDirection: 'row' },
+      muted('Load:       '),
+      T(loadColor, String(load)),
+    ),
   );
 };
 
@@ -68,21 +85,106 @@ const UsageContent = ({ llmStatus }) => {
 
   return h(Box, { flexDirection: 'column', paddingLeft: 1 },
     h(Box, { flexDirection: 'row' },
-      muted('Total requests: '),
+      muted('Requests:   '),
       primary(String(llmStatus.totalRequests ?? '-')),
     ),
     h(Box, { flexDirection: 'row' },
-      muted('Avg latency:    '),
+      muted('Avg latency:'),
+      h(Text, null, ' '),
       primary(llmStatus.avgLatency != null ? `${llmStatus.avgLatency}s` : '-'),
     ),
     h(Box, { flexDirection: 'row' },
-      muted('Max tokens:     '),
-      primary(String(llmStatus.maxTokens ?? llmStatus.max_tokens ?? '-')),
+      muted('Peak:       '),
+      llmStatus.peakLatency != null
+        ? T(llmStatus.peakLatency > 3 ? theme.status.warning : theme.status.success,
+            `${llmStatus.peakLatency}s`)
+        : primary('-'),
     ),
     h(Box, { flexDirection: 'row' },
-      muted('Temperature:    '),
+      muted('Errors:     '),
+      llmStatus.errorCount > 0
+        ? T(theme.status.error, String(llmStatus.errorCount))
+        : T(theme.status.success, String(llmStatus.errorCount ?? 0)),
+    ),
+    h(Box, { flexDirection: 'row' },
+      muted('Max tokens: '),
+      primary(String(llmStatus.maxTokens ?? '-')),
+    ),
+    h(Box, { flexDirection: 'row' },
+      muted('Temperature:'),
+      h(Text, null, ' '),
       primary(String(llmStatus.temperature ?? '-')),
     ),
+    h(Text, null, ''),
+    h(Box, { flexDirection: 'row' },
+      muted('Tokens in:  '),
+      primary(llmStatus.tokensIn != null ? `${(llmStatus.tokensIn / 1000).toFixed(1)}k` : '-'),
+    ),
+    h(Box, { flexDirection: 'row' },
+      muted('Tokens out: '),
+      primary(llmStatus.tokensOut != null ? `${(llmStatus.tokensOut / 1000).toFixed(1)}k` : '-'),
+    ),
+    h(Box, { flexDirection: 'row' },
+      muted('Throughput: '),
+      primary(llmStatus.throughput != null ? `${llmStatus.throughput} t/s` : '-'),
+    ),
+  );
+};
+
+// ── Performance panel content ────────────────────────────────
+
+const PerformanceContent = ({ perf }) => {
+  if (!perf || perf.bestFitness == null) {
+    return h(Box, { flexDirection: 'column', paddingLeft: 1 },
+      muted('(no performance data)'),
+      h(Text, null, ''),
+      muted('Run a training session to'),
+      muted('generate fitness metrics.'),
+    );
+  }
+
+  const fitPct = Math.round(perf.bestFitness * 100);
+  const fitCol = progressColor(fitPct);
+
+  return h(Box, { flexDirection: 'column', paddingLeft: 1 },
+    // Best fitness
+    h(Box, { flexDirection: 'row' },
+      muted('Fitness:    '),
+      T(fitCol, `${fitPct}%`, { bold: true }),
+    ),
+    h(Box, { flexDirection: 'row' },
+      muted('            '),
+      T(fitCol, progressBar(fitPct, 14)),
+    ),
+    h(Text, null, ''),
+    h(Box, { flexDirection: 'row' },
+      muted('Sessions:   '),
+      primary(String(perf.sessionCount)),
+    ),
+
+    // Task fitness breakdown
+    perf.taskFitness && perf.taskFitness.length > 0
+      ? h(Box, { flexDirection: 'column', marginTop: 1 },
+          muted('Tasks:'),
+          ...perf.taskFitness.map((tf, i) => {
+            const pct = Math.round(tf.fitness * 100);
+            return h(Box, { key: `tf-${i}`, flexDirection: 'row', paddingLeft: 1 },
+              muted(`${tf.task.length > 12 ? tf.task.substring(0, 12) : tf.task.padEnd(12)} `),
+              T(progressColor(pct), `${pct}%`),
+            );
+          }),
+        )
+      : null,
+
+    // Sparkline history
+    perf.fitnessHistory && perf.fitnessHistory.length > 1
+      ? h(Box, { flexDirection: 'column', marginTop: 1 },
+          muted('History:'),
+          h(Box, { flexDirection: 'row', paddingLeft: 1 },
+            T(fitCol, sparkline(perf.fitnessHistory.map(v => v * 100), 14)),
+          ),
+        )
+      : null,
   );
 };
 
@@ -109,6 +211,12 @@ const ModelDetail = ({ modelId, apiClient, onExit, onQuit }) => {
   // Fetch models list to get this model's detail
   const { data: models } = useApiData(
     useCallback(() => apiClient.listLLMModels().catch(() => []), [apiClient]),
+    10000
+  );
+
+  // Fetch model performance
+  const { data: perf } = useApiData(
+    useCallback(() => apiClient.getModelPerformance(modelId).catch(() => null), [apiClient, modelId]),
     10000
   );
 
@@ -156,16 +264,25 @@ const ModelDetail = ({ modelId, apiClient, onExit, onQuit }) => {
       ),
     ),
 
-    // Content: Health + Usage side by side
+    // Content: Health + Usage + Performance
     h(Box, { flexDirection: 'row', flexGrow: 1, width: '100%' },
-      // Health panel (left, 50%)
-      h(Panel, { title: 'HEALTH', width: '50%' },
-        h(HealthContent, { health: llmHealth, model: typeof modelInfo === 'object' ? modelInfo : null }),
+      // Health panel (left, 33%)
+      h(Panel, { title: 'HEALTH', width: '33%' },
+        h(HealthContent, {
+          health: llmHealth,
+          llmStatus,
+          model: typeof modelInfo === 'object' ? modelInfo : null,
+        }),
       ),
 
-      // Usage panel (right, 50%)
-      h(Panel, { title: 'USAGE', flexGrow: 1 },
+      // Usage panel (center, 33%)
+      h(Panel, { title: 'USAGE', width: '34%' },
         h(UsageContent, { llmStatus }),
+      ),
+
+      // Performance panel (right, 33%)
+      h(Panel, { title: 'PERFORMANCE', flexGrow: 1 },
+        h(PerformanceContent, { perf }),
       ),
     ),
 

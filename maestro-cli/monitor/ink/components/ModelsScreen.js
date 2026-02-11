@@ -92,8 +92,8 @@ const ModelCard = ({ model, isSelected, isActive }) => {
 
 // ── ModelsScreen component ───────────────────────────────────
 
-const ModelsScreen = ({ apiClient, onNavigate, onModelSelect, onQuit }) => {
-  const [selectedIndex, setSelectedIndex] = useState(0);
+const ModelsScreen = ({ apiClient, onNavigate, onModelSelect, onQuit, initialState }) => {
+  const [selectedIndex, setSelectedIndex] = useState(initialState?.selectedIndex ?? 0);
 
   // Fetch LLM health
   const {
@@ -148,7 +148,7 @@ const ModelsScreen = ({ apiClient, onNavigate, onModelSelect, onQuit }) => {
       if (onModelSelect && modelList.length > 0) {
         const model = modelList[selectedIndex];
         const modelName = typeof model === 'string' ? model : (model.id || model.name || model.model_id || '');
-        if (modelName) onModelSelect(modelName);
+        if (modelName) onModelSelect(modelName, { selectedIndex });
       }
     },
     h: () => onNavigate('home'),

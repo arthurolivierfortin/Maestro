@@ -81,9 +81,9 @@ const InfoContent = ({ project }) => {
 
 // ── RepoDetail component ────────────────────────────────────
 
-const RepoDetail = ({ repoId, apiClient, onExit, onQuit, onSessionSelect }) => {
-  const [selectedIndex, setSelectedIndex] = useState(0);
-  const [activePanel, setActivePanel] = useState('sessions'); // 'sessions' | 'info'
+const RepoDetail = ({ repoId, apiClient, onExit, onQuit, onSessionSelect, initialState }) => {
+  const [selectedIndex, setSelectedIndex] = useState(initialState?.selectedIndex ?? 0);
+  const [activePanel, setActivePanel] = useState(initialState?.activePanel ?? 'sessions'); // 'sessions' | 'info'
 
   // Fetch project detail
   const {
@@ -127,7 +127,7 @@ const RepoDetail = ({ repoId, apiClient, onExit, onQuit, onSessionSelect }) => {
     enter: () => {
       if (activePanel === 'sessions' && sessions.length > 0) {
         const session = sessions[clampedIndex];
-        if (session) onSessionSelect(session.id);
+        if (session) onSessionSelect(session.id, { selectedIndex, activePanel });
       }
     },
     escape: onExit,

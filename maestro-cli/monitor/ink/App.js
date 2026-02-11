@@ -13,7 +13,7 @@
  * percentage heights and flexGrow work correctly in child layouts.
  */
 
-import { createElement as h, useState, useCallback, useEffect } from 'react';
+import { createElement as h, useState, useCallback, useEffect, useRef } from 'react';
 import { render, useApp, useStdout, Box } from 'ink';
 import { theme } from './theme.js';
 import { SessionMonitor } from './components/SessionMonitor.js';
@@ -25,6 +25,7 @@ import { ModelsScreen } from './components/ModelsScreen.js';
 import { WorkspaceDetail } from './components/WorkspaceDetail.js';
 import { RepoDetail } from './components/RepoDetail.js';
 import { ModelDetail } from './components/ModelDetail.js';
+import { BlockDetail } from './components/BlockDetail.js';
 
 // ── Terminal background color control ──────────────────────────
 //
@@ -79,41 +80,83 @@ const FullscreenBox = ({ children }) => {
 
 const App = ({ initialSessionId, apiClient }) => {
   const { exit } = useApp();
+  const [navStack, setNavStack] = useState([]);
   const [detailView, setDetailView] = useState(
     initialSessionId ? { type: 'session', id: initialSessionId } : null
   );
   const [currentPage, setCurrentPage] = useState(initialSessionId ? 'spaces' : 'home');
+  const [restoredState, setRestoredState] = useState(null);
 
-  const handleSessionSelect = useCallback((sessionId) => {
-    setDetailView({ type: 'session', id: sessionId });
+  // Refs for stable callbacks — avoids stale closures
+  const detailViewRef = useRef(detailView);
+  const currentPageRef = useRef(currentPage);
+  const navStackRef = useRef(navStack);
+  detailViewRef.current = detailView;
+  currentPageRef.current = currentPage;
+  navStackRef.current = navStack;
+
+  // Push current view to stack and navigate to target
+  const navigateTo = useCallback((targetView, sourceState) => {
+    const dv = detailViewRef.current;
+    const cp = currentPageRef.current;
+    const entry = dv
+      ? { ...dv, state: sourceState || null }
+      : { type: 'page', page: cp, state: sourceState || null };
+    setNavStack(stack => [...stack, entry]);
+    setDetailView(targetView);
+    setRestoredState(null);
   }, []);
 
-  const handleWorkspaceSelect = useCallback((workspaceId) => {
-    setDetailView({ type: 'workspace', id: workspaceId });
-  }, []);
+  const handleSessionSelect = useCallback((sessionId, sourceState) => {
+    navigateTo({ type: 'session', id: sessionId }, sourceState);
+  }, [navigateTo]);
 
-  const handleRepoSelect = useCallback((repoId) => {
-    setDetailView({ type: 'repo', id: repoId });
-  }, []);
+  const handleWorkspaceSelect = useCallback((workspaceId, sourceState) => {
+    navigateTo({ type: 'workspace', id: workspaceId }, sourceState);
+  }, [navigateTo]);
 
-  const handleModelSelect = useCallback((modelId) => {
-    setDetailView({ type: 'model', id: modelId });
-  }, []);
+  const handleRepoSelect = useCallback((repoId, sourceState) => {
+    navigateTo({ type: 'repo', id: repoId }, sourceState);
+  }, [navigateTo]);
+
+  const handleModelSelect = useCallback((modelId, sourceState) => {
+    navigateTo({ type: 'model', id: modelId }, sourceState);
+  }, [navigateTo]);
+
+  const handleBlockSelect = useCallback((blockId, sourceState) => {
+    navigateTo({ type: 'block', id: blockId }, sourceState);
+  }, [navigateTo]);
 
   const handleBack = useCallback(() => {
-    if (detailView) {
+    const stack = navStackRef.current;
+    if (stack.length > 0) {
+      const prev = stack[stack.length - 1];
+      setNavStack(stack.slice(0, -1));
+      if (prev.type === 'page') {
+        setDetailView(null);
+        setCurrentPage(prev.page);
+      } else {
+        setDetailView({ type: prev.type, id: prev.id });
+      }
+      setRestoredState(prev.state || null);
+    } else if (detailViewRef.current) {
       setDetailView(null);
+      setRestoredState(null);
     } else {
       exit();
     }
-  }, [detailView, exit]);
+  }, [exit]);
 
   const handleQuit = useCallback(() => {
     exit();
   }, [exit]);
 
+  // Page navigation (letter keys) — resets stack
   const handleNavigate = useCallback((page) => {
     setCurrentPage(page);
+    setNavStack([]);
+    setDetailView(null);
+    setRestoredState(null);
   }, []);
 
   // Detail view routing
@@ -123,6 +166,7 @@ const App = ({ initialSessionId, apiClient }) => {
       onExit: handleBack,
       onQuit: handleQuit,
       onSessionSelect: handleSessionSelect,
+      initialState: restoredState,
     };
 
     let detailComponent;
@@ -155,6 +199,12 @@ const App = ({ initialSessionId, apiClient }) => {
           onQuit: handleQuit,
         });
         break;
+      case 'block':
+        detailComponent = h(BlockDetail, {
+          blockId: detailView.id,
+          ...detailProps,
+        });
+        break;
       default:
         detailComponent = h(SessionMonitor, {
           sessionId: detailView.id,
@@ -175,6 +225,7 @@ const App = ({ initialSessionId, apiClient }) => {
     onWorkspaceSelect: handleWorkspaceSelect,
     onRepoSelect: handleRepoSelect,
     onQuit: handleQuit,
+    initialState: restoredState,
   };
 
   let pageComponent;
@@ -186,7 +237,7 @@ const App = ({ initialSessionId, apiClient }) => {
       pageComponent = h(FoundryScreen, pageProps);
       break;
     case 'catalog':
-      pageComponent = h(CatalogScreen, pageProps);
+      pageComponent = h(CatalogScreen, { ...pageProps, onBlockSelect: handleBlockSelect });
       break;
     case 'models':
       pageComponent = h(ModelsScreen, { ...pageProps, onModelSelect: handleModelSelect });

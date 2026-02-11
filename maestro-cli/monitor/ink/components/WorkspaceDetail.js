@@ -71,9 +71,9 @@ const SettingsContent = ({ settings }) => {
 
 // ── WorkspaceDetail component ────────────────────────────────
 
-const WorkspaceDetail = ({ workspaceId, apiClient, onExit, onQuit, onSessionSelect }) => {
-  const [selectedIndex, setSelectedIndex] = useState(0);
-  const [activePanel, setActivePanel] = useState('sessions'); // 'sessions' | 'settings'
+const WorkspaceDetail = ({ workspaceId, apiClient, onExit, onQuit, onSessionSelect, initialState }) => {
+  const [selectedIndex, setSelectedIndex] = useState(initialState?.selectedIndex ?? 0);
+  const [activePanel, setActivePanel] = useState(initialState?.activePanel ?? 'sessions'); // 'sessions' | 'settings'
 
   // Fetch workspace detail
   const {
@@ -118,7 +118,7 @@ const WorkspaceDetail = ({ workspaceId, apiClient, onExit, onQuit, onSessionSele
     enter: () => {
       if (activePanel === 'sessions' && sessions.length > 0) {
         const session = sessions[clampedIndex];
-        if (session) onSessionSelect(session.id);
+        if (session) onSessionSelect(session.id, { selectedIndex, activePanel });
       }
     },
     escape: onExit,
