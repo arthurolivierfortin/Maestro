@@ -21,7 +21,7 @@ import {
   statusColor, statusIcon,
 } from '../theme.ts';
 import { useApiData } from '../hooks/useApiData.ts';
-import { useKeyboard } from '../hooks/useKeyboard.ts';
+import { useActionKeyboard } from '../hooks/useKeyboard.ts';
 import { Panel } from './Panel.ts';
 import { StatusBar } from './StatusBar.ts';
 
@@ -82,7 +82,7 @@ const InfoContent = ({ project }) => {
 
 // ── RepoDetail component ────────────────────────────────────
 
-const RepoDetail = ({ repoId, apiClient, onExit, onQuit, onSessionSelect, initialState }) => {
+const RepoDetail = ({ repoId, apiClient, onExit, onQuit, onNavigate, onSessionSelect, initialState }) => {
   const [selectedIndex, setSelectedIndex] = useState(initialState?.selectedIndex ?? 0);
   const [activePanel, setActivePanel] = useState(initialState?.activePanel ?? 'sessions'); // 'sessions' | 'info'
 
@@ -110,30 +110,37 @@ const RepoDetail = ({ repoId, apiClient, onExit, onQuit, onSessionSelect, initia
   const maxIndex = Math.max(0, sessions.length - 1);
   const clampedIndex = Math.min(selectedIndex, maxIndex);
 
-  // Keyboard
-  useKeyboard({
-    up: () => {
+  // Keyboard (Schema A: detail context)
+  useActionKeyboard({
+    'cursor.up': () => {
       if (activePanel === 'sessions') setSelectedIndex(i => Math.max(0, i - 1));
     },
-    down: () => {
+    'cursor.down': () => {
       if (activePanel === 'sessions') setSelectedIndex(i => Math.min(maxIndex, i + 1));
     },
-    k: () => {
+    'cursor.upAlt': () => {
       if (activePanel === 'sessions') setSelectedIndex(i => Math.max(0, i - 1));
     },
-    j: () => {
+    'cursor.downAlt': () => {
       if (activePanel === 'sessions') setSelectedIndex(i => Math.min(maxIndex, i + 1));
     },
-    tab: () => setActivePanel(p => p === 'sessions' ? 'info' : 'sessions'),
-    enter: () => {
+    'panel.cycle': () => setActivePanel(p => p === 'sessions' ? 'info' : 'sessions'),
+    'panel.next': () => setActivePanel(p => p === 'sessions' ? 'info' : 'sessions'),
+    'panel.prev': () => setActivePanel(p => p === 'sessions' ? 'info' : 'sessions'),
+    'tree.toggle': () => {
       if (activePanel === 'sessions' && sessions.length > 0) {
         const session = sessions[clampedIndex];
         if (session) onSessionSelect(session.id, { selectedIndex, activePanel });
       }
     },
-    escape: onExit,
-    q: onQuit,
-  });
+    'back': onExit,
+    'quit': onQuit,
+    'page.home': () => { if (onNavigate) onNavigate('home'); },
+    'page.spaces': () => { if (onNavigate) onNavigate('spaces'); },
+    'page.foundry': () => { if (onNavigate) onNavigate('foundry'); },
+    'page.catalog': () => { if (onNavigate) onNavigate('catalog'); },
+    'page.models': () => { if (onNavigate) onNavigate('models'); },
+  }, 'detail');
 
   const proj = project || {};
   const projStatus = (proj.containerStatus || 'unknown').toLowerCase();

@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Text.Json;
+using Maestro.Domain.ValueObjects;
 
 namespace Maestro.Domain.Entities
 {
@@ -31,6 +33,30 @@ namespace Maestro.Domain.Entities
         /// If this block is a user override of a system block, this holds the original system block ID.
         /// </summary>
         public string? OverridesSystemBlock { get; private set; }
+
+        // ── Computed properties from Metadata ──
+
+        /// <summary>
+        /// Functional designation: "agent", "tool", or null (regular block).
+        /// A block designated as "agent" is an enriched inference block.
+        /// A block designated as "tool" is a promoted tool with I/O schema.
+        /// </summary>
+        public string? Designation => GetMetadataString("designation");
+
+        /// <summary>
+        /// Functional category for grouping (git, code, analysis, etc.).
+        /// </summary>
+        public string? Category => GetMetadataString("category");
+
+        /// <summary>
+        /// Author/creator of the block.
+        /// </summary>
+        public string? Author => GetMetadataString("author");
+
+        /// <summary>
+        /// Tags for search and filtering. Extracted from metadata.
+        /// </summary>
+        public List<string>? Tags => GetMetadataList("tags");
 
         private BlockDefinition() { }
 
@@ -106,6 +132,131 @@ namespace Maestro.Domain.Entities
         public void SetOverridesSystemBlock(string? systemBlockId)
         {
             OverridesSystemBlock = systemBlockId;
+        }
+
+        // ── Designation & Category setters ──
+
+        public void SetDesignation(string? designation)
+        {
+            SetMetadataValue("designation", designation);
+        }
+
+        public void SetCategory(string? category)
+        {
+            SetMetadataValue("category", category);
+        }
+
+        public void SetAuthor(string? author)
+        {
+            SetMetadataValue("author", author);
+        }
+
+        public void SetTags(List<string>? tags)
+        {
+            if (tags != null)
+                Metadata["tags"] = tags;
+            else
+                Metadata.Remove("tags");
+        }
+
+        // ── Metrics ──
+
+        /// <summary>
+        /// Get aggregated metrics from metadata, or null if none recorded.
+        /// </summary>
+        public AggregatedBlockMetrics? GetAggregatedMetrics()
+        {
+            if (!Metadata.ContainsKey("metrics")) return null;
+
+            var raw = Metadata["metrics"];
+
+            if (raw is AggregatedBlockMetrics metrics)
+                return metrics;
+
+            // Handle deserialized JSON (comes as JsonElement from file)
+            if (raw is JsonElement jsonEl)
+            {
+                try
+                {
+                    return JsonSerializer.Deserialize<AggregatedBlockMetrics>(
+                        jsonEl.GetRawText(),
+                        new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                }
+                catch
+                {
+                    return null;
+                }
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// Set aggregated metrics in metadata.
+        /// </summary>
+        public void SetAggregatedMetrics(AggregatedBlockMetrics metrics)
+        {
+            Metadata["metrics"] = metrics;
+        }
+
+        /// <summary>
+        /// Record a run and update aggregated metrics.
+        /// Creates metrics if none exist yet.
+        /// </summary>
+        public void RecordRun(bool success, long executionTimeMs, int tokenCost, double score)
+        {
+            var metrics = GetAggregatedMetrics() ?? new AggregatedBlockMetrics();
+            metrics.RecordRun(success, executionTimeMs, tokenCost, score);
+            SetAggregatedMetrics(metrics);
+        }
+
+        // ── Private helpers ──
+
+        private string? GetMetadataString(string key)
+        {
+            if (!Metadata.ContainsKey(key)) return null;
+            var val = Metadata[key];
+            if (val is string s) return s;
+            if (val is JsonElement je && je.ValueKind == JsonValueKind.String) return je.GetString();
+            return val?.ToString();
+        }
+
+        private List<string>? GetMetadataList(string key)
+        {
+            if (!Metadata.ContainsKey(key)) return null;
+            var val = Metadata[key];
+            if (val is List<string> list) return list;
+            if (val is JsonElement je && je.ValueKind == JsonValueKind.Array)
+            {
+                var result = new List<string>();
+                foreach (var item in je.EnumerateArray())
+                {
+                    if (item.ValueKind == JsonValueKind.String)
+                        result.Add(item.GetString()!);
+                }
+                return result;
+            }
+            if (val is List<object> objList)
+            {
+                var result = new List<string>();
+                foreach (var item in objList)
+                {
+                    if (item is string str) result.Add(str);
+                    else if (item is JsonElement itemJe && itemJe.ValueKind == JsonValueKind.String)
+                        result.Add(itemJe.GetString()!);
+                    else if (item != null) result.Add(item.ToString()!);
+                }
+                return result;
+            }
+            return null;
+        }
+
+        private void SetMetadataValue(string key, object? value)
+        {
+            if (value != null)
+                Metadata[key] = value;
+            else
+                Metadata.Remove(key);
         }
     }
 }

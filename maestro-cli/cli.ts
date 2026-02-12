@@ -154,23 +154,34 @@ function getContentPath(scope = 'user') {
 
 // New API-based functions
 
-async function listBlocks() {
+async function listBlocks(filter: any = {}) {
   try {
-    const blocks = await client.listBlocks();
-    if (blocks.length === 0) {
-      console.log(c.gray('No blocks found'));
+    const blocks = await client.listBlocks(filter);
+    if (!blocks || blocks.length === 0) {
+      const filterDesc = filter.designation ? ` (designation: ${filter.designation})` : filter.type ? ` (type: ${filter.type})` : '';
+      console.log(c.gray(`\nNo blocks found${filterDesc}`));
       return;
     }
 
-    console.log('\n' + c.bold('Available Blocks:') + c.gray(` (${blocks.length})`) + '\n');
+    const label = filter.designation
+      ? filter.designation.charAt(0).toUpperCase() + filter.designation.slice(1) + 's'
+      : filter.type
+        ? filter.type + 's'
+        : 'Blocks';
+
+    console.log('\n' + c.bold(`${label}:`) + c.gray(` (${blocks.length})`) + '\n');
     console.table(blocks.map(b => ({
       'ID': b.id,
       'Name': b.name,
       'Type': b.blockType,
-      'Version': b.version
+      'Designation': b.designation || '-',
+      'Category': b.category || '-',
+      'Version': b.version,
+      'Score': b.metrics?.overallScore?.toFixed(1) || '-',
+      'Runs': b.metrics?.totalRuns || 0,
     })));
   } catch (error) {
-    if (error.code === 'ECONNREFUSED' || error.message.includes('ECONNREFUSED')) {
+    if (error.code === 'ECONNREFUSED' || error.message?.includes('ECONNREFUSED')) {
       console.error(c.fail(`Cannot connect to backend at ${API_URL}`));
       console.error(c.gray('   Make sure the backend is running:'));
       console.error(c.gray('   $ dotnet run --project backend/src/Maestro.Api'));
@@ -183,28 +194,73 @@ async function listBlocks() {
   }
 }
 
-async function listWorkflows() {
+async function getBlockMetricsCmd(id) {
   try {
-    const blocks = await client.listBlocks({ type: 'Workflow' });
-    if (blocks.length === 0) {
-      console.log(c.gray('No workflows found'));
-      return;
+    const metrics = await client.getBlockMetrics(id);
+    console.log('\n' + c.bold('Block Metrics:') + '\n');
+    console.log(`  ${c.gray('Total Runs:')}       ${metrics.totalRuns || 0}`);
+    console.log(`  ${c.gray('Successful:')}       ${metrics.successfulRuns || 0}`);
+    console.log(`  ${c.gray('Failed:')}           ${metrics.failedRuns || 0}`);
+    console.log(`  ${c.gray('Success Rate:')}     ${metrics.successRate?.toFixed(1) || 0}%`);
+    console.log(`  ${c.gray('Avg Exec Time:')}    ${metrics.avgExecutionTimeMs?.toFixed(0) || 0}ms`);
+    console.log(`  ${c.gray('Avg Token Cost:')}   ${metrics.avgTokenCost?.toFixed(0) || 0}`);
+    console.log(`  ${c.gray('Avg Score:')}        ${metrics.avgScore?.toFixed(1) || 0}`);
+    console.log(`  ${c.gray('Overall Score:')}    ${metrics.overallScore?.toFixed(1) || 0}`);
+    if (metrics.lastRunAt) {
+      console.log(`  ${c.gray('Last Run:')}         ${new Date(metrics.lastRunAt).toLocaleString()}`);
     }
-
-    console.log('\n' + c.bold('Available Workflows:') + c.gray(` (${blocks.length})`) + '\n');
-    console.table(blocks.map(b => ({
-      'ID': b.id,
-      'Name': b.name,
-      'Description': b.description || '-'
-    })));
+    console.log('');
   } catch (error) {
-    console.error(c.fail(`Error listing workflows: ${error.message}`));
-    if (error.code === 'ECONNREFUSED' || error.message.includes('ECONNREFUSED')) {
-      console.error(c.gray('   Is the backend running? Start it with:'));
-      console.error(c.gray('   $ dotnet run --project backend/src/Maestro.Api'));
+    if (error.status === 404) {
+      console.error(c.fail(`Block not found: ${id}`));
+    } else {
+      handleApiError(error, 'getting block metrics');
     }
     process.exit(1);
   }
+}
+
+async function getTopBlocksCmd(options: any = {}) {
+  try {
+    const blocks = await client.getTopBlocks(options);
+    if (!blocks || blocks.length === 0) {
+      console.log(c.gray('\nNo blocks with scores found'));
+      return;
+    }
+    const label = options.designation
+      ? `Top ${options.designation.charAt(0).toUpperCase() + options.designation.slice(1)}s`
+      : 'Top Blocks';
+    console.log('\n' + c.bold(`${label}:`) + c.gray(` (${blocks.length})`) + '\n');
+    console.table(blocks.map(b => ({
+      'ID': b.id,
+      'Name': b.name,
+      'Type': b.blockType,
+      'Score': b.metrics?.overallScore?.toFixed(1) || '-',
+      'Runs': b.metrics?.totalRuns || 0,
+      'Success': b.metrics?.successRate ? `${b.metrics.successRate.toFixed(0)}%` : '-',
+    })));
+  } catch (error) {
+    handleApiError(error, 'getting top blocks');
+    process.exit(1);
+  }
+}
+
+async function designateBlockCmd(id, designation) {
+  try {
+    await client.designateBlock(id, designation);
+    console.log(c.ok(`Block '${id}' designated as '${designation}'`));
+  } catch (error) {
+    if (error.status === 404) {
+      console.error(c.fail(`Block not found: ${id}`));
+    } else {
+      handleApiError(error, 'designating block');
+    }
+    process.exit(1);
+  }
+}
+
+async function listWorkflows() {
+  return await listBlocks({ type: 'Workflow' });
 }
 
 async function getBlockInfo(id) {
@@ -214,10 +270,34 @@ async function getBlockInfo(id) {
     console.log(`  ${c.gray('ID:')}           ${block.id}`);
     console.log(`  ${c.gray('Name:')}         ${block.name}`);
     console.log(`  ${c.gray('Type:')}         ${c.color(require('../shared/utils/status.js').typeBadgeColorMap[block.blockType?.toLowerCase()] || 'white', block.blockType)}`);
+    if (block.designation) {
+      console.log(`  ${c.gray('Designation:')}  ${block.designation}`);
+    }
     console.log(`  ${c.gray('Version:')}      ${block.version}`);
     console.log(`  ${c.gray('Description:')}  ${block.description || 'N/A'}`);
+    if (block.category) {
+      console.log(`  ${c.gray('Category:')}    ${block.category}`);
+    }
+    if (block.author) {
+      console.log(`  ${c.gray('Author:')}      ${block.author}`);
+    }
     console.log(`  ${c.gray('Capabilities:')} ${block.capabilities?.join(', ') || 'None'}`);
+    if (block.tags && block.tags.length > 0) {
+      console.log(`  ${c.gray('Tags:')}         ${block.tags.join(', ')}`);
+    }
     console.log(`  ${c.gray('Created:')}      ${block.createdAt}`);
+
+    // Phase 18: Show metrics if available
+    if (block.metrics && block.metrics.totalRuns > 0) {
+      console.log('\n  ' + c.bold('Metrics:'));
+      console.log(`    ${c.gray('Total Runs:')}     ${block.metrics.totalRuns}`);
+      console.log(`    ${c.gray('Success Rate:')}   ${block.metrics.successRate?.toFixed(1) || 0}%`);
+      console.log(`    ${c.gray('Overall Score:')}  ${block.metrics.overallScore?.toFixed(1) || 0}`);
+      if (block.metrics.lastRunAt) {
+        console.log(`    ${c.gray('Last Run:')}       ${new Date(block.metrics.lastRunAt).toLocaleString()}`);
+      }
+    }
+
     console.log('');
   } catch (error) {
     if (error.status === 404) {
@@ -2981,255 +3061,6 @@ async function getRunInfo(id) {
 
 // ============= Agent Foundry Commands =============
 
-async function listAgents(filter = {}) {
-  try {
-    const agents = await client.listAgents(filter);
-    if (!agents || agents.length === 0) {
-      console.log('\nNo agents found');
-      console.log('  Create one with: maestro agents create --name "Agent" --block <block-id>');
-      return;
-    }
-
-    console.log('\nAgents:\n');
-    console.table(agents.map(a => ({
-      'ID': a.id,
-      'Name': a.name,
-      'Category': a.category || 'general',
-      'Score': a.overallScore?.toFixed(0) || '-',
-      'Runs': a.totalRuns || 0,
-      'Completion': a.completionRate ? `${a.completionRate.toFixed(0)}%` : '-'
-    })));
-  } catch (error) {
-    handleApiError(error, 'listing agents');
-    process.exit(1);
-  }
-}
-
-async function getAgentInfo(id) {
-  try {
-    const agent = await client.getAgent(id);
-    console.log('\nAgent Details:\n');
-    console.log(`  ID:           ${agent.id}`);
-    console.log(`  Name:         ${agent.name}`);
-    console.log(`  Description:  ${agent.description || 'N/A'}`);
-    console.log(`  Version:      ${agent.version}`);
-    console.log(`  Category:     ${agent.category || 'general'}`);
-    console.log(`  Block ID:     ${agent.blockId}`);
-    console.log(`  Capabilities: ${agent.capabilities?.join(', ') || 'None'}`);
-    console.log(`  Tools:        ${agent.availableTools?.join(', ') || 'None'}`);
-    console.log(`  Sub-agents:   ${agent.availableAgents?.join(', ') || 'None'}`);
-    console.log(`  Tags:         ${agent.tags?.join(', ') || 'None'}`);
-    console.log(`  Author:       ${agent.author || 'N/A'}`);
-    console.log(`  Created:      ${agent.createdAt}`);
-    console.log(`  Updated:      ${agent.updatedAt}`);
-
-    if (agent.metrics) {
-      console.log('\n  Metrics:');
-      console.log(`    Total Runs:       ${agent.metrics.totalRuns || 0}`);
-      console.log(`    Successful:       ${agent.metrics.successfulRuns || 0}`);
-      console.log(`    Completion Rate:  ${agent.metrics.completionRate?.toFixed(1) || 0}%`);
-      console.log(`    Overall Score:    ${agent.metrics.overallScore?.toFixed(1) || 0}`);
-      if (agent.metrics.lastRunAt) {
-        console.log(`    Last Run:         ${new Date(agent.metrics.lastRunAt).toLocaleString()}`);
-      }
-    }
-
-    if (agent.toolDetails && agent.toolDetails.length > 0) {
-      console.log('\n  Tool Details:');
-      agent.toolDetails.forEach(t => {
-        console.log(`    - ${t.name} (${t.id}): Score ${t.overallScore?.toFixed(0) || '-'}`);
-      });
-    }
-
-    console.log('');
-  } catch (error) {
-    if (error.status === 404) {
-      console.error(`Agent not found: ${id}`);
-    } else {
-      handleApiError(error, 'getting agent');
-    }
-    process.exit(1);
-  }
-}
-
-async function createAgent(options) {
-  try {
-    const agent = {
-      name: options.name,
-      description: options.description,
-      blockId: options.block,
-      version: options.version || '1.0.0',
-      category: options.category || 'general',
-      capabilities: options.capabilities ? options.capabilities.split(',') : [],
-      availableTools: options.tools ? options.tools.split(',') : [],
-      availableAgents: options.agents ? options.agents.split(',') : [],
-      tags: options.tags ? options.tags.split(',') : [],
-      author: options.author
-    };
-
-    const result = await client.createAgent(agent);
-    console.log('\nAgent created!\n');
-    console.log(`  ID:   ${result.id}`);
-    console.log(`  Name: ${result.name}`);
-    console.log('');
-  } catch (error) {
-    handleApiError(error, 'creating agent');
-    process.exit(1);
-  }
-}
-
-async function deleteAgentCmd(id, options = {}) {
-  try {
-    if (!options.force) {
-      console.log(`\n⚠️  This will delete the agent '${id}'`);
-      console.log('   Use --force to confirm deletion');
-      process.exit(1);
-    }
-    await client.deleteAgent(id);
-    console.log(`\nAgent deleted: ${id}`);
-    console.log('');
-  } catch (error) {
-    if (error.status === 404) {
-      console.error(`Agent not found: ${id}`);
-    } else {
-      handleApiError(error, 'deleting agent');
-    }
-    process.exit(1);
-  }
-}
-
-async function getAgentMetricsCmd(id) {
-  try {
-    const metrics = await client.getAgentMetrics(id);
-    console.log('\nAgent Metrics:\n');
-    console.log(`  Total Runs:       ${metrics.totalRuns || 0}`);
-    console.log(`  Successful:       ${metrics.successfulRuns || 0}`);
-    console.log(`  Failed:           ${metrics.failedRuns || 0}`);
-    console.log(`  Completion Rate:  ${metrics.completionRate?.toFixed(1) || 0}%`);
-    console.log(`  Avg Exec Time:    ${metrics.averageExecutionTimeMs?.toFixed(0) || 0}ms`);
-    console.log(`  Avg Token Cost:   ${metrics.averageTokenCost?.toFixed(0) || 0}`);
-    console.log(`  Avg Task Score:   ${metrics.averageTaskCompletionScore?.toFixed(1) || 0}`);
-    console.log(`  Avg Efficiency:   ${metrics.averageEfficiencyScore?.toFixed(1) || 0}`);
-    console.log(`  Avg Quality:      ${metrics.averageQualityScore?.toFixed(1) || 0}`);
-    console.log(`  Overall Score:    ${metrics.overallScore?.toFixed(1) || 0}`);
-    if (metrics.lastRunAt) {
-      console.log(`  Last Run:         ${new Date(metrics.lastRunAt).toLocaleString()}`);
-    }
-    console.log('');
-  } catch (error) {
-    if (error.status === 404) {
-      console.error(`Agent not found: ${id}`);
-    } else {
-      handleApiError(error, 'getting agent metrics');
-    }
-    process.exit(1);
-  }
-}
-
-async function listTools(filter = {}) {
-  try {
-    const tools = await client.listTools(filter);
-    if (!tools || tools.length === 0) {
-      console.log('\nNo tools found');
-      console.log('  Create one with: maestro tools create --name "Tool" --block <block-id>');
-      return;
-    }
-
-    console.log('\nTools:\n');
-    console.table(tools.map(t => ({
-      'ID': t.id,
-      'Name': t.name,
-      'Category': t.category || 'general',
-      'Score': t.overallScore?.toFixed(0) || '-',
-      'Runs': t.totalRuns || 0,
-      'Success': t.successRate ? `${t.successRate.toFixed(0)}%` : '-'
-    })));
-  } catch (error) {
-    handleApiError(error, 'listing tools');
-    process.exit(1);
-  }
-}
-
-async function getToolInfo(id) {
-  try {
-    const tool = await client.getTool(id);
-    console.log('\nTool Details:\n');
-    console.log(`  ID:           ${tool.id}`);
-    console.log(`  Name:         ${tool.name}`);
-    console.log(`  Description:  ${tool.description || 'N/A'}`);
-    console.log(`  Version:      ${tool.version}`);
-    console.log(`  Category:     ${tool.category || 'general'}`);
-    console.log(`  Block ID:     ${tool.blockId}`);
-    console.log(`  Tags:         ${tool.tags?.join(', ') || 'None'}`);
-    console.log(`  Author:       ${tool.author || 'N/A'}`);
-    console.log(`  Created:      ${tool.createdAt}`);
-    console.log(`  Updated:      ${tool.updatedAt}`);
-
-    if (tool.metrics) {
-      console.log('\n  Metrics:');
-      console.log(`    Total Runs:       ${tool.metrics.totalRuns || 0}`);
-      console.log(`    Successful:       ${tool.metrics.successfulRuns || 0}`);
-      console.log(`    Success Rate:     ${tool.metrics.successRate?.toFixed(1) || 0}%`);
-      console.log(`    Overall Score:    ${tool.metrics.overallScore?.toFixed(1) || 0}`);
-      console.log(`    Used by Agents:   ${tool.metrics.usedByAgents?.length || 0}`);
-      if (tool.metrics.lastRunAt) {
-        console.log(`    Last Run:         ${new Date(tool.metrics.lastRunAt).toLocaleString()}`);
-      }
-    }
-    console.log('');
-  } catch (error) {
-    if (error.status === 404) {
-      console.error(`Tool not found: ${id}`);
-    } else {
-      handleApiError(error, 'getting tool');
-    }
-    process.exit(1);
-  }
-}
-
-async function createTool(options) {
-  try {
-    const tool = {
-      name: options.name,
-      description: options.description,
-      blockId: options.block,
-      version: options.version || '1.0.0',
-      category: options.category || 'general',
-      tags: options.tags ? options.tags.split(',') : [],
-      author: options.author
-    };
-
-    const result = await client.createTool(tool);
-    console.log('\nTool created!\n');
-    console.log(`  ID:   ${result.id}`);
-    console.log(`  Name: ${result.name}`);
-    console.log('');
-  } catch (error) {
-    handleApiError(error, 'creating tool');
-    process.exit(1);
-  }
-}
-
-async function deleteToolCmd(id, options = {}) {
-  try {
-    if (!options.force) {
-      console.log(`\n⚠️  This will delete the tool '${id}'`);
-      console.log('   Use --force to confirm deletion');
-      process.exit(1);
-    }
-    await client.deleteTool(id);
-    console.log(`\nTool deleted: ${id}`);
-    console.log('');
-  } catch (error) {
-    if (error.status === 404) {
-      console.error(`Tool not found: ${id}`);
-    } else {
-      handleApiError(error, 'deleting tool');
-    }
-    process.exit(1);
-  }
-}
-
 // ============= Block Testing Commands (Generic for all block types) =============
 
 async function startBlockTest(blockId, options = {}) {
@@ -3473,35 +3304,6 @@ async function getToolTestRunInfo(id) { return getBlockTestRunInfo(id); }
 async function showPendingEvaluations(runId) { return showBlockTestPendingEvaluations(runId); }
 async function evaluateToolTestRun(runId, options) { return evaluateBlockTestRun(runId, options); }
 async function compareToolTestRuns(runIds) { return compareBlockTestRuns(runIds); }
-
-async function getToolMetricsCmd(id) {
-  try {
-    const metrics = await client.getToolMetrics(id);
-    console.log('\nTool Metrics:\n');
-    console.log(`  Total Runs:       ${metrics.totalRuns || 0}`);
-    console.log(`  Successful:       ${metrics.successfulRuns || 0}`);
-    console.log(`  Success Rate:     ${metrics.successRate?.toFixed(1) || 0}%`);
-    console.log(`  Avg Exec Time:    ${metrics.averageExecutionTimeMs?.toFixed(0) || 0}ms`);
-    console.log(`  Avg Token Cost:   ${metrics.averageTokenCost?.toFixed(0) || 0}`);
-    console.log(`  Avg Score:        ${metrics.averageScore?.toFixed(1) || 0}`);
-    console.log(`  Overall Score:    ${metrics.overallScore?.toFixed(1) || 0}`);
-    console.log(`  Used by Agents:   ${metrics.usedByAgents?.length || 0}`);
-    if (metrics.usedByAgents?.length > 0) {
-      console.log(`    Agents:         ${metrics.usedByAgents.join(', ')}`);
-    }
-    if (metrics.lastRunAt) {
-      console.log(`  Last Run:         ${new Date(metrics.lastRunAt).toLocaleString()}`);
-    }
-    console.log('');
-  } catch (error) {
-    if (error.status === 404) {
-      console.error(`Tool not found: ${id}`);
-    } else {
-      handleApiError(error, 'getting tool metrics');
-    }
-    process.exit(1);
-  }
-}
 
 async function getFoundryOverview() {
   try {
@@ -4208,6 +4010,42 @@ async function main() {
       return await executeWithArgv(argv);
     }
 
+    if (helpCmd === 'block' || helpCmd === 'blocks') {
+      console.log(`
+${c.boldColor('cyan', 'Block Commands')}
+
+${c.bold('Usage:')} maestro block <command> [options]
+
+${c.bold('Commands:')}
+  ${c.gray('(none)')} / list       List all blocks
+  info <id>           Block details
+  metrics <id>        Block metrics (runs, score, success rate)
+  top                 Top blocks by score
+  designate <id> <d>  Set block designation (tool, agent)
+  publish <id>        Submit block for approval
+  approve <id>        Approve a pending block
+  reject <id>         Reject with --reason
+
+${c.bold('Filters:')}
+  --designation <d>   Filter by designation (tool, agent)
+  --type <t>          Filter by block type (Workflow, prompt, etc.)
+  --category <c>      Filter by category
+  --limit <n>         Limit results (for top)
+
+${c.bold('Shortcuts:')} ${c.gray('These are shorthand for block list with filters')}
+  maestro agents      ${c.gray('=')} maestro block list --designation agent
+  maestro tools       ${c.gray('=')} maestro block list --designation tool
+  maestro workflows   ${c.gray('=')} maestro block list --type Workflow
+
+${c.bold('Examples:')}
+  maestro block list --designation tool --category inference
+  maestro block metrics my-block-id
+  maestro block top --designation agent --limit 5
+  maestro block designate my-block tool
+`);
+      return;
+    }
+
     if (helpCmd === 'projects') {
       console.log(`
 ${c.boldColor('cyan', 'Project Commands')}
@@ -4246,33 +4084,64 @@ ${c.bold('Quick Start:')}
   ${c.cyan('maestro session invoke <id> start')}
   ${c.cyan('maestro monitor <id>')}
 
-${c.bold('Core Commands:')}
+${c.bold('Status & Info:')}
   health               Check backend status
-  templates            List available session templates
-  session              Session management (--help for details)
-  monitor [id]         Launch TUI monitor
-  blocks               List all blocks
-  projects             Project management (--help for details)
+  llm                  LLM provider status and active model
 
-${c.bold('Session Shortcuts:')}
-  session create       Create session (--project, --template, --start)
+${c.bold('Sessions:')}
+  session              Session management (--help for details)
+  session create       Create (--project, --template, --start)
   session list         List sessions (--status, --recent)
   session last         Show most recent session
-  session delete-all   Bulk delete (--status, --force required)
+  session info <id>    Session details
+  session invoke <id>  Invoke entry point
+  session vars <id>    Variables (list/get/set/remove)
+  monitor [id]         Launch TUI monitor
+  templates            List available session templates
+
+${c.bold('Blocks:')}
+  blocks               List all blocks (--designation, --type, --category)
+  block list           List blocks with filters
+  block info <id>      Block details
+  block metrics <id>   Block metrics (runs, score, success rate)
+  block top            Top blocks by score (--designation, --type)
+  block designate <id> Set block designation (tool, agent)
+  search <query>       Search blocks
+  children <id>        List block children (--recursive)
+  catalog              Browse block catalog
 
 ${c.bold('Execution:')}
-  run <block-id>       Run any block (workflow, agent, tool...)
-                       Options: --input key=value, --mock (workflows only)
+  run <block-id>       Execute any block (--input key=val, --mock)
+  validate <id>        Validate a workflow
 
-${c.bold('Advanced Commands:')}
-  training             Training configuration management
-  fitness              Fitness metrics and leaderboard
-  foundry              Agent foundry dashboard
-  agents / tools       Agent and tool management
+${c.bold('Projects & Workspaces:')}
+  projects             Project management (--help for details)
   workspace            Workspace management
-  orchestrator         Promotion orchestrator
+  docs                 Documentation browser
+
+${c.bold('Training & Fitness:')}
+  training             Training config and runs
+  fitness              Fitness metrics and leaderboard
   experiment           Training experiments
   research             Research team cycles
+
+${c.bold('Foundry & Testing:')}
+  foundry              Agent foundry dashboard
+  test                 Block testing
+  approval             Block approval workflow
+
+${c.bold('System:')}
+  system               System block overrides
+  orchestrator         Promotion orchestrator
+  metrics              Execution metrics
+  runs                 Execution history
+  config               CLI configuration (keybindings)
+  schema               Command schema (JSON output)
+
+${c.bold('Shortcuts:')} ${c.gray('(shorthand for block list --designation/--type)')}
+  agents               ${c.gray('=')} block list --designation agent
+  tools                ${c.gray('=')} block list --designation tool
+  workflows            ${c.gray('=')} block list --type Workflow
 
 ${c.bold('Options:')}
   --json               Structured JSON output (for agents)
@@ -4901,17 +4770,85 @@ async function executeWithArgv(argv) {
     await checkBackendOnce();
   }
 
-  try {
-    if (cmd === 'blocks') return await listBlocks();
-    if (cmd === 'workflows') return await listWorkflows();
+  // ─── Phase 18: Block type shorthand resolution ───
+  // 'tools' → block list --designation tool
+  // 'agents' → block list --designation agent
+  // 'workflows' → block list --type Workflow
+  // 'prompts' → block list --type prompt
+  const BLOCK_TYPE_SHORTCUTS = {
+    'tools': { designation: 'tool' },
+    'tool': { designation: 'tool' },
+    'agents': { designation: 'agent' },
+    'agent': { designation: 'agent' },
+    'workflows': { type: 'Workflow' },
+    'workflow': { type: 'Workflow' },
+    'prompts': { type: 'prompt' },
+    'prompt': { type: 'prompt' },
+  };
 
-    // Block command (with subcommands for approval workflow)
+  try {
+    // Phase 18: 'blocks' now supports --designation, --type, --category filters
+    if (cmd === 'blocks') return await listBlocks({
+      designation: argv.designation,
+      type: argv.type,
+      category: argv.category
+    });
+
+    // Block command — unified block management (Phase 18)
     if (cmd === 'block') {
       const subCmd = argv._[1];
+
+      // block list [--designation tool|agent] [--type Workflow] [--category general]
+      if (subCmd === 'list' || (!subCmd && !argv['pending-approval'])) {
+        return await listBlocks({
+          designation: argv.designation,
+          type: argv.type,
+          category: argv.category
+        });
+      }
 
       // block --pending-approval (list pending approvals)
       if (argv['pending-approval']) {
         return await listApprovals();
+      }
+
+      // block info <id>
+      if (subCmd === 'info') {
+        const id = argv._[2];
+        if (!id) { console.error('Block/Approval ID required'); process.exit(1); }
+        try {
+          return await getApprovalInfo(id);
+        } catch (e) {
+          if (e.status === 404) {
+            return await getBlockInfo(id);
+          }
+          throw e;
+        }
+      }
+
+      // block metrics <id>
+      if (subCmd === 'metrics') {
+        const id = argv._[2];
+        if (!id) { console.error('Block ID required'); process.exit(1); }
+        return await getBlockMetricsCmd(id);
+      }
+
+      // block top [--designation tool|agent] [--type Workflow] [--limit 10]
+      if (subCmd === 'top') {
+        return await getTopBlocksCmd({
+          designation: argv.designation,
+          type: argv.type,
+          limit: argv.limit ? parseInt(argv.limit) : 10
+        });
+      }
+
+      // block designate <id> <designation>
+      if (subCmd === 'designate') {
+        const id = argv._[2];
+        const designation = argv._[3] || argv.designation;
+        if (!id) { console.error('Block ID required'); process.exit(1); }
+        if (!designation) { console.error('Designation required (tool, agent, or none)'); process.exit(1); }
+        return await designateBlockCmd(id, designation);
       }
 
       // block publish <block-id> --from-session <session-id>
@@ -4944,37 +4881,26 @@ async function executeWithArgv(argv) {
         });
       }
 
-      // block info <id> - could be block or approval
-      if (subCmd === 'info') {
-        const id = argv._[2];
-        if (!id) { console.error('Block/Approval ID required'); process.exit(1); }
-        // Try as approval first, then as block
-        try {
-          return await getApprovalInfo(id);
-        } catch (e) {
-          if (e.status === 404) {
-            return await getBlockInfo(id);
-          }
-          throw e;
-        }
-      }
-
       console.error(`Unknown block subcommand: ${subCmd}`);
-      console.error('   Available: publish, approve, reject, info, --pending-approval');
+      console.error('   Available: list, info, metrics, top, designate, publish, approve, reject');
       process.exit(1);
     }
+    // Phase 18: Standalone block shortcuts (compatibility aliases)
     if (cmd === 'info') {
+      console.error(c.gray('  Hint: Use "block info <id>" instead of "info <id>"'));
       const blockId = argv._[1];
       if (!blockId) { console.error('Block ID required'); process.exit(1); }
       return await getBlockInfo(blockId);
     }
     if (cmd === 'children') {
+      console.error(c.gray('  Hint: Use "block children <id>" instead of "children <id>"'));
       const blockId = argv._[1];
       if (!blockId) { console.error('Block ID required'); process.exit(1); }
       const recursive = argv.recursive !== false; // default true
       return await getBlockChildren(blockId, recursive);
     }
     if (cmd === 'search') {
+      console.error(c.gray('  Hint: Use "block search <query>" instead of "search <query>"'));
       const query = argv._[1];
       if (!query) { console.error('Search query required'); process.exit(1); }
       return await searchBlocks(query);
@@ -6054,112 +5980,86 @@ ${c.bold('Quick Start:')}
         return await getFoundryLeaderboard(argv.limit ? parseInt(argv.limit) : 10);
       }
 
+      // Phase 18: 'foundry promote' now uses 'block designate'
       if (subCmd === 'promote') {
         if (!argv.block) { console.error('--block is required'); process.exit(1); }
-        if (!argv.name) { console.error('--name is required'); process.exit(1); }
         if (!argv.type || (argv.type !== 'tool' && argv.type !== 'agent')) {
           console.error('--type must be "tool" or "agent"');
           process.exit(1);
         }
-        return await promoteBlock({
-          block: argv.block,
-          name: argv.name,
-          description: argv.description,
-          type: argv.type,
-          category: argv.category,
-          tags: argv.tags,
-          tools: argv.tools
-        });
+        console.error(c.gray('  Hint: Use "block designate <id> <designation>" instead'));
+        return await designateBlockCmd(argv.block, argv.type);
       }
 
       console.error(`Unknown foundry subcommand: ${subCmd}`);
       process.exit(1);
     }
 
-    // Agent commands
+    // Phase 18: Agent commands — shorthand for block --designation agent
     if (cmd === 'agents') {
+      console.error(c.warn('Use "block list --designation agent" instead. See: maestro block --help'));
       const subCmd = argv._[1];
 
-      if (!subCmd) return await listAgents({ category: argv.category });
-
+      if (!subCmd || subCmd === 'list') {
+        return await listBlocks({ designation: 'agent', category: argv.category });
+      }
       if (subCmd === 'info') {
         const id = argv._[2];
-        if (!id) { console.error('Agent ID required'); process.exit(1); }
-        return await getAgentInfo(id);
+        if (!id) { console.error('Block ID required'); process.exit(1); }
+        return await getBlockInfo(id);
       }
-
-      if (subCmd === 'create') {
-        if (!argv.name) { console.error('--name is required'); process.exit(1); }
-        if (!argv.block) { console.error('--block is required'); process.exit(1); }
-        return await createAgent({
-          name: argv.name,
-          block: argv.block,
-          description: argv.description,
-          version: argv.version,
-          category: argv.category,
-          capabilities: argv.capabilities,
-          tools: argv.tools,
-          agents: argv.agents,
-          tags: argv.tags,
-          author: argv.author
-        });
-      }
-
-      if (subCmd === 'delete') {
-        const id = argv._[2];
-        if (!id) { console.error('Agent ID required'); process.exit(1); }
-        return await deleteAgentCmd(id, { force: argv.force });
-      }
-
       if (subCmd === 'metrics') {
         const id = argv._[2];
-        if (!id) { console.error('Agent ID required'); process.exit(1); }
-        return await getAgentMetricsCmd(id);
+        if (!id) { console.error('Block ID required'); process.exit(1); }
+        return await getBlockMetricsCmd(id);
+      }
+      if (subCmd === 'top') {
+        return await getTopBlocksCmd({ designation: 'agent', limit: argv.limit ? parseInt(argv.limit) : 10 });
+      }
+      if (subCmd === 'create') {
+        console.error('Removed. Use "block designate <block-id> agent" to designate a block as agent.');
+        process.exit(1);
+      }
+      if (subCmd === 'delete') {
+        console.error('Removed. Agents are blocks — use standard block management.');
+        process.exit(1);
       }
 
       console.error(`Unknown agents subcommand: ${subCmd}`);
       process.exit(1);
     }
 
-    // Tool commands
+    // Phase 18: Tool commands — shorthand for block --designation tool
     if (cmd === 'tools') {
+      console.error(c.warn('Use "block list --designation tool" instead. See: maestro block --help'));
       const subCmd = argv._[1];
 
-      if (!subCmd) return await listTools({ category: argv.category });
-
+      if (!subCmd || subCmd === 'list') {
+        return await listBlocks({ designation: 'tool', category: argv.category });
+      }
       if (subCmd === 'info') {
         const id = argv._[2];
-        if (!id) { console.error('Tool ID required'); process.exit(1); }
-        return await getToolInfo(id);
+        if (!id) { console.error('Block ID required'); process.exit(1); }
+        return await getBlockInfo(id);
       }
-
-      if (subCmd === 'create') {
-        if (!argv.name) { console.error('--name is required'); process.exit(1); }
-        if (!argv.block) { console.error('--block is required'); process.exit(1); }
-        return await createTool({
-          name: argv.name,
-          block: argv.block,
-          description: argv.description,
-          version: argv.version,
-          category: argv.category,
-          tags: argv.tags,
-          author: argv.author
-        });
-      }
-
-      if (subCmd === 'delete') {
-        const id = argv._[2];
-        if (!id) { console.error('Tool ID required'); process.exit(1); }
-        return await deleteToolCmd(id, { force: argv.force });
-      }
-
       if (subCmd === 'metrics') {
         const id = argv._[2];
-        if (!id) { console.error('Tool ID required'); process.exit(1); }
-        return await getToolMetricsCmd(id);
+        if (!id) { console.error('Block ID required'); process.exit(1); }
+        return await getBlockMetricsCmd(id);
+      }
+      if (subCmd === 'top') {
+        return await getTopBlocksCmd({ designation: 'tool', limit: argv.limit ? parseInt(argv.limit) : 10 });
+      }
+      if (subCmd === 'create') {
+        console.error('Removed. Use "block designate <block-id> tool" to designate a block as tool.');
+        process.exit(1);
+      }
+      if (subCmd === 'delete') {
+        console.error('Removed. Tools are blocks — use standard block management.');
+        process.exit(1);
       }
 
-      // Tool testing commands
+      // Tool testing commands (generic, work for all blocks)
       if (subCmd === 'test') {
         const blockId = argv._[2];
         if (!blockId) { console.error('Block ID required'); process.exit(1); }
@@ -6172,21 +6072,16 @@ ${c.bold('Quick Start:')}
           tags: argv.tags
         });
       }
-
       if (subCmd === 'testruns') {
         const id = argv._[2];
-        if (id) {
-          return await getToolTestRunInfo(id);
-        }
+        if (id) { return await getToolTestRunInfo(id); }
         return await listToolTestRuns({ blockId: argv.block, status: argv.status });
       }
-
       if (subCmd === 'evaluate') {
         const runId = argv._[2];
         if (!runId) { console.error('Test run ID required'); process.exit(1); }
         return await evaluateToolTestRun(runId, argv);
       }
-
       if (subCmd === 'pending') {
         const runId = argv._[2];
         if (!runId) { console.error('Test run ID required'); process.exit(1); }
@@ -6491,6 +6386,107 @@ ${c.bold('Quick Start:')}
       const blockId = argv._[1];
       if (!blockId) { console.error('Error: Block ID required'); process.exit(1); }
       return await getBlockInfoExtended(blockId);
+    }
+
+    // Config command — manage CLI configuration (keybindings, etc.)
+    if (cmd === 'config') {
+      const subCmd = argv._[1];
+
+      if (subCmd === 'keybindings' || subCmd === 'keys') {
+        const { loadKeybindings, saveKeybindings, DEFAULT_KEYBINDINGS, flattenBindings, getKeybindingsPath } = require('../shared/tui/keybindings.ts');
+        const { bindingLabel } = require('../shared/tui/keybinding-resolver.ts');
+        const action = argv._[2]; // 'set', 'reset', 'edit', or undefined (show)
+
+        if (action === 'set') {
+          const actionName = argv._[3];
+          const binding = argv._[4];
+          if (!actionName || !binding) {
+            console.error('Usage: maestro config keybindings set <action> <binding>');
+            console.error('Example: maestro config keybindings set panel.next "Ctrl+Right"');
+            process.exit(1);
+          }
+
+          const current = loadKeybindings();
+          // Find which category the action belongs to
+          let found = false;
+          for (const cat of ['navigation', 'content', 'actions']) {
+            if (current[cat] && actionName in current[cat]) {
+              current[cat][actionName] = binding;
+              found = true;
+              break;
+            }
+          }
+          if (!found) {
+            // Try to add to the most likely category
+            if (actionName.startsWith('page.') || actionName.startsWith('panel.')) {
+              current.navigation[actionName] = binding;
+            } else if (actionName.startsWith('cursor.') || actionName.startsWith('tree.') || actionName.startsWith('scroll.')) {
+              current.content[actionName] = binding;
+            } else {
+              current.actions[actionName] = binding;
+            }
+          }
+          saveKeybindings(current);
+          console.log(c.ok(`Set ${c.cyan(actionName)} = ${c.yellow(binding)}`));
+          return;
+        }
+
+        if (action === 'reset') {
+          saveKeybindings(DEFAULT_KEYBINDINGS);
+          console.log(c.ok('Keybindings reset to defaults.'));
+          return;
+        }
+
+        if (action === 'edit') {
+          const filePath = getKeybindingsPath();
+          const fs = require('fs');
+          const path = require('path');
+          // Ensure file exists with current config
+          if (!fs.existsSync(filePath)) {
+            const dir = path.dirname(filePath);
+            if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+            fs.writeFileSync(filePath, JSON.stringify(loadKeybindings(), null, 2) + '\n');
+          }
+          const editor = process.env.EDITOR || process.env.VISUAL || (process.platform === 'win32' ? 'notepad' : 'vi');
+          const { execSync } = require('child_process');
+          try {
+            execSync(`${editor} "${filePath}"`, { stdio: 'inherit' });
+          } catch (e) {
+            console.log(`\n  Keybindings file: ${c.cyan(filePath)}`);
+            console.log(`  ${c.dim('Open manually with your editor.')}`);
+          }
+          return;
+        }
+
+        // Default: show current keybindings
+        const bindings = loadKeybindings();
+        console.log(`\n${c.boldColor('cyan', 'Keybindings')}`);
+        console.log(`  ${c.dim('File: ' + getKeybindingsPath())}\n`);
+
+        for (const [category, actions] of Object.entries(bindings)) {
+          console.log(`  ${c.bold(category.charAt(0).toUpperCase() + category.slice(1))}`);
+          for (const [actionName, binding] of Object.entries(actions)) {
+            const label = bindingLabel(binding);
+            console.log(`    ${c.gray(actionName.padEnd(20))} ${c.cyan(label)}`);
+          }
+          console.log('');
+        }
+
+        console.log(`  ${c.dim('Commands:')}`);
+        console.log(`    ${c.green('config keybindings')}              Show all bindings`);
+        console.log(`    ${c.green('config keybindings set <a> <k>')}  Set action binding`);
+        console.log(`    ${c.green('config keybindings reset')}        Reset to defaults`);
+        console.log(`    ${c.green('config keybindings edit')}         Open config in editor`);
+        return;
+      }
+
+      // Config help
+      console.log(`\n${c.boldColor('cyan', 'Config Commands')}`);
+      console.log(`\n  ${c.green('config keybindings')}     View/manage TUI keybindings`);
+      console.log(`  ${c.green('config keybindings set <action> <key>')}  Set a binding`);
+      console.log(`  ${c.green('config keybindings reset')}              Reset to defaults`);
+      console.log(`  ${c.green('config keybindings edit')}               Open in editor`);
+      return;
     }
 
     // Schema command — outputs available commands and their parameters

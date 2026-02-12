@@ -30,8 +30,12 @@ export interface IApiClient {
   getLLMStatus(): Promise<LLMStatus>;
 
   // Blocks
-  listBlocks(): Promise<Block[]>;
+  listBlocks(filter?: { type?: string; designation?: string; category?: string }): Promise<Block[]>;
   getBlock(id: string): Promise<Block | null>;
+  getBlockMetrics(id: string): Promise<unknown>;
+  getTopBlocks(options?: { designation?: string; type?: string; limit?: number }): Promise<Block[]>;
+  designateBlock(id: string, designation: string): Promise<unknown>;
+  recordBlockRun(id: string, data: unknown): Promise<unknown>;
 
   // Model performance
   getModelPerformance(modelId: string): Promise<ModelPerformance>;

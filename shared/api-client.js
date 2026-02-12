@@ -153,10 +153,36 @@ class MaestroApiClient {
     const params = new URLSearchParams();
     if (filter.type) params.set('type', filter.type);
     if (filter.capability) params.set('capability', filter.capability);
+    if (filter.designation) params.set('designation', filter.designation);
+    if (filter.category) params.set('category', filter.category);
 
     const queryString = params.toString();
     const path = `/api/blocks${queryString ? `?${queryString}` : ''}`;
     return this._fetch('GET', path);
+  }
+
+  async getBlockMetrics(id) {
+    if (!id) throw new Error('Block ID is required');
+    return this._fetch('GET', `/api/blocks/${id}/metrics`);
+  }
+
+  async recordBlockRun(id, data) {
+    if (!id) throw new Error('Block ID is required');
+    return this._fetch('POST', `/api/blocks/${id}/runs`, { body: data });
+  }
+
+  async getTopBlocks(options = {}) {
+    const params = new URLSearchParams();
+    if (options.designation) params.set('designation', options.designation);
+    if (options.type) params.set('type', options.type);
+    if (options.limit) params.set('limit', options.limit.toString());
+    const queryString = params.toString();
+    return this._fetch('GET', `/api/blocks/top${queryString ? `?${queryString}` : ''}`);
+  }
+
+  async designateBlock(id, designation) {
+    if (!id) throw new Error('Block ID is required');
+    return this._fetch('POST', `/api/blocks/${id}/designate`, { body: { designation } });
   }
 
   async getBlock(id) {
@@ -500,144 +526,6 @@ class MaestroApiClient {
     if (projectPath) params.set('projectPath', projectPath);
     const queryString = params.toString();
     return this._fetch('POST', `/api/foundry/promote${queryString ? `?${queryString}` : ''}`, { body: request });
-  }
-
-  // ===== AGENTS =====
-
-  async listAgents(filter = {}) {
-    const params = new URLSearchParams();
-    if (filter.projectPath) params.set('projectPath', filter.projectPath);
-    if (filter.category) params.set('category', filter.category);
-    const queryString = params.toString();
-    return this._fetch('GET', `/api/agents${queryString ? `?${queryString}` : ''}`);
-  }
-
-  async getAgent(id, projectPath = null) {
-    if (!id) throw new Error('Agent ID is required');
-    const params = new URLSearchParams();
-    if (projectPath) params.set('projectPath', projectPath);
-    const queryString = params.toString();
-    return this._fetch('GET', `/api/agents/${id}${queryString ? `?${queryString}` : ''}`);
-  }
-
-  async createAgent(agent, projectPath = null) {
-    if (!agent || !agent.name) throw new Error('Agent must have a name');
-    const params = new URLSearchParams();
-    if (projectPath) params.set('projectPath', projectPath);
-    const queryString = params.toString();
-    return this._fetch('POST', `/api/agents${queryString ? `?${queryString}` : ''}`, { body: agent });
-  }
-
-  async updateAgent(id, updates, projectPath = null) {
-    if (!id) throw new Error('Agent ID is required');
-    const params = new URLSearchParams();
-    if (projectPath) params.set('projectPath', projectPath);
-    const queryString = params.toString();
-    return this._fetch('PUT', `/api/agents/${id}${queryString ? `?${queryString}` : ''}`, { body: updates });
-  }
-
-  async deleteAgent(id, projectPath = null) {
-    if (!id) throw new Error('Agent ID is required');
-    const params = new URLSearchParams();
-    if (projectPath) params.set('projectPath', projectPath);
-    const queryString = params.toString();
-    return this._fetch('DELETE', `/api/agents/${id}${queryString ? `?${queryString}` : ''}`);
-  }
-
-  async getAgentMetrics(id, projectPath = null) {
-    if (!id) throw new Error('Agent ID is required');
-    const params = new URLSearchParams();
-    if (projectPath) params.set('projectPath', projectPath);
-    const queryString = params.toString();
-    return this._fetch('GET', `/api/agents/${id}/metrics${queryString ? `?${queryString}` : ''}`);
-  }
-
-  async recordAgentRun(id, result, projectPath = null) {
-    if (!id) throw new Error('Agent ID is required');
-    const params = new URLSearchParams();
-    if (projectPath) params.set('projectPath', projectPath);
-    const queryString = params.toString();
-    return this._fetch('POST', `/api/agents/${id}/runs${queryString ? `?${queryString}` : ''}`, { body: result });
-  }
-
-  async getAgentTools(id, projectPath = null) {
-    if (!id) throw new Error('Agent ID is required');
-    const params = new URLSearchParams();
-    if (projectPath) params.set('projectPath', projectPath);
-    const queryString = params.toString();
-    return this._fetch('GET', `/api/agents/${id}/tools${queryString ? `?${queryString}` : ''}`);
-  }
-
-  async getTopAgents(limit = 10, projectPath = null) {
-    const params = new URLSearchParams();
-    params.set('limit', limit.toString());
-    if (projectPath) params.set('projectPath', projectPath);
-    return this._fetch('GET', `/api/agents/top?${params.toString()}`);
-  }
-
-  // ===== TOOLS =====
-
-  async listTools(filter = {}) {
-    const params = new URLSearchParams();
-    if (filter.projectPath) params.set('projectPath', filter.projectPath);
-    if (filter.category) params.set('category', filter.category);
-    const queryString = params.toString();
-    return this._fetch('GET', `/api/tools${queryString ? `?${queryString}` : ''}`);
-  }
-
-  async getTool(id, projectPath = null) {
-    if (!id) throw new Error('Tool ID is required');
-    const params = new URLSearchParams();
-    if (projectPath) params.set('projectPath', projectPath);
-    const queryString = params.toString();
-    return this._fetch('GET', `/api/tools/${id}${queryString ? `?${queryString}` : ''}`);
-  }
-
-  async createTool(tool, projectPath = null) {
-    if (!tool || !tool.name) throw new Error('Tool must have a name');
-    const params = new URLSearchParams();
-    if (projectPath) params.set('projectPath', projectPath);
-    const queryString = params.toString();
-    return this._fetch('POST', `/api/tools${queryString ? `?${queryString}` : ''}`, { body: tool });
-  }
-
-  async updateTool(id, updates, projectPath = null) {
-    if (!id) throw new Error('Tool ID is required');
-    const params = new URLSearchParams();
-    if (projectPath) params.set('projectPath', projectPath);
-    const queryString = params.toString();
-    return this._fetch('PUT', `/api/tools/${id}${queryString ? `?${queryString}` : ''}`, { body: updates });
-  }
-
-  async deleteTool(id, projectPath = null) {
-    if (!id) throw new Error('Tool ID is required');
-    const params = new URLSearchParams();
-    if (projectPath) params.set('projectPath', projectPath);
-    const queryString = params.toString();
-    return this._fetch('DELETE', `/api/tools/${id}${queryString ? `?${queryString}` : ''}`);
-  }
-
-  async getToolMetrics(id, projectPath = null) {
-    if (!id) throw new Error('Tool ID is required');
-    const params = new URLSearchParams();
-    if (projectPath) params.set('projectPath', projectPath);
-    const queryString = params.toString();
-    return this._fetch('GET', `/api/tools/${id}/metrics${queryString ? `?${queryString}` : ''}`);
-  }
-
-  async recordToolRun(id, result, projectPath = null) {
-    if (!id) throw new Error('Tool ID is required');
-    const params = new URLSearchParams();
-    if (projectPath) params.set('projectPath', projectPath);
-    const queryString = params.toString();
-    return this._fetch('POST', `/api/tools/${id}/runs${queryString ? `?${queryString}` : ''}`, { body: result });
-  }
-
-  async getTopTools(limit = 10, projectPath = null) {
-    const params = new URLSearchParams();
-    params.set('limit', limit.toString());
-    if (projectPath) params.set('projectPath', projectPath);
-    return this._fetch('GET', `/api/tools/top?${params.toString()}`);
   }
 
   // ===== BLOCK TESTING (Generic for all block types: tool, agent, workflow, task) =====

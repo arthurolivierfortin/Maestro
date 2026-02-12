@@ -255,12 +255,22 @@ Un **tool** est une interface qui dit : "Donne-moi X, je te retourne Y".
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
-### Agent : L'Interface de Raisonnement
+### Agent : Un Inference Block Enrichi
 
 Un **agent** est une interface qui dit : "Donne-moi une tâche, je réfléchis et je l'accomplis".
 
+**Point clé** : Un agent expose la **même interface** qu'un inference block
+(prompt/contexte en entrée, réponse/score en sortie). La différence est interne :
+un inference block fait 1 appel LLM, un agent contient un workflow complet
+(raisonnement, découverte de tools, exécution, validation). De l'extérieur,
+c'est la même chose — un workflow peut utiliser l'un ou l'autre de façon interchangeable.
+
+Les tools ne sont pas déclarés statiquement dans l'agent. Ils sont **découverts
+dynamiquement** par un inference block interne qui sélectionne les tools pertinents
+parmi les blocks accessibles dans le scope de la session/workspace.
+
 Un agent peut utiliser :
-- Des tools (simples ou complexes)
+- Des tools (simples ou complexes, découverts dynamiquement)
 - D'autres agents (sub-agents)
 - Des workflows
 - Des blocks atomiques directement
@@ -378,7 +388,24 @@ autonomous-development-workflow:
 
 ## Métriques de Succès
 
-### Pour un Agent
+### Pour tout Block (universel)
+
+Chaque block, quel que soit son type, accumule des métriques d'exécution :
+
+| Métrique | Description | S'applique à |
+|----------|-------------|-------------|
+| Total Runs | Nombre d'exécutions | Tout block |
+| Success Rate | % d'exécutions réussies | Tout block |
+| Avg Execution Time | Temps moyen d'exécution | Tout block |
+| Avg Token Cost | Coût moyen en tokens | Blocks utilisant un LLM |
+| Overall Score | Score composite de performance | Tout block |
+| Fitness | Score fitness (performance / coût / spécialisation) | Tout block |
+
+### Pour un Agent (= inference block enrichi)
+
+Un agent expose la même interface qu'un inference block (prompt → réponse).
+La différence est interne : l'agent contient un workflow (raisonnement, discovery
+de tools, exécution, validation). Ses métriques supplémentaires :
 
 | Métrique | Description | Cible |
 |----------|-------------|-------|
@@ -386,6 +413,7 @@ autonomous-development-workflow:
 | Quality Score | Évaluation du résultat | > 80% |
 | Token Efficiency | Tokens utilisés vs baseline | < 50% |
 | Cost per Task | Coût moyen par tâche | Décroissant |
+| Steps per Run | Nombre moyen d'étapes internes | Décroissant |
 
 ### Pour un Workflow
 

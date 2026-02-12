@@ -41,28 +41,42 @@ namespace Maestro.Api.Controllers
         /// <summary>
         /// List all blocks with optional filtering.
         /// </summary>
-        /// <param name="type">Filter by block type (e.g., "prompt", "tool")</param>
+        /// <param name="type">Filter by block type (e.g., "prompt", "tool", "agent", "workflow")</param>
+        /// <param name="designation">Filter by functional designation ("agent", "tool")</param>
+        /// <param name="category">Filter by category (e.g., "git", "code")</param>
         /// <param name="capability">Filter by capability</param>
         /// <param name="search">Search in name and description</param>
         [HttpGet]
         public async Task<ActionResult<List<BlockDto>>> GetBlocks(
             [FromQuery] string? type = null,
+            [FromQuery] string? designation = null,
+            [FromQuery] string? category = null,
             [FromQuery] string? capability = null,
             [FromQuery] string? search = null)
         {
             var blocks = await _discovery.DiscoverAllAsync();
-            
+
             // Apply filters
             if (!string.IsNullOrEmpty(type))
             {
                 blocks = blocks.Where(b => b.BlockType.Equals(type, System.StringComparison.OrdinalIgnoreCase));
             }
-            
+
+            if (!string.IsNullOrEmpty(designation))
+            {
+                blocks = blocks.Where(b => string.Equals(b.Designation, designation, System.StringComparison.OrdinalIgnoreCase));
+            }
+
+            if (!string.IsNullOrEmpty(category))
+            {
+                blocks = blocks.Where(b => string.Equals(b.Category, category, System.StringComparison.OrdinalIgnoreCase));
+            }
+
             if (!string.IsNullOrEmpty(capability))
             {
                 blocks = blocks.Where(b => b.Capabilities.Contains(capability));
             }
-            
+
             if (!string.IsNullOrEmpty(search))
             {
                 blocks = blocks.Where(b =>
@@ -325,31 +339,35 @@ namespace Maestro.Api.Controllers
         public async Task<ActionResult<List<BlockDto>>> SearchBlocks(
             [FromQuery] string q,
             [FromQuery] string? type = null,
+            [FromQuery] string? designation = null,
+            [FromQuery] string? category = null,
             [FromQuery] string? capability = null,
             [FromQuery] int limit = 50)
         {
             var blocks = await _discovery.DiscoverAllAsync();
-            
+
             // Apply search query
             if (!string.IsNullOrEmpty(q))
             {
-                blocks = blocks.Where(b => 
+                blocks = blocks.Where(b =>
                     b.Name.Contains(q, System.StringComparison.OrdinalIgnoreCase) ||
                     b.Description.Contains(q, System.StringComparison.OrdinalIgnoreCase) ||
                     b.Id.Contains(q, System.StringComparison.OrdinalIgnoreCase));
             }
-            
+
             // Apply filters
             if (!string.IsNullOrEmpty(type))
-            {
                 blocks = blocks.Where(b => b.BlockType.Equals(type, System.StringComparison.OrdinalIgnoreCase));
-            }
-            
+
+            if (!string.IsNullOrEmpty(designation))
+                blocks = blocks.Where(b => string.Equals(b.Designation, designation, System.StringComparison.OrdinalIgnoreCase));
+
+            if (!string.IsNullOrEmpty(category))
+                blocks = blocks.Where(b => string.Equals(b.Category, category, System.StringComparison.OrdinalIgnoreCase));
+
             if (!string.IsNullOrEmpty(capability))
-            {
                 blocks = blocks.Where(b => b.Capabilities.Contains(capability));
-            }
-            
+
             // Apply limit
             blocks = blocks.Take(limit);
 
@@ -400,6 +418,103 @@ namespace Maestro.Api.Controllers
             if (!System.IO.Directory.Exists(dir)) System.IO.Directory.CreateDirectory(dir!);
             await System.IO.File.WriteAllTextAsync(full, content);
             return NoContent();
+        }
+
+        // ── Phase 18: Universal metrics endpoints ──
+
+        /// <summary>
+        /// Get aggregated metrics for a block.
+        /// Works for any block type (inference, tool, agent, workflow).
+        /// </summary>
+        [HttpGet("{id}/metrics")]
+        public async Task<IActionResult> GetMetrics(string id)
+        {
+            var block = await _discovery.GetByIdAsync(id);
+            if (block == null)
+                return NotFound(new { error = $"Block '{id}' not found" });
+
+            var metrics = block.GetAggregatedMetrics();
+            if (metrics == null)
+                return Ok(new { message = "No metrics recorded yet", blockId = id });
+
+            return Ok(metrics);
+        }
+
+        /// <summary>
+        /// Record a run result for a block (updates aggregated metrics).
+        /// Works for any block type.
+        /// </summary>
+        [HttpPost("{id}/runs")]
+        public async Task<IActionResult> RecordRun(string id, [FromBody] RecordBlockRunRequest request)
+        {
+            var block = await _discovery.GetByIdAsync(id);
+            if (block == null)
+                return NotFound(new { error = $"Block '{id}' not found" });
+
+            // Record the run
+            block.RecordRun(request.Success, request.ExecutionTimeMs, request.TokenCost, request.Score);
+
+            // Persist the updated block
+            await _repository.SaveAsync(block);
+
+            return Ok(new { message = "Run recorded", blockId = id, metrics = block.GetAggregatedMetrics() });
+        }
+
+        /// <summary>
+        /// Get top blocks by overall score, optionally filtered by designation.
+        /// </summary>
+        [HttpGet("top")]
+        public async Task<ActionResult<List<BlockDto>>> GetTopBlocks(
+            [FromQuery] string? designation = null,
+            [FromQuery] string? type = null,
+            [FromQuery] int limit = 10)
+        {
+            var blocks = await _discovery.DiscoverAllAsync();
+
+            if (!string.IsNullOrEmpty(designation))
+                blocks = blocks.Where(b => string.Equals(b.Designation, designation, System.StringComparison.OrdinalIgnoreCase));
+
+            if (!string.IsNullOrEmpty(type))
+                blocks = blocks.Where(b => b.BlockType.Equals(type, System.StringComparison.OrdinalIgnoreCase));
+
+            // Filter to blocks that have metrics, sort by overall score
+            var ranked = blocks
+                .Select(b => new { Block = b, Metrics = b.GetAggregatedMetrics() })
+                .Where(x => x.Metrics != null && x.Metrics.TotalRuns > 0)
+                .OrderByDescending(x => x.Metrics!.OverallScore)
+                .Take(limit)
+                .Select(x => x.Block);
+
+            var dtos = new List<BlockDto>();
+            foreach (var b in ranked)
+            {
+                var path = await _repository.GetBlockPathAsync(b.Id);
+                dtos.Add(BlockDto.FromDomain(b, path));
+            }
+
+            return Ok(dtos);
+        }
+
+        /// <summary>
+        /// Set or change the functional designation of a block.
+        /// Promotes a regular block to "agent" or "tool" designation.
+        /// </summary>
+        [HttpPost("{id}/designate")]
+        public async Task<IActionResult> Designate(string id, [FromBody] DesignateBlockRequest request)
+        {
+            var block = await _repository.GetByIdAsync(id);
+            if (block == null)
+                return NotFound(new { error = $"Block '{id}' not found" });
+
+            block.SetDesignation(request.Designation);
+
+            if (!string.IsNullOrEmpty(request.Category))
+                block.SetCategory(request.Category);
+
+            await _repository.SaveAsync(block);
+
+            var path = await _repository.GetBlockPathAsync(id);
+            return Ok(BlockDto.FromDomain(block, path));
         }
 
         /// <summary>
@@ -547,5 +662,34 @@ namespace Maestro.Api.Controllers
         public string? ResolvedBlockType { get; set; }
         public bool IsAtomic { get; set; } = true;
         public List<BlockChildInfo>? Children { get; set; }
+    }
+
+    // ── Phase 18: New request models ──
+
+    /// <summary>
+    /// Request to record a block run result.
+    /// </summary>
+    public class RecordBlockRunRequest
+    {
+        public bool Success { get; set; }
+        public long ExecutionTimeMs { get; set; }
+        public int TokenCost { get; set; }
+        public double Score { get; set; }
+    }
+
+    /// <summary>
+    /// Request to set a block's functional designation.
+    /// </summary>
+    public class DesignateBlockRequest
+    {
+        /// <summary>
+        /// Designation to apply: "agent", "tool", or null to remove.
+        /// </summary>
+        public string? Designation { get; set; }
+
+        /// <summary>
+        /// Optional category to set (e.g., "git", "code", "analysis").
+        /// </summary>
+        public string? Category { get; set; }
     }
 }

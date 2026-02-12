@@ -9,6 +9,8 @@ import * as readline from 'readline';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as c from '../shared/utils/cli-colors.js';
+import { palette, brand } from '../shared/theme/index.ts';
+import { setTerminalBg, resetTerminalBg } from '../shared/theme/terminal.ts';
 
 type ExecCommandFn = (args: string[]) => Promise<void>;
 
@@ -22,10 +24,11 @@ const SESSION_SUBCOMMANDS = [
 // All known top-level commands for tab completion
 const TOP_COMMANDS = [
     'help', 'exit', 'clear', 'use', 'unuse', 'context', 'monitor',
-    'health', 'blocks', 'workflows', 'sessions', 'session', 'templates',
-    'projects', 'workspace', 'foundry', 'training', 'fitness', 'metrics',
-    'agents', 'tools', 'test', 'llm', 'system', 'orchestrator',
-    'experiment', 'research', 'approval', 'execute', 'run', 'search', 'info'
+    'health', 'llm', 'blocks', 'workflows', 'block', 'sessions', 'session',
+    'templates', 'projects', 'workspace', 'foundry', 'training', 'fitness',
+    'metrics', 'runs', 'agents', 'tools', 'test', 'system', 'orchestrator',
+    'experiment', 'research', 'approval', 'execute', 'run', 'search', 'info',
+    'children', 'validate', 'catalog', 'docs', 'config', 'schema', 'block-info',
 ];
 
 const SESSION_SUB = [
@@ -101,19 +104,33 @@ class MaestroShell {
         const b = c.cyan;
         const l = (s: string) => c.boldColor('cyan', s);
 
+        // Dynamic width: fill terminal, minimum 67 to fit logo
+        const termWidth = process.stdout.columns || 80;
+        const indent = 2;       // left margin
+        const minInner = 63;    // minimum inner width (logo needs ~57 + padding)
+        const inner = Math.max(minInner, termWidth - indent - 2); // 2 for border chars
+
+        const tagline = brand.tagline;
+
+        // Centering helper: pads content to fill inner width
+        const pad = (content: string, contentWidth: number): string => {
+            const total = inner - contentWidth;
+            const left = Math.floor(total / 2);
+            const right = total - left;
+            return ' '.repeat(left) + content + ' '.repeat(right);
+        };
+        const emptyRow = ' '.repeat(inner);
+
         console.log('\n');
-        console.log(b('  \u2554\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2557'));
-        console.log(b('  \u2551') + '                                                               ' + b('\u2551'));
-        console.log(b('  \u2551') + '   ' + l('\u2588\u2588\u2588\u2557   \u2588\u2588\u2588\u2557 \u2588\u2588\u2588\u2588\u2588\u2557 \u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2557\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2557\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2557\u2588\u2588\u2588\u2588\u2588\u2588\u2557  \u2588\u2588\u2588\u2588\u2588\u2588\u2557') + b('\u2551'));
-        console.log(b('  \u2551') + '   ' + l('\u2588\u2588\u2588\u2588\u2557 \u2588\u2588\u2588\u2588\u2551\u2588\u2588\u2554\u2550\u2550\u2588\u2588\u2557\u2588\u2588\u2554\u2550\u2550\u2550\u2550\u255d\u2588\u2588\u2554\u2550\u2550\u2550\u2550\u255d\u255a\u2550\u2550\u2588\u2588\u2554\u2550\u2550\u255d\u2588\u2588\u2554\u2550\u2550\u2588\u2588\u2557\u2588\u2588\u2554\u2550\u2550\u2550\u2588\u2588\u2557') + b('\u2551'));
-        console.log(b('  \u2551') + '   ' + l('\u2588\u2588\u2554\u2588\u2588\u2588\u2588\u2554\u2588\u2588\u2551\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2551\u2588\u2588\u2588\u2588\u2588\u2557  \u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2557   \u2588\u2588\u2551   \u2588\u2588\u2588\u2588\u2588\u2588\u2554\u255d\u2588\u2588\u2551   \u2588\u2588\u2551') + b('\u2551'));
-        console.log(b('  \u2551') + '   ' + l('\u2588\u2588\u2551\u255a\u2588\u2588\u2554\u255d\u2588\u2588\u2551\u2588\u2588\u2554\u2550\u2550\u2588\u2588\u2551\u2588\u2588\u2554\u2550\u2550\u255d  \u255a\u2550\u2550\u2550\u2550\u2588\u2588\u2551   \u2588\u2588\u2551   \u2588\u2588\u2554\u2550\u2550\u2588\u2588\u2557\u2588\u2588\u2551   \u2588\u2588\u2551') + b('\u2551'));
-        console.log(b('  \u2551') + '   ' + l('\u2588\u2588\u2551 \u255a\u2550\u255d \u2588\u2588\u2551\u2588\u2588\u2551  \u2588\u2588\u2551\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2557\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2551   \u2588\u2588\u2551   \u2588\u2588\u2551  \u2588\u2588\u2551\u255a\u2588\u2588\u2588\u2588\u2588\u2588\u2554\u255d') + b('\u2551'));
-        console.log(b('  \u2551') + '   ' + l('\u255a\u2550\u255d     \u255a\u2550\u255d\u255a\u2550\u255d  \u255a\u2550\u255d\u255a\u2550\u2550\u2550\u2550\u2550\u2550\u255d\u255a\u2550\u2550\u2550\u2550\u2550\u2550\u255d   \u255a\u2550\u255d   \u255a\u2550\u255d  \u255a\u2550\u255d \u255a\u2550\u2550\u2550\u2550\u2550\u255d') + b('\u2551'));
-        console.log(b('  \u2551') + '                                                               ' + b('\u2551'));
-        console.log(b('  \u2551') + c.dim('              Orchestration Framework for AI Agents            ') + b('\u2551'));
-        console.log(b('  \u2551') + '                                                               ' + b('\u2551'));
-        console.log(b('  \u255a\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u255d'));
+        console.log(b(' '.repeat(indent) + '\u2554' + '\u2550'.repeat(inner) + '\u2557'));
+        console.log(b(' '.repeat(indent) + '\u2551') + emptyRow + b('\u2551'));
+        for (const line of brand.logoLines) {
+            console.log(b(' '.repeat(indent) + '\u2551') + pad(l(line), line.length) + b('\u2551'));
+        }
+        console.log(b(' '.repeat(indent) + '\u2551') + emptyRow + b('\u2551'));
+        console.log(b(' '.repeat(indent) + '\u2551') + pad(c.dim(tagline), tagline.length) + b('\u2551'));
+        console.log(b(' '.repeat(indent) + '\u2551') + emptyRow + b('\u2551'));
+        console.log(b(' '.repeat(indent) + '\u255a' + '\u2550'.repeat(inner) + '\u255d'));
         console.log('\n');
         console.log('  Type ' + c.cyan('"help"') + ' for commands, ' + c.cyan('"exit"') + ' to quit.');
         console.log('  Tab completion available. History persisted across sessions.\n');
@@ -192,6 +209,7 @@ class MaestroShell {
         const trimmed = line.trim().toLowerCase();
 
         if (trimmed === 'exit' || trimmed === 'quit' || trimmed === 'q') {
+            resetTerminalBg();
             console.log('\n' + c.dim('Goodbye!') + '\n');
             process.exit(0);
         }
@@ -253,24 +271,52 @@ ${c.boldColor('cyan', 'Shell Commands')}
   ${c.green('unuse')}            Clear session context
   ${c.green('monitor')}          Launch monitor for current session
 
-${c.boldColor('cyan', 'Quick Commands')}
+${c.boldColor('cyan', 'Quick Status')}
   ${c.green('health')}           Check backend status
-  ${c.green('sessions')}         List sessions
+  ${c.green('llm')}              LLM provider status and active model
+  ${c.green('sessions')}         List sessions (--status, --recent)
   ${c.green('session last')}     Show most recent session
-  ${c.green('templates')}        List available templates
-  ${c.green('blocks')}           List blocks
 
-${c.boldColor('cyan', 'Session Commands')} ${c.gray('(use "session --help" for full list)')}
-  ${c.green('session create --project <id> --template <name> --start')}
-  ${c.green('session info <id>')}
-  ${c.green('session invoke <id> start')}
-  ${c.green('session vars <id> list')}
+${c.boldColor('cyan', 'Session Management')} ${c.gray('(session --help for details)')}
+  ${c.green('session create')}   Create session (--project, --template, --start)
+  ${c.green('session info')}     Session details          ${c.green('session start/stop')}   Lifecycle
+  ${c.green('session invoke')}   Invoke entry point       ${c.green('session exec')}         Run shell command
+  ${c.green('session vars')}     Variables (list/get/set)  ${c.green('session entry-points')} Entry points
+  ${c.green('session import')}   Import template          ${c.green('session bind-repo')}    Bind repository
+  ${c.green('session widgets')}  Widget management        ${c.green('session events')}       Event history
+  ${c.green('session delete')}   Delete session           ${c.green('session delete-all')}   Bulk delete
+
+${c.boldColor('cyan', 'Blocks & Catalog')}
+  ${c.green('blocks')}           List all blocks          ${c.green('workflows')}       List workflows
+  ${c.green('block info <id>')}  Block details            ${c.green('search <query>')}  Search blocks
+  ${c.green('children <id>')}    Block children           ${c.green('catalog')}          Browse catalog
+  ${c.green('run <block-id>')}   Execute any block        ${c.green('validate <id>')}   Validate workflow
+
+${c.boldColor('cyan', 'Projects & Workspaces')}
+  ${c.green('projects')}         Project management       ${c.green('workspace')}        Workspace management
+  ${c.green('templates')}        List session templates
+
+${c.boldColor('cyan', 'Training & Fitness')}
+  ${c.green('training')}         Training config/runs     ${c.green('fitness')}          Fitness metrics
+  ${c.green('experiment')}       Training experiments     ${c.green('research')}         Research cycles
+
+${c.boldColor('cyan', 'Agents & Tools')}
+  ${c.green('agents')}           Agent management         ${c.green('tools')}            Tool management
+  ${c.green('foundry')}          Agent foundry            ${c.green('test')}             Block testing
+  ${c.green('approval')}         Block approval workflow
+
+${c.boldColor('cyan', 'System & Config')}
+  ${c.green('system')}           System block overrides   ${c.green('orchestrator')}     Promotion orchestrator
+  ${c.green('metrics')}          Execution metrics        ${c.green('runs')}             Execution history
+  ${c.green('docs')}             Documentation browser    ${c.green('config')}           CLI configuration
+  ${c.green('schema')}           Command schema (JSON)
 
 ${c.boldColor('cyan', 'Tips')}
   ${c.dim('- Run any maestro command without the "maestro" prefix')}
   ${c.dim('- Use ID prefixes: "session info f2e8" instead of full UUID')}
   ${c.dim('- @file syntax: "session vars set <id> key @data.json"')}
   ${c.dim('- Tab completes commands, Up/Down navigates history')}
+  ${c.dim('- Add --help to any command for details: session --help')}
 `);
     }
 
@@ -347,6 +393,9 @@ ${c.boldColor('cyan', 'Tips')}
      * Starts the interactive shell.
      */
     async start(): Promise<void> {
+        // Apply shared terminal background
+        setTerminalBg(palette.bg);
+
         this.printBanner();
 
         // P2-19: Load persisted history
@@ -385,6 +434,7 @@ ${c.boldColor('cyan', 'Tips')}
         });
 
         this.rl.on('close', () => {
+            resetTerminalBg();
             console.log('\n' + c.dim('Goodbye!') + '\n');
             process.exit(0);
         });

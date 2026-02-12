@@ -67,18 +67,25 @@ namespace Maestro.Infrastructure.BlockStore
 
         private void OnFileChanged(object sender, FileSystemEventArgs e)
         {
-            // Only support new *.block.json format
             if (string.IsNullOrEmpty(e.Name)) return;
-            
-            if (!e.Name.EndsWith(MaestroConstants.BlockFileExtension, StringComparison.OrdinalIgnoreCase))
+
+            // Support *.block.json and legacy *.tool.json
+            if (!e.Name.EndsWith(MaestroConstants.BlockFileExtension, StringComparison.OrdinalIgnoreCase)
+                && !e.Name.EndsWith(MaestroConstants.LegacyToolFileExtension, StringComparison.OrdinalIgnoreCase))
                 return;
             
             try
             {
-                var block = LoadBlockFromFile(e.FullPath);
-                
+                BlockDefinition? block;
+                if (e.FullPath.EndsWith(MaestroConstants.LegacyToolFileExtension, StringComparison.OrdinalIgnoreCase))
+                    block = LoadLegacyToolFile(e.FullPath);
+                else
+                    block = LoadBlockFromFile(e.FullPath);
+
                 if (block != null)
                 {
+                    // Auto-detect designation from filename
+                    ApplyDesignationFromFilename(block, e.FullPath);
                     var isNew = !_cache.ContainsKey(block.Id);
                     _cache[block.Id] = block;
                     
@@ -185,6 +192,29 @@ namespace Maestro.Infrastructure.BlockStore
                         try
                         {
                             var block = LoadBlockFromFile(file);
+                            if (block != null)
+                            {
+                                ApplyDesignationFromFilename(block, file);
+                                AttachProjectConfig(block, projectConfig);
+                                _cache[block.Id] = block;
+                            }
+                        }
+                        catch { }
+                    }
+                }
+                catch { }
+
+                // Phase 18: Also scan legacy *.tool.json files
+                try
+                {
+                    foreach (var file in Directory.EnumerateFiles(basePath, MaestroConstants.LegacyToolFileGlobPattern, SearchOption.AllDirectories))
+                    {
+                        if (IsSystemOrUserPath(file, basePath))
+                            continue;
+
+                        try
+                        {
+                            var block = LoadLegacyToolFile(file);
                             if (block != null)
                             {
                                 AttachProjectConfig(block, projectConfig);
@@ -493,6 +523,131 @@ namespace Maestro.Infrastructure.BlockStore
             return def;
         }
 
+        /// <summary>
+        /// Detects designation from filename pattern:
+        /// - *.agent.block.json → designation = "agent"
+        /// - *.tool.block.json → designation = "tool"
+        /// Only sets designation if not already set in metadata.
+        /// </summary>
+        private static void ApplyDesignationFromFilename(BlockDefinition block, string filePath)
+        {
+            // Don't override if already set
+            if (block.Designation != null) return;
+
+            var fileName = Path.GetFileName(filePath);
+            if (fileName.EndsWith(".agent.block.json", StringComparison.OrdinalIgnoreCase))
+            {
+                block.SetDesignation("agent");
+            }
+            else if (fileName.EndsWith(".tool.block.json", StringComparison.OrdinalIgnoreCase))
+            {
+                block.SetDesignation("tool");
+            }
+            // Also detect from blockType if it's explicitly agent or tool
+            else if (string.Equals(block.BlockType, "agent", StringComparison.OrdinalIgnoreCase))
+            {
+                block.SetDesignation("agent");
+            }
+            else if (string.Equals(block.BlockType, "tool", StringComparison.OrdinalIgnoreCase))
+            {
+                block.SetDesignation("tool");
+            }
+        }
+
+        /// <summary>
+        /// Loads a legacy *.tool.json file (ToolDefinition format) and converts to BlockDefinition.
+        /// Phase 18 transitional support.
+        /// </summary>
+        private BlockDefinition? LoadLegacyToolFile(string filePath)
+        {
+            if (!File.Exists(filePath)) return null;
+
+            try
+            {
+                var txt = File.ReadAllText(filePath);
+                using var doc = JsonDocument.Parse(txt);
+                var root = doc.RootElement;
+
+                var id = root.TryGetProperty("Id", out var idEl) ? idEl.GetString()
+                       : root.TryGetProperty("id", out var idEl2) ? idEl2.GetString()
+                       : Path.GetFileNameWithoutExtension(Path.GetFileNameWithoutExtension(filePath));
+
+                var name = root.TryGetProperty("Name", out var nameEl) ? nameEl.GetString()
+                         : root.TryGetProperty("name", out var nameEl2) ? nameEl2.GetString()
+                         : id;
+
+                var blockId = root.TryGetProperty("BlockId", out var bIdEl) ? bIdEl.GetString()
+                            : root.TryGetProperty("blockId", out var bIdEl2) ? bIdEl2.GetString()
+                            : null;
+
+                var def = BlockDefinition.Create(id ?? Guid.NewGuid().ToString(), name ?? id ?? "", "tool");
+                def.SetIsAtomic(true);
+                def.SetDesignation("tool");
+
+                // Description
+                if (root.TryGetProperty("Description", out var descEl) || root.TryGetProperty("description", out descEl))
+                    def.SetDescription(descEl.GetString() ?? "");
+
+                // Version
+                if (root.TryGetProperty("Version", out var verEl) || root.TryGetProperty("version", out verEl))
+                    def.SetVersion(verEl.GetString() ?? "1.0.0");
+
+                // Category
+                if (root.TryGetProperty("Category", out var catEl) || root.TryGetProperty("category", out catEl))
+                    def.SetCategory(catEl.GetString());
+
+                // Author
+                if (root.TryGetProperty("Author", out var authEl) || root.TryGetProperty("author", out authEl))
+                    def.SetAuthor(authEl.GetString());
+
+                // Tags
+                if ((root.TryGetProperty("Tags", out var tagsEl) || root.TryGetProperty("tags", out tagsEl))
+                    && tagsEl.ValueKind == JsonValueKind.Array)
+                {
+                    var tags = new List<string>();
+                    foreach (var t in tagsEl.EnumerateArray())
+                        if (t.ValueKind == JsonValueKind.String) tags.Add(t.GetString()!);
+                    def.SetTags(tags);
+                }
+
+                // Config: store InputSchema and OutputSchema
+                var config = new Dictionary<string, object>();
+                if (root.TryGetProperty("InputSchema", out var isEl) || root.TryGetProperty("inputSchema", out isEl))
+                    config["inputs"] = JsonSerializer.Deserialize<Dictionary<string, object>>(isEl.GetRawText()) ?? new();
+                if (root.TryGetProperty("OutputSchema", out var osEl) || root.TryGetProperty("outputSchema", out osEl))
+                    config["outputs"] = JsonSerializer.Deserialize<Dictionary<string, object>>(osEl.GetRawText()) ?? new();
+                if (!string.IsNullOrEmpty(blockId))
+                    config["blockId"] = blockId;
+                def.UpdateConfig(config);
+
+                // Metadata: store source path and metrics if present
+                var meta = new Dictionary<string, object>();
+                meta["_sourcePath"] = filePath;
+                meta["_legacyFormat"] = "tool.json";
+                meta["designation"] = "tool";
+
+                if (root.TryGetProperty("Metrics", out var metricsEl) || root.TryGetProperty("metrics", out metricsEl))
+                {
+                    try
+                    {
+                        var metrics = JsonSerializer.Deserialize<Domain.ValueObjects.AggregatedBlockMetrics>(
+                            metricsEl.GetRawText(),
+                            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                        if (metrics != null)
+                            meta["metrics"] = metrics;
+                    }
+                    catch { /* ignore metrics parse errors */ }
+                }
+
+                def.UpdateMetadata(meta);
+                return def;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
         public Task<IEnumerable<BlockDefinition>> DiscoverAllAsync(CancellationToken ct = default)
         {
             return Task.FromResult(_cache.Values.AsEnumerable());
@@ -501,6 +656,16 @@ namespace Maestro.Infrastructure.BlockStore
         public Task<IEnumerable<BlockDefinition>> DiscoverByTypeAsync(string type, CancellationToken ct = default)
         {
             var matches = _cache.Values.Where(b => string.Equals(b.BlockType, type, StringComparison.OrdinalIgnoreCase));
+            return Task.FromResult(matches);
+        }
+
+        /// <summary>
+        /// Discover blocks by functional designation (agent, tool, or null for regular).
+        /// Phase 18: unified discovery replaces separate AgentRegistry/ToolRegistry.
+        /// </summary>
+        public Task<IEnumerable<BlockDefinition>> DiscoverByDesignationAsync(string designation, CancellationToken ct = default)
+        {
+            var matches = _cache.Values.Where(b => string.Equals(b.Designation, designation, StringComparison.OrdinalIgnoreCase));
             return Task.FromResult(matches);
         }
 
@@ -526,14 +691,33 @@ namespace Maestro.Infrastructure.BlockStore
 
                 try
                 {
+                    // Scan *.block.json (includes *.agent.block.json)
                     foreach (var file in Directory.EnumerateFiles(searchPath, MaestroConstants.BlockFileGlobPattern, SearchOption.AllDirectories))
                     {
                         try
                         {
                             var block = LoadBlockFromFile(file);
+                            if (block != null)
+                            {
+                                ApplyDesignationFromFilename(block, file);
+                                if (string.Equals(block.Id, blockId, StringComparison.OrdinalIgnoreCase))
+                                {
+                                    _cache[block.Id] = block;
+                                    return Task.FromResult<BlockDefinition?>(block);
+                                }
+                            }
+                        }
+                        catch { /* skip invalid files */ }
+                    }
+
+                    // Phase 18: Also scan legacy *.tool.json
+                    foreach (var file in Directory.EnumerateFiles(searchPath, MaestroConstants.LegacyToolFileGlobPattern, SearchOption.AllDirectories))
+                    {
+                        try
+                        {
+                            var block = LoadLegacyToolFile(file);
                             if (block != null && string.Equals(block.Id, blockId, StringComparison.OrdinalIgnoreCase))
                             {
-                                // Cache for future lookups
                                 _cache[block.Id] = block;
                                 return Task.FromResult<BlockDefinition?>(block);
                             }

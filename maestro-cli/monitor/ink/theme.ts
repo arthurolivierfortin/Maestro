@@ -1,103 +1,52 @@
 /**
- * Ink Theme — Single source of truth for all TUI styling.
+ * Ink Theme — TUI styling adapter over shared/theme.
  *
- * Pure utility functions (statusColor, statusIcon, formatDuration, etc.) are imported
- * from shared/ and re-exported so components can still do:
- *   import { statusColor, formatDuration } from '../theme.ts';
+ * Imports colors, icons, and layout from shared/theme and adds
+ * Ink-specific React helpers (T, Badge, etc.).
+ *
+ * Components import from this file:
+ *   import { theme, icons, T, statusColor } from '../theme.ts';
  */
 
 import { createElement as h, type ReactElement } from 'react';
 import { Text } from 'ink';
 
-// Re-export pure functions from shared (unchanged API)
+// Re-export pure functions from shared utils (unchanged API)
 export { statusColor, statusIcon, typeBadgeColorMap } from '../../../shared/utils/status.ts';
 export { formatDuration, formatTime, truncate } from '../../../shared/utils/format.ts';
 export { progressBar, progressColor, sparkline } from '../../../shared/utils/progress.ts';
 export { resolvePath } from '../../../shared/utils/resolve.ts';
 
-// ── Color palette ──────────────────────────────────────────────
+// Import from shared theme
+import { palette, semantic } from '../../../shared/theme/colors.ts';
+import { icons as sharedIcons, layout as sharedLayout } from '../../../shared/theme/tokens.ts';
+
+// Re-export icons from shared theme
+export const icons = sharedIcons;
+
+// ── Ink theme object — composed from shared semantic colors + Ink-specific extras ──
 
 export const theme = {
-  bg: '#1e1e1e',
+  bg: palette.bg,
   fg: 'white',
-  text: {
-    primary: 'white',
-    secondary: 'gray',
-    muted: 'gray',
-    dim: 'gray',
-  },
-  status: {
-    success: 'green',
-    running: 'cyan',
-    pending: 'gray',
-    warning: 'yellow',
-    error: 'red',
-    paused: 'yellow',
-  },
-  access: {
-    readWrite: 'green',
-    readOnly: 'yellow',
-    none: 'red',
-    ignored: 'gray',
-    active: 'cyan',
-  },
+  text: semantic.text,
+  status: semantic.status,
+  access: semantic.access,
   panel: {
-    border: 'gray',
-    borderFocused: 'cyan',
+    ...semantic.panel,
     borderStyle: 'single' as const,
-    title: 'gray',
-    titleFocused: 'cyan',
     titleBold: true,
     bg: null as string | null,
     bgFocused: null as string | null,
     scrollIndicator: 'gray',
   },
-  ui: {
-    border: 'gray',
-    borderActive: 'cyan',
-    label: 'gray',
-    highlight: 'cyan',
-    separator: 'gray',
-  },
-  layout: {
-    headerHeight: 9,
-    statusBarHeight: 3,
-    borderWidth: 1,
-  },
+  ui: semantic.ui,
+  layout: sharedLayout,
   tree: {
-    cursor: 'cyan',
-    expandIcon: 'gray',
+    ...semantic.tree,
     selectedBold: true,
   },
-  shortcut: {
-    bracket: 'gray',
-    key: 'cyan',
-    label: 'gray',
-    keyInactive: 'gray',
-  },
-};
-
-// ── Icons (Unicode) ────────────────────────────────────────────
-
-export const icons = {
-  done: '\u2713',
-  running: '\u25CF',
-  pending: '\u25CB',
-  failed: '\u2717',
-  paused: '\u2016',
-  branch: '\u251C\u2500',
-  lastBranch: '\u2514\u2500',
-  vertical: '\u2502',
-  expanded: '\u25BC',
-  collapsed: '\u25B6',
-  arrow: '\u2192',
-  arrowUp: '\u25B2',
-  arrowDown: '\u25BC',
-  dot: '\u2022',
-  connected: '\u25CF',
-  scrollUp: '\u25B2',
-  scrollDown: '\u25BC',
-  focus: '\u25C6',
+  shortcut: semantic.shortcut,
 };
 
 // ── Text helper: T(color, text, opts) ──────────────────────────

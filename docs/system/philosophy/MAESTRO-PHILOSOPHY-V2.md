@@ -955,38 +955,110 @@ maestro training run <run-id> --show-fitness
 
 ## 9. Principes de Design
 
-### 9.1 Tout est un Block
+### 9.1 Tout est un Block — Vraiment Tout
 
-Même les agents système sont des blocks:
-- Même interface
-- Même infrastructure
-- Même métriques
-- Même fitness
+Agents, tools, workflows, inference, validators — **ce sont tous des blocks**.
+Il n'existe pas d'entité "agent" ou "tool" séparée. Il existe des blocks avec
+des types différents.
 
-### 9.2 CLI-First
+Conséquences concrètes :
+- **Tout block a des métriques** : taux de succès, temps moyen, coût, score
+- **Tout block a une version** : semver, tracking de l'évolution
+- **Tout block a des relations** : quels blocks il utilise, qui l'utilise
+- **Tout block peut être évalué** : fitness score, performance, composabilité
+- **Un seul système de discovery** : `FileSystemBlockDiscoveryService`
+- **Un seul format de fichier** : `*.block.json`
+- **Une seule API** : `/api/blocks` avec filtres par type et désignation
 
-Tout doit être accessible via CLI:
+Un block "agent" n'a pas plus de métriques qu'un block "inference" — les deux
+en ont. La seule différence est leur complexité interne, invisible de l'extérieur.
+
+### 9.2 Un Agent est un Inference Block Enrichi
+
+Un agent expose **la même interface** qu'un inference block :
+- **Entrée** : prompt, contexte, modèle (optionnel)
+- **Sortie** : réponse, tokens consommés, score
+
+La différence est interne :
+- Un inference block = 1 appel LLM
+- Un agent = un workflow interne (raisonnement + discovery de tools + exécution + validation)
+
+```
+Inference block:  prompt → [1 appel LLM] → réponse
+Agent block:      prompt → [workflow: raisonnement → tools → validation] → réponse
+                           ↑ invisible de l'extérieur ↑
+```
+
+**Implication clé** : dans un workflow, un noeud peut pointer vers un inference block
+OU un agent block de façon interchangeable. Le workflow ne voit que l'interface.
+On peut remplacer un inference block par un agent (plus capable mais plus lent)
+sans changer le workflow.
+
+### 9.3 Les Tools sont Découverts, pas Déclarés
+
+Un agent ne "possède" pas une liste fixe de tools. Les tools sont **découverts
+dynamiquement** lors de l'exécution :
+
+1. L'agent reçoit une tâche
+2. Un inference block interne analyse la tâche
+3. L'inference block sélectionne les tools pertinents parmi les blocks accessibles
+4. Les tools sont exécutés
+5. Les résultats sont agrégés
+
+Le scope de discovery (quels blocks sont accessibles) est une propriété de la
+**session** et du **workspace**, pas de l'agent. Cela permet :
+- Un même agent avec des tools différents selon le workspace
+- L'ajout de nouveaux tools sans modifier l'agent
+- Le training de la sélection de tools (l'inference block apprend quels tools choisir)
+
+### 9.4 Versioning Universel
+
+Tout block se versionne (semver), pas seulement les agents :
+- Un **workflow** changé = nouvelle version (ajout d'étapes, réordonnancement)
+- Un **inference block** changé = nouvelle version (nouveau prompt, nouveau modèle)
+- Un **tool** changé = nouvelle version (nouveau schéma I/O)
+- Un **validator** changé = nouvelle version (nouveaux critères)
+
+Le versioning universel permet :
+- **Rollback** sur n'importe quel block
+- **A/B testing** entre versions (comparer v1.0 inference vs v2.0 agent)
+- **Promotion** = promouvoir un block à une version spécifique entre workspaces
+- **Audit** complet de l'évolution de chaque composant
+- **MCP** : exposer des tools versionnés aux IDEs
+
+La promotion inter-workspace n'est pas "promouvoir un agent" — c'est
+"promouvoir `block-name` v1.2 de research vers staging".
+
+### 9.5 CLI-First
+
+Tout doit être accessible via CLI :
 - Un agent peut utiliser le CLI
 - Un humain peut utiliser le CLI
 - L'automatisation est native
 
-### 9.3 Fitness comme Métrique Principale
+### 9.6 Fitness comme Métrique Principale
 
-Le fitness remplace les métriques simples:
+Le fitness s'applique à **tout block**, pas seulement aux agents :
+- Un inference block a un fitness (performance / coût)
+- Un tool a un fitness (succès / temps / fiabilité)
+- Un workflow a un fitness (agrégation des blocks internes)
+- Un agent a un fitness (même formule, même échelle)
+
+Le fitness remplace les métriques simples :
 - Pas juste "success rate"
 - Pas juste "cost"
 - Une métrique holistique qui balance tout
 
-### 9.4 Spécialisation sur Généralité
+### 9.7 Spécialisation sur Généralité
 
-Le système favorise:
+Le système favorise :
 - Petits modèles spécialisés > Gros modèles généralistes
 - Workflows orchestrés > Agents monolithiques
 - Composition > Complexité interne
 
-### 9.5 Overridable mais Opinionated
+### 9.8 Overridable mais Opinionated
 
-Les system blocks:
+Les system blocks :
 - Fournissent une implémentation par défaut
 - Peuvent être overridés
 - Mais la structure reste

@@ -9,6 +9,19 @@ This document establishes the philosophy, architecture principles, and developme
 - `docs/system/philosophy/MAESTRO-PHILOSOPHY-V2.md` — V2 evolution (fitness model, self-improvement)
 - `docs/phases/PHASE-8/README.md` — Generic vs Specific separation (the cardinal rule)
 
+### Everything is a Block — The Universal Unit
+
+> *"There is no Agent entity. There is no Tool entity. There are only Blocks with different types."*
+
+- **Every block has metrics**: success rate, avg time, cost, score — not just agents
+- **An agent is an enriched inference block**: same interface (prompt → response), more internal capability (workflow inside)
+- **Tools are discovered, not declared**: an agent's internal inference block selects tools from the session scope at runtime
+- **One discovery system**: `FileSystemBlockDiscoveryService` finds everything
+- **One file format**: `*.block.json` for all types
+- **One API**: `/api/blocks` with filters (`?type=agent`, `?designation=tool`)
+
+See: `docs/phases/PHASE-18/ADR-BLOCKS-ARE-THE-UNIVERSAL-UNIT.md`
+
 ### The Cardinal Rule: Generic Infrastructure, Specific Content
 
 > *"L'infrastructure est generique, le contenu est specifique. C'est la force de Maestro."*

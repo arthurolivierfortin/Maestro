@@ -59,6 +59,16 @@ namespace Maestro.Infrastructure.Configuration
         /// Glob pattern to discover all block files.
         /// </summary>
         public const string BlockFileGlobPattern = "*.block.json";
+
+        /// <summary>
+        /// Legacy tool file extension (Phase 18: migrated to .block.json).
+        /// </summary>
+        public const string LegacyToolFileExtension = ".tool.json";
+
+        /// <summary>
+        /// Legacy tool glob pattern for transitional scanning.
+        /// </summary>
+        public const string LegacyToolFileGlobPattern = "*.tool.json";
         
         // ─────────────────────────────────────────────────────────────────────
         // Environment Variables

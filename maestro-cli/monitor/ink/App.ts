@@ -22,26 +22,8 @@ import { ModelDetail } from './components/ModelDetail.ts';
 import { BlockDetail } from './components/BlockDetail.ts';
 
 import type { IApiClient } from '../../../shared/types/api-client.ts';
-
-// ── Terminal background color control ──────────────────────────
-
-function hexToOscRgb(hex: string): string {
-  const r = hex.slice(1, 3);
-  const g = hex.slice(3, 5);
-  const b = hex.slice(5, 7);
-  return `rgb:${r}${r}/${g}${g}/${b}${b}`;
-}
-
-function setTerminalBg(hexColor: string | null): void {
-  if (!hexColor || !process.stdout.isTTY) return;
-  const osc = `\x1b]11;${hexToOscRgb(hexColor)}\x07`;
-  process.stdout.write(osc);
-}
-
-function resetTerminalBg(): void {
-  if (!process.stdout.isTTY) return;
-  process.stdout.write('\x1b]111\x07');
-}
+import { setTerminalBg, resetTerminalBg } from '../../../shared/theme/terminal.ts';
+import { palette } from '../../../shared/theme/colors.ts';
 
 // ── FullscreenBox ──────────────────────────────────────────────
 
@@ -167,6 +149,7 @@ const App = ({ initialSessionId, apiClient }: AppProps) => {
       apiClient,
       onExit: handleBack,
       onQuit: handleQuit,
+      onNavigate: handleNavigate,
       onSessionSelect: handleSessionSelect,
       initialState: restoredState,
     };
@@ -235,7 +218,7 @@ async function startInkMonitor(sessionId: string | null, apiClient: IApiClient, 
     throw new Error('Ink monitor requires an interactive terminal (TTY). Run in a proper terminal window or use --legacy flag.');
   }
 
-  setTerminalBg(theme.bg);
+  setTerminalBg(palette.bg);
 
   const instance = render(
     h(App, { initialSessionId: sessionId, apiClient }),

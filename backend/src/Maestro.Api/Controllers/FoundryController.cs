@@ -1,42 +1,46 @@
 using Microsoft.AspNetCore.Mvc;
 using Maestro.Domain.Entities;
-using Maestro.Infrastructure.Foundry;
+using Maestro.Application.Interfaces;
 
 namespace Maestro.Api.Controllers;
 
 /// <summary>
 /// API controller for Agent Foundry overview and dashboard.
+/// Phase 18: Refactored to use IBlockDiscoveryService instead of separate registries.
 /// </summary>
 [ApiController]
 [Route("api/[controller]")]
 public class FoundryController : ControllerBase
 {
-    private readonly AgentRegistry _agentRegistry;
-    private readonly ToolRegistry _toolRegistry;
+    private readonly IBlockDiscoveryService _blockDiscovery;
 
-    public FoundryController(AgentRegistry agentRegistry, ToolRegistry toolRegistry)
+    public FoundryController(IBlockDiscoveryService blockDiscovery)
     {
-        _agentRegistry = agentRegistry;
-        _toolRegistry = toolRegistry;
+        _blockDiscovery = blockDiscovery;
     }
 
     /// <summary>
     /// Get overview dashboard data.
     /// </summary>
     [HttpGet("overview")]
-    public async Task<ActionResult<FoundryOverviewDto>> GetOverview([FromQuery] string? projectPath = null)
+    public async Task<ActionResult<FoundryOverviewDto>> GetOverview()
     {
-        var agents = await _agentRegistry.GetAllAsync(projectPath);
-        var tools = await _toolRegistry.GetAllAsync(projectPath);
+        var allBlocks = (await _blockDiscovery.DiscoverAllAsync()).ToList();
 
-        var totalAgentRuns = agents.Sum(a => a.Metrics.TotalRuns);
-        var totalToolRuns = tools.Sum(t => t.Metrics.TotalRuns);
+        var agents = allBlocks.Where(b => b.Designation == "agent").ToList();
+        var tools = allBlocks.Where(b => b.Designation == "tool").ToList();
 
-        var avgAgentScore = agents.Count > 0
-            ? agents.Average(a => a.Metrics.OverallScore)
+        var agentMetrics = agents.Select(a => a.GetAggregatedMetrics()).Where(m => m != null).ToList();
+        var toolMetrics = tools.Select(t => t.GetAggregatedMetrics()).Where(m => m != null).ToList();
+
+        var totalAgentRuns = agentMetrics.Sum(m => m!.TotalRuns);
+        var totalToolRuns = toolMetrics.Sum(m => m!.TotalRuns);
+
+        var avgAgentScore = agentMetrics.Count > 0
+            ? agentMetrics.Average(m => m!.OverallScore)
             : 0;
-        var avgToolScore = tools.Count > 0
-            ? tools.Average(t => t.Metrics.OverallScore)
+        var avgToolScore = toolMetrics.Count > 0
+            ? toolMetrics.Average(m => m!.OverallScore)
             : 0;
 
         var overview = new FoundryOverviewDto
@@ -48,28 +52,32 @@ public class FoundryController : ControllerBase
             AvgAgentScore = Math.Round(avgAgentScore, 1),
             AvgToolScore = Math.Round(avgToolScore, 1),
             TopAgents = agents
-                .OrderByDescending(a => a.Metrics.OverallScore)
+                .Select(a => new { Block = a, Metrics = a.GetAggregatedMetrics() })
+                .Where(x => x.Metrics != null)
+                .OrderByDescending(x => x.Metrics!.OverallScore)
                 .Take(5)
-                .Select(a => new LeaderboardItemDto
+                .Select(x => new LeaderboardItemDto
                 {
-                    Id = a.Id,
-                    Name = a.Name,
+                    Id = x.Block.Id,
+                    Name = x.Block.Name,
                     Type = "agent",
-                    Score = Math.Round(a.Metrics.OverallScore, 1),
-                    Runs = a.Metrics.TotalRuns,
-                    SuccessRate = Math.Round(a.Metrics.CompletionRate, 1)
+                    Score = Math.Round(x.Metrics!.OverallScore, 1),
+                    Runs = x.Metrics!.TotalRuns,
+                    SuccessRate = Math.Round(x.Metrics!.SuccessRate, 1)
                 }).ToList(),
             TopTools = tools
-                .OrderByDescending(t => t.Metrics.OverallScore)
+                .Select(t => new { Block = t, Metrics = t.GetAggregatedMetrics() })
+                .Where(x => x.Metrics != null)
+                .OrderByDescending(x => x.Metrics!.OverallScore)
                 .Take(5)
-                .Select(t => new LeaderboardItemDto
+                .Select(x => new LeaderboardItemDto
                 {
-                    Id = t.Id,
-                    Name = t.Name,
+                    Id = x.Block.Id,
+                    Name = x.Block.Name,
                     Type = "tool",
-                    Score = Math.Round(t.Metrics.OverallScore, 1),
-                    Runs = t.Metrics.TotalRuns,
-                    SuccessRate = Math.Round(t.Metrics.SuccessRate, 1)
+                    Score = Math.Round(x.Metrics!.OverallScore, 1),
+                    Runs = x.Metrics!.TotalRuns,
+                    SuccessRate = Math.Round(x.Metrics!.SuccessRate, 1)
                 }).ToList(),
             RecentActivity = GetRecentActivity(agents, tools),
             CategoryBreakdown = GetCategoryBreakdown(agents, tools)
@@ -82,36 +90,47 @@ public class FoundryController : ControllerBase
     /// Get leaderboard of agents and tools by score.
     /// </summary>
     [HttpGet("leaderboard")]
-    public async Task<ActionResult<LeaderboardDto>> GetLeaderboard(
-        [FromQuery] string? projectPath = null,
-        [FromQuery] int limit = 10)
+    public async Task<ActionResult<LeaderboardDto>> GetLeaderboard([FromQuery] int limit = 10)
     {
-        var agents = await _agentRegistry.GetTopByScoreAsync(limit, projectPath);
-        var tools = await _toolRegistry.GetTopByScoreAsync(limit, projectPath);
+        var allBlocks = (await _blockDiscovery.DiscoverAllAsync()).ToList();
+
+        var agents = allBlocks
+            .Where(b => b.Designation == "agent")
+            .Select(b => new { Block = b, Metrics = b.GetAggregatedMetrics() })
+            .Where(x => x.Metrics != null)
+            .OrderByDescending(x => x.Metrics!.OverallScore)
+            .Take(limit);
+
+        var tools = allBlocks
+            .Where(b => b.Designation == "tool")
+            .Select(b => new { Block = b, Metrics = b.GetAggregatedMetrics() })
+            .Where(x => x.Metrics != null)
+            .OrderByDescending(x => x.Metrics!.OverallScore)
+            .Take(limit);
 
         var leaderboard = new LeaderboardDto
         {
-            Agents = agents.Select(a => new LeaderboardItemDto
+            Agents = agents.Select(x => new LeaderboardItemDto
             {
-                Id = a.Id,
-                Name = a.Name,
+                Id = x.Block.Id,
+                Name = x.Block.Name,
                 Type = "agent",
-                Category = a.Category,
-                Score = Math.Round(a.Metrics.OverallScore, 1),
-                Runs = a.Metrics.TotalRuns,
-                SuccessRate = Math.Round(a.Metrics.CompletionRate, 1),
-                LastRunAt = a.Metrics.LastRunAt
+                Category = x.Block.Category ?? "general",
+                Score = Math.Round(x.Metrics!.OverallScore, 1),
+                Runs = x.Metrics!.TotalRuns,
+                SuccessRate = Math.Round(x.Metrics!.SuccessRate, 1),
+                LastRunAt = x.Metrics!.LastRunAt
             }).ToList(),
-            Tools = tools.Select(t => new LeaderboardItemDto
+            Tools = tools.Select(x => new LeaderboardItemDto
             {
-                Id = t.Id,
-                Name = t.Name,
+                Id = x.Block.Id,
+                Name = x.Block.Name,
                 Type = "tool",
-                Category = t.Category,
-                Score = Math.Round(t.Metrics.OverallScore, 1),
-                Runs = t.Metrics.TotalRuns,
-                SuccessRate = Math.Round(t.Metrics.SuccessRate, 1),
-                LastRunAt = t.Metrics.LastRunAt
+                Category = x.Block.Category ?? "general",
+                Score = Math.Round(x.Metrics!.OverallScore, 1),
+                Runs = x.Metrics!.TotalRuns,
+                SuccessRate = Math.Round(x.Metrics!.SuccessRate, 1),
+                LastRunAt = x.Metrics!.LastRunAt
             }).ToList()
         };
 
@@ -120,29 +139,33 @@ public class FoundryController : ControllerBase
 
     /// <summary>
     /// Get agent-tool relationship graph.
+    /// Phase 18: Relationships are now based on block config, not separate registries.
     /// </summary>
     [HttpGet("relationships")]
-    public async Task<ActionResult<RelationshipGraphDto>> GetRelationships([FromQuery] string? projectPath = null)
+    public async Task<ActionResult<RelationshipGraphDto>> GetRelationships()
     {
-        var agents = await _agentRegistry.GetAllAsync(projectPath);
-        var tools = await _toolRegistry.GetAllAsync(projectPath);
+        var allBlocks = (await _blockDiscovery.DiscoverAllAsync()).ToList();
+
+        var agents = allBlocks.Where(b => b.Designation == "agent").ToList();
+        var tools = allBlocks.Where(b => b.Designation == "tool").ToList();
 
         var nodes = new List<GraphNodeDto>();
         var edges = new List<GraphEdgeDto>();
 
-        // Add agent nodes
         foreach (var agent in agents)
         {
+            var metrics = agent.GetAggregatedMetrics();
             nodes.Add(new GraphNodeDto
             {
                 Id = agent.Id,
                 Label = agent.Name,
                 Type = "agent",
-                Score = Math.Round(agent.Metrics.OverallScore, 1)
+                Score = metrics != null ? Math.Round(metrics.OverallScore, 1) : 0
             });
 
-            // Add edges from agent to tools
-            foreach (var toolId in agent.AvailableTools)
+            // Phase 18: Tool references now in config.tools or config.agent.availableTools
+            var availableTools = GetAvailableToolsFromConfig(agent);
+            foreach (var toolId in availableTools)
             {
                 edges.Add(new GraphEdgeDto
                 {
@@ -151,28 +174,17 @@ public class FoundryController : ControllerBase
                     Type = "uses-tool"
                 });
             }
-
-            // Add edges from agent to sub-agents
-            foreach (var subAgentId in agent.AvailableAgents)
-            {
-                edges.Add(new GraphEdgeDto
-                {
-                    Source = agent.Id,
-                    Target = subAgentId,
-                    Type = "uses-agent"
-                });
-            }
         }
 
-        // Add tool nodes
         foreach (var tool in tools)
         {
+            var metrics = tool.GetAggregatedMetrics();
             nodes.Add(new GraphNodeDto
             {
                 Id = tool.Id,
                 Label = tool.Name,
                 Type = "tool",
-                Score = Math.Round(tool.Metrics.OverallScore, 1)
+                Score = metrics != null ? Math.Round(metrics.OverallScore, 1) : 0
             });
         }
 
@@ -184,74 +196,102 @@ public class FoundryController : ControllerBase
     }
 
     /// <summary>
-    /// Promote a workflow to a tool or agent.
+    /// Promote a block by setting its designation.
+    /// Phase 18: Now delegates to block designation instead of creating separate entities.
     /// </summary>
     [HttpPost("promote")]
-    public async Task<IActionResult> PromoteWorkflow(
-        [FromBody] PromoteRequest request,
-        [FromQuery] string? projectPath = null)
+    public async Task<IActionResult> PromoteWorkflow([FromBody] PromoteRequest request)
     {
-        if (request.DesignationType == "tool")
+        if (request.DesignationType != "tool" && request.DesignationType != "agent")
         {
-            var tool = new ToolDefinition
-            {
-                Id = request.Id ?? request.BlockId,
-                Name = request.Name,
-                Description = request.Description ?? "",
-                BlockId = request.BlockId,
-                Category = request.Category ?? "general",
-                Tags = request.Tags ?? new List<string>()
-            };
-            await _toolRegistry.SaveAsync(tool, projectPath);
-            return Ok(new { message = $"Workflow promoted to tool '{tool.Id}'", type = "tool", id = tool.Id });
-        }
-        else if (request.DesignationType == "agent")
-        {
-            var agent = new AgentDefinition
-            {
-                Id = request.Id ?? request.BlockId,
-                Name = request.Name,
-                Description = request.Description ?? "",
-                BlockId = request.BlockId,
-                Category = request.Category ?? "general",
-                Tags = request.Tags ?? new List<string>(),
-                AvailableTools = request.AvailableTools ?? new List<string>()
-            };
-            await _agentRegistry.SaveAsync(agent, projectPath);
-            return Ok(new { message = $"Workflow promoted to agent '{agent.Id}'", type = "agent", id = agent.Id });
+            return BadRequest(new { error = "Invalid designation type. Use 'tool' or 'agent'." });
         }
 
-        return BadRequest(new { error = "Invalid designation type. Use 'tool' or 'agent'." });
+        var block = await _blockDiscovery.GetByIdAsync(request.BlockId);
+        if (block == null)
+        {
+            return NotFound(new { error = $"Block '{request.BlockId}' not found" });
+        }
+
+        block.SetDesignation(request.DesignationType);
+        if (request.Category != null) block.SetCategory(request.Category);
+        if (request.Tags != null) block.SetTags(request.Tags);
+
+        return Ok(new { message = $"Block promoted to {request.DesignationType} '{block.Id}'", type = request.DesignationType, id = block.Id });
     }
 
-    private List<ActivityItemDto> GetRecentActivity(List<AgentDefinition> agents, List<ToolDefinition> tools)
+    private static List<string> GetAvailableToolsFromConfig(BlockDefinition block)
+    {
+        var tools = new List<string>();
+        if (block.Config == null) return tools;
+
+        // Check config.tools (common pattern)
+        if (block.Config.TryGetValue("tools", out var toolsObj) && toolsObj is System.Text.Json.JsonElement toolsArr)
+        {
+            if (toolsArr.ValueKind == System.Text.Json.JsonValueKind.Array)
+            {
+                foreach (var item in toolsArr.EnumerateArray())
+                {
+                    if (item.ValueKind == System.Text.Json.JsonValueKind.String)
+                        tools.Add(item.GetString()!);
+                }
+            }
+        }
+
+        // Check config.agent.availableTools
+        if (block.Config.TryGetValue("agent", out var agentObj) && agentObj is System.Text.Json.JsonElement agentEl)
+        {
+            if (agentEl.ValueKind == System.Text.Json.JsonValueKind.Object &&
+                agentEl.TryGetProperty("availableTools", out var atProp) &&
+                atProp.ValueKind == System.Text.Json.JsonValueKind.Array)
+            {
+                foreach (var item in atProp.EnumerateArray())
+                {
+                    if (item.ValueKind == System.Text.Json.JsonValueKind.String)
+                        tools.Add(item.GetString()!);
+                }
+            }
+        }
+
+        return tools;
+    }
+
+    private static List<ActivityItemDto> GetRecentActivity(List<BlockDefinition> agents, List<BlockDefinition> tools)
     {
         var activities = new List<ActivityItemDto>();
 
-        foreach (var agent in agents.Where(a => a.Metrics.LastRunAt.HasValue))
+        foreach (var agent in agents)
         {
-            activities.Add(new ActivityItemDto
+            var metrics = agent.GetAggregatedMetrics();
+            if (metrics?.LastRunAt != null)
             {
-                Id = agent.Id,
-                Name = agent.Name,
-                Type = "agent",
-                Action = "run",
-                Timestamp = agent.Metrics.LastRunAt!.Value,
-                Score = Math.Round(agent.Metrics.OverallScore, 1)
-            });
+                activities.Add(new ActivityItemDto
+                {
+                    Id = agent.Id,
+                    Name = agent.Name,
+                    Type = "agent",
+                    Action = "run",
+                    Timestamp = metrics.LastRunAt.Value,
+                    Score = Math.Round(metrics.OverallScore, 1)
+                });
+            }
         }
 
-        foreach (var tool in tools.Where(t => t.Metrics.LastRunAt.HasValue))
+        foreach (var tool in tools)
         {
-            activities.Add(new ActivityItemDto
+            var metrics = tool.GetAggregatedMetrics();
+            if (metrics?.LastRunAt != null)
             {
-                Id = tool.Id,
-                Name = tool.Name,
-                Type = "tool",
-                Action = "run",
-                Timestamp = tool.Metrics.LastRunAt!.Value,
-                Score = Math.Round(tool.Metrics.OverallScore, 1)
-            });
+                activities.Add(new ActivityItemDto
+                {
+                    Id = tool.Id,
+                    Name = tool.Name,
+                    Type = "tool",
+                    Action = "run",
+                    Timestamp = metrics.LastRunAt.Value,
+                    Score = Math.Round(metrics.OverallScore, 1)
+                });
+            }
         }
 
         return activities
@@ -260,15 +300,15 @@ public class FoundryController : ControllerBase
             .ToList();
     }
 
-    private CategoryBreakdownDto GetCategoryBreakdown(List<AgentDefinition> agents, List<ToolDefinition> tools)
+    private static CategoryBreakdownDto GetCategoryBreakdown(List<BlockDefinition> agents, List<BlockDefinition> tools)
     {
         return new CategoryBreakdownDto
         {
             Agents = agents
-                .GroupBy(a => a.Category)
+                .GroupBy(a => a.Category ?? "general")
                 .ToDictionary(g => g.Key, g => g.Count()),
             Tools = tools
-                .GroupBy(t => t.Category)
+                .GroupBy(t => t.Category ?? "general")
                 .ToDictionary(g => g.Key, g => g.Count())
         };
     }

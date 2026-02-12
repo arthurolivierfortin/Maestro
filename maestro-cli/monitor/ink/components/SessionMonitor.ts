@@ -33,7 +33,8 @@ import {
   statusColor, statusIcon, icons, theme, prevPage, nextPage,
 } from '../theme.ts';
 import { useSessionData } from '../hooks/useSessionData.ts';
-import { useKeyboard } from '../hooks/useKeyboard.ts';
+import { useActionKeyboard } from '../hooks/useKeyboard.ts';
+import type { ActionHandlers } from '../hooks/useKeyboard.ts';
 import { usePanelFocus } from '../hooks/usePanelFocus.ts';
 import { useScroll } from '../hooks/useScroll.ts';
 import { useMouse } from '../hooks/useMouse.ts';
@@ -140,17 +141,21 @@ const HelpOverlay = ({ hasBackOption }) => {
   },
     h(Text, { bold: true }, '  Maestro Session Monitor'),
     h(Text, {}, ''),
-    h(Text, { bold: true }, '  Navigation:'),
-    h(Text, {}, '    Ctrl+Left/Right  Switch page/tab'),
+    h(Text, { bold: true }, '  Panel Navigation:'),
+    h(Text, {}, '    Ctrl+Left/Right  Switch panel'),
     h(Text, {}, '    Tab / Shift-Tab  Cycle panel focus'),
     h(Text, {}, '    1-3              Jump to panel'),
     h(Text, {}, '    Enter / z        Zoom focused panel'),
     h(Text, {}, '    Esc              Back / unzoom'),
     h(Text, {}, ''),
     h(Text, { bold: true }, '  Content (focused panel):'),
-    h(Text, {}, '    Up/Down          Scroll / tree cursor'),
+    h(Text, {}, '    Up/Down or j/k   Scroll / tree cursor'),
     h(Text, {}, '    Left/Right       Tree collapse/expand'),
+    h(Text, {}, '    Ctrl+Up/Down     Scroll 5 lines'),
     h(Text, {}, '    Enter/Space      Toggle expand'),
+    h(Text, {}, ''),
+    h(Text, { bold: true }, '  Pages (from anywhere):'),
+    h(Text, {}, '    h/s/f/c/m        Jump to page'),
     h(Text, {}, ''),
     h(Text, { bold: true }, '  Actions:'),
     h(Text, {}, '    r     Refresh'),
@@ -570,72 +575,89 @@ const SessionMonitor = ({ sessionId, apiClient, onExit, onQuit, onNavigate }) =>
     }
   }, [activeTreeNav?.cursor, activeExpandedSize, focusedPanel, getOffset, scrollTo]);
 
-  // ── Keyboard handling ──
-  // Tab/Shift-Tab = cycle panels
-  // Arrows = tree nav (if active) or scroll
-  // Ctrl+Arrows = switch panels
-  useKeyboard({
-    q: () => {
+  // ── Keyboard handling (Schema A: contextual navigation) ──
+  // In detail views: Ctrl+Left/Right = switch panels
+  // h/s/f/c/m = direct page jumps (always available)
+  // j/k = cursor up/down (vim-style)
+  const actionHandlers: ActionHandlers = {
+    // Actions
+    'quit': () => {
       if (showHelp) { setShowHelp(false); return; }
-      // q = quit the entire app
       if (onQuit) onQuit();
       else if (onExit) onExit();
       else process.exit(0);
     },
-    r: () => { if (showHelp) setShowHelp(false); },
-    t: () => togglePanel('tree'),
-    f: () => togglePanel('files'),
-    w: () => togglePanel('widgets'),
-    v: () => togglePanel('vars'),
-    l: () => togglePanel('logs'),
-    z: () => toggleZoom(),
-    tab: () => nextFocus(),
-    shiftTab: () => prevFocus(),
-    // Arrow keys: tree nav if active, otherwise scroll
-    up: () => {
+    'refresh': () => { if (showHelp) setShowHelp(false); },
+    'help': () => setShowHelp(prev => !prev),
+    'zoom': () => toggleZoom(),
+    'back': () => {
+      if (showHelp) { setShowHelp(false); return; }
+      if (zoomedPanel) { setZoomedPanel(null); return; }
+      if (onExit) onExit();
+    },
+
+    // Panel toggles
+    'toggle.tree': () => togglePanel('tree'),
+    'toggle.files': () => togglePanel('files'),
+    'toggle.widgets': () => togglePanel('widgets'),
+    'toggle.vars': () => togglePanel('vars'),
+    'toggle.logs': () => togglePanel('logs'),
+
+    // Panel navigation (Ctrl+Left/Right in detail context = panel switch)
+    'panel.next': () => nextFocus(),
+    'panel.prev': () => prevFocus(),
+    'panel.cycle': () => nextFocus(),
+    'panel.cycleBack': () => prevFocus(),
+    'panel.1': () => { if (panelNames.length >= 1) setFocusByIndex(0); },
+    'panel.2': () => { if (panelNames.length >= 2) setFocusByIndex(1); },
+    'panel.3': () => { if (panelNames.length >= 3) setFocusByIndex(2); },
+
+    // Cursor / tree navigation
+    'cursor.up': () => {
       if (activeTreeNav) { activeTreeNav.moveUp(); return; }
       if (focusedPanel) scrollUp(focusedPanel);
     },
-    down: () => {
+    'cursor.down': () => {
       if (activeTreeNav) { activeTreeNav.moveDown(); return; }
       if (focusedPanel) scrollDown(focusedPanel);
     },
-    left: () => {
-      if (activeTreeNav) { activeTreeNav.moveLeft(); return; }
+    'cursor.upAlt': () => {
+      if (activeTreeNav) { activeTreeNav.moveUp(); return; }
+      if (focusedPanel) scrollUp(focusedPanel);
     },
-    right: () => {
-      if (activeTreeNav) { activeTreeNav.moveRight(); return; }
+    'cursor.downAlt': () => {
+      if (activeTreeNav) { activeTreeNav.moveDown(); return; }
+      if (focusedPanel) scrollDown(focusedPanel);
     },
-    // Ctrl+Up/Down = switch panels
-    ctrlUp: () => prevFocus(),
-    ctrlDown: () => nextFocus(),
-    // Ctrl+Left/Right = switch pages (wrap-around)
-    ctrlLeft: () => { if (onNavigate) onNavigate(prevPage('spaces')); },
-    ctrlRight: () => { if (onNavigate) onNavigate(nextPage('spaces')); },
-    // Enter: toggle expand if tree, else toggle zoom
-    enter: () => {
+    'tree.expand': () => {
+      if (activeTreeNav) { activeTreeNav.moveRight(); }
+    },
+    'tree.collapse': () => {
+      if (activeTreeNav) { activeTreeNav.moveLeft(); }
+    },
+    'tree.toggle': () => {
       if (showHelp) { setShowHelp(false); return; }
       if (activeTreeNav) { activeTreeNav.toggle(); return; }
       toggleZoom();
     },
-    // Space: toggle expand if tree
-    space: () => {
-      if (activeTreeNav) { activeTreeNav.toggle(); return; }
+
+    // Scroll (Ctrl+Up/Down)
+    'scroll.up': () => {
+      if (focusedPanel) scrollUp(focusedPanel, 5);
     },
-    escape: () => {
-      if (showHelp) { setShowHelp(false); return; }
-      if (zoomedPanel) { setZoomedPanel(null); return; }
-      // Escape = navigate back to session list
-      if (onExit) onExit();
+    'scroll.down': () => {
+      if (focusedPanel) scrollDown(focusedPanel, 5);
     },
-    '?': () => setShowHelp(prev => !prev),
-    // Number keys 1-3: jump to panel by index
-    number: (num) => {
-      if (num >= 1 && num <= panelNames.length) {
-        setFocusByIndex(num - 1);
-      }
-    },
-  });
+
+    // Page navigation (letter shortcuts always available from any view)
+    'page.home': () => { if (onNavigate) onNavigate('home'); },
+    'page.spaces': () => { if (onNavigate) onNavigate('spaces'); },
+    'page.foundry': () => { if (onNavigate) onNavigate('foundry'); },
+    'page.catalog': () => { if (onNavigate) onNavigate('catalog'); },
+    'page.models': () => { if (onNavigate) onNavigate('models'); },
+  };
+
+  useActionKeyboard(actionHandlers, 'detail');
 
   // ── Terminal size detection (P3-35) ──
   const termCols = process.stdout.columns || 120;

@@ -128,17 +128,20 @@ const StatusBar = ({
 
   // Build context-aware shortcuts
   const shortcuts = [];
+  // Determine if we're in a detail view (session, model, etc.) or a top-level page
+  const isDetailView = focusedPanel != null || zoomedPanel != null || (!currentPage);
 
   if (currentPage && !focusedPanel && !zoomedPanel) {
-    // Global page navigation mode — show page shortcuts
+    // Global page navigation mode — Ctrl+←/→ = page switch
     shortcuts.push(h(Shortcut, { key: 'sc-ctrl-lr', keyChar: 'Ctrl+\u2190\u2192', labelText: 'page', active: true }));
     shortcuts.push(h(Shortcut, { key: 'sc-arrows', keyChar: '\u2191\u2193', labelText: 'select', active: true }));
     shortcuts.push(h(Shortcut, { key: 'sc-enter', keyChar: 'Enter', labelText: 'open', active: true }));
     shortcuts.push(h(Shortcut, { key: 'sc-esc', keyChar: 'Esc', labelText: 'back', active: true }));
     shortcuts.push(h(Shortcut, { key: 'sc-q', keyChar: 'q', labelText: 'uit', active: true }));
   } else {
-    // Session detail mode — show panel-specific shortcuts
-    shortcuts.push(h(Shortcut, { key: 'sc-ctrl-lr', keyChar: 'Ctrl+\u2190\u2192', labelText: 'page', active: true }));
+    // Detail view mode — Ctrl+←/→ = panel switch (Schema A)
+    shortcuts.push(h(Shortcut, { key: 'sc-ctrl-lr', keyChar: 'Ctrl+\u2190\u2192', labelText: 'panel', active: true }));
+    shortcuts.push(h(Shortcut, { key: 'sc-jk', keyChar: 'j/k', labelText: 'nav', active: true }));
     shortcuts.push(...getPanelShortcuts(focusedPanel, zoomedPanel, hasBackOption, mode));
   }
 

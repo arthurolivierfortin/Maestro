@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef } from 'react';
-import type { FlatNode } from '../../../../shared/utils/tree.ts';
+import type { FlatNode } from '../../utils/tree.ts';
 
 interface UseTreeNavReturn {
   cursor: number;

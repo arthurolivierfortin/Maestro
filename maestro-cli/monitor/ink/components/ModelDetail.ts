@@ -22,7 +22,7 @@ import {
   sparkline,
 } from '../theme.ts';
 import { useApiData } from '../hooks/useApiData.ts';
-import { useKeyboard } from '../hooks/useKeyboard.ts';
+import { useActionKeyboard } from '../hooks/useKeyboard.ts';
 import { Panel } from './Panel.ts';
 import { StatusBar } from './StatusBar.ts';
 
@@ -191,7 +191,7 @@ const PerformanceContent = ({ perf }) => {
 
 // ── ModelDetail component ────────────────────────────────────
 
-const ModelDetail = ({ modelId, apiClient, onExit, onQuit }) => {
+const ModelDetail = ({ modelId, apiClient, onExit, onQuit, onNavigate }) => {
   // Fetch LLM health
   const {
     data: llmHealth,
@@ -233,11 +233,16 @@ const ModelDetail = ({ modelId, apiClient, onExit, onQuit }) => {
   const statusLabel = isActive ? 'active' : 'available';
   const statusCol = isActive ? theme.status.success : theme.status.pending;
 
-  // Keyboard
-  useKeyboard({
-    escape: onExit,
-    q: onQuit,
-  });
+  // Keyboard (Schema A: detail context)
+  useActionKeyboard({
+    'back': onExit,
+    'quit': onQuit,
+    'page.home': () => { if (onNavigate) onNavigate('home'); },
+    'page.spaces': () => { if (onNavigate) onNavigate('spaces'); },
+    'page.foundry': () => { if (onNavigate) onNavigate('foundry'); },
+    'page.catalog': () => { if (onNavigate) onNavigate('catalog'); },
+    'page.models': () => { if (onNavigate) onNavigate('models'); },
+  }, 'detail');
 
   return h(Box, { flexDirection: 'column', width: '100%', flexGrow: 1 },
     // Header

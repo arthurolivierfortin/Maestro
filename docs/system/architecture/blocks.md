@@ -83,13 +83,23 @@ A **tool** says: "Give me X, return Y"
 - Can contain: Anything (agents, workflows, tools, atomic operations)
 - Use case: Expose a capability as an API
 
-### Agent: Reasoning Interface
+### Agent: Enriched Inference Interface
 
 An **agent** says: "Give me a task, I reason and accomplish it"
 
-- Interface: Task → Result
+- Interface: **Same as inference** — prompt/context in, response/score out
 - Can contain: Tools, other agents, workflows, atomic blocks
 - Use case: Delegate reasoning and decision-making
+
+**Key insight**: An agent is an inference block with more internal capability. From the outside, the interface is identical. A workflow node can point to an inference block OR an agent block interchangeably — it only sees input/output.
+
+```
+inference block:  prompt → [1 LLM call] → response
+agent block:      prompt → [workflow: reasoning → tool discovery → execution → validation] → response
+                           ↑ hidden from caller ↑
+```
+
+Tools are **discovered dynamically** by the agent's internal inference block, not declared statically. The discovery scope comes from the session/workspace, not from the agent definition.
 
 ### Workflow: Orchestration Interface
 
@@ -251,13 +261,32 @@ See `docs/schemas/block.schema.json` for the authoritative JSON Schema.
 
 ---
 
+## Universal Block Properties
+
+Every block, regardless of type, has:
+
+| Property | Description |
+|----------|-------------|
+| **Metrics** | Execution counters, success rate, avg time, avg cost |
+| **Score** | Composite performance score (fitness) |
+| **Version** | Semver versioning |
+| **Category** | Functional classification (git, code, analysis...) |
+| **Relations** | Which blocks it uses, which blocks use it |
+
+Metrics are a property of **execution**, not of type. A simple inference block that runs 100 times has a success rate, average time, and cost — just like an agent does. There is no reason to track metrics only on "promoted" blocks.
+
+---
+
 ## Key Takeaways
 
 1. **Type = Interface**: Block types define how to use them, not what they contain
-2. **Fractal Composition**: Any block can contain any other blocks
-3. **Control Flow as Blocks**: Conditions and loops are blocks, not arrows
-4. **Tree Structure**: Workflows are trees that read top-to-bottom
-5. **Abstraction Enables Reuse**: Complex blocks can be used as simple building blocks
+2. **Agent = Enriched Inference**: Same interface, more internal capability
+3. **Tools are Discovered**: Not hardcoded in agent definitions; scope comes from session/workspace
+4. **Every Block is Measurable**: Metrics, score, version, fitness apply to ALL blocks
+5. **Fractal Composition**: Any block can contain any other blocks
+6. **Control Flow as Blocks**: Conditions and loops are blocks, not arrows
+7. **Tree Structure**: Workflows are trees that read top-to-bottom
+8. **Abstraction Enables Reuse**: Complex blocks can be used as simple building blocks
 
 ---
 

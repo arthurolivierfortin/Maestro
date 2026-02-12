@@ -1,4 +1,35 @@
 import { useInput } from 'ink';
+import { useMemo } from 'react';
+import {
+  createActionKeyboardHandler,
+  type ActionHandlers,
+  type KeyboardContext,
+} from '../../../../shared/tui/hooks/useKeyboard.ts';
+
+// Re-export types
+export type { ActionHandlers, KeyboardContext };
+
+// ── Action-based keyboard hook (uses Ink's useInput) ──────────────
+
+export const useActionKeyboard = (
+  handlers: ActionHandlers,
+  context: KeyboardContext = 'toplevel',
+): void => {
+  const handler = useMemo(
+    () => createActionKeyboardHandler(handlers, context),
+    // Handlers object changes every render, but context is stable
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [context],
+  );
+
+  useInput((input: string, key) => {
+    // Re-create handler with latest handlers reference
+    const latestHandler = createActionKeyboardHandler(handlers, context);
+    latestHandler(input, key);
+  });
+};
+
+// ── Legacy interface (kept for components not yet migrated) ───────
 
 interface KeyboardHandlers {
   up?: () => void;

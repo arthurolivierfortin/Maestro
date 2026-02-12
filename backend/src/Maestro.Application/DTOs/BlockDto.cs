@@ -6,7 +6,8 @@ namespace Maestro.Application.DTOs
 {
     /// <summary>
     /// Data Transfer Object for Block Definition.
-    /// Used for API responses.
+    /// Used for API responses. Includes universal fields for all block types
+    /// plus optional fields for designated blocks (agents, tools).
     /// </summary>
     public record BlockDto
     {
@@ -39,6 +40,32 @@ namespace Maestro.Application.DTOs
         /// </summary>
         public string? OverridesSystemBlock { get; init; }
 
+        // ── Phase 18: Universal block properties ──
+
+        /// <summary>
+        /// Functional designation: "agent", "tool", or null.
+        /// Extracted from Metadata["designation"].
+        /// </summary>
+        public string? Designation { get; init; }
+
+        /// <summary>
+        /// Functional category (git, code, analysis, etc.).
+        /// Extracted from Metadata["category"].
+        /// </summary>
+        public string? Category { get; init; }
+
+        /// <summary>
+        /// Author/creator of the block.
+        /// Extracted from Metadata["author"].
+        /// </summary>
+        public string? Author { get; init; }
+
+        /// <summary>
+        /// Aggregated metrics (runs, success rate, score, etc.).
+        /// Extracted from Metadata["metrics"]. Null if no runs recorded.
+        /// </summary>
+        public object? Metrics { get; init; }
+
         public static BlockDto FromDomain(Domain.Entities.BlockDefinition block, string? sourcePath = null)
         {
             return new BlockDto
@@ -57,7 +84,13 @@ namespace Maestro.Application.DTOs
                 SourcePath = sourcePath,
                 IsSystem = block.IsSystem,
                 Overridable = block.Overridable,
-                OverridesSystemBlock = block.OverridesSystemBlock
+                OverridesSystemBlock = block.OverridesSystemBlock,
+                // Phase 18: extract from metadata
+                Designation = block.Designation,
+                Category = block.Category,
+                Author = block.Author,
+                Tags = block.Tags ?? block.Capabilities, // fallback to capabilities if no tags
+                Metrics = block.GetAggregatedMetrics()
             };
         }
 
