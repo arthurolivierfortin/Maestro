@@ -18,6 +18,7 @@ import {
   T, muted, label, primary, bold,
   statusColor, statusIcon,
   formatDuration, formatTime,
+  prevPage, nextPage,
 } from '../theme.ts';
 import { useApiData } from '../hooks/useApiData.ts';
 import { useKeyboard } from '../hooks/useKeyboard.ts';
@@ -89,25 +90,41 @@ const ActiveSessionCard = ({ session, index, isSelected, onSelect }) => {
   );
 };
 
-const ActiveSessions = ({ sessions, selectedIndex }) => {
+const SESSIONS_PER_PAGE = 10;
+
+const ActiveSessions = ({ sessions, selectedIndex, page, totalPages }) => {
   if (!sessions || sessions.length === 0) {
     return h(Box, { paddingLeft: 1 },
       muted('No active sessions'),
     );
   }
 
+  const startIdx = page * SESSIONS_PER_PAGE;
+  const endIdx = Math.min(startIdx + SESSIONS_PER_PAGE, sessions.length);
+  const visibleSessions = sessions.slice(startIdx, endIdx);
+
   return h(Box, { flexDirection: 'column' },
-    ...sessions.slice(0, 8).map((session, i) =>
-      h(ActiveSessionCard, {
-        key: session.id || `s-${i}`,
+    ...visibleSessions.map((session, i) => {
+      const globalIdx = startIdx + i;
+      return h(ActiveSessionCard, {
+        key: session.id || `s-${globalIdx}`,
         session,
-        index: i,
-        isSelected: i === selectedIndex,
-      })
-    ),
-    sessions.length > 8
-      ? h(Box, { paddingLeft: 1 },
-          muted(`  ... and ${sessions.length - 8} more`),
+        index: globalIdx,
+        isSelected: globalIdx === selectedIndex,
+      });
+    }),
+    totalPages > 1
+      ? h(Box, { paddingLeft: 1, marginTop: 1, flexDirection: 'row', gap: 1 },
+          muted('Page '),
+          primary(String(page + 1)),
+          muted('/' + totalPages),
+          h(Text, null, '  '),
+          h(Text, { color: theme.shortcut.bracket, dimColor: true }, '['),
+          h(Text, { color: theme.shortcut.key }, 'PgUp'),
+          h(Text, { color: theme.shortcut.bracket, dimColor: true }, '/'),
+          h(Text, { color: theme.shortcut.key }, 'PgDn'),
+          h(Text, { color: theme.shortcut.bracket, dimColor: true }, ']'),
+          muted(' navigate'),
         )
       : null,
   );
@@ -198,6 +215,7 @@ const QuitConfirmation = ({ onConfirm, onCancel }) => {
 
 const HomeScreen = ({ apiClient, onNavigate, onSessionSelect, onQuit }) => {
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [page, setPage] = useState(0);
   const [showQuitConfirm, setShowQuitConfirm] = useState(false);
 
   // Fetch data
@@ -221,15 +239,64 @@ const HomeScreen = ({ apiClient, onNavigate, onSessionSelect, onQuit }) => {
 
   const sessionList = sessions || [];
   const runningCount = sessionList.filter(s => s.status === 'running').length;
+  const totalPages = Math.max(1, Math.ceil(sessionList.length / SESSIONS_PER_PAGE));
+
+  // Keep page in bounds when session list changes
+  const currentPage = Math.min(page, totalPages - 1);
 
   const askQuit = () => setShowQuitConfirm(true);
 
+  const navigateUp = () => {
+    setSelectedIndex(i => {
+      const newIdx = Math.max(0, i - 1);
+      // Auto-switch page if selection goes above current page
+      const newPage = Math.floor(newIdx / SESSIONS_PER_PAGE);
+      setPage(newPage);
+      return newIdx;
+    });
+  };
+
+  const navigateDown = () => {
+    setSelectedIndex(i => {
+      const newIdx = Math.min(sessionList.length - 1, i + 1);
+      // Auto-switch page if selection goes below current page
+      const newPage = Math.floor(newIdx / SESSIONS_PER_PAGE);
+      setPage(newPage);
+      return newIdx;
+    });
+  };
+
+  const pageUp = () => {
+    setPage(p => {
+      const newPage = Math.max(0, p - 1);
+      // Move selection to first item on new page
+      setSelectedIndex(newPage * SESSIONS_PER_PAGE);
+      return newPage;
+    });
+  };
+
+  const pageDown = () => {
+    setPage(p => {
+      const newPage = Math.min(totalPages - 1, p + 1);
+      // Move selection to first item on new page
+      const firstOnPage = newPage * SESSIONS_PER_PAGE;
+      setSelectedIndex(Math.min(firstOnPage, sessionList.length - 1));
+      return newPage;
+    });
+  };
+
   // Keyboard — disabled when quit confirmation is showing
   useKeyboard(showQuitConfirm ? {} : {
-    up: () => setSelectedIndex(i => Math.max(0, i - 1)),
-    down: () => setSelectedIndex(i => Math.min(sessionList.length - 1, i + 1)),
-    k: () => setSelectedIndex(i => Math.max(0, i - 1)),
-    j: () => setSelectedIndex(i => Math.min(sessionList.length - 1, i + 1)),
+    up: navigateUp,
+    down: navigateDown,
+    k: navigateUp,
+    j: navigateDown,
+    // PgUp/PgDown via Ctrl+Up/Down (terminal PgUp/PgDn not standard in Ink)
+    ctrlUp: pageUp,
+    ctrlDown: pageDown,
+    // Ctrl+Left/Right = switch page (wrap-around)
+    ctrlLeft: () => onNavigate(prevPage('home')),
+    ctrlRight: () => onNavigate(nextPage('home')),
     enter: () => {
       if (sessionList.length > 0 && sessionList[selectedIndex]) {
         onSessionSelect(sessionList[selectedIndex].id);
@@ -242,10 +309,6 @@ const HomeScreen = ({ apiClient, onNavigate, onSessionSelect, onQuit }) => {
     m: () => onNavigate('models'),
     q: askQuit,
     escape: askQuit,
-    number: (num) => {
-      const pageMap = { 1: 'home', 2: 'spaces', 3: 'foundry', 4: 'catalog', 5: 'models' };
-      if (pageMap[num]) onNavigate(pageMap[num]);
-    },
   });
 
   // Quit confirmation overlay
@@ -280,7 +343,7 @@ const HomeScreen = ({ apiClient, onNavigate, onSessionSelect, onQuit }) => {
     h(Box, { flexDirection: 'row', flexGrow: 1, width: '100%' },
       // Active Sessions (left, 70%)
       h(Panel, { title: 'ACTIVE SESSIONS', flexGrow: 1 },
-        h(ActiveSessions, { sessions: sessionList, selectedIndex }),
+        h(ActiveSessions, { sessions: sessionList, selectedIndex, page: currentPage, totalPages }),
       ),
 
       // Quick Actions (right, 30%)

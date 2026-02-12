@@ -257,6 +257,13 @@ public class ProjectSessionServer : IProjectSessionServer
         var session = await _repository.GetByIdAsync(id, ct)
             ?? throw new InvalidOperationException($"Session {id.Value} not found");
 
+        // Validate that there is an active workflow to pause
+        var activeWorkflow = session.GetVariable<string>("_activeWorkflow", "");
+        if (string.IsNullOrEmpty(activeWorkflow))
+        {
+            throw new InvalidOperationException("Cannot pause: no active workflow running");
+        }
+
         session.Pause();
         await _repository.SaveAsync(session, ct);
 
@@ -269,6 +276,13 @@ public class ProjectSessionServer : IProjectSessionServer
     {
         var session = await _repository.GetByIdAsync(id, ct)
             ?? throw new InvalidOperationException($"Session {id.Value} not found");
+
+        // Validate that the session is actually paused before resuming
+        if (!session.IsPaused)
+        {
+            var currentStatus = session.GetSessionStatus().ToString().ToLowerInvariant();
+            throw new InvalidOperationException($"Cannot resume: session is not paused (current status: {currentStatus})");
+        }
 
         session.Resume();
         await _repository.SaveAsync(session, ct);

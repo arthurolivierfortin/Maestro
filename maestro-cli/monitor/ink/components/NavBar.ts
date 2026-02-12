@@ -86,7 +86,11 @@ const NavBar = ({ currentPage = 'home', sessionCount = 0, runningCount = 0 }) =>
       h(Text, null, '  '),
       ...tabElements,
     ),
-    badge,
+    h(Box, { flexDirection: 'row' },
+      badge,
+      h(Text, { color: theme.text.muted, dimColor: true }, '  Ctrl+'),
+      h(Text, { color: theme.shortcut.key, dimColor: true }, '\u2190\u2192'),
+    ),
   );
 };
 

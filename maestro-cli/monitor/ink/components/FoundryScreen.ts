@@ -18,6 +18,7 @@ import {
   T, muted, primary,
   TypeBadge,
   truncate,
+  prevPage, nextPage,
 } from '../theme.ts';
 import { useApiData } from '../hooks/useApiData.ts';
 import { useKeyboard } from '../hooks/useKeyboard.ts';
@@ -125,6 +126,9 @@ const FoundryScreen = ({ apiClient, onNavigate, onQuit }) => {
     down: () => setSelectedIndex(i => Math.min(sortedBlocks.length - 1, i + 1)),
     k: () => setSelectedIndex(i => Math.max(0, i - 1)),
     j: () => setSelectedIndex(i => Math.min(sortedBlocks.length - 1, i + 1)),
+    // Ctrl+Left/Right = switch page (wrap-around)
+    ctrlLeft: () => onNavigate(prevPage('foundry')),
+    ctrlRight: () => onNavigate(nextPage('foundry')),
     enter: () => {
       setExpandedIndex(prev => prev === selectedIndex ? -1 : selectedIndex);
     },
@@ -141,10 +145,6 @@ const FoundryScreen = ({ apiClient, onNavigate, onQuit }) => {
       }
     },
     q: onQuit,
-    number: (num) => {
-      const pageMap = { 1: 'home', 2: 'spaces', 3: 'foundry', 4: 'catalog', 5: 'models' };
-      if (pageMap[num]) onNavigate(pageMap[num]);
-    },
   });
 
   // Count by type

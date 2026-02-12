@@ -48,9 +48,14 @@ public enum SessionStatus
     Created,
 
     /// <summary>
-    /// Session is currently running.
+    /// Session is currently running a workflow.
     /// </summary>
     Running,
+
+    /// <summary>
+    /// Session is started but no workflow is actively running.
+    /// </summary>
+    Idle,
 
     /// <summary>
     /// Session has been paused.

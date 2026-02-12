@@ -64,16 +64,21 @@ const Header = ({ session, context }) => {
     );
   }
 
-  // ── Row 3: Iteration / Fitness (optional) ──
+  // ── Row 3: Iteration / Fitness (always visible if data present) ──
   const vars = session.variables || {};
   const currentIteration = vars.currentIteration || 0;
   const maxIterations = vars.maxIterations || 50;
   const currentFitness = Number(vars.currentFitness || 0);
   const targetFitness = Number(vars.targetFitness || 0.85);
 
+  // Detect if session has any metrics data at all
+  const hasScoreHistory = Array.isArray(vars.scoreHistory) && vars.scoreHistory.length > 0;
+  const hasPhases = Array.isArray(vars._phases) && vars._phases.length > 0;
+  const hasAnyMetrics = currentIteration > 0 || currentFitness > 0 || hasScoreHistory || hasPhases;
+
   let iterFitnessLine = null;
 
-  if (currentIteration > 0 || currentFitness > 0) {
+  if (hasAnyMetrics) {
     const fitnessPercent = currentFitness * 100;
     const progressToTarget = targetFitness > 0
       ? (currentFitness / targetFitness) * 100
@@ -108,32 +113,56 @@ const Header = ({ session, context }) => {
     // Build the parts as React elements
     const parts = [];
 
-    // Part 1: fitness bar + percentage + target
-    parts.push(
-      h(Box, { key: 'fitness', flexDirection: 'row' },
-        T(barColor, fitnessBarStr),
-        h(Text, {}, ' '),
-        h(Text, {}, fitnessPercent.toFixed(0) + '%'),
-        targetStr ? dim(targetStr) : null
-      )
-    );
+    // Part 1: fitness bar + percentage + target (only if fitness data exists)
+    if (currentFitness > 0 || currentIteration > 0) {
+      parts.push(
+        h(Box, { key: 'fitness', flexDirection: 'row' },
+          T(barColor, fitnessBarStr),
+          h(Text, {}, ' '),
+          h(Text, {}, fitnessPercent.toFixed(0) + '%'),
+          targetStr ? dim(targetStr) : null
+        )
+      );
+    }
 
-    // Part 2: iteration + sparkline
-    parts.push(
-      h(Box, { key: 'iter', flexDirection: 'row' },
-        h(Text, {}, 'iter '),
-        bold(String(currentIteration)),
-        h(Text, {}, '/' + maxIterations),
-        sparklineEl
-      )
-    );
+    // Part 2: iteration + sparkline (only if iteration data exists)
+    if (currentIteration > 0) {
+      parts.push(
+        h(Box, { key: 'iter', flexDirection: 'row' },
+          h(Text, {}, 'iter '),
+          bold(String(currentIteration)),
+          h(Text, {}, '/' + maxIterations),
+          sparklineEl
+        )
+      );
+    } else if (sparklineEl) {
+      // Show sparkline even without active iteration if score history exists
+      parts.push(
+        h(Box, { key: 'spark', flexDirection: 'row' },
+          muted('scores'),
+          sparklineEl
+        )
+      );
+    }
 
-    // Part 3: phase name (optional)
+    // Part 3: phase info (always shown if phases exist)
     if (phaseName) {
       parts.push(
         h(Box, { key: 'phase', flexDirection: 'row' },
           h(Text, {}, 'Phase: '),
           running(phaseName)
+        )
+      );
+    } else if (hasPhases) {
+      // Show compact phase summary: e.g., "3/5 phases done"
+      const phases = vars._phases;
+      const doneCount = phases.filter(p => p.status === 'done' || p.status === 'completed').length;
+      const totalCount = phases.length;
+      parts.push(
+        h(Box, { key: 'phase-summary', flexDirection: 'row' },
+          muted('phases '),
+          bold(String(doneCount)),
+          muted('/' + totalCount)
         )
       );
     }

@@ -394,6 +394,18 @@ public abstract class Session : ContainerSession
             };
         }
 
+        // When session is Active, distinguish between Running (workflow executing)
+        // and Idle (started but no workflow running)
+        if (Status == ContainerSessionStatus.Active)
+        {
+            var activeWorkflow = GetVariable<string>("_activeWorkflow", "");
+            if (string.IsNullOrEmpty(activeWorkflow))
+            {
+                return SessionStatus.Idle;
+            }
+            return SessionStatus.Running;
+        }
+
         return MapStatusToSessionStatus(Status);
     }
 

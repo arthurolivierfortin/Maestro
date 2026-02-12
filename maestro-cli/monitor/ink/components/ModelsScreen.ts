@@ -13,6 +13,7 @@
 import { createElement as h, useState, useEffect, useCallback } from 'react';
 import { Box, Text } from 'ink';
 import {
+  prevPage, nextPage,
   theme, icons,
   T, muted, primary, label, bold,
   statusColor, statusIcon,
@@ -145,6 +146,9 @@ const ModelsScreen = ({ apiClient, onNavigate, onModelSelect, onQuit, initialSta
     down: () => setSelectedIndex(i => Math.min(modelList.length - 1, i + 1)),
     k: () => setSelectedIndex(i => Math.max(0, i - 1)),
     j: () => setSelectedIndex(i => Math.min(modelList.length - 1, i + 1)),
+    // Ctrl+Left/Right = switch page (wrap-around)
+    ctrlLeft: () => onNavigate(prevPage('models')),
+    ctrlRight: () => onNavigate(nextPage('models')),
     enter: () => {
       if (onModelSelect && modelList.length > 0) {
         const model = modelList[selectedIndex];
@@ -159,10 +163,6 @@ const ModelsScreen = ({ apiClient, onNavigate, onModelSelect, onQuit, initialSta
     m: () => {}, // Already on models
     escape: () => onNavigate('home'),
     q: onQuit,
-    number: (num) => {
-      const pageMap = { 1: 'home', 2: 'spaces', 3: 'foundry', 4: 'catalog', 5: 'models' };
-      if (pageMap[num]) onNavigate(pageMap[num]);
-    },
   });
 
   return h(Box, { flexDirection: 'column', width: '100%', flexGrow: 1 },

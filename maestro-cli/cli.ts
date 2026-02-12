@@ -6,6 +6,7 @@ const minimist = require('minimist');
 const { MaestroApiClient, ApiError } = require('../shared/api-client');
 const { OutputFormatter } = require('./output-formatter.ts');
 const { JsonInputParser } = require('./json-parser.ts');
+const c = require('../shared/utils/cli-colors.js');
 
 // Configuration
 const API_URL = process.env.MAESTRO_API_URL || 'http://localhost:5000';
@@ -15,6 +16,57 @@ const client = new MaestroApiClient(API_URL, { debug: DEBUG });
 
 // Module-level formatter — set to JSON mode in main() when --json is used
 let formatter = new OutputFormatter(false);
+
+// Exit code constants (P2 item 17)
+const EXIT = { OK: 0, USER_ERROR: 1, NOT_FOUND: 2, SERVER_ERROR: 3, TIMEOUT: 4 };
+
+/**
+ * Resolve a short ID prefix to a full ID by querying the relevant resource list.
+ * Supports session, project, workspace, and other resource types.
+ * If the ID is already a full UUID (36 chars), returns it as-is.
+ */
+async function resolveId(shortId, resourceType = 'session') {
+  if (!shortId) return shortId;
+  // If already a full UUID, return as-is
+  if (shortId.length >= 32) return shortId;
+
+  try {
+    let items = [];
+    if (resourceType === 'session') {
+      items = await client.listSessions();
+    } else if (resourceType === 'project') {
+      items = await client.listProjects();
+    } else if (resourceType === 'workspace') {
+      items = await client._fetch('GET', '/api/workspaces');
+    }
+
+    const matches = items.filter(item => item.id.startsWith(shortId));
+    if (matches.length === 1) return matches[0].id;
+    if (matches.length > 1) {
+      formatter.error(`Ambiguous ID prefix '${shortId}' — matches ${matches.length} ${resourceType}s. Use more characters.`, 'AMBIGUOUS_ID');
+      process.exit(EXIT.USER_ERROR);
+    }
+    // No match by prefix — return original (let the API return 404)
+    return shortId;
+  } catch (e) {
+    // If list fails, return original and let specific API call handle error
+    return shortId;
+  }
+}
+
+/**
+ * List available session templates by scanning the template directory.
+ */
+function listAvailableTemplates() {
+  const templateDir = path.join(__dirname, '../content/system/templates/sessions');
+  try {
+    return fs.readdirSync(templateDir)
+      .filter(f => f.endsWith('.session.json'))
+      .map(f => f.replace('.session.json', ''));
+  } catch (e) {
+    return [];
+  }
+}
 
 /**
  * Logs a command to the session's command history variable.
@@ -106,11 +158,11 @@ async function listBlocks() {
   try {
     const blocks = await client.listBlocks();
     if (blocks.length === 0) {
-      console.log('No blocks found');
+      console.log(c.gray('No blocks found'));
       return;
     }
 
-    console.log('\n📦 Available Blocks:\n');
+    console.log('\n' + c.bold('Available Blocks:') + c.gray(` (${blocks.length})`) + '\n');
     console.table(blocks.map(b => ({
       'ID': b.id,
       'Name': b.name,
@@ -119,13 +171,13 @@ async function listBlocks() {
     })));
   } catch (error) {
     if (error.code === 'ECONNREFUSED' || error.message.includes('ECONNREFUSED')) {
-      console.error(`❌ Cannot connect to backend at ${API_URL}`);
-      console.error('   Make sure the backend is running:');
-      console.error('   $ dotnet run --project backend/src/Maestro.Api');
+      console.error(c.fail(`Cannot connect to backend at ${API_URL}`));
+      console.error(c.gray('   Make sure the backend is running:'));
+      console.error(c.gray('   $ dotnet run --project backend/src/Maestro.Api'));
     } else if (error.status === 404) {
-      console.error('❌ Backend API not found. Wrong API URL?');
+      console.error(c.fail('Backend API not found. Wrong API URL?'));
     } else {
-      console.error(`❌ Error listing blocks: ${error.message}`);
+      console.error(c.fail(`Error listing blocks: ${error.message}`));
     }
     process.exit(1);
   }
@@ -135,21 +187,21 @@ async function listWorkflows() {
   try {
     const blocks = await client.listBlocks({ type: 'Workflow' });
     if (blocks.length === 0) {
-      console.log('No workflows found');
+      console.log(c.gray('No workflows found'));
       return;
     }
 
-    console.log('\n⚙️  Available Workflows:\n');
+    console.log('\n' + c.bold('Available Workflows:') + c.gray(` (${blocks.length})`) + '\n');
     console.table(blocks.map(b => ({
       'ID': b.id,
       'Name': b.name,
       'Description': b.description || '-'
     })));
   } catch (error) {
-    console.error(`❌ Error listing workflows: ${error.message}`);
+    console.error(c.fail(`Error listing workflows: ${error.message}`));
     if (error.code === 'ECONNREFUSED' || error.message.includes('ECONNREFUSED')) {
-      console.error('   Is the backend running? Start it with:');
-      console.error('   $ dotnet run --project backend/src/Maestro.Api');
+      console.error(c.gray('   Is the backend running? Start it with:'));
+      console.error(c.gray('   $ dotnet run --project backend/src/Maestro.Api'));
     }
     process.exit(1);
   }
@@ -158,20 +210,20 @@ async function listWorkflows() {
 async function getBlockInfo(id) {
   try {
     const block = await client.getBlock(id);
-    console.log('\n📄 Block Details:\n');
-    console.log(`  ID:           ${block.id}`);
-    console.log(`  Name:         ${block.name}`);
-    console.log(`  Type:         ${block.blockType}`);
-    console.log(`  Version:      ${block.version}`);
-    console.log(`  Description:  ${block.description || 'N/A'}`);
-    console.log(`  Capabilities: ${block.capabilities?.join(', ') || 'None'}`);
-    console.log(`  Created:      ${block.createdAt}`);
+    console.log('\n' + c.bold('Block Details:') + '\n');
+    console.log(`  ${c.gray('ID:')}           ${block.id}`);
+    console.log(`  ${c.gray('Name:')}         ${block.name}`);
+    console.log(`  ${c.gray('Type:')}         ${c.color(require('../shared/utils/status.js').typeBadgeColorMap[block.blockType?.toLowerCase()] || 'white', block.blockType)}`);
+    console.log(`  ${c.gray('Version:')}      ${block.version}`);
+    console.log(`  ${c.gray('Description:')}  ${block.description || 'N/A'}`);
+    console.log(`  ${c.gray('Capabilities:')} ${block.capabilities?.join(', ') || 'None'}`);
+    console.log(`  ${c.gray('Created:')}      ${block.createdAt}`);
     console.log('');
   } catch (error) {
     if (error.status === 404) {
-      console.error(`❌ Block not found: ${id}`);
+      console.error(c.fail(`Block not found: ${id}`));
     } else {
-      console.error(`❌ Error retrieving block: ${error.message}`);
+      console.error(c.fail(`Error retrieving block: ${error.message}`));
     }
     process.exit(1);
   }
@@ -182,11 +234,11 @@ async function getBlockChildren(id, recursive = true) {
     const result = await client.getBlockChildren(id, recursive);
 
     if (result.isAtomic) {
-      console.log(`\n📄 Block '${id}' is atomic (no children)\n`);
+      console.log(`\nBlock '${id}' is atomic (no children)\n`);
       return;
     }
 
-    console.log(`\n📂 Block '${id}' Children (${recursive ? 'recursive' : 'direct only'}):\n`);
+    console.log(`\nBlock '${id}' Children (${recursive ? 'recursive' : 'direct only'}):\n`);
     console.log(`  Total Children: ${result.totalChildren}`);
     console.log(`  Atomic Blocks:  ${result.atomicCount}`);
     console.log(`  Composite Blocks: ${result.compositeCount}\n`);
@@ -201,7 +253,7 @@ async function getBlockChildren(id, recursive = true) {
         const nameStr = displayName && displayName !== displayId ? ` "${displayName}"` : '';
         console.log(`${indent}${icon} ${displayId}${nameStr} [${displayType}]`);
         if (child.children && child.children.length > 0) {
-          child.children.forEach(c => formatChild(c, indent + '  '));
+          child.children.forEach(ch => formatChild(ch, indent + '  '));
         }
       };
 
@@ -210,9 +262,9 @@ async function getBlockChildren(id, recursive = true) {
     console.log('');
   } catch (error) {
     if (error.status === 404) {
-      console.error(`❌ Block not found: ${id}`);
+      console.error(`Block not found: ${id}`);
     } else {
-      console.error(`❌ Error retrieving block children: ${error.message}`);
+      console.error(`Error retrieving block children: ${error.message}`);
     }
     process.exit(1);
   }
@@ -222,7 +274,18 @@ async function checkHealth() {
   formatter.setCommand('health');
   try {
     const health = await client.getHealth();
-    formatter.success(health, `\n✅ Backend Health Check:\n\n  Status:       ${health.status}\n  Version:      ${health.version}\n  Uptime:       ${health.uptime || 'N/A'}\n  Block Count:  ${health.blockCount}\n  Services:     ${Object.entries(health.services).map(([k, v]) => `${k}=${v}`).join(', ')}\n`);
+    const svcStr = Object.entries(health.services).map(([k, v]) => {
+      const col = v === 'ok' || v === 'healthy' ? c.green : c.yellow;
+      return `${k}=${col(v)}`;
+    }).join(', ');
+    formatter.success(health,
+      `\n${c.ok('Backend Health Check:')}\n\n` +
+      `  ${c.gray('Status:')}       ${c.green(health.status)}\n` +
+      `  ${c.gray('Version:')}      ${health.version}\n` +
+      `  ${c.gray('Uptime:')}       ${health.uptime || 'N/A'}\n` +
+      `  ${c.gray('Block Count:')}  ${health.blockCount}\n` +
+      `  ${c.gray('Services:')}     ${svcStr}\n`
+    );
   } catch (error) {
     formatter.error(`Backend is not responding at ${API_URL}`, 'ECONNREFUSED',
       'Start the backend with: dotnet run --project backend/src/Maestro.Api');
@@ -238,109 +301,96 @@ async function searchBlocks(query) {
       return;
     }
 
-    console.log(`\n🔍 Search results for "${query}":\n`);
+    console.log('\n' + c.bold('Search results for') + ` "${c.cyan(query)}":` + c.gray(` (${results.length})`) + '\n');
     console.table(results.map(b => ({
       'ID': b.id,
       'Name': b.name,
       'Type': b.blockType
     })));
   } catch (error) {
-    console.error(`❌ Search failed: ${error.message}`);
+    console.error(c.fail(`Search failed: ${error.message}`));
     process.exit(1);
   }
 }
 
-// ============= Workflow Execution Functions =============
+// ============= Block Execution (unified run) =============
 
-async function executeWorkflowReal(workflowId, inputs, options = {}) {
+async function runBlockUnified(blockId, inputs, options = {}) {
+  formatter.setCommand('run');
   try {
-    console.log(`\n⚙️  Executing workflow: ${workflowId}\n`);
-    console.log(`  Inputs:`, JSON.stringify(inputs, null, 2));
-    if (options.workingDir) {
-      console.log(`  Working Directory: ${options.workingDir}`);
+    // Detect block type to route correctly
+    let isWorkflow = false;
+    try {
+      const block = await client._fetch('GET', `/api/blocks/${blockId}`);
+      if (block && block.blockType === 'workflow') isWorkflow = true;
+    } catch (e) {
+      // Block lookup failed — try executing directly, let the API decide
     }
-    console.log('');
 
-    const startTime = Date.now();
-
-    const result = await client.executeWorkflow(workflowId, {
-      inputs,
-      workingDirectory: options.workingDir
-    });
-
-    const duration = Date.now() - startTime;
-
-    if (result.success) {
-      console.log(`✅ Workflow executed successfully in ${duration}ms\n`);
-      console.log('📤 Outputs:');
-      console.log(JSON.stringify(result.outputs, null, 2));
-    } else {
-      console.error(`❌ Workflow execution failed\n`);
-      if (result.error) {
-        console.error(`  Error: ${result.error}`);
+    // Mock mode only applies to workflows
+    if (options.mock) {
+      if (!isWorkflow) {
+        console.log(c.warn('Mock mode only applies to workflows. Running block directly.'));
+      } else {
+        return runMockWorkflow(blockId, inputs);
       }
-      process.exit(1);
     }
-    console.log('');
-  } catch (error) {
-    if (error.status === 404) {
-      console.error(`❌ Workflow not found: ${workflowId}`);
-      console.error('   Use "maestro workflows" to list available workflows');
-    } else if (error.status === 400) {
-      console.error(`❌ Invalid workflow request: ${error.message}`);
-    } else {
-      handleApiError(error, 'executing workflow');
-    }
-    process.exit(1);
-  }
-}
 
-async function executeBlockReal(blockId, inputs, options = {}) {
-  try {
-    console.log(`\n⚙️  Executing block: ${blockId}\n`);
-    console.log(`  Inputs:`, JSON.stringify(inputs, null, 2));
-    if (options.workingDir) {
-      console.log(`  Working Directory: ${options.workingDir}`);
+    console.log(`\n${c.bold('Running:')} ${c.cyan(blockId)}${isWorkflow ? c.gray(' (workflow)') : ''}\n`);
+    if (Object.keys(inputs).length > 0) {
+      console.log(`  ${c.gray('Inputs:')}`, JSON.stringify(inputs, null, 2));
     }
-    console.log('');
+    if (options.workingDir) {
+      console.log(`  ${c.gray('Working Dir:')} ${options.workingDir}`);
+    }
+    if (Object.keys(inputs).length > 0 || options.workingDir) console.log('');
 
     const startTime = Date.now();
+    let result;
 
-    const result = await client._fetch('POST', `/api/blocks/${blockId}/execute`, {
-      body: {
+    if (isWorkflow) {
+      result = await client.executeWorkflow(blockId, {
         inputs,
         workingDirectory: options.workingDir
-      }
-    });
+      });
+    } else {
+      result = await client._fetch('POST', `/api/blocks/${blockId}/execute`, {
+        body: { inputs, workingDirectory: options.workingDir }
+      });
+    }
 
     const duration = Date.now() - startTime;
 
     if (result.success) {
-      console.log(`✅ Block executed successfully in ${duration}ms\n`);
-      console.log('📤 Outputs:');
-      console.log(JSON.stringify(result.outputs, null, 2));
+      console.log(c.ok(`Executed in ${duration}ms`) + '\n');
+      if (result.outputs) {
+        console.log(c.gray('Outputs:'));
+        console.log(JSON.stringify(result.outputs, null, 2));
+      }
       if (result.logs && result.logs.length > 0) {
-        console.log('\n📋 Logs:');
+        console.log(c.gray('\nLogs:'));
         result.logs.forEach(log => console.log(`  ${log}`));
       }
     } else {
-      console.error(`❌ Block execution failed\n`);
+      console.error(c.fail('Execution failed') + '\n');
+      if (result.error) console.error(`  ${result.error}`);
       if (result.logs && result.logs.length > 0) {
-        console.error('📋 Logs:');
         result.logs.forEach(log => console.error(`  ${log}`));
       }
-      process.exit(1);
+      process.exit(EXIT.SERVER_ERROR);
     }
     console.log('');
   } catch (error) {
     if (error.status === 404) {
-      console.error(`❌ Block not found: ${blockId}`);
+      formatter.error(`Block not found: ${blockId}`, 'NOT_FOUND');
+      process.exit(EXIT.NOT_FOUND);
     } else if (error.status === 400) {
-      console.error(`❌ Invalid block request: ${error.message}`);
+      formatter.error(`Invalid request: ${error.message}`, 'BAD_REQUEST');
+      process.exit(EXIT.USER_ERROR);
     } else {
-      handleApiError(error, 'executing block');
+      handleApiError(error, 'running block');
     }
-    process.exit(1);
+    process.exit(EXIT.SERVER_ERROR);
   }
 }
 
@@ -355,7 +405,7 @@ async function listProjects() {
       return;
     }
 
-    console.log('\n📁 Available Projects:\n');
+    console.log('\nAvailable Projects:\n');
     console.table(projects.map(p => ({
       'ID': p.id.substring(0, 8) + '...',
       'Name': p.name,
@@ -371,7 +421,7 @@ async function listProjects() {
 async function getProjectInfo(id) {
   try {
     const project = await client.getProject(id);
-    console.log('\n📁 Project Details:\n');
+    console.log('\nProject Details:\n');
     console.log(`  ID:           ${project.id}`);
     console.log(`  Name:         ${project.name}`);
     console.log(`  Description:  ${project.description || 'N/A'}`);
@@ -405,7 +455,7 @@ async function getProjectInfo(id) {
     console.log('');
   } catch (error) {
     if (error.status === 404) {
-      console.error(`❌ Project not found: ${id}`);
+      console.error(`Project not found: ${id}`);
     } else {
       handleApiError(error, 'retrieving project');
     }
@@ -429,16 +479,16 @@ async function createProject(name, rootPath, options = {}) {
     };
 
     const project = await client.createProject(request);
-    console.log(`\n✅ Project created successfully!\n`);
+    console.log(`\nProject created successfully!\n`);
     console.log(`  ID:   ${project.id}`);
     console.log(`  Name: ${project.name}`);
     console.log(`  Path: ${project.rootPath}`);
     console.log('');
   } catch (error) {
     if (error.status === 400) {
-      console.error(`❌ Invalid project configuration: ${error.message}`);
+      console.error(`Invalid project configuration: ${error.message}`);
     } else if (error.status === 409) {
-      console.error(`❌ Project already exists at: ${rootPath}`);
+      console.error(`Project already exists at: ${rootPath}`);
     } else {
       handleApiError(error, 'creating project');
     }
@@ -450,14 +500,14 @@ async function openProject(projectPath) {
   try {
     const resolvedPath = path.resolve(projectPath);
     const project = await client.openProject(resolvedPath);
-    console.log(`\n✅ Project opened successfully!\n`);
+    console.log(`\nProject opened successfully!\n`);
     console.log(`  ID:   ${project.id}`);
     console.log(`  Name: ${project.name}`);
     console.log(`  Path: ${project.rootPath}`);
     console.log('');
   } catch (error) {
     if (error.status === 404) {
-      console.error(`❌ No project found at: ${projectPath}`);
+      console.error(`No project found at: ${projectPath}`);
       console.error('   Create one with: maestro projects create --name "Name" --path ' + projectPath);
       console.error('   Or bind an existing directory: maestro projects bind --path ' + projectPath);
     } else {
@@ -483,7 +533,7 @@ async function bindProject(projectPath, options = {}) {
     };
 
     const project = await client.bindProject(request);
-    console.log(`\n✅ Project bound successfully!\n`);
+    console.log(`\nProject bound successfully!\n`);
     console.log(`  ID:   ${project.id}`);
     console.log(`  Name: ${project.name}`);
     console.log(`  Path: ${project.rootPath}`);
@@ -494,9 +544,9 @@ async function bindProject(projectPath, options = {}) {
     console.log('');
   } catch (error) {
     if (error.status === 400) {
-      console.error(`❌ Cannot bind: ${error.message}`);
+      console.error(`Cannot bind: ${error.message}`);
     } else if (error.status === 409) {
-      console.error(`❌ Project already exists at: ${projectPath}`);
+      console.error(`Project already exists at: ${projectPath}`);
     } else {
       handleApiError(error, 'binding project');
     }
@@ -513,11 +563,11 @@ async function deleteProject(id, options = {}) {
     }
     
     await client.deleteProject(id);
-    console.log(`\n✅ Project removed: ${id}`);
+    console.log(`\nProject removed: ${id}`);
     console.log('');
   } catch (error) {
     if (error.status === 404) {
-      console.error(`❌ Project not found: ${id}`);
+      console.error(`Project not found: ${id}`);
     } else {
       handleApiError(error, 'deleting project');
     }
@@ -533,7 +583,7 @@ async function listProjectBlocks(projectId) {
       return;
     }
 
-    console.log(`\n📦 Blocks in Project:\n`);
+    console.log(`\nBlocks in Project:\n`);
     console.table(blocks.map(b => ({
       'ID': b.id,
       'Name': b.name,
@@ -542,7 +592,7 @@ async function listProjectBlocks(projectId) {
     })));
   } catch (error) {
     if (error.status === 404) {
-      console.error(`❌ Project not found: ${projectId}`);
+      console.error(`Project not found: ${projectId}`);
     } else {
       handleApiError(error, 'listing project blocks');
     }
@@ -553,7 +603,7 @@ async function listProjectBlocks(projectId) {
 async function discoverProjects(searchPath) {
   try {
     const resolvedPath = path.resolve(searchPath);
-    console.log(`\n🔍 Discovering projects in: ${resolvedPath}\n`);
+    console.log(`\nDiscovering projects in: ${resolvedPath}\n`);
 
     const projects = await client.discoverProjects(resolvedPath);
     if (projects.length === 0) {
@@ -609,7 +659,7 @@ async function getContainerStatus(id) {
     console.log('');
   } catch (error) {
     if (error.status === 404) {
-      console.error(`❌ Project not found: ${id}`);
+      console.error(`Project not found: ${id}`);
     } else {
       handleApiError(error, 'getting container status');
     }
@@ -627,9 +677,9 @@ function formatUptime(seconds) {
 
 async function startContainer(id) {
   try {
-    console.log('\n▶️  Starting container...');
+    console.log('\nStarting container...');
     const status = await client.startContainer(id);
-    console.log(`✅ Container started`);
+    console.log(`Container started`);
     console.log(`  Status: ${formatStatus(status.status)}`);
     if (status.containerId) {
       console.log(`  Container ID: ${status.containerId}`);
@@ -637,9 +687,9 @@ async function startContainer(id) {
     console.log('');
   } catch (error) {
     if (error.status === 404) {
-      console.error(`❌ Project not found: ${id}`);
+      console.error(`Project not found: ${id}`);
     } else if (error.status === 400) {
-      console.error(`❌ Cannot start: ${error.message}`);
+      console.error(`Cannot start: ${error.message}`);
     } else {
       handleApiError(error, 'starting container');
     }
@@ -651,14 +701,14 @@ async function stopContainer(id) {
   try {
     console.log('\n⏹️  Stopping container...');
     const status = await client.stopContainer(id);
-    console.log(`✅ Container stopped`);
+    console.log(`Container stopped`);
     console.log(`  Status: ${formatStatus(status.status)}`);
     console.log('');
   } catch (error) {
     if (error.status === 404) {
-      console.error(`❌ Project not found: ${id}`);
+      console.error(`Project not found: ${id}`);
     } else if (error.status === 400) {
-      console.error(`❌ Cannot stop: ${error.message}`);
+      console.error(`Cannot stop: ${error.message}`);
     } else {
       handleApiError(error, 'stopping container');
     }
@@ -668,9 +718,9 @@ async function stopContainer(id) {
 
 async function restartContainer(id) {
   try {
-    console.log('\n🔄 Restarting container...');
+    console.log('\nRestarting container...');
     const status = await client.restartContainer(id);
-    console.log(`✅ Container restarted`);
+    console.log(`Container restarted`);
     console.log(`  Status: ${formatStatus(status.status)}`);
     if (status.containerId) {
       console.log(`  Container ID: ${status.containerId}`);
@@ -678,9 +728,9 @@ async function restartContainer(id) {
     console.log('');
   } catch (error) {
     if (error.status === 404) {
-      console.error(`❌ Project not found: ${id}`);
+      console.error(`Project not found: ${id}`);
     } else if (error.status === 400) {
-      console.error(`❌ Cannot restart: ${error.message}`);
+      console.error(`Cannot restart: ${error.message}`);
     } else {
       handleApiError(error, 'restarting container');
     }
@@ -697,14 +747,14 @@ async function getContainerLogs(id, options = {}) {
       return;
     }
 
-    console.log('\n📋 Container Logs:\n');
+    console.log('\nContainer Logs:\n');
     console.log('─'.repeat(60));
     console.log(logs);
     console.log('─'.repeat(60));
     console.log('');
   } catch (error) {
     if (error.status === 404) {
-      console.error(`❌ Project not found: ${id}`);
+      console.error(`Project not found: ${id}`);
     } else {
       handleApiError(error, 'getting container logs');
     }
@@ -733,7 +783,7 @@ async function listProjectsWithStatus() {
       })
     );
 
-    console.log('\n📁 Projects:\n');
+    console.log('\n' + c.bold('Projects:') + c.gray(` (${projectsWithStatus.length})`) + '\n');
     console.table(projectsWithStatus.map(p => ({
       'ID': p.id.substring(0, 8) + '...',
       'Name': p.name,
@@ -749,9 +799,17 @@ async function listProjectsWithStatus() {
 function handleApiError(error, action) {
   if (error.code === 'ECONNREFUSED' || error.message?.includes('ECONNREFUSED')) {
     formatter.error(`Cannot connect to backend at ${client.baseUrl}`, 'ECONNREFUSED',
-      'Make sure the backend is running: dotnet run --project backend/src/Maestro.Api');
+      'Start the backend: powershell -File dev-scripts/dev-start.ps1');
+    process.exitCode = EXIT.SERVER_ERROR;
+  } else if (error.status === 404) {
+    formatter.error(`Not found while ${action}: ${error.message}`, 'NOT_FOUND');
+    process.exitCode = EXIT.NOT_FOUND;
+  } else if (error.status === 408 || error.message?.includes('timeout')) {
+    formatter.error(`Timeout while ${action}: ${error.message}`, 'TIMEOUT');
+    process.exitCode = EXIT.TIMEOUT;
   } else {
     formatter.error(`Error ${action}: ${error.message}`, error.status ? `HTTP_${error.status}` : 'ERROR');
+    process.exitCode = error.status >= 500 ? EXIT.SERVER_ERROR : EXIT.USER_ERROR;
   }
 }
 
@@ -775,7 +833,7 @@ async function listSessions(filter = {}) {
       'Commands': s.commandCount || 0,
       'Created': new Date(s.createdAt).toLocaleDateString()
     }));
-    formatter.table(rows, '\n📋 Interactive Sessions:\n');
+    formatter.table(rows, '\n' + c.bold('Interactive Sessions:') + c.gray(` (${sessions.length})`) + '\n');
   } catch (error) {
     handleApiError(error, 'listing sessions');
     process.exit(1);
@@ -786,7 +844,23 @@ async function getSessionInfo(id) {
   formatter.setCommand('session.info');
   try {
     const session = await client.getSession(id);
-    const message = `\n📋 Session Details:\n\n  ID:           ${session.id}\n  Name:         ${session.name || 'N/A'}\n  Status:       ${session.status}\n  Authority:    ${session.authority || 'human'}\n  Project ID:   ${session.config?.projectId || 'N/A'}\n  Workflow ID:  ${session.config?.workflowId || 'N/A'}\n  Task:         ${session.config?.task || 'N/A'}\n  Access Level: ${session.config?.access?.level || 'controlled'}\n  Working Dir:  ${session.workingDirectory || 'N/A'}\n  Commands:     ${session.commandCount || 0}\n  Created:      ${session.createdAt}\n  Started:      ${session.startedAt || 'Not started'}\n  Completed:    ${session.completedAt || 'Not completed'}${session.errorMessage ? '\n  Error:        ' + session.errorMessage : ''}\n`;
+    const statusStr = c.status(session.status, session.status);
+    const message =
+      `\n${c.bold('Session Details:')}\n\n` +
+      `  ${c.gray('ID:')}           ${session.id}\n` +
+      `  ${c.gray('Name:')}         ${session.name || 'N/A'}\n` +
+      `  ${c.gray('Status:')}       ${statusStr}\n` +
+      `  ${c.gray('Authority:')}    ${session.authority || 'human'}\n` +
+      `  ${c.gray('Project ID:')}   ${session.config?.projectId || 'N/A'}\n` +
+      `  ${c.gray('Workflow ID:')}  ${session.config?.workflowId || 'N/A'}\n` +
+      `  ${c.gray('Task:')}         ${session.config?.task || 'N/A'}\n` +
+      `  ${c.gray('Access Level:')} ${session.config?.access?.level || 'controlled'}\n` +
+      `  ${c.gray('Working Dir:')}  ${session.workingDirectory || 'N/A'}\n` +
+      `  ${c.gray('Commands:')}     ${session.commandCount || 0}\n` +
+      `  ${c.gray('Created:')}      ${session.createdAt}\n` +
+      `  ${c.gray('Started:')}      ${session.startedAt || 'Not started'}\n` +
+      `  ${c.gray('Completed:')}    ${session.completedAt || 'Not completed'}` +
+      `${session.errorMessage ? '\n  ' + c.red('Error:') + '        ' + session.errorMessage : ''}\n`;
     formatter.success(session, message);
   } catch (error) {
     if (error.status === 404) {
@@ -840,11 +914,27 @@ async function createSession(options) {
     };
 
     const session = await client.createSession(request);
-    const message = `\n✅ Session created!\n\n  ID:        ${session.id}\n  Name:      ${session.name}\n  Status:    ${session.status}\n  Authority: ${session.authority || 'human'}\n  Source:    ${request.source}\n\n  Start it with: maestro session start ${session.id}\n`;
-    formatter.success(session, message);
+
+    // P1-8: Auto-import template if --template provided
+    if (options.template) {
+      await importSessionTemplate(session.id, options.template);
+    }
+
+    // P1-8: Auto-start if --start provided
+    if (options.autoStart) {
+      await client.startSession(session.id);
+      const message = `\n${c.ok('Session created and started!')}\n\n  ${c.gray('ID:')}        ${session.id}\n  ${c.gray('Name:')}      ${session.name}\n  ${c.gray('Status:')}    running\n  ${c.gray('Template:')}  ${options.template || 'none'}\n\n  ${c.gray('Next steps:')}\n    maestro session invoke ${session.id.substring(0, 8)}... start\n    maestro monitor ${session.id.substring(0, 8)}...\n`;
+      formatter.success(session, message);
+    } else {
+      const nextStep = options.template
+        ? `maestro session start ${session.id.substring(0, 8)}...`
+        : `maestro session import ${session.id.substring(0, 8)}... --template <name>`;
+      const message = `\n${c.ok('Session created!')}\n\n  ${c.gray('ID:')}        ${session.id}\n  ${c.gray('Name:')}      ${session.name}\n  ${c.gray('Status:')}    ${session.status}\n  ${c.gray('Authority:')} ${session.authority || 'human'}\n  ${c.gray('Template:')}  ${options.template || 'none'}\n\n  ${c.gray('Next step:')} ${nextStep}\n`;
+      formatter.success(session, message);
+    }
   } catch (error) {
     handleApiError(error, 'creating session');
-    process.exit(1);
+    process.exit(EXIT.USER_ERROR);
   }
 }
 
@@ -859,15 +949,15 @@ async function startSession(id, options = {}) {
       return;
     }
 
-    console.log(`\n▶️  Starting session: ${id}\n`);
-    console.log(`✅ Session ${session.status}\n`);
-    console.log(`  Authority:    ${session.authority || 'human'}`);
-    console.log(`  Working Dir:  ${session.workingDirectory || 'N/A'}`);
+    console.log(`\n${c.ok('Session started')}\n`);
+    console.log(`  ${c.gray('ID:')}          ${session.id}`);
+    console.log(`  ${c.gray('Status:')}      ${c.status(session.status, session.status)}`);
+    console.log(`  ${c.gray('Authority:')}   ${session.authority || 'human'}`);
+    console.log(`  ${c.gray('Working Dir:')} ${session.workingDirectory || 'N/A'}`);
     console.log('');
 
-    // Launch monitor in a new window unless --no-monitor flag is set
-    if (!options.noMonitor) {
-      console.log('  Launching monitor in new window...\n');
+    // Launch monitor only if --monitor flag is explicitly set
+    if (options.monitor) {
       const { spawn } = require('child_process');
       const cliPath = path.resolve(__dirname, 'index.js');
 
@@ -900,12 +990,16 @@ async function startSession(id, options = {}) {
         }
       }
 
-      console.log('  Monitor window opened!');
+      console.log(`  ${c.info('Monitor launched in new window.')}`);
       console.log('');
     }
 
-    console.log('  Execute commands with: maestro session exec ' + id + ' "<command>"');
-    console.log('  Stop session with:     maestro session stop ' + id);
+    const short = id.substring(0, 8);
+    console.log(`  ${c.gray('Next:')}`);
+    console.log(`    maestro session invoke ${short} start`);
+    console.log('');
+    console.log(`  ${c.gray('Tip:')}  maestro monitor ${short}     ${c.gray('(TUI monitor)')}`);
+    console.log(`        http://localhost:5173       ${c.gray('(Web dashboard)')}`);
     console.log('');
   } catch (error) {
     handleApiError(error, 'starting session');
@@ -917,7 +1011,7 @@ async function pauseSession(id) {
   formatter.setCommand('session.pause');
   try {
     const session = await client.pauseSession(id);
-    formatter.success(session, `\n⏸️  Session ${session.status}\n\n  Resume with: maestro session resume ${id}\n`);
+    formatter.success(session, `\nSession ${session.status}\n\n  Resume with: maestro session resume ${id}\n`);
   } catch (error) {
     handleApiError(error, 'pausing session');
     process.exit(1);
@@ -928,7 +1022,7 @@ async function resumeSession(id) {
   formatter.setCommand('session.resume');
   try {
     const session = await client.resumeSession(id);
-    formatter.success(session, `\n▶️  Session ${session.status}\n`);
+    formatter.success(session, `\nSession ${session.status}\n`);
   } catch (error) {
     handleApiError(error, 'resuming session');
     process.exit(1);
@@ -950,7 +1044,7 @@ async function takeControlSession(id, authority) {
   formatter.setCommand('session.take-control');
   try {
     const session = await client.takeControlSession(id, authority);
-    formatter.success(session, `\n✅ Control transferred!\n\n  New Authority: ${session.authority}\n  Status:        ${session.status}\n`);
+    formatter.success(session, `\nControl transferred!\n\n  New Authority: ${session.authority}\n  Status:        ${session.status}\n`);
   } catch (error) {
     handleApiError(error, 'transferring session control');
     process.exit(1);
@@ -976,7 +1070,7 @@ async function executeSessionCommand(id, command, args = null) {
     const result = await client.executeSessionCommand(id, command, args);
 
     if (result.success) {
-      formatter.success(result, `✅ ${result.commandType || 'shell'} [${result.commandId?.substring(0, 8) || ''}]${result.output ? '\n' + result.output : ''}`);
+      formatter.success(result, `${result.commandType || 'shell'} [${result.commandId?.substring(0, 8) || ''}]${result.output ? '\n' + result.output : ''}`);
     } else {
       formatter.error(`${result.commandType || 'shell'} failed`, 'EXEC_FAILED',
         result.error || result.output || null);
@@ -1017,11 +1111,23 @@ async function getSessionEvents(id, options = {}) {
   }
 }
 
-async function deleteSession(id) {
+async function deleteSession(id, options = {}) {
   formatter.setCommand('session.delete');
   try {
+    if (!options.force && !formatter.jsonMode) {
+      const readline = require('readline');
+      const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+      const answer = await new Promise((resolve) => {
+        rl.question(`  Delete session ${id.substring(0, 12)}...? This cannot be undone. [y/N] `, resolve);
+      });
+      rl.close();
+      if (answer.toLowerCase() !== 'y' && answer.toLowerCase() !== 'yes') {
+        formatter.info('  Delete cancelled.');
+        return;
+      }
+    }
     await client.deleteSession(id);
-    formatter.success({ id, deleted: true }, `\n✅ Session deleted\n`);
+    formatter.success({ id, deleted: true }, `\n${c.ok('Session deleted')}\n`);
   } catch (error) {
     handleApiError(error, 'deleting session');
     process.exit(1);
@@ -1033,7 +1139,7 @@ async function getSessionDiff(id) {
   try {
     const result = await client.executeSessionCommand(id, 'diff');
     if (result.output) {
-      console.log(`\n📝 Session Diff:\n`);
+      console.log(`\nSession Diff:\n`);
       console.log(result.output);
     } else {
       console.log('\nNo changes detected');
@@ -1046,7 +1152,7 @@ async function getSessionDiff(id) {
 
 async function runSessionTests(id, testCommand) {
   try {
-    console.log(`\n🧪 Running tests for session: ${id}\n`);
+    console.log(`\nRunning tests for session: ${id}\n`);
     const command = testCommand ? `test ${testCommand}` : 'test';
     const result = await client.executeSessionCommand(id, command);
 
@@ -1065,19 +1171,19 @@ async function runSessionTests(id, testCommand) {
 
 async function commitSession(id, options) {
   try {
-    if (!options.message) { console.error('❌ --message is required'); process.exit(1); }
+    if (!options.message) { console.error('--message is required'); process.exit(1); }
 
-    console.log(`\n📦 Committing session: ${id}\n`);
+    console.log(`\nCommitting session: ${id}\n`);
     const command = `commit -m "${options.message}"`;
     const result = await client.executeSessionCommand(id, command);
 
     if (result.success) {
-      console.log(`✅ Changes committed!\n`);
+      console.log(`Changes committed!\n`);
       if (result.output) {
         console.log(result.output);
       }
     } else {
-      console.error(`❌ Commit failed\n`);
+      console.error(`Commit failed\n`);
       if (result.error) {
         console.error(result.error);
       }
@@ -1103,67 +1209,64 @@ async function importSessionTemplate(sessionId, templateName) {
     const templatePath = path.join(__dirname, '../content/system/templates/sessions', `${templateName}.session.json`);
 
     if (!fs.existsSync(templatePath)) {
-      console.error(`❌ Template not found: ${templateName}`);
-      console.error(`   Looking in: ${templatePath}`);
-      console.error('   Available templates: foundry-default, foundry-training, foundry-sandbox');
-      process.exit(1);
+      const available = listAvailableTemplates();
+      formatter.error(`Template not found: ${templateName}. Available: ${available.join(', ')}`, 'NOT_FOUND');
+      process.exit(EXIT.NOT_FOUND);
     }
 
     const templateContent = JSON.parse(fs.readFileSync(templatePath, 'utf8'));
 
-    console.log(`\n📦 Importing template: ${templateName}\n`);
+    if (!formatter.jsonMode) {
+      console.log(`\n${c.bold('Importing template:')} ${c.cyan(templateName)}\n`);
+    }
 
     // Import variables
     if (templateContent.variables) {
-      console.log('  Importing variables...');
+      if (!formatter.jsonMode) console.log(`  ${c.gray('Variables...')}`);
       for (const [key, value] of Object.entries(templateContent.variables)) {
         await client._fetch('PUT', `/api/sessions/${sessionId}/variables/${key}`, {
           body: { value }
         });
-        console.log(`    ✓ ${key}`);
+        if (!formatter.jsonMode) console.log(`    ${c.green('+')} ${key}`);
       }
     }
 
     // Import entry points
     if (templateContent.entryPoints) {
-      console.log('  Importing entry points...');
+      if (!formatter.jsonMode) console.log(`  ${c.gray('Entry points...')}`);
       for (const [name, workflowId] of Object.entries(templateContent.entryPoints)) {
         await client._fetch('PUT', `/api/sessions/${sessionId}/entry-points/${encodeURIComponent(name)}`, {
           body: { workflowId }
         });
-        console.log(`    ✓ ${name} → ${workflowId}`);
+        if (!formatter.jsonMode) console.log(`    ${c.green('+')} ${name} ${c.gray('->')} ${workflowId}`);
       }
     }
 
     // Import widgets
     if (templateContent.monitorWidgets) {
-      console.log('  Importing widgets...');
+      if (!formatter.jsonMode) console.log(`  ${c.gray('Widgets...')}`);
       for (const widget of templateContent.monitorWidgets) {
         await client._fetch('POST', `/api/sessions/${sessionId}/widgets`, {
           body: widget
         });
-        console.log(`    ✓ ${widget.id} (${widget.type})`);
+        if (!formatter.jsonMode) console.log(`    ${c.green('+')} ${widget.id} (${widget.type})`);
       }
     }
 
-    console.log('\n✅ Template imported successfully!\n');
-
-    // Show summary
     const varCount = templateContent.variables ? Object.keys(templateContent.variables).length : 0;
     const epCount = templateContent.entryPoints ? Object.keys(templateContent.entryPoints).length : 0;
     const widgetCount = templateContent.monitorWidgets ? templateContent.monitorWidgets.length : 0;
 
-    console.log('  Imported:');
-    console.log(`    - ${varCount} variable(s)`);
-    console.log(`    - ${epCount} entry point(s)`);
-    console.log(`    - ${widgetCount} widget(s)`);
-    console.log('');
+    formatter.success(
+      { template: templateName, variables: varCount, entryPoints: epCount, widgets: widgetCount },
+      `\n${c.ok('Template imported!')} ${varCount} variables, ${epCount} entry points, ${widgetCount} widgets.\n`
+    );
 
   } catch (error) {
     if (error.code === 'ENOENT') {
-      console.error(`❌ Template file not found: ${templateName}`);
+      console.error(`Template file not found: ${templateName}`);
     } else if (error.status === 404) {
-      console.error(`❌ Session not found: ${sessionId}`);
+      console.error(`Session not found: ${sessionId}`);
     } else {
       handleApiError(error, 'importing session template');
     }
@@ -1179,14 +1282,14 @@ async function listSessionVariables(sessionId) {
     const response = await client._fetch('GET', `/api/sessions/${sessionId}/variables`);
 
     if (!response || Object.keys(response).length === 0) {
-      formatter.success({}, '\n📝 No variables set for this session\n');
+      formatter.success({}, '\nNo variables set for this session\n');
       return;
     }
 
     if (formatter.jsonMode) {
       formatter.success(response);
     } else {
-      console.log('\n📝 Session Variables:\n');
+      console.log('\nSession Variables:\n');
       for (const [key, value] of Object.entries(response)) {
         const displayValue = typeof value === 'object' ? JSON.stringify(value) : value;
         console.log(`  ${key}: ${displayValue}`);
@@ -1207,7 +1310,7 @@ async function getSessionVariable(sessionId, key) {
   formatter.setCommand('session.vars.get');
   try {
     const response = await client._fetch('GET', `/api/sessions/${sessionId}/variables/${key}`);
-    formatter.success(response.value, `\n📝 ${key}:\n\n  ${typeof response.value === 'object' ? JSON.stringify(response.value, null, 2) : response.value}\n`);
+    formatter.success(response.value, `\n${key}:\n\n  ${typeof response.value === 'object' ? JSON.stringify(response.value, null, 2) : response.value}\n`);
   } catch (error) {
     if (error.status === 404) {
       const msg = error.message?.includes('Variable')
@@ -1254,7 +1357,7 @@ async function setSessionVariable(sessionId, key, value) {
       await logSessionCommand(sessionId, `vars set ${key} ${value}`, `${key}: ${displayValue}`);
     }
 
-    formatter.success({ key, value: parsedValue }, `\n✅ Variable '${key}' set successfully\n\n  ${key}: ${displayValue}\n`);
+    formatter.success({ key, value: parsedValue }, `\nVariable '${key}' set successfully\n\n  ${key}: ${displayValue}\n`);
   } catch (error) {
     if (error.status === 404) {
       formatter.error(`Session not found: ${sessionId}`, 'NOT_FOUND');
@@ -1269,7 +1372,7 @@ async function removeSessionVariable(sessionId, key) {
   formatter.setCommand('session.vars.remove');
   try {
     await client._fetch('DELETE', `/api/sessions/${sessionId}/variables/${key}`);
-    formatter.success({ key, removed: true }, `\n✅ Variable '${key}' removed from session ${sessionId}\n`);
+    formatter.success({ key, removed: true }, `\nVariable '${key}' removed from session ${sessionId}\n`);
   } catch (error) {
     if (error.status === 404) {
       const msg = error.message?.includes('Variable')
@@ -1322,7 +1425,7 @@ async function registerSessionEntryPoint(sessionId, name, workflowId) {
     await client._fetch('PUT', `/api/sessions/${sessionId}/entry-points/${name}`, {
       body: { workflowId }
     });
-    formatter.success({ name, workflowId }, `\n✅ Entry point '${name}' registered successfully\n\n  ${name} -> ${workflowId}\n`);
+    formatter.success({ name, workflowId }, `\nEntry point '${name}' registered successfully\n\n  ${name} -> ${workflowId}\n`);
   } catch (error) {
     if (error.status === 404) {
       formatter.error(`Session not found: ${sessionId}`, 'NOT_FOUND');
@@ -1337,7 +1440,7 @@ async function removeSessionEntryPoint(sessionId, name) {
   formatter.setCommand('session.entry-points.remove');
   try {
     await client._fetch('DELETE', `/api/sessions/${sessionId}/entry-points/${name}`);
-    formatter.success({ name, removed: true }, `\n✅ Entry point '${name}' removed from session ${sessionId}\n`);
+    formatter.success({ name, removed: true }, `\nEntry point '${name}' removed from session ${sessionId}\n`);
   } catch (error) {
     if (error.status === 404) {
       const msg = error.message?.includes('Entry point')
@@ -1357,7 +1460,7 @@ async function invokeSessionEntryPoint(sessionId, entryPoint) {
     const response = await client._fetch('POST', `/api/sessions/${sessionId}/invoke/${entryPoint}`, {
       body: {}
     });
-    formatter.success(response, `\n▶️  Entry Point Invoked: ${entryPoint}\n\n  Workflow: ${response.workflowId}\n  Status: ${response.status}${response.message ? '\n  Message: ' + response.message : ''}\n`);
+    formatter.success(response, `\nEntry Point Invoked: ${entryPoint}\n\n  Workflow: ${response.workflowId}\n  Status: ${response.status}${response.message ? '\n  Message: ' + response.message : ''}\n`);
   } catch (error) {
     if (error.status === 404) {
       const msg = error.message?.includes('Entry point')
@@ -1394,7 +1497,7 @@ async function listSessionWidgets(sessionId) {
     console.log('');
   } catch (error) {
     if (error.status === 404) {
-      console.error(`❌ Session not found: ${sessionId}`);
+      console.error(`Session not found: ${sessionId}`);
     } else {
       handleApiError(error, 'listing session widgets');
     }
@@ -1412,7 +1515,7 @@ async function registerSessionWidget(sessionId, widgetId, widgetType, config) {
       }
     });
 
-    console.log(`\n✅ Widget '${widgetId}' registered successfully\n`);
+    console.log(`\nWidget '${widgetId}' registered successfully\n`);
     console.log(`  Type: ${widgetType}`);
     if (config && Object.keys(config).length > 0) {
       console.log(`  Config: ${JSON.stringify(config)}`);
@@ -1420,7 +1523,7 @@ async function registerSessionWidget(sessionId, widgetId, widgetType, config) {
     console.log('');
   } catch (error) {
     if (error.status === 404) {
-      console.error(`❌ Session not found: ${sessionId}`);
+      console.error(`Session not found: ${sessionId}`);
     } else {
       handleApiError(error, 'registering widget');
     }
@@ -1432,13 +1535,13 @@ async function removeSessionWidget(sessionId, widgetId) {
   try {
     await client._fetch('DELETE', `/api/sessions/${sessionId}/widgets/${widgetId}`);
 
-    console.log(`\n✅ Widget '${widgetId}' removed from session ${sessionId}\n`);
+    console.log(`\nWidget '${widgetId}' removed from session ${sessionId}\n`);
   } catch (error) {
     if (error.status === 404) {
       if (error.message?.includes('Widget')) {
-        console.error(`❌ Widget '${widgetId}' not found in session ${sessionId}`);
+        console.error(`Widget '${widgetId}' not found in session ${sessionId}`);
       } else {
-        console.error(`❌ Session not found: ${sessionId}`);
+        console.error(`Session not found: ${sessionId}`);
       }
     } else {
       handleApiError(error, 'removing widget');
@@ -1459,12 +1562,12 @@ async function listTrainingConfigs() {
     }
 
     console.log('\n🏋️ Training Configurations:\n');
-    console.table(configs.map(c => ({
-      'ID': c.id.substring(0, 8) + '...',
-      'Name': c.name,
-      'Workflow': c.workflowId?.substring(0, 8) + '...',
-      'Iterations': c.iterations,
-      'Goal': c.optimizationGoal || 'quality'
+    console.table(configs.map(cfg => ({
+      'ID': cfg.id.substring(0, 8) + '...',
+      'Name': cfg.name,
+      'Workflow': cfg.workflowId?.substring(0, 8) + '...',
+      'Iterations': cfg.iterations,
+      'Goal': cfg.optimizationGoal || 'quality'
     })));
   } catch (error) {
     handleApiError(error, 'listing training configs');
@@ -1487,7 +1590,7 @@ async function getTrainingConfigInfo(id) {
     console.log('');
   } catch (error) {
     if (error.status === 404) {
-      console.error(`❌ Training config not found: ${id}`);
+      console.error(`Training config not found: ${id}`);
     } else {
       handleApiError(error, 'getting training config');
     }
@@ -1509,7 +1612,7 @@ async function createTrainingConfig(options) {
     };
 
     const result = await client.createTrainingConfig(config);
-    console.log('\n✅ Training configuration created!\n');
+    console.log('\nTraining configuration created!\n');
     console.log(`  ID:   ${result.id}`);
     console.log(`  Name: ${result.name}`);
     console.log('');
@@ -1527,7 +1630,7 @@ async function listTrainingRuns(filter = {}) {
       return;
     }
 
-    console.log('\n📊 Training Runs:\n');
+    console.log('\nTraining Runs:\n');
     console.table(runs.map(r => ({
       'ID': r.id.substring(0, 8) + '...',
       'Name': r.name || '-',
@@ -1545,7 +1648,7 @@ async function listTrainingRuns(filter = {}) {
 async function getTrainingRunInfo(id) {
   try {
     const run = await client.getTrainingRun(id);
-    console.log('\n📊 Training Run:\n');
+    console.log('\nTraining Run:\n');
     console.log(`  ID:               ${run.id}`);
     console.log(`  Name:             ${run.name || 'N/A'}`);
     console.log(`  Status:           ${run.status}`);
@@ -1566,7 +1669,7 @@ async function getTrainingRunInfo(id) {
     console.log('');
   } catch (error) {
     if (error.status === 404) {
-      console.error(`❌ Training run not found: ${id}`);
+      console.error(`Training run not found: ${id}`);
     } else {
       handleApiError(error, 'getting training run');
     }
@@ -1576,7 +1679,7 @@ async function getTrainingRunInfo(id) {
 
 async function startTrainingRun(configId, options = {}) {
   try {
-    console.log(`\n▶️  Starting training run for config: ${configId}\n`);
+    console.log(`\nStarting training run for config: ${configId}\n`);
 
     const request = {
       configurationId: configId,
@@ -1585,7 +1688,7 @@ async function startTrainingRun(configId, options = {}) {
     };
 
     const run = await client.startTrainingRun(request);
-    console.log(`✅ Training run started!\n`);
+    console.log(`Training run started!\n`);
     console.log(`  Run ID:    ${run.id}`);
     console.log(`  Status:    ${run.status}`);
     console.log(`  Iterations: ${run.totalIterations}`);
@@ -1601,7 +1704,7 @@ async function controlTrainingRun(id, action) {
     let result;
     const actionLabel = action.charAt(0).toUpperCase() + action.slice(1);
 
-    console.log(`\n⚙️  ${actionLabel}ing training run: ${id}\n`);
+    console.log(`\n${actionLabel}ing training run: ${id}\n`);
 
     switch (action) {
       case 'pause':
@@ -1614,11 +1717,11 @@ async function controlTrainingRun(id, action) {
         result = await client.cancelTrainingRun(id);
         break;
       default:
-        console.error(`❌ Unknown action: ${action}`);
+        console.error(`Unknown action: ${action}`);
         process.exit(1);
     }
 
-    console.log(`✅ Training run ${action}d`);
+    console.log(`Training run ${action}d`);
     console.log(`  Status: ${result.status}`);
     console.log('');
   } catch (error) {
@@ -1659,7 +1762,7 @@ async function getFitnessConfig() {
 async function updateFitnessConfig(updates) {
   try {
     const config = await client.put('/api/fitness/config', updates);
-    console.log('\n✅ Fitness configuration updated!\n');
+    console.log('\nFitness configuration updated!\n');
     console.log(`  Lambda:               ${config.lambda.toFixed(2)}`);
     console.log(`  Performance Weight:   ${(config.performanceWeight * 100).toFixed(1)}%`);
     console.log(`  Specialization Weight: ${(config.specializationWeight * 100).toFixed(1)}%`);
@@ -1685,7 +1788,7 @@ async function getFitnessLeaderboard(options = {}) {
       return;
     }
 
-    console.log('\n🏆 Model Fitness Leaderboard:\n');
+    console.log('\nModel Fitness Leaderboard:\n');
     console.table(leaderboard.map(r => ({
       'Rank': r.rank,
       'Model': r.displayName || r.modelId,
@@ -1713,7 +1816,7 @@ async function listModelProfiles(options = {}) {
       return;
     }
 
-    console.log('\n📋 Model Profiles:\n');
+    console.log('\nModel Profiles:\n');
     console.table(profiles.map(p => ({
       'Model ID': p.modelId,
       'Name': p.displayName,
@@ -1732,7 +1835,7 @@ async function listModelProfiles(options = {}) {
 async function getModelProfile(modelId) {
   try {
     const profile = await client.get(`/api/fitness/profiles/${encodeURIComponent(modelId)}`);
-    console.log('\n📋 Model Profile:\n');
+    console.log('\nModel Profile:\n');
     console.log(`  Model ID:       ${profile.modelId}`);
     console.log(`  Display Name:   ${profile.displayName}`);
     console.log(`  Provider:       ${profile.provider}`);
@@ -1755,7 +1858,7 @@ async function getModelProfile(modelId) {
     console.log('');
   } catch (error) {
     if (error.status === 404) {
-      console.error(`❌ Model profile not found: ${modelId}`);
+      console.error(`Model profile not found: ${modelId}`);
     } else {
       handleApiError(error, 'getting model profile');
     }
@@ -1775,7 +1878,7 @@ async function listTaskEntropy(options = {}) {
       return;
     }
 
-    console.log('\n📊 Task Entropy (Specialization Data):\n');
+    console.log('\nTask Entropy (Specialization Data):\n');
     console.table(entropies.map(e => ({
       'Entity': e.entityId,
       'Type': e.entityType,
@@ -1794,7 +1897,7 @@ async function listTaskEntropy(options = {}) {
 async function getTaskEntropy(entityId, entityType = 'model') {
   try {
     const entropy = await client.get(`/api/fitness/entropy/${encodeURIComponent(entityId)}?entityType=${entityType}`);
-    console.log(`\n📊 Task Entropy for ${entityType}:${entityId}\n`);
+    console.log(`\nTask Entropy for ${entityType}:${entityId}\n`);
     console.log(`  Entropy Value:    ${entropy.entropyValue.toFixed(3)}`);
     console.log(`  Max Entropy:      ${entropy.maxEntropy.toFixed(3)}`);
     console.log(`  Normalized:       ${entropy.normalizedEntropy.toFixed(3)}`);
@@ -1813,7 +1916,7 @@ async function getTaskEntropy(entityId, entityType = 'model') {
     console.log('');
   } catch (error) {
     if (error.status === 404) {
-      console.error(`❌ Task entropy not found for ${entityType}:${entityId}`);
+      console.error(`Task entropy not found for ${entityType}:${entityId}`);
     } else {
       handleApiError(error, 'getting task entropy');
     }
@@ -1857,7 +1960,7 @@ async function listSystemBlocks() {
       return;
     }
 
-    console.log('\n🔧 System Blocks:\n');
+    console.log('\nSystem Blocks:\n');
     console.table(blocks.map(b => ({
       'ID': b.id,
       'Name': b.name,
@@ -1874,7 +1977,7 @@ async function listSystemBlocks() {
 async function getSystemBlockInfo(blockId) {
   try {
     const block = await client.get(`/api/blocks/system/${encodeURIComponent(blockId)}`);
-    console.log('\n🔧 System Block Details:\n');
+    console.log('\nSystem Block Details:\n');
     console.log(`  ID:           ${block.id}`);
     console.log(`  Name:         ${block.name}`);
     console.log(`  Type:         ${block.blockType}`);
@@ -1899,7 +2002,7 @@ async function getSystemBlockInfo(blockId) {
     console.log('');
   } catch (error) {
     if (error.status === 404) {
-      console.error(`❌ System block not found: ${blockId}`);
+      console.error(`System block not found: ${blockId}`);
     } else {
       handleApiError(error, 'getting system block info');
     }
@@ -1916,7 +2019,7 @@ async function listUserOverrides() {
       return;
     }
 
-    console.log('\n📝 User Overrides:\n');
+    console.log('\nUser Overrides:\n');
     console.table(overrides.map(b => ({
       'ID': b.id,
       'Overrides': b.overridesSystemBlock,
@@ -1936,13 +2039,13 @@ async function createSystemBlockOverride(blockId, config = null) {
       try {
         body.config = JSON.parse(config);
       } catch (e) {
-        console.error('❌ Invalid JSON config:', e.message);
+        console.error('Invalid JSON config:', e.message);
         process.exit(1);
       }
     }
 
     const override = await client.post(`/api/blocks/system/${encodeURIComponent(blockId)}/override`, body);
-    console.log('\n✅ Override created successfully!\n');
+    console.log('\nOverride created successfully!\n');
     console.log(`  Override ID:    ${override.id}`);
     console.log(`  System Block:   ${override.overridesSystemBlock || blockId}`);
     console.log(`  Name:           ${override.name}`);
@@ -1952,9 +2055,9 @@ async function createSystemBlockOverride(blockId, config = null) {
     console.log('');
   } catch (error) {
     if (error.status === 404) {
-      console.error(`❌ System block not found: ${blockId}`);
+      console.error(`System block not found: ${blockId}`);
     } else if (error.status === 400) {
-      console.error(`❌ Cannot override: ${error.message || 'Block is not overridable'}`);
+      console.error(`Cannot override: ${error.message || 'Block is not overridable'}`);
     } else {
       handleApiError(error, 'creating override');
     }
@@ -1965,12 +2068,12 @@ async function createSystemBlockOverride(blockId, config = null) {
 async function restoreSystemBlock(blockId) {
   try {
     await client.delete(`/api/blocks/system/${encodeURIComponent(blockId)}/override`);
-    console.log('\n✅ System block restored to default!\n');
+    console.log('\nSystem block restored to default!\n');
     console.log(`  Block ID: ${blockId}`);
     console.log('');
   } catch (error) {
     if (error.status === 404) {
-      console.error(`❌ System block not found: ${blockId}`);
+      console.error(`System block not found: ${blockId}`);
     } else {
       handleApiError(error, 'restoring system block');
     }
@@ -2001,7 +2104,7 @@ async function getEffectiveBlock(blockId) {
     console.log('');
   } catch (error) {
     if (error.status === 404) {
-      console.error(`❌ Block not found: ${blockId}`);
+      console.error(`Block not found: ${blockId}`);
     } else {
       handleApiError(error, 'getting effective block');
     }
@@ -2088,7 +2191,7 @@ async function getWorkspaceInfo(id) {
     console.log('');
   } catch (error) {
     if (error.status === 404) {
-      console.error(`❌ Workspace not found: ${id}`);
+      console.error(`Workspace not found: ${id}`);
     } else {
       handleApiError(error, 'getting workspace info');
     }
@@ -2127,7 +2230,7 @@ async function createWorkspace(options) {
 
     const workspace = await client.post('/api/workspaces', request);
     const repoInfo = workspace.repositoryPath ? `\n  Repo:     ${workspace.repositoryPath}` : '';
-    formatter.success(workspace, `\n✅ Workspace created successfully!\n\n  ID:       ${workspace.id}\n  Name:     ${workspace.name}\n  Type:     ${workspace.type}\n  Isolated: ${workspace.isolation?.enabled ? 'Yes' : 'No'}${repoInfo}\n`);
+    formatter.success(workspace, `\nWorkspace created successfully!\n\n  ID:       ${workspace.id}\n  Name:     ${workspace.name}\n  Type:     ${workspace.type}\n  Isolated: ${workspace.isolation?.enabled ? 'Yes' : 'No'}${repoInfo}\n`);
   } catch (error) {
     handleApiError(error, 'creating workspace');
     process.exit(1);
@@ -2142,12 +2245,12 @@ async function deleteWorkspace(id, options = {}) {
     }
 
     await client.delete(`/api/workspaces/${encodeURIComponent(id)}`);
-    console.log(`\n✅ Workspace '${id}' deleted\n`);
+    console.log(`\nWorkspace '${id}' deleted\n`);
   } catch (error) {
     if (error.status === 404) {
-      console.error(`❌ Workspace not found: ${id}`);
+      console.error(`Workspace not found: ${id}`);
     } else if (error.status === 400) {
-      console.error(`❌ Cannot delete workspace: ${error.message || 'Has active sessions or projects'}`);
+      console.error(`Cannot delete workspace: ${error.message || 'Has active sessions or projects'}`);
     } else {
       handleApiError(error, 'deleting workspace');
     }
@@ -2160,10 +2263,10 @@ async function addSessionToWorkspace(workspaceId, sessionId) {
     const workspace = await client.post(`/api/workspaces/${encodeURIComponent(workspaceId)}/sessions`, {
       sessionId
     });
-    console.log(`\n✅ Session '${sessionId}' added to workspace '${workspace.name}'\n`);
+    console.log(`\nSession '${sessionId}' added to workspace '${workspace.name}'\n`);
   } catch (error) {
     if (error.status === 404) {
-      console.error(`❌ Workspace not found: ${workspaceId}`);
+      console.error(`Workspace not found: ${workspaceId}`);
     } else {
       handleApiError(error, 'adding session to workspace');
     }
@@ -2176,10 +2279,10 @@ async function addProjectToWorkspace(workspaceId, projectId) {
     const workspace = await client.post(`/api/workspaces/${encodeURIComponent(workspaceId)}/projects`, {
       projectId
     });
-    console.log(`\n✅ Project '${projectId}' added to workspace '${workspace.name}'\n`);
+    console.log(`\nProject '${projectId}' added to workspace '${workspace.name}'\n`);
   } catch (error) {
     if (error.status === 404) {
-      console.error(`❌ Workspace not found: ${workspaceId}`);
+      console.error(`Workspace not found: ${workspaceId}`);
     } else {
       handleApiError(error, 'adding project to workspace');
     }
@@ -2211,7 +2314,7 @@ async function updateWorkspacePermissions(workspaceId, options) {
       }
     });
 
-    console.log(`\n✅ Permissions updated for workspace '${updated.name}'\n`);
+    console.log(`\nPermissions updated for workspace '${updated.name}'\n`);
     console.log('  New Permissions:');
     if (permissions.canPromoteTo?.length > 0) {
       console.log(`    Can Promote To: ${permissions.canPromoteTo.join(', ')}`);
@@ -2225,7 +2328,7 @@ async function updateWorkspacePermissions(workspaceId, options) {
     console.log('');
   } catch (error) {
     if (error.status === 404) {
-      console.error(`❌ Workspace not found: ${workspaceId}`);
+      console.error(`Workspace not found: ${workspaceId}`);
     } else {
       handleApiError(error, 'updating workspace permissions');
     }
@@ -2282,11 +2385,11 @@ async function getWorkspaceTopology() {
 async function promoteAgent(sourceWorkspaceId, options) {
   try {
     if (!options.target) {
-      console.error('❌ --target workspace is required');
+      console.error('--target workspace is required');
       process.exit(1);
     }
     if (!options.agent) {
-      console.error('❌ --agent block ID is required');
+      console.error('--agent block ID is required');
       process.exit(1);
     }
 
@@ -2297,12 +2400,12 @@ async function promoteAgent(sourceWorkspaceId, options) {
     });
 
     if (result.success) {
-      console.log('\n✅ Agent promoted successfully!\n');
+      console.log('\nAgent promoted successfully!\n');
       console.log(`  Agent:    ${result.promotedBlockId}`);
       console.log(`  Version:  ${result.targetVersion}`);
       console.log(`  Audit ID: ${result.auditLogId}`);
     } else {
-      console.error(`\n❌ Promotion failed: ${result.errorMessage}\n`);
+      console.error(`\nPromotion failed: ${result.errorMessage}\n`);
       process.exit(1);
     }
     console.log('');
@@ -2318,9 +2421,9 @@ async function getOrchestratorStatus() {
   try {
     const status = await client.get('/api/orchestrator/status');
 
-    console.log('\n🎯 Orchestrator Status:\n');
-    console.log(`  Running:          ${status.isRunning ? '✅ Yes' : '⏸️  No'}`);
-    console.log(`  Auto-Promotion:   ${status.autoPromotionEnabled ? '✅ Enabled' : '❌ Disabled'}`);
+    console.log('\nOrchestrator Status:\n');
+    console.log(`  Running:          ${status.isRunning ? 'Yes' : 'No'}`);
+    console.log(`  Auto-Promotion:   ${status.autoPromotionEnabled ? 'Enabled' : 'Disabled'}`);
     console.log(`  Last Cycle:       ${status.lastMonitoringCycle ? new Date(status.lastMonitoringCycle).toLocaleString() : 'Never'}`);
     console.log(`  Next Cycle:       ${status.nextScheduledCycle ? new Date(status.nextScheduledCycle).toLocaleString() : 'Not scheduled'}`);
     console.log(`  Pending:          ${status.pendingPromotions} promotions`);
@@ -2339,7 +2442,7 @@ async function getOrchestratorPending() {
     const pending = await client.get('/api/orchestrator/pending');
 
     if (!pending || pending.length === 0) {
-      console.log('\n✅ No pending promotions');
+      console.log('\nNo pending promotions');
       return;
     }
 
@@ -2350,9 +2453,9 @@ async function getOrchestratorPending() {
       console.log(`     From: ${p.fromWorkspace} → To: ${p.toWorkspace}`);
       console.log(`     Fitness: ${(p.currentFitness * 100).toFixed(1)}% (required: ${(p.requiredFitness * 100).toFixed(1)}%)`);
       console.log(`     Iterations: ${p.iterations} (required: ${p.requiredIterations})`);
-      console.log(`     Tests: ${p.testsPassed ? '✅ Passed' : '❌ Failed'}`);
+      console.log(`     Tests: ${p.testsPassed ? 'Passed' : 'Failed'}`);
       if (p.requiresApproval) console.log(`     ⚠️  Requires manual approval`);
-      if (p.blockingReason) console.log(`     ❌ Blocked: ${p.blockingReason}`);
+      if (p.blockingReason) console.log(`     Blocked: ${p.blockingReason}`);
       console.log('');
     });
   } catch (error) {
@@ -2363,11 +2466,11 @@ async function getOrchestratorPending() {
 
 async function orchestratorPromote(options) {
   try {
-    if (!options.agent) { console.error('❌ --agent is required'); process.exit(1); }
-    if (!options.from) { console.error('❌ --from workspace is required'); process.exit(1); }
-    if (!options.to) { console.error('❌ --to workspace is required'); process.exit(1); }
+    if (!options.agent) { console.error('--agent is required'); process.exit(1); }
+    if (!options.from) { console.error('--from workspace is required'); process.exit(1); }
+    if (!options.to) { console.error('--to workspace is required'); process.exit(1); }
 
-    console.log(`\n🚀 Promoting agent ${options.agent} from ${options.from} to ${options.to}...\n`);
+    console.log(`\nPromoting agent ${options.agent} from ${options.from} to ${options.to}...\n`);
 
     const result = await client.post('/api/orchestrator/promote', {
       agentId: options.agent,
@@ -2377,12 +2480,12 @@ async function orchestratorPromote(options) {
     });
 
     if (result.success) {
-      console.log('✅ Promotion successful!\n');
+      console.log('Promotion successful!\n');
       console.log(`  Agent:   ${result.agentId}`);
       console.log(`  Version: ${result.toVersion}`);
       console.log(`  Fitness: ${(result.fitnessAtPromotion * 100).toFixed(1)}%`);
     } else {
-      console.error(`❌ Promotion failed: ${result.errorMessage}\n`);
+      console.error(`Promotion failed: ${result.errorMessage}\n`);
       process.exit(1);
     }
     console.log('');
@@ -2394,8 +2497,8 @@ async function orchestratorPromote(options) {
 
 async function orchestratorRollback(options) {
   try {
-    if (!options.agent) { console.error('❌ --agent is required'); process.exit(1); }
-    if (!options.workspace) { console.error('❌ --workspace is required'); process.exit(1); }
+    if (!options.agent) { console.error('--agent is required'); process.exit(1); }
+    if (!options.workspace) { console.error('--workspace is required'); process.exit(1); }
 
     console.log(`\n⏪ Rolling back agent ${options.agent} in ${options.workspace}...\n`);
 
@@ -2406,13 +2509,13 @@ async function orchestratorRollback(options) {
     });
 
     if (result.success) {
-      console.log('✅ Rollback successful!\n');
+      console.log('Rollback successful!\n');
       console.log(`  Agent:        ${result.agentId}`);
       console.log(`  From Version: ${result.fromVersion}`);
       console.log(`  To Version:   ${result.toVersion}`);
       console.log(`  Reason:       ${result.reason}`);
     } else {
-      console.error(`❌ Rollback failed: ${result.errorMessage}\n`);
+      console.error(`Rollback failed: ${result.errorMessage}\n`);
       process.exit(1);
     }
     console.log('');
@@ -2459,7 +2562,7 @@ async function getOrchestratorConfig() {
   try {
     const config = await client.get('/api/orchestrator/config');
 
-    console.log('\n⚙️  Orchestrator Configuration:\n');
+    console.log('\nOrchestrator Configuration:\n');
     console.log(`  Auto-Promotion:      ${config.autoPromotionEnabled ? 'Enabled' : 'Disabled'}`);
     console.log(`  Monitoring Interval: ${config.monitoringInterval}`);
 
@@ -2505,7 +2608,7 @@ async function updateOrchestratorConfig(options) {
 
     const config = await client.put('/api/orchestrator/config', update);
 
-    console.log('\n✅ Configuration updated!\n');
+    console.log('\nConfiguration updated!\n');
     await getOrchestratorConfig();
   } catch (error) {
     handleApiError(error, 'updating orchestrator config');
@@ -2516,7 +2619,7 @@ async function updateOrchestratorConfig(options) {
 async function setOrchestratorAutoPromote(enabled) {
   try {
     await client.post('/api/orchestrator/auto-promote', { enabled });
-    console.log(`\n✅ Auto-promotion ${enabled ? 'enabled' : 'disabled'}\n`);
+    console.log(`\nAuto-promotion ${enabled ? 'enabled' : 'disabled'}\n`);
   } catch (error) {
     handleApiError(error, 'setting auto-promote');
     process.exit(1);
@@ -2525,10 +2628,10 @@ async function setOrchestratorAutoPromote(enabled) {
 
 async function runOrchestratorMonitor() {
   try {
-    console.log('\n🔍 Running monitoring cycle...\n');
+    console.log('\nRunning monitoring cycle...\n');
     const result = await client.post('/api/orchestrator/monitor', {});
 
-    console.log('✅ Monitoring cycle complete!\n');
+    console.log('Monitoring cycle complete!\n');
     console.log(`  Agents Checked:      ${result.agentsChecked}`);
     console.log(`  Promotion Candidates: ${result.promotionCandidates}`);
     console.log(`  Promotions Executed:  ${result.promotionsExecuted}`);
@@ -2556,9 +2659,9 @@ async function runOrchestratorMonitor() {
 
 async function startResearchCycle(options) {
   try {
-    if (!options.agent) { console.error('❌ --agent is required'); process.exit(1); }
+    if (!options.agent) { console.error('--agent is required'); process.exit(1); }
 
-    console.log(`\n🔬 Starting research cycle for agent ${options.agent}...\n`);
+    console.log(`\nStarting research cycle for agent ${options.agent}...\n`);
 
     const result = await client.post('/api/research/cycles', {
       agentId: options.agent,
@@ -2571,7 +2674,7 @@ async function startResearchCycle(options) {
     });
 
     if (result.success) {
-      console.log('✅ Research cycle completed successfully!\n');
+      console.log('Research cycle completed successfully!\n');
       console.log(`  Cycle ID:      ${result.cycleId}`);
       console.log(`  Agent:         ${result.agentId}`);
       console.log(`  Cycles Run:    ${result.cyclesRun}`);
@@ -2585,7 +2688,7 @@ async function startResearchCycle(options) {
         console.log(`  Duration:      ${result.duration}`);
       }
     } else {
-      console.log(`❌ Research cycle failed: ${result.errorMessage}\n`);
+      console.log(`Research cycle failed: ${result.errorMessage}\n`);
       console.log(`  Final Phase:   ${result.finalPhase}`);
       console.log(`  Final Fitness: ${(result.finalFitness * 100).toFixed(1)}%`);
     }
@@ -2600,7 +2703,7 @@ async function getResearchCycleStatus(cycleId) {
   try {
     const status = await client.get(`/api/research/cycles/${encodeURIComponent(cycleId)}/status`);
 
-    console.log(`\n🔬 Research Cycle Status: ${cycleId}\n`);
+    console.log(`\nResearch Cycle Status: ${cycleId}\n`);
     console.log(`  Agent:         ${status.agentId}`);
     console.log(`  Phase:         ${status.currentPhase}`);
     console.log(`  Cycle:         ${status.currentCycle}/${status.maxCycles}`);
@@ -2624,7 +2727,7 @@ async function getResearchCycleStatus(cycleId) {
 async function stopResearchCycle(cycleId) {
   try {
     await client.post(`/api/research/cycles/${encodeURIComponent(cycleId)}/stop`, {});
-    console.log(`\n✅ Research cycle ${cycleId} stopped\n`);
+    console.log(`\nResearch cycle ${cycleId} stopped\n`);
   } catch (error) {
     handleApiError(error, 'stopping research cycle');
     process.exit(1);
@@ -2677,7 +2780,7 @@ async function getResearchProposals(options) {
       return;
     }
 
-    console.log(`\n📋 Pending Proposals (${proposals.length}):\n`);
+    console.log(`\nPending Proposals (${proposals.length}):\n`);
     proposals.forEach(p => {
       const priority = { 'Low': '🟢', 'Medium': '🟡', 'High': '🟠', 'Critical': '🔴' }[p.priority] || '⚪';
       console.log(`  ${priority} ${p.title} [${p.id.substring(0, 8)}...]`);
@@ -2702,7 +2805,7 @@ async function approveResearchProposal(proposalId, approvedBy) {
     await client.post(`/api/research/proposals/${encodeURIComponent(proposalId)}/approve`, {
       approvedBy
     });
-    console.log(`\n✅ Proposal ${proposalId} approved\n`);
+    console.log(`\nProposal ${proposalId} approved\n`);
   } catch (error) {
     handleApiError(error, 'approving proposal');
     process.exit(1);
@@ -2715,7 +2818,7 @@ async function rejectResearchProposal(proposalId, reason, rejectedBy) {
       reason,
       rejectedBy
     });
-    console.log(`\n✅ Proposal ${proposalId} rejected\n`);
+    console.log(`\nProposal ${proposalId} rejected\n`);
   } catch (error) {
     handleApiError(error, 'rejecting proposal');
     process.exit(1);
@@ -2726,7 +2829,7 @@ async function getResearchConfig() {
   try {
     const config = await client.get('/api/research/config');
 
-    console.log('\n⚙️  Research Team Configuration:\n');
+    console.log('\nResearch Team Configuration:\n');
     console.log(`  Enabled:              ${config.enabled ? 'Yes' : 'No'}`);
     console.log(`  Fitness Threshold:    ${(config.fitnessThreshold * 100).toFixed(0)}%`);
     console.log(`  Default Iterations:   ${config.defaultMaxIterations}`);
@@ -2762,7 +2865,7 @@ async function updateResearchConfig(options) {
     if (options.timeout !== undefined) update.cycleTimeoutMinutes = parseInt(options.timeout);
 
     await client.put('/api/research/config', update);
-    console.log('\n✅ Research configuration updated!\n');
+    console.log('\nResearch configuration updated!\n');
     await getResearchConfig();
   } catch (error) {
     handleApiError(error, 'updating research config');
@@ -2780,7 +2883,7 @@ async function listExecutionMetrics(filter = {}) {
       return;
     }
 
-    console.log('\n📈 Execution Metrics:\n');
+    console.log('\nExecution Metrics:\n');
     console.table(metrics.slice(0, 20).map(m => ({
       'Execution ID': m.executionId?.substring(0, 8) + '...' || '-',
       'Workflow': m.workflowId?.substring(0, 8) + '...' || '-',
@@ -2802,7 +2905,7 @@ async function listExecutionMetrics(filter = {}) {
 async function getAggregatedMetrics(filter = {}) {
   try {
     const metrics = await client.getAggregatedMetrics(filter);
-    console.log('\n📊 Aggregated Metrics:\n');
+    console.log('\nAggregated Metrics:\n');
     console.log(`  Total Executions:    ${metrics.totalExecutions || 0}`);
     console.log(`  Successful:          ${metrics.successfulExecutions || 0}`);
     console.log(`  Failed:              ${metrics.failedExecutions || 0}`);
@@ -2868,7 +2971,7 @@ async function getRunInfo(id) {
     console.log('');
   } catch (error) {
     if (error.status === 404) {
-      console.error(`❌ Run not found: ${id}`);
+      console.error(`Run not found: ${id}`);
     } else {
       handleApiError(error, 'getting run');
     }
@@ -2887,7 +2990,7 @@ async function listAgents(filter = {}) {
       return;
     }
 
-    console.log('\n🤖 Agents:\n');
+    console.log('\nAgents:\n');
     console.table(agents.map(a => ({
       'ID': a.id,
       'Name': a.name,
@@ -2905,7 +3008,7 @@ async function listAgents(filter = {}) {
 async function getAgentInfo(id) {
   try {
     const agent = await client.getAgent(id);
-    console.log('\n🤖 Agent Details:\n');
+    console.log('\nAgent Details:\n');
     console.log(`  ID:           ${agent.id}`);
     console.log(`  Name:         ${agent.name}`);
     console.log(`  Description:  ${agent.description || 'N/A'}`);
@@ -2941,7 +3044,7 @@ async function getAgentInfo(id) {
     console.log('');
   } catch (error) {
     if (error.status === 404) {
-      console.error(`❌ Agent not found: ${id}`);
+      console.error(`Agent not found: ${id}`);
     } else {
       handleApiError(error, 'getting agent');
     }
@@ -2965,7 +3068,7 @@ async function createAgent(options) {
     };
 
     const result = await client.createAgent(agent);
-    console.log('\n✅ Agent created!\n');
+    console.log('\nAgent created!\n');
     console.log(`  ID:   ${result.id}`);
     console.log(`  Name: ${result.name}`);
     console.log('');
@@ -2983,11 +3086,11 @@ async function deleteAgentCmd(id, options = {}) {
       process.exit(1);
     }
     await client.deleteAgent(id);
-    console.log(`\n✅ Agent deleted: ${id}`);
+    console.log(`\nAgent deleted: ${id}`);
     console.log('');
   } catch (error) {
     if (error.status === 404) {
-      console.error(`❌ Agent not found: ${id}`);
+      console.error(`Agent not found: ${id}`);
     } else {
       handleApiError(error, 'deleting agent');
     }
@@ -2998,7 +3101,7 @@ async function deleteAgentCmd(id, options = {}) {
 async function getAgentMetricsCmd(id) {
   try {
     const metrics = await client.getAgentMetrics(id);
-    console.log('\n📊 Agent Metrics:\n');
+    console.log('\nAgent Metrics:\n');
     console.log(`  Total Runs:       ${metrics.totalRuns || 0}`);
     console.log(`  Successful:       ${metrics.successfulRuns || 0}`);
     console.log(`  Failed:           ${metrics.failedRuns || 0}`);
@@ -3015,7 +3118,7 @@ async function getAgentMetricsCmd(id) {
     console.log('');
   } catch (error) {
     if (error.status === 404) {
-      console.error(`❌ Agent not found: ${id}`);
+      console.error(`Agent not found: ${id}`);
     } else {
       handleApiError(error, 'getting agent metrics');
     }
@@ -3032,7 +3135,7 @@ async function listTools(filter = {}) {
       return;
     }
 
-    console.log('\n🔧 Tools:\n');
+    console.log('\nTools:\n');
     console.table(tools.map(t => ({
       'ID': t.id,
       'Name': t.name,
@@ -3050,7 +3153,7 @@ async function listTools(filter = {}) {
 async function getToolInfo(id) {
   try {
     const tool = await client.getTool(id);
-    console.log('\n🔧 Tool Details:\n');
+    console.log('\nTool Details:\n');
     console.log(`  ID:           ${tool.id}`);
     console.log(`  Name:         ${tool.name}`);
     console.log(`  Description:  ${tool.description || 'N/A'}`);
@@ -3076,7 +3179,7 @@ async function getToolInfo(id) {
     console.log('');
   } catch (error) {
     if (error.status === 404) {
-      console.error(`❌ Tool not found: ${id}`);
+      console.error(`Tool not found: ${id}`);
     } else {
       handleApiError(error, 'getting tool');
     }
@@ -3097,7 +3200,7 @@ async function createTool(options) {
     };
 
     const result = await client.createTool(tool);
-    console.log('\n✅ Tool created!\n');
+    console.log('\nTool created!\n');
     console.log(`  ID:   ${result.id}`);
     console.log(`  Name: ${result.name}`);
     console.log('');
@@ -3115,11 +3218,11 @@ async function deleteToolCmd(id, options = {}) {
       process.exit(1);
     }
     await client.deleteTool(id);
-    console.log(`\n✅ Tool deleted: ${id}`);
+    console.log(`\nTool deleted: ${id}`);
     console.log('');
   } catch (error) {
     if (error.status === 404) {
-      console.error(`❌ Tool not found: ${id}`);
+      console.error(`Tool not found: ${id}`);
     } else {
       handleApiError(error, 'deleting tool');
     }
@@ -3131,7 +3234,7 @@ async function deleteToolCmd(id, options = {}) {
 
 async function startBlockTest(blockId, options = {}) {
   try {
-    console.log(`\n🧪 Starting test for block: ${blockId}\n`);
+    console.log(`\nStarting test for block: ${blockId}\n`);
 
     const request = {
       blockId,
@@ -3145,7 +3248,7 @@ async function startBlockTest(blockId, options = {}) {
 
     const run = await client.createBlockTestRun(request);
 
-    console.log(`✅ Test run created!\n`);
+    console.log(`Test run created!\n`);
     console.log(`  Run ID:       ${run.id}`);
     console.log(`  Block:        ${run.blockId} (${run.blockType})`);
     console.log(`  Status:       ${run.status}`);
@@ -3154,8 +3257,8 @@ async function startBlockTest(blockId, options = {}) {
 
     if (run.criteria && run.criteria.length > 0) {
       console.log(`\n  Evaluation Criteria:`);
-      run.criteria.forEach(c => {
-        console.log(`    - ${c.name} (weight: ${c.weight})`);
+      run.criteria.forEach(cr => {
+        console.log(`    - ${cr.name} (weight: ${cr.weight})`);
       });
     }
 
@@ -3183,7 +3286,7 @@ async function listBlockTestRuns(filter = {}) {
       return;
     }
 
-    console.log('\n🧪 Block Test Runs:\n');
+    console.log('\nBlock Test Runs:\n');
     console.table(runs.map(r => ({
       'ID': r.id.substring(0, 8) + '...',
       'Block': r.blockId,
@@ -3204,7 +3307,7 @@ async function getBlockTestRunInfo(id) {
   try {
     const run = await client.getBlockTestRun(id);
 
-    console.log('\n🧪 Test Run Details:\n');
+    console.log('\nTest Run Details:\n');
     console.log(`  ID:           ${run.id}`);
     console.log(`  Block:        ${run.blockId} (${run.blockType})`);
     console.log(`  Variant:      ${run.variantId}`);
@@ -3215,7 +3318,7 @@ async function getBlockTestRunInfo(id) {
     console.log(`  Created:      ${new Date(run.createdAt).toLocaleString()}`);
 
     if (run.metrics) {
-      console.log('\n  📊 Metrics:');
+      console.log('\n  Metrics:');
       console.log(`    Overall Score:  ${run.metrics.overallScore}`);
       console.log(`    Min/Max:        ${run.metrics.minScore} - ${run.metrics.maxScore}`);
       console.log(`    Variance:       ${run.metrics.scoreVariance.toFixed(2)}`);
@@ -3229,7 +3332,7 @@ async function getBlockTestRunInfo(id) {
     }
 
     if (run.iterations && run.iterations.length > 0) {
-      console.log('\n  📝 Iterations:');
+      console.log('\n  Iterations:');
       for (const iter of run.iterations) {
         const status = iter.evaluation ? `✓ Score: ${iter.evaluation.score}` : '⏳ Pending';
         console.log(`    #${iter.iterationNumber} [${iter.id.substring(0, 8)}] - ${status}`);
@@ -3243,14 +3346,14 @@ async function getBlockTestRunInfo(id) {
     }
 
     if (run.improvementSuggestions && run.improvementSuggestions.length > 0) {
-      console.log('\n  💡 Improvement Suggestions:');
+      console.log('\n  Improvement Suggestions:');
       run.improvementSuggestions.forEach((s, i) => console.log(`    ${i + 1}. ${s}`));
     }
 
     console.log('');
   } catch (error) {
     if (error.status === 404) {
-      console.error(`❌ Test run not found: ${id}`);
+      console.error(`Test run not found: ${id}`);
     } else {
       handleApiError(error, 'getting test run');
     }
@@ -3263,7 +3366,7 @@ async function showBlockTestPendingEvaluations(runId) {
     const pending = await client.getBlockTestPendingEvaluations(runId);
 
     if (!pending || pending.length === 0) {
-      console.log('\n✅ No pending evaluations for this run');
+      console.log('\nNo pending evaluations for this run');
       return;
     }
 
@@ -3300,7 +3403,7 @@ async function evaluateBlockTestRun(runId, options) {
 
     const score = parseInt(options.score);
     if (isNaN(score) || score < 0 || score > 100) {
-      console.error('❌ Score must be between 0 and 100');
+      console.error('Score must be between 0 and 100');
       process.exit(1);
     }
 
@@ -3314,7 +3417,7 @@ async function evaluateBlockTestRun(runId, options) {
 
     const run = await client.submitBlockTestEvaluation(runId, evaluation);
 
-    console.log(`\n✅ Evaluation submitted!`);
+    console.log(`\nEvaluation submitted!`);
     console.log(`  Iteration:  ${options.iteration}`);
     console.log(`  Score:      ${score}`);
     console.log(`  Progress:   ${run.evaluatedIterations}/${run.totalIterations} evaluated`);
@@ -3335,10 +3438,10 @@ async function compareBlockTestRuns(runIds) {
   try {
     const comparison = await client.compareBlockTestRuns(runIds);
 
-    console.log('\n📊 Test Run Comparison:\n');
+    console.log('\nTest Run Comparison:\n');
 
     if (comparison.bestRunId) {
-      console.log(`  🏆 Best Run: ${comparison.bestRunId} (Score: ${comparison.bestScore})`);
+      console.log(`  Best Run: ${comparison.bestRunId} (Score: ${comparison.bestScore})`);
     }
 
     console.log('\n  Scores by Variant:');
@@ -3374,7 +3477,7 @@ async function compareToolTestRuns(runIds) { return compareBlockTestRuns(runIds)
 async function getToolMetricsCmd(id) {
   try {
     const metrics = await client.getToolMetrics(id);
-    console.log('\n📊 Tool Metrics:\n');
+    console.log('\nTool Metrics:\n');
     console.log(`  Total Runs:       ${metrics.totalRuns || 0}`);
     console.log(`  Successful:       ${metrics.successfulRuns || 0}`);
     console.log(`  Success Rate:     ${metrics.successRate?.toFixed(1) || 0}%`);
@@ -3392,7 +3495,7 @@ async function getToolMetricsCmd(id) {
     console.log('');
   } catch (error) {
     if (error.status === 404) {
-      console.error(`❌ Tool not found: ${id}`);
+      console.error(`Tool not found: ${id}`);
     } else {
       handleApiError(error, 'getting tool metrics');
     }
@@ -3443,7 +3546,7 @@ async function getFoundryOverview() {
 async function getFoundryLeaderboard(limit = 10) {
   try {
     const leaderboard = await client.getFoundryLeaderboard(limit);
-    console.log('\n🏆 Agent Foundry Leaderboard:\n');
+    console.log('\nAgent Foundry Leaderboard:\n');
 
     if (leaderboard.agents?.length > 0) {
       console.log('  Top Agents:');
@@ -3487,7 +3590,7 @@ async function promoteBlock(options) {
     };
 
     const result = await client.promoteToFoundry(request);
-    console.log(`\n✅ ${result.message}\n`);
+    console.log(`\n${result.message}\n`);
     console.log(`  Type: ${result.type}`);
     console.log(`  ID:   ${result.id}`);
     console.log('');
@@ -3514,24 +3617,24 @@ async function checkLLMStatus() {
       // LLM-Provider not available
     }
 
-    console.log('\n🤖 LLM Status:\n');
+    console.log('\n' + c.bold('LLM Status:') + '\n');
 
     if (llmProviderHealth) {
-      console.log('  LLM-Provider (localhost:8000):');
-      console.log(`    Status:        ${llmProviderHealth.status}`);
-      console.log(`    Active Model:  ${llmProviderHealth.active_model || 'none'}`);
-      console.log(`    Models Loaded: ${llmProviderHealth.models_loaded || 0}`);
-      console.log(`    Device:        ${llmProviderHealth.device || 'N/A'}`);
+      console.log('  ' + c.bold('LLM-Provider') + c.gray(' (localhost:8000):'));
+      console.log(`    ${c.gray('Status:')}        ${c.green(llmProviderHealth.status)}`);
+      console.log(`    ${c.gray('Active Model:')}  ${c.cyan(llmProviderHealth.active_model || 'none')}`);
+      console.log(`    ${c.gray('Models Loaded:')} ${llmProviderHealth.models_loaded || 0}`);
+      console.log(`    ${c.gray('Device:')}        ${llmProviderHealth.device || 'N/A'}`);
       if (llmProviderHealth.cuda_available) {
-        console.log(`    GPU:           ${llmProviderHealth.cuda_device_name || 'CUDA'}`);
+        console.log(`    ${c.gray('GPU:')}           ${c.green(llmProviderHealth.cuda_device_name || 'CUDA')}`);
       }
     } else {
-      console.log('  LLM-Provider:    ❌ Not available');
+      console.log('  ' + c.gray('LLM-Provider:') + '    ' + c.red('Not available'));
     }
 
     if (health) {
-      console.log('\n  Backend LLM Integration:');
-      console.log(`    Status:        ${health.status}`);
+      console.log('\n  ' + c.bold('Backend LLM Integration:'));
+      console.log(`    ${c.gray('Status:')}        ${c.status(health.status, health.status)}`);
     }
 
     console.log('');
@@ -3558,7 +3661,7 @@ async function listExperiments(options = {}) {
       return;
     }
 
-    console.log('\n🧪 Training Experiments:\n');
+    console.log('\nTraining Experiments:\n');
     console.table(experiments.map(e => ({
       'ID': e.id.substring(0, 12) + '...',
       'Name': e.name,
@@ -3576,7 +3679,7 @@ async function listExperiments(options = {}) {
 async function getExperimentInfo(id) {
   try {
     const exp = await client.get(`/api/experiments/${encodeURIComponent(id)}`);
-    console.log('\n🧪 Experiment Details:\n');
+    console.log('\nExperiment Details:\n');
     console.log(`  ID:           ${exp.id}`);
     console.log(`  Name:         ${exp.name}`);
     console.log(`  Status:       ${exp.status}`);
@@ -3611,7 +3714,7 @@ async function getExperimentInfo(id) {
     console.log('');
   } catch (error) {
     if (error.status === 404) {
-      console.error(`❌ Experiment not found: ${id}`);
+      console.error(`Experiment not found: ${id}`);
     } else {
       handleApiError(error, 'getting experiment info');
     }
@@ -3621,10 +3724,10 @@ async function getExperimentInfo(id) {
 
 async function createExperiment(options) {
   try {
-    if (!options.name) { console.error('❌ --name required'); process.exit(1); }
-    if (!options.workspace) { console.error('❌ --workspace required'); process.exit(1); }
-    if (!options.agent) { console.error('❌ --agent required'); process.exit(1); }
-    if (!options.strategy) { console.error('❌ --strategy required'); process.exit(1); }
+    if (!options.name) { console.error('--name required'); process.exit(1); }
+    if (!options.workspace) { console.error('--workspace required'); process.exit(1); }
+    if (!options.agent) { console.error('--agent required'); process.exit(1); }
+    if (!options.strategy) { console.error('--strategy required'); process.exit(1); }
 
     let strategyId = options.strategy;
     if (!strategyId.includes(':')) {
@@ -3641,7 +3744,7 @@ async function createExperiment(options) {
       config: config
     });
 
-    console.log('\n✅ Experiment created!\n');
+    console.log('\nExperiment created!\n');
     console.log(`  ID:       ${exp.id}`);
     console.log(`  Name:     ${exp.name}`);
     console.log(`  Strategy: ${exp.strategyBlockId}`);
@@ -3657,12 +3760,12 @@ async function createExperiment(options) {
 async function startExperiment(id) {
   try {
     const exp = await client.post(`/api/experiments/${encodeURIComponent(id)}/start`);
-    console.log(`\n✅ Experiment started: ${exp.name}`);
+    console.log(`\nExperiment started: ${exp.name}`);
     console.log(`   Status: ${exp.status}`);
     console.log('');
   } catch (error) {
     if (error.status === 404) {
-      console.error(`❌ Experiment not found: ${id}`);
+      console.error(`Experiment not found: ${id}`);
     } else {
       handleApiError(error, 'starting experiment');
     }
@@ -3680,14 +3783,14 @@ async function startAllExperiments(workspaceId, parallel = true) {
       return;
     }
 
-    console.log(`\n🚀 Starting ${toStart.length} experiments ${parallel ? 'in parallel' : 'sequentially'}...\n`);
+    console.log(`\nStarting ${toStart.length} experiments ${parallel ? 'in parallel' : 'sequentially'}...\n`);
 
     for (const exp of toStart) {
       try {
         await client.post(`/api/experiments/${encodeURIComponent(exp.id)}/start`);
-        console.log(`  ✅ ${exp.name}`);
+        console.log(`  ${exp.name}`);
       } catch (err) {
-        console.log(`  ❌ ${exp.name}: ${err.message}`);
+        console.log(`  ${exp.name}: ${err.message}`);
       }
     }
     console.log('');
@@ -3700,12 +3803,12 @@ async function startAllExperiments(workspaceId, parallel = true) {
 async function pauseExperiment(id) {
   try {
     const exp = await client.post(`/api/experiments/${encodeURIComponent(id)}/pause`);
-    console.log(`\n⏸️  Experiment paused: ${exp.name}`);
+    console.log(`\nExperiment paused: ${exp.name}`);
     console.log(`   Status: ${exp.status}`);
     console.log('');
   } catch (error) {
     if (error.status === 404) {
-      console.error(`❌ Experiment not found: ${id}`);
+      console.error(`Experiment not found: ${id}`);
     } else {
       handleApiError(error, 'pausing experiment');
     }
@@ -3721,7 +3824,7 @@ async function stopExperiment(id) {
     console.log('');
   } catch (error) {
     if (error.status === 404) {
-      console.error(`❌ Experiment not found: ${id}`);
+      console.error(`Experiment not found: ${id}`);
     } else {
       handleApiError(error, 'stopping experiment');
     }
@@ -3737,10 +3840,10 @@ async function deleteExperiment(id, force = false) {
     }
 
     await client.delete(`/api/experiments/${encodeURIComponent(id)}`);
-    console.log(`\n✅ Experiment deleted: ${id}\n`);
+    console.log(`\nExperiment deleted: ${id}\n`);
   } catch (error) {
     if (error.status === 404) {
-      console.error(`❌ Experiment not found: ${id}`);
+      console.error(`Experiment not found: ${id}`);
     } else {
       handleApiError(error, 'deleting experiment');
     }
@@ -3751,7 +3854,7 @@ async function deleteExperiment(id, force = false) {
 async function getExperimentProgress(id) {
   try {
     const progress = await client.get(`/api/experiments/${encodeURIComponent(id)}/progress`);
-    console.log('\n📊 Experiment Progress:\n');
+    console.log('\nExperiment Progress:\n');
     console.log(`  Status:      ${progress.status}`);
     console.log(`  Progress:    ${progress.progress}%`);
     console.log(`  Iteration:   ${progress.currentIteration} / ${progress.maxIterations}`);
@@ -3762,7 +3865,7 @@ async function getExperimentProgress(id) {
     console.log('');
   } catch (error) {
     if (error.status === 404) {
-      console.error(`❌ Experiment not found: ${id}`);
+      console.error(`Experiment not found: ${id}`);
     } else {
       handleApiError(error, 'getting experiment progress');
     }
@@ -3774,7 +3877,7 @@ async function compareExperiments(ids) {
   try {
     const comparison = await client.post('/api/experiments/compare', { experimentIds: ids });
 
-    console.log('\n📊 Experiment Comparison:\n');
+    console.log('\nExperiment Comparison:\n');
     console.log(`  Best Experiment: ${comparison.bestExperimentId}`);
     console.log(`  Recommended:     ${comparison.recommendedStrategyId}`);
     console.log('');
@@ -3809,7 +3912,7 @@ async function listStrategies(options = {}) {
       return;
     }
 
-    console.log('\n📋 Training Strategies:\n');
+    console.log('\nTraining Strategies:\n');
     strategies.forEach(s => {
       const icon = s.isSystem ? '🔒' : '📝';
       console.log(`  ${icon} ${s.name}`);
@@ -3836,7 +3939,7 @@ async function getStrategyInfo(id) {
     }
 
     const strategy = await client.get(`/api/experiments/strategies/${encodeURIComponent(strategyId)}`);
-    console.log('\n📋 Strategy Details:\n');
+    console.log('\nStrategy Details:\n');
     console.log(`  ID:          ${strategy.id}`);
     console.log(`  Name:        ${strategy.name}`);
     console.log(`  Method:      ${strategy.method}`);
@@ -3847,7 +3950,7 @@ async function getStrategyInfo(id) {
     console.log(`  Suitable For: ${strategy.suitableFor.join(', ')}`);
     console.log('');
     console.log('  Strengths:');
-    strategy.strengths.forEach(s => console.log(`    ✅ ${s}`));
+    strategy.strengths.forEach(s => console.log(`    ${s}`));
     console.log('');
     console.log('  Weaknesses:');
     strategy.weaknesses.forEach(w => console.log(`    ⚠️  ${w}`));
@@ -3862,7 +3965,7 @@ async function getStrategyInfo(id) {
     }
   } catch (error) {
     if (error.status === 404) {
-      console.error(`❌ Strategy not found: ${id}`);
+      console.error(`Strategy not found: ${id}`);
     } else {
       handleApiError(error, 'getting strategy info');
     }
@@ -3872,7 +3975,7 @@ async function getStrategyInfo(id) {
 
 async function recommendStrategy(options) {
   try {
-    if (!options.task) { console.error('❌ --task required (e.g., code, reasoning, classification)'); process.exit(1); }
+    if (!options.task) { console.error('--task required (e.g., code, reasoning, classification)'); process.exit(1); }
 
     const strategies = await client.get('/api/experiments/strategies');
     const taskLower = options.task.toLowerCase();
@@ -3887,12 +3990,12 @@ async function recommendStrategy(options) {
       return;
     }
 
-    console.log(`\n💡 Recommended Strategies for "${options.task}":\n`);
+    console.log(`\nRecommended Strategies for "${options.task}":\n`);
     recommended.forEach((s, i) => {
       console.log(`  ${i + 1}. ${s.name}`);
       console.log(`     ID: ${s.id}`);
       console.log(`     Method: ${s.method}`);
-      console.log(`     ✅ ${s.strengths[0]}`);
+      console.log(`     ${s.strengths[0]}`);
       console.log('');
     });
   } catch (error) {
@@ -3908,11 +4011,11 @@ async function listApprovals(options = {}) {
     const approvals = await client.get('/api/approvals/pending');
 
     if (approvals.length === 0) {
-      console.log('\n✅ No pending approvals\n');
+      console.log('\nNo pending approvals\n');
       return;
     }
 
-    console.log('\n📋 Pending Block Approvals:\n');
+    console.log('\nPending Block Approvals:\n');
     console.table(approvals.map(a => ({
       'ID': a.id.substring(0, 8) + '...',
       'Block': a.blockName,
@@ -3932,7 +4035,7 @@ async function getApprovalInfo(id) {
   try {
     const approval = await client.get(`/api/approvals/${encodeURIComponent(id)}`);
 
-    console.log('\n📋 Approval Details:\n');
+    console.log('\nApproval Details:\n');
     console.log(`  ID:          ${approval.id}`);
     console.log(`  Block ID:    ${approval.blockId}`);
     console.log(`  Block Name:  ${approval.blockName}`);
@@ -3960,7 +4063,7 @@ async function getApprovalInfo(id) {
     console.log('');
   } catch (error) {
     if (error.status === 404) {
-      console.error(`❌ Approval not found: ${id}`);
+      console.error(`Approval not found: ${id}`);
     } else {
       handleApiError(error, 'getting approval info');
     }
@@ -3979,7 +4082,7 @@ async function submitBlockForApproval(blockId, options = {}) {
 
     const approval = await client.post('/api/approvals', body);
 
-    console.log('\n✅ Block submitted for approval:\n');
+    console.log('\nBlock submitted for approval:\n');
     console.log(`  Approval ID: ${approval.id}`);
     console.log(`  Block:       ${approval.blockName} (${approval.blockType})`);
     console.log(`  Status:      ${approval.status}`);
@@ -3998,7 +4101,7 @@ async function approveBlock(id, options = {}) {
 
     const approval = await client.post(`/api/approvals/${encodeURIComponent(id)}/approve`, body);
 
-    console.log('\n✅ Block approved:\n');
+    console.log('\nBlock approved:\n');
     console.log(`  Approval ID: ${approval.id}`);
     console.log(`  Block:       ${approval.blockName} (${approval.blockType})`);
     console.log(`  Status:      ${approval.status}`);
@@ -4006,7 +4109,7 @@ async function approveBlock(id, options = {}) {
     console.log('');
   } catch (error) {
     if (error.status === 404) {
-      console.error(`❌ Approval not found: ${id}`);
+      console.error(`Approval not found: ${id}`);
     } else {
       handleApiError(error, 'approving block');
     }
@@ -4023,7 +4126,7 @@ async function rejectBlock(id, reason, options = {}) {
 
     const approval = await client.post(`/api/approvals/${encodeURIComponent(id)}/reject`, body);
 
-    console.log('\n❌ Block rejected:\n');
+    console.log('\nBlock rejected:\n');
     console.log(`  Approval ID: ${approval.id}`);
     console.log(`  Block:       ${approval.blockName} (${approval.blockType})`);
     console.log(`  Status:      ${approval.status}`);
@@ -4032,7 +4135,7 @@ async function rejectBlock(id, reason, options = {}) {
     console.log('');
   } catch (error) {
     if (error.status === 404) {
-      console.error(`❌ Approval not found: ${id}`);
+      console.error(`Approval not found: ${id}`);
     } else {
       handleApiError(error, 'rejecting block');
     }
@@ -4055,13 +4158,16 @@ async function main() {
     }
   } else {
     argv = minimist(process.argv.slice(2), {
-      boolean: ['mock', 'help', 'h', 'force', 'status', 'push', 'run-tests', 'run-linter', 'keep-changes', 'pending-approval', 'no-monitor', 'list', 'no-back', 'debug', 'knowledge', 'metrics', 'full'],
-      string: ['api-url', 'u', 'name', 'path', 'description', 'runtime', 'image', 'work-dir', 'block-paths', 'model', 'lines', 'since', 'working-dir', 'workdir', 'workflow', 'iterations', 'parallel', 'delay', 'goal', 'tags', 'inputs', 'config', 'from', 'to', 'limit', 'block', 'category', 'version', 'author', 'capabilities', 'tools', 'agents', 'type', 'project', 'task', 'context', 'access', 'test-command', 'linter-command', 'max-steps', 'timeout', 'message', 'branch', 'scope', 'authority', 'allowed-paths', 'denied-paths', 'filter', 'offset', 'command', 'from-session', 'template', 'reason', 'repo-path']
+      boolean: ['mock', 'help', 'h', 'force', 'push', 'run-tests', 'run-linter', 'keep-changes', 'pending-approval', 'monitor', 'list', 'no-back', 'debug', 'knowledge', 'metrics', 'full', 'start', 'json-output'],
+      string: ['api-url', 'u', 'name', 'path', 'description', 'runtime', 'image', 'work-dir', 'block-paths', 'model', 'lines', 'since', 'working-dir', 'workdir', 'workflow', 'iterations', 'parallel', 'delay', 'goal', 'tags', 'inputs', 'config', 'from', 'to', 'limit', 'block', 'category', 'version', 'author', 'capabilities', 'tools', 'agents', 'type', 'project', 'task', 'context', 'access', 'test-command', 'linter-command', 'max-steps', 'timeout', 'message', 'branch', 'scope', 'authority', 'allowed-paths', 'denied-paths', 'filter', 'offset', 'command', 'from-session', 'template', 'reason', 'repo-path', 'status', 'recent', 'json-value'],
+      alias: { 'json-output': 'json' }
     });
   }
 
   // Detect JSON output mode (--json flag without value, or set by JsonInputParser)
-  const isJsonMode = argv.json === true;
+  // --json (boolean alias of --json-output) = output mode
+  // --json-value <string> = legacy JSON value input
+  const isJsonMode = argv.json === true || argv['json-output'] === true;
   formatter = new OutputFormatter(isJsonMode);
 
   // Update client URL if provided
@@ -4071,394 +4177,118 @@ async function main() {
 
   const cmd = argv._[0];
 
+  // No command but JSON mode requested: show error instead of opening shell
+  if (!cmd && isJsonMode && !argv.help && !argv.h) {
+    formatter.error('No command specified. Use: maestro <command> --json', 'MISSING_COMMAND');
+    process.exit(1);
+  }
+
   // No command: launch interactive shell
   if (!cmd && !argv.help && !argv.h) {
     const { MaestroShell } = require('./shell.ts');
     const shell = new MaestroShell(async (args) => {
       // Create a new argv-like object for the command
       const innerArgv = minimist(args, {
-        boolean: ['mock', 'help', 'h', 'force', 'status', 'push', 'run-tests', 'run-linter', 'keep-changes', 'pending-approval', 'no-monitor', 'list', 'no-back', 'debug', 'knowledge', 'metrics', 'full'],
-        string: ['api-url', 'u', 'name', 'path', 'description', 'runtime', 'image', 'work-dir', 'block-paths', 'model', 'lines', 'since', 'working-dir', 'workdir', 'workflow', 'iterations', 'parallel', 'delay', 'goal', 'tags', 'inputs', 'config', 'from', 'to', 'limit', 'block', 'category', 'version', 'author', 'capabilities', 'tools', 'agents', 'type', 'project', 'task', 'context', 'access', 'test-command', 'linter-command', 'max-steps', 'timeout', 'message', 'branch', 'scope', 'authority', 'allowed-paths', 'denied-paths', 'filter', 'offset', 'command', 'from-session', 'template', 'reason', 'repo-path']
+        boolean: ['mock', 'help', 'h', 'force', 'push', 'run-tests', 'run-linter', 'keep-changes', 'pending-approval', 'monitor', 'list', 'no-back', 'debug', 'knowledge', 'metrics', 'full', 'start', 'json-output'],
+        string: ['api-url', 'u', 'name', 'path', 'description', 'runtime', 'image', 'work-dir', 'block-paths', 'model', 'lines', 'since', 'working-dir', 'workdir', 'workflow', 'iterations', 'parallel', 'delay', 'goal', 'tags', 'inputs', 'config', 'from', 'to', 'limit', 'block', 'category', 'version', 'author', 'capabilities', 'tools', 'agents', 'type', 'project', 'task', 'context', 'access', 'test-command', 'linter-command', 'max-steps', 'timeout', 'message', 'branch', 'scope', 'authority', 'allowed-paths', 'denied-paths', 'filter', 'offset', 'command', 'from-session', 'template', 'reason', 'repo-path', 'status', 'recent', 'json-value'],
+        alias: { 'json-output': 'json' }
       });
       await executeWithArgv(innerArgv);
     });
     return shell.start();
   }
 
-  // Help flag
+  // Help flag — progressive help (P1-10)
   if (argv.help || argv.h) {
-    console.log(`
-Maestro CLI v2.0.0
+    // Check if a specific command is targeted for help
+    const helpCmd = cmd;
 
-Usage: maestro <command> [options]
-       maestro '{"command":"...", "params":{...}}'   JSON input (agent mode)
+    // Commands with their own --help: forward to executeWithArgv
+    if (helpCmd === 'session' || helpCmd === 'sessions') {
+      return await executeWithArgv(argv);
+    }
+
+    if (helpCmd === 'projects') {
+      console.log(`
+${c.boldColor('cyan', 'Project Commands')}
+
+${c.bold('Usage:')} maestro projects <command> [options]
+
+${c.bold('Commands:')}
+  ${c.gray('(none)')}             List all projects
+  info <id>           Show project details
+  create              Create project (--name, --path required)
+  bind --path <p>     Bind existing directory
+  open <path>         Open existing project
+  delete <id>         Delete project (--force required)
+  blocks <id>         List blocks in project
+  discover            Discover projects in directory
+  status/start/stop/restart/logs <id>  Container management
+
+${c.bold('Create Options:')}
+  --name <name>       Project name (required)
+  --path <path>       Root path (required)
+  --runtime <type>    Runtime: none, docker, process
+  --model <model>     Default model
+`);
+      return;
+    }
+
+    // Default: top-level help (streamlined)
+    console.log(`
+${c.boldColor('cyan', 'Maestro CLI')} ${c.gray('v2.0.0')}
+
+${c.bold('Usage:')} maestro <command> [options]
        maestro                    Launch interactive shell
 
-Block Commands:
-  blocks               List all available blocks
-  workflows            List all workflows
-  info <block-id>      Show block details
-  children <block-id>  List children of a composite block (--recursive=false for direct only)
-  search <query>       Search blocks by name or description
+${c.bold('Quick Start:')}
+  ${c.cyan('maestro session create --project <id> --template foundry-default --start')}
+  ${c.cyan('maestro session invoke <id> start')}
+  ${c.cyan('maestro monitor <id>')}
 
-Block Approval Commands:
-  block publish <id>              Submit block for approval (--from-session)
-  block --pending-approval        List pending approvals
-  block info <approval-id>        Show approval details
-  block approve <approval-id>     Approve pending block
-  block reject <id> --reason "x"  Reject with feedback
+${c.bold('Core Commands:')}
+  health               Check backend status
+  templates            List available session templates
+  session              Session management (--help for details)
+  monitor [id]         Launch TUI monitor
+  blocks               List all blocks
+  projects             Project management (--help for details)
 
-Project Commands:
-  projects             List all projects with container status
-  projects info <id>   Show project details
-  projects create      Create a new project
-  projects bind        Bind an existing directory as a Maestro project
-  projects open <path> Open an existing project
-  projects delete <id> Remove a project (--force required)
-  projects blocks <id> List blocks in a project
-  projects discover    Discover projects in a directory
+${c.bold('Session Shortcuts:')}
+  session create       Create session (--project, --template, --start)
+  session list         List sessions (--status, --recent)
+  session last         Show most recent session
+  session delete-all   Bulk delete (--status, --force required)
 
-Container Commands:
-  projects status <id>  Show container status
-  projects start <id>   Start project container
-  projects stop <id>    Stop project container
-  projects restart <id> Restart project container
-  projects logs <id>    Show container logs
+${c.bold('Execution:')}
+  run <block-id>       Run any block (workflow, agent, tool...)
+                       Options: --input key=value, --mock (workflows only)
 
-Execution Commands:
-  execute <workflow>   Execute a workflow (use --mock for offline testing)
-  run <block-id>       Execute a single block directly
-  validate <workflow>  Validate workflow structure
+${c.bold('Advanced Commands:')}
+  training             Training configuration management
+  fitness              Fitness metrics and leaderboard
+  foundry              Agent foundry dashboard
+  agents / tools       Agent and tool management
+  workspace            Workspace management
+  orchestrator         Promotion orchestrator
+  experiment           Training experiments
+  research             Research team cycles
 
-Interactive Session Commands (Session Server Architecture):
-  session              List all interactive sessions
-  session list         List sessions with filters (--status, --project, --limit)
-  session info <id>    Show session details
-  session create       Create a new session (--type foundry|project, --name)
-  session start <id>   Start session and launch monitor (--no-monitor to skip)
-  session pause <id>   Pause a running session
-  session resume <id>  Resume a paused session
-  session stop <id>    Stop a session
-  session import <id> --template <name>  Import template (variables, entry-points, widgets)
-  session vars <id>    Manage session variables (list/get/set/remove)
-  session entry-points <id>  Manage entry points (list/register/remove)
-  session invoke <id> <entry-point>  Invoke session entry point
-  session widgets <id> Manage monitor widgets (list/add/remove)
-  session take-control <id> Transfer session authority (--authority)
-  session bind-repo <id>  Bind session to a repository (--path <repo-path>)
-  session exec <id> "<cmd>"  Execute command in session
-  session events <id>  Show session event history
-  session delete <id>  Delete a session
+${c.bold('Options:')}
+  --json               Structured JSON output (for agents)
+  --json-value <val>   Pass JSON value to commands
+  --api-url <url>      Backend URL (default: ${API_URL})
+  --help, -h           Show help (use with command for details)
 
-Monitor Commands:
-  monitor              Launch monitor with session list (global view)
-  monitor --list       Same as above (explicit)
-  monitor <id>         Launch monitor for specific session
-                       Options: --refresh <sec> --layout <auto|execution|idle>
-                                --view <tree|files|vars|logs|widgets>
-                                --no-back (disable Escape to return to list)
+${c.bold('ID Shortcuts:')}
+  Use ID prefixes: ${c.cyan('maestro session info f2e8')} instead of full UUID.
 
-Training Commands:
-  training             List all training configurations
-  training info <id>   Show training config details
-  training create      Create a training configuration
-  training runs        List all training runs
-  training run <id>    Show training run details
-  training start <cfg> Start a training run for a configuration
-  training pause <id>  Pause a training run
-  training resume <id> Resume a paused training run
-  training cancel <id> Cancel a training run
+${c.bold('Subcommand Help:')}
+  maestro session --help     Session commands
+  maestro projects --help    Project commands
 
-Fitness Commands:
-  fitness              Show fitness configuration
-  fitness config       Show/update fitness configuration
-  fitness leaderboard  Show model fitness rankings
-  fitness profiles     List all model profiles
-  fitness profile <id> Show/update a model profile
-  fitness entropy      Show task entropy data
-  fitness calculate    Calculate fitness for an execution
-
-Metrics Commands:
-  metrics              List recent execution metrics
-  metrics summary      Show aggregated metrics summary
-  runs                 List execution history
-  runs info <id>       Show run details
-
-Agent Foundry Commands:
-  foundry              Show foundry overview dashboard
-  foundry leaderboard  Show top agents and tools by score
-  foundry promote      Promote a block to agent or tool
-
-Agent Commands:
-  agents               List all agents
-  agents info <id>     Show agent details
-  agents create        Create a new agent
-  agents delete <id>   Delete an agent (--force required)
-  agents metrics <id>  Show agent metrics
-
-Tool Commands:
-  tools                List all tools
-  tools info <id>      Show tool details
-  tools create         Create a new tool
-  tools delete <id>    Delete a tool (--force required)
-  tools metrics <id>   Show tool metrics
-
-Block Testing Commands (works with any block type: tool, agent, workflow, task):
-  test start <block-id>  Start a test run for any block
-  test runs              List all test runs
-  test runs <id>         Show test run details
-  test pending <id>      Show iterations awaiting evaluation
-  test evaluate <id>     Submit evaluation for a test run
-  test compare <ids>     Compare multiple test runs
-  test improve <id>      Submit improvement suggestions
-
-LLM Commands:
-  llm                  Show LLM provider status
-
-System Block Commands:
-  system               List all system blocks
-  system info <id>     Show system block details
-  system overrides     List user overrides
-  system override <id> Create override for a system block
-  system restore <id>  Restore system block to default
-  system effective <id> Show effective block (with override if present)
-
-Workspace Commands:
-  workspace            List all workspaces
-  workspace info <id>  Show workspace details
-  workspace create     Create a new workspace (--repo-path to bind to repo)
-  workspace delete <id> Delete a workspace (--force required)
-  workspace add-session <ws-id> <session-id>  Add session to workspace
-  workspace add-project <ws-id> <project-id>  Add project to workspace
-  workspace permissions <id>  Update workspace permissions
-  workspace topology   Show workspace topology and promotion paths
-  workspace promote <ws-id>   Promote an agent to another workspace
-
-Orchestrator Commands:
-  orchestrator         Show orchestrator status
-  orchestrator status  Show orchestrator status
-  orchestrator pending Show agents pending promotion
-  orchestrator promote --agent <id> --from <ws> --to <ws> [--force]
-  orchestrator rollback --agent <id> --workspace <ws> [--to-version <v>]
-  orchestrator history [--workspace <ws>] [--agent <id>] [--limit <n>]
-  orchestrator config  Show orchestrator configuration
-  orchestrator config set --min-fitness <n> --from <ws> --to <ws>
-  orchestrator auto-promote --enable|--disable
-  orchestrator monitor Run monitoring cycle manually
-
-Experiment Commands (Training Strategies):
-  experiment           List all experiments
-  experiment list      List experiments with filters
-  experiment info <id> Show experiment details
-  experiment create    Create a new experiment
-  experiment start <id> Start an experiment
-  experiment start-all Start all experiments in workspace
-  experiment pause <id> Pause an experiment
-  experiment stop <id>  Stop/cancel an experiment
-  experiment delete <id> Delete an experiment (--force required)
-  experiment progress <id> Show experiment progress
-  experiment compare <ids...> Compare multiple experiments
-  experiment strategies List available training strategies
-  experiment strategy <id> Show strategy details
-  experiment recommend Recommend strategy for task type
-
-Research Team Commands:
-  research             Show pending improvement proposals
-  research start --agent <id> [--goal "..."] [--target 0.85]
-  research status <cycle-id>   Get status of running cycle
-  research stop <cycle-id>     Stop a running cycle
-  research history [--agent <id>] [--limit <n>]
-  research proposals [--agent <id>]
-  research approve <proposal-id>
-  research reject <proposal-id> --reason "..."
-  research config      Show research team configuration
-  research config set --threshold 0.85 --iterations 50
-
-Block Approval Commands:
-  approval             List pending block approvals
-  approval list        List all pending approvals
-  approval info <id>   Show approval details
-  approval submit <block-id>   Submit a block for approval
-  approval approve <id>        Approve a pending block
-  approval reject <id> --reason "..."  Reject a pending block
-
-System Commands:
-  health               Check backend connection
-  schema               Show available commands and parameters (for agents)
-
-Options:
-  --api-url <url>      Backend API URL (default: http://localhost:5000)
-  -u <url>             Shorthand for --api-url
-  --mock               Use mock execution (for offline workflow testing)
-  --input <key=value>  Input parameters for execution (can be repeated)
-  --working-dir <path> Working directory for execution (e.g., git repo path)
-  --json               Output structured JSON (for agent consumption)
-  --help, -h           Show this help message
-
-Project Create Options:
-  --name <name>        Project name (required for create, optional for bind)
-  --path <path>        Project root path (required)
-  --description <desc> Project description
-  --runtime <type>     Runtime type: none, docker, process
-  --image <image>      Docker image (if runtime=docker)
-  --model <model>      Default model for agents
-  --block-paths <paths> Comma-separated block search paths
-
-Session Create Options:
-  --project <id>        Project ID (optional if --repo is provided)
-  --repo <path>         Repository path (optional if --project is provided)
-  --authority <auth>    Authority type: human, ai:<name>, agent:<id> (default: human)
-  --workflow <id>       Workflow ID (optional, for automated sessions)
-  --task <desc>         Task description (optional)
-  --name <name>         Session name (optional)
-  --context <ctx>       Additional context (optional)
-  --access <level>      Access level: readonly, sandbox, controlled, full (default: controlled)
-  --allowed-paths <p>   Comma-separated allowed file paths
-  --denied-paths <p>    Comma-separated denied file paths
-  --run-tests           Run tests on commit
-  --test-command <cmd>  Custom test command
-  --run-linter          Run linter on commit
-  --linter-command <cmd> Custom linter command
-  --max-steps <n>       Maximum steps (default: 50)
-  --timeout <ms>        Timeout in ms (default: 600000)
-
-Session Take-Control Options:
-  --authority <auth>    New authority: human, ai:<name>, agent:<id> (default: human)
-
-Session Events Options:
-  --limit <n>           Maximum events to show
-  --offset <n>          Offset for pagination
-  --filter <type>       Filter by event type
-
-Session Commit Options:
-  --message <msg>      Commit message (required)
-  --branch <name>      Branch name (optional, uses current if not specified)
-  --push               Push to remote after commit
-  --type <type>        Commit type (feat, fix, etc.)
-  --scope <scope>      Commit scope
-
-Training Create Options:
-  --name <name>        Configuration name (required)
-  --workflow <id>      Workflow ID to train (required)
-  --iterations <n>     Number of iterations (default: 10)
-  --parallel <n>       Parallel iterations (default: 1)
-  --delay <ms>         Delay between iterations in ms (default: 0)
-  --goal <goal>        Optimization goal: quality, cost, speed (default: quality)
-  --tags <tags>        Comma-separated tags
-
-Agent/Tool Create Options:
-  --name <name>        Name (required)
-  --block <id>         Block ID (required for create)
-  --description <desc> Description
-  --category <cat>     Category (default: general)
-  --version <ver>      Version (default: 1.0.0)
-  --tags <tags>        Comma-separated tags
-  --author <author>    Author name
-  --capabilities <caps> Comma-separated capabilities (agents only)
-  --tools <ids>        Comma-separated tool IDs (agents only)
-  --agents <ids>       Comma-separated sub-agent IDs (agents only)
-
-Foundry Promote Options:
-  --block <id>         Block ID to promote (required)
-  --name <name>        Name for the promoted item (required)
-  --type <type>        Designation type: tool or agent (required)
-  --description <desc> Description
-  --category <cat>     Category
-  --tags <tags>        Comma-separated tags
-  --tools <ids>        Comma-separated tool IDs (for agents)
-
-Metrics Filter Options:
-  --from <date>        Start date (ISO format)
-  --to <date>          End date (ISO format)
-  --limit <n>          Maximum results to show
-
-Environment Variables:
-  MAESTRO_API_URL      Backend API URL (default: http://localhost:5000)
-  MAESTRO_API_TIMEOUT  API request timeout in ms (default: 30000)
-  MAESTRO_DEBUG        Enable debug logging (true/false)
-  LLM_PROVIDER_URL     LLM Provider URL (default: http://localhost:8000)
-
-Examples:
-  maestro blocks
-  maestro workflows
-  maestro projects
-  maestro projects create --name "My App" --path ./my-app --runtime docker
-  maestro projects bind --path ./existing-repo --name "My Repo"
-  maestro execute my-workflow --input key=value
-  maestro training create --name "Quality Test" --workflow wf-123 --iterations 100
-  maestro training start cfg-123
-  maestro training runs
-  maestro session
-  maestro session create --project proj-123 --authority human
-  maestro session create --project proj-123 --authority "ai:claude-code" --task "Fix login bug"
-  maestro session create --project proj-123 --source sandbox                    # Default: isolated sandbox
-  maestro session create --project proj-123 --source repository --repository-path /path/to/repo
-  maestro session create --project proj-123 --source repository --repository-path ./app --access-level readonly
-  maestro session start sess-123
-  maestro session exec sess-123 "ls -la"
-  maestro session exec sess-123 "blocks list"
-  maestro session exec sess-123 "diff"
-  maestro session take-control sess-123 --authority human
-  maestro session pause sess-123
-  maestro session resume sess-123
-  maestro session stop sess-123
-  maestro session events sess-123 --limit 50
-  maestro sessions test sess-123
-  maestro sessions commit sess-123 --message "Fix login validation" --push
-  maestro metrics summary
-  maestro runs --limit 10
-  maestro llm
-  maestro health
-
-  # Agent Foundry
-  maestro foundry
-  maestro foundry leaderboard --limit 5
-  maestro agents
-  maestro agents info my-agent
-  maestro agents create --name "Code Review Agent" --block review-workflow --tools lint,test
-  maestro tools
-  maestro tools info commit-helper
-  maestro tools create --name "Git Diff" --block git-diff-block
-  maestro foundry promote --block my-workflow --name "My Tool" --type tool
-
-  # Orchestrator (Phase 5)
-  maestro orchestrator                          # Show orchestrator status
-  maestro orchestrator pending                  # Show agents pending promotion
-  maestro orchestrator promote --agent agent-123 --from research --to staging
-  maestro orchestrator promote --agent agent-123 --from staging --to production --force
-  maestro orchestrator rollback --agent agent-123 --workspace production --to-version v1.0.0
-  maestro orchestrator history --workspace staging --limit 10
-  maestro orchestrator config                   # Show configuration
-  maestro orchestrator config set --min-fitness 0.8
-  maestro orchestrator auto-promote --enable    # Enable automatic promotions
-  maestro orchestrator monitor                  # Run monitoring cycle manually
-
-  # Research Team (Phase 6)
-  maestro research                              # Show pending improvement proposals
-  maestro research start --agent my-agent       # Start research cycle
-  maestro research start --agent my-agent --target 0.9 --iterations 100
-  maestro research start --agent my-agent --goal "Improve response quality" --auto-publish
-  maestro research status cycle-123             # Check cycle status
-  maestro research stop cycle-123               # Stop a running cycle
-  maestro research history --agent my-agent     # View research history
-  maestro research proposals                    # View pending proposals
-  maestro research approve proposal-123         # Approve an improvement
-  maestro research reject proposal-123 --reason "Not aligned with goals"
-  maestro research config                       # Show configuration
-  maestro research config set --threshold 0.85 --auto-approve
-
-  # Experiments (Phase 7 - Training Strategies)
-  maestro experiment                              # List all experiments
-  maestro experiment strategies                   # List available strategies
-  maestro experiment strategy sft                 # Show SFT strategy details
-  maestro experiment recommend --task code        # Recommend strategies for task type
-  maestro experiment create --name "Test SFT" --workspace ws-123 --agent agent-1 --strategy sft
-  maestro experiment create --name "Test RL" --workspace ws-123 --agent agent-1 --strategy rl-fitness
-  maestro experiment start exp-123                # Start single experiment
-  maestro experiment start-all --workspace ws-123 # Start all in workspace
-  maestro experiment progress exp-123             # Check progress
-  maestro experiment compare exp-1 exp-2 exp-3    # Compare results
-  maestro experiment info exp-123                 # Show full details
+${c.bold('Environment:')}
+  MAESTRO_API_URL      Backend URL     MAESTRO_DEBUG   Debug logging
 `);
     return;
   }
@@ -5045,8 +4875,31 @@ async function getBlockInfoExtended(blockId) {
  * Executes a command based on parsed arguments.
  * This function is called by both main() and the interactive shell.
  */
+// P3-36: Track if we've checked backend connectivity
+let _backendChecked = false;
+
+async function checkBackendOnce() {
+  if (_backendChecked) return;
+  _backendChecked = true;
+  try {
+    await client._fetch('GET', '/api/health');
+  } catch (e) {
+    if (e.code === 'ECONNREFUSED' || e.message?.includes('ECONNREFUSED')) {
+      console.error(c.warn(`Backend not reachable at ${client.baseUrl}`));
+      console.error(c.gray('   Start services: powershell -File dev-scripts/dev-start.ps1'));
+      console.error('');
+    }
+  }
+}
+
 async function executeWithArgv(argv) {
   const cmd = argv._[0];
+
+  // P3-36: Startup health check on first API command (skip for local-only commands)
+  const localCommands = ['health', 'schema', 'templates', 'template'];
+  if (!localCommands.includes(cmd) && cmd !== 'monitor') {
+    await checkBackendOnce();
+  }
 
   try {
     if (cmd === 'blocks') return await listBlocks();
@@ -5064,7 +4917,7 @@ async function executeWithArgv(argv) {
       // block publish <block-id> --from-session <session-id>
       if (subCmd === 'publish') {
         const blockId = argv._[2];
-        if (!blockId) { console.error('❌ Block ID required'); process.exit(1); }
+        if (!blockId) { console.error('Block ID required'); process.exit(1); }
         return await submitBlockForApproval(blockId, {
           session: argv['from-session'] || argv.session,
           submittedBy: argv['submitted-by'] || argv.by
@@ -5074,7 +4927,7 @@ async function executeWithArgv(argv) {
       // block approve <approval-id>
       if (subCmd === 'approve') {
         const id = argv._[2];
-        if (!id) { console.error('❌ Approval ID required'); process.exit(1); }
+        if (!id) { console.error('Approval ID required'); process.exit(1); }
         return await approveBlock(id, {
           reviewedBy: argv['reviewed-by'] || argv.by
         });
@@ -5084,8 +4937,8 @@ async function executeWithArgv(argv) {
       if (subCmd === 'reject') {
         const id = argv._[2];
         const reason = argv.reason || argv._[3];
-        if (!id) { console.error('❌ Approval ID required'); process.exit(1); }
-        if (!reason) { console.error('❌ Rejection reason required (--reason "...")'); process.exit(1); }
+        if (!id) { console.error('Approval ID required'); process.exit(1); }
+        if (!reason) { console.error('Rejection reason required (--reason "...")'); process.exit(1); }
         return await rejectBlock(id, reason, {
           reviewedBy: argv['reviewed-by'] || argv.by
         });
@@ -5094,7 +4947,7 @@ async function executeWithArgv(argv) {
       // block info <id> - could be block or approval
       if (subCmd === 'info') {
         const id = argv._[2];
-        if (!id) { console.error('❌ Block/Approval ID required'); process.exit(1); }
+        if (!id) { console.error('Block/Approval ID required'); process.exit(1); }
         // Try as approval first, then as block
         try {
           return await getApprovalInfo(id);
@@ -5106,24 +4959,24 @@ async function executeWithArgv(argv) {
         }
       }
 
-      console.error(`❌ Unknown block subcommand: ${subCmd}`);
+      console.error(`Unknown block subcommand: ${subCmd}`);
       console.error('   Available: publish, approve, reject, info, --pending-approval');
       process.exit(1);
     }
     if (cmd === 'info') {
       const blockId = argv._[1];
-      if (!blockId) { console.error('❌ Block ID required'); process.exit(1); }
+      if (!blockId) { console.error('Block ID required'); process.exit(1); }
       return await getBlockInfo(blockId);
     }
     if (cmd === 'children') {
       const blockId = argv._[1];
-      if (!blockId) { console.error('❌ Block ID required'); process.exit(1); }
+      if (!blockId) { console.error('Block ID required'); process.exit(1); }
       const recursive = argv.recursive !== false; // default true
       return await getBlockChildren(blockId, recursive);
     }
     if (cmd === 'search') {
       const query = argv._[1];
-      if (!query) { console.error('❌ Search query required'); process.exit(1); }
+      if (!query) { console.error('Search query required'); process.exit(1); }
       return await searchBlocks(query);
     }
     if (cmd === 'health') return await checkHealth();
@@ -5158,19 +5011,40 @@ async function executeWithArgv(argv) {
     if (cmd === 'projects') {
       const subCmd = argv._[1];
 
+      // Progressive help for projects
+      if (argv.help || argv.h) {
+        console.log(`
+${c.boldColor('cyan', 'Project Commands')}
+
+${c.bold('Usage:')} maestro projects <command> [options]
+
+${c.bold('Commands:')}
+  ${c.gray('(none)')}             List all projects
+  info <id>           Show project details
+  create              Create project (--name, --path)
+  bind --path <p>     Bind existing directory
+  open <path>         Open existing project
+  delete <id>         Delete project (--force required)
+  blocks <id>         List project blocks
+  discover            Discover projects in directory
+  status/start/stop/restart/logs <id>  Container management
+`);
+        return;
+      }
+
       if (!subCmd) return await listProjectsWithStatus();
 
       if (subCmd === 'info') {
         const id = argv._[2];
-        if (!id) { console.error('❌ Project ID required'); process.exit(1); }
-        return await getProjectInfo(id);
+        if (!id) { formatter.error('Project ID required', 'MISSING_PARAM'); process.exit(EXIT.USER_ERROR); }
+        return await getProjectInfo(await resolveId(id, 'project'));
       }
 
       if (subCmd === 'create') {
         const name = argv.name;
         const projectPath = argv.path;
-        if (!name) { console.error('❌ --name is required'); process.exit(1); }
-        if (!projectPath) { console.error('❌ --path is required'); process.exit(1); }
+        if (!name) { console.error('--name is required'); process.exit(1); }
+        if (!projectPath) { console.error('--path is required'); process.exit(1); }
         return await createProject(name, projectPath, {
           description: argv.description,
           runtime: argv.runtime,
@@ -5183,7 +5057,7 @@ async function executeWithArgv(argv) {
 
       if (subCmd === 'bind') {
         const projectPath = argv.path || argv._[2];
-        if (!projectPath) { console.error('❌ --path is required'); process.exit(1); }
+        if (!projectPath) { console.error('--path is required'); process.exit(1); }
         return await bindProject(projectPath, {
           name: argv.name,
           description: argv.description,
@@ -5196,19 +5070,19 @@ async function executeWithArgv(argv) {
 
       if (subCmd === 'open') {
         const projectPath = argv._[2];
-        if (!projectPath) { console.error('❌ Project path required'); process.exit(1); }
+        if (!projectPath) { console.error('Project path required'); process.exit(1); }
         return await openProject(projectPath);
       }
 
       if (subCmd === 'delete') {
         const id = argv._[2];
-        if (!id) { console.error('❌ Project ID required'); process.exit(1); }
+        if (!id) { console.error('Project ID required'); process.exit(1); }
         return await deleteProject(id, { force: argv.force });
       }
 
       if (subCmd === 'blocks') {
         const id = argv._[2];
-        if (!id) { console.error('❌ Project ID required'); process.exit(1); }
+        if (!id) { console.error('Project ID required'); process.exit(1); }
         return await listProjectBlocks(id);
       }
 
@@ -5220,46 +5094,47 @@ async function executeWithArgv(argv) {
       // Container commands
       if (subCmd === 'status') {
         const id = argv._[2];
-        if (!id) { console.error('❌ Project ID required'); process.exit(1); }
+        if (!id) { console.error('Project ID required'); process.exit(1); }
         return await getContainerStatus(id);
       }
 
       if (subCmd === 'start') {
         const id = argv._[2];
-        if (!id) { console.error('❌ Project ID required'); process.exit(1); }
+        if (!id) { console.error('Project ID required'); process.exit(1); }
         return await startContainer(id);
       }
 
       if (subCmd === 'stop') {
         const id = argv._[2];
-        if (!id) { console.error('❌ Project ID required'); process.exit(1); }
+        if (!id) { console.error('Project ID required'); process.exit(1); }
         return await stopContainer(id);
       }
 
       if (subCmd === 'restart') {
         const id = argv._[2];
-        if (!id) { console.error('❌ Project ID required'); process.exit(1); }
+        if (!id) { console.error('Project ID required'); process.exit(1); }
         return await restartContainer(id);
       }
 
       if (subCmd === 'logs') {
         const id = argv._[2];
-        if (!id) { console.error('❌ Project ID required'); process.exit(1); }
+        if (!id) { console.error('Project ID required'); process.exit(1); }
         return await getContainerLogs(id, {
           lines: argv.lines ? parseInt(argv.lines) : undefined,
           since: argv.since
         });
       }
 
-      console.error(`❌ Unknown projects subcommand: ${subCmd}`);
+      console.error(`Unknown projects subcommand: ${subCmd}`);
       console.error('   Run "maestro --help" for usage information');
       process.exit(1);
     }
     
-    // Run single block command
-    if (cmd === 'run') {
+    // Unified run command (works for any block type: workflow, agent, tool...)
+    // 'execute' is a silent alias for backward compatibility
+    if (cmd === 'run' || cmd === 'execute') {
       const blockId = argv._[1];
-      if (!blockId) { console.error('❌ Block ID required'); process.exit(1); }
+      if (!blockId) { formatter.error('Block ID required. Usage: maestro run <block-id> [--input key=value]', 'MISSING_PARAM'); process.exit(EXIT.USER_ERROR); }
       const inputs = {};
       if (argv.input) {
         const raw = Array.isArray(argv.input) ? argv.input : [argv.input];
@@ -5268,62 +5143,91 @@ async function executeWithArgv(argv) {
           inputs[k] = v;
         }
       }
-      return await executeBlockReal(blockId, inputs, { workingDir: argv['working-dir'] || argv.workdir });
+      return await runBlockUnified(blockId, inputs, { mock: argv.mock, workingDir: argv['working-dir'] || argv.workdir });
     }
 
     if (cmd === 'validate') {
       const wf = argv._[1];
-      if (!wf) { console.error('❌ Workflow ID required'); process.exit(1); }
+      if (!wf) { console.error('Workflow ID required'); process.exit(1); }
       const w = findWorkflow(wf);
-      if (!w) { console.error('❌ Workflow not found:', wf); process.exit(2); }
+      if (!w) { console.error('Workflow not found:', wf); process.exit(2); }
       const ok = Array.isArray(w.nodes) && w.nodes.length > 0;
-      if (!ok) { console.error('❌ Invalid workflow:', wf); process.exit(3); }
+      if (!ok) { console.error('Invalid workflow:', wf); process.exit(3); }
       console.log(JSON.stringify({ workflow: wf, valid: ok, nodeCount: w.nodes.length }, null, 2));
       return;
     }
-    if (cmd === 'execute') {
-      const wf = argv._[1];
-      if (!wf) { console.error('❌ Workflow ID required'); process.exit(1); }
-      const inputs = {};
-      if (argv.input) {
-        const raw = Array.isArray(argv.input) ? argv.input : [argv.input];
-        for (const kv of raw) {
-          const [k,v] = kv.split('=');
-          inputs[k] = v;
-        }
-      }
-      if (argv.mock) {
-        runMockWorkflow(wf, inputs);
-      } else {
-        // Real workflow execution via API
-        return await executeWorkflowReal(wf, inputs, { workingDir: argv['working-dir'] || argv.workdir });
-      }
-      return;
-    }
-
     // Session commands (both 'session' and 'sessions' for convenience)
     if (cmd === 'session' || cmd === 'sessions') {
       const subCmd = argv._[1];
 
+      // P1-10: Progressive help for session commands
+      if (argv.help || argv.h) {
+        console.log(`
+${c.boldColor('cyan', 'Session Commands')}
+
+${c.bold('Usage:')} maestro session <command> [options]
+
+${c.bold('Commands:')}
+  list                         List sessions (--status, --recent, --limit)
+  info <id>                    Show session details
+  create                       Create session (--project, --template, --start)
+  start <id>                   Start session (--monitor to launch TUI)
+  pause <id>                   Pause a running session
+  resume <id>                  Resume a paused session
+  stop <id>                    Stop a session
+  delete <id>                  Delete session (--force to skip prompt)
+  delete-all                   Delete sessions (--status, --force required)
+  import <id> --template <t>   Import a session template
+  vars <id> [list|get|set|remove]  Manage variables
+  entry-points <id>            Manage entry points
+  invoke <id> [entry-point]    Invoke entry point (default: start)
+  widgets <id>                 Manage monitor widgets
+  exec <id> "<cmd>"            Execute command in session
+  events <id>                  Show event history
+  bind-repo <id> --path <p>    Bind to repository
+  take-control <id>            Transfer authority
+  last                         Show most recent session
+
+${c.bold('ID Shortcuts:')}
+  Use ID prefixes instead of full UUIDs: ${c.cyan('maestro session info f2e844')}
+
+${c.bold('Quick Start:')}
+  maestro session create --project <id> --template foundry-default --start
+`);
+        return;
+      }
+
       if (!subCmd) return await listSessions();
 
       if (subCmd === 'list') {
+        const recent = argv.recent ? parseInt(argv.recent) : null;
         return await listSessions({
           status: argv.status,
-          projectId: argv.project,
-          limit: argv.limit
+          projectId: argv.project ? await resolveId(argv.project, 'project') : undefined,
+          limit: recent || (argv.limit ? parseInt(argv.limit) : undefined)
         });
+      }
+
+      // P3-31: Session last command
+      if (subCmd === 'last') {
+        const sessions = await client.listSessions({ limit: 1 });
+        if (!sessions || sessions.length === 0) {
+          formatter.info('No sessions found.');
+          return;
+        }
+        return await getSessionInfo(sessions[0].id);
       }
 
       if (subCmd === 'info') {
         const id = argv._[2];
-        if (!id) { console.error('❌ Session ID required'); process.exit(1); }
-        return await getSessionInfo(id);
+        if (!id) { formatter.error('Session ID required', 'MISSING_PARAM'); process.exit(EXIT.USER_ERROR); }
+        return await getSessionInfo(await resolveId(id, 'session'));
       }
 
       if (subCmd === 'create') {
-        return await createSession({
-          projectId: argv.project,
+        const projectId = argv.project ? await resolveId(argv.project, 'project') : undefined;
+        const result = await createSession({
+          projectId,
           repo: argv.repo,
           authority: argv.authority,
           workflowId: argv.workflow,
@@ -5339,66 +5243,69 @@ async function executeWithArgv(argv) {
           linterCommand: argv['linter-command'],
           maxSteps: argv['max-steps'],
           timeout: argv.timeout,
-          // Phase 4: Session source options
           source: argv.source,
           repositoryPath: argv['repository-path'],
           accessLevel: argv['access-level'],
           branch: argv.branch,
-          excludePatterns: argv['exclude-patterns']
+          excludePatterns: argv['exclude-patterns'],
+          // P1-8: Streamlined creation with --template and --start
+          template: argv.template,
+          autoStart: argv.start
         });
+        return result;
       }
 
       if (subCmd === 'start') {
         const id = argv._[2];
-        if (!id) { console.error('❌ Session ID required'); process.exit(1); }
-        return await startSession(id, { noMonitor: argv['no-monitor'] });
+        if (!id) { formatter.error('Session ID required', 'MISSING_PARAM'); process.exit(EXIT.USER_ERROR); }
+        return await startSession(await resolveId(id, 'session'), { monitor: argv.monitor });
       }
 
       if (subCmd === 'pause') {
         const id = argv._[2];
-        if (!id) { console.error('❌ Session ID required'); process.exit(1); }
-        return await pauseSession(id);
+        if (!id) { formatter.error('Session ID required', 'MISSING_PARAM'); process.exit(EXIT.USER_ERROR); }
+        return await pauseSession(await resolveId(id, 'session'));
       }
 
       if (subCmd === 'resume') {
         const id = argv._[2];
-        if (!id) { console.error('❌ Session ID required'); process.exit(1); }
-        return await resumeSession(id);
+        if (!id) { formatter.error('Session ID required', 'MISSING_PARAM'); process.exit(EXIT.USER_ERROR); }
+        return await resumeSession(await resolveId(id, 'session'));
       }
 
       if (subCmd === 'stop') {
         const id = argv._[2];
-        if (!id) { console.error('❌ Session ID required'); process.exit(1); }
-        return await stopSession(id);
+        if (!id) { formatter.error('Session ID required', 'MISSING_PARAM'); process.exit(EXIT.USER_ERROR); }
+        return await stopSession(await resolveId(id, 'session'));
       }
 
       if (subCmd === 'take-control') {
         const id = argv._[2];
-        if (!id) { console.error('❌ Session ID required'); process.exit(1); }
+        if (!id) { formatter.error('Session ID required', 'MISSING_PARAM'); process.exit(EXIT.USER_ERROR); }
         const authority = argv.authority || argv._[3] || 'human';
-        return await takeControlSession(id, authority);
+        return await takeControlSession(await resolveId(id, 'session'), authority);
       }
 
       if (subCmd === 'bind-repo') {
         const id = argv._[2];
         const repoPath = argv.path || argv._[3];
-        if (!id) { console.error('❌ Session ID required'); process.exit(1); }
-        if (!repoPath) { console.error('❌ --path <repo-path> required'); process.exit(1); }
-        return await bindSessionToRepository(id, repoPath);
+        if (!id) { formatter.error('Session ID required', 'MISSING_PARAM'); process.exit(EXIT.USER_ERROR); }
+        if (!repoPath) { formatter.error('--path <repo-path> required', 'MISSING_PARAM'); process.exit(EXIT.USER_ERROR); }
+        return await bindSessionToRepository(await resolveId(id, 'session'), repoPath);
       }
 
       if (subCmd === 'exec') {
         const id = argv._[2];
         const command = argv._[3] || argv.command;
-        if (!id) { console.error('❌ Session ID required'); process.exit(1); }
-        if (!command) { console.error('❌ Command required'); process.exit(1); }
-        return await executeSessionCommand(id, command);
+        if (!id) { formatter.error('Session ID required', 'MISSING_PARAM'); process.exit(EXIT.USER_ERROR); }
+        if (!command) { formatter.error('Command required', 'MISSING_PARAM'); process.exit(EXIT.USER_ERROR); }
+        return await executeSessionCommand(await resolveId(id, 'session'), command);
       }
 
       if (subCmd === 'events') {
         const id = argv._[2];
-        if (!id) { console.error('❌ Session ID required'); process.exit(1); }
-        return await getSessionEvents(id, {
+        if (!id) { formatter.error('Session ID required', 'MISSING_PARAM'); process.exit(EXIT.USER_ERROR); }
+        return await getSessionEvents(await resolveId(id, 'session'), {
           limit: argv.limit,
           offset: argv.offset,
           filter: argv.filter
@@ -5407,27 +5314,49 @@ async function executeWithArgv(argv) {
 
       if (subCmd === 'delete') {
         const id = argv._[2];
-        if (!id) { console.error('❌ Session ID required'); process.exit(1); }
-        return await deleteSession(id);
+        if (!id) { formatter.error('Session ID required', 'MISSING_PARAM'); process.exit(EXIT.USER_ERROR); }
+        return await deleteSession(await resolveId(id, 'session'), { force: argv.force });
+      }
+
+      if (subCmd === 'delete-all') {
+        const statusFilter = argv.status;
+        if (!argv.force) {
+          formatter.error('--force is required for delete-all', 'MISSING_PARAM');
+          process.exit(EXIT.USER_ERROR);
+        }
+        const sessions = await client.listSessions(statusFilter ? { status: statusFilter } : {});
+        if (!sessions || sessions.length === 0) {
+          formatter.info('No sessions to delete.');
+          return;
+        }
+        let deleted = 0;
+        for (const s of sessions) {
+          try {
+            await client.deleteSession(s.id);
+            deleted++;
+          } catch (e) { /* skip errors */ }
+        }
+        formatter.success({ deleted, total: sessions.length }, `\n${c.ok(`Deleted ${deleted}/${sessions.length} sessions`)}\n`);
+        return;
       }
 
       // Legacy commands for backward compatibility
       if (subCmd === 'diff') {
         const id = argv._[2];
-        if (!id) { console.error('❌ Session ID required'); process.exit(1); }
-        return await getSessionDiff(id);
+        if (!id) { formatter.error('Session ID required', 'MISSING_PARAM'); process.exit(EXIT.USER_ERROR); }
+        return await getSessionDiff(await resolveId(id, 'session'));
       }
 
       if (subCmd === 'test') {
         const id = argv._[2];
-        if (!id) { console.error('❌ Session ID required'); process.exit(1); }
-        return await runSessionTests(id, argv['test-command']);
+        if (!id) { formatter.error('Session ID required', 'MISSING_PARAM'); process.exit(EXIT.USER_ERROR); }
+        return await runSessionTests(await resolveId(id, 'session'), argv['test-command']);
       }
 
       if (subCmd === 'commit') {
         const id = argv._[2];
-        if (!id) { console.error('❌ Session ID required'); process.exit(1); }
-        return await commitSession(id, {
+        if (!id) { formatter.error('Session ID required', 'MISSING_PARAM'); process.exit(EXIT.USER_ERROR); }
+        return await commitSession(await resolveId(id, 'session'), {
           message: argv.message,
           branch: argv.branch,
           push: argv.push,
@@ -5438,17 +5367,21 @@ async function executeWithArgv(argv) {
 
       if (subCmd === 'cancel') {
         const id = argv._[2];
-        if (!id) { console.error('❌ Session ID required'); process.exit(1); }
-        return await cancelSession(id);
+        if (!id) { formatter.error('Session ID required', 'MISSING_PARAM'); process.exit(EXIT.USER_ERROR); }
+        return await cancelSession(await resolveId(id, 'session'));
       }
 
       // Session import command (imports templates with workflows, blocks, widgets)
       if (subCmd === 'import') {
         const id = argv._[2];
         const template = argv.template || argv._[3];
-        if (!id) { console.error('❌ Session ID required'); process.exit(1); }
-        if (!template) { console.error('❌ Template name required (--template)'); process.exit(1); }
-        return await importSessionTemplate(id, template);
+        if (!id) { formatter.error('Session ID required', 'MISSING_PARAM'); process.exit(EXIT.USER_ERROR); }
+        if (!template) {
+          const available = listAvailableTemplates();
+          formatter.error(`Template name required (--template). Available: ${available.join(', ')}`, 'MISSING_PARAM');
+          process.exit(EXIT.USER_ERROR);
+        }
+        return await importSessionTemplate(await resolveId(id, 'session'), template);
       }
 
       // Session variables commands
@@ -5456,44 +5389,45 @@ async function executeWithArgv(argv) {
         const id = argv._[2];
         const varsCmd = argv._[3];
 
-        if (!id) { console.error('❌ Session ID required'); process.exit(1); }
+        if (!id) { formatter.error('Session ID required', 'MISSING_PARAM'); process.exit(EXIT.USER_ERROR); }
+        const resolvedId = await resolveId(id, 'session');
 
         if (!varsCmd || varsCmd === 'list') {
-          return await listSessionVariables(id);
+          return await listSessionVariables(resolvedId);
         }
 
         if (varsCmd === 'get') {
           const key = argv._[4];
-          if (!key) { console.error('❌ Variable key required'); process.exit(1); }
-          return await getSessionVariable(id, key);
+          if (!key) { formatter.error('Variable key required', 'MISSING_PARAM'); process.exit(EXIT.USER_ERROR); }
+          return await getSessionVariable(resolvedId, key);
         }
 
         if (varsCmd === 'set') {
           const key = argv._[4];
           let value = argv._[5];
-          if (!key) { formatter.error('Variable key required', 'MISSING_PARAM'); process.exit(1); }
-          // --json with a string value = legacy JSON value mode (not --json boolean output flag)
-          if (typeof argv.json === 'string' && argv.json) {
+          if (!key) { formatter.error('Variable key required', 'MISSING_PARAM'); process.exit(EXIT.USER_ERROR); }
+          // --json-value <string> for passing JSON values (resolves --json flag conflict)
+          const jsonVal = argv['json-value'] || (typeof argv.json === 'string' && argv.json);
+          if (jsonVal) {
             try {
-              value = JSON.parse(argv.json);
+              value = JSON.parse(jsonVal);
             } catch (e) {
               formatter.error('Invalid JSON value', 'PARSE_ERROR');
-              process.exit(1);
+              process.exit(EXIT.USER_ERROR);
             }
           }
-          if (value === undefined) { formatter.error('Variable value required', 'MISSING_PARAM'); process.exit(1); }
-          return await setSessionVariable(id, key, value);
+          if (value === undefined) { formatter.error('Variable value required', 'MISSING_PARAM'); process.exit(EXIT.USER_ERROR); }
+          return await setSessionVariable(resolvedId, key, value);
         }
 
         if (varsCmd === 'remove' || varsCmd === 'delete') {
           const key = argv._[4];
-          if (!key) { console.error('❌ Variable key required'); process.exit(1); }
-          return await removeSessionVariable(id, key);
+          if (!key) { formatter.error('Variable key required', 'MISSING_PARAM'); process.exit(EXIT.USER_ERROR); }
+          return await removeSessionVariable(resolvedId, key);
         }
 
-        console.error(`❌ Unknown vars command: ${varsCmd}`);
-        console.error('   Available: list, get <key>, set <key> <value>, remove <key>');
-        process.exit(1);
+        formatter.error(`Unknown vars command: ${varsCmd}. Available: list, get <key>, set <key> <value>, remove <key>`, 'UNKNOWN_COMMAND');
+        process.exit(EXIT.USER_ERROR);
       }
 
       // Session entry points commands
@@ -5501,29 +5435,29 @@ async function executeWithArgv(argv) {
         const id = argv._[2];
         const epCmd = argv._[3];
 
-        if (!id) { console.error('❌ Session ID required'); process.exit(1); }
+        if (!id) { formatter.error('Session ID required', 'MISSING_PARAM'); process.exit(EXIT.USER_ERROR); }
+        const resolvedId = await resolveId(id, 'session');
 
         if (!epCmd || epCmd === 'list') {
-          return await listSessionEntryPoints(id);
+          return await listSessionEntryPoints(resolvedId);
         }
 
         if (epCmd === 'register' || epCmd === 'add') {
           const name = argv._[4];
           const workflowId = argv._[5] || argv.workflow;
-          if (!name) { console.error('❌ Entry point name required'); process.exit(1); }
-          if (!workflowId) { console.error('❌ Workflow ID required'); process.exit(1); }
-          return await registerSessionEntryPoint(id, name, workflowId);
+          if (!name) { formatter.error('Entry point name required', 'MISSING_PARAM'); process.exit(EXIT.USER_ERROR); }
+          if (!workflowId) { formatter.error('Workflow ID required', 'MISSING_PARAM'); process.exit(EXIT.USER_ERROR); }
+          return await registerSessionEntryPoint(resolvedId, name, workflowId);
         }
 
         if (epCmd === 'remove' || epCmd === 'delete') {
           const name = argv._[4];
-          if (!name) { console.error('❌ Entry point name required'); process.exit(1); }
-          return await removeSessionEntryPoint(id, name);
+          if (!name) { formatter.error('Entry point name required', 'MISSING_PARAM'); process.exit(EXIT.USER_ERROR); }
+          return await removeSessionEntryPoint(resolvedId, name);
         }
 
-        console.error(`❌ Unknown entry-points command: ${epCmd}`);
-        console.error('   Available: list, register <name> <workflow-id>, remove <name>');
-        process.exit(1);
+        formatter.error(`Unknown entry-points command: ${epCmd}. Available: list, register <name> <workflow-id>, remove <name>`, 'UNKNOWN_COMMAND');
+        process.exit(EXIT.USER_ERROR);
       }
 
       // Session invoke command
@@ -5531,9 +5465,9 @@ async function executeWithArgv(argv) {
         const id = argv._[2];
         const entryPoint = argv._[3] || 'start';
 
-        if (!id) { console.error('❌ Session ID required'); process.exit(1); }
+        if (!id) { formatter.error('Session ID required', 'MISSING_PARAM'); process.exit(EXIT.USER_ERROR); }
 
-        return await invokeSessionEntryPoint(id, entryPoint);
+        return await invokeSessionEntryPoint(await resolveId(id, 'session'), entryPoint);
       }
 
       // Session widgets commands
@@ -5541,43 +5475,119 @@ async function executeWithArgv(argv) {
         const id = argv._[2];
         const widgetCmd = argv._[3];
 
-        if (!id) { console.error('❌ Session ID required'); process.exit(1); }
+        if (!id) { formatter.error('Session ID required', 'MISSING_PARAM'); process.exit(EXIT.USER_ERROR); }
+        const resolvedId = await resolveId(id, 'session');
 
         if (!widgetCmd || widgetCmd === 'list') {
-          return await listSessionWidgets(id);
+          return await listSessionWidgets(resolvedId);
         }
 
         if (widgetCmd === 'add' || widgetCmd === 'register') {
           const widgetType = argv.type;
           const widgetId = argv.id || argv._[4];
-          if (!widgetType) { console.error('❌ --type required (progress-bar, score-chart, counter, status-list)'); process.exit(1); }
-          if (!widgetId) { console.error('❌ --id or widget ID required'); process.exit(1); }
+          if (!widgetType) { formatter.error('--type required (progress-bar, score-chart, counter, status-list)', 'MISSING_PARAM'); process.exit(EXIT.USER_ERROR); }
+          if (!widgetId) { formatter.error('--id or widget ID required', 'MISSING_PARAM'); process.exit(EXIT.USER_ERROR); }
           let config = {};
           if (argv.config) {
             try {
               config = JSON.parse(argv.config);
             } catch (e) {
-              console.error('❌ Invalid JSON in --config');
-              process.exit(1);
+              formatter.error('Invalid JSON in --config', 'PARSE_ERROR');
+              process.exit(EXIT.USER_ERROR);
             }
           }
-          return await registerSessionWidget(id, widgetId, widgetType, config);
+          return await registerSessionWidget(resolvedId, widgetId, widgetType, config);
         }
 
         if (widgetCmd === 'remove' || widgetCmd === 'delete') {
           const widgetId = argv._[4];
-          if (!widgetId) { console.error('❌ Widget ID required'); process.exit(1); }
-          return await removeSessionWidget(id, widgetId);
+          if (!widgetId) { formatter.error('Widget ID required', 'MISSING_PARAM'); process.exit(EXIT.USER_ERROR); }
+          return await removeSessionWidget(resolvedId, widgetId);
         }
 
-        console.error(`❌ Unknown widgets command: ${widgetCmd}`);
-        console.error('   Available: list, add --type <type> --id <id> [--config {...}], remove <id>');
-        process.exit(1);
+        formatter.error(`Unknown widgets command: ${widgetCmd}. Available: list, add --type <type> --id <id> [--config {...}], remove <id>`, 'UNKNOWN_COMMAND');
+        process.exit(EXIT.USER_ERROR);
       }
 
-      console.error(`❌ Unknown session command: ${subCmd}`);
-      console.error('   Available commands: list, info, create, start, pause, resume, stop, take-control, bind-repo, exec, events, delete, vars, entry-points, invoke, widgets');
-      process.exit(1);
+      formatter.error(`Unknown session command: ${subCmd}. Run 'maestro session --help' for available commands.`, 'UNKNOWN_COMMAND');
+      process.exit(EXIT.USER_ERROR);
+    }
+
+    // P1-11: Templates list/show commands
+    if (cmd === 'templates' || cmd === 'template') {
+      const subCmd = argv._[1];
+
+      if (!subCmd || subCmd === 'list') {
+        formatter.setCommand('templates.list');
+        const templates = listAvailableTemplates();
+        if (templates.length === 0) {
+          formatter.info('No templates found.');
+          return;
+        }
+        const rows = templates.map(name => {
+          const templatePath = path.join(__dirname, '../content/system/templates/sessions', `${name}.session.json`);
+          try {
+            const content = JSON.parse(fs.readFileSync(templatePath, 'utf8'));
+            const epCount = content.entryPoints ? Object.keys(content.entryPoints).length : 0;
+            const varCount = content.variables ? Object.keys(content.variables).length : 0;
+            return {
+              'Name': name,
+              'Entry Points': epCount,
+              'Variables': varCount,
+              'Description': content.description || '-'
+            };
+          } catch (e) {
+            return { 'Name': name, 'Entry Points': '?', 'Variables': '?', 'Description': 'Error reading' };
+          }
+        });
+        formatter.table(rows, `\n${c.bold('Available Templates:')}\n`);
+        return;
+      }
+
+      if (subCmd === 'show' || subCmd === 'info') {
+        formatter.setCommand('templates.show');
+        const name = argv._[2];
+        if (!name) { formatter.error('Template name required', 'MISSING_PARAM'); process.exit(EXIT.USER_ERROR); }
+        const templatePath = path.join(__dirname, '../content/system/templates/sessions', `${name}.session.json`);
+        if (!fs.existsSync(templatePath)) {
+          const available = listAvailableTemplates();
+          formatter.error(`Template not found: ${name}. Available: ${available.join(', ')}`, 'NOT_FOUND');
+          process.exit(EXIT.NOT_FOUND);
+        }
+        const content = JSON.parse(fs.readFileSync(templatePath, 'utf8'));
+        if (formatter.jsonMode) {
+          formatter.success(content);
+        } else {
+          console.log(`\n${c.bold('Template:')} ${c.cyan(name)}\n`);
+          if (content.description) console.log(`  ${c.gray('Description:')} ${content.description}`);
+          if (content.entryPoints) {
+            console.log(`\n  ${c.bold('Entry Points:')}`);
+            for (const [ep, wf] of Object.entries(content.entryPoints)) {
+              console.log(`    ${c.cyan(ep)} ${c.gray('->')} ${wf}`);
+            }
+          }
+          if (content.variables) {
+            const varKeys = Object.keys(content.variables);
+            console.log(`\n  ${c.bold('Variables:')} ${c.gray(`(${varKeys.length})`)}`);
+            for (const key of varKeys) {
+              const val = content.variables[key];
+              const display = typeof val === 'object' ? `${JSON.stringify(val).substring(0, 60)}...` : String(val);
+              console.log(`    ${key}: ${c.gray(display)}`);
+            }
+          }
+          if (content.monitorWidgets) {
+            console.log(`\n  ${c.bold('Widgets:')} ${content.monitorWidgets.length}`);
+            for (const w of content.monitorWidgets) {
+              console.log(`    ${w.id} (${w.type})`);
+            }
+          }
+          console.log('');
+        }
+        return;
+      }
+
+      formatter.error(`Unknown templates command: ${subCmd}. Available: list, show <name>`, 'UNKNOWN_COMMAND');
+      process.exit(EXIT.USER_ERROR);
     }
 
     // Training commands
@@ -5588,13 +5598,13 @@ async function executeWithArgv(argv) {
 
       if (subCmd === 'info') {
         const id = argv._[2];
-        if (!id) { console.error('❌ Configuration ID required'); process.exit(1); }
+        if (!id) { console.error('Configuration ID required'); process.exit(1); }
         return await getTrainingConfigInfo(id);
       }
 
       if (subCmd === 'create') {
-        if (!argv.name) { console.error('❌ --name is required'); process.exit(1); }
-        if (!argv.workflow) { console.error('❌ --workflow is required'); process.exit(1); }
+        if (!argv.name) { console.error('--name is required'); process.exit(1); }
+        if (!argv.workflow) { console.error('--workflow is required'); process.exit(1); }
         return await createTrainingConfig({
           name: argv.name,
           description: argv.description,
@@ -5617,13 +5627,13 @@ async function executeWithArgv(argv) {
 
       if (subCmd === 'run') {
         const id = argv._[2];
-        if (!id) { console.error('❌ Training run ID required'); process.exit(1); }
+        if (!id) { console.error('Training run ID required'); process.exit(1); }
         return await getTrainingRunInfo(id);
       }
 
       if (subCmd === 'start') {
         const configId = argv._[2];
-        if (!configId) { console.error('❌ Configuration ID required'); process.exit(1); }
+        if (!configId) { console.error('Configuration ID required'); process.exit(1); }
         return await startTrainingRun(configId, {
           name: argv.name,
           inputs: argv.inputs
@@ -5632,23 +5642,23 @@ async function executeWithArgv(argv) {
 
       if (subCmd === 'pause') {
         const id = argv._[2];
-        if (!id) { console.error('❌ Training run ID required'); process.exit(1); }
+        if (!id) { console.error('Training run ID required'); process.exit(1); }
         return await controlTrainingRun(id, 'pause');
       }
 
       if (subCmd === 'resume') {
         const id = argv._[2];
-        if (!id) { console.error('❌ Training run ID required'); process.exit(1); }
+        if (!id) { console.error('Training run ID required'); process.exit(1); }
         return await controlTrainingRun(id, 'resume');
       }
 
       if (subCmd === 'cancel') {
         const id = argv._[2];
-        if (!id) { console.error('❌ Training run ID required'); process.exit(1); }
+        if (!id) { console.error('Training run ID required'); process.exit(1); }
         return await controlTrainingRun(id, 'cancel');
       }
 
-      console.error(`❌ Unknown training subcommand: ${subCmd}`);
+      console.error(`Unknown training subcommand: ${subCmd}`);
       process.exit(1);
     }
 
@@ -5683,7 +5693,7 @@ async function executeWithArgv(argv) {
 
       if (subCmd === 'profile') {
         const modelId = argv._[2];
-        if (!modelId) { console.error('❌ Model ID required'); process.exit(1); }
+        if (!modelId) { console.error('Model ID required'); process.exit(1); }
         return await getModelProfile(modelId);
       }
 
@@ -5696,8 +5706,8 @@ async function executeWithArgv(argv) {
       }
 
       if (subCmd === 'calculate') {
-        if (!argv.model) { console.error('❌ --model is required'); process.exit(1); }
-        if (!argv['task-type']) { console.error('❌ --task-type is required'); process.exit(1); }
+        if (!argv.model) { console.error('--model is required'); process.exit(1); }
+        if (!argv['task-type']) { console.error('--task-type is required'); process.exit(1); }
         return await calculateFitness({
           modelId: argv.model,
           taskType: argv['task-type'],
@@ -5705,7 +5715,7 @@ async function executeWithArgv(argv) {
         });
       }
 
-      console.error(`❌ Unknown fitness subcommand: ${subCmd}`);
+      console.error(`Unknown fitness subcommand: ${subCmd}`);
       console.error('   Available commands: config, leaderboard, profiles, profile, entropy, calculate');
       process.exit(1);
     }
@@ -5718,7 +5728,7 @@ async function executeWithArgv(argv) {
 
       if (subCmd === 'info') {
         const blockId = argv._[2];
-        if (!blockId) { console.error('❌ Block ID required'); process.exit(1); }
+        if (!blockId) { console.error('Block ID required'); process.exit(1); }
         return await getSystemBlockInfo(blockId);
       }
 
@@ -5728,23 +5738,23 @@ async function executeWithArgv(argv) {
 
       if (subCmd === 'override') {
         const blockId = argv._[2];
-        if (!blockId) { console.error('❌ Block ID required'); process.exit(1); }
+        if (!blockId) { console.error('Block ID required'); process.exit(1); }
         return await createSystemBlockOverride(blockId, argv.config);
       }
 
       if (subCmd === 'restore') {
         const blockId = argv._[2];
-        if (!blockId) { console.error('❌ Block ID required'); process.exit(1); }
+        if (!blockId) { console.error('Block ID required'); process.exit(1); }
         return await restoreSystemBlock(blockId);
       }
 
       if (subCmd === 'effective') {
         const blockId = argv._[2];
-        if (!blockId) { console.error('❌ Block ID required'); process.exit(1); }
+        if (!blockId) { console.error('Block ID required'); process.exit(1); }
         return await getEffectiveBlock(blockId);
       }
 
-      console.error(`❌ Unknown system subcommand: ${subCmd}`);
+      console.error(`Unknown system subcommand: ${subCmd}`);
       console.error('   Available commands: info, overrides, override, restore, effective');
       process.exit(1);
     }
@@ -5757,7 +5767,7 @@ async function executeWithArgv(argv) {
 
       if (subCmd === 'info') {
         const workspaceId = argv._[2];
-        if (!workspaceId) { console.error('❌ Workspace ID required'); process.exit(1); }
+        if (!workspaceId) { console.error('Workspace ID required'); process.exit(1); }
         return await getWorkspaceInfo(workspaceId);
       }
 
@@ -5775,29 +5785,29 @@ async function executeWithArgv(argv) {
 
       if (subCmd === 'delete') {
         const workspaceId = argv._[2];
-        if (!workspaceId) { console.error('❌ Workspace ID required'); process.exit(1); }
+        if (!workspaceId) { console.error('Workspace ID required'); process.exit(1); }
         return await deleteWorkspace(workspaceId);
       }
 
       if (subCmd === 'add-session') {
         const workspaceId = argv._[2];
         const sessionId = argv._[3] || argv.session;
-        if (!workspaceId) { console.error('❌ Workspace ID required'); process.exit(1); }
-        if (!sessionId) { console.error('❌ Session ID required (--session or as argument)'); process.exit(1); }
+        if (!workspaceId) { console.error('Workspace ID required'); process.exit(1); }
+        if (!sessionId) { console.error('Session ID required (--session or as argument)'); process.exit(1); }
         return await addSessionToWorkspace(workspaceId, sessionId);
       }
 
       if (subCmd === 'add-project') {
         const workspaceId = argv._[2];
         const projectId = argv._[3] || argv.project;
-        if (!workspaceId) { console.error('❌ Workspace ID required'); process.exit(1); }
-        if (!projectId) { console.error('❌ Project ID required (--project or as argument)'); process.exit(1); }
+        if (!workspaceId) { console.error('Workspace ID required'); process.exit(1); }
+        if (!projectId) { console.error('Project ID required (--project or as argument)'); process.exit(1); }
         return await addProjectToWorkspace(workspaceId, projectId);
       }
 
       if (subCmd === 'permissions') {
         const workspaceId = argv._[2];
-        if (!workspaceId) { console.error('❌ Workspace ID required'); process.exit(1); }
+        if (!workspaceId) { console.error('Workspace ID required'); process.exit(1); }
         return await updateWorkspacePermissions(workspaceId, {
           canReadFrom: argv['read-from'] ? argv['read-from'].split(',') : undefined,
           canWriteTo: argv['write-to'] ? argv['write-to'].split(',') : undefined,
@@ -5813,13 +5823,13 @@ async function executeWithArgv(argv) {
         const sourceId = argv.source || argv._[2];
         const targetId = argv.target || argv._[3];
         const agentId = argv.agent || argv._[4];
-        if (!sourceId) { console.error('❌ Source workspace ID required (--source)'); process.exit(1); }
-        if (!targetId) { console.error('❌ Target workspace ID required (--target)'); process.exit(1); }
-        if (!agentId) { console.error('❌ Agent block ID required (--agent)'); process.exit(1); }
-        return await promoteAgent(sourceId, targetId, agentId, argv.version);
+        if (!sourceId) { formatter.error('Source workspace ID required (--source)', 'MISSING_PARAM'); process.exit(1); }
+        if (!targetId) { formatter.error('Target workspace ID required (--target)', 'MISSING_PARAM'); process.exit(1); }
+        if (!agentId) { formatter.error('Agent block ID required (--agent)', 'MISSING_PARAM'); process.exit(1); }
+        return await promoteAgent(sourceId, { target: targetId, agent: agentId, version: argv.version });
       }
 
-      console.error(`❌ Unknown workspace subcommand: ${subCmd}`);
+      console.error(`Unknown workspace subcommand: ${subCmd}`);
       console.error('   Available commands: info, create, delete, add-session, add-project, permissions, topology, promote');
       process.exit(1);
     }
@@ -5880,7 +5890,7 @@ async function executeWithArgv(argv) {
         const enabled = argv.enable || argv._[2] === 'enable';
         const disabled = argv.disable || argv._[2] === 'disable';
         if (!enabled && !disabled) {
-          console.error('❌ Specify --enable or --disable');
+          console.error('Specify --enable or --disable');
           process.exit(1);
         }
         return await setOrchestratorAutoPromote(!disabled);
@@ -5892,14 +5902,14 @@ async function executeWithArgv(argv) {
 
       if (subCmd === 'metrics') {
         const agentId = argv.agent || argv._[2];
-        if (!agentId) { console.error('❌ Agent ID required'); process.exit(1); }
+        if (!agentId) { console.error('Agent ID required'); process.exit(1); }
         // TODO: Implement agent-specific metrics
-        console.log(`\n📊 Metrics for agent: ${agentId}\n`);
+        console.log(`\nMetrics for agent: ${agentId}\n`);
         console.log('  (Not yet implemented)');
         return;
       }
 
-      console.error(`❌ Unknown orchestrator subcommand: ${subCmd}`);
+      console.error(`Unknown orchestrator subcommand: ${subCmd}`);
       console.error('   Available commands: status, pending, promote, rollback, history, config, auto-promote, monitor, metrics');
       process.exit(1);
     }
@@ -5924,13 +5934,13 @@ async function executeWithArgv(argv) {
 
       if (subCmd === 'status') {
         const cycleId = argv._[2] || argv.cycle;
-        if (!cycleId) { console.error('❌ Cycle ID required'); process.exit(1); }
+        if (!cycleId) { console.error('Cycle ID required'); process.exit(1); }
         return await getResearchCycleStatus(cycleId);
       }
 
       if (subCmd === 'stop') {
         const cycleId = argv._[2] || argv.cycle;
-        if (!cycleId) { console.error('❌ Cycle ID required'); process.exit(1); }
+        if (!cycleId) { console.error('Cycle ID required'); process.exit(1); }
         return await stopResearchCycle(cycleId);
       }
 
@@ -5947,15 +5957,15 @@ async function executeWithArgv(argv) {
 
       if (subCmd === 'approve') {
         const proposalId = argv._[2] || argv.proposal;
-        if (!proposalId) { console.error('❌ Proposal ID required'); process.exit(1); }
+        if (!proposalId) { console.error('Proposal ID required'); process.exit(1); }
         return await approveResearchProposal(proposalId, argv.by);
       }
 
       if (subCmd === 'reject') {
         const proposalId = argv._[2] || argv.proposal;
         const reason = argv.reason;
-        if (!proposalId) { console.error('❌ Proposal ID required'); process.exit(1); }
-        if (!reason) { console.error('❌ --reason is required'); process.exit(1); }
+        if (!proposalId) { console.error('Proposal ID required'); process.exit(1); }
+        if (!reason) { console.error('--reason is required'); process.exit(1); }
         return await rejectResearchProposal(proposalId, reason, argv.by);
       }
 
@@ -5974,7 +5984,7 @@ async function executeWithArgv(argv) {
         return await getResearchConfig();
       }
 
-      console.error(`❌ Unknown research subcommand: ${subCmd}`);
+      console.error(`Unknown research subcommand: ${subCmd}`);
       console.error('   Available commands: start, status, stop, history, proposals, approve, reject, config');
       process.exit(1);
     }
@@ -6000,7 +6010,7 @@ async function executeWithArgv(argv) {
         });
       }
 
-      console.error(`❌ Unknown metrics subcommand: ${subCmd}`);
+      console.error(`Unknown metrics subcommand: ${subCmd}`);
       process.exit(1);
     }
 
@@ -6021,11 +6031,11 @@ async function executeWithArgv(argv) {
 
       if (subCmd === 'info') {
         const id = argv._[2];
-        if (!id) { console.error('❌ Run ID required'); process.exit(1); }
+        if (!id) { console.error('Run ID required'); process.exit(1); }
         return await getRunInfo(id);
       }
 
-      console.error(`❌ Unknown runs subcommand: ${subCmd}`);
+      console.error(`Unknown runs subcommand: ${subCmd}`);
       process.exit(1);
     }
 
@@ -6045,10 +6055,10 @@ async function executeWithArgv(argv) {
       }
 
       if (subCmd === 'promote') {
-        if (!argv.block) { console.error('❌ --block is required'); process.exit(1); }
-        if (!argv.name) { console.error('❌ --name is required'); process.exit(1); }
+        if (!argv.block) { console.error('--block is required'); process.exit(1); }
+        if (!argv.name) { console.error('--name is required'); process.exit(1); }
         if (!argv.type || (argv.type !== 'tool' && argv.type !== 'agent')) {
-          console.error('❌ --type must be "tool" or "agent"');
+          console.error('--type must be "tool" or "agent"');
           process.exit(1);
         }
         return await promoteBlock({
@@ -6062,7 +6072,7 @@ async function executeWithArgv(argv) {
         });
       }
 
-      console.error(`❌ Unknown foundry subcommand: ${subCmd}`);
+      console.error(`Unknown foundry subcommand: ${subCmd}`);
       process.exit(1);
     }
 
@@ -6074,13 +6084,13 @@ async function executeWithArgv(argv) {
 
       if (subCmd === 'info') {
         const id = argv._[2];
-        if (!id) { console.error('❌ Agent ID required'); process.exit(1); }
+        if (!id) { console.error('Agent ID required'); process.exit(1); }
         return await getAgentInfo(id);
       }
 
       if (subCmd === 'create') {
-        if (!argv.name) { console.error('❌ --name is required'); process.exit(1); }
-        if (!argv.block) { console.error('❌ --block is required'); process.exit(1); }
+        if (!argv.name) { console.error('--name is required'); process.exit(1); }
+        if (!argv.block) { console.error('--block is required'); process.exit(1); }
         return await createAgent({
           name: argv.name,
           block: argv.block,
@@ -6097,17 +6107,17 @@ async function executeWithArgv(argv) {
 
       if (subCmd === 'delete') {
         const id = argv._[2];
-        if (!id) { console.error('❌ Agent ID required'); process.exit(1); }
+        if (!id) { console.error('Agent ID required'); process.exit(1); }
         return await deleteAgentCmd(id, { force: argv.force });
       }
 
       if (subCmd === 'metrics') {
         const id = argv._[2];
-        if (!id) { console.error('❌ Agent ID required'); process.exit(1); }
+        if (!id) { console.error('Agent ID required'); process.exit(1); }
         return await getAgentMetricsCmd(id);
       }
 
-      console.error(`❌ Unknown agents subcommand: ${subCmd}`);
+      console.error(`Unknown agents subcommand: ${subCmd}`);
       process.exit(1);
     }
 
@@ -6119,13 +6129,13 @@ async function executeWithArgv(argv) {
 
       if (subCmd === 'info') {
         const id = argv._[2];
-        if (!id) { console.error('❌ Tool ID required'); process.exit(1); }
+        if (!id) { console.error('Tool ID required'); process.exit(1); }
         return await getToolInfo(id);
       }
 
       if (subCmd === 'create') {
-        if (!argv.name) { console.error('❌ --name is required'); process.exit(1); }
-        if (!argv.block) { console.error('❌ --block is required'); process.exit(1); }
+        if (!argv.name) { console.error('--name is required'); process.exit(1); }
+        if (!argv.block) { console.error('--block is required'); process.exit(1); }
         return await createTool({
           name: argv.name,
           block: argv.block,
@@ -6139,20 +6149,20 @@ async function executeWithArgv(argv) {
 
       if (subCmd === 'delete') {
         const id = argv._[2];
-        if (!id) { console.error('❌ Tool ID required'); process.exit(1); }
+        if (!id) { console.error('Tool ID required'); process.exit(1); }
         return await deleteToolCmd(id, { force: argv.force });
       }
 
       if (subCmd === 'metrics') {
         const id = argv._[2];
-        if (!id) { console.error('❌ Tool ID required'); process.exit(1); }
+        if (!id) { console.error('Tool ID required'); process.exit(1); }
         return await getToolMetricsCmd(id);
       }
 
       // Tool testing commands
       if (subCmd === 'test') {
         const blockId = argv._[2];
-        if (!blockId) { console.error('❌ Block ID required'); process.exit(1); }
+        if (!blockId) { console.error('Block ID required'); process.exit(1); }
         return await startToolTest(blockId, {
           iterations: argv.iterations ? parseInt(argv.iterations) : 5,
           variant: argv.variant,
@@ -6173,17 +6183,17 @@ async function executeWithArgv(argv) {
 
       if (subCmd === 'evaluate') {
         const runId = argv._[2];
-        if (!runId) { console.error('❌ Test run ID required'); process.exit(1); }
+        if (!runId) { console.error('Test run ID required'); process.exit(1); }
         return await evaluateToolTestRun(runId, argv);
       }
 
       if (subCmd === 'pending') {
         const runId = argv._[2];
-        if (!runId) { console.error('❌ Test run ID required'); process.exit(1); }
+        if (!runId) { console.error('Test run ID required'); process.exit(1); }
         return await showPendingEvaluations(runId);
       }
 
-      console.error(`❌ Unknown tools subcommand: ${subCmd}`);
+      console.error(`Unknown tools subcommand: ${subCmd}`);
       process.exit(1);
     }
 
@@ -6204,7 +6214,7 @@ async function executeWithArgv(argv) {
 
       if (subCmd === 'start') {
         const blockId = argv._[2];
-        if (!blockId) { console.error('❌ Block ID required'); process.exit(1); }
+        if (!blockId) { console.error('Block ID required'); process.exit(1); }
         return await startBlockTest(blockId, {
           iterations: argv.iterations ? parseInt(argv.iterations) : 5,
           variant: argv.variant,
@@ -6229,33 +6239,33 @@ async function executeWithArgv(argv) {
 
       if (subCmd === 'pending') {
         const runId = argv._[2];
-        if (!runId) { console.error('❌ Test run ID required'); process.exit(1); }
+        if (!runId) { console.error('Test run ID required'); process.exit(1); }
         return await showBlockTestPendingEvaluations(runId);
       }
 
       if (subCmd === 'evaluate') {
         const runId = argv._[2];
-        if (!runId) { console.error('❌ Test run ID required'); process.exit(1); }
+        if (!runId) { console.error('Test run ID required'); process.exit(1); }
         return await evaluateBlockTestRun(runId, argv);
       }
 
       if (subCmd === 'compare') {
         const runIds = argv._[2];
-        if (!runIds) { console.error('❌ Run IDs required (comma-separated)'); process.exit(1); }
+        if (!runIds) { console.error('Run IDs required (comma-separated)'); process.exit(1); }
         return await compareBlockTestRuns(runIds.split(','));
       }
 
       if (subCmd === 'improve') {
         const runId = argv._[2];
-        if (!runId) { console.error('❌ Test run ID required'); process.exit(1); }
+        if (!runId) { console.error('Test run ID required'); process.exit(1); }
         const suggestions = argv.suggestions ? argv.suggestions.split(',') : [];
         if (suggestions.length === 0) {
-          console.error('❌ --suggestions required (comma-separated)');
+          console.error('--suggestions required (comma-separated)');
           process.exit(1);
         }
         try {
           const run = await client.submitBlockImprovement(runId, suggestions);
-          console.log(`\n✅ Improvement suggestions added to run ${runId}`);
+          console.log(`\nImprovement suggestions added to run ${runId}`);
           console.log(`   Total suggestions: ${run.improvementSuggestions?.length || 0}`);
         } catch (error) {
           handleApiError(error, 'submitting improvements');
@@ -6264,7 +6274,7 @@ async function executeWithArgv(argv) {
         return;
       }
 
-      console.error(`❌ Unknown test subcommand: ${subCmd}`);
+      console.error(`Unknown test subcommand: ${subCmd}`);
       process.exit(1);
     }
 
@@ -6285,7 +6295,7 @@ async function executeWithArgv(argv) {
 
       if (subCmd === 'info') {
         const id = argv._[2];
-        if (!id) { console.error('❌ Experiment ID required'); process.exit(1); }
+        if (!id) { console.error('Experiment ID required'); process.exit(1); }
         return await getExperimentInfo(id);
       }
 
@@ -6301,43 +6311,43 @@ async function executeWithArgv(argv) {
 
       if (subCmd === 'start') {
         const id = argv._[2];
-        if (!id) { console.error('❌ Experiment ID required'); process.exit(1); }
+        if (!id) { console.error('Experiment ID required'); process.exit(1); }
         return await startExperiment(id);
       }
 
       if (subCmd === 'start-all') {
         const workspaceId = argv.workspace || argv.w || argv._[2];
-        if (!workspaceId) { console.error('❌ Workspace ID required (--workspace)'); process.exit(1); }
+        if (!workspaceId) { console.error('Workspace ID required (--workspace)'); process.exit(1); }
         return await startAllExperiments(workspaceId, !argv.sequential);
       }
 
       if (subCmd === 'pause') {
         const id = argv._[2];
-        if (!id) { console.error('❌ Experiment ID required'); process.exit(1); }
+        if (!id) { console.error('Experiment ID required'); process.exit(1); }
         return await pauseExperiment(id);
       }
 
       if (subCmd === 'stop') {
         const id = argv._[2];
-        if (!id) { console.error('❌ Experiment ID required'); process.exit(1); }
+        if (!id) { console.error('Experiment ID required'); process.exit(1); }
         return await stopExperiment(id);
       }
 
       if (subCmd === 'delete') {
         const id = argv._[2];
-        if (!id) { console.error('❌ Experiment ID required'); process.exit(1); }
+        if (!id) { console.error('Experiment ID required'); process.exit(1); }
         return await deleteExperiment(id, argv.force);
       }
 
       if (subCmd === 'progress') {
         const id = argv._[2];
-        if (!id) { console.error('❌ Experiment ID required'); process.exit(1); }
+        if (!id) { console.error('Experiment ID required'); process.exit(1); }
         return await getExperimentProgress(id);
       }
 
       if (subCmd === 'compare') {
         const ids = argv._.slice(2);
-        if (ids.length < 2) { console.error('❌ At least 2 experiment IDs required'); process.exit(1); }
+        if (ids.length < 2) { console.error('At least 2 experiment IDs required'); process.exit(1); }
         return await compareExperiments(ids);
       }
 
@@ -6349,7 +6359,7 @@ async function executeWithArgv(argv) {
 
       if (subCmd === 'strategy') {
         const id = argv._[2];
-        if (!id) { console.error('❌ Strategy ID required'); process.exit(1); }
+        if (!id) { console.error('Strategy ID required'); process.exit(1); }
         return await getStrategyInfo(id);
       }
 
@@ -6360,7 +6370,7 @@ async function executeWithArgv(argv) {
         });
       }
 
-      console.error(`❌ Unknown experiment subcommand: ${subCmd}`);
+      console.error(`Unknown experiment subcommand: ${subCmd}`);
       console.error('   Available: list, info, create, start, start-all, pause, stop, delete, progress, compare, strategies, strategy, recommend');
       process.exit(1);
     }
@@ -6375,13 +6385,13 @@ async function executeWithArgv(argv) {
 
       if (subCmd === 'info') {
         const id = argv._[2];
-        if (!id) { console.error('❌ Approval ID required'); process.exit(1); }
+        if (!id) { console.error('Approval ID required'); process.exit(1); }
         return await getApprovalInfo(id);
       }
 
       if (subCmd === 'submit') {
         const blockId = argv._[2] || argv.block;
-        if (!blockId) { console.error('❌ Block ID required'); process.exit(1); }
+        if (!blockId) { console.error('Block ID required'); process.exit(1); }
         return await submitBlockForApproval(blockId, {
           session: argv.session,
           submittedBy: argv['submitted-by'] || argv.by,
@@ -6391,7 +6401,7 @@ async function executeWithArgv(argv) {
 
       if (subCmd === 'approve') {
         const id = argv._[2];
-        if (!id) { console.error('❌ Approval ID required'); process.exit(1); }
+        if (!id) { console.error('Approval ID required'); process.exit(1); }
         return await approveBlock(id, {
           reviewedBy: argv['reviewed-by'] || argv.by
         });
@@ -6400,14 +6410,14 @@ async function executeWithArgv(argv) {
       if (subCmd === 'reject') {
         const id = argv._[2];
         const reason = argv.reason || argv._[3];
-        if (!id) { console.error('❌ Approval ID required'); process.exit(1); }
-        if (!reason) { console.error('❌ Rejection reason required (--reason "...")'); process.exit(1); }
+        if (!id) { console.error('Approval ID required'); process.exit(1); }
+        if (!reason) { console.error('Rejection reason required (--reason "...")'); process.exit(1); }
         return await rejectBlock(id, reason, {
           reviewedBy: argv['reviewed-by'] || argv.by
         });
       }
 
-      console.error(`❌ Unknown approval subcommand: ${subCmd}`);
+      console.error(`Unknown approval subcommand: ${subCmd}`);
       console.error('   Available: list, info, submit, approve, reject');
       process.exit(1);
     }
@@ -6500,7 +6510,7 @@ async function executeWithArgv(argv) {
           'session.list': { params: { status: { type: 'string' }, project: { type: 'string' }, limit: { type: 'number' } } },
           'session.info': { params: { id: { type: 'string', required: true, positional: 2 } } },
           'session.create': { params: { project: { type: 'string', required: true }, name: { type: 'string' }, authority: { type: 'string', default: 'human' }, type: { type: 'string' }, source: { type: 'string', default: 'sandbox' }, repositoryPath: { type: 'string' } } },
-          'session.start': { params: { id: { type: 'string', required: true, positional: 2 }, noMonitor: { type: 'boolean', default: false } } },
+          'session.start': { params: { id: { type: 'string', required: true, positional: 2 }, monitor: { type: 'boolean', default: false } } },
           'session.stop': { params: { id: { type: 'string', required: true, positional: 2 } } },
           'session.pause': { params: { id: { type: 'string', required: true, positional: 2 } } },
           'session.resume': { params: { id: { type: 'string', required: true, positional: 2 } } },
@@ -6518,8 +6528,7 @@ async function executeWithArgv(argv) {
           'session.take-control': { params: { id: { type: 'string', required: true, positional: 2 }, authority: { type: 'string', default: 'human' } } },
           'session.bind-repo': { params: { id: { type: 'string', required: true, positional: 2 }, path: { type: 'string', required: true } } },
           'session.widgets': { params: { id: { type: 'string', required: true, positional: 2 } } },
-          'execute': { params: { workflow: { type: 'string', required: true, positional: 1 }, input: { type: 'string', repeated: true }, workingDir: { type: 'string' } } },
-          'run': { params: { blockId: { type: 'string', required: true, positional: 1 } } },
+          'run': { params: { blockId: { type: 'string', required: true, positional: 1 }, input: { type: 'string', repeated: true }, mock: { type: 'boolean' }, workingDir: { type: 'string' } }, aliases: ['execute'] },
           'validate': { params: { workflow: { type: 'string', required: true, positional: 1 } } },
           'monitor': { params: { id: { type: 'string', positional: 1 } } },
           'projects': { params: {} },

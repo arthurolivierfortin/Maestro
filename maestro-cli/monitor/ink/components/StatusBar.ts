@@ -38,6 +38,72 @@ const Shortcut = ({ keyChar, labelText, active }) => {
   );
 };
 
+// ── Panel-specific shortcut sets ───────────────────────────────
+
+const TREE_PANEL_NAMES = new Set(['tree', 'phases', 'files']);
+
+const getPanelShortcuts = (focusedPanel, zoomedPanel, hasBackOption, mode) => {
+  const shortcuts = [];
+
+  if (zoomedPanel) {
+    // Zoomed mode — show zoom-specific shortcuts
+    shortcuts.push(h(Shortcut, { key: 'sc-arrows', keyChar: '\u2191\u2193', labelText: 'scroll', active: true }));
+    if (TREE_PANEL_NAMES.has(zoomedPanel)) {
+      shortcuts.push(h(Shortcut, { key: 'sc-lr', keyChar: '\u2190\u2192', labelText: 'expand', active: true }));
+      shortcuts.push(h(Shortcut, { key: 'sc-enter', keyChar: 'Enter', labelText: 'toggle', active: true }));
+    }
+    shortcuts.push(h(Shortcut, { key: 'sc-z', keyChar: 'z', labelText: 'unzoom', active: true }));
+    shortcuts.push(h(Shortcut, { key: 'sc-esc', keyChar: 'Esc', labelText: 'unzoom', active: true }));
+    shortcuts.push(h(Shortcut, { key: 'sc-q', keyChar: 'q', labelText: 'uit', active: true }));
+    return shortcuts;
+  }
+
+  if (focusedPanel && TREE_PANEL_NAMES.has(focusedPanel)) {
+    // Tree panel focused — show tree navigation shortcuts
+    shortcuts.push(h(Shortcut, { key: 'sc-arrows', keyChar: '\u2191\u2193', labelText: 'nav', active: true }));
+    shortcuts.push(h(Shortcut, { key: 'sc-lr', keyChar: '\u2190\u2192', labelText: 'expand', active: true }));
+    shortcuts.push(h(Shortcut, { key: 'sc-enter', keyChar: 'Enter', labelText: 'toggle', active: true }));
+    shortcuts.push(h(Shortcut, { key: 'sc-tab', keyChar: 'Tab', labelText: 'panel', active: true }));
+    shortcuts.push(h(Shortcut, { key: 'sc-z', keyChar: 'z', labelText: 'oom', active: true }));
+    shortcuts.push(h(Shortcut, { key: 'sc-1-3', keyChar: '1-3', labelText: 'jump', active: true }));
+    if (hasBackOption) {
+      shortcuts.push(h(Shortcut, { key: 'sc-esc', keyChar: 'Esc', labelText: 'back', active: true }));
+    }
+    shortcuts.push(h(Shortcut, { key: 'sc-?', keyChar: '?', labelText: '', active: true }));
+    shortcuts.push(h(Shortcut, { key: 'sc-q', keyChar: 'q', labelText: 'uit', active: true }));
+    return shortcuts;
+  }
+
+  if (focusedPanel) {
+    // Non-tree panel focused — show scroll shortcuts
+    shortcuts.push(h(Shortcut, { key: 'sc-arrows', keyChar: '\u2191\u2193', labelText: 'scroll', active: true }));
+    shortcuts.push(h(Shortcut, { key: 'sc-tab', keyChar: 'Tab', labelText: 'panel', active: true }));
+    shortcuts.push(h(Shortcut, { key: 'sc-z', keyChar: 'z', labelText: 'oom', active: true }));
+    shortcuts.push(h(Shortcut, { key: 'sc-1-3', keyChar: '1-3', labelText: 'jump', active: true }));
+    if (hasBackOption) {
+      shortcuts.push(h(Shortcut, { key: 'sc-esc', keyChar: 'Esc', labelText: 'back', active: true }));
+    }
+    shortcuts.push(h(Shortcut, { key: 'sc-r', keyChar: 'r', labelText: '', active: true }));
+    shortcuts.push(h(Shortcut, { key: 'sc-?', keyChar: '?', labelText: '', active: true }));
+    shortcuts.push(h(Shortcut, { key: 'sc-q', keyChar: 'q', labelText: 'uit', active: true }));
+    return shortcuts;
+  }
+
+  // No panel focused — show global session shortcuts
+  shortcuts.push(h(Shortcut, { key: 'sc-tab', keyChar: 'Tab', labelText: 'focus', active: true }));
+  shortcuts.push(h(Shortcut, { key: 'sc-1-3', keyChar: '1-3', labelText: 'panel', active: true }));
+  shortcuts.push(h(Shortcut, { key: 'sc-r', keyChar: 'r', labelText: 'efresh', active: true }));
+  if (mode !== 'descriptor') {
+    shortcuts.push(h(Shortcut, { key: 'sc-tfwvl', keyChar: 't/f/w/v/l', labelText: 'toggle', active: true }));
+  }
+  if (hasBackOption) {
+    shortcuts.push(h(Shortcut, { key: 'sc-esc', keyChar: 'Esc', labelText: 'back', active: true }));
+  }
+  shortcuts.push(h(Shortcut, { key: 'sc-?', keyChar: '?', labelText: 'help', active: true }));
+  shortcuts.push(h(Shortcut, { key: 'sc-q', keyChar: 'q', labelText: 'uit', active: true }));
+  return shortcuts;
+};
+
 // ── StatusBar component ────────────────────────────────────────
 
 const StatusBar = ({
@@ -60,27 +126,20 @@ const StatusBar = ({
   const latencyStr = latency > 0 ? `${latency}ms` : '-';
   const timeStr = lastRefresh ? formatTime(lastRefresh) : '-';
 
-  // Build compact shortcuts
+  // Build context-aware shortcuts
   const shortcuts = [];
 
   if (currentPage && !focusedPanel && !zoomedPanel) {
     // Global page navigation mode — show page shortcuts
-    shortcuts.push(h(Shortcut, { key: 'sc-h', keyChar: 'H', labelText: 'ome', active: currentPage === 'home' }));
-    shortcuts.push(h(Shortcut, { key: 'sc-s', keyChar: 'S', labelText: 'paces', active: currentPage === 'spaces' }));
-    shortcuts.push(h(Shortcut, { key: 'sc-f', keyChar: 'F', labelText: 'oundry', active: currentPage === 'foundry' }));
-    shortcuts.push(h(Shortcut, { key: 'sc-c', keyChar: 'C', labelText: 'atalog', active: currentPage === 'catalog' }));
-    shortcuts.push(h(Shortcut, { key: 'sc-m', keyChar: 'M', labelText: 'odels', active: currentPage === 'models' }));
+    shortcuts.push(h(Shortcut, { key: 'sc-ctrl-lr', keyChar: 'Ctrl+\u2190\u2192', labelText: 'page', active: true }));
+    shortcuts.push(h(Shortcut, { key: 'sc-arrows', keyChar: '\u2191\u2193', labelText: 'select', active: true }));
+    shortcuts.push(h(Shortcut, { key: 'sc-enter', keyChar: 'Enter', labelText: 'open', active: true }));
+    shortcuts.push(h(Shortcut, { key: 'sc-esc', keyChar: 'Esc', labelText: 'back', active: true }));
     shortcuts.push(h(Shortcut, { key: 'sc-q', keyChar: 'q', labelText: 'uit', active: true }));
   } else {
-    // Session detail mode — show panel shortcuts
-    shortcuts.push(h(Shortcut, { key: 'sc-tab', keyChar: 'Tab', labelText: '', active: true }));
-    shortcuts.push(h(Shortcut, { key: 'sc-z', keyChar: 'z', labelText: 'oom', active: !!focusedPanel }));
-    shortcuts.push(h(Shortcut, { key: 'sc-r', keyChar: 'r', labelText: '', active: true }));
-    if (hasBackOption) {
-      shortcuts.push(h(Shortcut, { key: 'sc-esc', keyChar: 'Esc', labelText: '', active: true }));
-    }
-    shortcuts.push(h(Shortcut, { key: 'sc-?', keyChar: '?', labelText: '', active: true }));
-    shortcuts.push(h(Shortcut, { key: 'sc-q', keyChar: 'q', labelText: 'uit', active: true }));
+    // Session detail mode — show panel-specific shortcuts
+    shortcuts.push(h(Shortcut, { key: 'sc-ctrl-lr', keyChar: 'Ctrl+\u2190\u2192', labelText: 'page', active: true }));
+    shortcuts.push(...getPanelShortcuts(focusedPanel, zoomedPanel, hasBackOption, mode));
   }
 
   const shortcutElements = [];

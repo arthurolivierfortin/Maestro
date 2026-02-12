@@ -5,7 +5,7 @@
  * The main orchestrator — replaces the blessed SessionMonitor class.
  * Polls session data, detects mode, renders layout with child panels.
  *
- * Props: { sessionId, apiClient, onExit, onQuit }
+ * Props: { sessionId, apiClient, onExit, onQuit, onNavigate? }
  *
  * Modes:
  *   'descriptor' — session has _monitorDescriptor variable
@@ -29,8 +29,8 @@
 import { createElement as h, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Box, Text } from 'ink';
 import {
-  T, primary, secondary, muted, dim, bold, error, running,
-  statusColor, statusIcon, icons, theme,
+  T, primary, secondary, muted, dim, bold, error, warning, running,
+  statusColor, statusIcon, icons, theme, prevPage, nextPage,
 } from '../theme.ts';
 import { useSessionData } from '../hooks/useSessionData.ts';
 import { useKeyboard } from '../hooks/useKeyboard.ts';
@@ -42,6 +42,7 @@ import { useTreeNav } from '../hooks/useTreeNav.ts';
 // ── Child component imports ─────────────────────────────────────
 import { Panel } from './Panel.ts';
 import { Header } from './Header.ts';
+import { NavBar } from './NavBar.ts';
 import { StatusBar } from './StatusBar.ts';
 import { WorkflowTree } from './WorkflowTree.ts';
 import { PhaseWorkflow } from './PhaseWorkflow.ts';
@@ -139,48 +140,74 @@ const HelpOverlay = ({ hasBackOption }) => {
   },
     h(Text, { bold: true }, '  Maestro Session Monitor'),
     h(Text, {}, ''),
-    h(Text, { bold: true }, '  Panel Navigation:'),
-    h(Text, {}, '    Tab / Shift-Tab     Cycle panel focus'),
-    h(Text, {}, '    Ctrl+Arrows         Switch panels'),
-    h(Text, {}, '    Enter / z           Zoom focused panel'),
+    h(Text, { bold: true }, '  Navigation:'),
+    h(Text, {}, '    Ctrl+Left/Right  Switch page/tab'),
+    h(Text, {}, '    Tab / Shift-Tab  Cycle panel focus'),
+    h(Text, {}, '    1-3              Jump to panel'),
+    h(Text, {}, '    Enter / z        Zoom focused panel'),
+    h(Text, {}, '    Esc              Back / unzoom'),
     h(Text, {}, ''),
-    h(Text, { bold: true }, '  Tree Navigation (tree panels):'),
-    h(Text, {}, '    Up/Down          Move cursor'),
-    h(Text, {}, '    Left             Collapse / go to parent'),
-    h(Text, {}, '    Right            Expand / go to child'),
-    h(Text, {}, '    Enter/Space      Toggle expand/collapse'),
+    h(Text, { bold: true }, '  Content (focused panel):'),
+    h(Text, {}, '    Up/Down          Scroll / tree cursor'),
+    h(Text, {}, '    Left/Right       Tree collapse/expand'),
+    h(Text, {}, '    Enter/Space      Toggle expand'),
     h(Text, {}, ''),
     h(Text, { bold: true }, '  Actions:'),
-    h(Text, {}, '    r          Refresh now'),
-    hasBackOption
-      ? h(Text, { key: 'back' }, '    Esc        Back to session list')
-      : null,
-    h(Text, {}, '    q          Quit'),
-    h(Text, {}, '    ?          This help'),
-    h(Text, {}, ''),
-    h(Text, { bold: true }, '  Mouse:'),
-    h(Text, {}, '    Click       Focus panel'),
-    h(Text, {}, '    Scroll      Scroll focused panel'),
+    h(Text, {}, '    r     Refresh'),
+    h(Text, {}, '    q     Quit'),
+    h(Text, {}, '    ?     This help'),
     h(Text, {}, ''),
     h(Text, { color: 'gray' }, '  Press any key to close...')
   );
+};
+
+// ── Error classification ────────────────────────────────────────
+
+const classifyError = (errorMessage) => {
+  if (!errorMessage) return { type: 'Unknown', detail: 'No error details available' };
+  const msg = errorMessage.toLowerCase();
+  if (msg.includes('econnrefused') || msg.includes('connection refused')) {
+    return { type: 'Connection Refused', detail: 'Backend server is not running or not accepting connections' };
+  }
+  if (msg.includes('timeout') || msg.includes('etimedout') || msg.includes('econnaborted')) {
+    return { type: 'Timeout', detail: 'Request timed out — server may be overloaded' };
+  }
+  if (msg.includes('404') || msg.includes('not found')) {
+    return { type: '404 Not Found', detail: 'Session or endpoint does not exist' };
+  }
+  if (msg.includes('500') || msg.includes('internal server')) {
+    return { type: '500 Server Error', detail: 'Internal server error' };
+  }
+  if (msg.includes('enotfound') || msg.includes('dns')) {
+    return { type: 'DNS Error', detail: 'Host not found — check server address' };
+  }
+  if (msg.includes('network') || msg.includes('fetch failed')) {
+    return { type: 'Network Error', detail: 'Network is unreachable' };
+  }
+  return { type: 'Error', detail: errorMessage };
 };
 
 // ── Error Header ────────────────────────────────────────────────
 
 const ErrorHeader = ({ sessionId, errorMessage }) => {
   const shortId = sessionId ? sessionId.substring(0, 8) : '--------';
+  const { type, detail } = classifyError(errorMessage);
   return h(Box, { flexDirection: 'column', paddingLeft: 1 },
     h(Box, { flexDirection: 'row', gap: 1 },
       T('red', icons.failed),
-      T('red', 'Connection Error')
+      T('red', type)
     ),
     h(Box, { flexDirection: 'row', paddingLeft: 1 },
       muted('Session: '), dim(shortId)
     ),
     h(Box, { flexDirection: 'row', paddingLeft: 1 },
-      muted('Error: '), error(errorMessage || 'Unknown error')
-    )
+      muted('Detail: '), error(detail)
+    ),
+    errorMessage && errorMessage !== detail
+      ? h(Box, { flexDirection: 'row', paddingLeft: 1 },
+          muted('Raw: '), dim(errorMessage.length > 80 ? errorMessage.substring(0, 80) + '...' : errorMessage)
+        )
+      : null
   );
 };
 
@@ -203,23 +230,26 @@ const getCursorInfo = (treeNav) => {
  *   Middle: PhaseWorkflow (55%) + LLMActivity (45%) — flexGrow 3
  *   Bottom: ExecutionLog (100%) — flexGrow 1
  */
-const DescriptorLayout = ({ session, context, isFocused, scrollOffset, treeNavMap }) => {
+const DescriptorLayout = ({ session, context, isFocused, scrollOffset, treeNavMap, isNarrow }) => {
   const hh = theme.layout.headerHeight;
+  // In narrow mode, stack header panels and middle panels vertically
+  const headerDirection = isNarrow ? 'column' : 'row';
+  const middleDirection = isNarrow ? 'column' : 'row';
   return h(Box, { flexDirection: 'column', width: '100%', flexGrow: 1 },
-    // Header row — fixed min height
-    h(Box, { flexDirection: 'row', width: '100%', minHeight: hh, height: hh },
-      h(Panel, { title: 'SESSION', width: '60%', minHeight: hh },
+    // Header row — fixed min height (stacked in narrow mode)
+    h(Box, { flexDirection: headerDirection, width: '100%', minHeight: isNarrow ? undefined : hh, height: isNarrow ? undefined : hh },
+      h(Panel, { title: 'SESSION', width: isNarrow ? '100%' : '60%', minHeight: isNarrow ? undefined : hh },
         h(Header, { session, context })
       ),
-      h(Panel, { title: 'METRICS', width: '40%', minHeight: hh },
+      h(Panel, { title: 'METRICS', width: isNarrow ? '100%' : '40%', minHeight: isNarrow ? undefined : hh },
         h(MetricsPanel, { session, context })
       )
     ),
-    // Middle row — takes remaining space
-    h(Box, { flexDirection: 'row', width: '100%', flexGrow: 1 },
+    // Middle row — takes remaining space (stacked in narrow mode)
+    h(Box, { flexDirection: middleDirection, width: '100%', flexGrow: 1 },
       h(Panel, {
         title: 'PHASES / WORKFLOW',
-        width: '55%',
+        width: isNarrow ? '100%' : '55%',
         flexGrow: 1,
         focused: isFocused('phases'),
         scrollOffset: scrollOffset('phases'),
@@ -231,7 +261,7 @@ const DescriptorLayout = ({ session, context, isFocused, scrollOffset, treeNavMa
       ),
       h(Panel, {
         title: 'LLM ACTIVITY',
-        width: '45%',
+        width: isNarrow ? '100%' : '45%',
         flexGrow: 1,
         focused: isFocused('llm'),
         anchor: 'bottom',
@@ -266,8 +296,10 @@ const DescriptorLayout = ({ session, context, isFocused, scrollOffset, treeNavMa
  *   Middle: WorkflowTree — flexGrow 1
  *   Bottom: Filesystem + WidgetsPanel — flexGrow 1
  */
-const ExecutionLayout = ({ session, context, panels, isFocused, scrollOffset, treeNavMap }) => {
+const ExecutionLayout = ({ session, context, panels, isFocused, scrollOffset, treeNavMap, isNarrow }) => {
   const hh = theme.layout.headerHeight;
+  // In narrow mode, stack files and widgets vertically instead of side-by-side
+  const bottomDirection = isNarrow ? 'column' : 'row';
   return h(Box, { flexDirection: 'column', width: '100%', flexGrow: 1 },
     // Header
     h(Panel, { title: 'SESSION', width: '100%', height: hh, minHeight: hh },
@@ -289,14 +321,14 @@ const ExecutionLayout = ({ session, context, panels, isFocused, scrollOffset, tr
           h(WorkflowTree, { session, context, treeNav: treeNavMap.tree })
         )
       : null,
-    // Files + Widgets (bottom half)
+    // Files + Widgets (bottom half — stacked vertically if narrow)
     (panels.files || panels.widgets)
-      ? h(Box, { key: 'bottom', flexDirection: 'row', width: '100%', flexGrow: 1 },
+      ? h(Box, { key: 'bottom', flexDirection: bottomDirection, width: '100%', flexGrow: 1 },
           panels.files
             ? h(Panel, {
                 key: 'files',
                 title: 'FILESYSTEM',
-                width: panels.widgets ? '50%' : '100%',
+                width: (isNarrow || !panels.widgets) ? '100%' : '50%',
                 flexGrow: 1,
                 focused: isFocused('files'),
                 scrollOffset: scrollOffset('files'),
@@ -309,7 +341,7 @@ const ExecutionLayout = ({ session, context, panels, isFocused, scrollOffset, tr
             ? h(Panel, {
                 key: 'widgets',
                 title: 'WIDGETS',
-                width: panels.files ? '50%' : '100%',
+                width: (isNarrow || !panels.files) ? '100%' : '50%',
                 flexGrow: 1,
                 focused: isFocused('widgets'),
                 scrollOffset: scrollOffset('widgets'),
@@ -329,21 +361,23 @@ const ExecutionLayout = ({ session, context, panels, isFocused, scrollOffset, tr
  *   Middle: Variables + Filesystem — flexGrow 3 (~60%)
  *   Bottom: CommandLog — flexGrow 2 (~40%)
  */
-const IdleLayout = ({ session, context, panels, isFocused, scrollOffset, treeNavMap }) => {
+const IdleLayout = ({ session, context, panels, isFocused, scrollOffset, treeNavMap, isNarrow }) => {
   const hh = theme.layout.headerHeight;
+  // In narrow mode, stack vars and files vertically instead of side-by-side
+  const topDirection = isNarrow ? 'column' : 'row';
   return h(Box, { flexDirection: 'column', width: '100%', flexGrow: 1 },
     // Header
     h(Panel, { title: 'SESSION', width: '100%', height: hh, minHeight: hh },
       h(Header, { session, context })
     ),
-    // Variables + Filesystem (top ~60%)
+    // Variables + Filesystem (top ~60% — stacked vertically if narrow)
     (panels.vars || panels.files)
-      ? h(Box, { key: 'top', flexDirection: 'row', width: '100%', flexGrow: 3 },
+      ? h(Box, { key: 'top', flexDirection: topDirection, width: '100%', flexGrow: 3 },
           panels.vars
             ? h(Panel, {
                 key: 'vars',
                 title: 'VARIABLES',
-                width: panels.files ? '50%' : '100%',
+                width: (isNarrow || !panels.files) ? '100%' : '50%',
                 flexGrow: 1,
                 focused: isFocused('vars'),
                 scrollOffset: scrollOffset('vars'),
@@ -356,7 +390,7 @@ const IdleLayout = ({ session, context, panels, isFocused, scrollOffset, treeNav
             ? h(Panel, {
                 key: 'files',
                 title: 'FILESYSTEM',
-                width: panels.vars ? '50%' : '100%',
+                width: (isNarrow || !panels.vars) ? '100%' : '50%',
                 flexGrow: 1,
                 focused: isFocused('files'),
                 scrollOffset: scrollOffset('files'),
@@ -388,7 +422,7 @@ const IdleLayout = ({ session, context, panels, isFocused, scrollOffset, treeNav
 
 // ── SessionMonitor ──────────────────────────────────────────────
 
-const SessionMonitor = ({ sessionId, apiClient, onExit, onQuit }) => {
+const SessionMonitor = ({ sessionId, apiClient, onExit, onQuit, onNavigate }) => {
   // ── Data polling ──
   const {
     session,
@@ -410,7 +444,7 @@ const SessionMonitor = ({ sessionId, apiClient, onExit, onQuit }) => {
 
   // ── Panel focus ──
   const panelNames = useMemo(() => PANEL_NAMES[mode] || [], [mode]);
-  const { focusedPanel, nextFocus, prevFocus, setFocus, isFocused } = usePanelFocus(panelNames);
+  const { focusedPanel, nextFocus, prevFocus, setFocus, setFocusByIndex, isFocused } = usePanelFocus(panelNames);
 
   // ── Tree navigation hooks — one per tree-capable panel ──
   const treeNavTree = useTreeNav();
@@ -572,11 +606,12 @@ const SessionMonitor = ({ sessionId, apiClient, onExit, onQuit }) => {
     right: () => {
       if (activeTreeNav) { activeTreeNav.moveRight(); return; }
     },
-    // Ctrl+Arrows = switch panels
+    // Ctrl+Up/Down = switch panels
     ctrlUp: () => prevFocus(),
     ctrlDown: () => nextFocus(),
-    ctrlLeft: () => prevFocus(),
-    ctrlRight: () => nextFocus(),
+    // Ctrl+Left/Right = switch pages (wrap-around)
+    ctrlLeft: () => { if (onNavigate) onNavigate(prevPage('spaces')); },
+    ctrlRight: () => { if (onNavigate) onNavigate(nextPage('spaces')); },
     // Enter: toggle expand if tree, else toggle zoom
     enter: () => {
       if (showHelp) { setShowHelp(false); return; }
@@ -594,7 +629,33 @@ const SessionMonitor = ({ sessionId, apiClient, onExit, onQuit }) => {
       if (onExit) onExit();
     },
     '?': () => setShowHelp(prev => !prev),
+    // Number keys 1-3: jump to panel by index
+    number: (num) => {
+      if (num >= 1 && num <= panelNames.length) {
+        setFocusByIndex(num - 1);
+      }
+    },
   });
+
+  // ── Terminal size detection (P3-35) ──
+  const termCols = process.stdout.columns || 120;
+  const termRows = process.stdout.rows || 24;
+  const isNarrow = termCols < 80;
+  const isTooSmall = termCols < 60;
+
+  // ── Stale data detection (P2-26) ──
+  // Use state + effect with timer to detect staleness reactively
+  const [isStale, setIsStale] = useState(false);
+  useEffect(() => {
+    if (!lastRefresh) { setIsStale(false); return; }
+    const checkStale = () => {
+      const lastRefreshTime = lastRefresh instanceof Date ? lastRefresh.getTime() : new Date(lastRefresh).getTime();
+      setIsStale((Date.now() - lastRefreshTime) > 10000);
+    };
+    checkStale();
+    const timer = setInterval(checkStale, 2000);
+    return () => clearInterval(timer);
+  }, [lastRefresh]);
 
   // ── Build context object for child components ──
   const vars = (session && session.variables) || {};
@@ -626,6 +687,7 @@ const SessionMonitor = ({ sessionId, apiClient, onExit, onQuit }) => {
   // Error state
   if (connectionStatus === 'error' && !session) {
     return h(Box, { flexDirection: 'column', width: '100%', flexGrow: 1 },
+      h(NavBar, { currentPage: 'session' }),
       h(Panel, { title: 'ERROR', width: '100%' },
         h(ErrorHeader, { sessionId, errorMessage: dataError })
       ),
@@ -637,6 +699,7 @@ const SessionMonitor = ({ sessionId, apiClient, onExit, onQuit }) => {
   // Loading state
   if (!session) {
     return h(Box, { flexDirection: 'column', width: '100%', flexGrow: 1 },
+      h(NavBar, { currentPage: 'session' }),
       h(Panel, { title: 'CONNECTING', width: '100%' },
         h(Box, { paddingLeft: 1 },
           T('cyan', icons.running),
@@ -670,6 +733,7 @@ const SessionMonitor = ({ sessionId, apiClient, onExit, onQuit }) => {
     }[zoomedPanel] || zoomedPanel.toUpperCase();
 
     return h(Box, { flexDirection: 'column', width: '100%', flexGrow: 1 },
+      h(NavBar, { currentPage: 'session' }),
       h(Panel, {
         title: zoomTitle + ' (zoomed)',
         focused: true,
@@ -688,7 +752,7 @@ const SessionMonitor = ({ sessionId, apiClient, onExit, onQuit }) => {
   }
 
   // ── Normal layout based on mode ──
-  const layoutProps = { session, context, isFocused, scrollOffset: getOffset, treeNavMap };
+  const layoutProps = { session, context, isFocused, scrollOffset: getOffset, treeNavMap, isNarrow };
   let layoutContent = null;
 
   if (mode === 'descriptor') {
@@ -713,17 +777,44 @@ const SessionMonitor = ({ sessionId, apiClient, onExit, onQuit }) => {
       )
     : null;
 
-  // Error banner (stale data)
+  // Error banner (stale data) with specific error classification
+  const { type: errorType } = classifyError(dataError);
   const errorBanner = (connectionStatus === 'error' && session)
     ? h(Box, { width: '100%', paddingLeft: 1 },
         T('red', icons.failed + ' '),
-        error('Connection error: ' + (dataError || 'unknown')),
+        error(errorType + ': ' + (dataError || 'unknown')),
         muted('  (showing stale data)')
       )
     : null;
 
+  // Stale data indicator — shown when connected but data is old
+  const staleBanner = (isStale && connectionStatus !== 'error' && session)
+    ? h(Box, { width: '100%', paddingLeft: 1 },
+        T('yellow', icons.paused + ' '),
+        warning('[stale] '),
+        muted('Last update > 10s ago — data may be outdated')
+      )
+    : null;
+
+  // ── Terminal too small (P3-35) ──
+  if (isTooSmall) {
+    return h(Box, { flexDirection: 'column', width: '100%', flexGrow: 1, justifyContent: 'center', alignItems: 'center' },
+      h(Text, { color: theme.status.warning, bold: true }, 'Terminal too small'),
+      h(Text, null, ''),
+      muted(`Current: ${termCols}x${termRows}`),
+      muted('Minimum: 60 columns wide'),
+      h(Text, null, ''),
+      muted('Please resize your terminal.'),
+    );
+  }
+
+  // ── NavBar for session monitor (P2-23) ──
+  const navBar = h(NavBar, { currentPage: 'session' });
+
   return h(Box, { flexDirection: 'column', width: '100%', flexGrow: 1 },
+    navBar,
     errorBanner,
+    staleBanner,
     layoutContent,
     h(StatusBar, statusBarProps),
     helpOverlay

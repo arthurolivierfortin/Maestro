@@ -9,7 +9,7 @@
 
 import { createElement as h, useState, useCallback, useEffect, useRef } from 'react';
 import { render, useApp, useStdout, Box } from 'ink';
-import { theme } from './theme.ts';
+import { theme, type PageName } from './theme.ts';
 import { SessionMonitor } from './components/SessionMonitor.ts';
 import { HomeScreen } from './components/HomeScreen.ts';
 import { SpacesScreen } from './components/SpacesScreen.ts';
@@ -61,8 +61,6 @@ const FullscreenBox = ({ children }: { children: any }) => {
 };
 
 // ── Types ──────────────────────────────────────────────────────
-
-type PageName = 'home' | 'spaces' | 'foundry' | 'catalog' | 'models';
 
 interface DetailView {
   type: 'session' | 'workspace' | 'repo' | 'model' | 'block';
@@ -176,7 +174,7 @@ const App = ({ initialSessionId, apiClient }: AppProps) => {
     let detailComponent;
     switch (detailView.type) {
       case 'session':
-        detailComponent = h(SessionMonitor, { sessionId: detailView.id, apiClient, onExit: handleBack, onQuit: handleQuit });
+        detailComponent = h(SessionMonitor, { sessionId: detailView.id, apiClient, onExit: handleBack, onQuit: handleQuit, onNavigate: handleNavigate });
         break;
       case 'workspace':
         detailComponent = h(WorkspaceDetail, { workspaceId: detailView.id, ...detailProps });
@@ -185,13 +183,13 @@ const App = ({ initialSessionId, apiClient }: AppProps) => {
         detailComponent = h(RepoDetail, { repoId: detailView.id, ...detailProps });
         break;
       case 'model':
-        detailComponent = h(ModelDetail, { modelId: detailView.id, apiClient, onExit: handleBack, onQuit: handleQuit });
+        detailComponent = h(ModelDetail, { modelId: detailView.id, apiClient, onExit: handleBack, onQuit: handleQuit, onNavigate: handleNavigate });
         break;
       case 'block':
         detailComponent = h(BlockDetail, { blockId: detailView.id, ...detailProps });
         break;
       default:
-        detailComponent = h(SessionMonitor, { sessionId: detailView.id, apiClient, onExit: handleBack, onQuit: handleQuit });
+        detailComponent = h(SessionMonitor, { sessionId: detailView.id, apiClient, onExit: handleBack, onQuit: handleQuit, onNavigate: handleNavigate });
     }
 
     return h(FullscreenBox, null, detailComponent);

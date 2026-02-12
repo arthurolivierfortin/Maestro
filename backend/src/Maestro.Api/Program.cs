@@ -394,6 +394,27 @@ var projectStatePublisher = new Maestro.Api.Hubs.SignalRProjectStatePublisher(
     app.Services.GetRequiredService<IProjectContainerService>(),
     app.Services.GetRequiredService<ILogger<Maestro.Api.Hubs.SignalRProjectStatePublisher>>());
 
+// Startup verification: Block discovery
+{
+    var startupLogger = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("Maestro.Startup");
+    var blockDiscovery = app.Services.GetRequiredService<IBlockDiscoveryService>();
+    try
+    {
+        var blocks = await blockDiscovery.DiscoverAllAsync();
+        var blockCount = blocks.Count();
+        startupLogger.LogInformation("Block discovery: found {BlockCount} blocks", blockCount);
+        startupLogger.LogInformation("Block discovery: GlobalBlocks path = {GlobalBlocksPath}", pathConfig.GlobalBlocksPath);
+        if (blockCount == 0)
+        {
+            startupLogger.LogWarning("WARNING: No blocks found! Check Maestro:Paths:GlobalBlocks in appsettings.json");
+        }
+    }
+    catch (Exception ex)
+    {
+        startupLogger.LogError(ex, "Block discovery startup check failed");
+    }
+}
+
 app.MapGet("/", () => new
 {
     name = "B-One Maestro API",

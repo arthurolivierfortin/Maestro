@@ -315,12 +315,37 @@ public class SessionTests
     }
 
     [Fact]
-    public void GetSessionStatus_ReturnsCorrectStatusForRunning()
+    public void GetSessionStatus_ReturnsIdleWhenActiveWithNoWorkflow()
     {
         var session = TestSession.Create("Test", Authority.Human());
         session.Start();
 
+        // Active session with no _activeWorkflow should be Idle
+        Assert.Equal(SessionStatus.Idle, session.GetSessionStatus());
+    }
+
+    [Fact]
+    public void GetSessionStatus_ReturnsRunningWhenActiveWithWorkflow()
+    {
+        var session = TestSession.Create("Test", Authority.Human());
+        session.Start();
+        session.SetVariable("_activeWorkflow", "workflow:main");
+
+        // Active session with _activeWorkflow set should be Running
         Assert.Equal(SessionStatus.Running, session.GetSessionStatus());
+    }
+
+    [Fact]
+    public void GetSessionStatus_ReturnsIdleWhenWorkflowCleared()
+    {
+        var session = TestSession.Create("Test", Authority.Human());
+        session.Start();
+        session.SetVariable("_activeWorkflow", "workflow:main");
+        Assert.Equal(SessionStatus.Running, session.GetSessionStatus());
+
+        // Clearing _activeWorkflow should transition back to Idle
+        session.SetVariable("_activeWorkflow", "");
+        Assert.Equal(SessionStatus.Idle, session.GetSessionStatus());
     }
 
     [Fact]

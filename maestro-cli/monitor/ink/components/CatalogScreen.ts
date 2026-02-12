@@ -20,6 +20,7 @@ import {
   TypeBadge,
   progressBar, progressColor,
   truncate,
+  prevPage, nextPage,
 } from '../theme.ts';
 import { useApiData } from '../hooks/useApiData.ts';
 import { useKeyboard } from '../hooks/useKeyboard.ts';
@@ -209,6 +210,9 @@ const CatalogScreen = ({ apiClient, onNavigate, onBlockSelect, onQuit, initialSt
       setExpandedIndex(prev => prev === selectedIndex ? -1 : selectedIndex);
     },
     tab: cycleTypeFilter,
+    // Ctrl+Left/Right = switch page (wrap-around)
+    ctrlLeft: () => onNavigate(prevPage('catalog')),
+    ctrlRight: () => onNavigate(nextPage('catalog')),
     h: () => onNavigate('home'),
     s: () => onNavigate('spaces'),
     f: () => onNavigate('foundry'),
@@ -222,10 +226,6 @@ const CatalogScreen = ({ apiClient, onNavigate, onBlockSelect, onQuit, initialSt
       }
     },
     q: onQuit,
-    number: (num) => {
-      const pageMap = { 1: 'home', 2: 'spaces', 3: 'foundry', 4: 'catalog', 5: 'models' };
-      if (pageMap[num]) onNavigate(pageMap[num]);
-    },
   });
 
   return h(Box, { flexDirection: 'column', width: '100%', flexGrow: 1 },

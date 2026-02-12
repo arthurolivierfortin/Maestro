@@ -1,3 +1,5 @@
+Feature suggéré :
 - limiter le cout par session/workspace
 - Permettre de visualiser la construction dynamique de workflow
 
+J'aimerais aussi que vous utilisiez le monitor et le shell cli comme si vous étiez un utilisateur pour tout ce qu'un utilisateur ferait et que vous preniez en note tout ce que vous pouvez critiquer de l'app comme par exemple, la navigation avec les key est peu effices ou intuitives, il manque des features ou des trucs pour que ce soit mieux pour l'utilisateur, l'utilisation monitor/cli n'est pas efficace et fait en sorte que je dois toujours utiliser la souris pour changer d'interface, etc, etc. Le but est que vous fassiez vraiment des runs complètes comme si vous étiez un utilisateur normal et que vous preniez en note absolument tout. Ce qui fonctionne, ce qui manque, suggestions, etc. Sans tenir compte du frontend. Le but est de se rapprocher tranquillement à la première vrais version de l'app. Que vous fassiez le pipeline complet nous permettra de remarquer ce qu'il manque. Commencez par faire le document pour guider cette phase.

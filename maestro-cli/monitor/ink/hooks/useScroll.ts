@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef } from 'react';
 
 const SCROLL_STEP = 3;
-const MAX_OFFSET = 50;
+const MAX_OFFSET = 200;
 
 interface UseScrollReturn {
   getOffset: (panel: string) => number;

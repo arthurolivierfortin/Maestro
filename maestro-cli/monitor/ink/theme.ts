@@ -151,6 +151,24 @@ interface TypeBadgeProps {
   type: string;
 }
 
+// ── Page navigation ─────────────────────────────────────────────
+
+export type PageName = 'home' | 'spaces' | 'foundry' | 'catalog' | 'models';
+
+export const PAGE_ORDER: PageName[] = ['home', 'spaces', 'foundry', 'catalog', 'models'];
+
+/** Get previous page (wrap-around). */
+export const prevPage = (current: PageName): PageName => {
+  const idx = PAGE_ORDER.indexOf(current);
+  return PAGE_ORDER[(idx - 1 + PAGE_ORDER.length) % PAGE_ORDER.length];
+};
+
+/** Get next page (wrap-around). */
+export const nextPage = (current: PageName): PageName => {
+  const idx = PAGE_ORDER.indexOf(current);
+  return PAGE_ORDER[(idx + 1) % PAGE_ORDER.length];
+};
+
 export const TypeBadge = ({ type }: TypeBadgeProps): ReactElement => {
   const t = (type || 'unknown').toLowerCase();
   const color = typeBadgeColorMap[t] || 'gray';

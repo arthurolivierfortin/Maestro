@@ -21,6 +21,7 @@ import {
   statusColor, statusIcon, TypeBadge,
   formatDuration, truncate,
   progressBar, progressColor,
+  prevPage, nextPage,
 } from '../theme.ts';
 import { useApiData } from '../hooks/useApiData.ts';
 import { useKeyboard } from '../hooks/useKeyboard.ts';
@@ -299,6 +300,9 @@ const SpacesScreen = ({ apiClient, onNavigate, onSessionSelect, onWorkspaceSelec
     down: () => setSelectedIndex(i => Math.min(currentItems.length - 1, i + 1)),
     k: () => setSelectedIndex(i => Math.max(0, i - 1)),
     j: () => setSelectedIndex(i => Math.min(currentItems.length - 1, i + 1)),
+    // Ctrl+Left/Right = switch page (wrap-around)
+    ctrlLeft: () => onNavigate(prevPage('spaces')),
+    ctrlRight: () => onNavigate(nextPage('spaces')),
     enter: () => {
       const state = { selectedIndex, activeTab, statusFilter };
       if (activeTab === 'sessions' && filteredSessions.length > 0) {
@@ -316,10 +320,6 @@ const SpacesScreen = ({ apiClient, onNavigate, onSessionSelect, onWorkspaceSelec
       if (num === 1) setActiveTab('repos');
       else if (num === 2) setActiveTab('workspaces');
       else if (num === 3) setActiveTab('sessions');
-      else {
-        const pageMap = { 4: 'catalog', 5: 'models' };
-        if (pageMap[num]) onNavigate(pageMap[num]);
-      }
     },
     a: () => setStatusFilter('all'),
     r: () => setStatusFilter('running'),
