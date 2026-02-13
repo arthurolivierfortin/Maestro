@@ -1,0 +1,91 @@
+{
+  "id": "context-builder",
+  "name": "context-builder",
+  "blockType": "tool",
+  "version": "1.0.0",
+  "isAtomic": true,
+  "description": "Builds focused context for LLM consumption by selecting relevant files based on a task description. Uses heuristic scoring (keyword matching, import tracing, file proximity) to stay within a token budget. Deterministic — no LLM needed.",
+  "inputs": [
+    {
+      "id": "workingDir",
+      "name": "Project Directory",
+      "type": "string",
+      "required": true,
+      "description": "Path to the project root directory"
+    },
+    {
+      "id": "task",
+      "name": "Task Description",
+      "type": "string",
+      "required": true,
+      "description": "Natural language description of the task (used for keyword extraction and relevance scoring)"
+    },
+    {
+      "id": "maxTokens",
+      "name": "Max Tokens",
+      "type": "string",
+      "required": false,
+      "description": "Maximum token budget for the context (default: 1500). Approximate — uses 4 chars/token heuristic."
+    },
+    {
+      "id": "focusFiles",
+      "name": "Focus Files",
+      "type": "string",
+      "required": false,
+      "description": "Comma-separated list of file paths to prioritize (relative to project dir)"
+    },
+    {
+      "id": "includeConventions",
+      "name": "Include Conventions",
+      "type": "string",
+      "required": false,
+      "description": "Set to 'true' to include project conventions summary (default: true)"
+    }
+  ],
+  "outputs": [
+    {
+      "id": "success",
+      "name": "Success",
+      "type": "boolean",
+      "description": "Whether context building completed successfully"
+    },
+    {
+      "id": "context",
+      "name": "Context",
+      "type": "string",
+      "description": "The assembled context string ready for LLM consumption"
+    },
+    {
+      "id": "files",
+      "name": "Selected Files",
+      "type": "object",
+      "description": "Array of selected file paths with their relevance scores"
+    },
+    {
+      "id": "tokenEstimate",
+      "name": "Token Estimate",
+      "type": "number",
+      "description": "Estimated token count of the assembled context"
+    },
+    {
+      "id": "summary",
+      "name": "Summary",
+      "type": "string",
+      "description": "Brief description of what was included in the context"
+    }
+  ],
+  "config": {
+    "runtime": "node",
+    "scriptFile": "scripts/context-builder.js",
+    "parseOutput": "json",
+    "timeoutMs": 30000
+  },
+  "metadata": {
+    "category": "context",
+    "designation": "tool",
+    "tags": ["context", "relevance", "token-budget", "heuristic", "deterministic"],
+    "author": "maestro-v3",
+    "version": "1.0.0"
+  },
+  "capabilities": ["build-context", "select-relevant-files", "token-budget-management"]
+}

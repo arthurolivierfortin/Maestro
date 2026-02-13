@@ -1,0 +1,65 @@
+{
+  "id": "test-generator",
+  "name": "test-generator",
+  "blockType": "inference",
+  "version": "1.0.0",
+  "isAtomic": true,
+  "description": "Generates unit tests for a given source file. Detects the test framework from context and produces tests matching project style.",
+  "inputs": [
+    {
+      "id": "sourceCode",
+      "name": "Source Code",
+      "type": "string",
+      "required": true,
+      "description": "The source code to generate tests for"
+    },
+    {
+      "id": "sourceFile",
+      "name": "Source File Path",
+      "type": "string",
+      "required": true,
+      "description": "Path to the source file (for import resolution)"
+    },
+    {
+      "id": "context",
+      "name": "Context",
+      "type": "string",
+      "required": false,
+      "description": "Additional project context (existing tests, test config, etc.)"
+    },
+    {
+      "id": "framework",
+      "name": "Test Framework",
+      "type": "string",
+      "required": false,
+      "description": "Test framework to use (vitest, jest, mocha, pytest, xunit). Auto-detected if not set."
+    },
+    {
+      "id": "conventions",
+      "name": "Conventions",
+      "type": "string",
+      "required": false,
+      "description": "Project test conventions"
+    }
+  ],
+  "outputs": [
+    {
+      "id": "content",
+      "name": "Test Code",
+      "type": "string",
+      "description": "The generated test file content"
+    }
+  ],
+  "config": {
+    "template": "You are a test generator. Output ONLY test code, no explanations, no markdown.\n\n## Source Code (file: {{sourceFile}})\n{{sourceCode}}\n\n## Project Context\n{{context}}\n\n## Conventions\n{{conventions}}\n\n## Task\nGenerate comprehensive unit tests for the source code above.\nTest framework: {{framework}}\n\n## Rules\n1. Output ONLY the test code. No markdown code fences. No explanations.\n2. Import the source module correctly based on the file path.\n3. Test all exported functions/classes/methods.\n4. Include edge cases: empty inputs, null/undefined, boundary values.\n5. Use descriptive test names that explain what is being tested.\n6. Follow the project's existing test patterns if shown in context.\n\n## Example (vitest)\nimport { describe, it, expect } from 'vitest';\nimport { add } from '../src/math';\n\ndescribe('add', () => {\n  it('adds two positive numbers', () => {\n    expect(add(2, 3)).toBe(5);\n  });\n  it('handles zero', () => {\n    expect(add(0, 5)).toBe(5);\n  });\n  it('handles negative numbers', () => {\n    expect(add(-1, -2)).toBe(-3);\n  });\n});\n\nNow generate the tests:",
+    "stream": false
+  },
+  "metadata": {
+    "category": "testing",
+    "designation": "tool",
+    "tags": ["test-generation", "unit-tests", "llm", "inference"],
+    "author": "maestro-v3",
+    "version": "1.0.0"
+  },
+  "capabilities": ["generate-tests", "inference"]
+}

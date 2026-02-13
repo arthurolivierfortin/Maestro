@@ -1,0 +1,65 @@
+{
+  "id": "code-generator",
+  "name": "code-generator",
+  "blockType": "inference",
+  "version": "1.0.0",
+  "isAtomic": true,
+  "description": "Generates code based on a task description, project context, and conventions. Outputs only the code, no explanations. Designed for small LLMs with focused context.",
+  "inputs": [
+    {
+      "id": "task",
+      "name": "Task",
+      "type": "string",
+      "required": true,
+      "description": "What code to generate (e.g., 'Create a function that validates email addresses')"
+    },
+    {
+      "id": "context",
+      "name": "Context",
+      "type": "string",
+      "required": true,
+      "description": "Relevant project context (from context-builder): existing code, imports, patterns"
+    },
+    {
+      "id": "conventions",
+      "name": "Conventions",
+      "type": "string",
+      "required": false,
+      "description": "Project conventions summary (from convention-reader)"
+    },
+    {
+      "id": "language",
+      "name": "Language",
+      "type": "string",
+      "required": false,
+      "description": "Target language (typescript, javascript, csharp, python). Auto-detected from context if not set."
+    },
+    {
+      "id": "targetFile",
+      "name": "Target File",
+      "type": "string",
+      "required": false,
+      "description": "File path where the code will be written (helps LLM match style)"
+    }
+  ],
+  "outputs": [
+    {
+      "id": "content",
+      "name": "Generated Code",
+      "type": "string",
+      "description": "The generated code ready to write to a file"
+    }
+  ],
+  "config": {
+    "template": "You are a code generator. Output ONLY code, no explanations, no markdown.\n\n## Project Context\n{{context}}\n\n## Conventions\n{{conventions}}\n\n## Task\nGenerate code for: {{task}}\nTarget language: {{language}}\nTarget file: {{targetFile}}\n\n## Rules\n1. Output ONLY the code. No markdown code fences. No comments like \"here is the code\".\n2. Follow the project conventions and patterns shown in the context.\n3. Match the import style, naming conventions, and code patterns of the existing code.\n4. Include necessary imports at the top.\n5. The code must be syntactically valid and complete.\n\n## Example\nIf asked to create a function that adds two numbers in TypeScript:\nexport function add(a: number, b: number): number {\n  return a + b;\n}\n\nNow generate the requested code:",
+    "stream": false
+  },
+  "metadata": {
+    "category": "generation",
+    "designation": "tool",
+    "tags": ["code-generation", "llm", "inference"],
+    "author": "maestro-v3",
+    "version": "1.0.0"
+  },
+  "capabilities": ["generate-code", "inference"]
+}

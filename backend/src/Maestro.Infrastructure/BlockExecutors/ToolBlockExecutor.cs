@@ -66,11 +66,26 @@ public class ToolBlockExecutor : IBlockExecutor
             timeoutMs = GetConfigInt(config, "timeout", 30000);
         }
 
-        // Working directory: try metadata 'path' entry, else current directory
+        // Working directory: try block's source directory from metadata, else current directory
         string? workingDir = null;
-        if (block.Metadata != null && block.Metadata.TryGetValue("path", out var pathObj) && pathObj is string pathStr)
-            workingDir = pathStr;
-        workingDir ??= Directory.GetCurrentDirectory();
+        string? blockSourceDir = null;
+        if (block.Metadata != null)
+        {
+            if (block.Metadata.TryGetValue("_sourcePath", out var srcPathObj) && srcPathObj is string srcPath)
+                blockSourceDir = Path.GetDirectoryName(srcPath);
+            else if (block.Metadata.TryGetValue("path", out var pathObj) && pathObj is string pathStr)
+                blockSourceDir = pathStr;
+        }
+        workingDir = blockSourceDir ?? Directory.GetCurrentDirectory();
+
+        // Override working directory from inputs if provided (applies to all execution paths)
+        if (inputs != null && inputs.TryGetValue("workingDir", out var wdInputGlobal) && wdInputGlobal is string wdInputGlobalStr && !string.IsNullOrEmpty(wdInputGlobalStr))
+            workingDir = wdInputGlobalStr;
+
+        // Config-specified working directory override
+        var configWorkingDir = GetConfigString(config, "workingDir");
+        if (!string.IsNullOrEmpty(configWorkingDir))
+            workingDir = configWorkingDir;
 
         // Prepare outputs and logs before sandboxing
         var resultOutputs = new Dictionary<string, object?>();
@@ -80,10 +95,10 @@ public class ToolBlockExecutor : IBlockExecutor
         var runtimeConfig = GetConfigString(config, "runtime");
         var runtime = !string.IsNullOrEmpty(runtimeConfig) ? runtimeConfig : (OperatingSystem.IsWindows() ? "powershell" : "bash");
 
-        // If a scriptFile is provided and the block has a metadata.path, try to resolve it relative to that path
-        if (!string.IsNullOrEmpty(scriptFile) && block.Metadata != null && block.Metadata.TryGetValue("path", out var metaPathObj) && metaPathObj is string metaPath)
+        // If a scriptFile is provided, try to resolve it relative to the block's source directory
+        if (!string.IsNullOrEmpty(scriptFile) && !string.IsNullOrEmpty(blockSourceDir))
         {
-            var candidate = Path.Combine(metaPath, scriptFile);
+            var candidate = Path.Combine(blockSourceDir, scriptFile);
             if (File.Exists(candidate)) script = candidate;
         }
 
@@ -381,6 +396,22 @@ public class ToolBlockExecutor : IBlockExecutor
                 UseShellExecute = false,
             };
 
+            // Pass block inputs as environment variables for script access
+            if (inputs != null)
+            {
+                foreach (var kvp in inputs)
+                {
+                    var envKey = $"MAESTRO_INPUT_{kvp.Key.ToUpperInvariant().Replace('-', '_')}";
+                    psi.Environment[envKey] = kvp.Value?.ToString() ?? "";
+                }
+            }
+
+            // Pass the block source directory so scripts can reference sibling files
+            if (!string.IsNullOrEmpty(blockSourceDir))
+            {
+                psi.Environment["MAESTRO_BLOCK_DIR"] = blockSourceDir;
+            }
+
             // Best-effort environment tweaks to disable network in common runtimes
             if (disableNetwork)
             {
@@ -417,8 +448,7 @@ public class ToolBlockExecutor : IBlockExecutor
             if (!string.IsNullOrWhiteSpace(stderr)) logs.Add(stderr.Trim());
 
             // Optionally parse stdout as JSON into outputs
-            config.TryGetValue("parseOutput", out var parseOutObj);
-            var parseOut = parseOutObj as string ?? string.Empty;
+            var parseOut = GetConfigString(config, "parseOutput") ?? string.Empty;
             if (parseOut.Equals("json", StringComparison.OrdinalIgnoreCase))
             {
                 var parsed = false;
@@ -535,16 +565,29 @@ public class ToolBlockExecutor : IBlockExecutor
 
     private static object? JsonElementToObject(System.Text.Json.JsonElement el)
     {
-        return el.ValueKind switch
+        switch (el.ValueKind)
         {
-            System.Text.Json.JsonValueKind.String => el.GetString(),
-            System.Text.Json.JsonValueKind.Number => el.TryGetInt64(out var l) ? (object)l : el.GetDouble(),
-            System.Text.Json.JsonValueKind.True => true,
-            System.Text.Json.JsonValueKind.False => false,
-            System.Text.Json.JsonValueKind.Object => el.ToString(),
-            System.Text.Json.JsonValueKind.Array => el.ToString(),
-            _ => null,
-        };
+            case System.Text.Json.JsonValueKind.String:
+                return el.GetString();
+            case System.Text.Json.JsonValueKind.Number:
+                return el.TryGetInt64(out var l) ? (object)l : el.GetDouble();
+            case System.Text.Json.JsonValueKind.True:
+                return true;
+            case System.Text.Json.JsonValueKind.False:
+                return false;
+            case System.Text.Json.JsonValueKind.Object:
+                var dict = new Dictionary<string, object?>();
+                foreach (var prop in el.EnumerateObject())
+                    dict[prop.Name] = JsonElementToObject(prop.Value);
+                return dict;
+            case System.Text.Json.JsonValueKind.Array:
+                var list = new List<object?>();
+                foreach (var item in el.EnumerateArray())
+                    list.Add(JsonElementToObject(item));
+                return list;
+            default:
+                return null;
+        }
     }
 
     /// <summary>

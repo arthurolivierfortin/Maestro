@@ -1,5 +1,6 @@
 using Maestro.Application.Interfaces;
 using Maestro.Domain.ValueObjects;
+using Maestro.Infrastructure.BlockExecutors;
 using Microsoft.Extensions.Logging;
 
 namespace Maestro.Infrastructure.Cli.CommandHandlers;
@@ -12,6 +13,7 @@ public class RunCommandHandler : ICommandHandler
 {
     private readonly IWorkspaceBlockResolver _blockResolver;
     private readonly IBlockRepository _blockRepository;
+    private readonly BlockExecutorRegistry _executorRegistry;
     private readonly ILogger<RunCommandHandler> _logger;
 
     public string Verb => "run";
@@ -19,10 +21,12 @@ public class RunCommandHandler : ICommandHandler
     public RunCommandHandler(
         IWorkspaceBlockResolver blockResolver,
         IBlockRepository blockRepository,
+        BlockExecutorRegistry executorRegistry,
         ILogger<RunCommandHandler> logger)
     {
         _blockResolver = blockResolver;
         _blockRepository = blockRepository;
+        _executorRegistry = executorRegistry;
         _logger = logger;
     }
 
@@ -93,19 +97,46 @@ public class RunCommandHandler : ICommandHandler
             }
         }
 
-        // For now, return block info (actual execution would be done by block executor)
         _logger.LogInformation(
-            "Run command for block {BlockId} with {InputCount} inputs",
-            blockId, inputs.Count);
+            "Run command for block {BlockId} (type={BlockType}) with {InputCount} inputs",
+            blockId, block.BlockType, inputs.Count);
 
-        return CliResult.Ok(new
+        // Find the appropriate executor for this block type
+        var executor = _executorRegistry.Get(block.BlockType);
+        if (executor == null)
         {
-            blockId = block.Id,
-            blockName = block.Name,
-            blockType = block.BlockType,
-            status = "pending",
-            message = $"Block '{block.Name}' queued for execution",
-            inputs
-        });
+            return CliResult.Failure($"No executor found for block type '{block.BlockType}'. Block '{blockId}' cannot be executed.");
+        }
+
+        // Build execution context
+        var execContext = new Maestro.Domain.Entities.ExecutionContext();
+        if (!string.IsNullOrEmpty(context.WorkspaceId))
+            execContext.Variables["workspaceId"] = context.WorkspaceId;
+        if (!string.IsNullOrEmpty(context.SessionId))
+            execContext.Variables["sessionId"] = context.SessionId;
+        if (!string.IsNullOrEmpty(context.AgentId))
+            execContext.Variables["agentId"] = context.AgentId;
+
+        // Execute the block synchronously
+        try
+        {
+            var result = await executor.ExecuteAsync(block, execContext, inputs, ct);
+
+            if (result.Success)
+            {
+                // Return outputs directly for agent consumption
+                return CliResult.Ok(result.Outputs.Count > 0 ? (object)result.Outputs : new { status = "done", message = "Block executed successfully" });
+            }
+            else
+            {
+                var errorMsg = result.Outputs.TryGetValue("error", out var err) ? err?.ToString() : "Block execution failed";
+                return CliResult.Failure(errorMsg ?? "Block execution failed");
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Block execution failed: {BlockId}", blockId);
+            return CliResult.Failure($"Block execution error: {ex.Message}");
+        }
     }
 }

@@ -1,0 +1,58 @@
+{
+  "id": "code-analyzer",
+  "name": "code-analyzer",
+  "blockType": "tool",
+  "version": "1.0.0",
+  "isAtomic": true,
+  "description": "Analyzes a source file for structure: imports, exports, functions, classes, interfaces, and code patterns. Supports TypeScript, JavaScript, C#, Python. Deterministic — no LLM needed.",
+  "inputs": [
+    {
+      "id": "workingDir",
+      "name": "Project Directory",
+      "type": "string",
+      "required": true,
+      "description": "Path to the project root directory"
+    },
+    {
+      "id": "filePath",
+      "name": "File Path",
+      "type": "string",
+      "required": true,
+      "description": "Path to the file to analyze (relative to project dir or absolute)"
+    }
+  ],
+  "outputs": [
+    {
+      "id": "success",
+      "name": "Success",
+      "type": "boolean",
+      "description": "Whether the analysis completed successfully"
+    },
+    {
+      "id": "analysis",
+      "name": "Analysis",
+      "type": "object",
+      "description": "Structured analysis with imports, exports, functions, classes, patterns"
+    },
+    {
+      "id": "summary",
+      "name": "Summary",
+      "type": "string",
+      "description": "Brief text summary for LLM context"
+    }
+  ],
+  "config": {
+    "runtime": "node",
+    "scriptFile": "scripts/code-analyzer.js",
+    "parseOutput": "json",
+    "timeoutMs": 15000
+  },
+  "metadata": {
+    "category": "analysis",
+    "designation": "tool",
+    "tags": ["code-analysis", "structure", "imports", "deterministic"],
+    "author": "maestro-v3",
+    "version": "1.0.0"
+  },
+  "capabilities": ["analyze-code", "detect-patterns", "extract-structure"]
+}

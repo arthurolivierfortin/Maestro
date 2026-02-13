@@ -1,0 +1,58 @@
+{
+  "id": "pr-writer",
+  "name": "pr-writer",
+  "blockType": "inference",
+  "version": "1.0.0",
+  "isAtomic": true,
+  "description": "Writes pull request descriptions from commit history and diff summary. Produces structured markdown.",
+  "inputs": [
+    {
+      "id": "commits",
+      "name": "Commits",
+      "type": "string",
+      "required": true,
+      "description": "List of commits in the PR (git log output)"
+    },
+    {
+      "id": "diffSummary",
+      "name": "Diff Summary",
+      "type": "string",
+      "required": true,
+      "description": "Summary of changes (git diff --stat or condensed diff)"
+    },
+    {
+      "id": "branchName",
+      "name": "Branch Name",
+      "type": "string",
+      "required": false,
+      "description": "Branch name (used to infer PR purpose)"
+    },
+    {
+      "id": "context",
+      "name": "Context",
+      "type": "string",
+      "required": false,
+      "description": "Additional context (related issues, requirements)"
+    }
+  ],
+  "outputs": [
+    {
+      "id": "content",
+      "name": "PR Description",
+      "type": "string",
+      "description": "The PR description in markdown"
+    }
+  ],
+  "config": {
+    "template": "Write a pull request description. Output ONLY the markdown content.\n\n## Branch\n{{branchName}}\n\n## Commits\n{{commits}}\n\n## Changes Summary\n{{diffSummary}}\n\n## Context\n{{context}}\n\n## Output Format\n## Summary\n[1-3 bullet points explaining WHAT changed and WHY]\n\n## Changes\n[List of specific changes grouped by area]\n\n## Test Plan\n[How to verify the changes work]\n\n## Example\n## Summary\n- Add email validation to user registration form\n- Prevents invalid emails from reaching the backend\n\n## Changes\n- **frontend/src/components/RegisterForm.tsx**: Added email regex validation\n- **frontend/src/utils/validators.ts**: New `isValidEmail()` utility\n\n## Test Plan\n- [ ] Enter invalid email → see error message\n- [ ] Enter valid email → form submits successfully\n\nNow write the PR description:",
+    "stream": false
+  },
+  "metadata": {
+    "category": "git",
+    "designation": "tool",
+    "tags": ["git", "pull-request", "documentation", "llm", "inference"],
+    "author": "maestro-v3",
+    "version": "1.0.0"
+  },
+  "capabilities": ["write-pr-description", "inference"]
+}

@@ -1,0 +1,78 @@
+{
+  "id": "coder-agent",
+  "name": "Coder Agent",
+  "blockType": "agent",
+  "version": "1.0.0",
+  "isAtomic": false,
+  "description": "Implements code changes based on a plan step. Reads context, generates code using code-generator, and writes files. Verifies syntax after writing.",
+  "inputs": [
+    {
+      "id": "subtask",
+      "name": "Subtask",
+      "type": "object",
+      "required": true,
+      "description": "Subtask object with action, target file, and description"
+    },
+    {
+      "id": "workingDir",
+      "name": "Working Directory",
+      "type": "string",
+      "required": true,
+      "description": "Project root directory"
+    },
+    {
+      "id": "context",
+      "name": "Project Context",
+      "type": "string",
+      "required": false,
+      "description": "Pre-built context from context-builder"
+    },
+    {
+      "id": "conventions",
+      "name": "Conventions",
+      "type": "string",
+      "required": false,
+      "description": "Project conventions from convention-reader"
+    }
+  ],
+  "outputs": [
+    {
+      "id": "success",
+      "name": "Success",
+      "type": "boolean",
+      "description": "Whether code was written successfully"
+    },
+    {
+      "id": "result",
+      "name": "Result",
+      "type": "string",
+      "description": "Description of changes made"
+    },
+    {
+      "id": "filesModified",
+      "name": "Files Modified",
+      "type": "array",
+      "description": "List of files created or modified"
+    },
+    {
+      "id": "error",
+      "name": "Error",
+      "type": "string",
+      "description": "Error message if failed"
+    }
+  ],
+  "config": {
+    "model": "HuggingFaceTB/SmolLM2-1.7B-Instruct",
+    "maxIterations": 8,
+    "maxTokens": 1024,
+    "temperature": 0.2,
+    "systemPrompt": "You are a coder. You implement code changes for ONE subtask. Output ONLY JSON.\n\nTools:\n- Read file: {\"tool\":\"maestro_cli\",\"args\":{\"command\":\"run file-read --input path=<path>\"}}\n- Write file: {\"tool\":\"maestro_cli\",\"args\":{\"command\":\"run file-write --input path=<path> --input content=<content>\"}}\n- Build context: {\"tool\":\"maestro_cli\",\"args\":{\"command\":\"run context-builder --input workingDir=<path> --input task=<task>\"}}\n- Generate code: {\"tool\":\"maestro_cli\",\"args\":{\"command\":\"run code-generator --input task=<task> --input context=<context> --input language=<lang>\"}}\n- Run shell: {\"tool\":\"maestro_cli\",\"args\":{\"command\":\"run shell-execute --input command=<cmd>\"}}\n- Done: {\"tool\":\"done\",\"args\":{\"summary\":\"...\",\"filesModified\":[\"path1\",\"path2\"]}}\n\nWorkflow:\n1. Read the target file if it exists (file-read)\n2. Generate the new code (code-generator)\n3. Write the file (file-write)\n4. Verify syntax if possible (shell-execute: tsc --noEmit or similar)\n5. Call done with summary\n\nRules:\n- ONE subtask at a time. Do not try to do multiple things.\n- Always read before writing to preserve existing code structure.\n- If the file is new, generate complete content. If modifying, read first.\n- If syntax check fails, fix and rewrite.\n- Call done when file is written and verified.",
+    "tools": ["file-read", "file-write", "context-builder", "code-generator", "code-analyzer", "shell-execute"]
+  },
+  "metadata": {
+    "category": "coding",
+    "tags": ["agent", "coder", "implementation"],
+    "author": "maestro-v3"
+  },
+  "capabilities": ["write-code", "generate-code", "llm", "tools"]
+}

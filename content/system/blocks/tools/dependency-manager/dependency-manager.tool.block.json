@@ -1,0 +1,78 @@
+{
+  "id": "dependency-manager",
+  "name": "dependency-manager",
+  "blockType": "tool",
+  "version": "1.0.0",
+  "isAtomic": true,
+  "description": "Manages project dependencies (install, remove, list, outdated, audit). Auto-detects package manager (npm, yarn, pnpm, bun). Deterministic — no LLM needed.",
+  "inputs": [
+    {
+      "id": "workingDir",
+      "name": "Project Directory",
+      "type": "string",
+      "required": true,
+      "description": "Path to the project root directory"
+    },
+    {
+      "id": "action",
+      "name": "Action",
+      "type": "string",
+      "required": true,
+      "description": "Action to perform: install, remove, list, outdated, audit"
+    },
+    {
+      "id": "packages",
+      "name": "Packages",
+      "type": "string",
+      "required": false,
+      "description": "Comma-separated package names (for install/remove actions)"
+    },
+    {
+      "id": "isDev",
+      "name": "Dev Dependency",
+      "type": "string",
+      "required": false,
+      "description": "Set to 'true' to install as dev dependency"
+    }
+  ],
+  "outputs": [
+    {
+      "id": "success",
+      "name": "Success",
+      "type": "boolean",
+      "description": "Whether the operation completed successfully"
+    },
+    {
+      "id": "action",
+      "name": "Action Performed",
+      "type": "string",
+      "description": "The action that was performed"
+    },
+    {
+      "id": "packageManager",
+      "name": "Package Manager",
+      "type": "string",
+      "description": "Detected package manager (npm, yarn, pnpm, bun)"
+    },
+    {
+      "id": "output",
+      "name": "Command Output",
+      "type": "string",
+      "description": "Raw output from the package manager command"
+    }
+  ],
+  "config": {
+    "runtime": "node",
+    "scriptFile": "scripts/dependency-manager.js",
+    "parseOutput": "json",
+    "timeoutMs": 120000
+  },
+  "metadata": {
+    "category": "package",
+    "designation": "tool",
+    "tags": ["dependencies", "npm", "yarn", "pnpm", "install", "deterministic"],
+    "author": "maestro-v3",
+    "version": "1.0.0"
+  },
+  "capabilities": ["manage-dependencies", "install-packages", "detect-package-manager"]
+}

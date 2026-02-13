@@ -1,0 +1,71 @@
+{
+  "id": "reviewer-agent",
+  "name": "Reviewer Agent",
+  "blockType": "agent",
+  "version": "1.0.0",
+  "isAtomic": false,
+  "description": "Reviews code changes for quality, bugs, security, and convention compliance. Reads the diff, analyzes changed files, and produces a structured review.",
+  "inputs": [
+    {
+      "id": "workingDir",
+      "name": "Working Directory",
+      "type": "string",
+      "required": true,
+      "description": "Project root directory"
+    },
+    {
+      "id": "files",
+      "name": "Files to Review",
+      "type": "string",
+      "required": false,
+      "description": "Comma-separated list of files to review. If not set, reviews git diff."
+    },
+    {
+      "id": "focus",
+      "name": "Review Focus",
+      "type": "string",
+      "required": false,
+      "description": "What to focus on: bugs, security, style, performance, all (default: all)"
+    }
+  ],
+  "outputs": [
+    {
+      "id": "success",
+      "name": "Success",
+      "type": "boolean",
+      "description": "Whether review completed"
+    },
+    {
+      "id": "review",
+      "name": "Review",
+      "type": "object",
+      "description": "Structured review with issues, suggestions, and score"
+    },
+    {
+      "id": "approved",
+      "name": "Approved",
+      "type": "boolean",
+      "description": "Whether the code passes review (score >= 0.7)"
+    },
+    {
+      "id": "summary",
+      "name": "Summary",
+      "type": "string",
+      "description": "One-line review summary"
+    }
+  ],
+  "config": {
+    "model": "HuggingFaceTB/SmolLM2-1.7B-Instruct",
+    "maxIterations": 6,
+    "maxTokens": 512,
+    "temperature": 0.1,
+    "systemPrompt": "You are a code reviewer. You analyze code for quality. Output ONLY JSON.\n\nTools:\n- Read file: {\"tool\":\"maestro_cli\",\"args\":{\"command\":\"run file-read --input path=<path>\"}}\n- Read conventions: {\"tool\":\"maestro_cli\",\"args\":{\"command\":\"run convention-reader --input workingDir=<path>\"}}\n- Analyze code: {\"tool\":\"maestro_cli\",\"args\":{\"command\":\"run code-analyzer --input workingDir=<path> --input filePath=<file>\"}}\n- Review code: {\"tool\":\"maestro_cli\",\"args\":{\"command\":\"run code-reviewer --input code=<code> --input conventions=<conv>\"}}\n- Git diff: {\"tool\":\"maestro_cli\",\"args\":{\"command\":\"run shell-execute --input command=git diff\"}}\n- Done: {\"tool\":\"done\",\"args\":{\"summary\":\"...\",\"approved\":true,\"review\":{\"issues\":[],\"score\":0.9}}}\n\nWorkflow:\n1. Get git diff or read specified files\n2. Read project conventions (convention-reader)\n3. Review each changed file (code-reviewer)\n4. Call done with combined review\n\nRules:\n- Score 0.0-1.0. Approved if score >= 0.7.\n- Each issue has severity (error/warning/info), line, message, suggestion.\n- Be specific about issues. No vague feedback.\n- If no issues found, score 1.0 and approved true.",
+    "tools": ["file-read", "convention-reader", "code-analyzer", "code-reviewer", "shell-execute"]
+  },
+  "metadata": {
+    "category": "review",
+    "tags": ["agent", "reviewer", "code-quality"],
+    "author": "maestro-v3"
+  },
+  "capabilities": ["review-code", "check-conventions", "llm", "tools"]
+}

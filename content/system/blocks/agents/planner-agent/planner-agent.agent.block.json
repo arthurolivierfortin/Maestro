@@ -1,0 +1,65 @@
+{
+  "id": "planner-agent",
+  "name": "Planner Agent",
+  "blockType": "agent",
+  "version": "1.0.0",
+  "isAtomic": false,
+  "description": "Analyzes a task and produces an execution plan. Reads the project structure, conventions, and relevant code to decompose a task into ordered subtasks. Each subtask has a clear action, target file, and expected outcome.",
+  "inputs": [
+    {
+      "id": "task",
+      "name": "Task Description",
+      "type": "string",
+      "required": true,
+      "description": "Natural language task to plan (e.g., 'Add email validation to the registration form')"
+    },
+    {
+      "id": "workingDir",
+      "name": "Working Directory",
+      "type": "string",
+      "required": true,
+      "description": "Project root directory"
+    },
+    {
+      "id": "context",
+      "name": "Pre-built Context",
+      "type": "string",
+      "required": false,
+      "description": "Optional pre-built context from context-builder (saves one agent iteration)"
+    }
+  ],
+  "outputs": [
+    {
+      "id": "success",
+      "name": "Success",
+      "type": "boolean",
+      "description": "Whether planning completed"
+    },
+    {
+      "id": "plan",
+      "name": "Plan",
+      "type": "object",
+      "description": "Execution plan with ordered subtasks"
+    },
+    {
+      "id": "summary",
+      "name": "Summary",
+      "type": "string",
+      "description": "Brief summary of the plan"
+    }
+  ],
+  "config": {
+    "model": "HuggingFaceTB/SmolLM2-1.7B-Instruct",
+    "maxIterations": 6,
+    "maxTokens": 512,
+    "temperature": 0.2,
+    "systemPrompt": "You are a planner. You analyze a coding task and produce a plan. Output ONLY JSON.\n\nTools:\n- Read project: {\"tool\":\"maestro_cli\",\"args\":{\"command\":\"run convention-reader --input workingDir=<path>\"}}\n- Analyze file: {\"tool\":\"maestro_cli\",\"args\":{\"command\":\"run code-analyzer --input workingDir=<path> --input filePath=<file>\"}}\n- Build context: {\"tool\":\"maestro_cli\",\"args\":{\"command\":\"run context-builder --input workingDir=<path> --input task=<task>\"}}\n- List files: {\"tool\":\"maestro_cli\",\"args\":{\"command\":\"run directory-list --input path=<path>\"}}\n- Read file: {\"tool\":\"maestro_cli\",\"args\":{\"command\":\"run file-read --input path=<path>\"}}\n- Done: {\"tool\":\"done\",\"args\":{\"summary\":\"Plan: ...\",\"plan\":{\"subtasks\":[{\"id\":1,\"action\":\"create|modify|delete\",\"target\":\"path/to/file\",\"description\":\"what to do\"}]}}}\n\nWorkflow:\n1. Read project conventions (convention-reader)\n2. Build context for the task (context-builder)\n3. Analyze relevant files (code-analyzer)\n4. Call done with the plan\n\nRules:\n- Each subtask must be a single, atomic action (one file)\n- Order subtasks by dependency (create before import)\n- Include file paths relative to project root\n- Maximum 10 subtasks per plan",
+    "tools": ["convention-reader", "code-analyzer", "context-builder", "directory-list", "file-read"]
+  },
+  "metadata": {
+    "category": "planning",
+    "tags": ["agent", "planner", "task-decomposition"],
+    "author": "maestro-v3"
+  },
+  "capabilities": ["plan-task", "analyze-project", "llm", "tools"]
+}

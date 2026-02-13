@@ -260,6 +260,114 @@ async function designateBlockCmd(id, designation) {
   }
 }
 
+// ── Phase 26: Block CRUD commands ──
+
+async function createBlockCmd(options) {
+  const { name, type, description, tags, designation, category, config } = options;
+  try {
+    const body: any = {
+      name,
+      blockType: type,
+      description: description || '',
+      tags: tags ? tags.split(',').map((t: string) => t.trim()) : [],
+    };
+    if (config) {
+      body.config = JSON.parse(config);
+    }
+    const result = await client.createBlock(body);
+    console.log(c.ok(`Block created: ${result.id}`));
+    console.log(`  ${c.gray('Name:')}  ${result.name}`);
+    console.log(`  ${c.gray('Type:')}  ${result.blockType}`);
+    if (result.path) console.log(`  ${c.gray('Path:')}  ${result.path}`);
+
+    // Set designation if provided
+    if (designation) {
+      await client.designateBlock(result.id, designation);
+      console.log(`  ${c.gray('Designation:')}  ${designation}`);
+    }
+    // Set category if provided (via designate endpoint)
+    if (category && !designation) {
+      await client.designateBlock(result.id, 'none');
+    }
+  } catch (error) {
+    if (error.status === 409) {
+      formatter.error(`Block already exists with that name`, 'CONFLICT');
+      process.exitCode = EXIT.USER_ERROR;
+    } else {
+      handleApiError(error, 'creating block');
+    }
+  }
+}
+
+async function updateBlockCmd(id, options) {
+  try {
+    const body: any = {};
+    if (options.name) body.name = options.name;
+    if (options.description) body.description = options.description;
+    if (options.tags) body.tags = options.tags.split(',').map((t: string) => t.trim());
+    if (options.config) body.config = JSON.parse(options.config);
+    const result = await client.updateBlock(id, body);
+    console.log(c.ok(`Block '${id}' updated`));
+    if (result.name) console.log(`  ${c.gray('Name:')}  ${result.name}`);
+    if (result.blockType) console.log(`  ${c.gray('Type:')}  ${result.blockType}`);
+  } catch (error) {
+    if (error.status === 404) {
+      formatter.error(`Block not found: ${id}`, 'NOT_FOUND');
+      process.exitCode = EXIT.NOT_FOUND;
+    } else {
+      handleApiError(error, 'updating block');
+    }
+  }
+}
+
+async function deleteBlockCmd(id, force) {
+  if (!force) {
+    console.error(c.fail('Use --force to confirm deletion'));
+    process.exitCode = EXIT.USER_ERROR;
+    return;
+  }
+  try {
+    await client.deleteBlock(id);
+    console.log(c.ok(`Block '${id}' deleted`));
+  } catch (error) {
+    if (error.status === 404) {
+      formatter.error(`Block not found: ${id}`, 'NOT_FOUND');
+      process.exitCode = EXIT.NOT_FOUND;
+    } else {
+      handleApiError(error, 'deleting block');
+    }
+  }
+}
+
+async function getBlockContentCmd(id, filePath) {
+  try {
+    const content = await client.getBlockContent(id, filePath);
+    // Raw output — no decoration so it can be piped
+    process.stdout.write(typeof content === 'string' ? content : JSON.stringify(content, null, 2));
+  } catch (error) {
+    if (error.status === 404) {
+      formatter.error(`Block or file not found: ${id}/${filePath}`, 'NOT_FOUND');
+      process.exitCode = EXIT.NOT_FOUND;
+    } else {
+      handleApiError(error, 'reading block content');
+    }
+  }
+}
+
+async function setBlockContentCmd(id, filePath, content) {
+  try {
+    await client.updateBlockContent(id, filePath, content);
+    console.log(c.ok(`Written to ${id}/${filePath}`));
+  } catch (error) {
+    if (error.status === 404) {
+      formatter.error(`Block not found: ${id}`, 'NOT_FOUND');
+      process.exitCode = EXIT.NOT_FOUND;
+    } else {
+      handleApiError(error, 'writing block content');
+    }
+  }
+}
+
 async function listWorkflows() {
   return await listBlocks({ type: 'Workflow' });
 }
@@ -3954,10 +4062,10 @@ async function getApprovalInfo(id) {
     console.log('');
   } catch (error) {
     if (error.status === 404) {
-      console.error(`Approval not found: ${id}`);
-    } else {
-      handleApiError(error, 'getting approval info');
+      // Re-throw 404 so callers can fall back (e.g., block info tries approval then block)
+      throw error;
     }
+    handleApiError(error, 'getting approval info');
     process.exit(1);
   }
 }
@@ -4105,15 +4213,35 @@ ${c.boldColor('cyan', 'Block Commands')}
 
 ${c.bold('Usage:')} maestro block <command> [options]
 
-${c.bold('Commands:')}
+${c.bold('Read Commands:')}
   ${c.gray('(none)')} / list       List all blocks
   info <id>           Block details
   metrics <id>        Block metrics (runs, score, success rate)
   top                 Top blocks by score
-  designate <id> <d>  Set block designation (tool, agent)
+  search <query>      Search blocks by name/description
+  children <id>       Show block hierarchy [--recursive]
+  content <id> <path> Read a file within a block
+
+${c.bold('Write Commands:')}
+  create              Create a new block (--name, --type required)
+  update <id>         Update block properties
+  delete <id>         Delete a block (--force required)
+  content <id> <path> Write with --set <content> or --set-file <path>
+  designate <id> <d>  Set designation (tool, agent)
+
+${c.bold('Approval Commands:')}
   publish <id>        Submit block for approval
   approve <id>        Approve a pending block
   reject <id>         Reject with --reason
+
+${c.bold('Create Options:')}
+  --name <name>       Block name (required)
+  --type <type>       Block type: tool, prompt, workflow, agent, etc. (required)
+  --description <d>   Block description
+  --tags <t1,t2>      Comma-separated tags
+  --designation <d>   Set designation: tool, agent
+  --category <cat>    Block category (e.g., git, code, analysis)
+  --config '{...}'    JSON config object
 
 ${c.bold('Filters:')}
   --designation <d>   Filter by designation (tool, agent)
@@ -4127,10 +4255,13 @@ ${c.bold('Shortcuts:')} ${c.gray('These are shorthand for block list with filter
   maestro workflows   ${c.gray('=')} maestro block list --type Workflow
 
 ${c.bold('Examples:')}
+  maestro block create --name context-builder --type tool --description "Builds focused context"
+  maestro block update context-builder --config '{"nodes":[...]}'
+  maestro block content context-builder scripts/run.ps1 --set-file ./my-script.ps1
+  maestro block delete old-block --force
   maestro block list --designation tool --category inference
   maestro block metrics my-block-id
   maestro block top --designation agent --limit 5
-  maestro block designate my-block tool
 `);
       return;
     }
@@ -5302,8 +5433,77 @@ async function executeWithArgv(argv) {
         });
       }
 
+      // Phase 26: block create --name <name> --type <type> [--description] [--tags] [--designation] [--category] [--config '{}']
+      if (subCmd === 'create') {
+        const name = argv.name || argv._[2];
+        const type = argv.type || argv._[3];
+        if (!name) { console.error('Block name required (--name <name>)'); process.exit(1); }
+        if (!type) { console.error('Block type required (--type <type>)'); process.exit(1); }
+        return await createBlockCmd({
+          name,
+          type,
+          description: argv.description || argv.desc,
+          tags: argv.tags,
+          designation: argv.designation,
+          category: argv.category,
+          config: argv.config
+        });
+      }
+
+      // Phase 26: block update <id> [--name] [--description] [--tags] [--config '{}']
+      if (subCmd === 'update') {
+        const id = argv._[2];
+        if (!id) { console.error('Block ID required'); process.exit(1); }
+        return await updateBlockCmd(id, {
+          name: argv.name,
+          description: argv.description || argv.desc,
+          tags: argv.tags,
+          config: argv.config
+        });
+      }
+
+      // Phase 26: block delete <id> [--force]
+      if (subCmd === 'delete') {
+        const id = argv._[2];
+        if (!id) { console.error('Block ID required'); process.exit(1); }
+        return await deleteBlockCmd(id, argv.force);
+      }
+
+      // Phase 26: block content <id> <path> [--set <content>] [--set-file <filepath>]
+      if (subCmd === 'content') {
+        const id = argv._[2];
+        const filePath = argv._[3];
+        if (!id) { console.error('Block ID required'); process.exit(1); }
+        if (!filePath) { console.error('File path required (e.g. block.json, scripts/run.ps1)'); process.exit(1); }
+        const setContent = argv.set;
+        const setFile = argv['set-file'];
+        if (setFile) {
+          const fs = require('fs');
+          const fileContent = fs.readFileSync(setFile, 'utf-8');
+          return await setBlockContentCmd(id, filePath, fileContent);
+        }
+        if (setContent !== undefined) {
+          return await setBlockContentCmd(id, filePath, setContent);
+        }
+        return await getBlockContentCmd(id, filePath);
+      }
+
+      // Phase 26: block children <id> [--recursive]
+      if (subCmd === 'children') {
+        const id = argv._[2];
+        if (!id) { console.error('Block ID required'); process.exit(1); }
+        return await getBlockChildren(id, argv.recursive !== false);
+      }
+
+      // Phase 26: block search <query>
+      if (subCmd === 'search') {
+        const query = argv._[2];
+        if (!query) { console.error('Search query required'); process.exit(1); }
+        return await searchBlocks(query);
+      }
+
       console.error(`Unknown block subcommand: ${subCmd}`);
-      console.error('   Available: list, info, metrics, top, designate, publish, approve, reject');
+      console.error('   Available: list, info, metrics, top, designate, publish, approve, reject, create, update, delete, content, children, search');
       process.exit(1);
     }
     // Phase 18: Standalone block shortcuts (compatibility aliases)

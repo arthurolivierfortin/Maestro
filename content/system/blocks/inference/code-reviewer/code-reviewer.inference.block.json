@@ -1,0 +1,65 @@
+{
+  "id": "code-reviewer",
+  "name": "code-reviewer",
+  "blockType": "inference",
+  "version": "1.0.0",
+  "isAtomic": true,
+  "description": "Reviews code for quality, bugs, security issues, and convention compliance. Returns structured feedback as JSON.",
+  "inputs": [
+    {
+      "id": "code",
+      "name": "Code to Review",
+      "type": "string",
+      "required": true,
+      "description": "The code to review"
+    },
+    {
+      "id": "filePath",
+      "name": "File Path",
+      "type": "string",
+      "required": false,
+      "description": "Path to the file being reviewed"
+    },
+    {
+      "id": "conventions",
+      "name": "Conventions",
+      "type": "string",
+      "required": false,
+      "description": "Project conventions to check against"
+    },
+    {
+      "id": "context",
+      "name": "Context",
+      "type": "string",
+      "required": false,
+      "description": "Additional project context (related files, architecture)"
+    },
+    {
+      "id": "focus",
+      "name": "Review Focus",
+      "type": "string",
+      "required": false,
+      "description": "What to focus on: bugs, security, style, performance, all (default: all)"
+    }
+  ],
+  "outputs": [
+    {
+      "id": "content",
+      "name": "Review",
+      "type": "string",
+      "description": "Review output as JSON with issues array and summary"
+    }
+  ],
+  "config": {
+    "template": "You are a code reviewer. Analyze the code and output a JSON review.\n\n## Code (file: {{filePath}})\n{{code}}\n\n## Project Conventions\n{{conventions}}\n\n## Context\n{{context}}\n\n## Review Focus\n{{focus}}\n\n## Task\nReview the code above. Output ONLY valid JSON, nothing else.\n\n## Output Format (strict JSON)\n{\n  \"issues\": [\n    {\n      \"severity\": \"error|warning|info\",\n      \"line\": 0,\n      \"message\": \"description of issue\",\n      \"suggestion\": \"how to fix\"\n    }\n  ],\n  \"summary\": \"one-line summary of code quality\",\n  \"score\": 0.0\n}\n\n## Severity Guide\n- error: bugs, security vulnerabilities, logic errors, crashes\n- warning: bad practices, potential issues, convention violations\n- info: style suggestions, minor improvements\n\nScore: 0.0 (terrible) to 1.0 (perfect). Deduct 0.2 per error, 0.1 per warning, 0.02 per info.\n\n## Example\n{\"issues\":[{\"severity\":\"warning\",\"line\":5,\"message\":\"Unused variable 'temp'\",\"suggestion\":\"Remove or use the variable\"}],\"summary\":\"Good code with one unused variable\",\"score\":0.9}\n\nNow output the JSON review:",
+    "stream": false
+  },
+  "metadata": {
+    "category": "review",
+    "designation": "tool",
+    "tags": ["code-review", "quality", "security", "llm", "inference"],
+    "author": "maestro-v3",
+    "version": "1.0.0"
+  },
+  "capabilities": ["review-code", "inference"]
+}

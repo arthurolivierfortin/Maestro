@@ -205,10 +205,16 @@ class MaestroApiClient {
   }
 
   async createBlock(block) {
-    if (!block || !block.name || !block.type) {
-      throw new Error('Block must have name and type');
+    if (!block || !block.name || !(block.blockType || block.type)) {
+      throw new Error('Block must have name and type (blockType or type)');
     }
-    return this._fetch('POST', '/api/blocks', { body: block });
+    // Normalize: backend expects blockType
+    const body = { ...block };
+    if (body.type && !body.blockType) {
+      body.blockType = body.type;
+      delete body.type;
+    }
+    return this._fetch('POST', '/api/blocks', { body });
   }
 
   async updateBlock(id, updates) {
@@ -234,9 +240,10 @@ class MaestroApiClient {
 
   async updateBlockContent(id, filePath, content) {
     if (!id) throw new Error('Block ID is required');
+    // ASP.NET [FromBody] string expects a JSON string literal with application/json
+    const jsonBody = JSON.stringify(content);
     return this._fetch('PUT', `/api/blocks/${id}/content/${filePath}`, {
-      body: content,
-      headers: { 'Content-Type': 'text/plain' }
+      body: jsonBody
     });
   }
 

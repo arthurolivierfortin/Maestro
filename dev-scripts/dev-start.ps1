@@ -176,7 +176,7 @@ function Start-BackendLocal {
 
     $script = @"
 Set-Location '$MaestroRoot\backend\src\Maestro.Api'
-`$env:MAESTRO_GLOBAL_BLOCKS_PATH = '$MaestroRoot\blocks'
+`$env:MAESTRO_GLOBAL_BLOCKS_PATH = '$MaestroRoot\content\system\blocks'
 `$env:MAESTRO_REPO_ROOT = '$MaestroRoot'
 `$env:LLMProvider__BaseUrl = 'http://localhost:8000'
 `$env:LLMProvider__DefaultModel = '$Model'

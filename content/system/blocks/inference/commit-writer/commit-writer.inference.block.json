@@ -1,0 +1,51 @@
+{
+  "id": "commit-writer",
+  "name": "commit-writer",
+  "blockType": "inference",
+  "version": "1.0.0",
+  "isAtomic": true,
+  "description": "Writes conventional commit messages from git diff. Compact prompt optimized for small LLMs. Improved version of commit-message-generator.",
+  "inputs": [
+    {
+      "id": "diff",
+      "name": "Git Diff",
+      "type": "string",
+      "required": true,
+      "description": "Git diff output (staged changes)"
+    },
+    {
+      "id": "status",
+      "name": "Git Status",
+      "type": "string",
+      "required": false,
+      "description": "Git status output"
+    },
+    {
+      "id": "recentCommits",
+      "name": "Recent Commits",
+      "type": "string",
+      "required": false,
+      "description": "Recent commit messages for style reference"
+    }
+  ],
+  "outputs": [
+    {
+      "id": "content",
+      "name": "Commit Message",
+      "type": "string",
+      "description": "The generated commit message"
+    }
+  ],
+  "config": {
+    "template": "Write a git commit message for these changes. Output ONLY the commit message.\n\nFormat: type(scope): subject\n\nTypes: feat, fix, docs, style, refactor, perf, test, build, ci, chore\nSubject: imperative mood, no capital, no period, max 50 chars.\n\n## Recent commits (follow this style)\n{{recentCommits}}\n\n## Git status\n{{status}}\n\n## Git diff\n{{diff}}\n\n## Example\nfeat(cli): add workspace template management command\n\nCommit message:",
+    "stream": false
+  },
+  "metadata": {
+    "category": "git",
+    "designation": "tool",
+    "tags": ["git", "commit", "conventional-commits", "llm", "inference"],
+    "author": "maestro-v3",
+    "version": "1.0.0"
+  },
+  "capabilities": ["write-commit-message", "inference"]
+}

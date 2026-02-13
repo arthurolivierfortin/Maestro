@@ -1,0 +1,51 @@
+{
+  "id": "convention-reader",
+  "name": "convention-reader",
+  "blockType": "tool",
+  "version": "1.0.0",
+  "isAtomic": true,
+  "description": "Reads and summarizes project conventions from standard config files (CLAUDE.md, tsconfig.json, .eslintrc, package.json, etc.). Deterministic — no LLM needed.",
+  "inputs": [
+    {
+      "id": "workingDir",
+      "name": "Project Path",
+      "type": "string",
+      "required": true,
+      "description": "Path to the project root directory to analyze"
+    }
+  ],
+  "outputs": [
+    {
+      "id": "conventions",
+      "name": "Conventions",
+      "type": "object",
+      "description": "Structured convention data with sections for each found config file"
+    },
+    {
+      "id": "files",
+      "name": "Files Found",
+      "type": "array",
+      "description": "List of convention files found in the project"
+    },
+    {
+      "id": "summary",
+      "name": "Summary",
+      "type": "string",
+      "description": "Brief text summary of conventions for LLM context window"
+    }
+  ],
+  "config": {
+    "runtime": "node",
+    "scriptFile": "scripts/convention-reader.js",
+    "parseOutput": "json",
+    "timeoutMs": 30000
+  },
+  "metadata": {
+    "category": "analysis",
+    "designation": "tool",
+    "tags": ["conventions", "project-analysis", "context", "deterministic"],
+    "author": "maestro-v3",
+    "version": "1.0.0"
+  },
+  "capabilities": ["read-conventions", "project-analysis"]
+}

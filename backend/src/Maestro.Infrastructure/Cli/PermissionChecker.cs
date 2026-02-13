@@ -71,8 +71,11 @@ public class PermissionChecker : IPermissionChecker
                 context.WorkspaceId);
         }
 
-        // No context = no permissions
-        _logger.LogDebug("No context provided, returning empty permissions");
-        return ContextPermissions.None;
+        // No context = full permissions (direct block execution, not sandboxed)
+        // When an agent block is executed directly via /api/blocks/{id}/execute
+        // without a workspace/session, it should have unrestricted access.
+        // Sandboxing is enforced when running within a workspace/session.
+        _logger.LogDebug("No context provided, returning full permissions (direct execution)");
+        return ContextPermissions.Full;
     }
 }

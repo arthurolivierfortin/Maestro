@@ -1,0 +1,64 @@
+{
+  "id": "file-scaffolder",
+  "name": "file-scaffolder",
+  "blockType": "tool",
+  "version": "1.0.0",
+  "isAtomic": true,
+  "description": "Creates directory structures and files from a JSON template. Deterministic — no LLM needed.",
+  "inputs": [
+    {
+      "id": "workingDir",
+      "name": "Target Directory",
+      "type": "string",
+      "required": true,
+      "description": "Path to the target directory where files/dirs will be created"
+    },
+    {
+      "id": "template",
+      "name": "Template",
+      "type": "string",
+      "required": true,
+      "description": "JSON template with structure array: [{path, type (dir|file), content}]"
+    }
+  ],
+  "outputs": [
+    {
+      "id": "success",
+      "name": "Success",
+      "type": "boolean",
+      "description": "Whether all files/dirs were created successfully"
+    },
+    {
+      "id": "created",
+      "name": "Created Items",
+      "type": "array",
+      "description": "List of created files and directories"
+    },
+    {
+      "id": "totalFiles",
+      "name": "Total Files",
+      "type": "number",
+      "description": "Number of files created"
+    },
+    {
+      "id": "totalDirs",
+      "name": "Total Directories",
+      "type": "number",
+      "description": "Number of directories created"
+    }
+  ],
+  "config": {
+    "runtime": "node",
+    "scriptFile": "scripts/file-scaffolder.js",
+    "parseOutput": "json",
+    "timeoutMs": 30000
+  },
+  "metadata": {
+    "category": "filesystem",
+    "designation": "tool",
+    "tags": ["scaffold", "files", "directories", "template", "deterministic"],
+    "author": "maestro-v3",
+    "version": "1.0.0"
+  },
+  "capabilities": ["create-files", "create-directories", "scaffold"]
+}

@@ -1,0 +1,78 @@
+{
+  "id": "tester-agent",
+  "name": "Tester Agent",
+  "blockType": "agent",
+  "version": "1.0.0",
+  "isAtomic": false,
+  "description": "Generates and runs tests for source code. Reads the source file, generates tests using test-generator, writes the test file, and runs the test suite.",
+  "inputs": [
+    {
+      "id": "sourceFile",
+      "name": "Source File",
+      "type": "string",
+      "required": true,
+      "description": "Path to the source file to test"
+    },
+    {
+      "id": "workingDir",
+      "name": "Working Directory",
+      "type": "string",
+      "required": true,
+      "description": "Project root directory"
+    },
+    {
+      "id": "framework",
+      "name": "Test Framework",
+      "type": "string",
+      "required": false,
+      "description": "Test framework (vitest, jest, mocha, pytest, xunit). Auto-detected if not set."
+    },
+    {
+      "id": "runTests",
+      "name": "Run Tests",
+      "type": "string",
+      "required": false,
+      "description": "Set to 'true' to run tests after generating (default: true)"
+    }
+  ],
+  "outputs": [
+    {
+      "id": "success",
+      "name": "Success",
+      "type": "boolean",
+      "description": "Whether test generation and execution succeeded"
+    },
+    {
+      "id": "testFile",
+      "name": "Test File",
+      "type": "string",
+      "description": "Path to the generated test file"
+    },
+    {
+      "id": "testResults",
+      "name": "Test Results",
+      "type": "string",
+      "description": "Test execution output"
+    },
+    {
+      "id": "error",
+      "name": "Error",
+      "type": "string",
+      "description": "Error message if failed"
+    }
+  ],
+  "config": {
+    "model": "HuggingFaceTB/SmolLM2-1.7B-Instruct",
+    "maxIterations": 8,
+    "maxTokens": 1024,
+    "temperature": 0.2,
+    "systemPrompt": "You are a tester. You generate and run tests. Output ONLY JSON.\n\nTools:\n- Read file: {\"tool\":\"maestro_cli\",\"args\":{\"command\":\"run file-read --input path=<path>\"}}\n- Write file: {\"tool\":\"maestro_cli\",\"args\":{\"command\":\"run file-write --input path=<path> --input content=<content>\"}}\n- Generate tests: {\"tool\":\"maestro_cli\",\"args\":{\"command\":\"run test-generator --input sourceCode=<code> --input sourceFile=<path> --input framework=<fw>\"}}\n- Run tests: {\"tool\":\"maestro_cli\",\"args\":{\"command\":\"run shell-execute --input command=<test-cmd>\"}}\n- Done: {\"tool\":\"done\",\"args\":{\"summary\":\"...\",\"testFile\":\"path\",\"testResults\":\"...\"}}\n\nWorkflow:\n1. Read the source file (file-read)\n2. Generate tests (test-generator with the source code)\n3. Write test file (file-write to tests/ or __tests__/ directory)\n4. Run tests (shell-execute: npm test or vitest run <file>)\n5. If tests fail, read error, fix, rewrite, rerun\n6. Call done with results\n\nRules:\n- Test file goes next to source file or in tests/ directory.\n- Naming: source.ts → source.test.ts or source.spec.ts\n- If tests fail, fix the test (not the source). Max 2 fix attempts.\n- Call done with test results even if some tests fail.",
+    "tools": ["file-read", "file-write", "test-generator", "shell-execute", "code-analyzer"]
+  },
+  "metadata": {
+    "category": "testing",
+    "tags": ["agent", "tester", "unit-tests"],
+    "author": "maestro-v3"
+  },
+  "capabilities": ["generate-tests", "run-tests", "llm", "tools"]
+}
