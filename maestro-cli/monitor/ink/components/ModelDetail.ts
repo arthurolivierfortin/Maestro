@@ -298,6 +298,8 @@ const ModelDetail = ({ modelId, apiClient, onExit, onQuit, onNavigate }) => {
       latency,
       lastRefresh,
       currentPage: 'models',
+      isDetailView: true,
+      hasBackOption: true,
     }),
   );
 };

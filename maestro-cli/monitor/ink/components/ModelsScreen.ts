@@ -17,19 +17,21 @@ import {
   theme, icons,
   T, muted, primary, label, bold,
   statusColor, statusIcon,
+  breathingDot,
 } from '../theme.ts';
 import { useApiData } from '../hooks/useApiData.ts';
 import { useKeyboard } from '../hooks/useKeyboard.ts';
+import { useAnimationTick } from '../hooks/useAnimationTick.ts';
 import { NavBar } from './NavBar.ts';
 import { Panel } from './Panel.ts';
 import { StatusBar } from './StatusBar.ts';
 
 // ── Model Status Panel ───────────────────────────────────────
 
-const ModelStatusPanel = ({ health, llmStatus }) => {
+const ModelStatusPanel = ({ health, llmStatus, tick = 0 }) => {
   const isHealthy = health && !health.error;
   const healthColor = isHealthy ? theme.status.success : theme.status.error;
-  const healthIcon = isHealthy ? icons.done : icons.failed;
+  const healthIcon = isHealthy ? breathingDot(tick) : icons.failed;
 
   // Extract info from health response
   const activeModel = health?.activeModel || health?.model || health?.model_id || '-';
@@ -96,6 +98,7 @@ const ModelCard = ({ model, isSelected, isActive }) => {
 
 const ModelsScreen = ({ apiClient, onNavigate, onModelSelect, onQuit, initialState }) => {
   const [selectedIndex, setSelectedIndex] = useState(initialState?.selectedIndex ?? 0);
+  const tick = useAnimationTick(150);
 
   // Fetch LLM health
   const {
@@ -172,7 +175,7 @@ const ModelsScreen = ({ apiClient, onNavigate, onModelSelect, onQuit, initialSta
     h(Box, { flexDirection: 'row', flexGrow: 1, width: '100%' },
       // Status panel (left, 40%)
       h(Panel, { title: 'MODEL STATUS', width: '40%' },
-        h(ModelStatusPanel, { health: llmHealth, llmStatus }),
+        h(ModelStatusPanel, { health: llmHealth, llmStatus, tick }),
       ),
 
       // Model list (right, 60%)

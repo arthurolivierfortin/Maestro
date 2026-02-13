@@ -8,11 +8,12 @@ const { OutputFormatter } = require('./output-formatter.ts');
 const { JsonInputParser } = require('./json-parser.ts');
 const c = require('../shared/utils/cli-colors.js');
 
-// Configuration
-const API_URL = process.env.MAESTRO_API_URL || 'http://localhost:5000';
+// Configuration (Phase 20: config.ts provides getBackendUrl/getApiKey)
+const { getBackendUrl, getApiKey } = require('./config.ts');
+const API_URL = getBackendUrl();
 const DEBUG = process.env.MAESTRO_DEBUG === 'true';
 
-const client = new MaestroApiClient(API_URL, { debug: DEBUG });
+const client = new MaestroApiClient(API_URL, { debug: DEBUG, apiKey: getApiKey() });
 
 // Module-level formatter — set to JSON mode in main() when --json is used
 let formatter = new OutputFormatter(false);
@@ -350,11 +351,11 @@ async function getBlockChildren(id, recursive = true) {
   }
 }
 
-async function checkHealth() {
+async function checkHealth(options = {}) {
   formatter.setCommand('health');
   try {
     const health = await client.getHealth();
-    const svcStr = Object.entries(health.services).map(([k, v]) => {
+    const svcStr = Object.entries(health.services || {}).map(([k, v]) => {
       const col = v === 'ok' || v === 'healthy' ? c.green : c.yellow;
       return `${k}=${col(v)}`;
     }).join(', ');
@@ -363,14 +364,78 @@ async function checkHealth() {
       `  ${c.gray('Status:')}       ${c.green(health.status)}\n` +
       `  ${c.gray('Version:')}      ${health.version}\n` +
       `  ${c.gray('Uptime:')}       ${health.uptime || 'N/A'}\n` +
-      `  ${c.gray('Block Count:')}  ${health.blockCount}\n` +
-      `  ${c.gray('Services:')}     ${svcStr}\n`
+      `  ${c.gray('Block Count:')}  ${health.blockCount || 'N/A'}\n` +
+      `  ${c.gray('Services:')}     ${svcStr || 'N/A'}\n`
     );
+
+    // Phase 22: --verbose mode shows extended diagnostics
+    if (options.verbose) {
+      console.log(`  ${c.gray('API URL:')}      ${API_URL}`);
+      console.log(`  ${c.gray('Timestamp:')}    ${health.timestamp || new Date().toISOString()}`);
+
+      // Check LLM Provider
+      try {
+        const llmHealth = await client.getLLMHealth();
+        console.log(`  ${c.gray('LLM Status:')}   ${c.green(llmHealth.status || 'connected')}`);
+        if (llmHealth.activeModel) console.log(`  ${c.gray('Active Model:')} ${llmHealth.activeModel}`);
+      } catch {
+        console.log(`  ${c.gray('LLM Status:')}   ${c.yellow('not available')}`);
+      }
+
+      // Check auth status
+      try {
+        const authStatus = await client.getAuthStatus();
+        const authStr = authStatus.enabled ? c.green('enabled') : c.gray('disabled');
+        console.log(`  ${c.gray('Security:')}     ${authStr}`);
+      } catch {
+        console.log(`  ${c.gray('Security:')}     ${c.gray('unknown')}`);
+      }
+
+      console.log('');
+    }
   } catch (error) {
     formatter.error(`Backend is not responding at ${API_URL}`, 'ECONNREFUSED',
       'Start the backend with: dotnet run --project backend/src/Maestro.Api');
     process.exit(1);
   }
+}
+
+// Phase 22: Logs command — read audit and execution logs
+async function showLogs(options = {}) {
+  const os = require('os');
+  const maestroHome = path.join(os.homedir(), '.maestro');
+  const logType = options.type || 'audit';
+
+  let logFile;
+  if (logType === 'audit') {
+    logFile = path.join(maestroHome, 'logs', 'audit.jsonl');
+  } else {
+    formatter.error(`Unknown log type: ${logType}. Available: audit`, 'INVALID_PARAM');
+    return;
+  }
+
+  if (!fs.existsSync(logFile)) {
+    console.log(`  No ${logType} logs found at ${logFile}`);
+    return;
+  }
+
+  const lines = fs.readFileSync(logFile, 'utf-8').trim().split('\n');
+  const limit = options.limit ? parseInt(options.limit) : 20;
+  const recent = lines.slice(-limit);
+
+  formatter.info(`${logType} logs (last ${recent.length} of ${lines.length})`);
+  console.log('');
+
+  for (const line of recent) {
+    try {
+      const entry = JSON.parse(line);
+      const time = new Date(entry.timestamp).toLocaleTimeString();
+      console.log(`  ${c.gray(time)} ${c.cyan(entry.action)} ${entry.userId || ''} ${entry.detail || ''}`);
+    } catch {
+      console.log(`  ${c.gray(line)}`);
+    }
+  }
+  console.log('');
 }
 
 async function searchBlocks(query) {
@@ -1352,6 +1417,30 @@ async function importSessionTemplate(sessionId, templateName) {
     }
     process.exit(1);
   }
+}
+
+// ============= Init Command (Phase 21) =============
+
+async function initRepo(targetPath) {
+  const repoPath = targetPath || process.cwd();
+  const maestroDir = path.join(repoPath, '.maestro');
+
+  if (fs.existsSync(maestroDir)) {
+    formatter.info(`.maestro/ already exists in ${repoPath}`);
+    return;
+  }
+
+  const dirs = ['blocks', 'docs', 'logs', 'artifacts', 'metrics'];
+  for (const dir of dirs) {
+    fs.mkdirSync(path.join(maestroDir, dir), { recursive: true });
+  }
+
+  // Create a minimal README
+  fs.writeFileSync(path.join(maestroDir, 'README.md'),
+    '# Maestro\n\nThis directory contains Maestro configuration for this repository.\n\n- `blocks/` — Custom blocks for this project\n- `docs/` — Project documentation\n- `logs/` — Execution logs\n- `artifacts/` — Generated artifacts\n- `metrics/` — Metrics data\n');
+
+  formatter.info(`Initialized .maestro/ in ${repoPath}`);
+  dirs.forEach(d => console.log(`  created .maestro/${d}/`));
 }
 
 // ============= Session Variables Functions =============
@@ -3419,10 +3508,10 @@ async function checkLLMStatus() {
       // LLM-Provider not available
     }
 
-    console.log('\n' + c.bold('LLM Status:') + '\n');
+    console.log('\n' + c.bold('Provider Status:') + '\n');
 
     if (llmProviderHealth) {
-      console.log('  ' + c.bold('LLM-Provider') + c.gray(' (localhost:8000):'));
+      console.log('  ' + c.bold('Provider') + c.gray(' (localhost:8000):'));
       console.log(`    ${c.gray('Status:')}        ${c.green(llmProviderHealth.status)}`);
       console.log(`    ${c.gray('Active Model:')}  ${c.cyan(llmProviderHealth.active_model || 'none')}`);
       console.log(`    ${c.gray('Models Loaded:')} ${llmProviderHealth.models_loaded || 0}`);
@@ -3960,7 +4049,7 @@ async function main() {
     }
   } else {
     argv = minimist(process.argv.slice(2), {
-      boolean: ['mock', 'help', 'h', 'force', 'push', 'run-tests', 'run-linter', 'keep-changes', 'pending-approval', 'monitor', 'list', 'no-back', 'debug', 'knowledge', 'metrics', 'full', 'start', 'json-output'],
+      boolean: ['mock', 'help', 'h', 'force', 'push', 'run-tests', 'run-linter', 'keep-changes', 'pending-approval', 'monitor', 'list', 'no-back', 'debug', 'knowledge', 'metrics', 'full', 'start', 'json-output', 'verbose'],
       string: ['api-url', 'u', 'name', 'path', 'description', 'runtime', 'image', 'work-dir', 'block-paths', 'model', 'lines', 'since', 'working-dir', 'workdir', 'workflow', 'iterations', 'parallel', 'delay', 'goal', 'tags', 'inputs', 'config', 'from', 'to', 'limit', 'block', 'category', 'version', 'author', 'capabilities', 'tools', 'agents', 'type', 'project', 'task', 'context', 'access', 'test-command', 'linter-command', 'max-steps', 'timeout', 'message', 'branch', 'scope', 'authority', 'allowed-paths', 'denied-paths', 'filter', 'offset', 'command', 'from-session', 'template', 'reason', 'repo-path', 'status', 'recent', 'json-value'],
       alias: { 'json-output': 'json' }
     });
@@ -3991,7 +4080,7 @@ async function main() {
     const shell = new MaestroShell(async (args) => {
       // Create a new argv-like object for the command
       const innerArgv = minimist(args, {
-        boolean: ['mock', 'help', 'h', 'force', 'push', 'run-tests', 'run-linter', 'keep-changes', 'pending-approval', 'monitor', 'list', 'no-back', 'debug', 'knowledge', 'metrics', 'full', 'start', 'json-output'],
+        boolean: ['mock', 'help', 'h', 'force', 'push', 'run-tests', 'run-linter', 'keep-changes', 'pending-approval', 'monitor', 'list', 'no-back', 'debug', 'knowledge', 'metrics', 'full', 'start', 'json-output', 'verbose'],
         string: ['api-url', 'u', 'name', 'path', 'description', 'runtime', 'image', 'work-dir', 'block-paths', 'model', 'lines', 'since', 'working-dir', 'workdir', 'workflow', 'iterations', 'parallel', 'delay', 'goal', 'tags', 'inputs', 'config', 'from', 'to', 'limit', 'block', 'category', 'version', 'author', 'capabilities', 'tools', 'agents', 'type', 'project', 'task', 'context', 'access', 'test-command', 'linter-command', 'max-steps', 'timeout', 'message', 'branch', 'scope', 'authority', 'allowed-paths', 'denied-paths', 'filter', 'offset', 'command', 'from-session', 'template', 'reason', 'repo-path', 'status', 'recent', 'json-value'],
         alias: { 'json-output': 'json' }
       });
@@ -4085,8 +4174,9 @@ ${c.bold('Quick Start:')}
   ${c.cyan('maestro monitor <id>')}
 
 ${c.bold('Status & Info:')}
-  health               Check backend status
+  health               Check backend status (--verbose for full diagnostics)
   llm                  LLM provider status and active model
+  logs [type]          View logs (audit). --limit N for count
 
 ${c.bold('Sessions:')}
   session              Session management (--help for details)
@@ -4129,6 +4219,16 @@ ${c.bold('Foundry & Testing:')}
   foundry              Agent foundry dashboard
   test                 Block testing
   approval             Block approval workflow
+
+${c.bold('Security:')}
+  auth status          Auth status (enabled/disabled)
+  auth setup           Create initial admin API key
+  auth create-key      Create a new API key (--name, --scope)
+  auth list-keys       List all API keys
+  auth revoke <id>     Revoke an API key
+
+${c.bold('Setup:')}
+  init [path]          Initialize .maestro/ in a repository
 
 ${c.bold('System:')}
   system               System block overrides
@@ -4761,6 +4861,327 @@ async function checkBackendOnce() {
   }
 }
 
+// ============= Models Commands (Phase 19: LLM Integration) =============
+
+async function listModelsCmd(options = {}) {
+  formatter.setCommand('models');
+  try {
+    const data = await client.listLLMModels(options.category || null);
+    if (!data || !data.models || data.models.length === 0) {
+      formatter.info('No compatible models found. Is the LLM Provider running?');
+      return;
+    }
+
+    const hw = data.hardware;
+    if (hw) {
+      console.log('\n' + c.bold('Hardware:') + ' ' +
+        (hw.gpuName ? `${c.cyan(hw.gpuName)} — ${hw.vramFreeGb?.toFixed(1)}/${hw.vramTotalGb?.toFixed(1)} GB VRAM` : c.yellow('CPU only')));
+    }
+
+    if (data.summary) {
+      console.log(c.gray(`  ${data.summary.totalCompatible} compatible models (${data.summary.fullPrecisionCount} full precision, ${data.summary.int8RequiredCount} int8, ${data.summary.int4RequiredCount} int4)\n`));
+    }
+
+    const rows = data.models.slice(0, options.limit || 25).map(m => ({
+      'Model': m.modelId?.length > 45 ? m.modelId.substring(0, 42) + '...' : m.modelId,
+      'Size': m.parametersB ? `${m.parametersB}B` : '?',
+      'VRAM': m.vramRequired ? `${m.vramRequired.toFixed(1)}GB` : '?',
+      'Precision': m.recommendedPrecision || '-',
+      'Local': m.isLocal ? c.green('Yes') : c.gray('No'),
+      'Category': m.category || '-'
+    }));
+
+    formatter.table(rows, `Compatible Models (${data.count})`);
+  } catch (error) {
+    handleApiError(error, 'listing models');
+    process.exit(EXIT.SERVER_ERROR);
+  }
+}
+
+async function listLocalModelsCmd() {
+  formatter.setCommand('models.local');
+  try {
+    const data = await client.getLocalModels();
+    if (!data || !data.models || data.models.length === 0) {
+      formatter.info('No locally cached models found.');
+      return;
+    }
+
+    const rows = data.models.map(m => ({
+      'Model': m.displayName || m.modelId,
+      'Size': m.sizeGb ? `${m.sizeGb.toFixed(1)} GB` : '?',
+      'Category': m.category || '-',
+      'Complete': m.isComplete ? c.green('Yes') : c.yellow('Partial')
+    }));
+
+    formatter.table(rows, `Local Models (${data.count})`);
+  } catch (error) {
+    handleApiError(error, 'listing local models');
+    process.exit(EXIT.SERVER_ERROR);
+  }
+}
+
+async function listRegistryModelsCmd(options = {}) {
+  formatter.setCommand('models.registry');
+  try {
+    const data = await client.getRegistryModels(options.category || null);
+    if (!data || !data.models || data.models.length === 0) {
+      formatter.info('No registry models found.');
+      return;
+    }
+
+    console.log(c.gray(`\nCategories: ${(data.categories || []).join(', ')}\n`));
+
+    const rows = data.models.map(m => ({
+      'Model': m.modelId?.length > 45 ? m.modelId.substring(0, 42) + '...' : m.modelId,
+      'Size': m.parametersB ? `${m.parametersB}B` : '?',
+      'VRAM FP16': m.vramFp16Gb ? `${m.vramFp16Gb.toFixed(1)}GB` : '?',
+      'Category': m.category || '-',
+      'Local': m.isLocal ? c.green('Yes') : c.gray('No'),
+      'License': m.license || '-'
+    }));
+
+    formatter.table(rows, `Registry Models (${data.count})`);
+  } catch (error) {
+    handleApiError(error, 'listing registry models');
+    process.exit(EXIT.SERVER_ERROR);
+  }
+}
+
+async function loadModelCmd(modelId, options = {}) {
+  formatter.setCommand('models.load');
+  if (!modelId) {
+    formatter.error('Model ID is required. Usage: maestro models load <model-id>', 'MISSING_ARG');
+    process.exit(EXIT.USER_ERROR);
+  }
+  try {
+    console.log(c.gray(`Loading model: ${modelId}...`));
+    const result = await client.loadModel(modelId, !!options['8bit']);
+    formatter.success(result,
+      `\n${c.ok('Model loaded:')}\n` +
+      `  ${c.gray('Model:')}     ${c.cyan(result.modelId || modelId)}\n` +
+      `  ${c.gray('Status:')}    ${c.green(result.status)}\n` +
+      `  ${c.gray('Device:')}    ${result.device || 'N/A'}\n` +
+      `  ${c.gray('Load Time:')} ${result.loadTimeS?.toFixed(1) || '?'}s\n`
+    );
+  } catch (error) {
+    handleApiError(error, 'loading model');
+    process.exit(EXIT.SERVER_ERROR);
+  }
+}
+
+async function switchModelCmd(modelId, options = {}) {
+  formatter.setCommand('models.switch');
+  if (!modelId) {
+    formatter.error('Model ID is required. Usage: maestro models switch <model-id>', 'MISSING_ARG');
+    process.exit(EXIT.USER_ERROR);
+  }
+  try {
+    console.log(c.gray(`Switching to model: ${modelId}...`));
+    const result = await client.switchModel(modelId, !!options['8bit']);
+    formatter.success(result,
+      `\n${c.ok('Model switched:')}\n` +
+      `  ${c.gray('Active Model:')} ${c.cyan(result.activeModel || modelId)}\n` +
+      `  ${c.gray('Status:')}       ${c.green(result.status)}\n` +
+      `  ${c.gray('Load Time:')}    ${result.loadTimeS?.toFixed(1) || '?'}s\n`
+    );
+  } catch (error) {
+    handleApiError(error, 'switching model');
+    process.exit(EXIT.SERVER_ERROR);
+  }
+}
+
+async function showSystemInfoCmd() {
+  formatter.setCommand('provider.capabilities');
+  try {
+    const caps = await client.getLLMCapabilities();
+    console.log('\n' + c.bold('System Capabilities:') + '\n');
+
+    if (caps.gpu && caps.gpu.available) {
+      console.log('  ' + c.bold('GPU:'));
+      console.log(`    ${c.gray('Name:')}              ${c.cyan(caps.gpu.name || 'Unknown')}`);
+      console.log(`    ${c.gray('VRAM:')}              ${caps.gpu.vramFreeGb?.toFixed(1)} / ${caps.gpu.vramTotalGb?.toFixed(1)} GB free`);
+      console.log(`    ${c.gray('CUDA:')}              ${caps.gpu.cudaVersion || 'N/A'}`);
+      console.log(`    ${c.gray('Compute:')}           ${caps.gpu.computeCapability || 'N/A'}`);
+    } else {
+      console.log('  ' + c.yellow('GPU: Not available'));
+    }
+
+    if (caps.cpu) {
+      console.log('\n  ' + c.bold('CPU:'));
+      console.log(`    ${c.gray('Name:')}              ${caps.cpu.name || 'Unknown'}`);
+      console.log(`    ${c.gray('Cores:')}             ${caps.cpu.coresPhysical || '?'} physical / ${caps.cpu.coresLogical || '?'} logical`);
+    }
+
+    if (caps.ram) {
+      console.log('\n  ' + c.bold('RAM:'));
+      console.log(`    ${c.gray('Available:')}         ${caps.ram.availableGb?.toFixed(1)} / ${caps.ram.totalGb?.toFixed(1)} GB`);
+    }
+
+    if (caps.platform) console.log(`\n  ${c.gray('Platform:')}          ${caps.platform}`);
+    if (caps.torchVersion) console.log(`  ${c.gray('PyTorch:')}           ${caps.torchVersion}`);
+    console.log('');
+
+    formatter.success(caps);
+  } catch (error) {
+    handleApiError(error, 'getting system info');
+    process.exit(EXIT.SERVER_ERROR);
+  }
+}
+
+// ============= Chat Command (Phase 19) =============
+
+async function chatCmd(options = {}) {
+  formatter.setCommand('chat');
+  const readline = require('readline');
+
+  const messages = [];
+  if (options.system) {
+    messages.push({ role: 'system', content: options.system });
+  }
+
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+    prompt: c.cyan('You: ')
+  });
+
+  console.log('\n' + c.bold('Maestro Chat') + c.gray(' (type /exit to quit, /clear to reset, /model <id> to switch)'));
+  if (options.model) console.log(c.gray(`  Model: ${options.model}`));
+  console.log('');
+
+  let currentModel = options.model || null;
+
+  rl.prompt();
+  rl.on('line', async (line) => {
+    const input = line.trim();
+    if (!input) { rl.prompt(); return; }
+
+    // In-session commands
+    if (input === '/exit' || input === '/quit') {
+      console.log(c.gray('\nGoodbye!'));
+      rl.close();
+      process.exit(0);
+    }
+    if (input === '/clear') {
+      messages.length = 0;
+      if (options.system) messages.push({ role: 'system', content: options.system });
+      console.log(c.gray('  (conversation cleared)'));
+      rl.prompt();
+      return;
+    }
+    if (input.startsWith('/model ')) {
+      currentModel = input.slice(7).trim();
+      console.log(c.gray(`  Model switched to: ${currentModel}`));
+      rl.prompt();
+      return;
+    }
+
+    messages.push({ role: 'user', content: input });
+
+    try {
+      const response = await client.chatCompletion(messages, {
+        model: currentModel,
+        temperature: options.temperature ? parseFloat(options.temperature) : undefined,
+        maxTokens: options.maxTokens ? parseInt(options.maxTokens) : undefined
+      });
+
+      const content = response.content || response.choices?.[0]?.message?.content || '(no response)';
+      messages.push({ role: 'assistant', content });
+      console.log('\n' + c.green('Assistant: ') + content + '\n');
+    } catch (error) {
+      console.error(c.red(`  Error: ${error.message}`));
+    }
+
+    rl.prompt();
+  });
+}
+
+// ============= Setup Wizard (Phase 19) =============
+
+async function setupWizardCmd() {
+  formatter.setCommand('setup');
+  const { readConfig, updateConfig, getConfigPath } = require('./config.ts');
+
+  console.log('\n' + c.bold('Maestro Setup Wizard') + '\n');
+
+  // Step 1: Check backend
+  console.log(c.gray('Checking backend...'));
+  try {
+    const health = await client.getHealth();
+    console.log(`  Backend:       ${c.green('HEALTHY')} (${API_URL})`);
+  } catch (e) {
+    console.log(`  Backend:       ${c.red('NOT RUNNING')} (${API_URL})`);
+    console.log(c.gray('  Start with: powershell -File dev-scripts/dev-start.ps1'));
+  }
+
+  // Step 2: Check Provider
+  console.log(c.gray('Checking Provider...'));
+  try {
+    const providerHealth = await client.getLLMHealth();
+    console.log(`  Provider:      ${c.green(providerHealth.status || 'HEALTHY')}`);
+    if (providerHealth.activeModel) console.log(`  Active Model:  ${c.cyan(providerHealth.activeModel)}`);
+    if (providerHealth.cudaDeviceName) console.log(`  GPU:           ${c.cyan(providerHealth.cudaDeviceName)}`);
+  } catch (e) {
+    console.log(`  Provider:      ${c.red('NOT RUNNING')}`);
+  }
+
+  // Step 3: Show hardware
+  console.log(c.gray('\nChecking hardware...'));
+  try {
+    const caps = await client.getLLMCapabilities();
+    if (caps.gpu?.available) {
+      console.log(`  GPU:           ${c.cyan(caps.gpu.name)} (${caps.gpu.vramFreeGb?.toFixed(1)}/${caps.gpu.vramTotalGb?.toFixed(1)} GB VRAM)`);
+    }
+    if (caps.ram) {
+      console.log(`  RAM:           ${caps.ram.availableGb?.toFixed(1)}/${caps.ram.totalGb?.toFixed(1)} GB`);
+    }
+  } catch (e) {
+    console.log(c.gray('  (hardware info unavailable — LLM Provider not running)'));
+  }
+
+  // Step 4: Show compatible models
+  console.log(c.gray('\nCompatible models:'));
+  try {
+    const models = await client.listLLMModels();
+    if (models?.models?.length > 0) {
+      const top5 = models.models.filter(m => m.recommended).slice(0, 5);
+      if (top5.length === 0) top5.push(...models.models.slice(0, 5));
+      top5.forEach(m => {
+        const local = m.isLocal ? c.green(' [local]') : '';
+        console.log(`  ${c.cyan(m.modelId)} (${m.parametersB}B, ${m.vramRequired?.toFixed(1) || '?'}GB VRAM)${local}`);
+      });
+    }
+  } catch (e) {
+    console.log(c.gray('  (model list unavailable)'));
+  }
+
+  // Step 5: Save config
+  const config = readConfig();
+  if (!config.backendUrl) config.backendUrl = API_URL;
+  updateConfig(config);
+  console.log(`\n${c.ok('Config saved to:')} ${getConfigPath()}`);
+
+  // Step 6: Test chat
+  console.log(c.gray('\nTesting chat...'));
+  try {
+    const response = await client.chatCompletion(
+      [{ role: 'user', content: 'Say "Hello from Maestro!" in one sentence.' }],
+      { maxTokens: 50 }
+    );
+    const content = response.content || response.choices?.[0]?.message?.content;
+    if (content) {
+      console.log(`  ${c.green('Chat works!')} Response: ${content.trim()}`);
+    } else {
+      console.log(c.yellow('  Chat responded but no content returned.'));
+    }
+  } catch (e) {
+    console.log(c.yellow('  Chat test skipped (LLM Provider not available).'));
+  }
+
+  console.log(`\n${c.ok('Setup complete!')} Run ${c.cyan('maestro health')} to verify.\n`);
+}
+
 async function executeWithArgv(argv) {
   const cmd = argv._[0];
 
@@ -4905,7 +5326,12 @@ async function executeWithArgv(argv) {
       if (!query) { console.error('Search query required'); process.exit(1); }
       return await searchBlocks(query);
     }
-    if (cmd === 'health') return await checkHealth();
+    if (cmd === 'health') return await checkHealth({ verbose: argv.verbose || argv.full });
+
+    // Phase 22: Logs command
+    if (cmd === 'logs') {
+      return await showLogs({ type: argv._[1] || 'audit', limit: argv.limit || argv.lines });
+    }
 
     // Monitor command - launches session monitor (TUI)
     if (cmd === 'monitor') {
@@ -4919,9 +5345,8 @@ async function executeWithArgv(argv) {
         layout: argv.layout || 'auto',
         view: argv.view || null,
         debug: argv.debug || false,
-        returnToList: !argv['no-back'], // Allow Escape to return to list by default
-        legacy: argv.legacy || false,   // --legacy flag uses old blessed monitor
-        mock: argv.mock || false        // --mock flag uses mock data for visual testing
+        returnToList: !argv['no-back'],
+        mock: argv.mock || false
       };
 
       if (listMode) {
@@ -5965,9 +6390,46 @@ ${c.bold('Quick Start:')}
       process.exit(1);
     }
 
-    // LLM commands
+    // Provider commands (Phase 19 — LLM Provider service management)
+    if (cmd === 'provider') {
+      const subCmd = argv._[1];
+      if (!subCmd || subCmd === 'health' || subCmd === 'status') return await checkLLMStatus();
+      if (subCmd === 'capabilities') return await showSystemInfoCmd();
+      formatter.error(`Unknown provider subcommand: ${subCmd}. Available: health, status, capabilities`, 'UNKNOWN_COMMAND');
+      process.exit(EXIT.USER_ERROR);
+    }
+
+    // LLM command — deprecated alias for provider
     if (cmd === 'llm') {
+      console.log(c.yellow('Note: "maestro llm" is deprecated. Use "maestro provider" instead.'));
       return await checkLLMStatus();
+    }
+
+    // Models commands (Phase 19 — model catalog management)
+    if (cmd === 'models') {
+      const subCmd = argv._[1];
+      if (!subCmd || subCmd === 'list') return await listModelsCmd({ category: argv.category || argv.cat, limit: argv.limit });
+      if (subCmd === 'local') return await listLocalModelsCmd();
+      if (subCmd === 'registry') return await listRegistryModelsCmd({ category: argv.category || argv.cat });
+      if (subCmd === 'load') return await loadModelCmd(argv._[2], argv);
+      if (subCmd === 'switch') return await switchModelCmd(argv._[2], argv);
+      formatter.error(`Unknown models subcommand: ${subCmd}. Available: list, local, registry, load, switch`, 'UNKNOWN_COMMAND');
+      process.exit(EXIT.USER_ERROR);
+    }
+
+    // Chat command (Phase 19)
+    if (cmd === 'chat') {
+      return await chatCmd({
+        model: argv.model,
+        system: argv.system,
+        temperature: argv.temperature || argv.temp,
+        maxTokens: argv['max-tokens'] || argv.maxTokens
+      });
+    }
+
+    // Setup wizard (Phase 19)
+    if (cmd === 'setup') {
+      return await setupWizardCmd();
     }
 
     // Agent Foundry commands
@@ -6548,10 +7010,128 @@ ${c.bold('Quick Start:')}
           'catalog.show': { params: { id: { type: 'string', required: true, positional: 2 } } },
           'catalog.search': { params: { query: { type: 'string', required: true, positional: 2 } } },
           'block-info': { params: { id: { type: 'string', required: true, positional: 1 } } },
+          'provider': { params: {} },
+          'provider.health': { params: {} },
+          'provider.capabilities': { params: {} },
+          'models': { params: { category: { type: 'string' } } },
+          'models.local': { params: {} },
+          'models.registry': { params: { category: { type: 'string' } } },
+          'models.load': { params: { modelId: { type: 'string', required: true, positional: 2 }, '8bit': { type: 'boolean' } } },
+          'models.switch': { params: { modelId: { type: 'string', required: true, positional: 2 }, '8bit': { type: 'boolean' } } },
+          'chat': { params: { model: { type: 'string' }, system: { type: 'string' }, temperature: { type: 'number' }, 'max-tokens': { type: 'number' } } },
+          'setup': { params: {} },
         }
       };
       formatter.success(schema, JSON.stringify(schema, null, 2));
       return;
+    }
+
+    // Phase 21: Init command
+    if (cmd === 'init') {
+      const targetPath = argv._[1] || argv.path;
+      return await initRepo(targetPath);
+    }
+
+    // Phase 20: Auth commands
+    if (cmd === 'auth') {
+      const subCmd = argv._[1];
+
+      if (!subCmd || subCmd === 'status') {
+        try {
+          const status = await client.getAuthStatus();
+          if (status.enabled) {
+            formatter.info(`Security: ${c.green('enabled')}`);
+            if (status.needsSetup) {
+              console.log(`  ${c.yellow('No API keys configured.')} Run: maestro auth setup`);
+            } else {
+              console.log(`  API keys configured: ${c.green('yes')}`);
+            }
+          } else {
+            formatter.info(`Security: ${c.gray('disabled')} (development mode)`);
+          }
+        } catch (error) {
+          handleApiError(error, 'checking auth status');
+        }
+        return;
+      }
+
+      if (subCmd === 'setup') {
+        try {
+          const name = argv.name || 'admin';
+          const result = await client.authSetup(name);
+          formatter.info('Initial admin API key created');
+          console.log('');
+          console.log(`  ${c.bold('Key:')} ${c.green(result.key)}`);
+          console.log('');
+          console.log(`  ${c.yellow('Store this key securely — it cannot be retrieved later.')}`);
+          console.log(`  Set it in your config: maestro config set apiKey <key>`);
+          console.log(`  Or use env: MAESTRO_API_KEY=<key>`);
+        } catch (error) {
+          if (error.status === 409) {
+            formatter.error('Setup already completed. Use your admin key to create more keys.', 'ALREADY_SETUP');
+          } else {
+            handleApiError(error, 'auth setup');
+          }
+        }
+        return;
+      }
+
+      if (subCmd === 'create-key') {
+        const name = argv.name || argv._[2];
+        if (!name) { formatter.error('--name required', 'MISSING_PARAM'); process.exit(EXIT.USER_ERROR); }
+        try {
+          const result = await client.createApiKey({
+            name,
+            scope: argv.scope || 'Human',
+            sessionId: argv['session-id'],
+            expiresInDays: argv.expires ? parseInt(argv.expires) : undefined
+          });
+          formatter.info(`API key created: ${result.name}`);
+          console.log(`  ${c.bold('Key:')}   ${c.green(result.key)}`);
+          console.log(`  ${c.bold('Scope:')} ${result.scope}`);
+          if (result.expiresAt) console.log(`  ${c.bold('Expires:')} ${result.expiresAt}`);
+        } catch (error) {
+          handleApiError(error, 'creating API key');
+        }
+        return;
+      }
+
+      if (subCmd === 'list-keys') {
+        try {
+          const keys = await client.listApiKeys();
+          if (keys.length === 0) {
+            console.log('  No API keys configured.');
+            return;
+          }
+          const rows = keys.map(k => ({
+            'ID': k.id,
+            'Name': k.name,
+            'Prefix': k.keyPrefix + '...',
+            'Scope': k.scope,
+            'Created': new Date(k.createdAt).toLocaleDateString(),
+            'Last Used': k.lastUsedAt ? new Date(k.lastUsedAt).toLocaleDateString() : 'never'
+          }));
+          formatter.table(rows);
+        } catch (error) {
+          handleApiError(error, 'listing API keys');
+        }
+        return;
+      }
+
+      if (subCmd === 'revoke') {
+        const id = argv._[2];
+        if (!id) { formatter.error('Key ID required', 'MISSING_PARAM'); process.exit(EXIT.USER_ERROR); }
+        try {
+          await client.revokeApiKey(id);
+          formatter.info(`API key revoked: ${id}`);
+        } catch (error) {
+          handleApiError(error, 'revoking API key');
+        }
+        return;
+      }
+
+      formatter.error(`Unknown auth subcommand: ${subCmd}. Available: status, setup, create-key, list-keys, revoke`, 'UNKNOWN_COMMAND');
+      process.exit(EXIT.USER_ERROR);
     }
 
     formatter.error(`Unknown command: ${cmd}`, 'UNKNOWN_COMMAND');

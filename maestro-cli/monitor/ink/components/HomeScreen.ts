@@ -19,37 +19,40 @@ import {
   statusColor, statusIcon,
   formatDuration, formatTime,
   prevPage, nextPage,
+  spinnerFrame, breathingDot,
 } from '../theme.ts';
 import { useApiData } from '../hooks/useApiData.ts';
 import { useKeyboard } from '../hooks/useKeyboard.ts';
+import { useAnimationTick } from '../hooks/useAnimationTick.ts';
 import { NavBar } from './NavBar.ts';
 import { Panel } from './Panel.ts';
 import { StatusBar } from './StatusBar.ts';
 
 // ── System Status Panel ──────────────────────────────────────
 
-const SystemStatus = ({ health, llmHealth }) => {
+const SystemStatus = ({ health, llmHealth, tick = 0 }) => {
   const backendOk = health && !health.error;
   const llmOk = llmHealth && !llmHealth.error;
 
-  const backendStatus = backendOk ? 'connected' : 'error';
-  const llmStatus = llmOk ? 'connected' : 'error';
-
   const backendColor = backendOk ? theme.status.success : theme.status.error;
   const llmColor = llmOk ? theme.status.success : theme.status.error;
+
+  // Animated status indicators
+  const backendIcon = backendOk ? breathingDot(tick) : icons.failed;
+  const llmIcon = llmOk ? breathingDot(tick + 3) : icons.failed; // offset for staggered animation
 
   // Extract model name from LLM health
   const modelName = llmHealth?.activeModel || llmHealth?.model || llmHealth?.model_id || '-';
 
   return h(Box, { flexDirection: 'row', paddingLeft: 1, gap: 3 },
     h(Text, null,
-      h(Text, { color: backendColor }, icons.connected),
+      h(Text, { color: backendColor }, backendIcon),
       h(Text, null, ' '),
       muted('Backend: '),
       T(backendColor, backendOk ? 'Connected' : 'Error'),
     ),
     h(Text, null,
-      h(Text, { color: llmColor }, icons.connected),
+      h(Text, { color: llmColor }, llmIcon),
       h(Text, null, ' '),
       muted('LLM: '),
       T(llmColor, llmOk ? String(modelName) : 'Offline'),
@@ -59,10 +62,11 @@ const SystemStatus = ({ health, llmHealth }) => {
 
 // ── Active Sessions Panel ────────────────────────────────────
 
-const ActiveSessionCard = ({ session, index, isSelected, onSelect }) => {
+const ActiveSessionCard = ({ session, index, isSelected, onSelect, tick = 0 }) => {
   const status = (session.status || 'unknown').toLowerCase();
   const sColor = statusColor(status);
-  const sIcon = statusIcon(status);
+  // Use animated spinner for running sessions
+  const sIcon = status === 'running' ? spinnerFrame(tick) : statusIcon(status);
   const name = session.name || 'Unnamed';
   const shortId = session.id ? session.id.substring(0, 8) : '--------';
 
@@ -92,7 +96,7 @@ const ActiveSessionCard = ({ session, index, isSelected, onSelect }) => {
 
 const SESSIONS_PER_PAGE = 10;
 
-const ActiveSessions = ({ sessions, selectedIndex, page, totalPages }) => {
+const ActiveSessions = ({ sessions, selectedIndex, page, totalPages, tick = 0 }) => {
   if (!sessions || sessions.length === 0) {
     return h(Box, { paddingLeft: 1 },
       muted('No active sessions'),
@@ -111,6 +115,7 @@ const ActiveSessions = ({ sessions, selectedIndex, page, totalPages }) => {
         session,
         index: globalIdx,
         isSelected: globalIdx === selectedIndex,
+        tick,
       });
     }),
     totalPages > 1
@@ -217,6 +222,7 @@ const HomeScreen = ({ apiClient, onNavigate, onSessionSelect, onQuit }) => {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [page, setPage] = useState(0);
   const [showQuitConfirm, setShowQuitConfirm] = useState(false);
+  const tick = useAnimationTick(120);
 
   // Fetch data
   const { data: health } = useApiData(
@@ -336,14 +342,14 @@ const HomeScreen = ({ apiClient, onNavigate, onSessionSelect, onQuit }) => {
 
     // System Status
     h(Panel, { title: 'SYSTEM STATUS', height: 3, width: '100%' },
-      h(SystemStatus, { health, llmHealth }),
+      h(SystemStatus, { health, llmHealth, tick }),
     ),
 
     // Main content: Active Sessions | Quick Actions
     h(Box, { flexDirection: 'row', flexGrow: 1, width: '100%' },
       // Active Sessions (left, 70%)
       h(Panel, { title: 'ACTIVE SESSIONS', flexGrow: 1 },
-        h(ActiveSessions, { sessions: sessionList, selectedIndex, page: currentPage, totalPages }),
+        h(ActiveSessions, { sessions: sessionList, selectedIndex, page: currentPage, totalPages, tick }),
       ),
 
       // Quick Actions (right, 30%)

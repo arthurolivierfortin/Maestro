@@ -9,6 +9,7 @@
 
 const OLLAMA_URL = import.meta.env.VITE_OLLAMA_URL || 'http://localhost:11434';
 const LLM_PROVIDER_URL = import.meta.env.VITE_LLM_PROVIDER_URL || 'http://localhost:8000';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 export interface LocalModelInfo {
   id: string;
@@ -74,9 +75,13 @@ export async function checkLLMProvider(): Promise<LocalProviderStatus> {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 3000);
 
-    const response = await fetch(`${LLM_PROVIDER_URL}/v1/models`, {
-      signal: controller.signal,
-    });
+    // Route through backend proxy (/api/provider/health) first, fall back to direct
+    let response: Response;
+    try {
+      response = await fetch(`${API_URL}/api/provider/health`, { signal: controller.signal });
+    } catch {
+      response = await fetch(`${LLM_PROVIDER_URL}/v1/models`, { signal: controller.signal });
+    }
     clearTimeout(timeoutId);
 
     if (!response.ok) {

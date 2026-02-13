@@ -194,7 +194,7 @@ const App = ({ initialSessionId, apiClient }: AppProps) => {
       pageComponent = h(SpacesScreen, pageProps);
       break;
     case 'foundry':
-      pageComponent = h(FoundryScreen, pageProps);
+      pageComponent = h(FoundryScreen, { ...pageProps, onBlockSelect: handleBlockSelect });
       break;
     case 'catalog':
       pageComponent = h(CatalogScreen, { ...pageProps, onBlockSelect: handleBlockSelect });

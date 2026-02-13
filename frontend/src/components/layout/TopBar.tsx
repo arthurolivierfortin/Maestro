@@ -87,6 +87,12 @@ export function TopBar() {
           >
             Models
           </Link>
+          <Link
+            to="/chat"
+            className={`top-bar__nav-link ${isActive('/chat') ? 'top-bar__nav-link--active' : ''}`}
+          >
+            Chat
+          </Link>
         </nav>
         <div className="top-bar__right">
           <button

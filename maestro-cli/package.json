@@ -1,10 +1,19 @@
 {
-  "name": "maestro-cli",
-  "version": "0.1.0",
-  "private": true,
+  "name": "@b-one/maestro-cli",
+  "version": "1.0.0",
+  "description": "CLI for Maestro — AI orchestration platform with blocks, sessions, and training",
   "bin": {
     "maestro": "./index.js"
   },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "files": [
+    "index.js",
+    "*.ts",
+    "monitor/",
+    "tests/"
+  ],
   "dependencies": {
     "blessed": "^0.1.81",
     "blessed-contrib": "^4.11.0",

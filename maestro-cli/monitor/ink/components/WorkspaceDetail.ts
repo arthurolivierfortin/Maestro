@@ -206,6 +206,8 @@ const WorkspaceDetail = ({ workspaceId, apiClient, onExit, onQuit, onNavigate, o
       latency,
       lastRefresh,
       currentPage: 'spaces',
+      isDetailView: true,
+      hasBackOption: true,
     }),
   );
 };

@@ -362,6 +362,8 @@ const BlockDetail = ({ blockId, apiClient, onExit, onQuit, onNavigate, onSession
       latency,
       lastRefresh,
       currentPage: 'catalog',
+      isDetailView: true,
+      hasBackOption: true,
     }),
   );
 };

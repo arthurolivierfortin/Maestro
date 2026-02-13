@@ -39,14 +39,23 @@ let llmProviderPort = 8000;
 const VITE_DEV_SERVER_URL = process.env.VITE_DEV_SERVER_URL;
 
 /**
- * Find the backend project path
+ * Find the backend path — supports both dev and packaged modes.
+ * In packaged mode, looks for the published .exe in extraResources.
  */
 function getBackendPath(): string {
-  const projectRoot = app.isPackaged
-    ? path.join(process.resourcesPath, '..')
-    : path.join(__dirname, '../../..');
+  if (app.isPackaged) {
+    // Packaged mode: backend is in extraResources/backend
+    const publishedPath = path.join(process.resourcesPath, 'backend');
+    if (fs.existsSync(path.join(publishedPath, 'Maestro.Api.exe')) ||
+        fs.existsSync(path.join(publishedPath, 'Maestro.Api'))) {
+      return publishedPath;
+    }
+    // Fallback to old structure
+    return path.join(process.resourcesPath, '..', 'backend', 'src', 'Maestro.Api');
+  }
 
-  return path.join(projectRoot, 'backend', 'src', 'Maestro.Api');
+  // Dev mode: dotnet run from project
+  return path.join(__dirname, '../..', 'backend', 'src', 'Maestro.Api');
 }
 
 /**

@@ -22,7 +22,9 @@ import {
   theme, icons,
   muted, dim,
   formatTime,
+  spinnerFrame, breathingDot,
 } from '../theme.ts';
+import { useAnimationTick } from '../hooks/useAnimationTick.ts';
 
 // ── Shortcut rendering ─────────────────────────────────────────
 
@@ -116,12 +118,22 @@ const StatusBar = ({
   focusedPanel = null,
   zoomedPanel = null,
   currentPage = null,
+  isDetailView: isDetailViewProp = false,
 }) => {
+  const tick = useAnimationTick(120);
+
   const connColor = connectionStatus === 'connected'
     ? theme.status.success
     : connectionStatus === 'error'
       ? theme.status.error
       : theme.status.warning;
+
+  // Animated connection indicator
+  const connIcon = connectionStatus === 'connecting'
+    ? spinnerFrame(tick)
+    : connectionStatus === 'connected'
+      ? breathingDot(tick)
+      : icons.connected;
 
   const latencyStr = latency > 0 ? `${latency}ms` : '-';
   const timeStr = lastRefresh ? formatTime(lastRefresh) : '-';
@@ -129,9 +141,9 @@ const StatusBar = ({
   // Build context-aware shortcuts
   const shortcuts = [];
   // Determine if we're in a detail view (session, model, etc.) or a top-level page
-  const isDetailView = focusedPanel != null || zoomedPanel != null || (!currentPage);
+  const isDetailView = isDetailViewProp || focusedPanel != null || zoomedPanel != null || (!currentPage);
 
-  if (currentPage && !focusedPanel && !zoomedPanel) {
+  if (!isDetailView) {
     // Global page navigation mode — Ctrl+←/→ = page switch
     shortcuts.push(h(Shortcut, { key: 'sc-ctrl-lr', keyChar: 'Ctrl+\u2190\u2192', labelText: 'page', active: true }));
     shortcuts.push(h(Shortcut, { key: 'sc-arrows', keyChar: '\u2191\u2193', labelText: 'select', active: true }));
@@ -175,7 +187,7 @@ const StatusBar = ({
   },
     // Left: connection status + latency + time
     h(Box, { flexDirection: 'row' },
-      h(Text, { color: connColor }, icons.connected),
+      h(Text, { color: connColor }, connIcon),
       h(Text, null, ' '),
       muted(connectionStatus),
       h(Text, null, '  '),

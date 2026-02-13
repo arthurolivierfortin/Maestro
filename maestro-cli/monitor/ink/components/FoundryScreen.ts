@@ -6,9 +6,10 @@
  * Supports scrolling when items exceed visible area.
  *
  * Props:
- *   apiClient    API client instance
- *   onNavigate   (page: string) => void
- *   onQuit       () => void
+ *   apiClient      API client instance
+ *   onNavigate     (page: string) => void
+ *   onBlockSelect  (blockId: string, state?) => void — open block detail
+ *   onQuit         () => void
  */
 
 import { createElement as h, useState, useEffect, useCallback } from 'react';
@@ -66,7 +67,7 @@ const BlockRow = ({ block, isSelected, isExpanded }) => {
 
 // ── FoundryScreen component ──────────────────────────────────
 
-const FoundryScreen = ({ apiClient, onNavigate, onQuit }) => {
+const FoundryScreen = ({ apiClient, onNavigate, onBlockSelect, onQuit }) => {
   const { stdout } = useStdout();
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [expandedIndex, setExpandedIndex] = useState(-1);
@@ -130,6 +131,12 @@ const FoundryScreen = ({ apiClient, onNavigate, onQuit }) => {
     ctrlLeft: () => onNavigate(prevPage('foundry')),
     ctrlRight: () => onNavigate(nextPage('foundry')),
     enter: () => {
+      if (sortedBlocks.length > 0 && onBlockSelect) {
+        const block = sortedBlocks[selectedIndex];
+        if (block) onBlockSelect(block.id, { selectedIndex, expandedIndex });
+      }
+    },
+    space: () => {
       setExpandedIndex(prev => prev === selectedIndex ? -1 : selectedIndex);
     },
     h: () => onNavigate('home'),

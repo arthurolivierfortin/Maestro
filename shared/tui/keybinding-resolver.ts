@@ -73,7 +73,17 @@ export function resolveBindings(context: 'toplevel' | 'detail' = 'toplevel'): Re
   const hashToActions = new Map<string, string[]>();
   const actionToBinding: Record<string, string> = {};
 
-  for (const [action, binding] of Object.entries(flat)) {
+  // In detail context, prioritize toggle/action bindings over page navigation.
+  // Reorder entries so actions come before navigation when sharing the same key.
+  const entries = Object.entries(flat);
+  const ordered = context === 'detail'
+    ? [
+        ...entries.filter(([a]) => !a.startsWith('page.')),
+        ...entries.filter(([a]) => a.startsWith('page.')),
+      ]
+    : entries;
+
+  for (const [action, binding] of ordered) {
     // Skip context-dependent duplicates:
     // In toplevel: page.prev/page.next take priority over panel.prev/panel.next
     // In detail: panel.prev/panel.next take priority over page.prev/page.next
@@ -125,11 +135,13 @@ export function matchInput(input: string, key: InkKey, resolved: ResolvedBinding
   else baseKey = input.toLowerCase();
 
   // Build descriptor
+  // Note: Ink always sets key.meta=true for Escape (see ink/build/hooks/use-input.js line 64).
+  // We must ignore meta for the escape key to match our bindings correctly.
   const desc: KeyDescriptor = {
     key: baseKey,
     ctrl: !!key.ctrl,
     shift: !!key.shift,
-    meta: !!key.meta,
+    meta: baseKey === 'escape' ? false : !!key.meta,
   };
 
   const hash = descriptorHash(desc);

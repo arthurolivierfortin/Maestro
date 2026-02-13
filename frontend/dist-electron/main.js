@@ -15,8 +15,14 @@ let backendPort = 5e3;
 let llmProviderPort = 8e3;
 const VITE_DEV_SERVER_URL = process.env.VITE_DEV_SERVER_URL;
 function getBackendPath() {
-  const projectRoot = app.isPackaged ? path.join(process.resourcesPath, "..") : path.join(__dirname$1, "../../..");
-  return path.join(projectRoot, "backend", "src", "Maestro.Api");
+  if (app.isPackaged) {
+    const publishedPath = path.join(process.resourcesPath, "backend");
+    if (fs.existsSync(path.join(publishedPath, "Maestro.Api.exe")) || fs.existsSync(path.join(publishedPath, "Maestro.Api"))) {
+      return publishedPath;
+    }
+    return path.join(process.resourcesPath, "..", "backend", "src", "Maestro.Api");
+  }
+  return path.join(__dirname$1, "../..", "backend", "src", "Maestro.Api");
 }
 function getLLMProviderPath() {
   const defaultPath = process.platform === "win32" ? "C:\\LLM-Provider" : "/opt/LLM-Provider";

@@ -18,8 +18,10 @@ using Maestro.Infrastructure.Workspaces;
 using Maestro.Infrastructure.Repositories;
 using Maestro.Infrastructure.Publishing;
 using Maestro.Infrastructure.Cli;
+using Maestro.Infrastructure.Security;
 using Maestro.Application.Services;
 using Maestro.Infrastructure.Cli.CommandHandlers;
+using Maestro.Api.Security;
 using System.IO;
 using System;
 using Microsoft.Extensions.Options;
@@ -27,9 +29,18 @@ using Microsoft.Extensions.Options;
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container
-builder.Services.AddControllers().AddNewtonsoftJson();
+builder.Services.AddControllers(options =>
+{
+    options.Filters.Add<SessionScopeFilter>();
+}).AddNewtonsoftJson();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSignalR();
+
+// Phase 20: Security & API Key Authentication
+builder.Services.Configure<ApiKeyAuthOptions>(
+    builder.Configuration.GetSection(ApiKeyAuthOptions.SectionName));
+builder.Services.AddSingleton<IApiKeyService, ApiKeyService>();
+builder.Services.AddSingleton<IAuditLogger, AuditLogger>();
 
 // Register application services following Clean Architecture
 // Infrastructure implementations for Application interfaces
@@ -44,6 +55,10 @@ builder.Services.AddHttpClient<ILLMGateway, LLMProviderGateway>((sp, client) =>
     client.BaseAddress = new Uri(settings.BaseUrl);
     client.Timeout = TimeSpan.FromSeconds(settings.TimeoutSeconds);
 });
+
+// LLM Provider admin service (health, models, hardware — separate from inference gateway)
+builder.Services.AddHttpClient<ILLMProviderService, LLMProviderService>();
+
 builder.Services.AddScoped<IExecutionMonitor, ExecutionMonitor>();
 // Prefer SignalR-backed monitor when available (scaffold). Register both if needed.
 // Prefer SignalR-backed monitor when available (scaffold). Register both if needed.
@@ -346,6 +361,9 @@ builder.Services.AddScoped<IBlockPublisher, FileSystemBlockPublisher>();
 builder.Services.AddScoped<IBlockApprovalService, BlockApprovalService>();
 Console.WriteLine($"[Maestro] Approvals data:  {Path.Combine(maestroConfig.DataPath, "pending-approvals")}");
 
+// Phase 21: First-run initializer (creates ~/.maestro/ on startup)
+builder.Services.AddHostedService<Maestro.Api.Configuration.FirstRunInitializer>();
+
 // Add CORS for frontend development and Docker
 builder.Services.AddCors(options =>
 {
@@ -370,6 +388,13 @@ if (!app.Environment.IsDevelopment())
     app.UseHttpsRedirection();
 }
 app.UseCors("AllowFrontend");
+
+// Phase 22: Global exception handling (before auth to catch all errors)
+app.UseMiddleware<Maestro.Api.Middleware.ExceptionHandlingMiddleware>();
+
+// Phase 20: API key authentication middleware
+app.UseMiddleware<ApiKeyAuthMiddleware>();
+
 app.MapControllers();
 app.MapHub<Maestro.Api.Hubs.BlockHub>("/hubs/blocks");
 app.MapHub<Maestro.Api.Hubs.ExecutionHub>("/hubs/execution");
@@ -402,6 +427,21 @@ var projectStatePublisher = new Maestro.Api.Hubs.SignalRProjectStatePublisher(
     catch (Exception ex)
     {
         startupLogger.LogError(ex, "Block discovery startup check failed");
+    }
+}
+
+// Phase 20: First-launch auto-key generation
+{
+    var securityOptions = app.Services.GetRequiredService<IOptions<ApiKeyAuthOptions>>().Value;
+    if (securityOptions.Enabled)
+    {
+        var apiKeyService = app.Services.GetRequiredService<IApiKeyService>();
+        var hasKeys = await apiKeyService.HasAnyKeysAsync();
+        if (!hasKeys)
+        {
+            var startupLogger2 = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("Maestro.Security");
+            startupLogger2.LogInformation("No API keys found. Run 'maestro auth setup' or POST /api/auth/setup to create the first admin key.");
+        }
     }
 }
 

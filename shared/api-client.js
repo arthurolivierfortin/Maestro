@@ -38,12 +38,14 @@ class MaestroApiClient {
     this.retryAttempts = options.retryAttempts || 3;
     this.retryDelay = options.retryDelay || 1000;
     this.debug = options.debug || false;
+    this.apiKey = options.apiKey || null;
   }
 
   async _fetch(method, path, options = {}) {
     const url = `${this.baseUrl}${path}`;
     const headers = {
       'Content-Type': 'application/json',
+      ...(this.apiKey ? { 'Authorization': `Bearer ${this.apiKey}` } : {}),
       ...(options.headers || {})
     };
 
@@ -467,15 +469,48 @@ class MaestroApiClient {
   // ===== LLM PROVIDER =====
 
   async getLLMHealth() {
-    return this._fetch('GET', '/api/llm/health');
+    return this._fetch('GET', '/api/provider/health');
   }
 
-  async listLLMModels() {
-    return this._fetch('GET', '/api/llm/models');
+  async listLLMModels(category = null) {
+    const query = category ? `?category=${encodeURIComponent(category)}` : '';
+    return this._fetch('GET', `/api/provider/models${query}`);
   }
 
   async getLLMStatus() {
-    return this._fetch('GET', '/api/llm/status');
+    return this._fetch('GET', '/api/provider/status');
+  }
+
+  async getLLMCapabilities() {
+    return this._fetch('GET', '/api/provider/capabilities');
+  }
+
+  async getLocalModels() {
+    return this._fetch('GET', '/api/provider/models/local');
+  }
+
+  async getRegistryModels(category = null) {
+    const query = category ? `?category=${encodeURIComponent(category)}` : '';
+    return this._fetch('GET', `/api/provider/models/registry${query}`);
+  }
+
+  async switchModel(modelId, use8bit = false) {
+    return this._fetch('POST', '/api/provider/models/switch', { modelId, use8bit });
+  }
+
+  async loadModel(modelId, use8bit = false) {
+    return this._fetch('POST', '/api/provider/models/load', { modelId, use8bit });
+  }
+
+  // ===== CHAT =====
+
+  async chatCompletion(messages, options = {}) {
+    return this._fetch('POST', '/api/chat/completions', {
+      messages,
+      model: options.model,
+      temperature: options.temperature,
+      maxTokens: options.maxTokens
+    });
   }
 
   // ===== RUNS / EXECUTION HISTORY =====
@@ -764,6 +799,33 @@ class MaestroApiClient {
   async cancelSession(id) {
     // Use stopSession
     return this.stopSession(id);
+  }
+
+  // ===== AUTH =====
+
+  async getAuthStatus() {
+    return this._fetch('GET', '/api/auth/status');
+  }
+
+  async authSetup(name = 'admin') {
+    return this._fetch('POST', '/api/auth/setup', { body: { name } });
+  }
+
+  async createApiKey(request) {
+    return this._fetch('POST', '/api/auth/keys', { body: request });
+  }
+
+  async listApiKeys() {
+    return this._fetch('GET', '/api/auth/keys');
+  }
+
+  async revokeApiKey(id) {
+    if (!id) throw new Error('Key ID is required');
+    return this._fetch('DELETE', `/api/auth/keys/${id}`);
+  }
+
+  async validateApiKey() {
+    return this._fetch('POST', '/api/auth/validate');
   }
 
   // ===== HELPER METHODS =====

@@ -61,68 +61,90 @@ export function SystemInfoTab() {
     setError(null);
 
     try {
-      // Try to fetch from backend API
-      const response = await fetch(`${API_BASE}/api/system/info`);
+      // Fetch hardware capabilities from LLM Provider via backend proxy
+      const capsResponse = await fetch(`${API_BASE}/api/provider/capabilities`);
 
-      if (response.ok) {
-        const data = await response.json();
-        setSpecs(data.specs);
-        setRecommendations(data.recommendations || []);
+      if (capsResponse.ok) {
+        const caps = await capsResponse.json();
+        const gpus: SystemSpecs['gpu'] = [];
+
+        if (caps.gpu?.available) {
+          gpus.push({
+            name: caps.gpu.name || 'Unknown GPU',
+            vram: caps.gpu.vramTotalGb || 0,
+            cudaVersion: caps.gpu.cudaVersion,
+          });
+        }
+
+        setSpecs({
+          cpu: {
+            name: caps.cpu?.name || 'Unknown CPU',
+            cores: caps.cpu?.coresPhysical || 0,
+            threads: caps.cpu?.coresLogical || 0,
+            frequency: caps.cpu?.architecture || '',
+          },
+          memory: {
+            total: Math.round(caps.ram?.totalGb || 0),
+            available: Math.round(caps.ram?.availableGb || 0),
+            type: '',
+          },
+          gpu: gpus,
+          os: {
+            name: caps.platform || 'Unknown',
+            version: caps.torchVersion ? `PyTorch ${caps.torchVersion}` : '',
+            architecture: caps.cpu?.architecture || '',
+          },
+        });
+
+        // Fetch recommended models
+        const modelsResponse = await fetch(`${API_BASE}/api/provider/models`);
+        if (modelsResponse.ok) {
+          const modelsData = await modelsResponse.json();
+          const recommended = (modelsData.models || [])
+            .filter((m: any) => m.recommended)
+            .slice(0, 5)
+            .map((m: any) => ({
+              modelName: m.name || m.modelId,
+              modelId: m.modelId,
+              provider: 'local' as ModelProvider,
+              reason: `${m.parametersB}B params, ${m.vramRequired?.toFixed(1) || '?'}GB VRAM${m.isLocal ? ' (cached)' : ''}`,
+              canRun: m.canRunFp16 || m.canRunInt8,
+              runOn: caps.gpu?.available ? 'gpu' as const : 'cpu' as const,
+            }));
+          setRecommendations(recommended.length > 0 ? recommended : defaultRecommendations());
+        } else {
+          setRecommendations(defaultRecommendations());
+        }
       } else {
-        // Backend doesn't have system info endpoint yet - show detection pending
         setSpecs(null);
-        setRecommendations([
-          {
-            modelName: 'Claude 3.5 Sonnet',
-            modelId: 'claude-3.5-sonnet',
-            provider: 'anthropic',
-            reason: 'Cloud-based, no hardware requirements',
-            canRun: true,
-            runOn: 'cpu',
-          },
-          {
-            modelName: 'GPT-4o',
-            modelId: 'gpt-4o',
-            provider: 'openai',
-            reason: 'Cloud-based, no hardware requirements',
-            canRun: true,
-            runOn: 'cpu',
-          },
-          {
-            modelName: 'Gemini Pro',
-            modelId: 'gemini-pro',
-            provider: 'google',
-            reason: 'Cloud-based, no hardware requirements',
-            canRun: true,
-            runOn: 'cpu',
-          },
-        ]);
+        setRecommendations(defaultRecommendations());
       }
     } catch {
-      // API not available - show detection pending state
       setSpecs(null);
-      setRecommendations([
-        {
-          modelName: 'Claude 3.5 Sonnet',
-          modelId: 'claude-3.5-sonnet',
-          provider: 'anthropic',
-          reason: 'Cloud-based, no hardware requirements',
-          canRun: true,
-          runOn: 'cpu',
-        },
-        {
-          modelName: 'GPT-4o',
-          modelId: 'gpt-4o',
-          provider: 'openai',
-          reason: 'Cloud-based, no hardware requirements',
-          canRun: true,
-          runOn: 'cpu',
-        },
-      ]);
+      setRecommendations(defaultRecommendations());
     } finally {
       setIsLoading(false);
     }
   };
+
+  const defaultRecommendations = (): ModelRecommendation[] => [
+    {
+      modelName: 'Claude 3.5 Sonnet',
+      modelId: 'claude-3.5-sonnet',
+      provider: 'anthropic',
+      reason: 'Cloud-based, no hardware requirements',
+      canRun: true,
+      runOn: 'cpu',
+    },
+    {
+      modelName: 'GPT-4o',
+      modelId: 'gpt-4o',
+      provider: 'openai',
+      reason: 'Cloud-based, no hardware requirements',
+      canRun: true,
+      runOn: 'cpu',
+    },
+  ];
 
   const formatMemory = (gb: number) => `${gb} GB`;
 

@@ -39,6 +39,8 @@ const NotFoundPage = lazy(() => import('@/pages/NotFoundPage'));
 const DebugPage = lazy(() => import('@/pages/DebugPage'));
 const AgentDetailPage = lazy(() => import('@/pages/AgentDetailPage'));
 const ToolDetailPage = lazy(() => import('@/pages/ToolDetailPage'));
+const ChatPage = lazy(() => import('@/pages/ChatPage'));
+const SettingsPage = lazy(() => import('@/pages/SettingsPage'));
 
 /**
  * Route definitions
@@ -268,6 +270,24 @@ const routes: RouteObject[] = [
         element: (
           <LazyPage>
             <HistoryPage />
+          </LazyPage>
+        ),
+      },
+      // Chat (Phase 19)
+      {
+        path: 'chat',
+        element: (
+          <LazyPage>
+            <ChatPage />
+          </LazyPage>
+        ),
+      },
+      // Settings (Phase 19)
+      {
+        path: 'settings',
+        element: (
+          <LazyPage>
+            <SettingsPage />
           </LazyPage>
         ),
       },
