@@ -59,40 +59,21 @@ builder.Services.AddSingleton<IAuditLogger, AuditLogger>();
 // Infrastructure implementations for Application interfaces
 builder.Services.AddScoped<IWorkflowRepository, JsonWorkflowRepository>();
 
-// Configure LLM Provider Gateway (local)
+// Configure LLM Provider Gateway (single gateway to LLM-Provider .NET API)
 builder.Services.Configure<LLMProviderSettings>(
     builder.Configuration.GetSection(LLMProviderSettings.SectionName));
 
-// Configure Azure OpenAI Gateway
-builder.Services.Configure<AzureOpenAISettings>(
-    builder.Configuration.GetSection(AzureOpenAISettings.SectionName));
-
-// Register both gateways as named HttpClients
 builder.Services.AddHttpClient<LLMProviderGateway>((sp, client) =>
 {
     var settings = sp.GetRequiredService<IOptions<LLMProviderSettings>>().Value;
     client.BaseAddress = new Uri(settings.BaseUrl);
     client.Timeout = TimeSpan.FromSeconds(settings.TimeoutSeconds);
 });
-builder.Services.AddHttpClient<AzureOpenAIGateway>();
 
-// Register ILLMGateway: Azure if configured, otherwise local
-var azureSection = builder.Configuration.GetSection(AzureOpenAISettings.SectionName);
-var azureEndpoint = azureSection["Endpoint"];
-var azureApiKey = azureSection["ApiKey"];
-var azureDeployment = azureSection["DeploymentName"];
-var useAzure = !string.IsNullOrEmpty(azureEndpoint) && !string.IsNullOrEmpty(azureApiKey) && !string.IsNullOrEmpty(azureDeployment);
-
-if (useAzure)
-{
-    builder.Services.AddScoped<ILLMGateway>(sp => sp.GetRequiredService<AzureOpenAIGateway>());
-    Console.WriteLine($"[Maestro] LLM Gateway: Azure OpenAI ({azureEndpoint})");
-}
-else
-{
-    builder.Services.AddScoped<ILLMGateway>(sp => sp.GetRequiredService<LLMProviderGateway>());
-    Console.WriteLine($"[Maestro] LLM Gateway: Local LLM Provider");
-}
+// Register ILLMGateway — single gateway, multi-provider routing is in LLM-Provider
+builder.Services.AddScoped<ILLMGateway>(sp => sp.GetRequiredService<LLMProviderGateway>());
+var llmBaseUrl = builder.Configuration.GetSection(LLMProviderSettings.SectionName)["BaseUrl"] ?? "http://localhost:5010";
+Console.WriteLine($"[Maestro] LLM Gateway: LLM-Provider ({llmBaseUrl})");
 
 // LLM Provider admin service (health, models, hardware — separate from inference gateway)
 builder.Services.AddHttpClient<ILLMProviderService, LLMProviderService>();

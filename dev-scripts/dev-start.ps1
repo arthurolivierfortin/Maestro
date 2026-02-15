@@ -24,7 +24,7 @@ $LLMProviderRoot = "C:\LLM-Provider"
 
 # Port configuration
 $Ports = @{
-    LLMProvider = 8000
+    LLMProvider = 5010
     Backend = 5000
     Frontend = 5173
 }
@@ -133,32 +133,32 @@ function Stop-AllServices {
     Write-Status "All services stopped." "Green"
 }
 
-# Start LLM-Provider locally
+# Start LLM-Provider .NET API locally
 function Start-LLMProviderLocal {
     if ($SkipLLM) { return }
 
-    Write-Status "[1/3] Starting LLM-Provider..." "Yellow"
+    Write-Status "[1/3] Starting LLM-Provider .NET API..." "Yellow"
 
     if (Test-Port $Ports.LLMProvider) {
         Write-Status "  LLM-Provider already running on port $($Ports.LLMProvider)" "Green"
         return
     }
 
-    if (-not (Test-Path $LLMProviderRoot)) {
-        Write-Status "  Warning: LLM-Provider not found at $LLMProviderRoot" "Yellow"
+    $LLMProviderDotnet = "$LLMProviderRoot\dotnet"
+    if (-not (Test-Path "$LLMProviderDotnet\src\LLMProvider.Web")) {
+        Write-Status "  Warning: LLM-Provider .NET not found at $LLMProviderDotnet" "Yellow"
         return
     }
 
-    # Start in new window
+    # Start the .NET API in a new window
     $script = @"
-Set-Location '$LLMProviderRoot'
-`$env:LLM_PRELOAD_MODEL = '$Model'
-Write-Host 'LLM-Provider starting with model: $Model' -ForegroundColor Cyan
-python -m uvicorn api.server:app --host 0.0.0.0 --port 8000
+Set-Location '$LLMProviderDotnet\src\LLMProvider.Web'
+Write-Host 'LLM-Provider .NET API starting on port 5010' -ForegroundColor Cyan
+dotnet run --urls=http://localhost:5010
 "@
     Start-Process powershell -ArgumentList "-NoExit", "-Command", $script
 
-    Wait-ForHealth -Url "http://localhost:8000/health" -ServiceName "LLM-Provider" -TimeoutSeconds 180
+    Wait-ForHealth -Url "http://localhost:5010/api/v1/health/" -ServiceName "LLM-Provider" -TimeoutSeconds 60
 }
 
 # Start Backend locally
@@ -178,7 +178,7 @@ function Start-BackendLocal {
 Set-Location '$MaestroRoot\backend\src\Maestro.Api'
 `$env:MAESTRO_GLOBAL_BLOCKS_PATH = '$MaestroRoot\content\system\blocks'
 `$env:MAESTRO_REPO_ROOT = '$MaestroRoot'
-`$env:LLMProvider__BaseUrl = 'http://localhost:8000'
+`$env:LLMProvider__BaseUrl = 'http://localhost:5010'
 `$env:LLMProvider__DefaultModel = '$Model'
 Write-Host 'Maestro Backend starting on port 5000' -ForegroundColor Cyan
 dotnet run --urls=http://localhost:5000
@@ -278,8 +278,8 @@ function Show-Summary {
 
     Write-Host ""
     Write-Status "CLI Commands:" "White"
-    Write-Status "  cd $MaestroRoot\tools\maestro-cli && node index.js health" "Gray"
-    Write-Status "  cd $MaestroRoot\tools\maestro-cli && node index.js list-blocks" "Gray"
+    Write-Status "  cd $MaestroRoot\maestro-cli && node index.js health" "Gray"
+    Write-Status "  cd $MaestroRoot\maestro-cli && node index.js list-blocks" "Gray"
     Write-Host ""
 }
 

@@ -8,6 +8,10 @@ This document establishes the philosophy, architecture principles, and developme
 
 When asked for an opinion, give a real one with reasoning. Don't hedge with "it depends" unless it genuinely does. If there are tradeoffs, name them concretely.
 
+## No Legacy Support (MANDATORY)
+
+**No legacy support.** When a system is replaced, remove the old code entirely. Never maintain deprecated code alongside new implementations. Clean break, no backward compatibility shims. Dead code = confusion + maintenance burden. Delete it.
+
 ## Block Development Workflow (MANDATORY)
 
 > **This is the canonical workflow for creating blocks. Skipping steps = broken traceability.**
@@ -173,6 +177,63 @@ Concrete examples of what this means:
 | CLI command `session reset-phases` for a specific session type | Generic `session set-var <id> <key> <value>` via CLI |
 | PowerShell script to set up a specific session | CLI commands: `session create`, `session import-template`, `session start`, `session invoke` |
 
+### LLM-Provider Owns All Provider Logic (CRITICAL)
+
+> *"Maestro ne connait pas la logique des providers. Maestro sait quels modeles sont disponibles et fait la demande au provider."*
+
+**Maestro has ONE LLM gateway** — `LLMProviderGateway` — which talks to the LLM-Provider .NET API. **All provider-specific logic lives in LLM-Provider, never in Maestro.**
+
+#### LLM-Provider Architecture (C:\LLM-Provider)
+
+LLM-Provider is a **.NET Clean Architecture solution** (`C:\LLM-Provider\dotnet\`) with a Python FastAPI service (`C:\LLM-Provider\api\`) used ONLY for local GPU inference via PyTorch.
+
+```
+LLM-Provider .NET API (port 5010) ← THE multi-provider gateway
+├── LLMProvider.Domain         ← ProviderType enum (Azure=1, Local=2, OpenAI=3, Anthropic=4, Ollama=5, AzureInference=6)
+├── LLMProvider.Application    ← ILLMProvider, ILLMProviderFactory, LLMOrchestrationService
+├── LLMProvider.Infrastructure ← Factories, queue, persistence
+├── LLMProvider.Web            ← REST API: /api/v1/llm/complete, /api/v1/models, /api/v1/health
+├── LLMProvider.AzureProvider         ← Azure OpenAI (ALREADY IMPLEMENTED)
+├── LLMProvider.AzureInferenceProvider ← Azure AI Inference (ALREADY IMPLEMENTED)
+├── LLMProvider.LocalProvider          ← Proxy to Python FastAPI (ALREADY IMPLEMENTED)
+│       └── Python FastAPI (port 8000) ← PyTorch/CUDA inference ONLY
+└── LLMProvider.ClaudeCodeProvider     ← Claude Code CLI (TO CREATE)
+```
+
+**Key interfaces (already exist):**
+- `ILLMProvider` — CompleteAsync, StreamCompleteAsync, IsAvailableAsync, GetAvailableModelsAsync
+- `ILLMProviderFactory` — GetProvider(ProviderType), GetProviderForModelAsync(ModelId)
+- `LLMOrchestrationService` — Routes requests to the correct provider by model_id
+
+Maestro sends a `model_id` with each request. LLM-Provider's orchestration service routes it to the correct provider (local GPU, Claude Code CLI, Azure, etc.). Maestro does not know HOW a model is served — only that it sent a prompt and received a response.
+
+**Litmus test**: Can a new LLM provider (e.g., Ollama, OpenAI) be added without changing ANY C# code in Maestro?
+If the answer is no, the architecture is violated.
+
+| WRONG (provider logic in Maestro) | RIGHT (provider logic in LLM-Provider) |
+|-------------------------------------|----------------------------------------|
+| `ClaudeCodeGateway` in Maestro C# | `ClaudeCodeLLMProvider` in LLM-Provider .NET |
+| `AnthropicApiGateway` in Maestro C# | `AnthropicLLMProvider` in LLM-Provider .NET |
+| `MultiProviderGateway` in Maestro C# | `LLMOrchestrationService` + `ILLMProviderFactory` in LLM-Provider |
+| `AzureOpenAIGateway` in Maestro C# | `AzureLLMProvider` in LLM-Provider .NET (already exists) |
+| `if (useAzure) ... else ...` in Maestro Program.cs | Provider config in LLM-Provider `appsettings.json` |
+| Multiple `ILLMGateway` implementations in Maestro | ONE `LLMProviderGateway` implementation in Maestro |
+
+**What Maestro DOES own:**
+- `ILLMGateway` interface (Send, Stream, SwitchModel)
+- `LLMProviderGateway` — the single HTTP client to LLM-Provider .NET API
+- `ILLMProviderService` / `LLMProviderService` — admin operations (health, model listing)
+- Retry logic, timeout handling, error propagation
+- Block executors that build prompts and parse responses
+
+**What Maestro NEVER owns:**
+- Provider-specific code (Claude, Anthropic, Azure, OpenAI, Ollama...)
+- Multi-provider routing logic
+- Provider configuration (API keys, CLI paths, endpoints)
+- Knowledge of how a model is served (local GPU vs cloud API vs CLI)
+
+**Adding a new provider** = create a new `LLMProvider.XxxProvider` project in `C:\LLM-Provider\dotnet\`, implement `ILLMProvider`, register via DI in `Program.cs`. Zero Maestro changes.
+
 ### CLI-First: Everything Goes Through the CLI
 
 > *"An agent has ONE tool: the maestro-cli block. Through this block, it can do EVERYTHING."*
@@ -291,7 +352,7 @@ powershell.exe -File C:\Meastro\dev-scripts\dev-start.ps1 -Stop
 
 | Service      | Port | Health Check URL                    |
 |--------------|------|-------------------------------------|
-| LLM-Provider | 8000 | http://localhost:8000/health        |
+| LLM-Provider | 5010 | http://localhost:5010/api/v1/health/ |
 | Backend      | 5000 | http://localhost:5000/              |
 | Frontend     | 5173 | http://localhost:5173/              |
 
@@ -536,6 +597,16 @@ Entry points map to block IDs. The `EntryPointExecutor` dispatches based on bloc
 ### Stopping at the first obstacle instead of iterating
 **Cause**: A model doesn't follow instructions, a prompt doesn't work, or infrastructure has a bug — and the response is to note "next steps" instead of fixing it
 **Fix**: Iterate. If SmolLM2 fails, try Qwen2.5-Coder. If the prompt is bad, rewrite it. If infrastructure is broken, fix the code. Only stop for fundamental technical impossibilities. "Prochaine etape" is not a deliverable.
+
+### Putting LLM provider logic in Maestro instead of LLM-Provider
+**Cause**: Creating gateway classes in Maestro C# for specific providers (ClaudeCodeGateway, AnthropicApiGateway, MultiProviderGateway) instead of adding them to LLM-Provider .NET.
+**Fix**: Maestro has ONE gateway (`LLMProviderGateway`) that talks to LLM-Provider .NET API (`C:\LLM-Provider\dotnet\`). All provider-specific logic lives in LLM-Provider .NET as `ILLMProvider` implementations (e.g., `AzureLLMProvider`, `LocalLLMProvider`, `ClaudeCodeLLMProvider`). Adding a new provider = create a new project in LLM-Provider .NET, zero Maestro changes.
+**Concrete violation that happened**: Phase 26-B initially created `MultiProviderGateway`, `CliAgentGateway`, `ClaudeCodeGateway`, `AnthropicApiGateway` in `Maestro.Infrastructure/LLMGateway/`. This was discarded. The correct approach is to add providers in `C:\LLM-Provider\dotnet\src\LLMProvider.XxxProvider\`.
+
+### Assuming LLM-Provider is Python-only
+**Cause**: Only looking at `C:\LLM-Provider\api\` (Python FastAPI) and missing `C:\LLM-Provider\dotnet\` (full .NET Clean Architecture with ILLMProvider, ILLMProviderFactory, orchestration service, 3 concrete providers).
+**Fix**: LLM-Provider is a .NET solution that CONTAINS a Python service for local GPU inference only. The multi-provider gateway, routing, factory, conversations, token tracking, and API are all in .NET. Always check `C:\LLM-Provider\dotnet\` first.
+**Note**: Maestro currently bypasses the .NET API and talks directly to Python (port 8000). This needs to be fixed — Maestro should point to the .NET API (port 5010).
 
 ### Shell commands fail on Windows
 **Cause**: Unix commands like `mkdir -p` don't work on Windows cmd

@@ -9,8 +9,8 @@ using Microsoft.Extensions.Options;
 namespace Maestro.Infrastructure.LLMGateway;
 
 /// <summary>
-/// Admin operations for the LLM Provider (health, models, hardware).
-/// Calls the Python LLM-Provider API at http://localhost:8000.
+/// Admin operations for the LLM-Provider .NET API (health, models, stats).
+/// Calls the LLM-Provider .NET gateway at http://localhost:5010.
 /// </summary>
 public class LLMProviderService : ILLMProviderService
 {
@@ -32,7 +32,7 @@ public class LLMProviderService : ILLMProviderService
 
         _jsonOptions = new JsonSerializerOptions
         {
-            PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
             DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
             PropertyNameCaseInsensitive = true
         };
@@ -40,118 +40,233 @@ public class LLMProviderService : ILLMProviderService
 
     public async Task<LLMProviderHealth> GetHealthAsync(CancellationToken ct = default)
     {
-        _logger?.LogDebug("Fetching LLM Provider health");
-        var response = await GetAsync<LLMProviderHealth>("/health", ct);
-        return response ?? new LLMProviderHealth { Status = "unreachable" };
+        _logger?.LogDebug("Fetching LLM-Provider health");
+        try
+        {
+            var response = await _httpClient.GetAsync("/api/v1/health/", ct);
+            response.EnsureSuccessStatusCode();
+            var health = await response.Content.ReadFromJsonAsync<ProviderHealthResponse>(_jsonOptions, ct);
+
+            // Map .NET health response to Maestro DTO
+            var providerCount = health?.Providers?.Count ?? 0;
+            return new LLMProviderHealth
+            {
+                Status = health?.Status ?? "unreachable",
+                ActiveModel = null,
+                ModelsLoaded = providerCount,
+                Device = "managed",
+                CudaAvailable = false,
+                CudaDeviceName = null
+            };
+        }
+        catch (HttpRequestException ex)
+        {
+            _logger?.LogWarning(ex, "LLM-Provider unreachable at /api/v1/health/");
+            throw new LLMProviderUnavailableException($"LLM-Provider is not running or unreachable: {ex.Message}", ex);
+        }
+        catch (TaskCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (TaskCanceledException ex)
+        {
+            _logger?.LogWarning(ex, "LLM-Provider health check timed out");
+            throw new LLMProviderUnavailableException($"LLM-Provider request timed out: {ex.Message}", ex);
+        }
     }
 
-    public async Task<SystemCapabilities> GetSystemCapabilitiesAsync(CancellationToken ct = default)
+    public Task<SystemCapabilities> GetSystemCapabilitiesAsync(CancellationToken ct = default)
     {
-        _logger?.LogDebug("Fetching system capabilities");
-        var response = await GetAsync<SystemCapabilities>("/v1/system/capabilities", ct);
-        return response ?? new SystemCapabilities();
+        // System capabilities (GPU/VRAM info) are Python-specific.
+        // The .NET API manages provider routing, not hardware.
+        _logger?.LogDebug("GetSystemCapabilitiesAsync — not available via .NET API");
+        return Task.FromResult(new SystemCapabilities
+        {
+            Platform = "dotnet",
+            CudaAvailable = false,
+            MpsAvailable = false
+        });
     }
 
     public async Task<CompatibleModelsResponse> GetCompatibleModelsAsync(string? category = null, CancellationToken ct = default)
     {
-        _logger?.LogDebug("Fetching compatible models (category: {Category})", category ?? "all");
-        var path = "/v1/models/compatible";
-        if (!string.IsNullOrEmpty(category))
-            path += $"?category={Uri.EscapeDataString(category)}";
+        _logger?.LogDebug("Fetching available models (category: {Category})", category ?? "all");
+        try
+        {
+            var response = await _httpClient.GetAsync("/api/v1/models/", ct);
+            response.EnsureSuccessStatusCode();
+            var modelsWrapper = await response.Content.ReadFromJsonAsync<ModelsListResponse>(_jsonOptions, ct);
+            var models = modelsWrapper?.Models ?? new List<ProviderModelInfo>();
 
-        var response = await GetAsync<CompatibleModelsResponse>(path, ct);
-        return response ?? new CompatibleModelsResponse();
+            // Filter by category if specified (match against capabilities)
+            if (!string.IsNullOrEmpty(category))
+            {
+                models = models.Where(m =>
+                    m.Capabilities?.Any(c => c.Equals(category, StringComparison.OrdinalIgnoreCase)) == true
+                ).ToList();
+            }
+
+            return new CompatibleModelsResponse
+            {
+                Count = models.Count,
+                Models = models.Select(m => new CompatibleModel
+                {
+                    ModelId = m.Id ?? string.Empty,
+                    Name = m.Name ?? string.Empty,
+                    Description = m.Description,
+                    Category = m.Provider,
+                    ContextLength = m.ContextLength,
+                    Capabilities = m.Capabilities ?? new List<string>()
+                }).ToList()
+            };
+        }
+        catch (HttpRequestException ex)
+        {
+            _logger?.LogWarning(ex, "LLM-Provider unreachable at /api/v1/models/");
+            throw new LLMProviderUnavailableException($"LLM-Provider is not running or unreachable: {ex.Message}", ex);
+        }
+        catch (TaskCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (TaskCanceledException ex)
+        {
+            _logger?.LogWarning(ex, "LLM-Provider models request timed out");
+            throw new LLMProviderUnavailableException($"LLM-Provider request timed out: {ex.Message}", ex);
+        }
     }
 
     public async Task<LocalModelsResponse> GetLocalModelsAsync(CancellationToken ct = default)
     {
         _logger?.LogDebug("Fetching local models");
-        var response = await GetAsync<LocalModelsResponse>("/v1/models/local", ct);
-        return response ?? new LocalModelsResponse();
+        try
+        {
+            var response = await _httpClient.GetAsync("/api/v1/models/provider/Local", ct);
+            if (!response.IsSuccessStatusCode)
+            {
+                // No local provider might be registered — return empty
+                return new LocalModelsResponse();
+            }
+
+            var modelsWrapper = await response.Content.ReadFromJsonAsync<ModelsListResponse>(_jsonOptions, ct);
+            var models = modelsWrapper?.Models ?? new List<ProviderModelInfo>();
+
+            return new LocalModelsResponse
+            {
+                Count = models.Count,
+                Models = models.Select(m => new LocalModel
+                {
+                    ModelId = m.Id ?? string.Empty,
+                    DisplayName = m.Name,
+                    ContextLength = m.ContextLength,
+                    Capabilities = m.Capabilities ?? new List<string>()
+                }).ToList()
+            };
+        }
+        catch (HttpRequestException ex)
+        {
+            _logger?.LogWarning(ex, "LLM-Provider unreachable at /api/v1/models/provider/Local");
+            throw new LLMProviderUnavailableException($"LLM-Provider is not running or unreachable: {ex.Message}", ex);
+        }
+        catch (TaskCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (TaskCanceledException ex)
+        {
+            _logger?.LogWarning(ex, "LLM-Provider local models request timed out");
+            throw new LLMProviderUnavailableException($"LLM-Provider request timed out: {ex.Message}", ex);
+        }
     }
 
     public async Task<RegistryModelsResponse> GetRegistryModelsAsync(string? category = null, CancellationToken ct = default)
     {
+        // Registry models are a Python-specific concept (HuggingFace model catalog).
+        // The .NET API returns all registered models via /api/v1/models/.
         _logger?.LogDebug("Fetching registry models (category: {Category})", category ?? "all");
-        var path = "/v1/models/registry";
-        if (!string.IsNullOrEmpty(category))
-            path += $"?category={Uri.EscapeDataString(category)}";
+        var compatible = await GetCompatibleModelsAsync(category, ct);
 
-        var response = await GetAsync<RegistryModelsResponse>(path, ct);
-        return response ?? new RegistryModelsResponse();
+        return new RegistryModelsResponse
+        {
+            Count = compatible.Count,
+            Models = compatible.Models.Select(m => new RegistryModel
+            {
+                ModelId = m.ModelId,
+                Name = m.Name,
+                Description = m.Description,
+                Category = m.Category,
+                ContextLength = m.ContextLength,
+                Capabilities = m.Capabilities
+            }).ToList()
+        };
     }
 
-    public async Task<SwitchModelResult> SwitchModelAsync(string modelId, bool use8bit = false, CancellationToken ct = default)
+    public Task<SwitchModelResult> SwitchModelAsync(string modelId, bool use8bit = false, CancellationToken ct = default)
     {
-        _logger?.LogInformation("Switching model to {ModelId} (8bit: {Use8bit})", modelId, use8bit);
-        var request = new { model_id = modelId, use_8bit = use8bit };
-        var response = await PostAsync<SwitchModelResult>("/v1/switch-model", request, ct);
-        return response ?? new SwitchModelResult { Status = "error" };
+        // Model switching is per-request in the .NET API — no dedicated endpoint needed.
+        _logger?.LogInformation("SwitchModelAsync({ModelId}) — model passed per-request, no switch needed", modelId);
+        return Task.FromResult(new SwitchModelResult
+        {
+            Status = "ok",
+            ActiveModel = modelId,
+            LoadTimeS = 0
+        });
     }
 
-    public async Task<LoadModelResult> LoadModelAsync(string modelId, bool use8bit = false, CancellationToken ct = default)
+    public Task<LoadModelResult> LoadModelAsync(string modelId, bool use8bit = false, CancellationToken ct = default)
     {
-        _logger?.LogInformation("Loading model {ModelId} (8bit: {Use8bit})", modelId, use8bit);
-        var request = new { model_id = modelId, use_8bit = use8bit, set_active = true };
-        var response = await PostAsync<LoadModelResult>("/v1/models/load", request, ct);
-        return response ?? new LoadModelResult { Status = "error" };
-    }
-
-    private async Task<T?> GetAsync<T>(string path, CancellationToken ct) where T : class
-    {
-        try
+        // Model loading is automatic in the .NET API — providers handle their own model management.
+        _logger?.LogInformation("LoadModelAsync({ModelId}) — model managed by provider", modelId);
+        return Task.FromResult(new LoadModelResult
         {
-            var response = await _httpClient.GetAsync(path, ct);
-            response.EnsureSuccessStatusCode();
-            return await response.Content.ReadFromJsonAsync<T>(_jsonOptions, ct);
-        }
-        catch (HttpRequestException ex)
-        {
-            _logger?.LogWarning(ex, "LLM Provider unreachable at {Path}", path);
-            throw new LLMProviderUnavailableException($"LLM Provider is not running or unreachable: {ex.Message}", ex);
-        }
-        catch (TaskCanceledException) when (ct.IsCancellationRequested)
-        {
-            throw;
-        }
-        catch (TaskCanceledException ex)
-        {
-            _logger?.LogWarning(ex, "LLM Provider request timed out at {Path}", path);
-            throw new LLMProviderUnavailableException($"LLM Provider request timed out: {ex.Message}", ex);
-        }
-    }
-
-    private async Task<T?> PostAsync<T>(string path, object body, CancellationToken ct) where T : class
-    {
-        try
-        {
-            var response = await _httpClient.PostAsJsonAsync(path, body, _jsonOptions, ct);
-            response.EnsureSuccessStatusCode();
-            return await response.Content.ReadFromJsonAsync<T>(_jsonOptions, ct);
-        }
-        catch (HttpRequestException ex)
-        {
-            _logger?.LogWarning(ex, "LLM Provider unreachable at {Path}", path);
-            throw new LLMProviderUnavailableException($"LLM Provider is not running or unreachable: {ex.Message}", ex);
-        }
-        catch (TaskCanceledException) when (ct.IsCancellationRequested)
-        {
-            throw;
-        }
-        catch (TaskCanceledException ex)
-        {
-            _logger?.LogWarning(ex, "LLM Provider request timed out at {Path}", path);
-            throw new LLMProviderUnavailableException($"LLM Provider request timed out: {ex.Message}", ex);
-        }
+            Status = "ok",
+            ModelId = modelId,
+            LoadTimeS = 0,
+            Device = "managed"
+        });
     }
 }
 
 /// <summary>
-/// Thrown when the LLM Provider service is unreachable.
+/// Thrown when the LLM-Provider service is unreachable.
 /// Controllers catch this and return 503.
 /// </summary>
 public class LLMProviderUnavailableException : Exception
 {
     public LLMProviderUnavailableException(string message, Exception? inner = null)
         : base(message, inner) { }
+}
+
+// ═══ Internal DTOs for .NET API responses ═══
+
+/// <summary>Health response from LLM-Provider .NET API.</summary>
+internal class ProviderHealthResponse
+{
+    public string? Status { get; set; }
+    public DateTimeOffset? Timestamp { get; set; }
+    public Dictionary<string, ProviderHealthStatus>? Providers { get; set; }
+}
+
+internal class ProviderHealthStatus
+{
+    public string? Name { get; set; }
+    public bool IsAvailable { get; set; }
+}
+
+/// <summary>Models list response from LLM-Provider .NET API.</summary>
+internal class ModelsListResponse
+{
+    public List<ProviderModelInfo>? Models { get; set; }
+}
+
+internal class ProviderModelInfo
+{
+    public string? Id { get; set; }
+    public string? Name { get; set; }
+    public string? Provider { get; set; }
+    public int ContextLength { get; set; }
+    public int? MaxOutputTokens { get; set; }
+    public string? Description { get; set; }
+    public List<string>? Capabilities { get; set; }
+    public bool IsAvailable { get; set; }
 }

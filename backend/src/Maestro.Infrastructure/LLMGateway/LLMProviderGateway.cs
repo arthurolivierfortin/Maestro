@@ -9,8 +9,8 @@ using Maestro.Application.Interfaces;
 namespace Maestro.Infrastructure.LLMGateway;
 
 /// <summary>
-/// LLM Gateway implementation that connects to LLM-Provider service.
-/// Supports both synchronous and streaming completion requests.
+/// LLM Gateway implementation that connects to the LLM-Provider .NET API.
+/// Routes requests through the multi-provider gateway at /api/v1/llm/complete.
 /// </summary>
 public class LLMProviderGateway : ILLMGateway, IDisposable
 {
@@ -31,7 +31,8 @@ public class LLMProviderGateway : ILLMGateway, IDisposable
 
         _jsonOptions = new JsonSerializerOptions
         {
-            PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            PropertyNameCaseInsensitive = true,
             DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
         };
 
@@ -42,38 +43,35 @@ public class LLMProviderGateway : ILLMGateway, IDisposable
 
     public async Task<LLMResponse> SendAsync(LLMRequest request, CancellationToken cancellationToken = default)
     {
-        var providerRequest = new LLMProviderRequest
+        // Build the prompt: if messages are provided, concatenate them for the LLM-Provider API
+        var prompt = request.Prompt ?? string.Empty;
+        if (request.Messages != null && request.Messages.Count > 0)
         {
-            Prompt = request.Prompt ?? string.Empty,
-            ModelId = request.ModelId ?? _settings.DefaultModel,
-            MaxNewTokens = request.MaxNewTokens ?? _settings.MaxNewTokens,
+            prompt = string.Join("\n\n", request.Messages
+                .Where(m => m.Role != "system")
+                .Select(m => m.Content));
+        }
+
+        var completeRequest = new CompleteRequest
+        {
+            Prompt = prompt,
+            Model = request.ModelId ?? _settings.DefaultModel,
+            MaxTokens = request.MaxNewTokens ?? _settings.MaxNewTokens,
             Temperature = request.Temperature ?? _settings.Temperature,
-            DoSample = _settings.DoSample,
-            TopP = _settings.TopP,
             SystemPrompt = request.SystemPrompt ?? _settings.SystemPrompt
         };
 
-        // Convert messages if provided (preferred for chat models)
-        if (request.Messages != null && request.Messages.Count > 0)
-        {
-            providerRequest.Messages = request.Messages
-                .Select(m => new LLMProviderMessage { Role = m.Role, Content = m.Content })
-                .ToList();
-            // When using messages, prompt can be empty - LLM-Provider handles formatting
-            providerRequest.Prompt = string.Empty;
-        }
+        _logger?.LogDebug("Sending LLM request to {BaseUrl}/api/v1/llm/complete with model {Model}",
+            _settings.BaseUrl, completeRequest.Model);
 
-        _logger?.LogDebug("Sending LLM request to {BaseUrl} with model {Model}, messages: {HasMessages}",
-            _settings.BaseUrl, providerRequest.ModelId, providerRequest.Messages != null);
-
-        var response = await SendWithRetryAsync(providerRequest, cancellationToken);
+        var response = await SendWithRetryAsync(completeRequest, cancellationToken);
 
         return new LLMResponse
         {
-            Content = response?.GeneratedText ?? string.Empty,
-            PromptTokens = response?.PromptTokens ?? 0,
-            CompletionTokens = response?.CompletionTokens ?? 0,
-            TotalTokens = response?.TotalTokens ?? 0,
+            Content = response?.Content ?? string.Empty,
+            PromptTokens = response?.TokenUsage?.PromptTokens ?? 0,
+            CompletionTokens = response?.TokenUsage?.CompletionTokens ?? 0,
+            TotalTokens = response?.TokenUsage?.TotalTokens ?? 0,
             Model = response?.Model
         };
     }
@@ -82,42 +80,19 @@ public class LLMProviderGateway : ILLMGateway, IDisposable
         LLMRequest request,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        var providerRequest = new LLMProviderRequest
+        // Use non-streaming endpoint and yield full response as single chunk.
+        // The LLM-Provider .NET API supports SSE streaming via /api/v1/llm/stream,
+        // but for simplicity we use the non-streaming path here.
+        var response = await SendAsync(request, cancellationToken);
+
+        if (!string.IsNullOrEmpty(response.Content))
         {
-            Prompt = request.Prompt ?? string.Empty,
-            ModelId = request.ModelId ?? _settings.DefaultModel,
-            MaxNewTokens = request.MaxNewTokens ?? _settings.MaxNewTokens,
-            Temperature = request.Temperature ?? _settings.Temperature,
-            DoSample = _settings.DoSample,
-            TopP = _settings.TopP,
-            SystemPrompt = request.SystemPrompt ?? _settings.SystemPrompt
-        };
-
-        // Convert messages if provided
-        if (request.Messages != null && request.Messages.Count > 0)
-        {
-            providerRequest.Messages = request.Messages
-                .Select(m => new LLMProviderMessage { Role = m.Role, Content = m.Content })
-                .ToList();
-            providerRequest.Prompt = string.Empty;
-        }
-
-        _logger?.LogDebug("Starting streaming LLM request to {BaseUrl}", _settings.BaseUrl);
-
-        // LLM-Provider supports WebSocket streaming, but for simplicity we'll use the non-streaming endpoint
-        // and yield the full response as a single chunk.
-        // In future iterations, implement WebSocket streaming via /v1/stream endpoint.
-
-        var response = await SendWithRetryAsync(providerRequest, cancellationToken);
-
-        if (response?.GeneratedText != null)
-        {
-            yield return response.GeneratedText;
+            yield return response.Content;
         }
     }
 
-    private async Task<LLMProviderResponse?> SendWithRetryAsync(
-        LLMProviderRequest request,
+    private async Task<CompleteResponse?> SendWithRetryAsync(
+        CompleteRequest request,
         CancellationToken cancellationToken)
     {
         var attempts = 0;
@@ -129,19 +104,19 @@ public class LLMProviderGateway : ILLMGateway, IDisposable
             try
             {
                 var httpResponse = await _httpClient.PostAsJsonAsync(
-                    "/v1/generate",
+                    "/api/v1/llm/complete",
                     request,
                     _jsonOptions,
                     cancellationToken);
 
                 if (httpResponse.IsSuccessStatusCode)
                 {
-                    var result = await httpResponse.Content.ReadFromJsonAsync<LLMProviderResponse>(
+                    var result = await httpResponse.Content.ReadFromJsonAsync<CompleteResponse>(
                         _jsonOptions,
                         cancellationToken);
 
                     _logger?.LogDebug("LLM response received. Tokens: {Total} (prompt: {Prompt}, completion: {Completion})",
-                        result?.TotalTokens, result?.PromptTokens, result?.CompletionTokens);
+                        result?.TokenUsage?.TotalTokens, result?.TokenUsage?.PromptTokens, result?.TokenUsage?.CompletionTokens);
 
                     return result;
                 }
@@ -172,27 +147,12 @@ public class LLMProviderGateway : ILLMGateway, IDisposable
         return null;
     }
 
-    public async Task SwitchModelAsync(string modelId, CancellationToken cancellationToken = default)
+    public Task SwitchModelAsync(string modelId, CancellationToken cancellationToken = default)
     {
-        _logger?.LogInformation("Switching LLM model to {ModelId}", modelId);
-        try
-        {
-            var request = new { model_id = modelId };
-            var response = await _httpClient.PostAsJsonAsync("/v1/switch-model", request, cancellationToken);
-            if (response.IsSuccessStatusCode)
-            {
-                _logger?.LogInformation("Model switched to {ModelId}", modelId);
-            }
-            else
-            {
-                var error = await response.Content.ReadAsStringAsync(cancellationToken);
-                _logger?.LogWarning("Model switch to {ModelId} returned {Status}: {Error}", modelId, response.StatusCode, error);
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger?.LogWarning(ex, "Failed to switch model to {ModelId}, proceeding with current model", modelId);
-        }
+        // Model switching is handled per-request by the LLM-Provider .NET API.
+        // The model is passed in each CompleteRequest, so no explicit switch is needed.
+        _logger?.LogDebug("SwitchModelAsync({ModelId}) — no-op, model passed per-request", modelId);
+        return Task.CompletedTask;
     }
 
     public void Dispose()
@@ -204,23 +164,22 @@ public class LLMProviderGateway : ILLMGateway, IDisposable
 }
 
 /// <summary>
-/// Configuration settings for LLM-Provider connection.
+/// Configuration settings for LLM-Provider .NET API connection.
 /// </summary>
 public class LLMProviderSettings
 {
     public const string SectionName = "LLMProvider";
 
     /// <summary>
-    /// Base URL of the LLM-Provider service.
-    /// Default: http://localhost:8000 (Python FastAPI server)
-    /// Alternative: http://localhost:5000 (for .NET unified API)
+    /// Base URL of the LLM-Provider .NET API.
+    /// Default: http://localhost:5010
     /// </summary>
-    public string BaseUrl { get; set; } = "http://localhost:8000";
+    public string BaseUrl { get; set; } = "http://localhost:5010";
 
     /// <summary>
     /// Default model to use for inference.
     /// </summary>
-    public string DefaultModel { get; set; } = "deepseek-ai/deepseek-coder-1.3b-instruct";
+    public string DefaultModel { get; set; } = "Qwen2.5-Coder-1.5B-Instruct";
 
     /// <summary>
     /// Request timeout in seconds.
@@ -240,22 +199,12 @@ public class LLMProviderSettings
     /// <summary>
     /// Maximum new tokens to generate.
     /// </summary>
-    public int MaxNewTokens { get; set; } = 256;
+    public int MaxNewTokens { get; set; } = 512;
 
     /// <summary>
     /// Sampling temperature (0.0-1.0). Lower = more deterministic.
     /// </summary>
     public float Temperature { get; set; } = 0.7f;
-
-    /// <summary>
-    /// Whether to use sampling (true) or greedy decoding (false).
-    /// </summary>
-    public bool DoSample { get; set; } = true;
-
-    /// <summary>
-    /// Top-p (nucleus) sampling parameter.
-    /// </summary>
-    public float TopP { get; set; } = 0.95f;
 
     /// <summary>
     /// Optional system prompt to prepend to all requests.
@@ -264,67 +213,36 @@ public class LLMProviderSettings
 }
 
 /// <summary>
-/// Request model for LLM-Provider /v1/generate endpoint.
+/// Request model for LLM-Provider .NET API /api/v1/llm/complete endpoint.
 /// </summary>
-internal class LLMProviderRequest
+internal class CompleteRequest
 {
-    [JsonPropertyName("prompt")]
     public string Prompt { get; set; } = string.Empty;
-
-    [JsonPropertyName("model_id")]
-    public string? ModelId { get; set; }
-
-    [JsonPropertyName("max_new_tokens")]
-    public int MaxNewTokens { get; set; } = 256;
-
-    [JsonPropertyName("temperature")]
-    public float Temperature { get; set; } = 0.7f;
-
-    [JsonPropertyName("do_sample")]
-    public bool DoSample { get; set; } = true;
-
-    [JsonPropertyName("top_p")]
-    public float TopP { get; set; } = 0.95f;
-
-    [JsonPropertyName("system_prompt")]
+    public string Model { get; set; } = string.Empty;
+    public int? MaxTokens { get; set; }
+    public float? Temperature { get; set; }
     public string? SystemPrompt { get; set; }
-
-    [JsonPropertyName("messages")]
-    public List<LLMProviderMessage>? Messages { get; set; }
 }
 
 /// <summary>
-/// Message model for LLM-Provider chat format.
+/// Response model from LLM-Provider .NET API /api/v1/llm/complete endpoint.
 /// </summary>
-internal class LLMProviderMessage
+internal class CompleteResponse
 {
-    [JsonPropertyName("role")]
-    public string Role { get; set; } = string.Empty;
-
-    [JsonPropertyName("content")]
-    public string Content { get; set; } = string.Empty;
-}
-
-/// <summary>
-/// Response model from LLM-Provider /v1/generate endpoint.
-/// </summary>
-internal class LLMProviderResponse
-{
-    [JsonPropertyName("generated_text")]
-    public string? GeneratedText { get; set; }
-
-    [JsonPropertyName("model")]
+    public string? Content { get; set; }
     public string? Model { get; set; }
-
-    [JsonPropertyName("prompt_tokens")]
-    public int PromptTokens { get; set; }
-
-    [JsonPropertyName("completion_tokens")]
-    public int CompletionTokens { get; set; }
-
-    [JsonPropertyName("total_tokens")]
-    public int TotalTokens { get; set; }
-
-    [JsonPropertyName("finish_reason")]
+    public string? Provider { get; set; }
+    public TokenUsageResponse? TokenUsage { get; set; }
+    public long DurationMs { get; set; }
     public string? FinishReason { get; set; }
+}
+
+/// <summary>
+/// Token usage breakdown in LLM-Provider .NET API responses.
+/// </summary>
+internal class TokenUsageResponse
+{
+    public int PromptTokens { get; set; }
+    public int CompletionTokens { get; set; }
+    public int TotalTokens { get; set; }
 }

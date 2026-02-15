@@ -62,7 +62,7 @@ public class FirstRunInitializer : IHostedService
                 {
                   "backendUrl": "http://localhost:5000",
                   "llmProvider": {
-                    "url": "http://localhost:8000"
+                    "url": "http://localhost:5010"
                   }
                 }
                 """;

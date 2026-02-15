@@ -85,7 +85,7 @@ public class PerformanceController : ControllerBase
     private async Task<BenchmarkResult> RunModelBenchmark(string modelId, string prompt)
     {
         // Try to get LLM Provider endpoint
-        var llmProviderUrl = Environment.GetEnvironmentVariable("LLMProvider__BaseUrl") ?? "http://localhost:8000";
+        var llmProviderUrl = Environment.GetEnvironmentVariable("LLMProvider__BaseUrl") ?? "http://localhost:5010";
 
         var stopwatch = Stopwatch.StartNew();
         var timeToFirstToken = 0L;
