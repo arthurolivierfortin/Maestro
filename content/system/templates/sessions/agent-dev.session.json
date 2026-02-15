@@ -1,0 +1,142 @@
+{
+  "id": "agent-dev",
+  "name": "Agent Development Session",
+  "description": "Development session for building features using autonomous agents. Provides full monitoring of the plan → code → test → review → commit pipeline.",
+
+  "type": "foundry",
+  "authority": {
+    "type": "human",
+    "identifier": "default",
+    "displayName": "Developer"
+  },
+
+  "permissions": {
+    "allowedCommands": ["*"],
+    "allowedTools": ["*"],
+    "allowedBlocks": ["*"],
+    "canCreateBlocks": true,
+    "canCreateSessions": false,
+    "canAccessNetwork": true,
+    "canAccessFilesystem": true
+  },
+
+  "entryPoints": {
+    "develop": "develop-feature-workflow",
+    "plan": "planner-agent",
+    "code": "coder-agent",
+    "test": "tester-agent",
+    "review": "reviewer-agent",
+    "commit": "git-agent"
+  },
+
+  "variables": {
+    "sessionMode": "agent-dev",
+    "projectName": "",
+    "currentFeature": "",
+    "currentAgent": "",
+    "currentStep": "idle",
+    "filesModified": [],
+    "featureCount": 0,
+    "errorCount": 0,
+    "lastError": "",
+    "agentResults": [],
+
+    "_phases": [
+      { "id": "plan", "name": "1. Planning", "status": "pending", "description": "Analyze task and produce execution plan" },
+      { "id": "code", "name": "2. Coding", "status": "pending", "description": "Implement code following the plan" },
+      { "id": "test", "name": "3. Testing", "status": "pending", "description": "Generate and run tests" },
+      { "id": "review", "name": "4. Review", "status": "pending", "description": "Code review for quality and bugs" },
+      { "id": "commit", "name": "5. Commit", "status": "pending", "description": "Stage and commit changes" }
+    ],
+
+    "_blockOutputs": {},
+    "_llmActivity": [],
+    "_executionLog": [],
+    "_executionTree": [],
+
+    "_monitorDescriptor": {
+      "layout": {
+        "mode": "phased-v2",
+        "zones": {
+          "header-left": { "width": "60%", "height": 7, "components": ["header"] },
+          "header-right": { "width": "40%", "height": 7, "components": ["session-metrics"] },
+          "left": { "width": "55%", "height": "75%", "components": ["phase-workflow"] },
+          "right": { "width": "45%", "height": "75%", "components": ["llm-activity"] },
+          "bottom": { "width": "100%", "height": "25%", "components": ["execution-log"] }
+        }
+      },
+      "components": [
+        { "id": "phase-workflow", "type": "phase-workflow", "data": ["$.variables._phases", "$.variables._executionTree"] },
+        { "id": "llm-activity", "type": "llm-activity", "data": "$.variables._llmActivity" },
+        { "id": "execution-log", "type": "execution-log", "data": "$.variables._executionLog" },
+        { "id": "session-metrics", "type": "widgets", "data": "$.monitorWidgets" }
+      ]
+    }
+  },
+
+  "monitorWidgets": [
+    {
+      "id": "current-step",
+      "type": "counter",
+      "zone": "custom",
+      "config": {
+        "label": "Current Step",
+        "value": "$.variables.currentStep"
+      }
+    },
+    {
+      "id": "feature-count",
+      "type": "counter",
+      "zone": "custom",
+      "config": {
+        "label": "Features Done",
+        "value": "$.variables.featureCount"
+      }
+    },
+    {
+      "id": "error-count",
+      "type": "counter",
+      "zone": "custom",
+      "config": {
+        "label": "Errors",
+        "value": "$.variables.errorCount",
+        "alertThreshold": 1
+      }
+    },
+    {
+      "id": "files-modified",
+      "type": "status-list",
+      "zone": "custom",
+      "config": {
+        "label": "Files Modified",
+        "items": "$.variables.filesModified",
+        "maxItems": 10
+      }
+    },
+    {
+      "id": "agent-results",
+      "type": "status-list",
+      "zone": "custom",
+      "config": {
+        "label": "Agent Results",
+        "items": "$.variables.agentResults",
+        "maxItems": 10,
+        "showTimestamp": true
+      }
+    }
+  ],
+
+  "config": {
+    "maxIterations": 50,
+    "timeout": 3600000,
+    "autoSave": true,
+    "saveInterval": 15000
+  },
+
+  "metadata": {
+    "category": "development",
+    "priority": "high",
+    "version": "1.0.0",
+    "author": "maestro-phase-26"
+  }
+}

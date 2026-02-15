@@ -366,6 +366,17 @@ class MaestroApiClient {
     return this._fetch('PUT', `/api/projects/${projectId}/block-permissions`, { body: permissions });
   }
 
+  // ===== WORKSPACES =====
+
+  async getWorkspace(id) {
+    if (!id) throw new Error('Workspace ID is required');
+    return this._fetch('GET', `/api/workspaces/${id}`);
+  }
+
+  async listWorkspaces() {
+    return this._fetch('GET', '/api/workspaces');
+  }
+
   // ===== FILE SYSTEM =====
 
   async listDirectory(path) {
@@ -507,6 +518,22 @@ class MaestroApiClient {
 
   async loadModel(modelId, use8bit = false) {
     return this._fetch('POST', '/api/provider/models/load', { modelId, use8bit });
+  }
+
+  async getActiveProvider() {
+    return this._fetch('GET', '/api/provider/active');
+  }
+
+  async getAzureConfig() {
+    return this._fetch('GET', '/api/provider/azure');
+  }
+
+  async saveAzureConfig(config) {
+    return this._fetch('PUT', '/api/provider/azure', config);
+  }
+
+  async testAzureConnection(config = {}) {
+    return this._fetch('POST', '/api/provider/azure/test', config);
   }
 
   // ===== CHAT =====

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { LLMConfigPanel } from '../components/settings/LLMConfigPanel';
+import { Tabs } from '@components/ui';
 import './SettingsPage.scss';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
@@ -27,7 +28,7 @@ const SettingsPage: React.FC = () => {
       .catch(() => setAuthStatus('Unavailable'));
   }, []);
 
-  const tabs: { id: SettingsTab; label: string }[] = [
+  const tabs = [
     { id: 'llm', label: 'LLM Provider' },
     { id: 'general', label: 'General' },
     { id: 'about', label: 'About' },
@@ -37,17 +38,7 @@ const SettingsPage: React.FC = () => {
     <div className="settings-page page-enter">
       <h1 className="settings-page__title">Settings</h1>
 
-      <div className="settings-page__tabs">
-        {tabs.map(tab => (
-          <button
-            key={tab.id}
-            className={`settings-page__tab ${activeTab === tab.id ? 'settings-page__tab--active' : ''}`}
-            onClick={() => setActiveTab(tab.id)}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
+      <Tabs tabs={tabs} activeId={activeTab} onChange={(id) => setActiveTab(id as SettingsTab)} />
 
       <div className="settings-page__body">
         {activeTab === 'llm' && <LLMConfigPanel />}

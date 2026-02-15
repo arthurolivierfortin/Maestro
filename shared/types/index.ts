@@ -53,3 +53,20 @@ export type {
   HealthResponse,
   IApiClient,
 } from './api-client.js';
+
+// Phase 23: Widget and Page types
+export type {
+  WidgetDefinition,
+  WidgetInstance,
+  DataSourceConfig,
+  LayoutZone,
+  PageLayout,
+} from './widget.js';
+
+export type {
+  PageDefinition,
+  NavigationState,
+  NavigationEntry,
+  DetailView,
+  BreadcrumbItem,
+} from './page.js';

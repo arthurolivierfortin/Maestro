@@ -247,3 +247,115 @@ Tout au long du developpement :
 - `MISSING-FEATURES.md` — Features Maestro manquantes
 - `SESSION-NOTES.md` — Notes pour continuite entre sessions
 - Chaque workspace/session documente son etat
+
+---
+
+## 5. Methodologie de Travail (CRITIQUE)
+
+> **Cette section definit la methodologie OBLIGATOIRE. Toute deviation = echec de processus.**
+
+### 5.1 Workspace = Unite de Tracabilite
+
+Tout travail commence par un workspace lie a un repo Git :
+
+```bash
+maestro workspace create --name "cantante-dev" --repo "C:\Cantante"
+```
+
+Le workspace est la **seule unite de tracabilite**. L'utilisateur doit pouvoir :
+- Voir le workspace et ses sessions
+- Comprendre ce qui a ete fait
+- Reproduire les resultats
+
+**Jamais de blocks ou fichiers crees hors d'un workspace.**
+
+### 5.2 Trois Types de Sessions
+
+Le workspace contient trois types de sessions :
+
+```
+Workspace: cantante-dev (lie a C:\Cantante)
+├── Session Projet: cantante-v1
+│   └── Utilise les blocks publies pour le developpement reel
+├── Sessions Foundry (une par block a creer/entrainer):
+│   ├── train-context-builder
+│   ├── train-commit-writer
+│   ├── train-planner-agent
+│   └── ...
+└── Sessions Test:
+    └── test-implement-feature
+```
+
+| Type | Quand | Commande |
+|------|-------|----------|
+| **Foundry** | Creer/entrainer un block | `session create --type foundry --name "train-X"` |
+| **Projet** | Developper le projet cible | `session create --type project --name "cantante-v1"` |
+| **Test** | Valider un workflow complet | `session create --type foundry --name "test-Y"` |
+
+### 5.3 Cycle de Vie d'un Block
+
+```
+Session Foundry "train-commit-writer"
+  │
+  │ 1. Creer le block
+  │ 2. Tester (execute avec inputs de test)
+  │ 3. Mesurer fitness
+  │ 4. Si fitness < 0.7 :
+  │    a. Ajuster prompt / temperature / few-shot
+  │    b. Si toujours echec : TESTER UN AUTRE MODEL
+  │    c. Si toujours echec : changer d'architecture
+  │    d. Retour a 2
+  │ 5. Fitness >= 0.7 → Publier
+  │
+  └───► Block publie → disponible dans Session Projet
+```
+
+**Regles :**
+- Un block n'est JAMAIS utilise en production sans etre passe par foundry
+- Un block avec fitness < 0.7 n'est JAMAIS publie
+- Si un model ne suit pas le format → on en teste au moins 2 autres avant de conclure
+
+### 5.4 Models a Tester (ordre de priorite)
+
+| Model | Taille | Forces |
+|-------|--------|--------|
+| SmolLM2-1.7B-Instruct | 1.7B | Bon pour JSON, compact |
+| Qwen2.5-Coder-1.5B-Instruct | 1.5B | Bon pour le code |
+| DeepSeek-R1-Distill-Qwen-1.5B | 1.5B | Raisonnement |
+| Qwen2.5-Coder-3B-Instruct | 3B | Plus capable, plus lent |
+| SmolLM2-360M-Instruct | 360M | Ultra-rapide, moins capable |
+
+Commande pour changer de model :
+```bash
+POST http://localhost:8000/v1/switch-model
+{"model_id": "Qwen/Qwen2.5-Coder-1.5B-Instruct"}
+```
+
+**Regle : Ne JAMAIS conclure qu'un block ne fonctionne pas avec un seul model.**
+
+### 5.5 Regles de Perseverance
+
+> Le plan dit "continuer jusqu'a ce que Cantante soit fini". C'est un **ordre, pas une suggestion**.
+
+| Obstacle | Action |
+|----------|--------|
+| Model ne suit pas le format | Tester 2-3 autres models |
+| Prompt inefficace | Reformuler, ajouter few-shot, reduire la complexite |
+| Bug infrastructure | Le corriger et continuer |
+| Fitness trop bas apres 5 essais | Changer d'approche (decomposer, simplifier, autre model) |
+| **Seul cas d'arret autorise** | Incapacite technique fondamentale (GPU crash, API down) |
+
+S'arreter au premier obstacle et noter "prochaine etape" est **interdit**. L'agent doit iterer jusqu'a resolution ou blocage technique incontournable.
+
+### 5.6 Communication avec l'Utilisateur
+
+A chaque debut de session Claude :
+1. Dire dans quel workspace on travaille
+2. Dire quelle session est active
+3. Resumer l'etat actuel (ou on en est)
+4. Dire ce qui va etre fait dans cette session
+
+A chaque fin de session (ou si interrompu) :
+1. Mettre a jour `SESSION-NOTES.md`
+2. Mettre a jour la progression dans `GOAL-GUIDE.md`
+3. Dire a l'utilisateur ou sont les resultats (workspace, session, repo)

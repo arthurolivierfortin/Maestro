@@ -322,6 +322,41 @@ The TUI Monitor auto-refreshes every 2 seconds, reading the latest variable valu
 
 ---
 
+## Block Executor Hierarchy
+
+Block executors implement `IBlockExecutor` and are registered in DI. The `BlockExecutorRegistry` resolves the correct executor by block type.
+
+```
+IBlockExecutor (interface)
+├── LLMBlockExecutorBase (abstract — shared LLM plumbing)
+│   ├── InferenceBlockExecutor (single LLM call: template → call → response)
+│   └── AgentBlockExecutor (agentic loop: systemPrompt → multi-turn → tool calls)
+├── ToolBlockExecutor (script/CLI execution)
+├── ContextBlockExecutor (context management)
+├── CompositeBlockExecutor (workflow composition)
+├── DecisionBlockExecutor (conditional branching)
+├── PromptBlockExecutor (template resolution)
+├── TriggerBlockExecutor (event forwarding)
+└── ValidatorBlockExecutor (input validation)
+```
+
+### LLMBlockExecutorBase
+
+Abstract base class providing shared LLM plumbing for both inference and agent blocks:
+
+| Method | Purpose |
+|--------|---------|
+| `TryLoadMockResponse()` | Checks for `mock-response.json` in block path |
+| `ResolveModelId()` | Input override > config > null (use active model) |
+| `ResolveGenerationParams()` | `maxTokens` + `temperature` from config |
+| `ResolveTemplate()` | `{{key}}` placeholder resolution |
+| `ParseOutputs()` | Structured output extraction from LLM response |
+| `ExtractJson()` | JSON extraction from markdown/prose responses |
+
+**Principle**: The executor is mechanical plumbing. All content (prompts, tool descriptions, context strategy) lives in block config, never in C#.
+
+---
+
 ## Key Principles
 
 1. **Template-Driven**: All content from session variables, not code
@@ -329,6 +364,7 @@ The TUI Monitor auto-refreshes every 2 seconds, reading the latest variable valu
 3. **No Fallbacks**: Errors propagate clearly
 4. **Self-Describing**: Execution tree built from block config
 5. **Pattern-Based Dispatch**: Pragmatic approach, evolving to full BlockExecutor integration
+6. **Thin Executors**: LLM executors share a base class; all intelligence lives in block prompts
 
 ---
 

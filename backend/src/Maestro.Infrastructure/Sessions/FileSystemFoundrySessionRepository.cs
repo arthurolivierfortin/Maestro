@@ -569,6 +569,7 @@ public class FileSystemFoundrySessionRepository : IFoundrySessionRepository
         {
             SessionStatus.Created => ContainerSessionStatus.Created,
             SessionStatus.Running => ContainerSessionStatus.Active,
+            SessionStatus.Idle => ContainerSessionStatus.Active,
             SessionStatus.Paused => ContainerSessionStatus.Paused,
             SessionStatus.Completed => ContainerSessionStatus.Ended,
             SessionStatus.Failed => ContainerSessionStatus.Ended,

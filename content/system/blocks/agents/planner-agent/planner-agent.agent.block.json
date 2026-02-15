@@ -2,16 +2,16 @@
   "id": "planner-agent",
   "name": "Planner Agent",
   "blockType": "agent",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "isAtomic": false,
-  "description": "Analyzes a task and produces an execution plan. Reads the project structure, conventions, and relevant code to decompose a task into ordered subtasks. Each subtask has a clear action, target file, and expected outcome.",
+  "description": "Analyzes a task and produces an execution plan. Uses tools to read the project before planning.",
   "inputs": [
     {
       "id": "task",
       "name": "Task Description",
       "type": "string",
       "required": true,
-      "description": "Natural language task to plan (e.g., 'Add email validation to the registration form')"
+      "description": "Natural language task to plan"
     },
     {
       "id": "workingDir",
@@ -25,35 +25,32 @@
       "name": "Pre-built Context",
       "type": "string",
       "required": false,
-      "description": "Optional pre-built context from context-builder (saves one agent iteration)"
+      "description": "Optional pre-built context (saves one iteration)"
     }
   ],
   "outputs": [
     {
       "id": "success",
       "name": "Success",
-      "type": "boolean",
-      "description": "Whether planning completed"
+      "type": "boolean"
     },
     {
       "id": "plan",
       "name": "Plan",
-      "type": "object",
-      "description": "Execution plan with ordered subtasks"
+      "type": "object"
     },
     {
       "id": "summary",
       "name": "Summary",
-      "type": "string",
-      "description": "Brief summary of the plan"
+      "type": "string"
     }
   ],
   "config": {
-    "model": "HuggingFaceTB/SmolLM2-1.7B-Instruct",
+    "model": "Qwen/Qwen2.5-Coder-1.5B-Instruct",
     "maxIterations": 6,
     "maxTokens": 512,
-    "temperature": 0.2,
-    "systemPrompt": "You are a planner. You analyze a coding task and produce a plan. Output ONLY JSON.\n\nTools:\n- Read project: {\"tool\":\"maestro_cli\",\"args\":{\"command\":\"run convention-reader --input workingDir=<path>\"}}\n- Analyze file: {\"tool\":\"maestro_cli\",\"args\":{\"command\":\"run code-analyzer --input workingDir=<path> --input filePath=<file>\"}}\n- Build context: {\"tool\":\"maestro_cli\",\"args\":{\"command\":\"run context-builder --input workingDir=<path> --input task=<task>\"}}\n- List files: {\"tool\":\"maestro_cli\",\"args\":{\"command\":\"run directory-list --input path=<path>\"}}\n- Read file: {\"tool\":\"maestro_cli\",\"args\":{\"command\":\"run file-read --input path=<path>\"}}\n- Done: {\"tool\":\"done\",\"args\":{\"summary\":\"Plan: ...\",\"plan\":{\"subtasks\":[{\"id\":1,\"action\":\"create|modify|delete\",\"target\":\"path/to/file\",\"description\":\"what to do\"}]}}}\n\nWorkflow:\n1. Read project conventions (convention-reader)\n2. Build context for the task (context-builder)\n3. Analyze relevant files (code-analyzer)\n4. Call done with the plan\n\nRules:\n- Each subtask must be a single, atomic action (one file)\n- Order subtasks by dependency (create before import)\n- Include file paths relative to project root\n- Maximum 10 subtasks per plan",
+    "temperature": 0.1,
+    "systemPrompt": "You are a PLANNER. You ONLY make plans. You NEVER write files or run code.\n\nOutput exactly ONE JSON object per response.\n\nStep 1 - Read the project:\n{\"tool\":\"maestro_cli\",\"args\":{\"command\":\"run convention-reader --input workingDir=PATH\"}}\n\nStep 2 - Output the plan (each subtask MUST have a detailed description with types, functions, and field names):\n{\"tool\":\"done\",\"args\":{\"summary\":\"short description\",\"plan\":{\"subtasks\":[{\"id\":1,\"action\":\"create\",\"target\":\"file/path.ts\",\"description\":\"DETAILED: what interfaces, functions, fields to create\"}]}}}\n\nExample:\nUser: Plan adding a file tree module with types and implementation\nAssistant: {\"tool\":\"maestro_cli\",\"args\":{\"command\":\"run convention-reader --input workingDir=C:/project\"}}\nUser: Tool result for maestro_cli: {\"conventions\":\"TypeScript, ESM...\"}\nAssistant: {\"tool\":\"done\",\"args\":{\"summary\":\"Add file tree module\",\"plan\":{\"subtasks\":[{\"id\":1,\"action\":\"create\",\"target\":\"src/types.ts\",\"description\":\"Create FileNode interface with fields: name (string), path (string), isDirectory (boolean), children (FileNode[]). Create TreeOptions interface with fields: rootPath (string), maxDepth (number)\"},{\"id\":2,\"action\":\"create\",\"target\":\"src/file-tree.ts\",\"description\":\"Create buildTree(options: TreeOptions): FileNode function using fs.readdirSync. Create printTree(node: FileNode, indent: string): string function for display\"}]}}}\n\nRules:\n- NEVER call file-write. You only READ and PLAN.\n- ALWAYS call convention-reader first.\n- ALWAYS end with done.\n- Each subtask description MUST list specific interfaces, functions, fields, and types.",
     "tools": ["convention-reader", "code-analyzer", "context-builder", "directory-list", "file-read"]
   },
   "metadata": {

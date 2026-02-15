@@ -725,8 +725,19 @@ public class ToolBlockExecutor : IBlockExecutor
         var mode = inputs.TryGetValue("mode", out var modeObj) ? modeObj?.ToString() : "overwrite";
         var createDirs = !inputs.TryGetValue("createDirectories", out var cdObj) || cdObj is not bool cdBool || cdBool;
 
-        // Get content to write
-        if (!inputs.TryGetValue("content", out var contentObj) || contentObj is not string content)
+        // Get content to write (may be string or JsonElement from --input-json)
+        string? content = null;
+        if (inputs.TryGetValue("content", out var contentObj))
+        {
+            if (contentObj is string s)
+                content = s;
+            else if (contentObj is System.Text.Json.JsonElement je && je.ValueKind == System.Text.Json.JsonValueKind.String)
+                content = je.GetString();
+            else if (contentObj != null)
+                content = contentObj.ToString();
+        }
+
+        if (content == null)
         {
             logs.Add("Missing required input: content");
             resultOutputs["success"] = false;

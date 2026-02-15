@@ -88,6 +88,10 @@ public class ApiKeyAuthMiddleware
         context.Items["ApiKeyScope"] = result.Scope;
         context.Items["ApiKeySessionId"] = result.SessionId;
 
+        // Phase 20: Enriched audit logging for authenticated requests
+        _logger.LogDebug("Authenticated request: {Method} {Path} by {KeyName} (scope={Scope}, session={SessionId})",
+            context.Request.Method, path, result.Name, result.Scope, result.SessionId ?? "none");
+
         await _next(context);
     }
 

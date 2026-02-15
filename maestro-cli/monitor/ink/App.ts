@@ -62,15 +62,17 @@ interface PageNavEntry {
 interface AppProps {
   initialSessionId: string | null;
   apiClient: IApiClient;
+  initialDetailType?: 'session' | 'workspace';
 }
 
 // ── Root App Component ─────────────────────────────────────────
 
-const App = ({ initialSessionId, apiClient }: AppProps) => {
+const App = ({ initialSessionId, apiClient, initialDetailType }: AppProps) => {
   const { exit } = useApp();
   const [navStack, setNavStack] = useState<(NavStackEntry | PageNavEntry)[]>([]);
+  const detailType = initialDetailType || 'session';
   const [detailView, setDetailView] = useState<DetailView | null>(
-    initialSessionId ? { type: 'session', id: initialSessionId } : null
+    initialSessionId ? { type: detailType, id: initialSessionId } : null
   );
   const [currentPage, setCurrentPage] = useState<PageName>(initialSessionId ? 'spaces' : 'home');
   const [restoredState, setRestoredState] = useState<any>(null);
@@ -220,8 +222,10 @@ async function startInkMonitor(sessionId: string | null, apiClient: IApiClient, 
 
   setTerminalBg(palette.bg);
 
+  const detailType = (options.detailType as 'session' | 'workspace') || undefined;
+
   const instance = render(
-    h(App, { initialSessionId: sessionId, apiClient }),
+    h(App, { initialSessionId: sessionId, apiClient, initialDetailType: detailType }),
     { exitOnCtrlC: true }
   );
 

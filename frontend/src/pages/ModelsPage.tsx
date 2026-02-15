@@ -9,7 +9,7 @@ import './ModelsPage.scss';
 
 export default function ModelsPage() {
   return (
-    <div className="models-page">
+    <div className="models-page page-enter">
       <ModelsPanel />
     </div>
   );

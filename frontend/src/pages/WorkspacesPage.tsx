@@ -9,6 +9,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useWorkspaceStore } from '../store/workspaceStore';
+import { Badge, StatusIndicator, LoadingState, ErrorState, EmptyState as UiEmptyState } from '@components/ui';
 import type { WorkspaceStatus, CreateWorkspaceRequest } from '../types/workspace.types';
 import './WorkspacesPage.scss';
 
@@ -184,6 +185,13 @@ interface WorkspaceRowProps {
   onDelete: () => void;
 }
 
+const wsStatusToIndicator = (status: WorkspaceStatus) => {
+  const map: Record<WorkspaceStatus, 'success' | 'warning' | 'pending'> = {
+    Active: 'success', Paused: 'warning', Archived: 'pending',
+  };
+  return map[status] || 'pending';
+};
+
 const WorkspaceRow: React.FC<WorkspaceRowProps> = ({
   workspace,
   onOpen,
@@ -192,37 +200,33 @@ const WorkspaceRow: React.FC<WorkspaceRowProps> = ({
   onArchive,
   onDelete,
 }) => {
-  const statusIcon = {
-    Active: '🟢',
-    Paused: '🟡',
-    Archived: '🔵'
-  }[workspace.status] || '⚪';
-
   const formatDate = (dateStr: string) => {
     return new Date(dateStr).toLocaleDateString();
   };
 
   return (
     <div className="workspace-row">
-      <div className="workspace-row__icon">📦</div>
+      <div className="workspace-row__icon">
+        <StatusIndicator status={wsStatusToIndicator(workspace.status)} size="md" />
+      </div>
 
       <div className="workspace-row__content" onClick={onOpen}>
         <div className="workspace-row__header">
           <span className="workspace-row__name">{workspace.name}</span>
-          <span className="workspace-row__type">{workspace.type}</span>
+          <Badge variant="muted" size="sm">{workspace.type}</Badge>
         </div>
         <div className="workspace-row__meta">
-          <span className="workspace-row__status">
-            {statusIcon} {workspace.status}
-          </span>
+          <Badge variant={workspace.status === 'Active' ? 'success' : 'muted'} size="sm">
+            {workspace.status}
+          </Badge>
           <span className="workspace-row__sessions">
-            Sessions: {workspace.sessionIds.length}
+            {workspace.sessionIds.length} sessions
           </span>
           <span className="workspace-row__projects">
-            Projects: {workspace.projectIds.length}
+            {workspace.projectIds.length} projects
           </span>
           <span className="workspace-row__date">
-            Created: {formatDate(workspace.createdAt)}
+            {formatDate(workspace.createdAt)}
           </span>
         </div>
         {workspace.description && (
@@ -231,7 +235,7 @@ const WorkspaceRow: React.FC<WorkspaceRowProps> = ({
         {workspace.settings.tags.length > 0 && (
           <div className="workspace-row__tags">
             {workspace.settings.tags.map(tag => (
-              <span key={tag} className="tag">{tag}</span>
+              <Badge key={tag} variant="default" size="sm">{tag}</Badge>
             ))}
           </div>
         )}
@@ -243,37 +247,35 @@ const WorkspaceRow: React.FC<WorkspaceRowProps> = ({
         </button>
         {workspace.status === 'Active' && (
           <button className="btn btn-secondary btn-sm" onClick={onPause} title="Pause">
-            ⏸️
+            &#9208;
           </button>
         )}
         {workspace.status === 'Paused' && (
           <button className="btn btn-secondary btn-sm" onClick={onResume} title="Resume">
-            ▶️
+            &#9654;
           </button>
         )}
         {workspace.status !== 'Archived' && (
           <button className="btn btn-secondary btn-sm" onClick={onArchive} title="Archive">
-            📥
+            &#128229;
           </button>
         )}
         <button className="btn btn-danger btn-sm" onClick={onDelete} title="Delete">
-          🗑️
+          &#128465;
         </button>
       </div>
     </div>
   );
 };
 
-// Empty State Component
-const EmptyState: React.FC<{ onCreate: () => void }> = ({ onCreate }) => (
-  <div className="workspaces-empty">
-    <div className="workspaces-empty__icon">📦</div>
-    <h3>No workspaces found</h3>
-    <p>Create your first workspace to get started</p>
-    <button className="btn btn-primary" onClick={onCreate}>
-      Create Workspace
-    </button>
-  </div>
+// Empty State wraps the shared component
+const WorkspaceEmptyState: React.FC<{ onCreate: () => void }> = ({ onCreate }) => (
+  <UiEmptyState
+    title="No workspaces found"
+    message="Create your first workspace to organize blocks and sessions."
+    onAction={onCreate}
+    actionLabel="Create Workspace"
+  />
 );
 
 // ============= Main Component =============
@@ -333,7 +335,7 @@ export function WorkspacesPage() {
   };
 
   return (
-    <div className="workspaces-page">
+    <div className="workspaces-page page-enter">
       {/* Header */}
       <header className="workspaces-page__header">
         <div className="workspaces-page__title">
@@ -381,16 +383,16 @@ export function WorkspacesPage() {
       {/* Error */}
       {error && (
         <div className="workspaces-page__error">
-          <span>Error: {error}</span>
+          <ErrorState message="Failed to load workspaces" detail={error} onRetry={loadWorkspaces} />
         </div>
       )}
 
       {/* Content */}
       <div className="workspaces-page__content">
         {isLoading ? (
-          <div className="workspaces-loading">Loading workspaces...</div>
+          <LoadingState message="Loading workspaces..." lines={4} />
         ) : filtered.length === 0 ? (
-          <EmptyState onCreate={() => setShowCreateModal(true)} />
+          <WorkspaceEmptyState onCreate={() => setShowCreateModal(true)} />
         ) : (
           <div className="workspaces-list">
             {filtered.map(workspace => (

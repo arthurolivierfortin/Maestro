@@ -402,7 +402,7 @@ public class FileSystemProjectSessionRepository : IProjectSessionRepository
                 Pushed = session.CommitInfo.Pushed,
                 CreatedAt = session.CommitInfo.CreatedAt
             } : null,
-            Variables = session.Variables.Count > 0 ? new Dictionary<string, object>(session.Variables) : null,
+            Variables = session.Variables.Count > 0 ? SerializeVariables(session.Variables) : null,
             EntryPoints = session.EntryPoints.Count > 0 ? new Dictionary<string, string>(session.EntryPoints) : null,
             MonitorWidgets = session.MonitorWidgets.Count > 0 ? session.MonitorWidgets.Select(w => new MonitorWidgetJsonDto
             {
@@ -536,13 +536,22 @@ public class FileSystemProjectSessionRepository : IProjectSessionRepository
             CreatedAt = dto.CommitInfo.CreatedAt
         } : null;
 
-        // Restore variables (handle JsonElement conversion)
+        // Restore variables (convert JsonNode back to native CLR types)
         var variables = new Dictionary<string, object>();
         if (dto.Variables != null)
         {
             foreach (var kvp in dto.Variables)
             {
-                variables[kvp.Key] = ConvertJsonElement(kvp.Value);
+                if (kvp.Value != null)
+                {
+                    // JsonNode → JsonElement → native type via ConvertJsonElement
+                    var element = kvp.Value.Deserialize<JsonElement>();
+                    variables[kvp.Key] = ConvertJsonElement(element);
+                }
+                else
+                {
+                    variables[kvp.Key] = string.Empty;
+                }
             }
         }
 
@@ -624,6 +633,82 @@ public class FileSystemProjectSessionRepository : IProjectSessionRepository
     }
 
     /// <summary>
+    /// Converts all variable values to JsonNode for reliable serialization.
+    /// System.Text.Json cannot properly serialize Dictionary&lt;string, object&gt; when
+    /// values are List&lt;object&gt; or Dictionary&lt;string, object&gt; at runtime.
+    /// We manually build JsonNode trees which serialize correctly.
+    /// </summary>
+    private static Dictionary<string, System.Text.Json.Nodes.JsonNode?> SerializeVariables(Dictionary<string, object> variables)
+    {
+        var result = new Dictionary<string, System.Text.Json.Nodes.JsonNode?>(variables.Count);
+        foreach (var kvp in variables)
+        {
+            result[kvp.Key] = ObjectToJsonNode(kvp.Value);
+        }
+        return result;
+    }
+
+    /// <summary>
+    /// Recursively converts any object to a JsonNode, handling all runtime types.
+    /// </summary>
+    private static System.Text.Json.Nodes.JsonNode? ObjectToJsonNode(object? value)
+    {
+        if (value == null) return null;
+
+        if (value is JsonElement element)
+        {
+            return System.Text.Json.Nodes.JsonNode.Parse(element.GetRawText());
+        }
+
+        // Newtonsoft.Json types (from .AddNewtonsoftJson() in Program.cs)
+        if (value is Newtonsoft.Json.Linq.JToken jToken)
+        {
+            return System.Text.Json.Nodes.JsonNode.Parse(jToken.ToString(Newtonsoft.Json.Formatting.None));
+        }
+
+        if (value is string s) return System.Text.Json.Nodes.JsonValue.Create(s);
+        if (value is bool b) return System.Text.Json.Nodes.JsonValue.Create(b);
+        if (value is int i) return System.Text.Json.Nodes.JsonValue.Create(i);
+        if (value is long l) return System.Text.Json.Nodes.JsonValue.Create(l);
+        if (value is double d) return System.Text.Json.Nodes.JsonValue.Create(d);
+        if (value is float f) return System.Text.Json.Nodes.JsonValue.Create(f);
+        if (value is decimal dec) return System.Text.Json.Nodes.JsonValue.Create(dec);
+
+        if (value is IDictionary<string, object> dict)
+        {
+            var obj = new System.Text.Json.Nodes.JsonObject();
+            foreach (var kv in dict)
+            {
+                obj[kv.Key] = ObjectToJsonNode(kv.Value);
+            }
+            return obj;
+        }
+
+        if (value is IList<object> list)
+        {
+            var arr = new System.Text.Json.Nodes.JsonArray();
+            foreach (var item in list)
+            {
+                arr.Add(ObjectToJsonNode(item));
+            }
+            return arr;
+        }
+
+        if (value is IEnumerable<object> enumerable)
+        {
+            var arr = new System.Text.Json.Nodes.JsonArray();
+            foreach (var item in enumerable)
+            {
+                arr.Add(ObjectToJsonNode(item));
+            }
+            return arr;
+        }
+
+        // Fallback: convert ToString
+        return System.Text.Json.Nodes.JsonValue.Create(value.ToString() ?? "");
+    }
+
+    /// <summary>
     /// Converts JsonElement to appropriate CLR types.
     /// </summary>
     private static object ConvertJsonElement(object value)
@@ -651,6 +736,7 @@ public class FileSystemProjectSessionRepository : IProjectSessionRepository
         {
             SessionStatus.Created => ContainerSessionStatus.Created,
             SessionStatus.Running => ContainerSessionStatus.Active,
+            SessionStatus.Idle => ContainerSessionStatus.Active,
             SessionStatus.Paused => ContainerSessionStatus.Paused,
             SessionStatus.Completed => ContainerSessionStatus.Ended,
             SessionStatus.Failed => ContainerSessionStatus.Ended,
@@ -695,7 +781,7 @@ public class FileSystemProjectSessionRepository : IProjectSessionRepository
         public TestResultJsonDto? TestResult { get; set; }
         public LinterResultJsonDto? LinterResult { get; set; }
         public CommitInfoJsonDto? CommitInfo { get; set; }
-        public Dictionary<string, object>? Variables { get; set; }
+        public Dictionary<string, System.Text.Json.Nodes.JsonNode?>? Variables { get; set; }
         public Dictionary<string, string>? EntryPoints { get; set; }
         public List<MonitorWidgetJsonDto>? MonitorWidgets { get; set; }
         // Session-level configuration (from ContainerSession)

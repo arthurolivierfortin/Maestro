@@ -2,6 +2,93 @@
 
 This document establishes the philosophy, architecture principles, and development practices for the Maestro project.
 
+## Communication Style
+
+**Be critical and honest.** When something in the codebase is poorly designed, badly documented, inconsistent, or missing — say so directly. Don't sugarcoat problems or avoid pointing out gaps. If a guide exists but isn't referenced, say it. If the architecture says one thing but the code does another, flag it. The user values honest assessment over diplomatic silence.
+
+When asked for an opinion, give a real one with reasoning. Don't hedge with "it depends" unless it genuinely does. If there are tradeoffs, name them concretely.
+
+## Block Development Workflow (MANDATORY)
+
+> **This is the canonical workflow for creating blocks. Skipping steps = broken traceability.**
+
+**Read the full pipeline guide:** `docs/guides/users/full-pipeline.md`
+
+### The Flow
+
+```
+1. WORKSPACE    →  Create/use a workspace bound to a repo
+2. FOUNDRY      →  Create a foundry session per block to develop/train
+3. TEST         →  Measure fitness, iterate (change prompts, models, architecture)
+4. PUBLISH      →  When fitness >= threshold, publish the block
+5. PROJECT      →  Use published blocks in a project session for real work
+```
+
+### Rules
+
+- **Always work inside a workspace.** Never create blocks "loose" in `content/system/blocks/` without a workspace context for traceability.
+- **One foundry session per block.** Each block gets its own session for development and training.
+- **Test multiple models.** If one model fails (SmolLM2 doesn't follow format), try at least 2 others before concluding the block doesn't work.
+- **Never stop at the first obstacle.** If a prompt fails, reformulate it. If a model fails, switch models. If infrastructure breaks, fix it. The only valid reason to stop is a fundamental technical impossibility (GPU crash, API permanently down).
+- **Publish before using in production.** Don't use untested blocks in project sessions.
+
+### Reference Guides
+
+| Guide | Content |
+|-------|---------|
+| `docs/guides/users/full-pipeline.md` | **Complete end-to-end workflow** — Foundry → Publish → Project |
+| `docs/guides/users/foundry-sessions.md` | Foundry session templates, entry points, variables, approval system |
+| `docs/guides/users/foundry-detailed.md` | Advanced foundry features |
+| `docs/guides/users/project-sessions.md` | Project session usage |
+| `docs/guides/ai-agents/creating-blocks.md` | Block JSON structure, types, registration |
+
+## Developing Maestro vs Using Maestro (CRITICAL DISTINCTION)
+
+> **Maestro is the app we are building. Sessions are for using Maestro on target projects.**
+
+- **Developing Maestro** = modifying C# backend, CLI code, TUI components, block definitions. This is normal software development — edit files, build, test. NO session needed.
+- **Using Maestro** = running agents/workflows on a target project (e.g., Cantante) via sessions. This REQUIRES a workspace, a session with a meaningful name, and the monitor.
+
+**NEVER create a session to "test" Maestro infrastructure.** To verify backend fixes, use `curl` or API calls directly. Sessions are for real work on real projects.
+
+## Session & Workspace Rules (MANDATORY)
+
+### Session Creation Checklist
+
+Every session MUST follow this exact procedure:
+
+```powershell
+# 1. Identify or create the workspace
+node index.js workspace info <workspace-id>
+
+# 2. Create the session WITH a meaningful feature name (not "test" or "fix")
+node index.js session create --type project --name "<Project> - <Feature>" --repo "<path>" --template <template> --start
+
+# 3. IMMEDIATELY add to workspace (no --workspace flag exists yet on session create)
+node index.js workspace add-session <workspace-id> <session-id>
+
+# 4. Launch the monitor BEFORE any invoke
+powershell.exe -Command "Start-Process powershell -ArgumentList '-NoExit','-Command','cd C:\Meastro\maestro-cli; node index.js monitor <session-id>'"
+
+# 5. THEN invoke entry points
+node index.js session invoke <session-id> <entry-point> --input key=value
+```
+
+### Naming Rules
+
+- Session names MUST describe the work being done on the target project: `"Cantante - File Tree Module"`, `"Cantante - Accessibility TTS"`
+- NEVER use infrastructure/test names: ~~"Monitor Fix Test"~~, ~~"Agent Test"~~, ~~"Debug Session"~~
+
+### Monitor
+
+The TUI monitor MUST be running before any `session invoke`. Use `Start-Process` to open a new terminal window:
+
+```powershell
+powershell.exe -Command "Start-Process powershell -ArgumentList '-NoExit','-Command','cd C:\Meastro\maestro-cli; node index.js monitor <session-id>'"
+```
+
+Reference: `docs/phases/PHASE-26/PIPELINE-MONITORING-GUIDE.md`
+
 ## Maestro Core Philosophy
 
 **Read the full philosophy documents before making architectural decisions:**
@@ -21,6 +108,49 @@ This document establishes the philosophy, architecture principles, and developme
 - **One API**: `/api/blocks` with filters (`?type=agent`, `?designation=tool`)
 
 See: `docs/phases/PHASE-18/ADR-BLOCKS-ARE-THE-UNIVERSAL-UNIT.md`
+
+#### Agent = Inference Block (CRITICAL — Read This)
+
+> *"An agent is an inference block whose prompt describes available tools. The executor is mechanical plumbing — all intelligence lives in the block's prompt."*
+
+Agent and inference blocks share a base executor class (`LLMBlockExecutorBase`) that provides common LLM plumbing: mock loading, model resolution, template resolution, output parsing, JSON extraction.
+
+- `InferenceBlockExecutor` — thin: template → single LLM call → response
+- `AgentBlockExecutor` — thin: systemPrompt → multi-turn agentic loop → tool calls via CLI → response
+
+Both are **mechanical plumbing**. All content (system prompts, tool descriptions, context strategy) comes from block config/files — never from C#.
+
+**What this means concretely:**
+
+| WRONG | RIGHT |
+|-------|-------|
+| Hardcoded tool lists in C# (`var availableTools = new List<string> { ... }`) | Tools described in the block's `system-prompt.md` or `config.systemPrompt` |
+| `tools.json` file loaded by special handler | Available tools listed in the prompt text, like any prompt template |
+| Default system prompt built in C# | System prompt MUST exist in block config/file — if missing, error (no fallback) |
+| Separate `AgentDefinition` / `ToolDefinition` entities | One entity: `BlockDefinition` with `metadata.designation` |
+| Separate `AgentMetrics` / `ToolMetrics` classes | One metrics system on `BlockDefinition` |
+| Content-specific logic in executor code | Executor is mechanical: load prompt, call LLM, parse tool calls, loop |
+
+**Tool availability comes from the prompt**, not from code:
+```markdown
+# system-prompt.md for an agent block
+You have ONE tool: maestro_cli. Use it to interact with the system.
+Available commands:
+- Run a block: {"tool":"maestro_cli","args":{"command":"run <block-id> --input key=value"}}
+- Read a file: {"tool":"maestro_cli","args":{"command":"run file-read --input path=<path>"}}
+...
+```
+
+**Executor class hierarchy:**
+```
+LLMBlockExecutorBase (abstract — shared LLM plumbing)
+├── InferenceBlockExecutor (single call)
+└── AgentBlockExecutor (agentic loop, no hardcoded content)
+```
+
+**Litmus test**: Can you create a new agent by writing ONLY a `.block.json` file with a `system-prompt.md`? If yes, correct. If you need to modify C# executor code — the architecture is violated.
+
+ADR: `docs/phases/PHASE-26/REFACTORING-AGENT-INFERENCE-MERGE.md`
 
 ### The Cardinal Rule: Generic Infrastructure, Specific Content
 
@@ -90,6 +220,7 @@ The infrastructure reads these — it NEVER creates them. If a variable is missi
 - A tool can internally contain workflows, agents, validators — its complexity is invisible to callers
 - Conditions, loops, and parallelism are BLOCKS, not arrows (tree structure, not graph)
 - Even system agents are blocks with the same interface, metrics, and fitness tracking
+- **An agent IS an inference block** — same executor, same interface. The agent's tools are described in its prompt, not in special config or code. See the "Agent = Inference Block" section above for the full rule.
 
 ### Specialization over Generality
 
@@ -121,6 +252,9 @@ docs/
 | Document | When to read |
 |----------|-------------|
 | `docs/system/README.md` | First — system overview, cardinal rules |
+| `docs/guides/users/full-pipeline.md` | **Before creating ANY block** — the mandatory workflow |
+| `docs/guides/users/foundry-sessions.md` | Before working with foundry sessions |
+| `docs/guides/ai-agents/creating-blocks.md` | Before writing block JSON |
 | `docs/system/architecture/sessions.md` | Before ANY session/infrastructure work |
 | `docs/system/architecture/blocks.md` | Before block/workflow work |
 | `docs/system/architecture/execution.md` | Before execution engine work |
@@ -199,6 +333,17 @@ node index.js execute <block-id>  # Execute a block
    - `cd backend && dotnet build`
    - If processes lock DLLs: `taskkill /F /IM Maestro.Api.exe`
 
+4. **Verify API behavior for session/variable changes**
+   - After fixing serialization: `curl` the API endpoint and check the response JSON
+   - After fixing session lifecycle: create a session, start it, check `session info` shows correct status
+   - After template import: verify `_phases` and `_monitorDescriptor` are proper objects (not nested arrays)
+   - **Never claim "it's fixed" based on build success alone** — always verify the actual user-facing behavior
+
+5. **Verify monitor rendering for TUI changes**
+   - Start the monitor, check that phases show names and correct statuses
+   - Invoke an entry point and verify the execution tree updates
+   - If you can't see the TUI, verify the API responses the monitor depends on
+
 ## Architecture Guidelines
 
 ### Frontend (React + TypeScript)
@@ -269,7 +414,67 @@ When adding properties to domain entities:
 3. Update `FromDomain` method to map the property
 4. Update file loaders to read the property from JSON
 
+## TUI Monitor Architecture
+
+### How the Monitor Works
+
+The TUI monitor (`node index.js monitor <session-id>`) polls `GET /api/sessions/{id}` every 2 seconds and renders session state.
+
+**Critical**: The API requires **full UUIDs**, not short ID prefixes. The CLI resolves short IDs to full UUIDs before calling the API, but the monitor's internal API client does NOT — it passes the ID as-is. If the monitor receives a short ID, it will get 404.
+
+### Monitor Data Dependencies
+
+The monitor reads these session variables. **If they're malformed, the monitor breaks silently.**
+
+| Variable | Expected Format | What Breaks If Wrong |
+|----------|----------------|---------------------|
+| `_phases` | `[{id: string, name: string, status: string, description?: string}, ...]` | Phases show as white/unnamed, wrong expand behavior |
+| `_monitorDescriptor` | `{layout: {mode: string, zones: {...}}, components: [...]}` | Monitor layout collapses, shows nothing |
+| `_executionTree` | `[{id, name, status, children: [], output?}, ...]` | Execution tree empty |
+| `_executionLog` | `[{time, level, msg}, ...]` | Log panel empty |
+| `_llmActivity` | `[{nodeId, time, duration, promptPreview, responsePreview}, ...]` | LLM panel empty |
+
+### Verifying Monitor Health
+
+After setting variables or invoking entry points, **always verify the data is correct**:
+
+```bash
+# Verify _phases is an array of objects with id/name/status
+curl -s http://localhost:5000/api/sessions/<FULL-UUID>/variables/_phases | python -m json.tool
+
+# Verify _monitorDescriptor has layout.mode and components
+curl -s http://localhost:5000/api/sessions/<FULL-UUID>/variables/_monitorDescriptor | python -m json.tool
+
+# Check the full session response that the monitor sees
+curl -s http://localhost:5000/api/sessions/<FULL-UUID> | python -m json.tool | head -50
+```
+
+If `_phases` shows nested empty arrays like `[[[[]],...]...]` instead of objects, the **JsonElement serialization bug** has struck (see pitfall below).
+
+### Session Invoke vs Run
+
+- `node index.js run <block-id>` — Direct block execution. **No session context, no monitoring.** Results only in CLI output.
+- `node index.js session invoke <id> <entry-point>` — Executes through the session. Updates `_executionTree`, `_executionLog`, `_llmActivity`. **The monitor can see it.**
+
+Entry points map to block IDs. The `EntryPointExecutor` dispatches based on block type:
+- **Workflow block** → walks `config.nodes`, each node appears in `_executionTree`
+- **Agent block** → runs the agent loop, appears as a single node in `_executionTree`
+- **Block without config.nodes** → executes as a "passthrough" (does nothing useful)
+
+**Rule**: For the monitor to show meaningful data, always use `session invoke`, never `run`.
+
 ## Common Pitfalls
+
+### JsonElement corruption in session variables (CRITICAL)
+**Cause**: When the API receives session variables via `PUT /api/sessions/{id}/variables/{key}`, the `SetVariableRequest.Value` (type `object`) is deserialized by `System.Text.Json` as a `JsonElement`, not as native types. When the session is later serialized to disk, `JsonElement` values inside `Dictionary<string, object>` get corrupted — objects become nested empty arrays.
+**Symptoms**: `_phases` shows as `[[[[]],[[]],...]...]` instead of `[{id:"plan",name:"Planning",...},...]`. Monitor shows phases without names. `_monitorDescriptor` layout is broken.
+**Fix**: The `SetVariable` action in `SessionsController.cs` must normalize `JsonElement` to native types using `NormalizeObjectValue()` before storing. This converts `JsonElement.Object` → `Dictionary<string, object>`, `JsonElement.Array` → `List<object>`, `JsonElement.String` → `string`, etc.
+**Verification**: After setting a variable, `curl` the API to verify the response contains proper JSON objects, not nested arrays.
+**Location**: `SessionsController.cs` → `SetVariable()`, `FileSystemProjectSessionRepository.cs` → `SerializeSession()`, `FileSystemFoundrySessionRepository.cs` → `SerializeSession()`
+
+### Session status "created" after start (Idle deserialization bug)
+**Cause**: `Session.GetSessionStatus()` returns `SessionStatus.Idle` for active sessions with no running workflow. The file repository serializes this as `"status": "idle"`. On deserialization, `MapSessionStatusToContainerStatus()` has no mapping for `SessionStatus.Idle`, so it defaults to `ContainerSessionStatus.Created`.
+**Fix**: Add `SessionStatus.Idle => ContainerSessionStatus.Active` in both `FileSystemProjectSessionRepository.cs` and `FileSystemFoundrySessionRepository.cs`.
 
 ### All blocks showing as "composite"
 **Cause**: `isAtomic` property missing from `BlockDto`
@@ -311,6 +516,26 @@ When adding properties to domain entities:
 ### Proposing session-specific CLI commands
 **Cause**: Suggesting commands like `session reset-phases` or `session restart-workflow` that only make sense for one session type
 **Fix**: Use generic operations: `session set-var <id> <key> <value>` to reset any variable. The CLI operates on generic abstractions (sessions, variables, blocks, entry points), never on session-specific concepts (phases, fitness, iterations).
+
+### Treating agents as special entities
+**Cause**: Creating separate entities, metrics classes, or hardcoding content in executor code for agents — treating them as fundamentally different from inference blocks.
+**Examples of violations to watch for**:
+- Hardcoded tool lists (`var availableTools = new List<string> { ... }`) in C#
+- Default system prompt built in C# instead of block config
+- `tools.json` file loaded by handler
+- Separate `AgentDefinition` / `ToolDefinition` entities alongside `BlockDefinition`
+**Fix**: Agent and inference share `LLMBlockExecutorBase`. Both executors are thin and mechanical. All content (system prompts, tools) lives in block config/files. One entity (`BlockDefinition`), one metrics system. The `LegacyToolMapping` is marked `[Obsolete]` for backwards compat.
+**ADRs**: `docs/phases/PHASE-18/ADR-BLOCKS-ARE-THE-UNIVERSAL-UNIT.md`, `docs/phases/PHASE-26/REFACTORING-AGENT-INFERENCE-MERGE.md`
+**Current state**: Refactoring COMPLETED (Phase 26). `AgentDefinition` and `ToolDefinition` deleted. Executors are thin. No hardcoded content.
+
+### Creating blocks outside the workspace/foundry workflow
+**Cause**: Writing block JSON files directly into `content/system/blocks/` without a workspace or foundry session, because it's faster
+**Fix**: Always follow the canonical workflow: create a workspace → create a foundry session → develop/test the block → publish when fitness is good → use in project session. See `docs/guides/users/full-pipeline.md`.
+**Why**: Without the workflow, there's no traceability. The user can't see what was done, what was tested, or what fitness was achieved. Blocks created "loose" are invisible to the session/workspace system.
+
+### Stopping at the first obstacle instead of iterating
+**Cause**: A model doesn't follow instructions, a prompt doesn't work, or infrastructure has a bug — and the response is to note "next steps" instead of fixing it
+**Fix**: Iterate. If SmolLM2 fails, try Qwen2.5-Coder. If the prompt is bad, rewrite it. If infrastructure is broken, fix the code. Only stop for fundamental technical impossibilities. "Prochaine etape" is not a deliverable.
 
 ### Shell commands fail on Windows
 **Cause**: Unix commands like `mkdir -p` don't work on Windows cmd

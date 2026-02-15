@@ -101,6 +101,31 @@ agent block:      prompt → [workflow: reasoning → tool discovery → executi
 
 Tools are **discovered dynamically** by the agent's internal inference block, not declared statically. The discovery scope comes from the session/workspace, not from the agent definition.
 
+#### How agents work (CRITICAL)
+
+Agent and inference blocks share a base executor class (`LLMBlockExecutorBase`) that provides common LLM plumbing: mock loading, model resolution, template resolution, output parsing, and JSON extraction.
+
+- `InferenceBlockExecutor` handles single LLM calls (template → call → response)
+- `AgentBlockExecutor` handles the agentic loop (systemPrompt → multi-turn → tool calls → response)
+
+Both are **thin and mechanical**. All content (system prompts, tool descriptions, context strategy) comes from block config — never from C#.
+
+How the agentic loop works:
+
+1. The block's **system prompt describes available tools** in text (like any prompt template)
+2. The executor sends the prompt to the LLM
+3. If the LLM response contains a tool call JSON, the executor runs it via `maestro-cli` (CLI-First)
+4. The tool result is fed back as a new message, and the executor loops
+5. When the LLM signals "done", the executor returns the final output
+
+**The executor is mechanical plumbing. All intelligence lives in the block's prompt.**
+
+**There is no `tools.json` file.** Tool descriptions live in the system prompt text. The agent uses `maestro_cli` as its single tool — through which it can run any block, read files, execute commands, etc.
+
+**There is no hardcoded tool list or default system prompt in C#.** If `config.systemPrompt` or `system-prompt.md` is missing, the agent errors — no fallback content is invented.
+
+**Litmus test**: Can you create a new agent by writing ONLY a `.block.json` with a `system-prompt.md`? If yes, the architecture is correct. If you need to modify executor code — it's violated.
+
 ### Workflow: Orchestration Interface
 
 A **workflow** orchestrates execution of multiple blocks in defined order.
@@ -251,11 +276,13 @@ Files per type:
 |------|-----------|
 | Prompt | `template.md` or `config.templateFile` |
 | Tool | `script.sh`, `schema.json` |
-| Agent | `system-prompt.md`, `tools.json` |
+| Agent | `system-prompt.md` (tools described IN the prompt, no separate tools file) |
 | Workflow | `nodes.json`, `connections.json` |
 | Inference | `prompts/`, `output-schema.json` |
 | Decision | `condition.txt` |
 | Validator | `schema.json` |
+
+**Note**: Agents do NOT have a `tools.json` file. Available tools are described in the system prompt text. The agent uses `maestro_cli` as its single tool to access all Maestro capabilities. See "How agents work" section above.
 
 See `docs/schemas/block.schema.json` for the authoritative JSON Schema.
 
@@ -280,13 +307,14 @@ Metrics are a property of **execution**, not of type. A simple inference block t
 ## Key Takeaways
 
 1. **Type = Interface**: Block types define how to use them, not what they contain
-2. **Agent = Enriched Inference**: Same interface, more internal capability
-3. **Tools are Discovered**: Not hardcoded in agent definitions; scope comes from session/workspace
+2. **Agent = Inference Block**: Same base class (`LLMBlockExecutorBase`), same interface. `AgentBlockExecutor` adds the mechanical agentic loop; `InferenceBlockExecutor` does a single call. Both are thin — all content comes from block config. No separate entity.
+3. **Tools in the Prompt**: Agent tools are described in the system prompt text, not in separate files or hardcoded lists. The agent uses `maestro_cli` as its single tool.
 4. **Every Block is Measurable**: Metrics, score, version, fitness apply to ALL blocks
 5. **Fractal Composition**: Any block can contain any other blocks
 6. **Control Flow as Blocks**: Conditions and loops are blocks, not arrows
 7. **Tree Structure**: Workflows are trees that read top-to-bottom
 8. **Abstraction Enables Reuse**: Complex blocks can be used as simple building blocks
+9. **One Entity**: `BlockDefinition` is the only entity. No `AgentDefinition`, no `ToolDefinition`. Designation (`agent`/`tool`) is metadata, not a separate class.
 
 ---
 

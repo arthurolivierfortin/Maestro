@@ -467,38 +467,67 @@ async function checkHealth(options = {}) {
       const col = v === 'ok' || v === 'healthy' ? c.green : c.yellow;
       return `${k}=${col(v)}`;
     }).join(', ');
+    // Always check LLM and auth status for health summary
+    let llmLine = '';
+    let authLine = '';
+    let providerLine = '';
+    try {
+      const llmHealth = await client.getLLMHealth();
+      llmLine = `  ${c.gray('LLM:')}          ${c.green(llmHealth.status || 'connected')}`;
+      if (llmHealth.activeModel) llmLine += ` (${llmHealth.activeModel})`;
+    } catch {
+      llmLine = `  ${c.gray('LLM:')}          ${c.yellow('not available — chat and inference disabled')}`;
+    }
+
+    try {
+      const active = await client.getActiveProvider();
+      providerLine = `  ${c.gray('Provider:')}     ${active.provider === 'azure' ? c.cyan('Azure OpenAI') : c.green('Local')}`;
+    } catch {
+      providerLine = '';
+    }
+
+    try {
+      const authStatus = await client.getAuthStatus();
+      authLine = `  ${c.gray('Security:')}     ${authStatus.enabled ? c.green('enabled') : c.gray('disabled')}`;
+    } catch {
+      authLine = '';
+    }
+
     formatter.success(health,
-      `\n${c.ok('Backend Health Check:')}\n\n` +
+      `\n${c.ok('Maestro Health Check:')}\n\n` +
       `  ${c.gray('Status:')}       ${c.green(health.status)}\n` +
       `  ${c.gray('Version:')}      ${health.version}\n` +
-      `  ${c.gray('Uptime:')}       ${health.uptime || 'N/A'}\n` +
-      `  ${c.gray('Block Count:')}  ${health.blockCount || 'N/A'}\n` +
-      `  ${c.gray('Services:')}     ${svcStr || 'N/A'}\n`
+      `  ${c.gray('Blocks:')}       ${health.blockCount || 'N/A'}\n` +
+      llmLine + '\n' +
+      (providerLine ? providerLine + '\n' : '') +
+      (authLine ? authLine + '\n' : '') +
+      ''
     );
 
     // Phase 22: --verbose mode shows extended diagnostics
     if (options.verbose) {
       console.log(`  ${c.gray('API URL:')}      ${API_URL}`);
+      console.log(`  ${c.gray('Uptime:')}       ${health.uptime || 'N/A'}`);
       console.log(`  ${c.gray('Timestamp:')}    ${health.timestamp || new Date().toISOString()}`);
+      const svcStr2 = Object.entries(health.services || {}).map(([k, v]) => {
+        const col = v === 'ok' || v === 'healthy' ? c.green : c.yellow;
+        return `${k}=${col(v)}`;
+      }).join(', ');
+      if (svcStr2) console.log(`  ${c.gray('Services:')}     ${svcStr2}`);
 
-      // Check LLM Provider
+      // Session summary
       try {
-        const llmHealth = await client.getLLMHealth();
-        console.log(`  ${c.gray('LLM Status:')}   ${c.green(llmHealth.status || 'connected')}`);
-        if (llmHealth.activeModel) console.log(`  ${c.gray('Active Model:')} ${llmHealth.activeModel}`);
-      } catch {
-        console.log(`  ${c.gray('LLM Status:')}   ${c.yellow('not available')}`);
-      }
+        const sessions = await client.listSessions();
+        const running = sessions.filter(s => s.status === 'Running' || s.status === 'Active').length;
+        const idle = sessions.filter(s => s.status === 'Idle' || s.status === 'Created').length;
+        const total = sessions.length;
+        console.log(`  ${c.gray('Sessions:')}     ${total} total (${c.green(running + ' active')}, ${c.gray(idle + ' idle')})`);
+      } catch { /* skip session info */ }
 
-      // Check auth status
-      try {
-        const authStatus = await client.getAuthStatus();
-        const authStr = authStatus.enabled ? c.green('enabled') : c.gray('disabled');
-        console.log(`  ${c.gray('Security:')}     ${authStr}`);
-      } catch {
-        console.log(`  ${c.gray('Security:')}     ${c.gray('unknown')}`);
-      }
-
+      // Config file
+      const os = require('os');
+      const configPath = path.join(os.homedir(), '.maestro', 'config.json');
+      console.log(`  ${c.gray('Config:')}       ${fs.existsSync(configPath) ? configPath : c.yellow('not found')}`);
       console.log('');
     }
   } catch (error) {
@@ -1055,11 +1084,30 @@ function handleApiError(error, action) {
       'Start the backend: powershell -File dev-scripts/dev-start.ps1');
     process.exitCode = EXIT.SERVER_ERROR;
   } else if (error.status === 404) {
-    formatter.error(`Not found while ${action}: ${error.message}`, 'NOT_FOUND');
+    // Phase 22: Context-specific 404 messages
+    const suggestions = {
+      'session': "Use 'maestro session list' to see available sessions.",
+      'workspace': "Use 'maestro workspace list' to see available workspaces.",
+      'block': "Use 'maestro list-blocks' to see available blocks.",
+      'project': "Use 'maestro project list' to see available projects.",
+      'template': "Use 'maestro templates' to see available templates.",
+      'entry point': "Use 'maestro session show <id>' to see entry points.",
+    };
+    const hint = Object.entries(suggestions).find(([key]) => action.toLowerCase().includes(key))?.[1];
+    formatter.error(`Not found: ${error.message || action}`, 'NOT_FOUND', hint);
     process.exitCode = EXIT.NOT_FOUND;
   } else if (error.status === 408 || error.message?.includes('timeout')) {
-    formatter.error(`Timeout while ${action}: ${error.message}`, 'TIMEOUT');
+    formatter.error(`Timeout while ${action}`, 'TIMEOUT',
+      'The server might be overloaded. Try again or check backend logs.');
     process.exitCode = EXIT.TIMEOUT;
+  } else if (error.status === 503 || error.message?.includes('LLM') || error.message?.includes('llm_provider')) {
+    formatter.error('LLM server is not responding.', 'LLM_UNAVAILABLE',
+      "Start the LLM provider or configure Azure: maestro config azure set --endpoint <url> --api-key <key>");
+    process.exitCode = EXIT.SERVER_ERROR;
+  } else if (error.status === 401 || error.status === 403) {
+    formatter.error(`Access denied while ${action}`, error.status === 401 ? 'UNAUTHORIZED' : 'FORBIDDEN',
+      "Check your API key: maestro config set apiKey <key>");
+    process.exitCode = EXIT.USER_ERROR;
   } else {
     formatter.error(`Error ${action}: ${error.message}`, error.status ? `HTTP_${error.status}` : 'ERROR');
     process.exitCode = error.status >= 500 ? EXIT.SERVER_ERROR : EXIT.USER_ERROR;
@@ -5535,8 +5583,10 @@ async function executeWithArgv(argv) {
 
     // Monitor command - launches session monitor (TUI)
     if (cmd === 'monitor') {
-      const sessionId = argv._[1];
-      const listMode = argv.list || !sessionId;
+      const targetId = argv._[1];
+      const isWorkspace = argv.workspace || argv.w;
+      const isLLM = argv.llm || argv._[1] === 'llm';
+      const listMode = argv.list || (!targetId && !isLLM);
 
       const { startMonitor } = require('./monitor/tui-monitor.ts');
 
@@ -5546,15 +5596,24 @@ async function executeWithArgv(argv) {
         view: argv.view || null,
         debug: argv.debug || false,
         returnToList: !argv['no-back'],
-        mock: argv.mock || false
+        mock: argv.mock || false,
+        llmMode: isLLM || false
       };
 
-      if (listMode) {
+      if (isLLM) {
+        // Phase 24: LLM Monitor mode
+        return startMonitor(null, client, { ...options, detailType: 'llm' });
+      } else if (listMode) {
         // Global monitor - show session list
         return startMonitor(null, client, options);
+      } else if (isWorkspace) {
+        // Workspace monitor — resolve short ID and pass as workspace
+        const resolvedId = await resolveId(targetId, 'workspace');
+        return startMonitor(resolvedId, client, { ...options, detailType: 'workspace' });
       } else {
-        // Session-specific monitor
-        return startMonitor(sessionId, client, options);
+        // Session-specific monitor — resolve short ID to full UUID
+        const resolvedId = await resolveId(targetId, 'session');
+        return startMonitor(resolvedId, client, options);
       }
     }
 
@@ -6337,7 +6396,7 @@ ${c.bold('Quick Start:')}
       if (subCmd === 'delete') {
         const workspaceId = argv._[2];
         if (!workspaceId) { console.error('Workspace ID required'); process.exit(1); }
-        return await deleteWorkspace(workspaceId);
+        return await deleteWorkspace(workspaceId, { force: argv.force });
       }
 
       if (subCmd === 'add-session') {
@@ -6613,7 +6672,136 @@ ${c.bold('Quick Start:')}
       if (subCmd === 'registry') return await listRegistryModelsCmd({ category: argv.category || argv.cat });
       if (subCmd === 'load') return await loadModelCmd(argv._[2], argv);
       if (subCmd === 'switch') return await switchModelCmd(argv._[2], argv);
-      formatter.error(`Unknown models subcommand: ${subCmd}. Available: list, local, registry, load, switch`, 'UNKNOWN_COMMAND');
+
+      if (subCmd === 'custom') {
+        const customAction = argv._[2]; // 'list', 'add', 'remove', or undefined
+        const { getConfigDir } = require('./config.ts');
+        const fs = require('fs');
+        const path = require('path');
+        const modelsPath = path.join(getConfigDir(), 'models.json');
+
+        const loadCustomModels = () => {
+          try {
+            if (fs.existsSync(modelsPath)) {
+              return JSON.parse(fs.readFileSync(modelsPath, 'utf-8'));
+            }
+          } catch (e) {}
+          return [];
+        };
+        const saveCustomModels = (models) => {
+          fs.mkdirSync(path.dirname(modelsPath), { recursive: true });
+          fs.writeFileSync(modelsPath, JSON.stringify(models, null, 2), 'utf-8');
+        };
+
+        if (!customAction || customAction === 'list') {
+          const models = loadCustomModels();
+          if (models.length === 0) {
+            console.log(c.info('No custom models configured.'));
+            console.log(c.dim(`  Add one with: maestro models custom add --id <id> --name <name> --provider <local|azure>`));
+          } else {
+            console.log(`\n${c.boldColor('cyan', 'Custom Models')} (${models.length})`);
+            console.log(`  ${c.dim('File: ' + modelsPath)}\n`);
+            for (const m of models) {
+              console.log(`  ${c.cyan(m.id.padEnd(30))} ${c.gray(m.provider || 'local')}  ${m.name || ''}`);
+            }
+          }
+          return;
+        }
+
+        if (customAction === 'add') {
+          const id = argv.id || argv._[3];
+          const name = argv.name || id;
+          const provider = argv.provider || 'local';
+          const contextLength = parseInt(argv.context || argv['context-length'] || '4096');
+
+          if (!id) {
+            console.error('Usage: maestro models custom add --id <model-id> --name <display-name> --provider <local|azure>');
+            process.exit(1);
+          }
+
+          const models = loadCustomModels();
+          const existing = models.findIndex((m) => m.id === id);
+          const entry = { id, name, provider, contextLength, addedAt: new Date().toISOString() };
+          if (existing >= 0) {
+            models[existing] = entry;
+            console.log(c.ok(`Updated custom model: ${c.cyan(id)}`));
+          } else {
+            models.push(entry);
+            console.log(c.ok(`Added custom model: ${c.cyan(id)}`));
+          }
+          saveCustomModels(models);
+          return;
+        }
+
+        if (customAction === 'remove') {
+          const id = argv.id || argv._[3];
+          if (!id) {
+            console.error('Usage: maestro models custom remove --id <model-id>');
+            process.exit(1);
+          }
+          const models = loadCustomModels();
+          const idx = models.findIndex((m) => m.id === id);
+          if (idx < 0) {
+            console.error(c.error(`Model not found: ${id}`));
+            process.exit(1);
+          }
+          models.splice(idx, 1);
+          saveCustomModels(models);
+          console.log(c.ok(`Removed custom model: ${c.cyan(id)}`));
+          return;
+        }
+
+        formatter.error(`Unknown custom subcommand: ${customAction}. Available: list, add, remove`, 'UNKNOWN_COMMAND');
+        process.exit(EXIT.USER_ERROR);
+      }
+
+      if (subCmd === 'add') {
+        // Shortcut: maestro models add → maestro models custom add
+        console.log(c.dim('Tip: Using "maestro models custom add"'));
+        const { getConfigDir } = require('./config.ts');
+        const fs = require('fs');
+        const path = require('path');
+        const modelsPath = path.join(getConfigDir(), 'models.json');
+        const id = argv.id || argv._[2];
+        const name = argv.name || id;
+        const provider = argv.provider || 'local';
+        const contextLength = parseInt(argv.context || argv['context-length'] || '4096');
+
+        if (!id) {
+          console.error('Usage: maestro models add --id <model-id> --name <name> --provider <local|azure>');
+          process.exit(1);
+        }
+
+        let models = [];
+        try { if (fs.existsSync(modelsPath)) models = JSON.parse(fs.readFileSync(modelsPath, 'utf-8')); } catch (e) {}
+        const existing = models.findIndex((m) => m.id === id);
+        const entry = { id, name, provider, contextLength, addedAt: new Date().toISOString() };
+        if (existing >= 0) models[existing] = entry; else models.push(entry);
+        fs.mkdirSync(path.dirname(modelsPath), { recursive: true });
+        fs.writeFileSync(modelsPath, JSON.stringify(models, null, 2), 'utf-8');
+        console.log(c.ok(`Added custom model: ${c.cyan(id)}`));
+        return;
+      }
+
+      if (subCmd === 'remove') {
+        // Shortcut: maestro models remove → maestro models custom remove
+        const { getConfigDir } = require('./config.ts');
+        const fs = require('fs');
+        const path = require('path');
+        const modelsPath = path.join(getConfigDir(), 'models.json');
+        const id = argv.id || argv._[2];
+        if (!id) { console.error('Usage: maestro models remove --id <model-id>'); process.exit(1); }
+        let models = [];
+        try { if (fs.existsSync(modelsPath)) models = JSON.parse(fs.readFileSync(modelsPath, 'utf-8')); } catch (e) {}
+        const idx = models.findIndex((m) => m.id === id);
+        if (idx < 0) { console.error(c.error(`Model not found: ${id}`)); process.exit(1); }
+        models.splice(idx, 1);
+        fs.writeFileSync(modelsPath, JSON.stringify(models, null, 2), 'utf-8');
+        console.log(c.ok(`Removed custom model: ${c.cyan(id)}`));
+        return;
+      }
+
+      formatter.error(`Unknown models subcommand: ${subCmd}. Available: list, local, registry, load, switch, custom, add, remove`, 'UNKNOWN_COMMAND');
       process.exit(EXIT.USER_ERROR);
     }
 
@@ -7142,12 +7330,105 @@ ${c.bold('Quick Start:')}
         return;
       }
 
+      // Config azure — manage Azure OpenAI configuration
+      if (subCmd === 'azure') {
+        const { readConfig, updateConfig } = require('./config.ts');
+        const action = argv._[2]; // 'set', 'show', 'test', 'clear', or undefined
+
+        if (action === 'set' || (!action && (argv.endpoint || argv['api-key'] || argv.deployment))) {
+          const endpoint = argv.endpoint || argv.e;
+          const apiKey = argv['api-key'] || argv.k;
+          const deployment = argv.deployment || argv.d;
+
+          if (!endpoint && !apiKey && !deployment) {
+            console.error('Usage: maestro config azure set --endpoint <url> --api-key <key> --deployment <name>');
+            process.exit(1);
+          }
+
+          const config = readConfig();
+          const azureCfg = config.azure || {};
+          if (endpoint) azureCfg.endpoint = endpoint;
+          if (apiKey) azureCfg.apiKey = apiKey;
+          if (deployment) azureCfg.deployment = deployment;
+          updateConfig({ azure: azureCfg });
+
+          console.log(c.ok('Azure OpenAI configuration saved to ~/.maestro/config.json'));
+          if (endpoint) console.log(`  Endpoint:   ${c.cyan(endpoint)}`);
+          if (apiKey) console.log(`  API Key:    ${c.cyan('****' + apiKey.slice(-4))}`);
+          if (deployment) console.log(`  Deployment: ${c.cyan(deployment)}`);
+
+          // Also push to backend
+          if (endpoint && apiKey && deployment) {
+            try {
+              await client.put('/api/provider/azure', {
+                endpoint: azureCfg.endpoint,
+                apiKey: azureCfg.apiKey,
+                deploymentName: azureCfg.deployment
+              });
+              console.log(c.ok('Configuration also saved to backend. Restart backend to apply.'));
+            } catch (e) {
+              console.log(c.warn('Could not push config to backend (is it running?). Config saved locally only.'));
+            }
+          }
+          return;
+        }
+
+        if (action === 'test') {
+          const config = readConfig();
+          const azureCfg = config.azure || {};
+          console.log(c.info('Testing Azure OpenAI connection...'));
+          try {
+            const result = await client.post('/api/provider/azure/test', {
+              endpoint: azureCfg.endpoint,
+              apiKey: azureCfg.apiKey,
+              deploymentName: azureCfg.deployment
+            });
+            console.log(c.ok(`Azure OpenAI: ${result.message || 'Connected'}`));
+          } catch (e) {
+            console.error(c.error(`Azure OpenAI test failed: ${e.message || e}`));
+          }
+          return;
+        }
+
+        if (action === 'clear') {
+          updateConfig({ azure: {} });
+          console.log(c.ok('Azure OpenAI configuration cleared.'));
+          return;
+        }
+
+        // Default: show current config
+        const config = readConfig();
+        const azureCfg = config.azure || {};
+        console.log(`\n${c.boldColor('cyan', 'Azure OpenAI Configuration')}`);
+        console.log(`  ${c.dim('File: ~/.maestro/config.json')}\n`);
+        if (azureCfg.endpoint) {
+          console.log(`  Endpoint:   ${c.cyan(azureCfg.endpoint)}`);
+          console.log(`  API Key:    ${azureCfg.apiKey ? c.cyan('****' + azureCfg.apiKey.slice(-4)) : c.gray('not set')}`);
+          console.log(`  Deployment: ${azureCfg.deployment ? c.cyan(azureCfg.deployment) : c.gray('not set')}`);
+        } else {
+          console.log(`  ${c.gray('Not configured. Use: maestro config azure set --endpoint <url> --api-key <key> --deployment <name>')}`);
+        }
+
+        // Check backend active provider
+        try {
+          const active = await client.get('/api/provider/active');
+          console.log(`\n  Active provider: ${c.bold(active.provider === 'azure' ? c.cyan('Azure OpenAI') : c.green('Local'))}`);
+        } catch (e) {
+          // Backend not running — skip
+        }
+        return;
+      }
+
       // Config help
       console.log(`\n${c.boldColor('cyan', 'Config Commands')}`);
       console.log(`\n  ${c.green('config keybindings')}     View/manage TUI keybindings`);
       console.log(`  ${c.green('config keybindings set <action> <key>')}  Set a binding`);
       console.log(`  ${c.green('config keybindings reset')}              Reset to defaults`);
       console.log(`  ${c.green('config keybindings edit')}               Open in editor`);
+      console.log(`\n  ${c.green('config azure')}           View Azure OpenAI configuration`);
+      console.log(`  ${c.green('config azure set --endpoint <url> --api-key <key> --deployment <name>')}`);
+      console.log(`  ${c.green('config azure test')}       Test Azure connection`);
+      console.log(`  ${c.green('config azure clear')}      Remove Azure configuration`);
       return;
     }
 

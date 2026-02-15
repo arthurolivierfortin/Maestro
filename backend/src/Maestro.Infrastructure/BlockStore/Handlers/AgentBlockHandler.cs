@@ -24,13 +24,9 @@ namespace Maestro.Infrastructure.BlockStore.Handlers
             var def = BlockDefinition.Create(id ?? Guid.NewGuid().ToString(), name ?? id ?? "block", blockType ?? "agent");
 
             var dict = new Dictionary<string, object>();
-            // load system-prompt.md
+            // load system-prompt.md (tools are described IN the system prompt, not in a separate file)
             var promptPath = Path.Combine(folderPath, "system-prompt.md");
             if (File.Exists(promptPath)) dict["systemPrompt"] = File.ReadAllText(promptPath);
-
-            // load tools.json
-            var toolsPath = Path.Combine(folderPath, "tools.json");
-            if (File.Exists(toolsPath)) dict["tools"] = JsonSerializer.Deserialize<object>(File.ReadAllText(toolsPath)) ?? new object();
 
             def.UpdateConfig(dict);
 

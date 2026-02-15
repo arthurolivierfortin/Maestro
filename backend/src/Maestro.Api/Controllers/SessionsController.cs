@@ -16,13 +16,16 @@ namespace Maestro.Api.Controllers;
 public class SessionsController : ControllerBase
 {
     private readonly IProjectSessionServer _sessionServer;
+    private readonly IWorkspaceRepository _workspaceRepository;
     private readonly ILogger<SessionsController> _logger;
 
     public SessionsController(
         IProjectSessionServer sessionServer,
+        IWorkspaceRepository workspaceRepository,
         ILogger<SessionsController> logger)
     {
         _sessionServer = sessionServer;
+        _workspaceRepository = workspaceRepository;
         _logger = logger;
     }
 
@@ -255,7 +258,7 @@ public class SessionsController : ControllerBase
     }
 
     /// <summary>
-    /// Delete a session.
+    /// Delete a session. Cascades: removes session refs from all workspaces.
     /// </summary>
     [HttpDelete("{id}")]
     public async Task<ActionResult> Delete(string id)
@@ -264,6 +267,23 @@ public class SessionsController : ControllerBase
 
         try
         {
+            // Phase 22: Cascade delete — remove session refs from workspaces
+            try
+            {
+                var workspaces = await _workspaceRepository.GetBySessionIdAsync(id);
+                foreach (var workspace in workspaces)
+                {
+                    workspace.RemoveSession(id);
+                    await _workspaceRepository.SaveAsync(workspace);
+                    _logger.LogInformation("Cascade: removed session {SessionId} from workspace {WorkspaceId}",
+                        id, workspace.Id);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Cascade cleanup for session {SessionId} had errors, continuing with delete", id);
+            }
+
             await _sessionServer.DeleteAsync(sessionId);
             _logger.LogInformation("Deleted session {SessionId}", id);
             return NoContent();
@@ -404,10 +424,11 @@ public class SessionsController : ControllerBase
 
         try
         {
-            session.SetVariable(key, request.Value);
+            var normalizedValue = NormalizeObjectValue(request.Value);
+            session.SetVariable(key, normalizedValue);
             await _sessionServer.SaveAsync(session);
             _logger.LogInformation("Set variable '{Key}' on session {SessionId}", key, id);
-            return Ok(new { key, value = request.Value });
+            return Ok(new { key, value = normalizedValue });
         }
         catch (Exception ex)
         {
@@ -606,6 +627,58 @@ public class SessionsController : ControllerBase
         await _sessionServer.SaveAsync(session);
         _logger.LogInformation("Removed widget '{WidgetId}' from session {SessionId}", widgetId, id);
         return NoContent();
+    }
+
+    /// <summary>
+    /// Recursively converts JsonElement values to native .NET types so they serialize correctly.
+    /// Without this, JsonElement boxed as object in Dictionary&lt;string, object&gt; gets corrupted during serialization.
+    /// </summary>
+    /// <summary>
+    /// Converts any JSON token (System.Text.Json or Newtonsoft.Json) to native CLR types.
+    /// ASP.NET Core with .AddNewtonsoftJson() deserializes 'object' properties as JArray/JObject,
+    /// NOT as System.Text.Json.JsonElement. Both must be handled.
+    /// </summary>
+    private static object NormalizeObjectValue(object value)
+    {
+        // System.Text.Json types
+        if (value is System.Text.Json.JsonElement element)
+        {
+            return element.ValueKind switch
+            {
+                System.Text.Json.JsonValueKind.String => element.GetString() ?? string.Empty,
+                System.Text.Json.JsonValueKind.Number => element.TryGetInt64(out var l) ? l : element.GetDouble(),
+                System.Text.Json.JsonValueKind.True => true,
+                System.Text.Json.JsonValueKind.False => false,
+                System.Text.Json.JsonValueKind.Null => string.Empty,
+                System.Text.Json.JsonValueKind.Array => element.EnumerateArray()
+                    .Select(e => NormalizeObjectValue(e)).ToList(),
+                System.Text.Json.JsonValueKind.Object => element.EnumerateObject()
+                    .ToDictionary(p => p.Name, p => NormalizeObjectValue(p.Value)),
+                _ => element.ToString()
+            };
+        }
+
+        // Newtonsoft.Json types (from .AddNewtonsoftJson() in Program.cs)
+        if (value is Newtonsoft.Json.Linq.JArray jArray)
+        {
+            return jArray.Select(item => NormalizeObjectValue(item)).ToList();
+        }
+        if (value is Newtonsoft.Json.Linq.JObject jObject)
+        {
+            return jObject.Properties()
+                .ToDictionary(p => p.Name, p => NormalizeObjectValue(p.Value));
+        }
+        if (value is Newtonsoft.Json.Linq.JValue jValue)
+        {
+            return jValue.Value ?? string.Empty;
+        }
+        if (value is Newtonsoft.Json.Linq.JToken jToken)
+        {
+            // Fallback for other JToken types
+            return jToken.ToString();
+        }
+
+        return value;
     }
 }
 

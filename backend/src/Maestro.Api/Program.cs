@@ -28,6 +28,19 @@ using Microsoft.Extensions.Options;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Phase 20: Configure Kestrel binding based on AllowRemote setting
+var allowRemote = builder.Configuration.GetValue<bool>("Security:AllowRemote", false);
+if (allowRemote)
+{
+    builder.WebHost.UseUrls("http://0.0.0.0:5000");
+    Console.WriteLine("[Maestro] Binding: 0.0.0.0:5000 (remote access enabled)");
+}
+else
+{
+    // Default: localhost only (secure) — uses Kestrel config from appsettings.json
+    Console.WriteLine("[Maestro] Binding: 127.0.0.1:5000 (localhost only)");
+}
+
 // Add services to the container
 builder.Services.AddControllers(options =>
 {
@@ -46,15 +59,40 @@ builder.Services.AddSingleton<IAuditLogger, AuditLogger>();
 // Infrastructure implementations for Application interfaces
 builder.Services.AddScoped<IWorkflowRepository, JsonWorkflowRepository>();
 
-// Configure LLM Provider Gateway
+// Configure LLM Provider Gateway (local)
 builder.Services.Configure<LLMProviderSettings>(
     builder.Configuration.GetSection(LLMProviderSettings.SectionName));
-builder.Services.AddHttpClient<ILLMGateway, LLMProviderGateway>((sp, client) =>
+
+// Configure Azure OpenAI Gateway
+builder.Services.Configure<AzureOpenAISettings>(
+    builder.Configuration.GetSection(AzureOpenAISettings.SectionName));
+
+// Register both gateways as named HttpClients
+builder.Services.AddHttpClient<LLMProviderGateway>((sp, client) =>
 {
     var settings = sp.GetRequiredService<IOptions<LLMProviderSettings>>().Value;
     client.BaseAddress = new Uri(settings.BaseUrl);
     client.Timeout = TimeSpan.FromSeconds(settings.TimeoutSeconds);
 });
+builder.Services.AddHttpClient<AzureOpenAIGateway>();
+
+// Register ILLMGateway: Azure if configured, otherwise local
+var azureSection = builder.Configuration.GetSection(AzureOpenAISettings.SectionName);
+var azureEndpoint = azureSection["Endpoint"];
+var azureApiKey = azureSection["ApiKey"];
+var azureDeployment = azureSection["DeploymentName"];
+var useAzure = !string.IsNullOrEmpty(azureEndpoint) && !string.IsNullOrEmpty(azureApiKey) && !string.IsNullOrEmpty(azureDeployment);
+
+if (useAzure)
+{
+    builder.Services.AddScoped<ILLMGateway>(sp => sp.GetRequiredService<AzureOpenAIGateway>());
+    Console.WriteLine($"[Maestro] LLM Gateway: Azure OpenAI ({azureEndpoint})");
+}
+else
+{
+    builder.Services.AddScoped<ILLMGateway>(sp => sp.GetRequiredService<LLMProviderGateway>());
+    Console.WriteLine($"[Maestro] LLM Gateway: Local LLM Provider");
+}
 
 // LLM Provider admin service (health, models, hardware — separate from inference gateway)
 builder.Services.AddHttpClient<ILLMProviderService, LLMProviderService>();
@@ -65,20 +103,23 @@ builder.Services.AddScoped<IExecutionMonitor, ExecutionMonitor>();
 builder.Services.AddScoped<Maestro.Application.Interfaces.IExecutionMonitor, Maestro.Api.Monitoring.SignalRExecutionMonitor>();
 // Register block executors from Infrastructure
 builder.Services.AddScoped<Maestro.Application.Interfaces.IBlockExecutor, Maestro.Infrastructure.BlockExecutors.PromptBlockExecutor>();
-builder.Services.AddScoped<Maestro.Application.Interfaces.IBlockExecutor, Maestro.Infrastructure.BlockExecutors.InferenceBlockExecutor>();
+// LLM executors: InferenceBlockExecutor (single call) and AgentBlockExecutor (agentic loop)
+// Both inherit from LLMBlockExecutorBase — shared plumbing, thin subclasses.
+builder.Services.AddScoped<Maestro.Application.Interfaces.IBlockExecutor>(sp =>
+    new Maestro.Infrastructure.BlockExecutors.InferenceBlockExecutor(
+        sp.GetRequiredService<Maestro.Application.Interfaces.ILLMGateway>(),
+        sp.GetService<Maestro.Application.Interfaces.IExecutionMonitor>()));
 // ToolBlockExecutor now needs IServiceProvider for CLI bridge support
 builder.Services.AddScoped<Maestro.Infrastructure.BlockExecutors.ToolBlockExecutor>(sp =>
     new Maestro.Infrastructure.BlockExecutors.ToolBlockExecutor(sp));
 builder.Services.AddScoped<Maestro.Application.Interfaces.IBlockExecutor>(sp =>
     sp.GetRequiredService<Maestro.Infrastructure.BlockExecutors.ToolBlockExecutor>());
 builder.Services.AddScoped<Maestro.Application.Interfaces.IBlockExecutor, Maestro.Infrastructure.BlockExecutors.ContextBlockExecutor>();
-// AgentBlockExecutor is registered separately to avoid circular dependency with BlockExecutorRegistry
-// Uses lazy resolution of registry via IServiceProvider
 builder.Services.AddScoped<Maestro.Infrastructure.BlockExecutors.AgentBlockExecutor>(sp =>
-{
-    var llmGateway = sp.GetRequiredService<Maestro.Application.Interfaces.ILLMGateway>();
-    return new Maestro.Infrastructure.BlockExecutors.AgentBlockExecutor(llmGateway, sp);
-});
+    new Maestro.Infrastructure.BlockExecutors.AgentBlockExecutor(
+        sp.GetRequiredService<Maestro.Application.Interfaces.ILLMGateway>(),
+        sp,
+        sp.GetService<Maestro.Application.Interfaces.IExecutionMonitor>()));
 builder.Services.AddScoped<Maestro.Application.Interfaces.IBlockExecutor>(sp =>
     sp.GetRequiredService<Maestro.Infrastructure.BlockExecutors.AgentBlockExecutor>());
 
@@ -199,7 +240,8 @@ builder.Services.AddScoped<Maestro.Infrastructure.Sessions.EntryPointExecutor>(s
     var llmGateway = sp.GetRequiredService<ILLMGateway>();
     var blockDiscovery = sp.GetRequiredService<IBlockDiscoveryService>();
     var logger = sp.GetRequiredService<ILogger<Maestro.Infrastructure.Sessions.EntryPointExecutor>>();
-    return new Maestro.Infrastructure.Sessions.EntryPointExecutor(sessionRepo, llmGateway, blockDiscovery, logger);
+    var executorRegistry = sp.GetRequiredService<Maestro.Infrastructure.BlockExecutors.BlockExecutorRegistry>();
+    return new Maestro.Infrastructure.Sessions.EntryPointExecutor(sessionRepo, llmGateway, blockDiscovery, logger, executorRegistry);
 });
 
 // Phase 10: Register Project Session Server
@@ -363,6 +405,9 @@ Console.WriteLine($"[Maestro] Approvals data:  {Path.Combine(maestroConfig.DataP
 
 // Phase 21: First-run initializer (creates ~/.maestro/ on startup)
 builder.Services.AddHostedService<Maestro.Api.Configuration.FirstRunInitializer>();
+
+// Phase 22: Session recovery — transitions zombie "running" sessions to "stopped" on restart
+builder.Services.AddHostedService<Maestro.Api.Configuration.SessionRecoveryService>();
 
 // Add CORS for frontend development and Docker
 builder.Services.AddCors(options =>

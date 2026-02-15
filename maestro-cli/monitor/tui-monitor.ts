@@ -17,6 +17,7 @@ interface MonitorOptions {
   debug?: boolean;
   returnToList?: boolean;
   mock?: boolean;
+  detailType?: 'session' | 'workspace';
 }
 
 // ── Main entry point ───────────────────────────────────────────

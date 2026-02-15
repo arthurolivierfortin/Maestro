@@ -140,16 +140,54 @@ public class WorkspacesController : ControllerBase
     }
 
     /// <summary>
-    /// Delete a workspace.
+    /// Delete a workspace. Use ?force=true to stop and delete all linked sessions.
     /// </summary>
     [HttpDelete("{id}")]
-    public async Task<ActionResult> DeleteWorkspace(string id, CancellationToken ct)
+    public async Task<ActionResult> DeleteWorkspace(
+        string id,
+        [FromQuery] bool force = false,
+        [FromServices] IProjectSessionServer sessionServer = null!,
+        CancellationToken ct = default)
     {
         try
         {
+            var workspace = await _workspaceService.GetWorkspaceAsync(id, ct);
+            if (workspace == null)
+                return NotFound(new { error = $"Workspace '{id}' not found" });
+
+            var deletedSessions = 0;
+
+            if (force && workspace.SessionIds.Count > 0)
+            {
+                // Phase 22: Cascade delete — stop and remove all linked sessions
+                foreach (var sessionId in workspace.SessionIds.ToList())
+                {
+                    try
+                    {
+                        var sid = Maestro.Domain.ValueObjects.SessionId.From(sessionId);
+                        var session = await sessionServer.GetAsync(sid, ct);
+                        if (session != null)
+                        {
+                            if (session.Status == Maestro.Domain.Enums.ContainerSessionStatus.Active)
+                            {
+                                await sessionServer.StopAsync(sid, ct);
+                            }
+                            await sessionServer.DeleteAsync(sid, ct);
+                            deletedSessions++;
+                            _logger.LogInformation("Cascade: deleted session {SessionId} from workspace {WorkspaceId}",
+                                sessionId, id);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Cascade: failed to delete session {SessionId}, skipping", sessionId);
+                    }
+                }
+            }
+
             await _workspaceService.DeleteWorkspaceAsync(id, ct);
-            _logger.LogInformation("Deleted workspace {Id}", id);
-            return Ok(new { message = $"Workspace '{id}' deleted" });
+            _logger.LogInformation("Deleted workspace {Id} (force={Force}, sessions deleted={Count})", id, force, deletedSessions);
+            return Ok(new { message = $"Workspace '{id}' deleted", sessionsDeleted = deletedSessions });
         }
         catch (ArgumentException ex)
         {

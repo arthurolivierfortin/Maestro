@@ -30,6 +30,7 @@ const ProjectDetailPage = lazy(() => import('@/pages/ProjectDetailPage'));
 const WorkspacesPage = lazy(() => import('@/pages/WorkspacesPage'));
 const WorkspaceDetailPage = lazy(() => import('@/pages/WorkspaceDetailPage'));
 const SessionsPage = lazy(() => import('@/pages/SessionsPage'));
+const SessionDetailPage = lazy(() => import('@/pages/SessionDetailPage'));
 const TrainingPage = lazy(() => import('@/pages/TrainingPage'));
 const MetricsPage = lazy(() => import('@/pages/MetricsPage'));
 const MonitoringPage = lazy(() => import('@/pages/MonitoringPage'));
@@ -193,6 +194,14 @@ const routes: RouteObject[] = [
         element: (
           <LazyPage>
             <SessionsPage />
+          </LazyPage>
+        ),
+      },
+      {
+        path: 'sessions/:id',
+        element: (
+          <LazyPage>
+            <SessionDetailPage />
           </LazyPage>
         ),
       },

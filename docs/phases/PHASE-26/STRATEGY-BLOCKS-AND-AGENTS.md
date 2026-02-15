@@ -636,16 +636,27 @@ Plan (JSON only):
 
 ## Strategie d'entrainement
 
-### Phase A — Tools individuels (2-3 jours)
+> **Principe : Chaque block est entraine dans sa propre session foundry. On ne passe a la couche suivante que quand TOUS les blocks de la couche actuelle ont un fitness >= 0.7.**
 
-Pour chaque tool de Layer 1 :
-1. Creer le `*.block.json`
-2. Placer dans `content/system/blocks/tools/`
-3. Creer une session de test via template
-4. Tester avec `maestro test start <tool-id> --iterations 10`
-5. Mesurer le fitness
-6. Si fitness < 0.7 : ajuster le prompt, temperature, few-shot examples
-7. Repeter jusqu'a fitness >= 0.8
+### Phase A — Tools individuels
+
+Pour chaque tool de Layer 1, **dans une session foundry dediee** :
+
+```
+1. Creer session foundry: maestro session create --name "train-<block-id>" --type foundry
+2. Creer le block (block create ou ecriture directe)
+3. Tester: maestro run <block-id> --input key=value
+4. Mesurer le fitness (outputs corrects? temps raisonnable?)
+5. Si fitness < 0.7 et block LLM-dependent:
+   a. Ajuster le prompt (specifique > abstrait, few-shot examples)
+   b. Ajuster la temperature (0.1-0.3 pour structure, 0.3-0.5 pour generation)
+   c. Si toujours echec: CHANGER DE MODEL
+      - SmolLM2-1.7B → Qwen2.5-Coder-1.5B → DeepSeek-R1-1.5B → Qwen2.5-Coder-3B
+   d. Si 3+ models testes sans succes: changer d'architecture du block
+   e. Documenter chaque tentative dans la session foundry
+6. Fitness >= 0.7 → Publier
+7. Documenter le model/prompt gagnant dans SESSION-NOTES.md
+```
 
 **Ordre de creation :** Deterministes d'abord (pas de LLM, plus faciles a valider)
 1. `convention-reader` (deterministe)
@@ -659,13 +670,22 @@ Pour chaque tool de Layer 1 :
 9. `code-generator` (LLM, complexe)
 10. `test-generator` (LLM, complexe)
 
-### Phase B — Agents (3-5 jours)
+### Phase B — Agents
 
-Pour chaque agent de Layer 2 :
-1. Creer le block agent avec workflow interne
-2. Tester sur une tache simple dans Cantante
-3. Mesurer : le resultat est-il correct? Les tools sont-ils bien coordonnes?
-4. Ajuster la coordination, les prompts de selection d'outils
+Pour chaque agent de Layer 2, **dans une session foundry dediee** :
+
+```
+1. Creer session foundry: maestro session create --name "train-<agent-id>" --type foundry
+2. Creer le block agent
+3. Tester sur une tache simple avec chaque model:
+   - Model 1 (SmolLM2-1.7B): tester, mesurer, noter
+   - Model 2 (Qwen2.5-Coder): tester, mesurer, noter
+   - Model 3 (si necessaire): tester, mesurer, noter
+4. Choisir le meilleur model pour cet agent
+5. Ajuster les prompts pour le model choisi
+6. Fitness >= 0.7 → Publier avec le model optimal note
+7. Documenter les resultats comparatifs dans SESSION-NOTES.md
+```
 
 **Premiere tache de test par agent :**
 - `planner-agent` : "Planifier l'ajout d'un fichier vide src/core/types.ts"
@@ -674,21 +694,42 @@ Pour chaque agent de Layer 2 :
 - `reviewer-agent` : "Review les changements courants"
 - `git-agent` : "Commiter les changements avec un message conventionnel"
 
-### Phase C — Workflows (3-5 jours)
+### Phase C — Workflows
 
-Tester des features completes dans Cantante :
-1. `setup-project` : Initialiser Cantante (npm install, verifier structure)
-2. `fix-bug` : Corriger renderer.ts
-3. `implement-feature` : Ajouter un module file-manager
+Tester des features completes dans Cantante, **dans une session test** :
 
-### Phase D — Autonome (ongoing)
+```
+1. Creer session test: maestro session create --name "test-implement-feature" --type foundry
+2. Tester sur des taches progressives:
+   a. setup-project: Initialiser Cantante (npm install, verifier structure)
+   b. fix-bug: Corriger renderer.ts
+   c. implement-feature: Ajouter un module file-manager
+3. Si echec: identifier quel agent/tool echoue → retour en Phase B pour cet agent
+4. Quand OK → passer en session projet
+```
 
-Donner des taches de plus en plus complexes a l'`autonomous-developer` :
+### Phase D — Developpement Cantante (session projet)
+
+Donner des taches dans la **session projet** `cantante-v1` :
 1. "Install the project dependencies"
 2. "Fix the broken renderer.ts file"
 3. "Replace the audio player HTML with a basic code editor skeleton"
 4. "Add a file tree component in the sidebar"
 5. "Implement basic TTS accessibility for screen readers"
+
+**Ne s'arreter que quand TOUTES les features sont implementees ou qu'un blocage technique incontournable est atteint.**
+
+### Regles de Perseverance (CRITIQUE)
+
+| Obstacle rencontre | Action OBLIGATOIRE | Action INTERDITE |
+|--------------------|--------------------|------------------|
+| Model ne suit pas le format tool-call | Tester SmolLM2 → Qwen2.5-Coder → DeepSeek-R1 | S'arreter et noter "prochaine etape" |
+| Prompt donne des hallucinations | Reduire scope, ajouter few-shot, etre plus specifique | S'arreter et noter "qualite a affiner" |
+| Bug infrastructure | Corriger le code, recompiler, retester | S'arreter et noter "a corriger" |
+| Block echoue apres 5 tentatives | Changer d'architecture, decomposer en sous-blocks | S'arreter |
+| Workflow complet echoue | Identifier le maillon faible, retour en foundry | S'arreter |
+
+> **"Prochaines etapes" est un aveu d'echec. L'etape suivante doit etre EXECUTEE, pas notee.**
 
 ---
 
@@ -722,32 +763,91 @@ Chaque prompt LLM DOIT inclure un exemple concret du format attendu. Pas d'instr
 
 ---
 
-## Sessions et Workspaces
+## Sessions et Workspaces (METHODOLOGIE OBLIGATOIRE)
 
-### Workspace : cantante-dev
+> **Voir aussi : `VISION-AND-ARCHITECTURE.md` section 5 pour les regles completes.**
+
+### Etape 1 : Creer le Workspace
+
+Le workspace est l'unite de tracabilite. TOUJOURS lie a un repo Git.
 
 ```bash
-maestro workspace create --name "cantante-dev" --path "C:\Cantante"
-maestro workspace bind cantante-dev --path "C:\Cantante"
+# Creer le workspace lie au repo Cantante
+maestro workspace create --name "cantante-dev" --repo "C:\Cantante"
 ```
 
-### Session : tool-training
+### Etape 2 : Sessions Foundry (une par block)
 
-Une session par tool pour entrainement :
+Chaque block a sa propre session foundry pour creation et entrainement :
+
 ```bash
+# Exemple : entrainer commit-writer
 maestro session create --name "train-commit-writer" --type foundry
 maestro session import-template <id> foundry-training
 maestro session set-var <id> _targetBlock "commit-writer"
 maestro session start <id>
+
+# Tester le block
+maestro run commit-writer --input diff="..." --input conventions="..."
+
+# Si fitness insuffisant → ajuster et re-tester
+# Si le model ne marche pas → switch-model et re-tester
+
+# Quand fitness >= 0.7 → publier
+maestro block publish commit-writer
 ```
 
-### Session : cantante-development
+Chaque session foundry documente :
+- Quel block est entraine
+- Quels models ont ete testes
+- Quel fitness atteint avec quel model/prompt
+- Pourquoi cette version est publiee (ou pas)
 
-Session principale pour le developpement Cantante :
+### Etape 3 : Session Projet (une seule)
+
+La session projet utilise UNIQUEMENT les blocks publies :
+
 ```bash
-maestro session create --name "cantante-v1" --type foundry
+# Creer la session de developpement Cantante
+maestro session create --name "cantante-v1" --type project
 maestro session set-var <id> projectPath "C:\Cantante"
-maestro session set-var <id> currentFeature "..."
+maestro session set-var <id> currentFeature "file-tree-component"
+```
+
+### Etape 4 : Sessions Test (optionnelles)
+
+Pour valider des workflows complets avant utilisation reelle :
+
+```bash
+maestro session create --name "test-implement-feature" --type foundry
+# Tester implement-feature sur une tache simple
+# Valider que tout le pipeline fonctionne
+```
+
+### Flux Complet
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│ Workspace: cantante-dev (repo: C:\Cantante)                        │
+│                                                                     │
+│ ┌─────────────────────────────────────────────────┐                │
+│ │ Sessions Foundry (creer/entrainer les blocks)    │                │
+│ │ train-context-builder    → fitness 0.82 ✓       │                │
+│ │ train-commit-writer      → fitness 0.71 ✓       │                │
+│ │ train-planner-agent      → fitness 0.75 ✓       │                │
+│ │ train-coder-agent        → fitness 0.68 ✗       │ ← pas publie  │
+│ │   → switch Qwen2.5-Coder → fitness 0.78 ✓      │ ← publie      │
+│ └──────────────────────┬──────────────────────────┘                │
+│                        │ publish                                    │
+│                        ▼                                            │
+│ ┌─────────────────────────────────────────────────┐                │
+│ │ Session Projet: cantante-v1                      │                │
+│ │ Feature 1: npm install              → done ✓    │                │
+│ │ Feature 2: fix renderer.ts          → done ✓    │                │
+│ │ Feature 3: editor skeleton          → en cours  │                │
+│ │ Feature 4: file-tree component      → pending   │                │
+│ └─────────────────────────────────────────────────┘                │
+└─────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -768,11 +868,14 @@ maestro session set-var <id> currentFeature "..."
 
 ## Calendrier previsionnel
 
-| Semaine | Objectif |
-|---------|----------|
-| S1 | Creer les 5 outils deterministes (L1) + tester |
-| S2 | Creer les 5 outils LLM (L1) + entrainer + tester |
-| S3 | Creer les 5 agents (L2) + tester sur Cantante |
-| S4 | Creer les 3 workflows (L3) + tester sur features Cantante |
-| S5 | Creer l'orchestrateur (L4) + tester sur taches completes |
-| S6+ | Iterer, optimiser, developper Cantante |
+| Etape | Objectif | Pre-requis |
+|-------|----------|------------|
+| 0 | Creer workspace cantante-dev lie au repo | Backend tourne |
+| A | Sessions foundry pour les 5 outils deterministes (L1) + publier | Workspace cree |
+| B | Sessions foundry pour les 5 outils LLM (L1) + tester models + publier | Etape A |
+| C | Sessions foundry pour les 5 agents (L2) + tester models + publier | Etape B |
+| D | Session test pour workflows complets (L3) | Etape C |
+| E | Session projet : developper Cantante feature par feature | Etape D |
+| F | Iterer jusqu'a Cantante complet | Etape E |
+
+> **Pas de dates. On avance etape par etape. Chaque etape est complete quand tous ses blocks ont fitness >= 0.7.**

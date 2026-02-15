@@ -169,3 +169,72 @@
 - Temperature : 0.1-0.2 pour agents (deterministe), 0.2 pour code generation
 - Model : SmolLM2-1.7B-Instruct pour tous (meilleur pour JSON per Phase 13)
 - Prochaine priorite : affiner les prompts pour que SmolLM2 suive le format tool-call JSON
+
+---
+
+### Session 2026-02-13 — Correction Methodologique
+
+**Etat** :
+- Feedback critique de l'utilisateur sur la methodologie :
+  1. On s'est arrete au premier obstacle (SmolLM2 ne suit pas les instructions) au lieu de continuer
+  2. On n'a pas teste d'autres models quand SmolLM2 echouait
+  3. On n'a jamais cree de workspace — pas de tracabilite
+  4. Les blocks ont ete crees "en vrac" dans content/system/blocks/ au lieu d'etre dans un workspace
+  5. La methodologie workspace → foundry sessions → publish → session projet n'etait pas suivie
+
+- Corrections documentaires appliquees :
+  1. `GOAL-GUIDE.md` : Ajout section "Methodologie Obligatoire" avec cycle de vie block, regles de perseverance, tracabilite
+  2. `VISION-AND-ARCHITECTURE.md` : Ajout section 5 "Methodologie de Travail" detaillant workspace, sessions, cycle de vie, models a tester, regles de perseverance, communication
+  3. `STRATEGY-BLOCKS-AND-AGENTS.md` : Reecrit "Sessions et Workspaces" avec flux complet (workspace → foundry → publish → projet), reecrit "Strategie d'entrainement" avec regles de perseverance et test de models obligatoire
+
+**Prochaine etape** :
+- Creer le workspace cantante-dev lie au repo
+- Reprendre les blocks existants dans le cadre du workspace
+- Tester les agents avec d'autres models (Qwen2.5-Coder, DeepSeek-R1)
+- Continuer jusqu'a Cantante termine
+
+**Problemes ouverts** :
+- Les blocks deja crees dans content/system/blocks/ doivent etre "adoptes" par le workspace
+- SmolLM2-1.7B ne suit pas le protocole tool-call des agents — il faut tester Qwen2.5-Coder et DeepSeek-R1
+
+**Decisions** :
+- Toujours travailler dans un workspace (jamais de blocks en vrac)
+- Toujours tester 2-3 models avant de conclure qu'un block ne fonctionne pas
+- Ne jamais s'arreter et noter "prochaine etape" — executer l'etape suivante
+- L'utilisateur doit pouvoir voir tout le travail en consultant le workspace
+
+---
+
+### Session 2026-02-14 — Infrastructure Fixes + Agent First Success
+
+**Etat** :
+- **5 bugs d'infrastructure critiques corriges** (voir MISSING-FEATURES.md pour details) :
+  1. LLM Provider CUDA crash en multi-turn → `tokenizer.apply_chat_template()` + CUDA recovery
+  2. CliParser strip les guillemets du JSON → detection blocs JSON dans tokenizer
+  3. file-write rejette JsonElement de --input-json → accepte string/JsonElement/object
+  4. RunCommandHandler messages d'erreur vagues → inclut les logs du block
+  5. JSON avec newlines litteraux → `SanitizeJsonNewlines()` pre-processing
+- **Model validation** : Qwen2.5-Coder-1.5B-Instruct est le bon modele pour les agents (suit le protocole tool-call). SmolLM2-1.7B ne fonctionne pas pour les agents.
+- **coder-agent FONCTIONNE** : convention-reader → file-write → done en 3 iterations (14s). Fichier cree avec succes dans C:\Cantante.
+- **planner-agent FONCTIONNE** : convention-reader → done avec plan structure. Mais les descriptions de subtasks sont trop vagues.
+- **Workspace cantante-dev** : ID 0c0e7a40-fcc9-41b1-8f0f-5b36e7173894, lie a C:\Cantante
+
+**Prochaine etape** :
+- Ameliorer les prompts des agents (descriptions plus detaillees dans le plan, pas d'import inutile dans le code)
+- Tester le pipeline complet : planner → coder (enchainer les deux agents)
+- Tester tester-agent et reviewer-agent
+- Creer l'agent orchestrateur (implement-feature) qui enchaine tout
+- Commencer les vraies features Cantante
+
+**Problemes ouverts** :
+- planner-agent : les descriptions de subtasks sont trop generiques ("Create file X" au lieu de decrire le contenu)
+- coder-agent : ajoute un import inutile (`import { AppConfig } from './app-config'`), besoin d'affiner le prompt
+- SmolLM2-1.7B ne suit pas le protocole agent tool-call — confirme, NE PAS utiliser pour les agents
+- `EntryPointExecutor` ne dispatch toujours pas par `blockRef` — les workflows JSON ne peuvent pas referencer des agents
+
+**Decisions** :
+- Qwen2.5-Coder-1.5B-Instruct = modele par defaut pour TOUS les agents
+- SmolLM2-1.7B = uniquement pour inference simple (code-generator, test-generator)
+- Les agents doivent passer par `--input-json` pour ecrire du contenu avec newlines (pas --input content=...)
+- `SanitizeJsonNewlines` est un filet de securite mais les prompts devraient idealement produire du JSON avec `\\n`
+- Infrastructure agent loop est maintenant stable : multi-turn, tool-call, file-write, error recovery

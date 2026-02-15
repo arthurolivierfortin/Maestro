@@ -62,3 +62,45 @@
 - **Impact** : Eleve — impossible de referencer des agents dans des workflows JSON
 - **Contournement** : Utiliser des agents orchestrateurs (agent blocks qui appellent d'autres agents via maestro_cli) au lieu de workflows avec config.nodes
 - **Suggestion** : Ajouter un chemin de dispatch par `blockRef` dans `ExecuteRegularNodeAsync` qui utilise `BlockExecutorRegistry` pour executer le block reference. Le commentaire a la ligne 887 d'EntryPointExecutor documente deja cette evolution.
+
+### 2026-02-14 CLI workspace delete --force ne fonctionne pas
+- **Decouverte** : `workspace delete <id> --force` affiche toujours "Use --force to confirm" parce que le code CLI ne passe pas `{ force: argv.force }` a `deleteWorkspace()`
+- **Impact** : Faible — contournable par appel API direct
+- **Contournement** : `curl -X DELETE http://localhost:5000/api/workspaces/<id>`
+- **Resolution** : FAIT — Corrige cli.ts ligne 6340, passe `{ force: argv.force }` a `deleteWorkspace()`
+
+### 2026-02-14 CLI workspace create : --repo flag non documente
+- **Decouverte** : `workspace create --repo <path>` ne lie pas le repo. Le vrai flag est `--repo-path` (cli.ts ligne 6332)
+- **Impact** : Moyen — l'utilisateur croit avoir lie un repo mais il ne l'est pas
+- **Contournement** : Utiliser `--repo-path` au lieu de `--repo`
+- **Suggestion** : Ajouter un alias `--repo` pour `--repo-path` ou documenter clairement le flag
+
+### 2026-02-14 LLM Provider CUDA crash en multi-turn
+- **Decouverte** : Conversations multi-turn (agent iteration 2+) causent un CUDA device-side assert qui corrompt le GPU irreversiblement
+- **Impact** : Critique — les agents ne peuvent pas depasser 1 iteration, l'agent loop est completement bloque
+- **Cause racine** : `format_chat_prompt()` construisait `<|im_start|>/<|im_end|>` comme texte brut au lieu d'utiliser le tokenizer. Le tokenizer ne reconnaissait pas les tokens speciaux correctement.
+- **Resolution** : FAIT —
+  1. `format_chat_prompt()` utilise desormais `tokenizer.apply_chat_template()` (tokens speciaux geres correctement)
+  2. `model_manager.py` ajoute `_recover_cuda()` qui unload, clear cache, reload et retry automatiquement en cas de CUDA error
+  3. `get_tokenizer()` methode ajoutee pour exposer le tokenizer
+
+### 2026-02-14 CliParser strip les guillemets du JSON dans --input-json
+- **Decouverte** : L'agent envoie `--input-json {"content":"code..."}` mais le tokenizer CLI strip les `"`, le JSON devient `{content:code...}` = invalide
+- **Impact** : Critique — file-write via agent impossible (boucle d'echec)
+- **Cause racine** : Le tokenizer CLI traite `"` comme delimiteur de chaîne et le supprime, mais le JSON a besoin des guillemets
+- **Resolution** : FAIT — CliParser detecte les blocs JSON ({...} ou [...]), entre en mode JSON et preserve tout le contenu brut (guillemets, whitespace, newlines) jusqu'a l'accolade fermante equilibree
+
+### 2026-02-14 file-write rejette content de type JsonElement
+- **Decouverte** : Quand `--input-json {"content":"..."}` est parse par RunCommandHandler, `JsonSerializer.Deserialize` cree un `JsonElement`, pas un `string`. `HandleFileWriteAsync` verifie `contentObj is not string` → echec silencieux
+- **Impact** : Critique — file-write via --input-json toujours echoue meme apres fix du parsing
+- **Resolution** : FAIT — `HandleFileWriteAsync` accepte maintenant `string`, `JsonElement`, et `object.ToString()`
+
+### 2026-02-14 RunCommandHandler messages d'erreur trop vagues
+- **Decouverte** : Quand un block echoue, l'agent recoit juste "Block execution failed" sans details, l'empechant de corriger
+- **Impact** : Moyen — l'agent ne peut pas comprendre pourquoi une operation echoue
+- **Resolution** : FAIT — Si pas de champ `error` dans les outputs, les logs du block sont inclus dans le message d'erreur
+
+### 2026-02-14 JSON avec newlines litteraux dans --input-json
+- **Decouverte** : LLMs generent des JSON avec des retours a la ligne litteraux dans les string values (`{"content":"line1\nline2"}`), invalide en JSON
+- **Impact** : Moyen — peut causer des erreurs de parsing intermittentes
+- **Resolution** : FAIT — `SanitizeJsonNewlines()` dans RunCommandHandler echappe les `\n` et `\r` litteraux a l'interieur des valeurs de chaîne JSON avant le parsing

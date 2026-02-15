@@ -1,9 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
-using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using Maestro.Application.DTOs;
@@ -15,15 +15,20 @@ using ExecutionContext = Maestro.Domain.Entities.ExecutionContext;
 
 namespace Maestro.Infrastructure.BlockExecutors;
 
-public class AgentBlockExecutor : IBlockExecutor
+/// <summary>
+/// Executor for agent blocks: systemPrompt → multi-turn agentic loop → tool calls via CLI → response.
+/// All content (system prompt, tool descriptions) comes from block config/files.
+/// The executor is pure mechanical plumbing — it never defines what tools are available.
+/// </summary>
+public class AgentBlockExecutor : LLMBlockExecutorBase
 {
-    private readonly ILLMGateway _llmGateway;
     private readonly IServiceProvider? _serviceProvider;
     private readonly ContextProcessorFactory _contextProcessorFactory;
     private ICliExecutor? _cliExecutor;
 
-    // Legacy tool mapping for backwards compatibility
-    // New agents should use maestro_cli directly
+    // Legacy tool mapping for backwards compatibility.
+    // New agents should use maestro_cli directly via their system prompt.
+    [Obsolete("Legacy tool mapping will be removed when all agent blocks use maestro_cli directly.")]
     private static readonly Dictionary<string, string> LegacyToolMapping = new()
     {
         { "list_files", "run directory-list --input path=" },
@@ -39,279 +44,56 @@ public class AgentBlockExecutor : IBlockExecutor
         { "llm-generate", "run llm-generate" }
     };
 
-    public AgentBlockExecutor(ILLMGateway llmGateway, IServiceProvider? serviceProvider = null)
+    public AgentBlockExecutor(ILLMGateway llmGateway, IServiceProvider? serviceProvider = null, IExecutionMonitor? monitor = null)
+        : base(llmGateway, monitor)
     {
-        _llmGateway = llmGateway;
         _serviceProvider = serviceProvider;
         _contextProcessorFactory = new ContextProcessorFactory(serviceProvider);
     }
 
-    private ICliExecutor? GetCliExecutor()
+    public override string SupportedType => "agent";
+
+    public override async Task<BlockExecutionResult> ExecuteAsync(
+        BlockDefinition block, ExecutionContext context,
+        Dictionary<string, object> inputs, CancellationToken ct = default)
     {
-        if (_cliExecutor == null && _serviceProvider != null)
-        {
-            _cliExecutor = _serviceProvider.GetService<ICliExecutor>();
-        }
-        return _cliExecutor;
-    }
-
-    /// <summary>
-    /// Converts legacy tool calls to maestro CLI commands for backwards compatibility.
-    /// </summary>
-    private string? ConvertLegacyToolToCommand(string toolId, JsonElement args)
-    {
-        if (!LegacyToolMapping.TryGetValue(toolId, out var baseCommand))
-            return null;
-
-        var sb = new System.Text.StringBuilder(baseCommand);
-
-        if (args.ValueKind == JsonValueKind.Object)
-        {
-            foreach (var prop in args.EnumerateObject())
-            {
-                var value = prop.Value.ToString().Trim('"');
-                // Handle common mappings
-                if (toolId.Contains("file") && prop.Name == "content")
-                {
-                    sb.Append($" --input content=\"{EscapeForCli(value)}\"");
-                }
-                else if (!baseCommand.Contains($"--input {prop.Name}="))
-                {
-                    if (baseCommand.EndsWith("="))
-                    {
-                        sb.Append(EscapeForCli(value));
-                    }
-                    else
-                    {
-                        sb.Append($" --input {prop.Name}=\"{EscapeForCli(value)}\"");
-                    }
-                }
-            }
-        }
-
-        return sb.ToString();
-    }
-
-    private static string EscapeForCli(string value)
-    {
-        return value.Replace("\\", "\\\\").Replace("\"", "\\\"");
-    }
-
-    public string SupportedType => "agent";
-
-    public async Task<BlockExecutionResult> ExecuteAsync(BlockDefinition block, ExecutionContext context, Dictionary<string, object> inputs, CancellationToken ct = default)
-    {
-        var sw = System.Diagnostics.Stopwatch.StartNew();
+        var sw = Stopwatch.StartNew();
         var result = new BlockExecutionResult();
 
-        string? path = null;
-        if (block.Config != null && block.Config.TryGetValue("path", out var p) && p is string pstr) path = pstr;
+        // 1. Mock check
+        var mockResult = await TryLoadMockResponse(block, sw, ct);
+        if (mockResult != null) return mockResult;
 
-        // Mock mode: if mock-response.json exists, load it
-        if (path != null)
+        // 2. Load systemPrompt — MUST exist in config or file. No hardcoded default.
+        var systemPrompt = await LoadSystemPrompt(block, ct);
+        if (string.IsNullOrEmpty(systemPrompt))
         {
-            var mock = Path.Combine(path, "mock-response.json");
-            if (File.Exists(mock))
-            {
-                var text = await File.ReadAllTextAsync(mock, ct);
-                try
-                {
-                    using var doc = JsonDocument.Parse(text);
-                    if (doc.RootElement.TryGetProperty("outputs", out var outs))
-                    {
-                        foreach (var prop in outs.EnumerateObject())
-                        {
-                            result.Outputs[prop.Name] = prop.Value.GetString() ?? prop.Value.ToString();
-                        }
-                        result.Logs.Add("Mock agent response loaded");
-                        result.DurationMs = sw.ElapsedMilliseconds;
-                        return result;
-                    }
-                }
-                catch { /* fallthrough */ }
-            }
+            return ErrorResult(
+                "Agent block requires a system prompt. Provide config.systemPrompt or system-prompt.md in the block directory.",
+                sw.ElapsedMilliseconds);
         }
 
-        // Load system prompt from file if present
-        var systemPrompt = string.Empty;
-        if (path != null)
-        {
-            var sp = Path.Combine(path, "system-prompt.md");
-            if (File.Exists(sp)) systemPrompt = await File.ReadAllTextAsync(sp, ct);
-
-            // Load tools.json if present (for agent tool definitions). Not fully executed here,
-            // but makes tools available for future tool-call handling.
-            var toolsFile = Path.Combine(path, "tools.json");
-            if (File.Exists(toolsFile))
-            {
-                try
-                {
-                    await File.ReadAllTextAsync(toolsFile, ct); // loaded for future use; content not required now
-                    // keep as log for now
-                    result.Logs.Add("tools.json loaded");
-                }
-                catch (Exception ex)
-                {
-                    // best-effort: failure to read tools.json is non-fatal for agent scaffold
-                    result.Logs.Add($"Failed to load tools.json: {ex.Message}");
-                }
-            }
-        }
-
-        // Get system prompt from config if not loaded from file
-        if (string.IsNullOrEmpty(systemPrompt) && block.Config != null && block.Config.TryGetValue("systemPrompt", out var sysPromptConfig) && sysPromptConfig != null)
-        {
-            systemPrompt = sysPromptConfig.ToString() ?? string.Empty;
-        }
-
-        // Get model from config
-        string? modelId = null;
-        if (block.Config != null && block.Config.TryGetValue("model", out var modelConfig) && modelConfig != null)
-        {
-            modelId = modelConfig.ToString();
-        }
-
-        // Get generation parameters from config
-        int maxTokens = 1024;  // Increased default for proper JSON tool call responses
-        float temperature = 0.0f;
-        if (block.Config != null)
-        {
-            if (block.Config.TryGetValue("maxTokens", out var mtConfig) && mtConfig != null)
-            {
-                int.TryParse(mtConfig.ToString(), out maxTokens);
-            }
-            if (block.Config.TryGetValue("temperature", out var tempConfig) && tempConfig != null)
-            {
-                float.TryParse(tempConfig.ToString(), System.Globalization.CultureInfo.InvariantCulture, out temperature);
-            }
-        }
-
-        // Get available tools from config
-        var availableTools = new List<string> { "file-read", "file-write", "shell-execute", "git-status", "git-diff" };
-        if (block.Config != null && block.Config.TryGetValue("tools", out var toolsConfig) && toolsConfig != null)
-        {
-            try
-            {
-                if (toolsConfig is System.Text.Json.JsonElement jsonElement && jsonElement.ValueKind == System.Text.Json.JsonValueKind.Array)
-                {
-                    availableTools = jsonElement.EnumerateArray().Select(e => e.GetString() ?? "").Where(s => !string.IsNullOrEmpty(s)).ToList();
-                }
-            }
-            catch { /* keep defaults */ }
-        }
-
-        // Build user prompt from inputs (task/subtask, workingDir, context)
-        // Support both "task" and "subtask" input names for flexibility
-        var taskDescription = string.Empty;
-        if (inputs.TryGetValue("task", out var taskObj) && taskObj != null)
-        {
-            taskDescription = taskObj.ToString() ?? string.Empty;
-        }
-        else if (inputs.TryGetValue("subtask", out var subtaskObj) && subtaskObj != null)
-        {
-            // Handle subtask as object or string
-            if (subtaskObj is System.Text.Json.JsonElement jsonEl)
-            {
-                if (jsonEl.TryGetProperty("description", out var descProp))
-                    taskDescription = descProp.GetString() ?? jsonEl.ToString();
-                else
-                    taskDescription = jsonEl.ToString();
-            }
-            else
-            {
-                taskDescription = subtaskObj.ToString() ?? string.Empty;
-            }
-        }
-        var workingDir = inputs.TryGetValue("workingDir", out var wdObj) ? wdObj?.ToString() ?? string.Empty : string.Empty;
-        var additionalContext = inputs.TryGetValue("context", out var ctxObj) ? ctxObj?.ToString() ?? string.Empty : string.Empty;
-
-        // Fallback to "user" config if no task input
-        var userPromptText = string.IsNullOrEmpty(taskDescription) && block.Config != null && block.Config.TryGetValue("user", out var u)
-            ? u?.ToString() ?? string.Empty
-            : string.Empty;
-
-        // Build the user message content
-        var userContentBuilder = new System.Text.StringBuilder();
-
-        if (!string.IsNullOrEmpty(taskDescription))
-        {
-            userContentBuilder.AppendLine("## Task");
-            userContentBuilder.AppendLine(taskDescription);
-            userContentBuilder.AppendLine();
-        }
-
-        if (!string.IsNullOrEmpty(workingDir))
-        {
-            userContentBuilder.AppendLine("## Working Directory");
-            userContentBuilder.AppendLine(workingDir);
-            userContentBuilder.AppendLine();
-        }
-
-        if (!string.IsNullOrEmpty(additionalContext))
-        {
-            userContentBuilder.AppendLine("## Additional Context");
-            userContentBuilder.AppendLine(additionalContext);
-            userContentBuilder.AppendLine();
-        }
-
-        if (!string.IsNullOrEmpty(userPromptText))
-        {
-            userContentBuilder.AppendLine(userPromptText);
-        }
-
-        // Build conversation messages for ChatML format
+        // 3. Build conversation messages
         var messages = new List<ChatMessage>();
+        messages.Add(ChatMessage.System(systemPrompt));
 
-        // System message with tool instructions
-        var systemContent = systemPrompt;
-        if (string.IsNullOrEmpty(systemContent))
-        {
-            // Default system prompt uses maestro_cli as the single tool
-            systemContent = $@"You are a JSON-only assistant with access to Maestro CLI. You MUST output exactly one JSON object, nothing else.
-
-You have ONE tool: maestro_cli. Use it to interact with the system.
-
-Available commands via maestro_cli:
-- List files: {{""tool"":""maestro_cli"",""args"":{{""command"":""run directory-list --input path=<path>""}}}}
-- Read file: {{""tool"":""maestro_cli"",""args"":{{""command"":""run file-read --input path=<path>""}}}}
-- Write file: {{""tool"":""maestro_cli"",""args"":{{""command"":""run file-write --input path=<path> --input content=<content>""}}}}
-- List blocks: {{""tool"":""maestro_cli"",""args"":{{""command"":""list-blocks""}}}}
-- List tools: {{""tool"":""maestro_cli"",""args"":{{""command"":""list-tools""}}}}
-- Run any block: {{""tool"":""maestro_cli"",""args"":{{""command"":""run <block-id> --input <key>=<value>""}}}}
-- Get help: {{""tool"":""maestro_cli"",""args"":{{""command"":""help [command]""}}}}
-- Done: {{""tool"":""done"",""args"":{{""summary"":""...""}}}}
-
-Legacy tools (list_files, read_file, write_file) are also supported for backwards compatibility.
-
-Respond with ONLY the JSON object. No explanations. No markdown. Just JSON.";
-        }
-        messages.Add(ChatMessage.System(systemContent));
-
-        // User message with task
-        var userContent = userContentBuilder.ToString().Trim();
-        if (string.IsNullOrEmpty(userContent))
-        {
-            userContent = "Start by listing files.";
-        }
+        var userContent = BuildUserMessage(inputs, block);
         messages.Add(ChatMessage.User(userContent));
 
-        result.Logs.Add($"Using model: {modelId ?? "default"}, temperature: {temperature}, maxTokens: {maxTokens}");
-
-        // Get context configuration
+        // 4. Resolve params
+        var modelId = ResolveModelId(block, inputs);
+        var (maxTokens, temperature) = ResolveGenerationParams(block);
+        var maxIterations = ResolveMaxIterations(block);
         var contextConfig = GetContextConfig(block.Config);
         var contextProcessor = _contextProcessorFactory.Create(contextConfig.Strategy);
+
+        result.Logs.Add($"Using model: {modelId ?? "default"}, temperature: {temperature}, maxTokens: {maxTokens}");
         result.Logs.Add($"Context strategy: {contextConfig.Strategy}, maxTokens: {contextConfig.MaxTokens}");
 
-        var maxIterations = 5;
-        if (block.Config != null && block.Config.TryGetValue("maxIterations", out var mi) && mi is int mii) maxIterations = mii;
-        if (block.Config != null && block.Config.TryGetValue("maxSteps", out var ms))
-        {
-            if (ms is int msi) maxIterations = msi;
-            else if (int.TryParse(ms?.ToString(), out var parsed)) maxIterations = parsed;
-        }
-
+        // 5. Agentic loop (mechanical: send → parse tool call → execute → feed back → repeat)
         var iteration = 0;
-        LLMResponse response = null!;
+        LLMResponse? lastResponse = null;
+
         while (true)
         {
             iteration++;
@@ -327,11 +109,9 @@ Respond with ONLY the JSON object. No explanations. No markdown. Just JSON.";
             var contextResult = await contextProcessor.ProcessAsync(contextInput, ct);
 
             if (contextResult.WasTruncated)
-            {
                 result.Logs.Add($"Context truncated: {contextResult.MessagesRemoved} messages removed, ~{contextResult.EstimatedTokens} tokens");
-            }
 
-            // Create request with optimized messages
+            // Send to LLM
             var request = new LLMRequest
             {
                 Messages = contextResult.Messages,
@@ -340,6 +120,7 @@ Respond with ONLY the JSON object. No explanations. No markdown. Just JSON.";
                 Temperature = temperature
             };
 
+            LLMResponse response;
             try
             {
                 response = await _llmGateway.SendAsync(request, ct);
@@ -356,28 +137,24 @@ Respond with ONLY the JSON object. No explanations. No markdown. Just JSON.";
             // Check for empty response
             if (response == null || string.IsNullOrWhiteSpace(response.Content))
             {
-                result.Logs.Add("LLM returned empty response. This may indicate LLM-Provider is not running or returned an error.");
-
-                // If this is the first iteration, mark as failure
+                result.Logs.Add("LLM returned empty response.");
                 if (iteration == 1)
                 {
                     result.Success = false;
-                    result.Outputs["error"] = "LLM returned empty response. Check if LLM-Provider service is running and accessible.";
+                    result.Outputs["error"] = "LLM returned empty response. Check if LLM-Provider service is running.";
                     result.DurationMs = sw.ElapsedMilliseconds;
                     return result;
                 }
-
-                // On subsequent iterations, use the last valid response
-                break;
+                break; // On subsequent iterations, use last valid response
             }
 
+            lastResponse = response;
             result.Logs.Add($"LLM response: {(response.Content.Length > 100 ? response.Content.Substring(0, 100) + "..." : response.Content)}");
 
-            // If the LLM indicates a tool call, execute it and feed result back
+            // Parse tool call from response
             var toolCalled = false;
             try
             {
-                // Try to extract JSON from response (may be wrapped in markdown or have extra text)
                 var jsonContent = ExtractJson(response.Content);
                 if (!string.IsNullOrEmpty(jsonContent))
                 {
@@ -389,7 +166,7 @@ Respond with ONLY the JSON object. No explanations. No markdown. Just JSON.";
 
                         result.Logs.Add($"Tool call detected: {toolId}");
 
-                        // Check for "done" tool - agent finished
+                        // Check for "done" tool — agent finished
                         if (toolId == "done")
                         {
                             var summary = args.ValueKind == JsonValueKind.Object && args.TryGetProperty("summary", out var sumProp)
@@ -400,124 +177,35 @@ Respond with ONLY the JSON object. No explanations. No markdown. Just JSON.";
                             break;
                         }
 
-                        var cliExecutor = GetCliExecutor();
-                        if (!string.IsNullOrEmpty(toolId))
-                        {
-                            string? command = null;
+                        // Execute tool via CLI
+                        var toolOutput = await ExecuteToolCall(toolId!, args, jsonContent, block, context, result, ct);
 
-                            // Handle maestro_cli tool (the recommended approach)
-                            if (toolId == "maestro_cli" || toolId == "maestro-cli")
-                            {
-                                if (args.ValueKind == JsonValueKind.Object && args.TryGetProperty("command", out var cmdProp))
-                                {
-                                    command = cmdProp.GetString();
-                                }
-                                result.Logs.Add($"maestro_cli tool call: {command}");
-                            }
-                            // Handle legacy tool calls for backwards compatibility
-                            else if (LegacyToolMapping.ContainsKey(toolId))
-                            {
-                                command = ConvertLegacyToolToCommand(toolId, args);
-                                result.Logs.Add($"Legacy tool {toolId} converted to: {command}");
-                            }
-
-                            if (!string.IsNullOrEmpty(command))
-                            {
-                                // Build CLI execution context from execution context variables
-                                var cliContext = new CliExecutionContext
-                                {
-                                    WorkspaceId = context.Variables.TryGetValue("workspaceId", out var wsId) ? wsId?.ToString() : null,
-                                    SessionId = context.Variables.TryGetValue("sessionId", out var sessId) ? sessId?.ToString() : null,
-                                    AgentId = context.Variables.TryGetValue("agentId", out var agentId) ? agentId?.ToString() : block.Id
-                                };
-
-                                string toolOutput;
-                                if (cliExecutor != null)
-                                {
-                                    // Execute through CLI executor (with permission enforcement)
-                                    var cliResult = await cliExecutor.ExecuteAsync(command, cliContext, ct);
-
-                                    if (cliResult.Success)
-                                    {
-                                        toolOutput = cliResult.Output?.ToString() ?? "Success";
-                                    }
-                                    else
-                                    {
-                                        toolOutput = $"Error: {cliResult.Error}";
-                                    }
-                                }
-                                else
-                                {
-                                    // Fallback when CLI executor not available (shouldn't happen in production)
-                                    result.Logs.Add("Warning: CLI executor not available, tool execution skipped");
-                                    toolOutput = "Error: CLI executor not available. Ensure services are properly configured.";
-                                }
-
-                                result.Logs.Add($"Tool result: {(toolOutput.Length > 100 ? toolOutput.Substring(0, 100) + "..." : toolOutput)}");
-
-                                // Add assistant message (tool call) and user message (tool result)
-                                messages.Add(ChatMessage.Assistant(jsonContent));
-                                messages.Add(ChatMessage.User($"Tool result for {toolId}:\n{toolOutput}"));
-
-                                toolCalled = true;
-                            }
-                            else
-                            {
-                                result.Logs.Add($"Unknown tool: {toolId}. Use maestro_cli with a command argument.");
-                                messages.Add(ChatMessage.Assistant(jsonContent));
-                                messages.Add(ChatMessage.User($"Error: Unknown tool '{toolId}'. Use maestro_cli with a command argument. Example: {{\"tool\":\"maestro_cli\",\"args\":{{\"command\":\"help\"}}}}"));
-                                toolCalled = true;
-                            }
-                        }
+                        // Feed back into conversation
+                        messages.Add(ChatMessage.Assistant(jsonContent));
+                        messages.Add(ChatMessage.User($"Tool result for {toolId}:\n{toolOutput}"));
+                        toolCalled = true;
                     }
                 }
             }
             catch (Exception ex)
             {
-                // ignore parse errors from LLM response; treat as non-tool response
                 result.Logs.Add($"LLM parse error (tool detection): {ex.Message}");
             }
 
             if (!toolCalled || iteration >= maxIterations) break;
         }
 
-        // Try to parse structured outputs if defined
-        if (response != null && !string.IsNullOrWhiteSpace(response.Content))
+        // 6. Parse structured outputs from last response
+        if (lastResponse != null && !string.IsNullOrWhiteSpace(lastResponse.Content))
         {
-            if (block.Config != null && block.Config.TryGetValue("outputKey", out var ok) && ok is string outKey && !string.IsNullOrEmpty(outKey))
-            {
-                try
-                {
-                    using var doc = JsonDocument.Parse(response.Content);
-                    if (doc.RootElement.ValueKind == JsonValueKind.Object && doc.RootElement.TryGetProperty(outKey, out var prop))
-                    {
-                        result.Outputs[outKey] = prop.GetString() ?? prop.ToString();
-                    }
-                    else
-                    {
-                        result.Outputs["content"] = response.Content;
-                    }
-                }
-                catch
-                {
-                    result.Outputs["content"] = response.Content;
-                }
-            }
-            else
-            {
-                result.Outputs["content"] = response.Content;
-            }
+            ParseOutputs(result, lastResponse.Content, block);
             result.Logs.Add("Agent LLM response received");
         }
-        else
+        else if (!result.Outputs.ContainsKey("result") && !result.Outputs.ContainsKey("content"))
         {
-            // If we get here with no response, it means the loop exited without getting a valid response
-            if (!result.Outputs.ContainsKey("result") && !result.Outputs.ContainsKey("content"))
-            {
-                result.Success = false;
-                result.Outputs["error"] = "Agent completed without producing output";
-                result.Logs.Add("Warning: Agent completed but no valid output was produced");
-            }
+            result.Success = false;
+            result.Outputs["error"] = "Agent completed without producing output";
+            result.Logs.Add("Warning: Agent completed but no valid output was produced");
         }
 
         result.DurationMs = sw.ElapsedMilliseconds;
@@ -525,57 +213,236 @@ Respond with ONLY the JSON object. No explanations. No markdown. Just JSON.";
     }
 
     /// <summary>
-    /// Extracts JSON from a response that may contain markdown code blocks or extra text.
+    /// Loads system prompt from file (system-prompt.md) or config (config.systemPrompt).
+    /// Returns empty string if neither exists — caller must treat this as an error.
     /// </summary>
-    private static string? ExtractJson(string content)
+    private async Task<string> LoadSystemPrompt(BlockDefinition block, CancellationToken ct)
     {
-        if (string.IsNullOrWhiteSpace(content)) return null;
-
-        content = content.Trim();
-
-        // If it starts with {, assume it's already JSON
-        if (content.StartsWith("{"))
+        var path = GetBlockPath(block);
+        if (path != null)
         {
-            // Find the matching closing brace
-            var depth = 0;
-            for (var i = 0; i < content.Length; i++)
+            var sp = Path.Combine(path, "system-prompt.md");
+            if (File.Exists(sp))
+                return await File.ReadAllTextAsync(sp, ct);
+        }
+
+        if (block.Config != null && block.Config.TryGetValue("systemPrompt", out var sysPromptConfig) && sysPromptConfig != null)
+            return sysPromptConfig.ToString() ?? string.Empty;
+
+        return string.Empty;
+    }
+
+    /// <summary>
+    /// Builds user message by concatenating non-empty inputs.
+    /// No hardcoded markdown structure — just uses what's provided.
+    /// </summary>
+    private static string BuildUserMessage(Dictionary<string, object> inputs, BlockDefinition block)
+    {
+        var sb = new System.Text.StringBuilder();
+
+        // Task description (supports both "task" and "subtask" input names)
+        var taskDescription = ExtractTaskDescription(inputs);
+        if (!string.IsNullOrEmpty(taskDescription))
+        {
+            sb.AppendLine("## Task");
+            sb.AppendLine(taskDescription);
+            sb.AppendLine();
+        }
+
+        // Working directory
+        if (inputs.TryGetValue("workingDir", out var wdObj) && !string.IsNullOrEmpty(wdObj?.ToString()))
+        {
+            sb.AppendLine("## Working Directory");
+            sb.AppendLine(wdObj.ToString());
+            sb.AppendLine();
+        }
+
+        // Target file
+        if (inputs.TryGetValue("targetFile", out var tfObj) && !string.IsNullOrEmpty(tfObj?.ToString()))
+        {
+            sb.AppendLine("## Target File");
+            sb.AppendLine(tfObj.ToString());
+            sb.AppendLine();
+        }
+
+        // Additional context
+        if (inputs.TryGetValue("context", out var ctxObj) && !string.IsNullOrEmpty(ctxObj?.ToString()))
+        {
+            sb.AppendLine("## Additional Context");
+            sb.AppendLine(ctxObj.ToString());
+            sb.AppendLine();
+        }
+
+        // Fallback to "user" config if no task input
+        if (sb.Length == 0 && block.Config != null && block.Config.TryGetValue("user", out var u))
+        {
+            sb.AppendLine(u?.ToString() ?? string.Empty);
+        }
+
+        var content = sb.ToString().Trim();
+        return string.IsNullOrEmpty(content) ? "Start by listing files." : content;
+    }
+
+    private static string ExtractTaskDescription(Dictionary<string, object> inputs)
+    {
+        if (inputs.TryGetValue("task", out var taskObj) && taskObj != null)
+            return taskObj.ToString() ?? string.Empty;
+
+        if (inputs.TryGetValue("subtask", out var subtaskObj) && subtaskObj != null)
+        {
+            if (subtaskObj is JsonElement jsonEl)
             {
-                if (content[i] == '{') depth++;
-                else if (content[i] == '}') depth--;
-                if (depth == 0) return content.Substring(0, i + 1);
+                if (jsonEl.TryGetProperty("description", out var descProp))
+                    return descProp.GetString() ?? jsonEl.ToString();
+                return jsonEl.ToString();
             }
-            return content;
+            return subtaskObj.ToString() ?? string.Empty;
         }
 
-        // Try to extract from markdown code block
-        var jsonMatch = Regex.Match(content, @"```(?:json)?\s*(\{.*?\})\s*```", RegexOptions.Singleline);
-        if (jsonMatch.Success)
+        return string.Empty;
+    }
+
+    private static int ResolveMaxIterations(BlockDefinition block)
+    {
+        var maxIterations = 5;
+        if (block.Config != null)
         {
-            return jsonMatch.Groups[1].Value;
+            if (block.Config.TryGetValue("maxIterations", out var mi) && mi is int mii)
+                maxIterations = mii;
+            else if (block.Config.TryGetValue("maxSteps", out var ms))
+            {
+                if (ms is int msi) maxIterations = msi;
+                else if (int.TryParse(ms?.ToString(), out var parsed)) maxIterations = parsed;
+            }
         }
+        return maxIterations;
+    }
 
-        // Try to find a JSON object anywhere in the text
-        var braceMatch = Regex.Match(content, @"\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}", RegexOptions.Singleline);
-        if (braceMatch.Success)
+    /// <summary>
+    /// Executes a tool call via the CLI executor. Handles maestro_cli and legacy tool mappings.
+    /// </summary>
+    private async Task<string> ExecuteToolCall(
+        string toolId, JsonElement args, string jsonContent,
+        BlockDefinition block, ExecutionContext context,
+        BlockExecutionResult result, CancellationToken ct)
+    {
+        string? command = null;
+
+        // Handle maestro_cli tool (the recommended approach)
+        if (toolId == "maestro_cli" || toolId == "maestro-cli")
         {
-            return braceMatch.Value;
+            if (args.ValueKind == JsonValueKind.Object && args.TryGetProperty("command", out var cmdProp))
+                command = cmdProp.GetString();
+            result.Logs.Add($"maestro_cli tool call: {command}");
+        }
+        // Handle legacy tool calls for backwards compatibility
+#pragma warning disable CS0618 // Obsolete warning for LegacyToolMapping
+        else if (LegacyToolMapping.ContainsKey(toolId))
+        {
+            command = ConvertLegacyToolToCommand(toolId, args);
+            result.Logs.Add($"Legacy tool {toolId} converted to: {command}");
+        }
+#pragma warning restore CS0618
+
+        if (string.IsNullOrEmpty(command))
+        {
+            result.Logs.Add($"Unknown tool: {toolId}. Use maestro_cli with a command argument.");
+            return $"Error: Unknown tool '{toolId}'. Use maestro_cli with a command argument. Example: {{\"tool\":\"maestro_cli\",\"args\":{{\"command\":\"help\"}}}}";
         }
 
-        return null;
+        var cliExecutor = GetCliExecutor();
+        if (cliExecutor == null)
+        {
+            result.Logs.Add("Warning: CLI executor not available, tool execution skipped");
+            return "Error: CLI executor not available. Ensure services are properly configured.";
+        }
+
+        var cliContext = new CliExecutionContext
+        {
+            WorkspaceId = context.Variables.TryGetValue("workspaceId", out var wsId) ? wsId?.ToString() : null,
+            SessionId = context.Variables.TryGetValue("sessionId", out var sessId) ? sessId?.ToString() : null,
+            AgentId = context.Variables.TryGetValue("agentId", out var agentId) ? agentId?.ToString() : block.Id
+        };
+
+        var cliResult = await cliExecutor.ExecuteAsync(command, cliContext, ct);
+
+        string toolOutput;
+        if (cliResult.Success)
+        {
+            if (cliResult.Output is string strOutput)
+                toolOutput = strOutput;
+            else if (cliResult.Output != null)
+            {
+                try { toolOutput = JsonSerializer.Serialize(cliResult.Output); }
+                catch { toolOutput = cliResult.Output.ToString() ?? "Success"; }
+            }
+            else
+                toolOutput = "Success";
+        }
+        else
+        {
+            toolOutput = $"Error: {cliResult.Error}";
+        }
+
+        result.Logs.Add($"Tool result: {(toolOutput.Length > 100 ? toolOutput.Substring(0, 100) + "..." : toolOutput)}");
+        return toolOutput;
+    }
+
+    private ICliExecutor? GetCliExecutor()
+    {
+        if (_cliExecutor == null && _serviceProvider != null)
+            _cliExecutor = _serviceProvider.GetService<ICliExecutor>();
+        return _cliExecutor;
+    }
+
+    /// <summary>
+    /// Converts legacy tool calls to maestro CLI commands for backwards compatibility.
+    /// </summary>
+    [Obsolete("Legacy tool mapping will be removed when all agent blocks use maestro_cli directly.")]
+    private static string? ConvertLegacyToolToCommand(string toolId, JsonElement args)
+    {
+        if (!LegacyToolMapping.TryGetValue(toolId, out var baseCommand))
+            return null;
+
+        var sb = new System.Text.StringBuilder(baseCommand);
+
+        if (args.ValueKind == JsonValueKind.Object)
+        {
+            foreach (var prop in args.EnumerateObject())
+            {
+                var value = prop.Value.ToString().Trim('"');
+                if (toolId.Contains("file") && prop.Name == "content")
+                {
+                    sb.Append($" --input content=\"{EscapeForCli(value)}\"");
+                }
+                else if (!baseCommand.Contains($"--input {prop.Name}="))
+                {
+                    if (baseCommand.EndsWith("="))
+                        sb.Append(EscapeForCli(value));
+                    else
+                        sb.Append($" --input {prop.Name}=\"{EscapeForCli(value)}\"");
+                }
+            }
+        }
+
+        return sb.ToString();
+    }
+
+    private static string EscapeForCli(string value)
+    {
+        return value.Replace("\\", "\\\\").Replace("\"", "\\\"");
     }
 
     /// <summary>
     /// Extracts context configuration from block config.
-    /// Supports both inline config and block reference.
     /// </summary>
-    private ContextConfig GetContextConfig(Dictionary<string, object>? blockConfig)
+    private static ContextConfig GetContextConfig(Dictionary<string, object>? blockConfig)
     {
         var config = new ContextConfig();
 
         if (blockConfig == null)
             return config;
 
-        // Check for inline context config
         if (blockConfig.TryGetValue("context", out var contextObj) && contextObj != null)
         {
             if (contextObj is JsonElement jsonElement && jsonElement.ValueKind == JsonValueKind.Object)
@@ -605,13 +472,9 @@ Respond with ONLY the JSON object. No explanations. No markdown. Just JSON.";
             }
         }
 
-        // Check for context block reference directly in config
         if (blockConfig.TryGetValue("contextBlock", out var contextBlockRef) && contextBlockRef != null)
         {
-            config = new ContextConfig
-            {
-                ContextBlockRef = contextBlockRef.ToString()
-            };
+            config = new ContextConfig { ContextBlockRef = contextBlockRef.ToString() };
         }
 
         return config;

@@ -8,35 +8,7 @@
     margin: 0 0 var(--spacing-lg) 0;
   }
 
-  &__tabs {
-    display: flex;
-    gap: var(--spacing-xs);
-    margin-bottom: var(--spacing-lg);
-    border-bottom: 1px solid var(--border);
-    padding-bottom: 0;
-  }
-
-  &__tab {
-    padding: var(--spacing-sm) var(--spacing-md);
-    border: none;
-    background: none;
-    font-size: var(--font-size-sm);
-    font-weight: var(--font-weight-medium);
-    color: var(--text-secondary);
-    cursor: pointer;
-    border-bottom: 2px solid transparent;
-    margin-bottom: -1px;
-    transition: all var(--transition-fast);
-
-    &:hover {
-      color: var(--text-primary);
-    }
-
-    &--active {
-      color: var(--color-primary);
-      border-bottom-color: var(--color-primary);
-    }
-  }
+  /* Tabs now use shared ui-tabs component */
 
   &__body {
     display: flex;

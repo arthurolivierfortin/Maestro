@@ -103,7 +103,24 @@
       "Bash(Select-String \"error|Error|Built|build\")",
       "Bash(git checkout:*)",
       "Bash(npx tsx:*)",
-      "Bash(tr:*)"
+      "Bash(tr:*)",
+      "Bash(__NEW_LINE_6a95fd72dd00ce49__ echo \"CHECKING SPECIFIC BLOCKS:\")",
+      "Bash([ -f /c/Meastro/content/system/blocks/tools/context-builder/context-builder.tool.block.json ])",
+      "Bash(__NEW_LINE_6a95fd72dd00ce49__ echo -n \"code-analyzer: \")",
+      "Bash([ -f /c/Meastro/content/system/blocks/tools/code-analyzer/code-analyzer.tool.block.json ])",
+      "Bash(__NEW_LINE_6a95fd72dd00ce49__ echo -n \"test-generator: \")",
+      "Bash([ -f /c/Meastro/content/system/blocks/inference/test-generator/test-generator.inference.block.json ])",
+      "Bash(__NEW_LINE_6a95fd72dd00ce49__ echo -n \"commit-writer: \")",
+      "Bash([ -f /c/Meastro/content/system/blocks/inference/commit-writer/commit-writer.inference.block.json ])",
+      "Bash(__NEW_LINE_6a95fd72dd00ce49__ echo -n \"convention-reader: \")",
+      "Bash([ -f /c/Meastro/content/system/blocks/tools/convention-reader/convention-reader.tool.block.json ])",
+      "Bash(__NEW_LINE_6a95fd72dd00ce49__ echo -n \"file-write: \")",
+      "Bash([ -f /c/Meastro/content/system/blocks/tools/file-write.tool.block.json ])",
+      "Bash(/tmp/test-api.ps1 << 'PSEOF'\n$sessionId = \"b04699e2-a806-4127-9b8a-b41276a2a68d\"\n$base = \"http://localhost:5000/api\"\n$shortId = \"b04699e2\"\n\n$endpoints = @\\(\n    @{ Name = \"1. List all sessions\"; Url = \"$base/sessions\" },\n    @{ Name = \"2. Get session \\(full ID\\)\"; Url = \"$base/sessions/$sessionId\" },\n    @{ Name = \"3. Get session \\(SHORT ID\\)\"; Url = \"$base/sessions/$shortId\" },\n    @{ Name = \"4. List workspaces\"; Url = \"$base/workspaces\" },\n    @{ Name = \"5. Get _phases\"; Url = \"$base/sessions/$sessionId/variables/_phases\" },\n    @{ Name = \"6. Get _monitorDescriptor\"; Url = \"$base/sessions/$sessionId/variables/_monitorDescriptor\" },\n    @{ Name = \"7. Get _executionTree\"; Url = \"$base/sessions/$sessionId/variables/_executionTree\" },\n    @{ Name = \"8. Get _executionLog\"; Url = \"$base/sessions/$sessionId/variables/_executionLog\" }\n\\)\n\nforeach \\($ep in $endpoints\\) {\n    Write-Host \"`n========================================\" -ForegroundColor Cyan\n    Write-Host $ep.Name -ForegroundColor Yellow\n    Write-Host \"URL: $\\($ep.Url\\)\" -ForegroundColor Gray\n    Write-Host \"----------------------------------------\"\n    try {\n        $r = Invoke-WebRequest -Uri $ep.Url -UseBasicParsing -TimeoutSec 5\n        Write-Host \"STATUS: $\\($r.StatusCode\\) OK\" -ForegroundColor Green\n        $body = $r.Content\n        if \\($body.Length -gt 2000\\) {\n            Write-Host \"BODY \\(first 2000 chars\\):\"\n            Write-Host $body.Substring\\(0, 2000\\)\n            Write-Host \"... [TRUNCATED, total $\\($body.Length\\) chars]\"\n        } else {\n            Write-Host \"BODY:\"\n            Write-Host $body\n        }\n    } catch {\n        $statusCode = \"N/A\"\n        if \\($_.Exception.Response\\) {\n            $statusCode = [int]$_.Exception.Response.StatusCode\n        }\n        Write-Host \"STATUS: $statusCode\" -ForegroundColor Red\n        Write-Host \"ERROR: $\\($_.Exception.Message\\)\" -ForegroundColor Red\n        \n        # Try to get response body for error responses\n        if \\($_.Exception.Response\\) {\n            try {\n                $stream = $_.Exception.Response.GetResponseStream\\(\\)\n                $reader = New-Object System.IO.StreamReader\\($stream\\)\n                $errorBody = $reader.ReadToEnd\\(\\)\n                if \\($errorBody\\) {\n                    Write-Host \"RESPONSE BODY: $errorBody\" -ForegroundColor Red\n                }\n            } catch {}\n        }\n    }\n}\nPSEOF)",
+      "Bash(client \")",
+      "Bash(for id in 22d699ed-a1a4-4d45-b4fa-d8ad08688645 100aec7c-a371-44ad-909b-14f0a4f968da 715e30c6-82c2-4ba6-a82f-7f7d303d41cf 5c60f4b7-77fc-47b0-b4de-f86536b9ed14 a1c00d6d-fdd8-406a-a4da-b171c236ec0e e6e9f0ba-0794-452c-a30f-c84ee0cfeacd 6409ddc1-539e-414b-aeb9-3351d962a09a 1190a70e-8402-4eb5-a8ed-ae9a06e1189d fd0e04a3-f769-40d6-b236-d7e3fce69090)",
+      "Bash(do curl -s -X DELETE \"http://localhost:5000/api/workspaces/3914f3ce-f9cb-4457-82e6-d00abaf28586/sessions/$id\")",
+      "Bash(echo:*)"
     ]
   }
 }

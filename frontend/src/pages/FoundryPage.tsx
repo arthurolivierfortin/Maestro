@@ -390,7 +390,7 @@ export function FoundryPage() {
   };
 
   return (
-    <div className="foundry-page">
+    <div className="foundry-page page-enter">
       <div className="foundry-page__header">
         <div className="foundry-page__title-row">
           <h1 className="foundry-page__title">Foundry</h1>

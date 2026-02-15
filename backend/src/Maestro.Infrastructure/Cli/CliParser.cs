@@ -107,7 +107,8 @@ public static class CliParser
     }
 
     /// <summary>
-    /// Tokenizes a command string, respecting quoted strings.
+    /// Tokenizes a command string, respecting quoted strings and JSON blocks.
+    /// JSON blocks (starting with { or [) are captured as single tokens with content preserved.
     /// </summary>
     private static List<string> Tokenize(string input)
     {
@@ -115,10 +116,55 @@ public static class CliParser
         var current = new System.Text.StringBuilder();
         var inQuotes = false;
         var quoteChar = '\0';
+        var braceDepth = 0;
+        var bracketDepth = 0;
+        var inJsonBlock = false;
 
         for (var i = 0; i < input.Length; i++)
         {
             var c = input[i];
+
+            // Inside a JSON block: capture everything including quotes and whitespace
+            if (inJsonBlock)
+            {
+                current.Append(c);
+
+                if (c == '"')
+                {
+                    // Track quotes to avoid counting braces inside strings
+                    if (!inQuotes)
+                    {
+                        inQuotes = true;
+                        quoteChar = '"';
+                    }
+                    else if (quoteChar == '"')
+                    {
+                        // Check if escaped
+                        int backslashes = 0;
+                        for (int j = i - 1; j >= 0 && input[j] == '\\'; j--)
+                            backslashes++;
+                        if (backslashes % 2 == 0)
+                            inQuotes = false;
+                    }
+                }
+                else if (!inQuotes)
+                {
+                    if (c == '{') braceDepth++;
+                    else if (c == '}') braceDepth--;
+                    else if (c == '[') bracketDepth++;
+                    else if (c == ']') bracketDepth--;
+
+                    if (braceDepth == 0 && bracketDepth == 0)
+                    {
+                        // End of JSON block
+                        tokens.Add(current.ToString());
+                        current.Clear();
+                        inJsonBlock = false;
+                        inQuotes = false;
+                    }
+                }
+                continue;
+            }
 
             if (inQuotes)
             {
@@ -134,7 +180,23 @@ public static class CliParser
             }
             else
             {
-                if (c == '"' || c == '\'')
+                if (c == '{' || c == '[')
+                {
+                    // Start of a JSON block — flush any prefix (e.g., nothing, or partial token)
+                    // and start capturing the JSON block as-is
+                    if (current.Length > 0)
+                    {
+                        // Check if current token is a prefix like --input-json that attaches to JSON
+                        // In that case, keep them separate by flushing first
+                        tokens.Add(current.ToString());
+                        current.Clear();
+                    }
+                    inJsonBlock = true;
+                    braceDepth = c == '{' ? 1 : 0;
+                    bracketDepth = c == '[' ? 1 : 0;
+                    current.Append(c);
+                }
+                else if (c == '"' || c == '\'')
                 {
                     inQuotes = true;
                     quoteChar = c;

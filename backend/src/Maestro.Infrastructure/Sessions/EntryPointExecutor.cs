@@ -22,18 +22,21 @@ public class EntryPointExecutor
     private readonly IProjectSessionRepository _repository;
     private readonly ILLMGateway _llmGateway;
     private readonly IBlockDiscoveryService _blockDiscovery;
+    private readonly BlockExecutors.BlockExecutorRegistry? _executorRegistry;
     private readonly ILogger<EntryPointExecutor> _logger;
 
     public EntryPointExecutor(
         IProjectSessionRepository repository,
         ILLMGateway llmGateway,
         IBlockDiscoveryService blockDiscovery,
-        ILogger<EntryPointExecutor> logger)
+        ILogger<EntryPointExecutor> logger,
+        BlockExecutors.BlockExecutorRegistry? executorRegistry = null)
     {
         _repository = repository;
         _llmGateway = llmGateway;
         _blockDiscovery = blockDiscovery;
         _logger = logger;
+        _executorRegistry = executorRegistry;
     }
 
     /// <summary>
@@ -111,6 +114,27 @@ public class EntryPointExecutor
             {
                 await ExecuteConfigNodesAsync(session, nodesEl, workflowConfig, workingDir, workflowId, null, tree);
             }
+        }
+        else if (workflowBlock != null && _executorRegistry?.Get(workflowBlock.BlockType) != null)
+        {
+            // Entry point maps directly to an executable block (agent, tool, etc.)
+            // Dispatch via BlockExecutorRegistry instead of passthrough
+            AppendExecutionLog(session, "info", $"Executing block '{workflowId}' directly (type: {workflowBlock.BlockType})");
+            UpdateNodeById(tree, "execute", "running", $"Running {workflowBlock.BlockType}...");
+            session.SetVariable("_executionTree", tree);
+            await _repository.SaveAsync(session);
+
+            var dummyPhaseNode = JsonSerializer.SerializeToElement(new
+            {
+                id = "execute",
+                blockRef = workflowId,
+                inputs = inputs ?? new Dictionary<string, object>()
+            });
+            var output = await ExecuteBlockRefAsync(session, workflowId, dummyPhaseNode, workingDir, tree, "execute", null);
+
+            UpdateNodeById(tree, "execute", "done", output?.Length > 200 ? output[..200] + "..." : output);
+            session.SetVariable("_executionTree", tree);
+            await _repository.SaveAsync(session);
         }
         else
         {
@@ -789,12 +813,18 @@ public class EntryPointExecutor
         AppendExecutionLog(session, "info", $"Starting phase '{configSection}'");
         await _repository.SaveAsync(session);
 
-        // Execute child nodes with the per-phase config
+        // Execute child nodes with the per-phase config, OR dispatch to blockRef
         string? lastOutput = previousOutput;
         if (phaseNode.TryGetProperty("nodes", out var children) && children.ValueKind == JsonValueKind.Array)
         {
             lastOutput = await ExecuteConfigNodesAsync(
                 session, children, phaseConfig, workingDir, workflowId, configSection, displayTree, lastOutput);
+        }
+        else if (phaseNode.TryGetProperty("blockRef", out var blockRefProp) && blockRefProp.ValueKind == JsonValueKind.String)
+        {
+            // Phase references an external block (e.g., an agent) — dispatch via BlockExecutorRegistry
+            var blockRefId = blockRefProp.GetString()!;
+            lastOutput = await ExecuteBlockRefAsync(session, blockRefId, phaseNode, workingDir, displayTree, nodeId, previousOutput);
         }
 
         // Collect results and finalize phase
@@ -813,6 +843,118 @@ public class EntryPointExecutor
         await _repository.SaveAsync(session);
 
         return lastOutput;
+    }
+
+    /// <summary>
+    /// Dispatches execution to a referenced block (e.g., agent, tool) via BlockExecutorRegistry.
+    /// Resolves the block by ID, builds inputs from the phase node config, and runs it.
+    /// </summary>
+    private async Task<string?> ExecuteBlockRefAsync(
+        Domain.Entities.ProjectSession session,
+        string blockRefId,
+        JsonElement phaseNode,
+        string workingDir,
+        List<object> displayTree,
+        string nodeId,
+        string? previousOutput)
+    {
+        if (_executorRegistry == null)
+        {
+            _logger.LogWarning("BlockExecutorRegistry not available — cannot execute blockRef '{BlockRef}'", blockRefId);
+            AppendExecutionLog(session, "error", $"No executor registry for blockRef '{blockRefId}'");
+            return previousOutput ?? $"(blockRef '{blockRefId}' skipped — no executor registry)";
+        }
+
+        // Resolve the block definition
+        var block = await _blockDiscovery.GetByIdAsync(NormalizeBlockId(blockRefId), session.BlockSearchPaths);
+        if (block == null)
+        {
+            _logger.LogWarning("Block not found for blockRef: {BlockRef}", blockRefId);
+            AppendExecutionLog(session, "error", $"Block not found: {blockRefId}");
+            return previousOutput ?? $"(block '{blockRefId}' not found)";
+        }
+
+        // Get executor for this block type
+        var executor = _executorRegistry.Get(block.BlockType);
+        if (executor == null)
+        {
+            _logger.LogWarning("No executor for block type '{BlockType}' (blockRef: {BlockRef})", block.BlockType, blockRefId);
+            AppendExecutionLog(session, "error", $"No executor for block type '{block.BlockType}'");
+            return previousOutput ?? $"(no executor for '{block.BlockType}')";
+        }
+
+        // Build inputs from phase node config
+        var inputs = new Dictionary<string, object>();
+        if (phaseNode.TryGetProperty("inputs", out var inputsEl) && inputsEl.ValueKind == JsonValueKind.Object)
+        {
+            foreach (var prop in inputsEl.EnumerateObject())
+            {
+                var rawValue = prop.Value.GetString() ?? prop.Value.ToString();
+                // Resolve template references like {{inputs.task}} and {{previousOutput}}
+                var resolved = rawValue.Contains("{{previousOutput}}")
+                    ? rawValue.Replace("{{previousOutput}}", previousOutput ?? "")
+                    : ResolveTemplate(rawValue, session);
+                inputs[prop.Name] = resolved;
+            }
+        }
+
+        // Add workingDir if not explicitly set
+        if (!inputs.ContainsKey("workingDir"))
+        {
+            inputs["workingDir"] = workingDir;
+        }
+
+        AppendExecutionLog(session, "info", $"Executing blockRef '{blockRefId}' (type: {block.BlockType}) with {inputs.Count} inputs");
+        await _repository.SaveAsync(session);
+
+        // Build execution context
+        var execContext = new Domain.Entities.ExecutionContext();
+        execContext.Variables["sessionId"] = session.Id;
+        execContext.Variables["workingDir"] = workingDir;
+
+        try
+        {
+            var result = await executor.ExecuteAsync(block, execContext, inputs);
+
+            // Log LLM activity if available
+            if (result.Outputs.TryGetValue("response", out var response))
+            {
+                AppendToLLMActivity(session, new Dictionary<string, object>
+                {
+                    { "type", "agent" },
+                    { "blockRef", blockRefId },
+                    { "response", response?.ToString()?.Length > 500 ? response.ToString()![..500] + "..." : response?.ToString() ?? "" },
+                    { "timestamp", DateTime.UtcNow.ToString("o") }
+                });
+            }
+
+            // Build output string from result
+            var outputParts = new List<string>();
+            foreach (var kv in result.Outputs)
+            {
+                outputParts.Add($"{kv.Key}: {kv.Value}");
+            }
+            var output = outputParts.Count > 0
+                ? string.Join("\n", outputParts)
+                : (result.Success ? $"Block '{blockRefId}' completed successfully" : $"Block '{blockRefId}' failed");
+
+            if (!result.Success)
+            {
+                AppendExecutionLog(session, "error", $"blockRef '{blockRefId}' failed: {output}");
+            }
+            else
+            {
+                AppendExecutionLog(session, "success", $"blockRef '{blockRefId}' completed ({output.Length} chars)");
+            }
+
+            return output;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "BlockRef execution failed: {BlockRef}", blockRefId);
+            AppendExecutionLog(session, "error", $"blockRef '{blockRefId}' error: {ex.Message}");
+            return previousOutput ?? $"(error executing '{blockRefId}': {ex.Message})";
+        }
     }
 
     /// <summary>

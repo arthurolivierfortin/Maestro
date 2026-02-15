@@ -5,9 +5,11 @@
  * Sessions are execution units for blocks - no domain-specific UI.
  */
 
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useSessionStore } from '../store/sessionStore';
 import { useWorkspaceStore } from '../store/workspaceStore';
+import { Badge, StatusIndicator, LoadingState, ErrorState, EmptyState } from '@components/ui';
 import type { SessionStatus, SessionSummary } from '../types/session.types';
 import './SessionsPage.scss';
 
@@ -23,6 +25,22 @@ interface SessionRowProps {
   onDelete: () => void;
 }
 
+const statusToIndicator = (status: SessionStatus) => {
+  const map: Record<SessionStatus, 'running' | 'success' | 'error' | 'warning' | 'pending'> = {
+    Running: 'running', Completed: 'success', Failed: 'error',
+    Paused: 'warning', Pending: 'pending', Cancelled: 'pending',
+  };
+  return map[status] || 'pending';
+};
+
+const statusToVariant = (status: SessionStatus) => {
+  const map: Record<SessionStatus, 'info' | 'success' | 'error' | 'warning' | 'muted'> = {
+    Running: 'info', Completed: 'success', Failed: 'error',
+    Paused: 'warning', Pending: 'muted', Cancelled: 'muted',
+  };
+  return map[status] || 'muted';
+};
+
 const SessionRow: React.FC<SessionRowProps> = ({
   session,
   onView,
@@ -32,15 +50,6 @@ const SessionRow: React.FC<SessionRowProps> = ({
   onRetry,
   onDelete,
 }) => {
-  const statusIcon: Record<SessionStatus, string> = {
-    Running: '🟢',
-    Pending: '⏳',
-    Paused: '🟡',
-    Completed: '✅',
-    Failed: '❌',
-    Cancelled: '⚫'
-  };
-
   const formatDuration = (ms?: number) => {
     if (!ms) return '-';
     const seconds = Math.floor(ms / 1000);
@@ -58,32 +67,35 @@ const SessionRow: React.FC<SessionRowProps> = ({
   return (
     <div className="session-row">
       <div className="session-row__icon">
-        {statusIcon[session.status] || '⚪'}
+        <StatusIndicator
+          status={statusToIndicator(session.status)}
+          size="md"
+          pulse={session.status === 'Running'}
+        />
       </div>
 
       <div className="session-row__content" onClick={onView}>
         <div className="session-row__header">
-          <span className="session-row__id">{session.id}</span>
-          <span className="session-row__status">{session.status}</span>
+          <span className="session-row__id">{session.id.substring(0, 12)}</span>
+          <Badge variant={statusToVariant(session.status)} size="sm">{session.status}</Badge>
         </div>
 
         <div className="session-row__meta">
           <span className="session-row__workspace">
-            Workspace: {session.workspaceName}
+            {session.workspaceName}
           </span>
           {session.status === 'Running' && session.currentBlockName && (
             <span className="session-row__current">
-              Current: {session.currentBlockName}
+              {session.currentBlockName}
             </span>
           )}
-          {session.duration && (
+          {session.duration != null && (
             <span className="session-row__duration">
-              Duration: {formatDuration(session.duration)}
+              {formatDuration(session.duration)}
             </span>
           )}
         </div>
 
-        {/* Progress bar for running/completed sessions */}
         {(session.status === 'Running' || session.blocksCompleted > 0) && (
           <div className="session-row__progress">
             <div className="session-row__progress-bar">
@@ -93,15 +105,14 @@ const SessionRow: React.FC<SessionRowProps> = ({
               />
             </div>
             <span className="session-row__progress-text">
-              {session.blocksCompleted}/{session.blocksTotal} blocks ({progress}%)
+              {session.blocksCompleted}/{session.blocksTotal} ({progress}%)
             </span>
           </div>
         )}
 
-        {/* Error message for failed sessions */}
         {session.status === 'Failed' && session.error && (
           <div className="session-row__error">
-            Error: {session.error}
+            {session.error}
           </div>
         )}
       </div>
@@ -112,32 +123,32 @@ const SessionRow: React.FC<SessionRowProps> = ({
         </button>
         {session.status === 'Pending' && (
           <button className="btn btn-secondary btn-sm" onClick={onStart} title="Start">
-            ▶️
+            &#9654;
           </button>
         )}
         {session.status === 'Running' && (
           <>
             <button className="btn btn-secondary btn-sm" onClick={onPause} title="Pause">
-              ⏸️
+              &#9208;
             </button>
             <button className="btn btn-secondary btn-sm" onClick={onStop} title="Stop">
-              ⏹️
+              &#9209;
             </button>
           </>
         )}
         {session.status === 'Paused' && (
           <button className="btn btn-secondary btn-sm" onClick={onStart} title="Resume">
-            ▶️
+            &#9654;
           </button>
         )}
         {session.status === 'Failed' && (
           <button className="btn btn-secondary btn-sm" onClick={onRetry} title="Retry">
-            🔄
+            &#8635;
           </button>
         )}
         {(session.status === 'Completed' || session.status === 'Failed' || session.status === 'Cancelled') && (
           <button className="btn btn-danger btn-sm" onClick={onDelete} title="Delete">
-            🗑️
+            &#128465;
           </button>
         )}
       </div>
@@ -145,190 +156,9 @@ const SessionRow: React.FC<SessionRowProps> = ({
   );
 };
 
-// Session Detail Modal
-interface SessionDetailModalProps {
-  sessionId: string;
-  onClose: () => void;
-}
+// SessionDetailModal removed — now using /sessions/:id route
 
-const SessionDetailModal: React.FC<SessionDetailModalProps> = ({ sessionId, onClose }) => {
-  const { selectedSession, loadSession, stopSession } = useSessionStore();
-
-  useEffect(() => {
-    loadSession(sessionId);
-  }, [sessionId, loadSession]);
-
-  if (!selectedSession) {
-    return (
-      <div className="modal-overlay" onClick={onClose}>
-        <div className="modal-content modal-content--large" onClick={e => e.stopPropagation()}>
-          <div className="modal-loading">Loading session details...</div>
-        </div>
-      </div>
-    );
-  }
-
-  const formatTimestamp = (ts?: string) => {
-    if (!ts) return '-';
-    return new Date(ts).toLocaleString();
-  };
-
-  const formatDuration = (ms?: number) => {
-    if (!ms) return '-';
-    const seconds = Math.floor(ms / 1000);
-    const minutes = Math.floor(seconds / 60);
-    const hours = Math.floor(minutes / 60);
-    if (hours > 0) return `${hours}h ${minutes % 60}m ${seconds % 60}s`;
-    if (minutes > 0) return `${minutes}m ${seconds % 60}s`;
-    return `${seconds}s`;
-  };
-
-  return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content modal-content--large" onClick={e => e.stopPropagation()}>
-        <div className="modal-header">
-          <h2>Session Details</h2>
-          <button className="modal-close" onClick={onClose}>×</button>
-        </div>
-
-        <div className="session-detail">
-          <div className="session-detail__header">
-            <div className="session-detail__id">
-              <code>{selectedSession.id}</code>
-            </div>
-            <div className="session-detail__status">
-              {selectedSession.status === 'Running' && '🟢'}
-              {selectedSession.status === 'Pending' && '⏳'}
-              {selectedSession.status === 'Completed' && '✅'}
-              {selectedSession.status === 'Failed' && '❌'}
-              {selectedSession.status === 'Paused' && '🟡'}
-              {selectedSession.status === 'Cancelled' && '⚫'}
-              {' '}{selectedSession.status}
-            </div>
-          </div>
-
-          {/* Progress */}
-          <div className="session-detail__section">
-            <h3>Progress</h3>
-            <div className="session-detail__progress">
-              <div className="session-detail__progress-bar">
-                <div
-                  className="session-detail__progress-fill"
-                  style={{
-                    width: `${selectedSession.blocksTotal > 0
-                      ? (selectedSession.blocksCompleted / selectedSession.blocksTotal) * 100
-                      : 0}%`
-                  }}
-                />
-              </div>
-              <span>
-                {selectedSession.blocksCompleted} / {selectedSession.blocksTotal} blocks
-              </span>
-            </div>
-            {selectedSession.currentBlockName && (
-              <p>Current block: <strong>{selectedSession.currentBlockName}</strong></p>
-            )}
-          </div>
-
-          {/* Timing */}
-          <div className="session-detail__section">
-            <h3>Timing</h3>
-            <dl className="session-detail__info">
-              <dt>Created</dt>
-              <dd>{formatTimestamp(selectedSession.createdAt)}</dd>
-              <dt>Started</dt>
-              <dd>{formatTimestamp(selectedSession.startedAt)}</dd>
-              <dt>Completed</dt>
-              <dd>{formatTimestamp(selectedSession.completedAt)}</dd>
-              <dt>Duration</dt>
-              <dd>{formatDuration(selectedSession.duration)}</dd>
-            </dl>
-          </div>
-
-          {/* Executions */}
-          {selectedSession.executions.length > 0 && (
-            <div className="session-detail__section">
-              <h3>Block Executions</h3>
-              <div className="session-detail__executions">
-                {selectedSession.executions.map((exec, idx) => (
-                  <div key={idx} className={`execution-item execution-item--${exec.status}`}>
-                    <div className="execution-item__status">
-                      {exec.status === 'completed' && '✅'}
-                      {exec.status === 'running' && '🔄'}
-                      {exec.status === 'pending' && '⏳'}
-                      {exec.status === 'failed' && '❌'}
-                      {exec.status === 'skipped' && '⏭️'}
-                    </div>
-                    <div className="execution-item__content">
-                      <div className="execution-item__name">{exec.blockName}</div>
-                      <div className="execution-item__meta">
-                        <span>Type: {exec.blockType}</span>
-                        {exec.duration && <span>Duration: {formatDuration(exec.duration)}</span>}
-                        {exec.retryCount > 0 && <span>Retries: {exec.retryCount}</span>}
-                      </div>
-                      {exec.error && (
-                        <div className="execution-item__error">{exec.error}</div>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Error */}
-          {selectedSession.error && (
-            <div className="session-detail__section session-detail__section--error">
-              <h3>Error</h3>
-              <div className="session-detail__error">{selectedSession.error}</div>
-            </div>
-          )}
-
-          {/* Recent Logs */}
-          {selectedSession.recentLogs.length > 0 && (
-            <div className="session-detail__section">
-              <h3>Recent Logs</h3>
-              <div className="session-detail__logs">
-                {selectedSession.recentLogs.map((log, idx) => (
-                  <div key={idx} className={`log-item log-item--${log.level}`}>
-                    <span className="log-item__time">
-                      {new Date(log.timestamp).toLocaleTimeString()}
-                    </span>
-                    <span className="log-item__level">[{log.level.toUpperCase()}]</span>
-                    <span className="log-item__message">{log.message}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-
-        <div className="modal-actions">
-          {selectedSession.status === 'Running' && (
-            <button
-              className="btn btn-danger"
-              onClick={() => stopSession(selectedSession.id)}
-            >
-              Stop Session
-            </button>
-          )}
-          <button className="btn btn-secondary" onClick={onClose}>
-            Close
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// Empty State
-const EmptyState: React.FC = () => (
-  <div className="sessions-empty">
-    <div className="sessions-empty__icon">🔄</div>
-    <h3>No sessions found</h3>
-    <p>Sessions are created when workflows are executed in workspaces</p>
-  </div>
-);
+// (EmptyState imported from @components/ui)
 
 // ============= Main Component =============
 
@@ -343,7 +173,7 @@ const STATUS_FILTERS: { status: FilterStatus; label: string }[] = [
 ];
 
 export function SessionsPage() {
-  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
+  const navigate = useNavigate();
 
   const {
     sessions,
@@ -382,7 +212,7 @@ export function SessionsPage() {
   };
 
   return (
-    <div className="sessions-page">
+    <div className="sessions-page page-enter">
       {/* Header */}
       <header className="sessions-page__header">
         <div className="sessions-page__title">
@@ -438,23 +268,26 @@ export function SessionsPage() {
       {/* Error */}
       {error && (
         <div className="sessions-page__error">
-          <span>Error: {error}</span>
+          <ErrorState message="Failed to load sessions" detail={error} onRetry={loadSessions} />
         </div>
       )}
 
       {/* Content */}
       <div className="sessions-page__content">
         {isLoading ? (
-          <div className="sessions-loading">Loading sessions...</div>
+          <LoadingState message="Loading sessions..." lines={4} />
         ) : filtered.length === 0 ? (
-          <EmptyState />
+          <EmptyState
+            title="No sessions found"
+            message="Sessions are created when workflows are executed in workspaces."
+          />
         ) : (
-          <div className="sessions-list">
+          <div className="sessions-list stagger-children">
             {filtered.map(session => (
               <SessionRow
                 key={session.id}
                 session={session}
-                onView={() => setSelectedSessionId(session.id)}
+                onView={() => navigate(`/sessions/${session.id}`)}
                 onStart={() => startSession(session.id)}
                 onPause={() => pauseSession(session.id)}
                 onStop={() => stopSession(session.id)}
@@ -465,14 +298,6 @@ export function SessionsPage() {
           </div>
         )}
       </div>
-
-      {/* Session Detail Modal */}
-      {selectedSessionId && (
-        <SessionDetailModal
-          sessionId={selectedSessionId}
-          onClose={() => setSelectedSessionId(null)}
-        />
-      )}
     </div>
   );
 }

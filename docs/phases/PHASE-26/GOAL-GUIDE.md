@@ -10,7 +10,7 @@ Construire un **agent de developpement autonome** via Maestro qui prend une tach
 
 ---
 
-## 5 Regles d'or
+## 7 Regles d'or
 
 | # | Regle | Consequence |
 |---|-------|-------------|
@@ -19,6 +19,72 @@ Construire un **agent de developpement autonome** via Maestro qui prend une tach
 | 3 | **Bottom-up** | Tools atomiques → Agents → Workflows → Orchestrateur. Tester chaque couche avant de monter |
 | 4 | **Mesurer tout** | Chaque block a un fitness score. Pas de "ca a l'air de marcher" — des chiffres |
 | 5 | **Noter ce qui manque** | Si Maestro ne permet pas quelque chose → `MISSING-FEATURES.md` |
+| 6 | **Workspace d'abord** | Tout dans un workspace lie a un repo. Foundry → Publish → Projet. Jamais de blocks en vrac |
+| 7 | **Ne jamais s'arreter** | Premier obstacle ≠ fin. Tester models, reformuler prompts, changer d'approche. Continuer |
+
+---
+
+## Methodologie Obligatoire (CRITIQUE)
+
+> **Toute violation de cette methodologie est un echec de processus, meme si le code "fonctionne".**
+
+### 1. Tout dans un Workspace lie a un repo
+
+```
+maestro workspace create --name "cantante-dev" --repo "C:\Cantante"
+```
+
+- Chaque workspace est **lie a un repo Git** pour tracabilite
+- L'utilisateur peut voir tout ce qui a ete fait en consultant le workspace
+- **Jamais de blocks ou fichiers crees "en vrac"** hors d'un workspace
+
+### 2. Trois types de sessions dans le workspace
+
+| Type | Usage | Exemple |
+|------|-------|---------|
+| **Session Projet** | Developpement reel du projet cible | `cantante-v1` — execute les features |
+| **Sessions Foundry** | Creation et entrainement de chaque block | `train-commit-writer`, `train-planner-agent` |
+| **Sessions Test** | Tests d'integration et validation | `test-implement-feature` |
+
+### 3. Cycle de vie d'un block
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  Session Foundry                                             │
+│  1. Creer le block (block create / ecriture directe)        │
+│  2. Tester (execute, mesurer fitness)                        │
+│  3. Iterer (ajuster prompt, model, temperature, few-shot)   │
+│  4. Si fitness < seuil → retour a 2                         │
+│  5. Si le model ne suit pas → TESTER D'AUTRES MODELS         │
+│  6. Publier quand fitness >= seuil                           │
+└──────────────────────────┬──────────────────────────────────┘
+                           │ publish
+                           ▼
+┌─────────────────────────────────────────────────────────────┐
+│  Session Projet                                              │
+│  Utiliser les blocks publies pour le developpement reel     │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### 4. Regles de perseverance
+
+| Situation | Reponse correcte | Reponse INTERDITE |
+|-----------|-------------------|-------------------|
+| Le model ne suit pas le format | Tester 2-3 autres models disponibles | S'arreter et noter "a faire" |
+| Le prompt ne fonctionne pas | Reformuler, ajouter few-shot, reduire | S'arreter et noter "a faire" |
+| Un bug dans l'infra bloque | Le corriger et continuer | S'arreter et noter "a faire" |
+| Fitness trop bas apres 5 essais | Changer d'approche (model, architecture, decomposition) | S'arreter |
+| **Seul cas d'arret** | Incapacite technique fondamentale (GPU crash, API cassee, etc.) | — |
+
+> **Le plan dit "continuer jusqu'a ce que Cantante soit fini". C'est un ordre, pas une suggestion.**
+
+### 5. Tracabilite
+
+- Chaque action est dans un workspace → visible par l'utilisateur
+- Chaque block a un historique de fitness dans sa session foundry
+- `SESSION-NOTES.md` documente chaque session de travail
+- `MISSING-FEATURES.md` documente les gaps Maestro decouverts
+- A chaque debut de session, dire a l'utilisateur : "Workspace: X, Session: Y"
 
 ---
 
@@ -93,10 +159,13 @@ Construire un **agent de developpement autonome** via Maestro qui prend une tach
 
 ## Rappels importants
 
-- **SmolLM2-1.7B** : Prompts specifiques > abstraits. Few-shot examples. Temp 0.3 creation, 0.5 optimisation.
+- **Workspace d'abord** : TOUJOURS travailler dans un workspace lie a un repo. Jamais de blocks en vrac.
+- **Foundry → Publish → Projet** : Creer/entrainer dans foundry, publier quand OK, utiliser dans session projet.
+- **Ne jamais s'arreter** : Si un model ne marche pas, en tester un autre. Si un prompt echoue, le reformuler. Continuer jusqu'au bout.
+- **Tester les models** : SmolLM2-1.7B, Qwen2.5-Coder-1.5B, DeepSeek-R1-Distill-Qwen-1.5B — essayer au moins 2-3 avant de conclure qu'un block ne fonctionne pas.
 - **Contexte limite** : Le `context-builder` est le block le plus critique. Ne jamais envoyer tout le projet.
 - **Erreurs visibles** : Si ca casse, ca doit se voir. Pas de fallback silencieux.
-- **Philosophie Maestro** : Un block = une responsabilite. Composition > monolithisme.
+- **Tracabilite** : L'utilisateur doit pouvoir voir tout ce qui a ete fait en consultant le workspace.
 - **Documents de reference** :
   - Vision complete : `PHASE-26/VISION-AND-ARCHITECTURE.md`
   - Strategie detaillee : `PHASE-26/STRATEGY-BLOCKS-AND-AGENTS.md`

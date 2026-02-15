@@ -555,7 +555,7 @@ namespace Maestro.Infrastructure.BlockStore
         }
 
         /// <summary>
-        /// Loads a legacy *.tool.json file (ToolDefinition format) and converts to BlockDefinition.
+        /// Loads a legacy *.tool.json file and converts to BlockDefinition.
         /// Phase 18 transitional support.
         /// </summary>
         private BlockDefinition? LoadLegacyToolFile(string filePath)

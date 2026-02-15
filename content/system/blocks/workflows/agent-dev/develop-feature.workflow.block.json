@@ -1,0 +1,97 @@
+{
+  "id": "develop-feature-workflow",
+  "name": "Develop Feature Workflow",
+  "blockType": "workflow",
+  "version": "1.0.0",
+  "isAtomic": false,
+  "description": "Full development pipeline: plan → code → test → review → commit. Each step is a specialized agent.",
+  "inputs": [
+    {
+      "id": "task",
+      "name": "Task Description",
+      "type": "string",
+      "required": true,
+      "description": "What feature to implement"
+    },
+    {
+      "id": "workingDir",
+      "name": "Working Directory",
+      "type": "string",
+      "required": true,
+      "description": "Project root directory"
+    }
+  ],
+  "outputs": [
+    {
+      "id": "success",
+      "name": "Success",
+      "type": "boolean"
+    },
+    {
+      "id": "summary",
+      "name": "Summary",
+      "type": "string"
+    }
+  ],
+  "config": {
+    "nodes": [
+      {
+        "id": "plan",
+        "type": "phase",
+        "configSection": "plan",
+        "blockRef": "planner-agent",
+        "inputs": {
+          "task": "{{inputs.task}}",
+          "workingDir": "{{inputs.workingDir}}"
+        }
+      },
+      {
+        "id": "code",
+        "type": "phase",
+        "configSection": "code",
+        "blockRef": "coder-agent",
+        "inputs": {
+          "subtask": "{{previousOutput}}",
+          "workingDir": "{{inputs.workingDir}}",
+          "targetFile": "{{inputs.targetFile}}"
+        }
+      },
+      {
+        "id": "test",
+        "type": "phase",
+        "configSection": "test",
+        "blockRef": "tester-agent",
+        "inputs": {
+          "sourceFile": "{{inputs.targetFile}}",
+          "workingDir": "{{inputs.workingDir}}"
+        }
+      },
+      {
+        "id": "review",
+        "type": "phase",
+        "configSection": "review",
+        "blockRef": "reviewer-agent",
+        "inputs": {
+          "files": "{{inputs.targetFile}}",
+          "workingDir": "{{inputs.workingDir}}"
+        }
+      },
+      {
+        "id": "commit",
+        "type": "phase",
+        "configSection": "commit",
+        "blockRef": "git-agent",
+        "inputs": {
+          "action": "commit",
+          "workingDir": "{{inputs.workingDir}}",
+          "files": "{{inputs.targetFile}}"
+        }
+      }
+    ]
+  },
+  "metadata": {
+    "category": "development",
+    "tags": ["workflow", "pipeline", "agent-dev"],
+    "author": "maestro-v3"
+  }
+}

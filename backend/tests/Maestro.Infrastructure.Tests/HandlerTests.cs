@@ -28,7 +28,7 @@ namespace Maestro.Infrastructure.Tests
         }
 
         [Fact]
-        public void AgentHandler_LoadsSystemPromptAndTools()
+        public void AgentHandler_LoadsSystemPrompt()
         {
             var temp = Path.Combine(Path.GetTempPath(), "maestro-agent-" + Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(temp);
@@ -36,14 +36,12 @@ namespace Maestro.Infrastructure.Tests
             {
                 File.WriteAllText(Path.Combine(temp, "block.json"), "{ \"id\": \"agent1\", \"blockType\": \"agent\" }");
                 File.WriteAllText(Path.Combine(temp, "system-prompt.md"), "You are an agent");
-                File.WriteAllText(Path.Combine(temp, "tools.json"), "{ \"tools\": [] }");
 
                 var handler = new Maestro.Infrastructure.BlockStore.Handlers.AgentBlockHandler();
                 var def = handler.Load(temp);
 
                 Assert.NotNull(def);
                 Assert.True(def!.Config.ContainsKey("systemPrompt"));
-                Assert.True(def.Config.ContainsKey("tools"));
             }
             finally { Directory.Delete(temp, true); }
         }
