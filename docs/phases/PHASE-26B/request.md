@@ -1,0 +1,3 @@
+je viens de voir que claude code permet de faire des commandes claude command. J'aimerais que vous Ajoutiez une phase 26-B qui consiste à inclure dans le
+  LLMProvider un provider ClaudeCode. Ce provider doit hérité d'un parent pour avoir une interface qui plus tard pourra servir pour ajouter comme enfant aussi opencode. Le but est de          
+  permettre au utilisateur de connecter leur compte claude code et faire des requêtes à claude code et les repasser au llm provider. Faites une analyse profonde        
