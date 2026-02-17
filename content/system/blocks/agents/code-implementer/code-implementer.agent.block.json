@@ -1,0 +1,55 @@
+{
+  "id": "code-implementer",
+  "name": "Code Implementer",
+  "blockType": "agent",
+  "version": "1.0.0",
+  "isAtomic": false,
+  "description": "Implements all steps from a development plan. Iterates over plan steps, delegates each to implement-single-step, then verifies the overall result.",
+  "inputs": [
+    { "id": "plan", "type": "string", "required": true, "description": "JSON plan with steps array" },
+    { "id": "context", "type": "string", "required": false, "description": "Code analysis context" },
+    { "id": "conventions", "type": "string", "required": false, "description": "Project conventions" },
+    { "id": "repoPath", "type": "string", "required": true, "description": "Path to the repository" },
+    { "id": "feedback", "type": "string", "required": false, "description": "Review feedback for fix iterations" }
+  ],
+  "outputs": [
+    { "id": "result", "type": "object", "description": "Implementation result with changed files and status" }
+  ],
+  "config": {
+    "model": "claude-sonnet",
+    "maxIterations": 30,
+    "wallClockTimeoutSeconds": 600,
+    "nodes": [
+      {
+        "id": "implement-steps",
+        "type": "for-each",
+        "source": "plan.steps",
+        "itemVariable": "currentStep",
+        "nodes": [
+          {
+            "id": "implement-step",
+            "blockRef": "implement-single-step",
+            "inputs": {
+              "step": "{{currentStep}}",
+              "context": "{{inputs.context}}",
+              "conventions": "{{inputs.conventions}}",
+              "workingDir": "{{inputs.repoPath}}"
+            }
+          }
+        ]
+      },
+      {
+        "id": "verify-all",
+        "blockRef": "shell-execute",
+        "inputs": {
+          "command": "cd {{inputs.repoPath}} && npx tsc --noEmit 2>&1 || echo 'Type check not available'"
+        }
+      }
+    ]
+  },
+  "metadata": {
+    "category": "development",
+    "designation": "autonomous",
+    "tags": ["implementation", "code", "orchestration"]
+  }
+}

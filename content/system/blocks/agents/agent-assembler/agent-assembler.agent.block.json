@@ -1,0 +1,27 @@
+{
+  "id": "agent-assembler",
+  "name": "Agent Assembler",
+  "blockType": "agent",
+  "version": "1.0.0",
+  "isAtomic": false,
+  "description": "Assembles a complete agent from published sub-blocks. Generates the orchestrator block JSON with config.nodes wiring all sub-blocks together, adds state manager and interaction agent, validates the final assembly, and publishes.",
+  "inputs": [
+    { "id": "design", "type": "object", "required": true, "description": "Architecture design with blocks, flow, and orchestrator spec" },
+    { "id": "publishedBlocks", "type": "object", "required": true, "description": "Map of blockId → { published: bool, fitness: number } for all sub-blocks" },
+    { "id": "workspaceId", "type": "string", "required": true, "description": "Workspace ID for the assembly" }
+  ],
+  "outputs": [
+    { "id": "agentId", "type": "string", "description": "ID of the assembled agent" },
+    { "id": "published", "type": "boolean", "description": "Whether the agent was published" }
+  ],
+  "config": {
+    "model": "claude-sonnet",
+    "maxIterations": 15,
+    "wallClockTimeoutSeconds": 300
+  },
+  "metadata": {
+    "category": "system",
+    "designation": "creator",
+    "tags": ["assembly", "orchestrator", "agent-creation"]
+  }
+}

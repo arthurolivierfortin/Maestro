@@ -1,0 +1,23 @@
+{
+  "id": "design-architecture",
+  "name": "Design Architecture",
+  "blockType": "agent",
+  "version": "1.0.0",
+  "isAtomic": false,
+  "description": "Designs the architecture of an agent based on requirements. Identifies sub-blocks, selects models, determines flow, checks existing blocks for reuse.",
+  "inputs": [
+    { "id": "requirements", "type": "string", "required": true, "description": "Structured requirements from understand-request" }
+  ],
+  "outputs": [
+    { "id": "design", "type": "object", "description": "Architecture design: blocks, flow, models, creation order" }
+  ],
+  "config": {
+    "maxIterations": 15,
+    "wallClockTimeoutSeconds": 180
+  },
+  "metadata": {
+    "category": "system",
+    "designation": "creator",
+    "tags": ["architecture", "design", "agent-creation"]
+  }
+}

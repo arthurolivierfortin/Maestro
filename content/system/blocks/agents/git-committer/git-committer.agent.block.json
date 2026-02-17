@@ -1,0 +1,26 @@
+{
+  "id": "git-committer",
+  "name": "Git Committer",
+  "blockType": "agent",
+  "version": "1.0.0",
+  "isAtomic": false,
+  "description": "Creates a git commit for the implemented changes. Checks status, generates a conventional commit message, stages files, and commits.",
+  "inputs": [
+    { "id": "repoPath", "type": "string", "required": true, "description": "Path to the repository" },
+    { "id": "changes", "type": "string", "required": false, "description": "Implementation result with changed files" },
+    { "id": "task", "type": "string", "required": false, "description": "Original task description" }
+  ],
+  "outputs": [
+    { "id": "commit", "type": "object", "description": "Commit result: hash, message, files" }
+  ],
+  "config": {
+    "model": "claude-sonnet",
+    "maxIterations": 8,
+    "wallClockTimeoutSeconds": 60
+  },
+  "metadata": {
+    "category": "development",
+    "designation": "autonomous",
+    "tags": ["git", "commit", "version-control"]
+  }
+}

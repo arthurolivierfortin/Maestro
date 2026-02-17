@@ -1,0 +1,72 @@
+{
+  "id": "workflow-state-manager",
+  "name": "Workflow State Manager",
+  "blockType": "tool",
+  "version": "1.0.0",
+  "isAtomic": true,
+  "description": "Manages shared state for composite agents. Single source of truth between workflow and interaction agent. Supports get, set, transition, pause, resume, rewind, and inject operations.",
+  "inputs": [
+    {
+      "id": "operation",
+      "name": "Operation",
+      "type": "string",
+      "required": true,
+      "description": "Operation to perform: get, set, transition, pause, resume, rewind, getHistory, inject"
+    },
+    {
+      "id": "path",
+      "name": "Path",
+      "type": "string",
+      "required": false,
+      "description": "Dot-separated path for get/set/inject (e.g., 'currentPhase', 'plan.steps[0].status')"
+    },
+    {
+      "id": "value",
+      "name": "Value",
+      "type": "string",
+      "required": false,
+      "description": "Value to set/inject (JSON string)"
+    },
+    {
+      "id": "phase",
+      "name": "Phase",
+      "type": "string",
+      "required": false,
+      "description": "Target phase for transition/rewind operations"
+    },
+    {
+      "id": "sessionId",
+      "name": "Session ID",
+      "type": "string",
+      "required": true,
+      "description": "Session ID to store/retrieve state from"
+    }
+  ],
+  "outputs": [
+    {
+      "id": "result",
+      "name": "Result",
+      "type": "string",
+      "description": "Operation result (value for get, status for mutations)"
+    }
+  ],
+  "config": {
+    "executorType": "cli-bridge",
+    "stateVariable": "_agentState",
+    "operations": {
+      "get": "session get-var {{sessionId}} _agentState",
+      "set": "session set-var {{sessionId}} _agentState",
+      "transition": "session set-var {{sessionId}} _agentState",
+      "pause": "session set-var {{sessionId}} _agentState",
+      "resume": "session set-var {{sessionId}} _agentState",
+      "rewind": "session set-var {{sessionId}} _agentState",
+      "getHistory": "session get-var {{sessionId}} _agentState",
+      "inject": "session set-var {{sessionId}} _agentState"
+    }
+  },
+  "metadata": {
+    "category": "system",
+    "designation": "tool",
+    "tags": ["state", "management", "workflow", "agent"]
+  }
+}

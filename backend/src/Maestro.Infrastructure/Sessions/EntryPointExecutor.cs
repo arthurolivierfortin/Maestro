@@ -99,6 +99,15 @@ public class EntryPointExecutor
         session.SetVariable("_executionTree", tree);
         session.SetVariable("_activeWorkflow", workflowId);
 
+        // Store invoke inputs as session variables so {{inputs.xxx}} templates can resolve them
+        if (inputs != null)
+        {
+            foreach (var kv in inputs)
+            {
+                session.SetVariable(kv.Key, kv.Value);
+            }
+        }
+
         AppendExecutionLog(session, "info", $"Starting workflow: {workflowId}");
         await _repository.SaveAsync(session);
 
@@ -567,8 +576,10 @@ public class EntryPointExecutor
         var condition = condNode.TryGetProperty("condition", out var condProp) ? condProp.GetString() ?? "true" : "true";
         var displayName = NodeIdToDisplayName(nodeId);
 
-        var condResult = EvaluateCondition(condition, session);
-        AppendExecutionLog(session, "info", $"Conditional '{nodeId}': evaluated to {condResult}");
+        // Resolve template references in condition (e.g., {{_nodeResult_review}} or {{state.results.review}})
+        var resolvedCondition = ResolveTemplate(condition, session);
+        var condResult = EvaluateCondition(resolvedCondition, session);
+        AppendExecutionLog(session, "info", $"Conditional '{nodeId}': '{condition}' → '{resolvedCondition}' → {condResult}");
 
         // Update display tree
         UpdateNodeById(displayTree, nodeId, "running", $"Condition: {condResult}");
@@ -576,31 +587,68 @@ public class EntryPointExecutor
         session.SetVariable("_executionTree", displayTree);
         await _repository.SaveAsync(session);
 
-        // Execute the node
-        string output;
-        try
+        // Select the branch to execute: "then" if true, "else" if false
+        string? output = null;
+        var branchName = condResult ? "then" : "else";
+        var hasBranch = condNode.TryGetProperty(branchName, out var branchNode) && branchNode.ValueKind == JsonValueKind.Object;
+
+        if (hasBranch)
         {
-            output = await ExecuteNodeAsync(session, nodeId, workflowConfig, workingDir, previousOutput);
+            try
+            {
+                // Branch node has a blockRef — dispatch it
+                if (branchNode.TryGetProperty("blockRef", out var blockRefProp) && blockRefProp.ValueKind == JsonValueKind.String)
+                {
+                    var branchId = branchNode.TryGetProperty("id", out var branchIdProp) ? branchIdProp.GetString() ?? branchName : branchName;
+                    var blockRefId = blockRefProp.GetString()!;
+                    AppendExecutionLog(session, "info", $"Conditional '{nodeId}': executing '{branchName}' branch → blockRef '{blockRefId}'");
+                    output = await ExecuteBlockRefAsync(session, blockRefId, branchNode, workingDir, displayTree, branchId, previousOutput);
+                    session.SetVariable($"_nodeResult_{branchId}", output ?? "");
+                }
+                else
+                {
+                    // Branch has child nodes — execute them
+                    if (branchNode.TryGetProperty("nodes", out var nodesEl) && nodesEl.ValueKind == JsonValueKind.Array)
+                    {
+                        output = await ExecuteConfigNodesAsync(session, nodesEl, workflowConfig, workingDir, nodeId, null, displayTree, previousOutput);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Conditional '{Branch}' branch execution failed: {NodeId}", branchName, nodeId);
+                output = $"(error in '{branchName}' branch: {ex.Message})";
+                UpdateNodeById(displayTree, nodeId, "error", output);
+                session.SetVariable("_executionTree", displayTree);
+                UpdateActiveBlockStatus(session, "error");
+                AppendExecutionLog(session, "error", $"{nodeId}: {ex.Message}");
+                await _repository.SaveAsync(session);
+                return previousOutput;
+            }
         }
-        catch (Exception ex)
+        else
         {
-            _logger.LogWarning(ex, "Conditional node execution failed: {NodeId}", nodeId);
-            output = $"(error: {ex.Message})";
-            UpdateNodeById(displayTree, nodeId, "error", output);
-            session.SetVariable("_executionTree", displayTree);
-            UpdateActiveBlockStatus(session, "error");
-            AppendExecutionLog(session, "error", $"{nodeId}: {ex.Message}");
-            await _repository.SaveAsync(session);
-            return previousOutput;
+            // Fallback: no branch definition, try legacy ExecuteNodeAsync
+            try
+            {
+                output = await ExecuteNodeAsync(session, nodeId, workflowConfig, workingDir, previousOutput);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Conditional node execution failed: {NodeId}", nodeId);
+                output = $"(error: {ex.Message})";
+            }
         }
 
         // Set done
+        output ??= previousOutput ?? "";
         var truncated = output.Length > 500 ? output[..500] + "..." : output;
         UpdateNodeById(displayTree, nodeId, "done", truncated);
         session.SetVariable("_executionTree", displayTree);
         UpdateActiveBlockOutput(session, output.Length > 2000 ? output[..2000] + "..." : output);
         UpdateActiveBlockStatus(session, "done");
         StoreBlockOutput(session, nodeId, "conditional", output);
+        session.SetVariable($"_nodeResult_{nodeId}", output);
         AppendExecutionLog(session, "success", $"{nodeId}: Completed ({output.Length} chars)");
         await _repository.SaveAsync(session);
 
@@ -907,6 +955,59 @@ public class EntryPointExecutor
         AppendExecutionLog(session, "info", $"Executing blockRef '{blockRefId}' (type: {block.BlockType}) with {inputs.Count} inputs");
         await _repository.SaveAsync(session);
 
+        // Phase 28-A: Composite blocks (with config.nodes) are executed by walking their nodes,
+        // not by the single-call or agentic-loop executor. This enables workflow-like execution
+        // inside agent blocks (fractal composition).
+        if (block.Config != null && block.Config.TryGetValue("nodes", out var nodesObj))
+        {
+            JsonElement? nodesElement = null;
+
+            // config.nodes can be: JsonElement (from System.Text.Json deserialization),
+            // JArray (from Newtonsoft API deserialization), or JsonArray (from JsonNode API)
+            if (nodesObj is JsonElement je && je.ValueKind == JsonValueKind.Array)
+            {
+                nodesElement = je;
+            }
+            else if (nodesObj is Newtonsoft.Json.Linq.JArray jArr)
+            {
+                using var nd = JsonDocument.Parse(jArr.ToString());
+                nodesElement = nd.RootElement.Clone();
+            }
+            else
+            {
+                // Try serializing whatever it is
+                try
+                {
+                    var serialized = System.Text.Json.JsonSerializer.Serialize(nodesObj);
+                    using var nd = JsonDocument.Parse(serialized);
+                    if (nd.RootElement.ValueKind == JsonValueKind.Array)
+                        nodesElement = nd.RootElement.Clone();
+                }
+                catch { /* not serializable as array, fall through to executor */ }
+            }
+
+            if (nodesElement.HasValue)
+            {
+                AppendExecutionLog(session, "info",
+                    $"blockRef '{blockRefId}' has {nodesElement.Value.GetArrayLength()} config.nodes — executing as composite");
+
+                try
+                {
+                    var compositeOutput = await ExecuteConfigNodesAsync(
+                        session, nodesElement.Value, null, workingDir, blockRefId, null, displayTree, previousOutput);
+                    AppendExecutionLog(session, "success", $"blockRef '{blockRefId}' composite execution completed");
+                    return compositeOutput;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Composite blockRef execution failed: {BlockRef}", blockRefId);
+                    AppendExecutionLog(session, "error", $"blockRef '{blockRefId}' composite error: {ex.Message}");
+                    return previousOutput ?? $"(error executing composite '{blockRefId}': {ex.Message})";
+                }
+            }
+        }
+
+        // Standard executor dispatch (for non-composite blocks: single-call inference, agentic loop, tools)
         // Build execution context
         var execContext = new Domain.Entities.ExecutionContext();
         execContext.Variables["sessionId"] = session.Id;
@@ -971,7 +1072,54 @@ public class EntryPointExecutor
         string? previousOutput,
         JsonElement? nodeConfig = null)
     {
-        var displayName = NodeIdToDisplayName(nodeId);
+        // INFRA-1: BlockRef dispatch — if the node has a blockRef, dispatch via executor registry
+        // This takes priority over pattern-matching by nodeId.
+        if (nodeConfig.HasValue
+            && nodeConfig.Value.TryGetProperty("blockRef", out var blockRefProp)
+            && blockRefProp.ValueKind == JsonValueKind.String)
+        {
+            var blockRefId = blockRefProp.GetString()!;
+            var displayName = NodeIdToDisplayName(nodeId);
+
+            UpdateNodeById(displayTree, nodeId, "running", $"Executing {blockRefId}...");
+            session.SetVariable("_executionTree", displayTree);
+            SetActiveBlock(session, nodeId, displayName, "block", "running");
+            AppendExecutionLog(session, "info", $"{nodeId}: Starting blockRef '{blockRefId}'...");
+            await _repository.SaveAsync(session);
+
+            try
+            {
+                var output = await ExecuteBlockRefAsync(
+                    session, blockRefId, nodeConfig.Value, workingDir, displayTree, nodeId, previousOutput);
+
+                var truncated = output != null && output.Length > 500 ? output[..500] + "..." : output;
+                UpdateNodeById(displayTree, nodeId, "done", truncated);
+                session.SetVariable("_executionTree", displayTree);
+                UpdateActiveBlockOutput(session, output != null && output.Length > 2000 ? output[..2000] + "..." : output ?? "");
+                UpdateActiveBlockStatus(session, "done");
+                AppendExecutionLog(session, "success", $"{nodeId}: blockRef '{blockRefId}' completed ({output?.Length ?? 0} chars)");
+                StoreBlockOutput(session, nodeId, "block", output ?? "");
+                // Store result as named session variable for {{state.results.<nodeId>}} template resolution
+                session.SetVariable($"_nodeResult_{nodeId}", output ?? "");
+                await _repository.SaveAsync(session);
+                await Task.Delay(500);
+                return output;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "BlockRef execution failed: {NodeId} → {BlockRef}", nodeId, blockRefId);
+                var errorMsg = $"(error executing blockRef '{blockRefId}': {ex.Message})";
+                UpdateNodeById(displayTree, nodeId, "error", errorMsg);
+                session.SetVariable("_executionTree", displayTree);
+                UpdateActiveBlockStatus(session, "error");
+                AppendExecutionLog(session, "error", $"{nodeId}: {ex.Message}");
+                await _repository.SaveAsync(session);
+                return previousOutput;
+            }
+        }
+
+        // Standard pattern-matching dispatch (fallback for nodes without blockRef)
+        var displayName2 = NodeIdToDisplayName(nodeId);
         var blockType = InferBlockType(nodeId);
 
         // Hint shown in the tree while the node is running
@@ -986,21 +1134,21 @@ public class EntryPointExecutor
         // Set running with hint
         UpdateNodeById(displayTree, nodeId, "running", runHint);
         session.SetVariable("_executionTree", displayTree);
-        SetActiveBlock(session, nodeId, displayName, blockType, "running");
+        SetActiveBlock(session, nodeId, displayName2, blockType, "running");
         AppendExecutionLog(session, "info", $"{nodeId}: Starting...");
         await _repository.SaveAsync(session);
 
         // Execute the node
-        string output;
+        string output2;
         try
         {
-            output = await ExecuteNodeAsync(session, nodeId, workflowConfig, workingDir, previousOutput, nodeConfig);
+            output2 = await ExecuteNodeAsync(session, nodeId, workflowConfig, workingDir, previousOutput, nodeConfig);
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Node execution failed: {NodeId}", nodeId);
-            output = $"(error: {ex.Message})";
-            UpdateNodeById(displayTree, nodeId, "error", output);
+            output2 = $"(error: {ex.Message})";
+            UpdateNodeById(displayTree, nodeId, "error", output2);
             session.SetVariable("_executionTree", displayTree);
             UpdateActiveBlockStatus(session, "error");
             AppendExecutionLog(session, "error", $"{nodeId}: {ex.Message}");
@@ -1009,17 +1157,17 @@ public class EntryPointExecutor
         }
 
         // Set done
-        var truncatedOutput = output.Length > 500 ? output[..500] + "..." : output;
+        var truncatedOutput = output2.Length > 500 ? output2[..500] + "..." : output2;
         UpdateNodeById(displayTree, nodeId, "done", truncatedOutput);
         session.SetVariable("_executionTree", displayTree);
-        UpdateActiveBlockOutput(session, output.Length > 2000 ? output[..2000] + "..." : output);
+        UpdateActiveBlockOutput(session, output2.Length > 2000 ? output2[..2000] + "..." : output2);
         UpdateActiveBlockStatus(session, "done");
-        AppendExecutionLog(session, "success", $"{nodeId}: Completed ({output.Length} chars)");
-        StoreBlockOutput(session, nodeId, blockType, output);
+        AppendExecutionLog(session, "success", $"{nodeId}: Completed ({output2.Length} chars)");
+        StoreBlockOutput(session, nodeId, blockType, output2);
         await _repository.SaveAsync(session);
         await Task.Delay(500);
 
-        return output;
+        return output2;
     }
 
     /// <summary>
@@ -2165,6 +2313,22 @@ public class EntryPointExecutor
             // {{inputs.xxx}} → session variable "xxx"
             if (varPath.StartsWith("inputs."))
                 varPath = varPath["inputs.".Length..];
+
+            // {{state.results.xxx}} → session variable "_nodeResult_xxx"
+            // {{state.results.xxx.yyy}} → session variable "_nodeResult_xxx" (sub-path ignored, returns full output)
+            if (varPath.StartsWith("state.results."))
+            {
+                var afterResults = varPath["state.results.".Length..];
+                var nodeId = afterResults.Contains('.') ? afterResults[..afterResults.IndexOf('.')] : afterResults;
+                varPath = $"_nodeResult_{nodeId}";
+            }
+            // {{state.xxx}} → session variable "_state_xxx" (general state access)
+            else if (varPath.StartsWith("state."))
+            {
+                var statePath = varPath["state.".Length..];
+                var stateKey = statePath.Contains('.') ? statePath[..statePath.IndexOf('.')] : statePath;
+                varPath = $"_state_{stateKey}";
+            }
 
             var value = session.GetVariable(varPath);
             if (value == null) return "0";

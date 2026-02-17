@@ -32,13 +32,50 @@ public class InferenceBlockExecutor : LLMBlockExecutorBase
         var mockResult = await TryLoadMockResponse(block, sw, ct);
         if (mockResult != null) return mockResult;
 
-        // 2. Load template from file or config
+        // 2. Load template/prompt from file or config
         var template = await LoadTemplate(block, ct);
         var resolved = ResolveTemplate(template, inputs);
 
-        // 3. Single LLM call with optional streaming and retry
+        // If no template, build user prompt from inputs
+        if (string.IsNullOrEmpty(resolved))
+        {
+            var parts = new List<string>();
+            foreach (var kv in inputs)
+            {
+                if (kv.Value != null && !string.IsNullOrEmpty(kv.Value.ToString()))
+                    parts.Add($"{kv.Key}: {kv.Value}");
+            }
+            resolved = string.Join("\n", parts);
+        }
+
+        // 3. Build LLM request with system prompt and generation params from config
         var modelId = ResolveModelId(block, inputs);
-        var request = new LLMRequest { Prompt = resolved, ModelId = modelId };
+        var (maxTokens, temperature) = ResolveGenerationParams(block);
+
+        string? systemPrompt = null;
+        if (block.Config != null && block.Config.TryGetValue("systemPrompt", out var sp))
+            systemPrompt = sp?.ToString();
+
+        var request = !string.IsNullOrEmpty(systemPrompt)
+            ? new LLMRequest
+            {
+                ModelId = modelId,
+                MaxNewTokens = maxTokens,
+                Temperature = temperature,
+                Messages = new List<ChatMessage>
+                {
+                    ChatMessage.System(systemPrompt),
+                    ChatMessage.User(resolved)
+                }
+            }
+            : new LLMRequest
+            {
+                ModelId = modelId,
+                MaxNewTokens = maxTokens,
+                Temperature = temperature,
+                Prompt = resolved
+            };
+
         var response = await CallLLMWithRetry(request, block, context, ct);
 
         // 4. Parse outputs

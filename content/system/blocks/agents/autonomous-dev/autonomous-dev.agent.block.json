@@ -1,0 +1,134 @@
+{
+  "id": "autonomous-dev",
+  "name": "Autonomous Developer",
+  "blockType": "agent",
+  "version": "1.0.0",
+  "isAtomic": false,
+  "description": "Autonomous development agent. Interface: conversational agent. Implementation: deterministic workflow + state manager + interaction agent. Can develop code from A to Z with user interaction support.",
+  "inputs": [
+    { "id": "task", "type": "string", "required": true, "description": "The development task to accomplish" },
+    { "id": "repoPath", "type": "string", "required": true, "description": "Path to the target repository" }
+  ],
+  "outputs": [
+    { "id": "summary", "type": "object", "description": "Summary of the work done: files changed, commit hash, test results" }
+  ],
+  "config": {
+    "model": "claude-sonnet",
+    "wallClockTimeoutSeconds": 1800,
+    "maxIterations": 50,
+
+    "stateManager": {
+      "blockRef": "workflow-state-manager",
+      "stateVariable": "_agentState"
+    },
+
+    "interactionAgent": {
+      "blockRef": "interaction-handler",
+      "capabilities": ["pause", "resume", "rewind", "dispatch", "answer", "override"]
+    },
+
+    "nodes": [
+      {
+        "id": "prepare",
+        "blockRef": "project-preparer",
+        "inputs": {
+          "repoPath": "{{inputs.repoPath}}"
+        }
+      },
+      {
+        "id": "analyze",
+        "blockRef": "context-analyzer",
+        "inputs": {
+          "task": "{{inputs.task}}",
+          "repoPath": "{{inputs.repoPath}}",
+          "projectContext": "{{_nodeResult_prepare}}"
+        }
+      },
+      {
+        "id": "plan",
+        "blockRef": "task-planner",
+        "inputs": {
+          "task": "{{inputs.task}}",
+          "context": "{{_nodeResult_analyze}}",
+          "projectContext": "{{_nodeResult_prepare}}"
+        }
+      },
+      {
+        "id": "implement",
+        "blockRef": "implement-single-step",
+        "inputs": {
+          "step": "{{_nodeResult_plan}}",
+          "context": "{{_nodeResult_analyze}}",
+          "conventions": "{{_nodeResult_prepare}}",
+          "workingDir": "{{inputs.repoPath}}"
+        }
+      },
+      {
+        "id": "test",
+        "blockRef": "test-executor",
+        "inputs": {
+          "repoPath": "{{inputs.repoPath}}",
+          "changedFiles": "{{_nodeResult_implement}}",
+          "stack": "{{_nodeResult_prepare}}"
+        }
+      },
+      {
+        "id": "review",
+        "blockRef": "code-reviewer",
+        "inputs": {
+          "changes": "{{_nodeResult_implement}}",
+          "testResults": "{{_nodeResult_test}}",
+          "conventions": "{{_nodeResult_prepare}}",
+          "task": "{{inputs.task}}"
+        }
+      },
+      {
+        "id": "commit",
+        "blockRef": "git-committer",
+        "inputs": {
+          "repoPath": "{{inputs.repoPath}}",
+          "changes": "{{_nodeResult_implement}}",
+          "task": "{{inputs.task}}",
+          "review": "{{_nodeResult_review}}"
+        }
+      }
+    ]
+  },
+  "metadata": {
+    "category": "development",
+    "designation": "autonomous",
+    "tags": ["agent", "autonomous", "development", "code"],
+    "tier": 1,
+    "qualityTarget": 1.0,
+    "models": {
+      "project-preparer": "claude-sonnet",
+      "context-analyzer": "claude-sonnet",
+      "task-planner": "claude-sonnet",
+      "code-implementer": "claude-sonnet",
+      "test-executor": "claude-sonnet",
+      "code-reviewer": "claude-sonnet",
+      "git-committer": "claude-sonnet"
+    },
+    "manifest": {
+      "version": "1.0",
+      "requirements": {
+        "models": [
+          {
+            "id": "claude-sonnet",
+            "usedBy": ["project-preparer", "context-analyzer", "task-planner", "code-implementer", "test-executor", "code-reviewer", "git-committer"],
+            "substitutable": true,
+            "testedSubstitutes": [
+              { "model": "claude-haiku", "viable": true, "notes": "Works for simple tasks (git, test, context)" },
+              { "model": "Qwen2.5-Coder-1.5B-Instruct", "viable": true, "notes": "Works for git-committer and test-executor" }
+            ]
+          }
+        ]
+      },
+      "fitness": {
+        "overall": null,
+        "qualityTarget": 1.0,
+        "perBlock": {}
+      }
+    }
+  }
+}

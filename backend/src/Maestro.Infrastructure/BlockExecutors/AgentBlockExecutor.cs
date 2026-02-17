@@ -26,24 +26,6 @@ public class AgentBlockExecutor : LLMBlockExecutorBase
     private readonly ContextProcessorFactory _contextProcessorFactory;
     private ICliExecutor? _cliExecutor;
 
-    // Legacy tool mapping for backwards compatibility.
-    // New agents should use maestro_cli directly via their system prompt.
-    [Obsolete("Legacy tool mapping will be removed when all agent blocks use maestro_cli directly.")]
-    private static readonly Dictionary<string, string> LegacyToolMapping = new()
-    {
-        { "list_files", "run directory-list --input path=" },
-        { "directory-list", "run directory-list --input path=" },
-        { "read_file", "run file-read --input path=" },
-        { "file-read", "run file-read --input path=" },
-        { "write_file", "run file-write" },
-        { "file-write", "run file-write" },
-        { "shell-execute", "run shell-execute --input command=" },
-        { "git-status", "run git-status" },
-        { "git-diff", "run git-diff" },
-        { "code-search", "run code-search --input pattern=" },
-        { "llm-generate", "run llm-generate" }
-    };
-
     public AgentBlockExecutor(ILLMGateway llmGateway, IServiceProvider? serviceProvider = null, IExecutionMonitor? monitor = null)
         : base(llmGateway, monitor)
     {
@@ -84,11 +66,22 @@ public class AgentBlockExecutor : LLMBlockExecutorBase
         var modelId = ResolveModelId(block, inputs);
         var (maxTokens, temperature) = ResolveGenerationParams(block);
         var maxIterations = ResolveMaxIterations(block);
+        var wallClockTimeoutSeconds = ResolveWallClockTimeout(block);
         var contextConfig = GetContextConfig(block.Config);
         var contextProcessor = _contextProcessorFactory.Create(contextConfig.Strategy);
 
         result.Logs.Add($"Using model: {modelId ?? "default"}, temperature: {temperature}, maxTokens: {maxTokens}");
         result.Logs.Add($"Context strategy: {contextConfig.Strategy}, maxTokens: {contextConfig.MaxTokens}");
+        result.Logs.Add($"Wall-clock timeout: {wallClockTimeoutSeconds}s, max iterations: {maxIterations}");
+
+        // INFRA-2: Wall-clock timeout via linked CancellationTokenSource
+        using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(wallClockTimeoutSeconds));
+        using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(ct, timeoutCts.Token);
+        var agentCt = linkedCts.Token;
+
+        // INFRA-3: Loop detection — track recent tool calls to detect repetition
+        var recentToolCalls = new List<string>(); // last N tool call signatures
+        const int loopDetectionWindow = 3;
 
         // 5. Agentic loop (mechanical: send → parse tool call → execute → feed back → repeat)
         var iteration = 0;
@@ -96,6 +89,14 @@ public class AgentBlockExecutor : LLMBlockExecutorBase
 
         while (true)
         {
+            // INFRA-2: Check wall-clock timeout
+            if (agentCt.IsCancellationRequested)
+            {
+                result.Logs.Add($"Agent wall-clock timeout reached ({wallClockTimeoutSeconds}s). Stopping.");
+                result.Outputs["warning"] = $"Agent stopped: wall-clock timeout ({wallClockTimeoutSeconds}s)";
+                break;
+            }
+
             iteration++;
             result.Logs.Add($"Agent iteration {iteration}/{maxIterations}");
 
@@ -106,7 +107,7 @@ public class AgentBlockExecutor : LLMBlockExecutorBase
                 SystemPrompt = systemPrompt,
                 Config = contextConfig
             };
-            var contextResult = await contextProcessor.ProcessAsync(contextInput, ct);
+            var contextResult = await contextProcessor.ProcessAsync(contextInput, agentCt);
 
             if (contextResult.WasTruncated)
                 result.Logs.Add($"Context truncated: {contextResult.MessagesRemoved} messages removed, ~{contextResult.EstimatedTokens} tokens");
@@ -123,7 +124,13 @@ public class AgentBlockExecutor : LLMBlockExecutorBase
             LLMResponse response;
             try
             {
-                response = await _llmGateway.SendAsync(request, ct);
+                response = await _llmGateway.SendAsync(request, agentCt);
+            }
+            catch (OperationCanceledException) when (timeoutCts.IsCancellationRequested)
+            {
+                result.Logs.Add($"Agent wall-clock timeout reached ({wallClockTimeoutSeconds}s) during LLM call.");
+                result.Outputs["warning"] = $"Agent stopped: wall-clock timeout ({wallClockTimeoutSeconds}s)";
+                break;
             }
             catch (Exception ex)
             {
@@ -177,8 +184,22 @@ public class AgentBlockExecutor : LLMBlockExecutorBase
                             break;
                         }
 
+                        // INFRA-3: Loop detection — check if same tool call repeats N times
+                        var toolCallSignature = $"{toolId}:{args.ToString()}";
+                        recentToolCalls.Add(toolCallSignature);
+                        if (recentToolCalls.Count >= loopDetectionWindow)
+                        {
+                            var lastN = recentToolCalls.Skip(recentToolCalls.Count - loopDetectionWindow).ToList();
+                            if (lastN.All(tc => tc == lastN[0]))
+                            {
+                                result.Logs.Add($"Loop detected: same tool call '{toolId}' repeated {loopDetectionWindow} times. Breaking.");
+                                result.Outputs["warning"] = $"Agent stopped: loop detected (same call repeated {loopDetectionWindow}x)";
+                                break;
+                            }
+                        }
+
                         // Execute tool via CLI
-                        var toolOutput = await ExecuteToolCall(toolId!, args, jsonContent, block, context, result, ct);
+                        var toolOutput = await ExecuteToolCall(toolId!, args, jsonContent, block, context, result, agentCt);
 
                         // Feed back into conversation
                         messages.Add(ChatMessage.Assistant(jsonContent));
@@ -186,6 +207,12 @@ public class AgentBlockExecutor : LLMBlockExecutorBase
                         toolCalled = true;
                     }
                 }
+            }
+            catch (OperationCanceledException) when (timeoutCts.IsCancellationRequested)
+            {
+                result.Logs.Add($"Agent wall-clock timeout reached ({wallClockTimeoutSeconds}s) during tool execution.");
+                result.Outputs["warning"] = $"Agent stopped: wall-clock timeout ({wallClockTimeoutSeconds}s)";
+                break;
             }
             catch (Exception ex)
             {
@@ -307,8 +334,11 @@ public class AgentBlockExecutor : LLMBlockExecutorBase
         var maxIterations = 5;
         if (block.Config != null)
         {
-            if (block.Config.TryGetValue("maxIterations", out var mi) && mi is int mii)
-                maxIterations = mii;
+            if (block.Config.TryGetValue("maxIterations", out var mi))
+            {
+                if (mi is int mii) maxIterations = mii;
+                else if (int.TryParse(mi?.ToString(), out var parsed)) maxIterations = parsed;
+            }
             else if (block.Config.TryGetValue("maxSteps", out var ms))
             {
                 if (ms is int msi) maxIterations = msi;
@@ -316,6 +346,29 @@ public class AgentBlockExecutor : LLMBlockExecutorBase
             }
         }
         return maxIterations;
+    }
+
+    /// <summary>
+    /// INFRA-2: Resolves wall-clock timeout in seconds from block config.
+    /// Default: 300s (5 minutes). Configurable via config.wallClockTimeoutSeconds.
+    /// </summary>
+    private static int ResolveWallClockTimeout(BlockDefinition block)
+    {
+        var timeout = 300; // 5 minutes default
+        if (block.Config != null)
+        {
+            if (block.Config.TryGetValue("wallClockTimeoutSeconds", out var wt))
+            {
+                if (wt is int wti) timeout = wti;
+                else if (int.TryParse(wt?.ToString(), out var parsed)) timeout = parsed;
+            }
+            else if (block.Config.TryGetValue("timeoutSeconds", out var ts))
+            {
+                if (ts is int tsi) timeout = tsi;
+                else if (int.TryParse(ts?.ToString(), out var parsed)) timeout = parsed;
+            }
+        }
+        return Math.Max(10, timeout); // Minimum 10 seconds
     }
 
     /// <summary>
@@ -335,15 +388,6 @@ public class AgentBlockExecutor : LLMBlockExecutorBase
                 command = cmdProp.GetString();
             result.Logs.Add($"maestro_cli tool call: {command}");
         }
-        // Handle legacy tool calls for backwards compatibility
-#pragma warning disable CS0618 // Obsolete warning for LegacyToolMapping
-        else if (LegacyToolMapping.ContainsKey(toolId))
-        {
-            command = ConvertLegacyToolToCommand(toolId, args);
-            result.Logs.Add($"Legacy tool {toolId} converted to: {command}");
-        }
-#pragma warning restore CS0618
-
         if (string.IsNullOrEmpty(command))
         {
             result.Logs.Add($"Unknown tool: {toolId}. Use maestro_cli with a command argument.");
@@ -393,44 +437,6 @@ public class AgentBlockExecutor : LLMBlockExecutorBase
         if (_cliExecutor == null && _serviceProvider != null)
             _cliExecutor = _serviceProvider.GetService<ICliExecutor>();
         return _cliExecutor;
-    }
-
-    /// <summary>
-    /// Converts legacy tool calls to maestro CLI commands for backwards compatibility.
-    /// </summary>
-    [Obsolete("Legacy tool mapping will be removed when all agent blocks use maestro_cli directly.")]
-    private static string? ConvertLegacyToolToCommand(string toolId, JsonElement args)
-    {
-        if (!LegacyToolMapping.TryGetValue(toolId, out var baseCommand))
-            return null;
-
-        var sb = new System.Text.StringBuilder(baseCommand);
-
-        if (args.ValueKind == JsonValueKind.Object)
-        {
-            foreach (var prop in args.EnumerateObject())
-            {
-                var value = prop.Value.ToString().Trim('"');
-                if (toolId.Contains("file") && prop.Name == "content")
-                {
-                    sb.Append($" --input content=\"{EscapeForCli(value)}\"");
-                }
-                else if (!baseCommand.Contains($"--input {prop.Name}="))
-                {
-                    if (baseCommand.EndsWith("="))
-                        sb.Append(EscapeForCli(value));
-                    else
-                        sb.Append($" --input {prop.Name}=\"{EscapeForCli(value)}\"");
-                }
-            }
-        }
-
-        return sb.ToString();
-    }
-
-    private static string EscapeForCli(string value)
-    {
-        return value.Replace("\\", "\\\\").Replace("\"", "\\\"");
     }
 
     /// <summary>

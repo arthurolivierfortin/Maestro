@@ -1,0 +1,26 @@
+{
+  "id": "test-executor",
+  "name": "Test Executor",
+  "blockType": "agent",
+  "version": "1.0.0",
+  "isAtomic": false,
+  "description": "Detects the test framework, runs tests, and parses results. Handles npm test, pytest, cargo test, and other common frameworks.",
+  "inputs": [
+    { "id": "repoPath", "type": "string", "required": true, "description": "Path to the repository" },
+    { "id": "changedFiles", "type": "string", "required": false, "description": "List of changed files to focus testing on" },
+    { "id": "stack", "type": "string", "required": false, "description": "Project stack info" }
+  ],
+  "outputs": [
+    { "id": "testResults", "type": "object", "description": "Structured test results: passed, failed, errors, details" }
+  ],
+  "config": {
+    "model": "claude-sonnet",
+    "maxIterations": 10,
+    "wallClockTimeoutSeconds": 180
+  },
+  "metadata": {
+    "category": "development",
+    "designation": "autonomous",
+    "tags": ["testing", "execution", "verification"]
+  }
+}

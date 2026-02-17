@@ -1,0 +1,58 @@
+{
+  "id": "3804050a-8c03-4695-95da-317d39d7663a",
+  "name": "Phase-28FIX autonomous-dev E2E",
+  "description": null,
+  "type": "Custom",
+  "status": "Active",
+  "path": null,
+  "sessionIds": [
+    "f7c06973-46aa-4ae7-b777-568cda35df2b"
+  ],
+  "projectIds": [],
+  "catalogRef": null,
+  "settings": {
+    "defaultModelId": null,
+    "maxConcurrentSessions": 10,
+    "maxConcurrentTrainingRuns": 3,
+    "autoPromotionEnabled": false,
+    "minFitnessForPromotion": 0.7,
+    "tags": []
+  },
+  "isolation": {
+    "enabled": false,
+    "network": null,
+    "resources": null,
+    "permissions": {
+      "canReadFrom": [],
+      "canWriteTo": [],
+      "canPromoteTo": [],
+      "allowReadFrom": [],
+      "allowWriteFrom": []
+    }
+  },
+  "permissions": {
+    "allowedCommands": [
+      "*"
+    ],
+    "allowedTools": [
+      "*"
+    ],
+    "allowedBlocks": [
+      "*"
+    ],
+    "canCreateBlocks": true,
+    "canCreateSessions": true,
+    "dataCollections": [
+      "*"
+    ],
+    "allowedPaths": [
+      "*"
+    ]
+  },
+  "sessionTemplates": {},
+  "entryPoints": {},
+  "createdAt": "2026-02-17T11:57:55.9545086+00:00",
+  "updatedAt": "2026-02-17T11:58:12.8784204+00:00",
+  "createdBy": null,
+  "repositoryPath": null
+}

@@ -13,7 +13,7 @@ An AI agent or developer should read in this order:
 5. **conventions/** — Naming, patterns, and rules to follow
 
 For task-specific work, go from here to:
-- Working on sessions? → `architecture/sessions.md` → `../../phases/PHASE-8/`
+- Working on sessions? → `architecture/sessions.md` → `../../phases/PHASE-28/`
 - Working on blocks? → `architecture/blocks.md`
 - Working on the CLI? → `../../tools/cli/`
 - Working on the TUI? → `../../tools/tui-monitor/`

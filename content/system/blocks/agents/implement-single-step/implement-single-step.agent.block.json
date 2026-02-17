@@ -1,0 +1,27 @@
+{
+  "id": "implement-single-step",
+  "name": "Implement Single Step",
+  "blockType": "agent",
+  "version": "1.0.0",
+  "isAtomic": false,
+  "description": "Implements a single step from a development plan. Uses an agentic loop to read, write, and verify code. This is the only place where a true agentic loop is needed — code implementation is too unpredictable for static nodes.",
+  "inputs": [
+    { "id": "step", "type": "string", "required": true, "description": "JSON step object with action, target, description" },
+    { "id": "context", "type": "string", "required": false, "description": "Code analysis context" },
+    { "id": "conventions", "type": "string", "required": false, "description": "Project conventions" },
+    { "id": "workingDir", "type": "string", "required": true, "description": "Working directory" }
+  ],
+  "outputs": [
+    { "id": "result", "type": "string", "description": "Result of the implementation step" }
+  ],
+  "config": {
+    "model": "claude-sonnet",
+    "maxIterations": 15,
+    "wallClockTimeoutSeconds": 180
+  },
+  "metadata": {
+    "category": "development",
+    "designation": "autonomous",
+    "tags": ["implementation", "code", "step", "agentic"]
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "id": "task-planner",
+  "name": "Task Planner",
+  "blockType": "agent",
+  "version": "1.0.0",
+  "isAtomic": false,
+  "description": "Decomposes a development task into concrete, ordered implementation steps. Assesses complexity and asks clarifications when needed.",
+  "inputs": [
+    { "id": "task", "type": "string", "required": true, "description": "The task to plan" },
+    { "id": "context", "type": "string", "required": false, "description": "Analysis context from context-analyzer" },
+    { "id": "projectContext", "type": "string", "required": false, "description": "Project context from preparer" }
+  ],
+  "outputs": [
+    { "id": "plan", "type": "object", "description": "Structured plan with ordered steps" }
+  ],
+  "config": {
+    "model": "claude-sonnet",
+    "maxIterations": 10,
+    "wallClockTimeoutSeconds": 120
+  },
+  "metadata": {
+    "category": "development",
+    "designation": "autonomous",
+    "tags": ["planning", "decomposition", "task"]
+  }
+}

@@ -1,0 +1,59 @@
+{
+  "id": "interaction-handler",
+  "name": "Interaction Handler",
+  "blockType": "agent",
+  "version": "1.0.0",
+  "isAtomic": false,
+  "description": "The brain of the autonomous agent. Receives user messages, classifies intent, decides actions, and controls the workflow. Has the last word — can pause, resume, rewind, dispatch, override.",
+  "inputs": [
+    { "id": "userMessage", "type": "string", "required": true, "description": "The user's message" },
+    { "id": "agentState", "type": "string", "required": false, "description": "Current agent state JSON" },
+    { "id": "sessionId", "type": "string", "required": true, "description": "Session ID for state manager access" }
+  ],
+  "outputs": [
+    { "id": "action", "type": "object", "description": "Action taken: {action, params, response, widgetType}" },
+    { "id": "response", "type": "string", "description": "Response message for the user" }
+  ],
+  "config": {
+    "model": "claude-sonnet",
+    "maxIterations": 10,
+    "wallClockTimeoutSeconds": 60,
+    "capabilities": ["pause", "resume", "rewind", "dispatch", "answer", "override"],
+    "nodes": [
+      {
+        "id": "classify-intent",
+        "blockRef": "llm-generate",
+        "inputs": {
+          "systemPrompt": "You receive a user message and current workflow state. Classify the intent.\n\nOutput JSON:\n{\"intent\": \"question|feedback|change-request|override|acknowledgment\", \"urgency\": \"immediate|deferred|none\", \"requiresPause\": true/false, \"affectedPhases\": [], \"details\": \"...\"}",
+          "userPrompt": "Message: {{inputs.userMessage}}\nCurrent state: {{inputs.agentState}}"
+        }
+      },
+      {
+        "id": "decide-action",
+        "blockRef": "llm-generate",
+        "inputs": {
+          "systemPrompt": "You are the workflow controller. Based on the classified intent, decide the action.\n\nOptions:\n- respond: answer a question (no pause)\n- pause-and-modify: pause workflow, modify state, resume\n- rewind: go back to a previous phase\n- inject: inject info into state without pausing\n- dispatch-update: update a .maestro/docs/ file\n- override: force a decision (skip phase, force commit)\n\nOutput JSON:\n{\"action\": \"...\", \"params\": {...}, \"response\": \"message for user\", \"widgetType\": \"message|confirmation|option-select\"}",
+          "userPrompt": "Intent: {{previousOutput}}\nFull state: {{inputs.agentState}}"
+        }
+      },
+      {
+        "id": "execute-action",
+        "type": "conditional",
+        "condition": "true",
+        "then": {
+          "id": "run-action",
+          "blockRef": "llm-generate",
+          "inputs": {
+            "systemPrompt": "Execute the decided action. If action is 'rewind', output the rewind target. If 'inject', output the injection. If 'respond', output the response. If 'override', output confirmation request.",
+            "userPrompt": "Action decision: {{previousOutput}}"
+          }
+        }
+      }
+    ]
+  },
+  "metadata": {
+    "category": "development",
+    "designation": "autonomous",
+    "tags": ["interaction", "control", "user", "brain"]
+  }
+}

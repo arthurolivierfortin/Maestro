@@ -1,0 +1,26 @@
+{
+  "id": "manifest-generator",
+  "name": "Manifest Generator",
+  "blockType": "tool",
+  "version": "1.0.0",
+  "isAtomic": true,
+  "description": "Generates a publication manifest for an agent block. Aggregates model requirements, fitness scores per sub-block, tested substitutes, and evaluation criteria into a structured manifest.",
+  "inputs": [
+    { "id": "blockId", "type": "string", "required": true, "description": "The block ID to generate the manifest for" },
+    { "id": "sessionId", "type": "string", "required": false, "description": "Foundry session ID to read training metrics from" }
+  ],
+  "outputs": [
+    { "id": "manifest", "type": "object", "description": "Complete manifest object ready to embed in block metadata" }
+  ],
+  "config": {
+    "executor": "script",
+    "command": "node",
+    "args": ["content/system/blocks/scripts/generate-manifest.js"],
+    "timeout": 30000
+  },
+  "metadata": {
+    "category": "system",
+    "designation": "tool",
+    "tags": ["manifest", "publication", "metrics"]
+  }
+}

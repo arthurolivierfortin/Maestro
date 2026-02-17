@@ -1,0 +1,35 @@
+{
+  "id": "model-detector",
+  "name": "Model Detector",
+  "blockType": "tool",
+  "version": "1.0.0",
+  "isAtomic": true,
+  "description": "Lists available LLM models from all providers. Returns model IDs, providers, and capabilities. Uses the CLI models command.",
+  "inputs": [
+    {
+      "id": "category",
+      "name": "Category",
+      "type": "string",
+      "required": false,
+      "description": "Filter by category (e.g., 'local', 'cloud'). If omitted, returns all."
+    }
+  ],
+  "outputs": [
+    {
+      "id": "models",
+      "name": "Available Models",
+      "type": "string",
+      "description": "List of available models with id, provider, and status"
+    }
+  ],
+  "config": {
+    "executorType": "cli-bridge",
+    "command": "models list --json",
+    "timeout": 10000
+  },
+  "metadata": {
+    "category": "system",
+    "designation": "tool",
+    "tags": ["models", "detection", "provider", "system"]
+  }
+}

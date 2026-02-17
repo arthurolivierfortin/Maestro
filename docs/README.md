@@ -33,11 +33,10 @@ docs/
 │   ├── ai-agents/           For AI assistants working on the codebase
 │   └── users/               For humans using Maestro
 │
-├── phases/                  Development phases (matching MAESTRO-N branches)
-│   ├── PHASE-4/ .. PHASE-7/ Completed phases
-│   ├── PHASE-8/             Current phase (sessions, TUI, execution)
-│   ├── PHASE-9/             Next phase (training, research)
-│   └── PHASE-10/            Future (autonomous agents)
+├── phases/                  Development phases
+│   ├── PHASE-4/ .. PHASE-27/ Completed phases (V1 + V2)
+│   ├── PHASE-28/             Current — V3: Agent autonome + tiers
+│   └── PHASE-29/             Next — Adaptation + optimisation auto
 │
 ├── operations/              Deployment, Docker, security
 │
@@ -58,6 +57,6 @@ docs/
 | CLI Commands | `tools/cli/README.md` |
 | TUI Monitor | `tools/tui-monitor/README.md` |
 | Frontend / Canvas | `tools/frontend/` |
-| Phase 8 (current) | `phases/PHASE-8/README.md` |
+| Phase 28 (current) | `phases/PHASE-28/ROADMAP-V3.md` |
 | Core Philosophy | `system/philosophy/MAESTRO-PHILOSOPHY.md` |
 | Design Decisions | `system/design-decisions/` |

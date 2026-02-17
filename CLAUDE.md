@@ -303,7 +303,7 @@ docs/
 │   └── conventions/     ← Rules (variables, errors, schema)
 ├── tools/               ← CLI, TUI monitor, frontend reference
 ├── guides/              ← For AI agents and users
-├── phases/              ← Per-phase docs (PHASE-4..10, current = PHASE-8)
+├── phases/              ← Per-phase docs (PHASE-4..29, current = PHASE-28)
 ├── operations/          ← Deployment, Docker, security
 └── archive/             ← Completed/outdated
 ```
@@ -321,7 +321,9 @@ docs/
 | `docs/system/architecture/execution.md` | Before execution engine work |
 | `docs/system/conventions/error-handling.md` | Before adding error handling |
 | `docs/tools/cli/README.md` | Before proposing CLI commands |
-| `docs/phases/PHASE-8/README.md` | For current phase context |
+| `docs/phases/PHASE-28/ROADMAP-V3.md` | For current phase context (V3 roadmap, Phase 28+29) |
+| `docs/phases/PHASE-28/SUGGESTIONS-OPTIMIZE-AND-PHILOSOPHY.md` | Architecture: optimization, aliases, generic CLI |
+| `docs/phases/PHASE-28/SUGGESTIONS-V2-COMPATIBILITY-AND-EVALUATION.md` | Architecture: manifeste, adapt, evaluators, cloud |
 | `docs/system/philosophy/MAESTRO-PHILOSOPHY-V2.md` | Core philosophy and fitness model |
 
 ## Development Environment Startup
@@ -606,7 +608,16 @@ Entry points map to block IDs. The `EntryPointExecutor` dispatches based on bloc
 ### Assuming LLM-Provider is Python-only
 **Cause**: Only looking at `C:\LLM-Provider\api\` (Python FastAPI) and missing `C:\LLM-Provider\dotnet\` (full .NET Clean Architecture with ILLMProvider, ILLMProviderFactory, orchestration service, 3 concrete providers).
 **Fix**: LLM-Provider is a .NET solution that CONTAINS a Python service for local GPU inference only. The multi-provider gateway, routing, factory, conversations, token tracking, and API are all in .NET. Always check `C:\LLM-Provider\dotnet\` first.
-**Note**: Maestro currently bypasses the .NET API and talks directly to Python (port 8000). This needs to be fixed — Maestro should point to the .NET API (port 5010).
+### Hardcoding domain-specific features in infrastructure
+**Cause**: Creating CLI commands like `maestro agent` that hardcode code-development logic (commit, test, review), or adding optimization logic that only works for code.
+**Fix**: Infrastructure MUST be domain-agnostic. Use `maestro run-interactive <workflow>` (generic) + aliases system (`aliases.json`) for shortcuts. `maestro agent` = alias → `autonomous-dev-v3`, defined in content, not code. A user creating a translation workflow should get `maestro translator` the same way.
+**Rule**: If grep-ing the infrastructure code for "commit\|implement\|code-review" finds matches → architecture violated.
+**Reference**: `docs/phases/PHASE-28/SUGGESTIONS-OPTIMIZE-AND-PHILOSOPHY.md`
+
+### Publishing workflows without manifestes
+**Cause**: Publishing a workflow tier without metadata about which models it needs, what fitness was measured, what substitutes were tested.
+**Fix**: Every published workflow MUST embed a `metadata.manifest` with: required models per block, fitness scores, tested substitutes with their fitness, evaluation criteria. This enables `maestro check` (static compatibility) and `maestro adapt` (dynamic adaptation).
+**Reference**: `docs/phases/PHASE-28/SUGGESTIONS-V2-COMPATIBILITY-AND-EVALUATION.md`
 
 ### Shell commands fail on Windows
 **Cause**: Unix commands like `mkdir -p` don't work on Windows cmd

@@ -1,0 +1,26 @@
+{
+  "id": "context-analyzer",
+  "name": "Context Analyzer",
+  "blockType": "agent",
+  "version": "1.0.0",
+  "isAtomic": false,
+  "description": "Analyzes a codebase in the context of a specific task. Identifies relevant files, patterns, and produces a focused analysis.",
+  "inputs": [
+    { "id": "task", "type": "string", "required": true, "description": "The task to analyze in context of" },
+    { "id": "repoPath", "type": "string", "required": true, "description": "Path to the repository" },
+    { "id": "projectContext", "type": "string", "required": false, "description": "Project context from preparer" }
+  ],
+  "outputs": [
+    { "id": "analysis", "type": "object", "description": "Structured analysis with relevant files, patterns, and recommendations" }
+  ],
+  "config": {
+    "model": "claude-sonnet",
+    "maxIterations": 20,
+    "wallClockTimeoutSeconds": 180
+  },
+  "metadata": {
+    "category": "development",
+    "designation": "autonomous",
+    "tags": ["analysis", "context", "code", "task"]
+  }
+}

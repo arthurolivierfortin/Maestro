@@ -489,6 +489,18 @@ namespace Maestro.Infrastructure.BlockStore
             blockMeta["_sourcePath"] = filePath;
             def.UpdateMetadata(blockMeta);
 
+            // Inject directory path into config so executors can find companion files (system-prompt.md, etc.)
+            var blockDir = Path.GetDirectoryName(filePath);
+            if (blockDir != null)
+            {
+                var blockConfig = new Dictionary<string, object>(def.Config ?? new Dictionary<string, object>());
+                if (!blockConfig.ContainsKey("path"))
+                {
+                    blockConfig["path"] = blockDir;
+                    def.UpdateConfig(blockConfig);
+                }
+            }
+
             // Try to enrich using a specific handler
             try
             {

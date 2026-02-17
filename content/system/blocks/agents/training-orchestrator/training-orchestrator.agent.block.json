@@ -1,0 +1,28 @@
+{
+  "id": "training-orchestrator",
+  "name": "Training Orchestrator",
+  "blockType": "agent",
+  "version": "1.0.0",
+  "isAtomic": false,
+  "description": "Orchestrates the foundry training pipeline for a single block. Creates a workspace, foundry session, runs training, evaluates fitness, iterates if needed, and publishes when fitness threshold is met.",
+  "inputs": [
+    { "id": "blockJson", "type": "object", "required": true, "description": "The block definition to train" },
+    { "id": "systemPrompt", "type": "string", "required": false, "description": "System prompt content if applicable" },
+    { "id": "workspaceId", "type": "string", "required": true, "description": "Workspace ID to use for foundry sessions" },
+    { "id": "fitnessThreshold", "type": "number", "required": false, "description": "Minimum fitness score to pass (default: 0.80)" }
+  ],
+  "outputs": [
+    { "id": "published", "type": "boolean", "description": "Whether the block was successfully published" },
+    { "id": "finalFitness", "type": "number", "description": "Final fitness score achieved" },
+    { "id": "sessionId", "type": "string", "description": "Foundry session ID used for training" }
+  ],
+  "config": {
+    "maxIterations": 25,
+    "wallClockTimeoutSeconds": 600
+  },
+  "metadata": {
+    "category": "system",
+    "designation": "creator",
+    "tags": ["training", "foundry", "fitness", "agent-creation"]
+  }
+}

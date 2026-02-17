@@ -45,8 +45,18 @@ public class LLMProviderGateway : ILLMGateway, IDisposable
     {
         // Build the prompt: if messages are provided, concatenate them for the LLM-Provider API
         var prompt = request.Prompt ?? string.Empty;
+        string? systemPrompt = request.SystemPrompt;
+
         if (request.Messages != null && request.Messages.Count > 0)
         {
+            // Extract system prompt from messages if not explicitly set
+            if (string.IsNullOrEmpty(systemPrompt))
+            {
+                var systemMsg = request.Messages.FirstOrDefault(m => m.Role == "system");
+                if (systemMsg != null)
+                    systemPrompt = systemMsg.Content;
+            }
+
             prompt = string.Join("\n\n", request.Messages
                 .Where(m => m.Role != "system")
                 .Select(m => m.Content));
@@ -58,7 +68,7 @@ public class LLMProviderGateway : ILLMGateway, IDisposable
             Model = request.ModelId ?? _settings.DefaultModel,
             MaxTokens = request.MaxNewTokens ?? _settings.MaxNewTokens,
             Temperature = request.Temperature ?? _settings.Temperature,
-            SystemPrompt = request.SystemPrompt ?? _settings.SystemPrompt
+            SystemPrompt = systemPrompt ?? _settings.SystemPrompt
         };
 
         _logger?.LogDebug("Sending LLM request to {BaseUrl}/api/v1/llm/complete with model {Model}",

@@ -1,0 +1,23 @@
+{
+  "id": "understand-request",
+  "name": "Understand Request",
+  "blockType": "agent",
+  "version": "1.0.0",
+  "isAtomic": false,
+  "description": "Analyzes a user's agent creation request. Classifies the domain, identifies requirements, asks clarifying questions, and produces a structured requirements document.",
+  "inputs": [
+    { "id": "request", "type": "string", "required": true, "description": "User's description of the agent they want" }
+  ],
+  "outputs": [
+    { "id": "requirements", "type": "object", "description": "Structured requirements: type, domain, capabilities, constraints" }
+  ],
+  "config": {
+    "maxIterations": 10,
+    "wallClockTimeoutSeconds": 120
+  },
+  "metadata": {
+    "category": "system",
+    "designation": "creator",
+    "tags": ["requirements", "analysis", "agent-creation"]
+  }
+}

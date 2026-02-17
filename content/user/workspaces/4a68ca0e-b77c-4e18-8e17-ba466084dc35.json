@@ -1,0 +1,58 @@
+{
+  "id": "4a68ca0e-b77c-4e18-8e17-ba466084dc35",
+  "name": "Phase-28FIX autonomous-dev",
+  "description": null,
+  "type": "Custom",
+  "status": "Active",
+  "path": null,
+  "sessionIds": [
+    "dd6d311d-a340-4b5c-86ae-b5b839d614a0"
+  ],
+  "projectIds": [],
+  "catalogRef": null,
+  "settings": {
+    "defaultModelId": null,
+    "maxConcurrentSessions": 10,
+    "maxConcurrentTrainingRuns": 3,
+    "autoPromotionEnabled": false,
+    "minFitnessForPromotion": 0.7,
+    "tags": []
+  },
+  "isolation": {
+    "enabled": false,
+    "network": null,
+    "resources": null,
+    "permissions": {
+      "canReadFrom": [],
+      "canWriteTo": [],
+      "canPromoteTo": [],
+      "allowReadFrom": [],
+      "allowWriteFrom": []
+    }
+  },
+  "permissions": {
+    "allowedCommands": [
+      "*"
+    ],
+    "allowedTools": [
+      "*"
+    ],
+    "allowedBlocks": [
+      "*"
+    ],
+    "canCreateBlocks": true,
+    "canCreateSessions": true,
+    "dataCollections": [
+      "*"
+    ],
+    "allowedPaths": [
+      "*"
+    ]
+  },
+  "sessionTemplates": {},
+  "entryPoints": {},
+  "createdAt": "2026-02-16T22:14:19.7218046+00:00",
+  "updatedAt": "2026-02-16T22:14:49.7263713+00:00",
+  "createdBy": null,
+  "repositoryPath": null
+}

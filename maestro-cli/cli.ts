@@ -100,51 +100,8 @@ async function logSessionCommand(sessionId, command, result = null, status = 'co
   }
 }
 
-// Legacy fallback functions for backward compatibility
 function loadJson(p) {
   try { return JSON.parse(fs.readFileSync(p, 'utf8')); } catch(e) { return null; }
-}
-
-function findWorkflow(id) {
-  const wfPath = path.join(__dirname, '../content/system/blocks/workflows', id);
-  if (!fs.existsSync(wfPath)) return null;
-  const block = loadJson(path.join(wfPath, 'block.json'));
-  const nodes = loadJson(path.join(wfPath, 'nodes.json'));
-  const conns = loadJson(path.join(wfPath, 'connections.json'));
-  return { block, nodes, conns, path: wfPath };
-}
-
-function runMockWorkflow(id, inputs) {
-  const wf = findWorkflow(id);
-  if (!wf) { console.error('workflow not found:', id); process.exitCode = 2; return; }
-  const result = {};
-  for (const node of wf.nodes) {
-    const ref = node.blockRef;
-    const parts = ref.split('/');
-    const kind = parts[0];
-    const refPath = path.join(__dirname, '../content/system/blocks', ...parts);
-    const mock = loadJson(path.join(refPath, 'mock-response.json'));
-    if (mock) {
-      result[node.id] = mock;
-    } else {
-      result[node.id] = { message: null };
-    }
-  }
-  const validateNode = wf.nodes.find(n => n.blockRef === 'validators/commit-format');
-  const describeNode = wf.nodes.find(n => n.blockRef === 'inference/describe-commit');
-  const gitDiffNode = wf.nodes.find(n => n.blockRef === 'tools/git-diff');
-  const git = gitDiffNode && result[gitDiffNode.id] ? result[gitDiffNode.id] : { diff: '' };
-  const described = describeNode && result[describeNode.id] ? result[describeNode.id] : null;
-  const validated = validateNode && result[validateNode.id] ? result[validateNode.id] : null;
-
-  const output = {
-    workflow: id,
-    inputs,
-    git,
-    describe: described,
-    validate: validated
-  };
-  console.log(JSON.stringify(output, null, 2));
 }
 
 // Content path helper
@@ -607,15 +564,6 @@ async function runBlockUnified(blockId, inputs, options = {}) {
       if (block && block.blockType === 'workflow') isWorkflow = true;
     } catch (e) {
       // Block lookup failed — try executing directly, let the API decide
-    }
-
-    // Mock mode only applies to workflows
-    if (options.mock) {
-      if (!isWorkflow) {
-        console.log(c.warn('Mock mode only applies to workflows. Running block directly.'));
-      } else {
-        return runMockWorkflow(blockId, inputs);
-      }
     }
 
     console.log(`\n${c.bold('Running:')} ${c.cyan(blockId)}${isWorkflow ? c.gray(' (workflow)') : ''}\n`);
@@ -1779,11 +1727,13 @@ async function removeSessionEntryPoint(sessionId, name) {
   }
 }
 
-async function invokeSessionEntryPoint(sessionId, entryPoint) {
+async function invokeSessionEntryPoint(sessionId, entryPoint, inputs?: Record<string, string>) {
   formatter.setCommand('session.invoke');
   try {
+    const body: any = {};
+    if (inputs) body.inputs = inputs;
     const response = await client._fetch('POST', `/api/sessions/${sessionId}/invoke/${entryPoint}`, {
-      body: {}
+      body
     });
     formatter.success(response, `\nEntry Point Invoked: ${entryPoint}\n\n  Workflow: ${response.workflowId}\n  Status: ${response.status}${response.message ? '\n  Message: ' + response.message : ''}\n`);
   } catch (error) {
@@ -5581,6 +5531,100 @@ async function executeWithArgv(argv) {
       return await showLogs({ type: argv._[1] || 'audit', limit: argv.limit || argv.lines });
     }
 
+    // Phase 28-B: Code mode — interactive TUI (like Claude Code)
+    if (cmd === 'code') {
+      const { startCodeMode } = require('./modes/code/index.ts');
+      return startCodeMode(client, {
+        agent: argv.agent || argv.a || argv._[1],
+        repo: argv.repo || argv.r,
+        session: argv.session || argv.s,
+      });
+    }
+
+    // Phase 28-B: Check command — static model compatibility check
+    if (cmd === 'check') {
+      const blockId = argv._[1];
+      if (!blockId) {
+        console.log('Usage: maestro check <block-id>');
+        console.log('Checks if the required models for a block are available.');
+        return;
+      }
+      try {
+        const block = await client.getBlock?.(blockId);
+        if (!block) { console.log(`Block not found: ${blockId}`); return; }
+        const models = await client.getModels?.();
+        const availableIds = new Set((models?.models || []).map((m: any) => m.id));
+
+        console.log(`\nBlock: ${block.name || block.id} (${block.blockType})`);
+
+        // Check manifest-based model requirements (Phase 28-C)
+        const manifest = block.metadata?.manifest;
+        if (manifest && manifest.requirements && manifest.requirements.models) {
+          console.log(`  Tier: ${block.metadata?.tier || 'N/A'}`);
+          console.log(`  Quality target: ${block.metadata?.qualityTarget ? Math.round(block.metadata.qualityTarget * 100) + '%' : 'N/A'}`);
+          console.log('');
+          for (const req of manifest.requirements.models) {
+            const ok = availableIds.has(req.id);
+            const icon = ok ? '✅' : '❌';
+            console.log(`  ${icon} ${req.id}`);
+            console.log(`     Used by: ${req.usedBy.join(', ')}`);
+            console.log(`     Substitutable: ${req.substitutable ? 'yes' : 'no'}`);
+            if (!ok && req.testedSubstitutes?.length) {
+              const viableSubs = req.testedSubstitutes.filter((s: any) => s.viable && availableIds.has(s.model));
+              if (viableSubs.length > 0) {
+                console.log(`     Available substitutes: ${viableSubs.map((s: any) => s.model).join(', ')}`);
+              }
+            }
+          }
+        }
+        else {
+          console.log('  No manifest found. Publish the block with a manifest to enable model compatibility checks.');
+        }
+      } catch (err: any) {
+        console.error(`Check failed: ${err.message || err}`);
+      }
+      return;
+    }
+
+    // Phase 28-C: Tiers command — show tier comparison and recommend best tier
+    if (cmd === 'tiers') {
+      const { selectBestTier, formatTierReport, TIERS, getMissingModels } = require('../shared/utils/tier-selector.ts');
+      const tierOverride = argv.tier ? parseInt(argv.tier) : null;
+
+      try {
+        const models = await client.getModels?.();
+        const availableIds = (models?.models || []).map((m: any) => m.id);
+
+        if (tierOverride) {
+          // Show details for a specific tier
+          const tier = TIERS.find((t: any) => t.tier === tierOverride);
+          if (!tier) {
+            console.log(`Unknown tier: ${tierOverride}. Available: 1-5`);
+            return;
+          }
+          const missing = getMissingModels(tier, availableIds);
+          console.log(`\n  ${tier.name}`);
+          console.log(`  ${tier.description}`);
+          console.log(`  Block: ${tier.blockId}`);
+          console.log(`  Quality target: ${Math.round(tier.qualityTarget * 100)}%`);
+          console.log(`  Required models: ${tier.requiredModels.join(', ')}`);
+          if (missing.length > 0) {
+            console.log(`  Missing: ${missing.join(', ')}`);
+          } else {
+            console.log(`  Status: All models available`);
+            console.log(`\n  Use: maestro code --agent ${tier.blockId}`);
+          }
+          console.log('');
+        } else {
+          // Show full comparison report
+          console.log(formatTierReport(availableIds));
+        }
+      } catch (err: any) {
+        console.error(`Tiers check failed: ${err.message || err}`);
+      }
+      return;
+    }
+
     // Monitor command - launches session monitor (TUI)
     if (cmd === 'monitor') {
       const targetId = argv._[1];
@@ -5756,16 +5800,6 @@ ${c.bold('Commands:')}
       return await runBlockUnified(blockId, inputs, { mock: argv.mock, workingDir: argv['working-dir'] || argv.workdir });
     }
 
-    if (cmd === 'validate') {
-      const wf = argv._[1];
-      if (!wf) { console.error('Workflow ID required'); process.exit(1); }
-      const w = findWorkflow(wf);
-      if (!w) { console.error('Workflow not found:', wf); process.exit(2); }
-      const ok = Array.isArray(w.nodes) && w.nodes.length > 0;
-      if (!ok) { console.error('Invalid workflow:', wf); process.exit(3); }
-      console.log(JSON.stringify({ workflow: wf, valid: ok, nodeCount: w.nodes.length }, null, 2));
-      return;
-    }
     // Session commands (both 'session' and 'sessions' for convenience)
     if (cmd === 'session' || cmd === 'sessions') {
       const subCmd = argv._[1];
@@ -6077,7 +6111,19 @@ ${c.bold('Quick Start:')}
 
         if (!id) { formatter.error('Session ID required', 'MISSING_PARAM'); process.exit(EXIT.USER_ERROR); }
 
-        return await invokeSessionEntryPoint(await resolveId(id, 'session'), entryPoint);
+        // Parse --input key=value flags into an inputs object
+        const inputs: Record<string, string> = {};
+        if (argv.input) {
+          const inputArgs = Array.isArray(argv.input) ? argv.input : [argv.input];
+          for (const arg of inputArgs) {
+            const eqIdx = String(arg).indexOf('=');
+            if (eqIdx > 0) {
+              inputs[String(arg).slice(0, eqIdx)] = String(arg).slice(eqIdx + 1);
+            }
+          }
+        }
+
+        return await invokeSessionEntryPoint(await resolveId(id, 'session'), entryPoint, Object.keys(inputs).length > 0 ? inputs : undefined);
       }
 
       // Session widgets commands

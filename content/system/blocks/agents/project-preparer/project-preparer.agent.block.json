@@ -1,0 +1,49 @@
+{
+  "id": "project-preparer",
+  "name": "Project Preparer",
+  "blockType": "agent",
+  "version": "1.0.0",
+  "isAtomic": false,
+  "description": "Prepares a project for autonomous development. Checks .maestro/docs/, detects stack, creates missing documentation, and synthesizes project context.",
+  "inputs": [
+    { "id": "repoPath", "type": "string", "required": true, "description": "Path to the project repository" }
+  ],
+  "outputs": [
+    { "id": "projectContext", "type": "object", "description": "Structured project context (name, stack, conventions, docs)" }
+  ],
+  "config": {
+    "model": "claude-sonnet",
+    "maxIterations": 15,
+    "wallClockTimeoutSeconds": 120,
+    "nodes": [
+      {
+        "id": "check-docs",
+        "blockRef": "directory-list",
+        "inputs": { "path": "{{inputs.repoPath}}/.maestro/docs" }
+      },
+      {
+        "id": "read-configs",
+        "blockRef": "file-read",
+        "inputs": { "path": "{{inputs.repoPath}}/package.json" }
+      },
+      {
+        "id": "detect-stack",
+        "blockRef": "convention-reader",
+        "inputs": { "projectPath": "{{inputs.repoPath}}" }
+      },
+      {
+        "id": "synthesize-context",
+        "blockRef": "llm-generate",
+        "inputs": {
+          "systemPrompt": "You are a project analyzer. Given the project files and stack information, produce a structured JSON context with: name, language, framework, conventions (style, naming), stack (main dependencies). Output ONLY valid JSON.",
+          "userPrompt": "Project path: {{inputs.repoPath}}\nDocs found: {{previousOutput}}\nDetected stack: {{state.results.detect-stack}}\nConfigs: {{state.results.read-configs}}"
+        }
+      }
+    ]
+  },
+  "metadata": {
+    "category": "development",
+    "designation": "autonomous",
+    "tags": ["project", "preparation", "context", "docs"]
+  }
+}
