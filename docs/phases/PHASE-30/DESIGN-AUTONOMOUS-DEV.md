@@ -38,9 +38,9 @@ autonomous-dev (workflow composite)
 │  │              PHASE DE COMPREHENSION              │
 │  │                                                  │
 │  │  ┌──────────┐     ┌───────────┐                 │
-│  │  │ prepare  │ ──→ │  clarify  │                 │
-│  │  │ (Opus)   │     │  (Opus)   │                 │
-│  │  └──────────┘     └───────────┘                 │
+│  │  │ prepare  │ ──→ │  clarify  │  ← Phase 31+   │
+│  │  │ (Opus)   │     │  (Opus)   │  (absorbe par   │
+│  │  └──────────┘     └───────────┘   plan en Ph30) │
 │  │  Comprend le       Clarifie la tache,           │
 │  │  projet, cree      pose des questions,          │
 │  │  les docs          definit les criteres         │
@@ -203,19 +203,21 @@ autonomous-dev (workflow composite)
 
 ---
 
-### 3.2 clarify — Clarifier la tache (futur : interactif)
+### 3.2 clarify — Clarifier la tache (Phase 31+, pas Phase 30)
+
+> **DECISION** : En Phase 30, clarify n'est PAS un bloc separe. Sa logique est absorbee par le bloc `plan`, qui identifie les ambiguites et fait des hypotheses raisonnables. En Phase 31 (avec `maestro code`), clarify deviendra un bloc a part entiere qui questionne l'utilisateur via les widgets TUI.
 
 **Modele** : Opus (besoin de comprendre les nuances, poser les bonnes questions)
 **Role** : Transformer une tache vague en specification actionnable
 
-#### Ce qu'il fait
+#### Ce qu'il fera (Phase 31+)
 
 1. **Analyser la tache** :
    - Identifier le type : nouvelle fonctionnalite, bug fix, refactoring, docs, tests, performance
    - Identifier les domaines touches : frontend, backend, database, API, infra, tests
    - Identifier les ambiguites
 
-2. **Poser des questions** (quand le mode interactif sera disponible en Phase 31) :
+2. **Poser des questions** (via les widgets TUI) :
    - "Cette fonctionnalite doit-elle supporter le mode sombre ?"
    - "Quel endpoint API cette page doit-elle appeler ?"
    - "Y a-t-il des contraintes de performance ?"
@@ -225,16 +227,16 @@ autonomous-dev (workflow composite)
    - Les contraintes (performance, accessibilite, compatibilite)
    - Les fichiers/modules probablement affectes
 
-#### En Phase 30 (non-interactif)
+#### En Phase 30 (non-interactif) — clarify absorbe par plan
 
-Pas de mode interactif encore. Le clarify est INTEGRE dans le plan :
-- Le planificateur recoit la tache brute + le contexte projet
+Le planificateur recoit la tache brute + le contexte projet et fait double duty :
 - Il identifie les ambiguites et fait des hypotheses raisonnables
-- Les hypotheses sont documentees dans le plan
+- Les hypotheses sont documentees dans le plan (champ `assumptions`)
+- Les questions non resolues sont listees dans le plan (champ `questions`)
 
-**En Phase 31** (avec `maestro code`) : clarify devient un bloc a part entiere qui questionne l'utilisateur via les widgets TUI.
+**Le workflow Phase 30 a donc 7 noeuds, pas 8** : prepare → plan → for-each(implement) → test → review → conditional(commit/fix).
 
-#### Sortie
+#### Sortie (Phase 31+)
 
 ```json
 {
@@ -667,7 +669,9 @@ C'est un bloc **inference** (single LLM call), pas un agent. Il recoit tous les 
 
 ### 3.7 fix — Corriger les issues de la review
 
-**Modele** : Sonnet (corrections ciblees)
+> **NOTE** : `fix` n'est PAS un bloc separe. C'est un re-invoke de `implement-single-step` avec les issues de la review comme input supplementaire. La boucle fix → review est geree par le noeud `conditional` + `while` dans le workflow composite (voir section 10).
+
+**Modele** : Sonnet (corrections ciblees, meme executeur que implement-step)
 **Role** : Corriger les issues identifiees par le reviewer
 
 #### Ce qu'il fait
@@ -680,6 +684,12 @@ C'est un bloc **inference** (single LLM call), pas un agent. Il recoit tous les 
 3. Maximum 2 iterations de fix → review → fix
 
 Si apres 2 iterations le score est toujours < 0.8, l'agent commit quand meme avec une note dans le message de commit indiquant les issues restantes.
+
+#### Implementation dans le workflow
+
+Le noeud `conditional` dans `config.nodes` gere la branche :
+- Score >= 0.8 → noeud `commit`
+- Score < 0.8 → noeud `fix` (re-invoke implement-single-step avec les issues) → re-review → re-evaluate (max 2 iterations via compteur `_fixIterations`)
 
 #### Outils
 

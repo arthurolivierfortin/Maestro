@@ -38,6 +38,9 @@ Le Tier 1 utilise les meilleurs modeles Claude pour maximiser la qualite, mais l
 
 ### Architecture du Tier 1
 
+> **Note** : `clarify` (decrit dans DESIGN-AUTONOMOUS-DEV.md section 3.2) est absorbe par `plan` en Phase 30. Il deviendra un bloc separe en Phase 31 (mode interactif).
+> `fix` n'est pas un bloc separe — c'est un re-invoke de `implement-single-step` avec les issues de la review. La boucle est geree par les noeuds `conditional` + `while` dans le workflow.
+
 ```
 autonomous-dev (workflow composite, orchestrateur)
 │
@@ -49,6 +52,7 @@ autonomous-dev (workflow composite, orchestrateur)
 │   Decompose la tache en sous-taches ordonnees
 │   Separe frontend/backend/tests/docs
 │   Produit un JSON array de steps
+│   (absorbe aussi la clarification : hypotheses documentees dans le plan)
 │
 ├── for-each step dans le plan :
 │   └── implement-step (agent, Sonnet)
@@ -66,7 +70,10 @@ autonomous-dev (workflow composite, orchestrateur)
 │
 ├── conditional : score >= 0.8 ?
 │   ├── oui → commit
-│   └── non → fix (reimplemente les issues, max 2 fois)
+│   └── non → fix-loop (while _fixIterations < 2) :
+│       ├── fix (re-invoke implement-single-step avec les issues)
+│       ├── test (re-execute les tests)
+│       └── review (re-evaluate le score)
 │
 └── commit (agent, Sonnet)
     Git add selectif, message conventionnel, commit
@@ -432,14 +439,72 @@ Le nouveau .block.json avec config.nodes :
         }
       },
       {
-        "id": "commit",
-        "blockRef": "git-committer",
-        "inputs": {
-          "repoPath": "{{inputs.repoPath}}",
-          "task": "{{inputs.task}}",
-          "review": "{{_nodeResult_review}}",
-          "model": "claude-sonnet"
-        }
+        "id": "quality-gate",
+        "type": "conditional",
+        "condition": "{{_nodeResult_review.score}} >= 0.8",
+        "then": [
+          {
+            "id": "commit",
+            "blockRef": "git-committer",
+            "inputs": {
+              "repoPath": "{{inputs.repoPath}}",
+              "task": "{{inputs.task}}",
+              "review": "{{_nodeResult_review}}",
+              "model": "claude-sonnet"
+            }
+          }
+        ],
+        "else": [
+          {
+            "id": "fix-loop",
+            "type": "while",
+            "condition": "{{_fixIterations}} < 2 && {{_nodeResult_review.score}} < 0.8",
+            "children": [
+              {
+                "id": "fix",
+                "blockRef": "implement-single-step",
+                "inputs": {
+                  "step": "{{_nodeResult_review.issues}}",
+                  "context": "{{_nodeResult_prepare}}",
+                  "workingDir": "{{inputs.repoPath}}",
+                  "mode": "fix",
+                  "model": "claude-sonnet"
+                }
+              },
+              {
+                "id": "retest",
+                "blockRef": "test-executor",
+                "inputs": {
+                  "repoPath": "{{inputs.repoPath}}",
+                  "stack": "{{_nodeResult_prepare}}",
+                  "model": "claude-sonnet"
+                }
+              },
+              {
+                "id": "re-review",
+                "blockRef": "code-reviewer",
+                "inputs": {
+                  "changes": "{{_nodeResult_fix}}",
+                  "testResults": "{{_nodeResult_retest}}",
+                  "conventions": "{{_nodeResult_prepare}}",
+                  "task": "{{inputs.task}}",
+                  "model": "claude-opus"
+                }
+              }
+            ]
+          },
+          {
+            "id": "commit-after-fix",
+            "blockRef": "git-committer",
+            "inputs": {
+              "repoPath": "{{inputs.repoPath}}",
+              "task": "{{inputs.task}}",
+              "review": "{{_nodeResult_re-review}}",
+              "remainingIssues": true,
+              "model": "claude-sonnet"
+            }
+          }
+        ]
       }
     ]
   },
@@ -747,6 +812,7 @@ Au lancement, le systeme detecte les modeles et selectionne le tier optimal.
 30-C-5  Iterer (minimum 3x)                │ 3-6h
    │
    ▼
+30-D-0  Verifier foundry pour agents         │ 1-2h (bloquant)
 30-D    Foundry + publish                   │ 2-4h
 30-E    E2E 5 scenarios                     │ 2-4h
    │
@@ -755,6 +821,17 @@ Au lancement, le systeme detecte les modeles et selectionne le tier optimal.
 32      Tiers + manifeste                   │ 4-6 sessions
 33      Meta-optimisation                   │ 3-4 sessions
 ```
+
+---
+
+## Documents associes
+
+| Document | Contenu |
+|----------|---------|
+| `DESIGN-AUTONOMOUS-DEV.md` | Design complet de l'agent composite (11 sections, blocs en detail) |
+| `ADR-COMPOSITE-AGENT-ARCHITECTURE.md` | Pourquoi un workflow composite vs un agent monolithique |
+| `ADR-MODEL-SELECTION-STRATEGY.md` | Pourquoi Opus pour prepare/plan/review, Sonnet pour implement/test/commit |
+| `../ROADMAP-V3-PHASES-30-33.md` | Vue d'ensemble des phases 30-33, budget, dependances |
 
 ---
 
