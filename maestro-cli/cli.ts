@@ -5407,7 +5407,8 @@ async function executeWithArgv(argv) {
         if (!blockId) { console.error('Block ID required'); process.exit(1); }
         return await submitBlockForApproval(blockId, {
           session: argv['from-session'] || argv.session,
-          submittedBy: argv['submitted-by'] || argv.by
+          submittedBy: argv['submitted-by'] || argv.by,
+          metadata: argv.metadata
         });
       }
 

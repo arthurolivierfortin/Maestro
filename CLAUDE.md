@@ -8,6 +8,16 @@ This document establishes the philosophy, architecture principles, and developme
 
 When asked for an opinion, give a real one with reasoning. Don't hedge with "it depends" unless it genuinely does. If there are tradeoffs, name them concretely.
 
+## Agent Execution Protocol (MANDATORY)
+
+**When executing a phase**, read and follow `docs/system/AGENT-PROTOCOL.md`. This protocol defines:
+- How to start (load context, read checkpoint)
+- How to checkpoint progress
+- Anti-hallucination rules (verify before claiming done)
+- Memory management and handoff between sessions
+
+**When creating a new phase plan**, use the template in `docs/system/PHASE-TEMPLATE.md`.
+
 ## No Legacy Support (MANDATORY)
 
 **No legacy support.** When a system is replaced, remove the old code entirely. Never maintain deprecated code alongside new implementations. Clean break, no backward compatibility shims. Dead code = confusion + maintenance burden. Delete it.
@@ -312,6 +322,9 @@ docs/
 
 | Document | When to read |
 |----------|-------------|
+| `docs/system/AGENT-PROTOCOL.md` | **Before executing ANY phase** — mandatory execution protocol |
+| `docs/system/PHASE-TEMPLATE.md` | **Before writing ANY phase plan** — mandatory template |
+| `docs/ROADMAP.md` | Current roadmap overview (Phases 31→37+) |
 | `docs/system/README.md` | First — system overview, cardinal rules |
 | `docs/guides/users/full-pipeline.md` | **Before creating ANY block** — the mandatory workflow |
 | `docs/guides/users/foundry-sessions.md` | Before working with foundry sessions |

@@ -47,7 +47,18 @@
       "Bash(powershell.exe -Command \"New-Item -ItemType Directory -Force -Path ''C:\\\\Meastro\\\\docs\\\\phases\\\\PHASE-34'',''C:\\\\Meastro\\\\docs\\\\phases\\\\PHASE-35'',''C:\\\\Meastro\\\\docs\\\\phases\\\\PHASE-36'',''C:\\\\Meastro\\\\docs\\\\phases\\\\PHASE-37''\")",
       "Bash(powershell.exe -Command \"cd C:\\\\Meastro; git add docs/phases/PHASE-31/README.md docs/phases/PHASE-32/README.md docs/phases/PHASE-33/README.md docs/phases/PHASE-34/README.md docs/phases/PHASE-35/README.md docs/phases/PHASE-36/README.md docs/phases/PHASE-37/README.md docs/ROADMAP.md\")",
       "Bash(powershell.exe -Command \"cd C:\\\\Meastro; git status --short\")",
-      "Bash(powershell.exe -Command \"cd C:\\\\Meastro; Remove-Item dev-scripts/temp-commit.ps1 -Force\")"
+      "Bash(powershell.exe -Command \"cd C:\\\\Meastro; Remove-Item dev-scripts/temp-commit.ps1 -Force\")",
+      "Bash(powershell.exe -Command \"Get-ChildItem ''C:\\\\Meastro\\\\docs\\\\system'' -Filter ''*.md'' | Select-Object -ExpandProperty Name\")",
+      "Bash(powershell.exe -Command \"Get-ChildItem ''C:\\\\Users\\\\arthu\\\\.claude\\\\projects\\\\C--Meastro\\\\memory'' -Filter ''*.md'' | Select-Object -ExpandProperty Name\")",
+      "Bash(powershell.exe -Command \"Get-ChildItem ''C:\\\\Meastro\\\\docs\\\\system'' | Select-Object -ExpandProperty Name | Sort-Object\")",
+      "Bash(powershell.exe -Command \"Get-ChildItem ''C:\\\\Meastro\\\\docs\\\\system\\\\philosophy'' -Filter ''*.md'' | Select-Object -ExpandProperty Name | Sort-Object\")",
+      "Bash(powershell.exe -Command \"Get-ChildItem ''C:\\\\Meastro\\\\docs\\\\system\\\\architecture'' -Filter ''*.md'' | Select-Object -ExpandProperty Name | Sort-Object\")",
+      "Bash(powershell.exe -Command \"Get-ChildItem ''C:\\\\Meastro\\\\docs\\\\system\\\\conventions'' -Filter ''*.md'' | Select-Object -ExpandProperty Name | Sort-Object\")",
+      "Bash(powershell.exe -Command \"Get-ChildItem ''C:\\\\Meastro\\\\docs\\\\system\\\\design-decisions'' -Filter ''*.md'' | Select-Object -ExpandProperty Name | Sort-Object\")",
+      "Bash(powershell.exe -Command \"Get-ChildItem ''C:\\\\Meastro\\\\docs\\\\phases'' -Directory | Select-Object -ExpandProperty Name | Sort-Object | Tail -10\")",
+      "WebFetch(domain:docs.openclaw.ai)",
+      "WebFetch(domain:cuong.io)",
+      "Bash(powershell.exe -Command \"\\(Get-Content ''C:\\\\Users\\\\arthu\\\\.claude\\\\projects\\\\C--Meastro\\\\memory\\\\MEMORY.md''\\).Count\")"
     ]
   }
 }
