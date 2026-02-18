@@ -1,6 +1,6 @@
 # Issue 30-C-4 : Tester le composite sur une tache complexe
 
-**Statut** : A faire
+**Statut** : ÉCHEC avec v2.0.0 (hallucination totale), à re-tester avec v3.0.0 (30-C-AJUSTEMENT)
 **Estimation** : 2 heures
 **Bloquant** : Non
 **Prerequis** : 30-C-3 reussi (le test modere passe)

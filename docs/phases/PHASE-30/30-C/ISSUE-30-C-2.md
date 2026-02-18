@@ -1,6 +1,6 @@
 # Issue 30-C-2 : Tester le composite sur une tache simple
 
-**Statut** : A faire
+**Statut** : FAIT (test simple réussi avec v2.0.0, à re-tester avec v3.0.0)
 **Estimation** : 1 heure
 **Bloquant** : Non
 **Prerequis** : 30-C-1 (composite assemble), 30-A-4 (template session)

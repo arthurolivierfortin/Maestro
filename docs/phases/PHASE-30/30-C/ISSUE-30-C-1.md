@@ -1,6 +1,6 @@
 # Issue 30-C-1 : Reecrire autonomous-dev.agent.block.json
 
-**Statut** : A faire
+**Statut** : FAIT (v2.0.0 puis remplacé par v3.0.0 dans 30-C-AJUSTEMENT)
 **Estimation** : 1 heure
 **Bloquant** : Bloque 30-C-2 a 30-C-5
 **Prerequis** : 30-B (tous les sous-blocs existent et sont testes)

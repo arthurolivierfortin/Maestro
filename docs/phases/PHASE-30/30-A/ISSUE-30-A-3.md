@@ -1,6 +1,6 @@
 # Issue 30-A-3 : Infrastructure for-each sur donnees dynamiques
 
-**Statut** : A faire
+**Statut** : COMPLETE (2026-02-17)
 **Estimation** : 1 heure
 **Bloquant** : Bloque 30-C (le composite utilise for-each sur le plan)
 **Prerequis** : Aucun
@@ -124,3 +124,27 @@ node index.js session set-var <id> badData "this is not json"
 - **Mitigation** : Utiliser `NormalizeObjectValue()` apres le parsing (la meme fonction qui gere deja ce probleme pour les variables API)
 - **Risque** : Le for-each existant (compliance-tester) casse apres le changement
 - **Mitigation** : Tester les sessions existantes apres le fix
+
+---
+
+## Resolution (2026-02-17)
+
+### Implementation : Option A (parsing dans le for-each handler)
+
+Ajout d'un 3e cas dans `NormalizeJsonElementToList()` pour gerer les `string` contenant un JSON array. Cas existants :
+1. `JArray` (Newtonsoft, depuis API) — deja gere
+2. `JsonElement` avec `ValueKind.Array` (System.Text.Json, depuis block config) — deja gere
+3. **NOUVEAU** : `string` commencant par `[` — parse via `JsonSerializer.Deserialize<JsonElement>`, puis convertit en `List<Dictionary<string,object>>` comme les deux autres cas
+
+Le parsing utilise `TryGetInt32()` avant `GetDouble()` pour les nombres (preserve les entiers), et stringify les objets/arrays imbriques (pas de recursion profonde pour l'instant).
+
+En cas de JSON invalide, `JsonException` est catchee silencieusement et la valeur reste un string — le for-each echouera avec son message d'erreur standard ("source is empty or not a list").
+
+### Fichier modifie
+
+`backend/src/Maestro.Infrastructure/Sessions/EntryPointExecutor.cs` — methode `NormalizeJsonElementToList()`, apres le bloc `JsonElement`
+
+### Verification
+
+- `dotnet build` : 0 erreurs
+- Les cas existants (JArray, JsonElement) ne sont pas impactes (le nouveau code est un 3e `if` apres les `return` des cas existants)

@@ -23,6 +23,7 @@ namespace Maestro.Infrastructure.BlockExecutors;
 public class AgentBlockExecutor : LLMBlockExecutorBase
 {
     private readonly IServiceProvider? _serviceProvider;
+    private readonly IServiceScopeFactory? _scopeFactory;
     private readonly ContextProcessorFactory _contextProcessorFactory;
     private ICliExecutor? _cliExecutor;
 
@@ -30,6 +31,10 @@ public class AgentBlockExecutor : LLMBlockExecutorBase
         : base(llmGateway, monitor)
     {
         _serviceProvider = serviceProvider;
+        // Use IServiceScopeFactory to create per-execution scopes for CLI tool calls.
+        // This avoids ObjectDisposedException when the original DI scope is disposed
+        // before background Task.Run completes (session invoke path).
+        _scopeFactory = serviceProvider?.GetService<IServiceScopeFactory>();
         _contextProcessorFactory = new ContextProcessorFactory(serviceProvider);
     }
 
@@ -85,6 +90,8 @@ public class AgentBlockExecutor : LLMBlockExecutorBase
 
         // 5. Agentic loop (mechanical: send → parse tool call → execute → feed back → repeat)
         var iteration = 0;
+        var actualToolCallCount = 0; // A-2 done guard: track real tool executions
+        var nonJsonRetryCount = 0;   // A-2 non-JSON retry counter
         LLMResponse? lastResponse = null;
 
         while (true)
@@ -176,11 +183,49 @@ public class AgentBlockExecutor : LLMBlockExecutorBase
                         // Check for "done" tool — agent finished
                         if (toolId == "done")
                         {
+                            // Multi-tool response detection: if the LLM produced both a maestro_cli
+                            // tool call AND a done call in the same response, ExtractJson may have
+                            // skipped the tool call (due to complex nested escaping in file content)
+                            // and returned the "done" JSON instead. Detect this and ask for retry.
+                            var rawContent = response.Content;
+                            var donePos = rawContent.IndexOf("\"done\"");
+                            var maestroPos = rawContent.IndexOf("maestro_cli");
+                            if (maestroPos >= 0 && donePos >= 0 && maestroPos < donePos)
+                            {
+                                result.Logs.Add("Multi-tool response detected: maestro_cli found before done. Asking for single tool call.");
+                                // CRITICAL: Do NOT add the full response to history.
+                                // If the LLM sees its own "done" in history, it will not retry the write.
+                                // Instead, add a synthetic assistant message acknowledging the attempt,
+                                // then a clear user message demanding the write.
+                                messages.Add(ChatMessage.Assistant("{\"acknowledged\":\"multi-tool-rejected\"}"));
+                                messages.Add(ChatMessage.User(
+                                    "SYSTEM ERROR: Your response contained multiple tool calls. It was NOT executed. " +
+                                    "The file was NOT written to disk. Nothing happened. " +
+                                    "You MUST re-send the file-write (or shell command) as your ONLY response — just the JSON object, nothing else. " +
+                                    "Do NOT call done. Do NOT include any other tool call. ONLY the maestro_cli file-write."));
+                                toolCalled = true;
+                                nonJsonRetryCount = 0;
+                                continue;
+                            }
+
+                            // A-2 done guard: reject premature "done" if zero real tool calls were made
+                            if (actualToolCallCount == 0 && iteration < maxIterations - 1)
+                            {
+                                result.Logs.Add("Agent claimed 'done' with 0 tool calls. Forcing real work.");
+                                messages.Add(ChatMessage.Assistant(jsonContent));
+                                messages.Add(ChatMessage.User(
+                                    "You have not made any tool calls yet. " +
+                                    "You must use tools to complete the task. " +
+                                    "Start by reading a file or listing the directory."));
+                                toolCalled = true;
+                                continue;
+                            }
+
                             var summary = args.ValueKind == JsonValueKind.Object && args.TryGetProperty("summary", out var sumProp)
                                 ? sumProp.GetString() ?? "Task completed"
                                 : "Task completed";
                             result.Outputs["result"] = summary;
-                            result.Logs.Add($"Agent completed: {summary}");
+                            result.Logs.Add($"Agent completed ({actualToolCallCount} tool calls): {summary}");
                             break;
                         }
 
@@ -200,11 +245,13 @@ public class AgentBlockExecutor : LLMBlockExecutorBase
 
                         // Execute tool via CLI
                         var toolOutput = await ExecuteToolCall(toolId!, args, jsonContent, block, context, result, agentCt);
+                        actualToolCallCount++;
 
                         // Feed back into conversation
                         messages.Add(ChatMessage.Assistant(jsonContent));
                         messages.Add(ChatMessage.User($"Tool result for {toolId}:\n{toolOutput}"));
                         toolCalled = true;
+                        nonJsonRetryCount = 0; // Reset retry counter on successful tool call
                     }
                 }
             }
@@ -216,23 +263,56 @@ public class AgentBlockExecutor : LLMBlockExecutorBase
             }
             catch (Exception ex)
             {
-                result.Logs.Add($"LLM parse error (tool detection): {ex.Message}");
+                // A-2 exception retry: parse errors are retriable, not silent breaks
+                result.Logs.Add($"Tool call parse error: {ex.Message}");
+                if (nonJsonRetryCount < 2)
+                {
+                    nonJsonRetryCount++;
+                    messages.Add(ChatMessage.Assistant(response.Content));
+                    messages.Add(ChatMessage.User(
+                        "Your response caused a parsing error. " +
+                        "Respond with ONLY a valid JSON object. No text before or after."));
+                    continue;
+                }
             }
 
-            if (!toolCalled || iteration >= maxIterations) break;
+            // A-2 non-JSON retry: nudge the agent instead of breaking on first non-JSON
+            if (!toolCalled)
+            {
+                if (nonJsonRetryCount < 2)
+                {
+                    nonJsonRetryCount++;
+                    result.Logs.Add($"Response not valid JSON (retry {nonJsonRetryCount}/2).");
+                    messages.Add(ChatMessage.Assistant(response.Content));
+                    messages.Add(ChatMessage.User(
+                        "Your response was not a valid JSON tool call. " +
+                        "Respond with ONLY a JSON object. Example:\n" +
+                        "{\"tool\":\"maestro_cli\",\"args\":{\"command\":\"run directory-list --input path=/some/path\"}}"));
+                    continue;
+                }
+                break;
+            }
+            if (iteration >= maxIterations) break;
         }
 
         // 6. Parse structured outputs from last response
-        if (lastResponse != null && !string.IsNullOrWhiteSpace(lastResponse.Content))
+        // Only call ParseOutputs if no output was already set by the agent loop
+        // (done handler sets "result", timeout handler sets "warning").
+        // Adding "content" alongside these would create multi-output format that
+        // prepends key names, breaking downstream JSON parsing.
+        if (!result.Outputs.ContainsKey("result") && !result.Outputs.ContainsKey("warning"))
         {
-            ParseOutputs(result, lastResponse.Content, block);
-            result.Logs.Add("Agent LLM response received");
-        }
-        else if (!result.Outputs.ContainsKey("result") && !result.Outputs.ContainsKey("content"))
-        {
-            result.Success = false;
-            result.Outputs["error"] = "Agent completed without producing output";
-            result.Logs.Add("Warning: Agent completed but no valid output was produced");
+            if (lastResponse != null && !string.IsNullOrWhiteSpace(lastResponse.Content))
+            {
+                ParseOutputs(result, lastResponse.Content, block);
+                result.Logs.Add("Agent LLM response received (fallback output)");
+            }
+            else
+            {
+                result.Success = false;
+                result.Outputs["error"] = "Agent completed without producing output";
+                result.Logs.Add("Warning: Agent completed but no valid output was produced");
+            }
         }
 
         result.DurationMs = sw.ElapsedMilliseconds;
@@ -297,6 +377,18 @@ public class AgentBlockExecutor : LLMBlockExecutorBase
         {
             sb.AppendLine("## Additional Context");
             sb.AppendLine(ctxObj.ToString());
+            sb.AppendLine();
+        }
+
+        // Include ALL remaining inputs that weren't handled above
+        // This ensures agents see repoPath, changes, conventions, step, review, etc.
+        var handledKeys = new HashSet<string> { "task", "subtask", "workingDir", "targetFile", "context" };
+        foreach (var kv in inputs)
+        {
+            if (handledKeys.Contains(kv.Key) || kv.Value == null || string.IsNullOrEmpty(kv.Value.ToString()))
+                continue;
+            sb.AppendLine($"## {char.ToUpper(kv.Key[0])}{kv.Key[1..]}");
+            sb.AppendLine(kv.Value.ToString());
             sb.AppendLine();
         }
 
@@ -434,8 +526,26 @@ public class AgentBlockExecutor : LLMBlockExecutorBase
 
     private ICliExecutor? GetCliExecutor()
     {
-        if (_cliExecutor == null && _serviceProvider != null)
-            _cliExecutor = _serviceProvider.GetService<ICliExecutor>();
+        if (_cliExecutor != null)
+            return _cliExecutor;
+
+        // Create a new scope to resolve ICliExecutor. This avoids ObjectDisposedException
+        // when the original DI scope has been disposed (background Task.Run in session invoke).
+        if (_scopeFactory != null)
+        {
+            var scope = _scopeFactory.CreateScope();
+            _cliExecutor = scope.ServiceProvider.GetService<ICliExecutor>();
+            // NOTE: We intentionally do NOT dispose the scope here, as the resolved
+            // ICliExecutor will be used throughout the agent's agentic loop lifetime.
+            return _cliExecutor;
+        }
+
+        // Fallback: try original provider (works when called within a live scope)
+        if (_serviceProvider != null)
+        {
+            try { _cliExecutor = _serviceProvider.GetService<ICliExecutor>(); }
+            catch (ObjectDisposedException) { /* scope disposed, _cliExecutor stays null */ }
+        }
         return _cliExecutor;
     }
 

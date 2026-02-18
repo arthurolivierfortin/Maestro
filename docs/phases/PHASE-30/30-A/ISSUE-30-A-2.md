@@ -1,6 +1,6 @@
 # Issue 30-A-2 : Debugger le bug tools-in-session-context
 
-**Statut** : A faire
+**Statut** : COMPLETE (2026-02-17)
 **Estimation** : 2-4 heures
 **Bloquant** : **OUI — bloque TOUTE la Phase 30-B et au-dela**
 **Prerequis** : Aucun
@@ -132,3 +132,44 @@ node index.js session invoke <session-id> <entry-point> --input repoPath="C:\tem
 - **Risque** : Le fix casse le chemin `run` (hors session)
 - **Mitigation** : Tester les DEUX chemins apres le fix
 - **Si bloque >4h** : Documenter exactement ou le flux diverge et demander de l'aide
+
+---
+
+## Resolution (2026-02-17)
+
+### Cause racine
+
+Le bug etait dans `EntryPointExecutor.ExecuteBlockRefAsync()` (ligne 1012-1014). Le `ExecutionContext` etait cree avec seulement `sessionId` et `workingDir` :
+
+```csharp
+// AVANT (bugge)
+var execContext = new Domain.Entities.ExecutionContext();
+execContext.Variables["sessionId"] = session.Id;
+execContext.Variables["workingDir"] = workingDir;
+```
+
+Quand `AgentBlockExecutor` (ligne 404-409) construisait le `CliExecutionContext`, il lisait `workspaceId` et `agentId` depuis `context.Variables` — mais ces valeurs n'etaient jamais definies dans le chemin `session invoke`. Le `CliExecutionContext` resultant avait `WorkspaceId = null` et `AgentId` fallback au block.Id.
+
+En comparaison, `RunCommandHandler` (ligne 114-121) propageait correctement les 3 valeurs.
+
+### Correction
+
+```csharp
+// APRES (corrige)
+var execContext = new Domain.Entities.ExecutionContext();
+execContext.Variables["sessionId"] = session.Id;
+execContext.Variables["workingDir"] = workingDir;
+if (!string.IsNullOrEmpty(session.ParentWorkspaceId))
+    execContext.Variables["workspaceId"] = session.ParentWorkspaceId;
+execContext.Variables["agentId"] = blockRefId;
+```
+
+### Fichier modifie
+
+`backend/src/Maestro.Infrastructure/Sessions/EntryPointExecutor.cs` — lignes 1010-1018
+
+### Verification
+
+- `dotnet build` : 0 erreurs, 0 warnings
+- Le chemin `run` (RunCommandHandler) n'est pas affecte (code independant)
+- PermissionChecker resout correctement les permissions quand workspaceId est present

@@ -2,26 +2,27 @@
   "id": "implement-single-step",
   "name": "Implement Single Step",
   "blockType": "agent",
-  "version": "1.0.0",
-  "isAtomic": false,
-  "description": "Implements a single step from a development plan. Uses an agentic loop to read, write, and verify code. This is the only place where a true agentic loop is needed — code implementation is too unpredictable for static nodes.",
+  "version": "3.0.0",
+  "isAtomic": true,
+  "description": "Implements a single step from a development plan. Uses an agentic loop to read context files, write code, and verify it compiles. Receives exactly one step at a time via the for-each loop in the workflow.",
   "inputs": [
-    { "id": "step", "type": "string", "required": true, "description": "JSON step object with action, target, description" },
-    { "id": "context", "type": "string", "required": false, "description": "Code analysis context" },
-    { "id": "conventions", "type": "string", "required": false, "description": "Project conventions" },
-    { "id": "workingDir", "type": "string", "required": true, "description": "Working directory" }
+    { "id": "step", "type": "string", "required": true, "description": "JSON step object with id, action, target, description" },
+    { "id": "context", "type": "string", "required": false, "description": "Project context from project-preparer" },
+    { "id": "workingDir", "type": "string", "required": true, "description": "Absolute path to the repository root" }
   ],
   "outputs": [
-    { "id": "result", "type": "string", "description": "Result of the implementation step" }
+    { "id": "response", "type": "string", "description": "JSON object with stepId, action, target, linesWritten, verified, notes" }
   ],
   "config": {
     "model": "claude-sonnet",
     "maxIterations": 15,
-    "wallClockTimeoutSeconds": 180
+    "wallClockTimeoutSeconds": 600,
+    "systemPromptFile": "system-prompt.md"
   },
   "metadata": {
     "category": "development",
     "designation": "autonomous",
-    "tags": ["implementation", "code", "step", "agentic"]
+    "tags": ["implementation", "code", "step", "agentic"],
+    "tier": 1
   }
 }

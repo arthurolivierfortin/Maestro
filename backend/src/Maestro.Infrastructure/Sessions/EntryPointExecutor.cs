@@ -108,6 +108,14 @@ public class EntryPointExecutor
             }
         }
 
+        // Auto-inject repoPath from session's RepositoryPath if not explicitly provided.
+        // Workflows reference {{inputs.repoPath}} for tool/agent workingDir, and without this
+        // the template resolves to "0" (null default), causing process start failures.
+        if (!string.IsNullOrEmpty(session.RepositoryPath) && session.GetVariable("repoPath") == null)
+        {
+            session.SetVariable("repoPath", session.RepositoryPath);
+        }
+
         AppendExecutionLog(session, "info", $"Starting workflow: {workflowId}");
         await _repository.SaveAsync(session);
 
@@ -264,6 +272,54 @@ public class EntryPointExecutor
                 }
             }
             session.SetVariable(key, list);
+            return;
+        }
+
+        // Handle string containing a JSON array (from LLM output stored as _nodeResult_xxx)
+        if (value is string strValue)
+        {
+            var trimmed = strValue.Trim();
+            if (trimmed.StartsWith("["))
+            {
+                try
+                {
+                    var parsed = JsonSerializer.Deserialize<JsonElement>(trimmed);
+                    if (parsed.ValueKind == JsonValueKind.Array)
+                    {
+                        var list = new List<object>();
+                        foreach (var item in parsed.EnumerateArray())
+                        {
+                            if (item.ValueKind == JsonValueKind.Object)
+                            {
+                                var dict = new Dictionary<string, object>();
+                                foreach (var prop in item.EnumerateObject())
+                                {
+                                    dict[prop.Name] = prop.Value.ValueKind switch
+                                    {
+                                        JsonValueKind.String => prop.Value.GetString()!,
+                                        JsonValueKind.Number => prop.Value.TryGetInt32(out var i) ? (object)i : prop.Value.GetDouble(),
+                                        JsonValueKind.True => true,
+                                        JsonValueKind.False => false,
+                                        JsonValueKind.Array => prop.Value.ToString()!,
+                                        JsonValueKind.Object => prop.Value.ToString()!,
+                                        _ => prop.Value.ToString()!
+                                    };
+                                }
+                                list.Add(dict);
+                            }
+                            else
+                            {
+                                list.Add(item.ToString()!);
+                            }
+                        }
+                        session.SetVariable(key, list);
+                    }
+                }
+                catch (JsonException)
+                {
+                    // Not valid JSON — leave as string, for-each will fail with a clear message
+                }
+            }
         }
     }
 
@@ -432,6 +488,9 @@ public class EntryPointExecutor
                     break;
                 case "conditional":
                     lastOutput = await ExecuteConditionalNodeAsync(session, configNode, workflowConfig, workingDir, displayTree, lastOutput);
+                    break;
+                case "set-variable":
+                    lastOutput = ExecuteSetVariableNode(session, configNode, lastOutput);
                     break;
                 default:
                     lastOutput = await ExecuteRegularNodeAsync(session, nodeId, workflowConfig, workingDir, activePhaseId, displayTree, lastOutput, configNode);
@@ -656,6 +715,71 @@ public class EntryPointExecutor
     }
 
     /// <summary>
+    /// Sets a session variable from a template value or previousOutput.
+    /// Config: { "type": "set-variable", "id": "store-plan", "variable": "_planSteps", "value": "{{previousOutput}}" }
+    /// If "value" is absent, uses previousOutput directly.
+    /// If the value is a JSON array/object string, parses it for proper List/Dict storage.
+    ///
+    /// ARCHITECTURE: This is GENERIC infrastructure. It stores any value in any variable.
+    /// It knows nothing about plans, steps, or dev workflows.
+    /// </summary>
+    private string ExecuteSetVariableNode(
+        Domain.Entities.ProjectSession session,
+        JsonElement nodeConfig,
+        string? previousOutput)
+    {
+        var nodeId = nodeConfig.TryGetProperty("id", out var idProp)
+            ? idProp.GetString() ?? "set-variable" : "set-variable";
+        var variableName = nodeConfig.TryGetProperty("variable", out var varProp)
+            ? varProp.GetString() : null;
+
+        if (string.IsNullOrEmpty(variableName))
+        {
+            AppendExecutionLog(session, "error", $"set-variable '{nodeId}': missing 'variable' property");
+            return previousOutput ?? "";
+        }
+
+        // Resolve value — from template, or use previousOutput
+        var rawValue = previousOutput ?? "";
+        if (nodeConfig.TryGetProperty("value", out var valProp) && valProp.ValueKind == JsonValueKind.String)
+        {
+            var templateValue = valProp.GetString() ?? "";
+            // Handle {{previousOutput}} the same way ExecuteBlockRefAsync does
+            rawValue = templateValue.Contains("{{previousOutput}}")
+                ? templateValue.Replace("{{previousOutput}}", previousOutput ?? "")
+                : ResolveTemplate(templateValue, session);
+        }
+
+        // Try to parse as JSON for proper List<object>/Dictionary storage
+        var trimmed = rawValue.Trim();
+        if (trimmed.StartsWith("[") || trimmed.StartsWith("{"))
+        {
+            try
+            {
+                var parsed = JsonSerializer.Deserialize<JsonElement>(trimmed);
+                session.SetVariable(variableName, parsed);
+                NormalizeJsonElementToList(session, variableName);
+                AppendExecutionLog(session, "info",
+                    $"set-variable '{nodeId}': stored parsed JSON in '{variableName}' ({trimmed.Length} chars)");
+            }
+            catch
+            {
+                session.SetVariable(variableName, rawValue);
+                AppendExecutionLog(session, "info",
+                    $"set-variable '{nodeId}': stored string in '{variableName}' ({rawValue.Length} chars)");
+            }
+        }
+        else
+        {
+            session.SetVariable(variableName, rawValue);
+            AppendExecutionLog(session, "info",
+                $"set-variable '{nodeId}': stored in '{variableName}' ({rawValue.Length} chars)");
+        }
+
+        return rawValue;
+    }
+
+    /// <summary>
     /// Generic for-each iteration execution. Reads a list from a session variable,
     /// iterates over each item, resets scoped variables, updates item status,
     /// and executes child nodes for each iteration.
@@ -781,6 +905,17 @@ public class EntryPointExecutor
             session.SetVariable("_executionTree", displayTree);
             AppendExecutionLog(session, "info", $"Starting item '{itemId}' ({itemIndex}/{items.Count})");
             await _repository.SaveAsync(session);
+
+            // Expose current item as template-accessible session variables
+            session.SetVariable("_currentItem", itemDict);
+            try
+            {
+                session.SetVariable("_currentItemJson", JsonSerializer.Serialize(itemDict));
+            }
+            catch
+            {
+                session.SetVariable("_currentItemJson", itemId ?? "");
+            }
 
             // Execute child nodes with per-item config and itemId as activePhaseId
             if (forEachNode.TryGetProperty("nodes", out var children) && children.ValueKind == JsonValueKind.Array)
@@ -1008,14 +1143,26 @@ public class EntryPointExecutor
         }
 
         // Standard executor dispatch (for non-composite blocks: single-call inference, agentic loop, tools)
-        // Build execution context
+        // Build execution context — must propagate workspace/session/agent IDs
+        // so AgentBlockExecutor can build a proper CliExecutionContext for tool calls
         var execContext = new Domain.Entities.ExecutionContext();
         execContext.Variables["sessionId"] = session.Id;
         execContext.Variables["workingDir"] = workingDir;
+        if (!string.IsNullOrEmpty(session.ParentWorkspaceId))
+            execContext.Variables["workspaceId"] = session.ParentWorkspaceId;
+        execContext.Variables["agentId"] = blockRefId;
 
         try
         {
             var result = await executor.ExecuteAsync(block, execContext, inputs);
+
+            // Propagate agent/executor internal logs to session execution log
+            // so they're visible in the TUI monitor for diagnosis
+            if (result.Logs != null && result.Logs.Count > 0)
+            {
+                foreach (var log in result.Logs)
+                    AppendExecutionLog(session, "info", $"[{blockRefId}] {log}");
+            }
 
             // Log LLM activity if available
             if (result.Outputs.TryGetValue("response", out var response))
@@ -1030,14 +1177,26 @@ public class EntryPointExecutor
             }
 
             // Build output string from result
-            var outputParts = new List<string>();
-            foreach (var kv in result.Outputs)
+            // Single output: raw value (no "key: " prefix that would break downstream JSON parsing)
+            // Multiple outputs: keep "key: value" format for disambiguation
+            string output;
+            if (result.Outputs.Count == 1)
             {
-                outputParts.Add($"{kv.Key}: {kv.Value}");
+                output = result.Outputs.Values.First()?.ToString() ?? "";
             }
-            var output = outputParts.Count > 0
-                ? string.Join("\n", outputParts)
-                : (result.Success ? $"Block '{blockRefId}' completed successfully" : $"Block '{blockRefId}' failed");
+            else if (result.Outputs.Count > 1)
+            {
+                var outputParts = new List<string>();
+                foreach (var kv in result.Outputs)
+                    outputParts.Add($"{kv.Key}: {kv.Value}");
+                output = string.Join("\n", outputParts);
+            }
+            else
+            {
+                output = result.Success
+                    ? $"Block '{blockRefId}' completed successfully"
+                    : $"Block '{blockRefId}' failed";
+            }
 
             if (!result.Success)
             {
@@ -2788,9 +2947,9 @@ public class EntryPointExecutor
             ["msg"] = message
         });
 
-        // Keep last 50 entries
-        if (logList.Count > 50)
-            logList = logList.Skip(logList.Count - 50).ToList();
+        // Keep last 200 entries (increased from 50 for better debugging of multi-step pipelines)
+        if (logList.Count > 200)
+            logList = logList.Skip(logList.Count - 200).ToList();
 
         session.SetVariable("_executionLog", logList);
     }

@@ -5788,13 +5788,24 @@ ${c.bold('Commands:')}
     // 'execute' is a silent alias for backward compatibility
     if (cmd === 'run' || cmd === 'execute') {
       const blockId = argv._[1];
-      if (!blockId) { formatter.error('Block ID required. Usage: maestro run <block-id> [--input key=value]', 'MISSING_PARAM'); process.exit(EXIT.USER_ERROR); }
+      if (!blockId) { formatter.error('Block ID required. Usage: maestro run <block-id> [--input key=value] [--input-json \'{"key":"value"}\']', 'MISSING_PARAM'); process.exit(EXIT.USER_ERROR); }
       const inputs = {};
       if (argv.input) {
         const raw = Array.isArray(argv.input) ? argv.input : [argv.input];
         for (const kv of raw) {
           const [k,v] = kv.split('=');
           inputs[k] = v;
+        }
+      }
+      if (argv['input-json']) {
+        try {
+          const jsonInputs = JSON.parse(argv['input-json']);
+          if (typeof jsonInputs === 'object' && jsonInputs !== null) {
+            Object.assign(inputs, jsonInputs);
+          }
+        } catch (e) {
+          formatter.error(`Invalid JSON in --input-json: ${e.message}`, 'PARSE_ERROR');
+          process.exit(EXIT.USER_ERROR);
         }
       }
       return await runBlockUnified(blockId, inputs, { mock: argv.mock, workingDir: argv['working-dir'] || argv.workdir });

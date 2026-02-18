@@ -1,0 +1,114 @@
+{
+  "id": "project-autonomous",
+  "name": "Autonomous Development Session",
+  "description": "Project session using the autonomous-dev composite agent. Provides plan → implement → test → review → commit pipeline with full TUI monitoring.",
+
+  "type": "project",
+  "authority": {
+    "type": "human",
+    "identifier": "default",
+    "displayName": "Developer"
+  },
+
+  "permissions": {
+    "allowedCommands": ["*"],
+    "allowedTools": ["*"],
+    "allowedBlocks": ["*"],
+    "canCreateBlocks": false,
+    "canCreateSessions": false,
+    "canAccessNetwork": true,
+    "canAccessFilesystem": true
+  },
+
+  "entryPoints": {
+    "dev": "autonomous-development",
+    "plan": "task-planner",
+    "review": "code-reviewer"
+  },
+
+  "variables": {
+    "sessionMode": "autonomous-dev",
+    "currentTask": "",
+    "currentStep": "idle",
+    "filesModified": [],
+    "testsPassed": false,
+    "reviewScore": 0,
+
+    "_phases": [
+      { "id": "prepare", "name": "1. Prepare", "status": "pending", "description": "Understand project structure and conventions" },
+      { "id": "plan", "name": "2. Plan", "status": "pending", "description": "Decompose task into atomic steps" },
+      { "id": "implement", "name": "3. Implement", "status": "pending", "description": "Code each step with focused context" },
+      { "id": "test", "name": "4. Test", "status": "pending", "description": "Run tests and detect failures" },
+      { "id": "review", "name": "5. Review", "status": "pending", "description": "Evaluate quality of all changes" },
+      { "id": "commit", "name": "6. Commit", "status": "pending", "description": "Stage and commit with semantic message" }
+    ],
+
+    "_blockOutputs": {},
+    "_llmActivity": [],
+    "_executionLog": [],
+    "_executionTree": [],
+
+    "_monitorDescriptor": {
+      "layout": {
+        "mode": "phased-v2",
+        "zones": {
+          "header-left": { "width": "60%", "height": 7, "components": ["header"] },
+          "header-right": { "width": "40%", "height": 7, "components": ["session-metrics"] },
+          "left": { "width": "55%", "height": "75%", "components": ["phase-workflow"] },
+          "right": { "width": "45%", "height": "75%", "components": ["llm-activity"] },
+          "bottom": { "width": "100%", "height": "25%", "components": ["execution-log"] }
+        }
+      },
+      "components": [
+        { "id": "phase-workflow", "type": "phase-workflow", "data": ["$.variables._phases", "$.variables._executionTree"] },
+        { "id": "llm-activity", "type": "llm-activity", "data": "$.variables._llmActivity" },
+        { "id": "execution-log", "type": "execution-log", "data": "$.variables._executionLog" },
+        { "id": "session-metrics", "type": "widgets", "data": "$.monitorWidgets" }
+      ]
+    }
+  },
+
+  "monitorWidgets": [
+    {
+      "id": "current-step",
+      "type": "counter",
+      "zone": "custom",
+      "config": {
+        "label": "Current Step",
+        "value": "$.variables.currentStep"
+      }
+    },
+    {
+      "id": "review-score",
+      "type": "counter",
+      "zone": "custom",
+      "config": {
+        "label": "Review Score",
+        "value": "$.variables.reviewScore"
+      }
+    },
+    {
+      "id": "tests-passed",
+      "type": "counter",
+      "zone": "custom",
+      "config": {
+        "label": "Tests",
+        "value": "$.variables.testsPassed"
+      }
+    }
+  ],
+
+  "config": {
+    "maxIterations": 100,
+    "timeout": 7200000,
+    "autoSave": true,
+    "saveInterval": 15000
+  },
+
+  "metadata": {
+    "category": "development",
+    "priority": "high",
+    "version": "1.0.0",
+    "author": "maestro-phase-30"
+  }
+}

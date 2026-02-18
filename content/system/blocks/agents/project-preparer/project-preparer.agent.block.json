@@ -2,48 +2,25 @@
   "id": "project-preparer",
   "name": "Project Preparer",
   "blockType": "agent",
-  "version": "1.0.0",
-  "isAtomic": false,
-  "description": "Prepares a project for autonomous development. Checks .maestro/docs/, detects stack, creates missing documentation, and synthesizes project context.",
+  "version": "2.0.0",
+  "isAtomic": true,
+  "description": "Analyzes a project repository to understand its stack, architecture, and conventions. Creates missing documentation in .maestro/docs/. Produces structured project context for downstream agents.",
   "inputs": [
-    { "id": "repoPath", "type": "string", "required": true, "description": "Path to the project repository" }
+    { "id": "repoPath", "type": "string", "required": true, "description": "Absolute path to the project repository" }
   ],
   "outputs": [
-    { "id": "projectContext", "type": "object", "description": "Structured project context (name, stack, conventions, docs)" }
+    { "id": "response", "type": "string", "description": "JSON object with project context: name, stack, architecture, conventions, docsCreated, gaps" }
   ],
   "config": {
-    "model": "claude-sonnet",
-    "maxIterations": 15,
-    "wallClockTimeoutSeconds": 120,
-    "nodes": [
-      {
-        "id": "check-docs",
-        "blockRef": "directory-list",
-        "inputs": { "path": "{{inputs.repoPath}}/.maestro/docs" }
-      },
-      {
-        "id": "read-configs",
-        "blockRef": "file-read",
-        "inputs": { "path": "{{inputs.repoPath}}/package.json" }
-      },
-      {
-        "id": "detect-stack",
-        "blockRef": "convention-reader",
-        "inputs": { "projectPath": "{{inputs.repoPath}}" }
-      },
-      {
-        "id": "synthesize-context",
-        "blockRef": "llm-generate",
-        "inputs": {
-          "systemPrompt": "You are a project analyzer. Given the project files and stack information, produce a structured JSON context with: name, language, framework, conventions (style, naming), stack (main dependencies). Output ONLY valid JSON.",
-          "userPrompt": "Project path: {{inputs.repoPath}}\nDocs found: {{previousOutput}}\nDetected stack: {{state.results.detect-stack}}\nConfigs: {{state.results.read-configs}}"
-        }
-      }
-    ]
+    "model": "claude-opus",
+    "maxIterations": 8,
+    "wallClockTimeoutSeconds": 600,
+    "systemPromptFile": "system-prompt.md"
   },
   "metadata": {
     "category": "development",
     "designation": "autonomous",
-    "tags": ["project", "preparation", "context", "docs"]
+    "tags": ["project", "preparation", "context", "analysis"],
+    "tier": 1
   }
 }

@@ -1,0 +1,25 @@
+{
+  "id": "step-validator",
+  "name": "Step Validator",
+  "blockType": "tool",
+  "version": "1.0.0",
+  "isAtomic": true,
+  "description": "Validates that an implementation step was completed by checking the filesystem. Returns specific errors if files are missing or empty.",
+  "inputs": [
+    { "id": "step", "type": "string", "required": true, "description": "Step JSON: {action, target, description}" },
+    { "id": "result", "type": "string", "required": false, "description": "Agent's claimed result (for logging)" },
+    { "id": "workingDir", "type": "string", "required": true, "description": "Repository root path" }
+  ],
+  "outputs": [
+    { "id": "content", "type": "string", "description": "JSON: {isValid, errors[], target, action, fileSize}" }
+  ],
+  "config": {
+    "toolType": "script",
+    "runtime": "node",
+    "scriptFile": "validate-step.js"
+  },
+  "metadata": {
+    "category": "validation",
+    "tags": ["step", "validator", "filesystem", "anti-hallucination"]
+  }
+}

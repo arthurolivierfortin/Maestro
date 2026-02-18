@@ -501,7 +501,10 @@ public class ToolBlockExecutor : IBlockExecutor
             else
             {
                 resultOutputs["stdout"] = stdout;
-                resultOutputs["stderr"] = stderr;
+                // Only include stderr if non-empty — avoids multi-output format
+                // that prepends "stdout: " prefix, breaking downstream JSON parsing
+                if (!string.IsNullOrWhiteSpace(stderr))
+                    resultOutputs["stderr"] = stderr;
             }
 
             sw.Stop();
@@ -641,6 +644,9 @@ public class ToolBlockExecutor : IBlockExecutor
 
                 case "write":
                     return await HandleFileWriteAsync(filePath, inputs, logs, sw, ct);
+
+                case "list":
+                    return HandleDirectoryList(filePath, logs, sw);
 
                 default:
                     logs.Add($"Unknown filesystem operation: {operation}");
@@ -812,6 +818,49 @@ public class ToolBlockExecutor : IBlockExecutor
         resultOutputs["success"] = true;
         resultOutputs["path"] = filePath;
         resultOutputs["bytesWritten"] = bytesWritten;
+
+        return new BlockExecutionResult
+        {
+            Outputs = resultOutputs.ToDictionary(kv => kv.Key, kv => kv.Value),
+            Logs = logs,
+            Success = true,
+            DurationMs = sw.ElapsedMilliseconds
+        };
+    }
+
+    private BlockExecutionResult HandleDirectoryList(
+        string dirPath,
+        List<string> logs,
+        Stopwatch sw)
+    {
+        var resultOutputs = new Dictionary<string, object?>();
+
+        if (!Directory.Exists(dirPath))
+        {
+            logs.Add($"Directory does not exist: {dirPath}");
+            resultOutputs["content"] = "";
+            resultOutputs["exists"] = false;
+            return new BlockExecutionResult
+            {
+                Outputs = resultOutputs.ToDictionary(kv => kv.Key, kv => kv.Value),
+                Logs = logs,
+                Success = true,
+                DurationMs = sw.ElapsedMilliseconds
+            };
+        }
+
+        logs.Add($"Listing directory: {dirPath}");
+        var entries = new List<string>();
+        foreach (var dir in Directory.GetDirectories(dirPath))
+            entries.Add(Path.GetFileName(dir) + "/");
+        foreach (var file in Directory.GetFiles(dirPath))
+            entries.Add(Path.GetFileName(file));
+
+        var listing = string.Join("\n", entries);
+        logs.Add($"Found {entries.Count} entries");
+
+        resultOutputs["content"] = listing;
+        resultOutputs["exists"] = true;
 
         return new BlockExecutionResult
         {

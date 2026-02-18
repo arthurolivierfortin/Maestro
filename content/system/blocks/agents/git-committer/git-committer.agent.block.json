@@ -2,25 +2,28 @@
   "id": "git-committer",
   "name": "Git Committer",
   "blockType": "agent",
-  "version": "1.0.0",
-  "isAtomic": false,
-  "description": "Creates a git commit for the implemented changes. Checks status, generates a conventional commit message, stages files, and commits.",
+  "version": "2.0.0",
+  "isAtomic": true,
+  "description": "Creates a clean git commit for implemented changes. Runs git status/diff, generates a conventional commit message, selectively stages files, and commits.",
   "inputs": [
-    { "id": "repoPath", "type": "string", "required": true, "description": "Path to the repository" },
-    { "id": "changes", "type": "string", "required": false, "description": "Implementation result with changed files" },
-    { "id": "task", "type": "string", "required": false, "description": "Original task description" }
+    { "id": "repoPath", "type": "string", "required": true, "description": "Absolute path to the repository" },
+    { "id": "changes", "type": "string", "required": false, "description": "Summary of changes made by implement-single-step" },
+    { "id": "task", "type": "string", "required": false, "description": "Original task description for commit message context" },
+    { "id": "review", "type": "string", "required": false, "description": "Review result from code-reviewer" }
   ],
   "outputs": [
-    { "id": "commit", "type": "object", "description": "Commit result: hash, message, files" }
+    { "id": "response", "type": "string", "description": "JSON object with committed, hash, message, filesStaged" }
   ],
   "config": {
     "model": "claude-sonnet",
     "maxIterations": 8,
-    "wallClockTimeoutSeconds": 60
+    "wallClockTimeoutSeconds": 180,
+    "systemPromptFile": "system-prompt.md"
   },
   "metadata": {
     "category": "development",
     "designation": "autonomous",
-    "tags": ["git", "commit", "version-control"]
+    "tags": ["git", "commit", "version-control"],
+    "tier": 1
   }
 }

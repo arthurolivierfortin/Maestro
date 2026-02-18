@@ -182,32 +182,50 @@ public abstract class LLMBlockExecutorBase : IBlockExecutor
 
         content = content.Trim();
 
-        // If it starts with {, assume it's already JSON
-        if (content.StartsWith("{"))
-        {
-            var depth = 0;
-            for (var i = 0; i < content.Length; i++)
-            {
-                if (content[i] == '{') depth++;
-                else if (content[i] == '}') depth--;
-                if (depth == 0) return content.Substring(0, i + 1);
-            }
-            return content;
-        }
+        // Find the first { in the content (skip any leading prose or markdown)
+        var startIdx = content.IndexOf('{');
+        if (startIdx < 0) return null;
 
-        // Try to extract from markdown code block
+        // Try to extract from markdown code block first
         var jsonMatch = Regex.Match(content, @"```(?:json)?\s*(\{.*?\})\s*```", RegexOptions.Singleline);
         if (jsonMatch.Success)
         {
             return jsonMatch.Groups[1].Value;
         }
 
-        // Try to find a JSON object anywhere in the text
-        var braceMatch = Regex.Match(content, @"\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}", RegexOptions.Singleline);
-        if (braceMatch.Success)
+        // String-aware balanced brace extraction:
+        // Track depth but skip braces inside JSON strings (between unescaped quotes)
+        var depth = 0;
+        var inString = false;
+        for (var i = startIdx; i < content.Length; i++)
         {
-            return braceMatch.Value;
+            var c = content[i];
+
+            // Handle escape sequences inside strings
+            if (inString && c == '\\')
+            {
+                i++; // skip the escaped character
+                continue;
+            }
+
+            // Toggle string state on unescaped quote
+            if (c == '"')
+            {
+                inString = !inString;
+                continue;
+            }
+
+            // Only count braces outside strings
+            if (!inString)
+            {
+                if (c == '{') depth++;
+                else if (c == '}') depth--;
+                if (depth == 0) return content.Substring(startIdx, i - startIdx + 1);
+            }
         }
+
+        // Fallback: return from start brace to end of content
+        if (depth > 0) return content.Substring(startIdx);
 
         return null;
     }

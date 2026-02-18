@@ -1,6 +1,6 @@
 # Issue 30-C-5 : Iterer le composite
 
-**Statut** : A faire
+**Statut** : COMPLETE (2026-02-18) — 3/3 tests passing via 30-C-AJUSTEMENT Phase D
 **Estimation** : 3-6 heures
 **Bloquant** : Bloque 30-D (foundry)
 **Prerequis** : 30-C-2, 30-C-3, 30-C-4 (les 3 tests initiaux)
@@ -68,11 +68,20 @@ Tenir un journal dans un fichier `content/user/experiments/phase-30-iterations.m
 
 ## Critere de completion
 
-- [ ] 3/3 taches reussies avec les MEMES prompts
-- [ ] Aucune modification entre les 3 tests de la derniere iteration
-- [ ] Minimum 3 iterations documentees dans le journal
-- [ ] Les system-prompt.md des sous-blocs sont finalises
-- [ ] Le composite `autonomous-dev` est stable
+- [x] 3/3 taches reussies avec les MEMES prompts
+- [x] Aucune modification entre les 3 tests de la derniere iteration
+- [x] Minimum 3 iterations documentees dans le journal (7 iterations total)
+- [x] Les system-prompt.md des sous-blocs sont finalises
+- [x] Le composite `autonomous-dev` est stable
+
+## Results
+
+- **D-1 (simple)**: "Add a multiply function" → commit `e73b38c` ✅
+- **D-2 (moderate)**: "Fix all TypeScript compilation errors" → commit `0d05433` ✅
+- **D-3 (complex)**: "Create a FileTree component" → commit `25b7a5e` ✅
+
+See `content/user/experiments/phase-30-iterations.md` for full iteration journal (7 iterations).
+See `IMPLEMENTATION-NOTES.md` for detailed results and anti-hallucination mechanisms.
 
 ---
 

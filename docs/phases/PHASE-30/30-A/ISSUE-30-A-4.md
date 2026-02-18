@@ -1,6 +1,6 @@
 # Issue 30-A-4 : Template session projet pour autonomous-dev
 
-**Statut** : A faire
+**Statut** : COMPLETE (2026-02-17)
 **Estimation** : 30 minutes
 **Bloquant** : Bloque 30-E (tests E2E)
 **Prerequis** : Aucun

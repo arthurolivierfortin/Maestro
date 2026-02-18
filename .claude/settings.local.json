@@ -131,7 +131,22 @@
       "WebFetch(domain:engineering.atspotify.com)",
       "WebFetch(domain:www.anthropic.com)",
       "WebFetch(domain:claude.com)",
-      "WebFetch(domain:mikemason.ca)"
+      "WebFetch(domain:mikemason.ca)",
+      "Bash(Select-String -Pattern \"entry|invoke|set\")",
+      "Bash('C:\\\\temp\\\\react-test-app\\\\package.json':*)",
+      "Bash('C:\\\\temp\\\\react-test-app\\\\tsconfig.json':*)",
+      "Bash('C:\\\\temp\\\\react-test-app\\\\vite.config.ts':*)",
+      "Bash('C:\\\\temp\\\\react-test-app\\\\src\\\\App.tsx':*)",
+      "Bash('C:\\\\temp\\\\react-test-app\\\\src\\\\components\\\\Header.tsx':*)",
+      "Bash('C:\\\\temp\\\\react-test-app\\\\src\\\\types\\\\index.ts':*)",
+      "Bash('C:\\\\temp\\\\react-test-app\\\\src\\\\main.tsx':*)",
+      "Bash(git init:*)",
+      "Bash(git commit:*)",
+      "Bash(/tmp/dump-outputs.js:*)",
+      "Bash(/tmp/check-files.ps1:*)",
+      "Bash(/tmp/check-format.js:*)",
+      "Bash(/tmp/rebuild-diag.ps1:*)",
+      "Bash(/tmp/final-check.ps1:*)"
     ]
   }
 }

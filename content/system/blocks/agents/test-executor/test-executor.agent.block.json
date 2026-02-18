@@ -2,25 +2,27 @@
   "id": "test-executor",
   "name": "Test Executor",
   "blockType": "agent",
-  "version": "1.0.0",
-  "isAtomic": false,
-  "description": "Detects the test framework, runs tests, and parses results. Handles npm test, pytest, cargo test, and other common frameworks.",
+  "version": "2.0.0",
+  "isAtomic": true,
+  "description": "Detects the test framework, runs tests, parses results, and optionally runs type checking. Handles vitest, jest, mocha, pytest, cargo test.",
   "inputs": [
-    { "id": "repoPath", "type": "string", "required": true, "description": "Path to the repository" },
-    { "id": "changedFiles", "type": "string", "required": false, "description": "List of changed files to focus testing on" },
-    { "id": "stack", "type": "string", "required": false, "description": "Project stack info" }
+    { "id": "repoPath", "type": "string", "required": true, "description": "Absolute path to the repository" },
+    { "id": "changedFiles", "type": "string", "required": false, "description": "Summary of changed files to focus testing on" },
+    { "id": "stack", "type": "string", "required": false, "description": "Project stack info from project-preparer" }
   ],
   "outputs": [
-    { "id": "testResults", "type": "object", "description": "Structured test results: passed, failed, errors, details" }
+    { "id": "response", "type": "string", "description": "JSON object with framework, passed, failed, skipped, failures, typeCheck" }
   ],
   "config": {
     "model": "claude-sonnet",
     "maxIterations": 10,
-    "wallClockTimeoutSeconds": 180
+    "wallClockTimeoutSeconds": 300,
+    "systemPromptFile": "system-prompt.md"
   },
   "metadata": {
     "category": "development",
     "designation": "autonomous",
-    "tags": ["testing", "execution", "verification"]
+    "tags": ["testing", "execution", "verification"],
+    "tier": 1
   }
 }

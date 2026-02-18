@@ -3,9 +3,9 @@
   "id": "autonomous-development",
   "name": "Autonomous Development Workflow",
   "blockType": "workflow",
-  "version": "1.0.0",
+  "version": "3.0.0",
   "isAtomic": false,
-  "description": "Workflow complet pour le développement autonome: analyse → planification → implémentation → validation → commit. Utilise l'agent autonomous-programmer avec des étapes de validation.",
+  "description": "Complete autonomous development workflow v3: analyze → validate → plan → validate → for-each step (implement + verify) → test → review → commit. Uses json-validator and step-validator blocks for anti-hallucination.",
 
   "inputs": [
     {
@@ -13,196 +13,137 @@
       "name": "Development Task",
       "type": "string",
       "required": true,
-      "description": "La tâche de développement à accomplir"
+      "description": "The development task to accomplish"
     },
     {
-      "id": "projectPath",
-      "name": "Project Path",
+      "id": "repoPath",
+      "name": "Repository Path",
       "type": "string",
       "required": true,
-      "description": "Chemin vers le projet"
-    },
-    {
-      "id": "context",
-      "name": "Context",
-      "type": "string",
-      "required": false,
-      "description": "Contexte additionnel pour la tâche"
-    },
-    {
-      "id": "runTests",
-      "name": "Run Tests",
-      "type": "boolean",
-      "required": false,
-      "default": true,
-      "description": "Exécuter les tests après l'implémentation"
-    },
-    {
-      "id": "createCommit",
-      "name": "Create Commit",
-      "type": "boolean",
-      "required": false,
-      "default": false,
-      "description": "Créer un commit avec les changements"
-    },
-    {
-      "id": "maxRetries",
-      "name": "Max Retries",
-      "type": "number",
-      "required": false,
-      "default": 3,
-      "description": "Nombre maximum de tentatives si les tests échouent"
+      "description": "Absolute path to the target repository"
     }
   ],
 
   "outputs": [
-    {
-      "id": "success",
-      "name": "Success",
-      "type": "boolean"
-    },
-    {
-      "id": "summary",
-      "name": "Summary",
-      "type": "string"
-    },
-    {
-      "id": "filesChanged",
-      "name": "Files Changed",
-      "type": "array"
-    },
-    {
-      "id": "testResults",
-      "name": "Test Results",
-      "type": "object"
-    },
-    {
-      "id": "commitId",
-      "name": "Commit ID",
-      "type": "string"
-    }
+    { "id": "summary", "type": "string", "description": "Workflow execution summary" }
   ],
 
   "config": {
-    "variables": {
-      "retryCount": 0
-    },
-
     "nodes": [
       {
-        "id": "initial-status",
-        "name": "Check Initial State",
-        "blockRef": "tools/git-status",
+        "id": "prepare",
+        "name": "Analyze Project",
+        "blockRef": "project-preparer",
         "inputs": {
-          "workingDir": "{{inputs.projectPath}}"
+          "repoPath": "{{inputs.repoPath}}",
+          "task": "{{inputs.task}}"
         },
-        "description": "Vérifie l'état git initial du projet"
+        "description": "Analyze the project structure, stack, and conventions"
       },
       {
-        "id": "explore-project",
-        "name": "Explore Project Structure",
-        "blockRef": "tools/directory-list",
+        "id": "plan",
+        "name": "Plan Implementation",
+        "blockRef": "task-planner",
         "inputs": {
-          "path": "{{inputs.projectPath}}",
-          "recursive": true,
-          "maxDepth": 3,
-          "excludePatterns": ["node_modules", ".git", "dist", "build"]
-        },
-        "description": "Explore la structure du projet pour contexte"
-      },
-      {
-        "id": "programmer-agent",
-        "name": "Autonomous Programmer",
-        "blockRef": "agents/autonomous-programmer",
-        "inputs": {
+          "repoPath": "{{inputs.repoPath}}",
           "task": "{{inputs.task}}",
-          "projectPath": "{{inputs.projectPath}}",
-          "context": "{{inputs.context}}\n\nStructure du projet:\n{{explore-project.tree}}",
-          "testAfterChange": "{{inputs.runTests}}",
-          "maxIterations": "{{inputs.maxRetries}}"
+          "context": "{{_nodeResult_prepare}}"
         },
-        "description": "Agent principal qui effectue le développement"
+        "description": "Decompose the task into ordered implementation steps"
       },
       {
-        "id": "final-diff",
-        "name": "Review Changes",
-        "blockRef": "tools/git-diff",
+        "id": "validate-plan",
+        "name": "Validate Plan",
+        "blockRef": "json-validator",
         "inputs": {
-          "workingDir": "{{inputs.projectPath}}"
+          "data": "{{previousOutput}}",
+          "schema": "plan-steps"
         },
-        "description": "Revue des changements effectués"
+        "description": "Validate the plan JSON against the plan-steps schema"
       },
       {
-        "id": "final-tests",
-        "name": "Final Test Run",
-        "blockRef": "tools/test-runner",
+        "id": "store-plan",
+        "type": "set-variable",
+        "variable": "_planSteps",
+        "value": "{{previousOutput}}",
+        "description": "Store the validated plan steps for for-each iteration"
+      },
+      {
+        "id": "implement-steps",
+        "name": "Implement Steps",
+        "type": "for-each",
+        "source": "_planSteps",
+        "itemId": "id",
+        "configLookup": false,
+        "nodes": [
+          {
+            "id": "implement-step",
+            "name": "Implement Step",
+            "blockRef": "implement-single-step",
+            "inputs": {
+              "step": "{{_currentItemJson}}",
+              "workingDir": "{{inputs.repoPath}}",
+              "context": "{{_nodeResult_prepare}}"
+            },
+            "description": "Implement a single step from the plan"
+          },
+          {
+            "id": "validate-step",
+            "name": "Verify Step",
+            "blockRef": "step-validator",
+            "inputs": {
+              "step": "{{_currentItemJson}}",
+              "result": "{{previousOutput}}",
+              "workingDir": "{{inputs.repoPath}}"
+            },
+            "description": "Verify the step was actually implemented on disk"
+          }
+        ],
+        "description": "Iterate over each plan step: implement then verify on disk"
+      },
+      {
+        "id": "test",
+        "name": "Run Tests",
+        "blockRef": "test-executor",
         "inputs": {
-          "workingDir": "{{inputs.projectPath}}",
-          "verbose": true
+          "repoPath": "{{inputs.repoPath}}",
+          "task": "{{inputs.task}}"
         },
-        "condition": "{{inputs.runTests}}",
-        "description": "Exécution finale des tests"
+        "description": "Detect and run the project test suite"
       },
       {
-        "id": "validate-result",
-        "name": "Validate Result",
-        "type": "decision",
-        "condition": "{{programmer-agent.success}} && ({{!inputs.runTests}} || {{final-tests.success}})",
-        "outputs": {
-          "true": "commit-changes",
-          "false": "handle-failure"
+        "id": "review",
+        "name": "Review Code Quality",
+        "blockRef": "code-reviewer",
+        "inputs": {
+          "changes": "Task: {{inputs.task}}\n\nPlan steps executed: {{_planSteps}}\n\nTest results:\n{{_nodeResult_test}}",
+          "testResults": "{{_nodeResult_test}}",
+          "conventions": "{{_nodeResult_prepare}}",
+          "task": "{{inputs.task}}"
         },
-        "description": "Valide si tout a réussi"
+        "description": "Score the implementation quality"
       },
       {
-        "id": "commit-changes",
+        "id": "commit",
         "name": "Commit Changes",
-        "blockRef": "tools/shell-execute",
+        "blockRef": "git-committer",
         "inputs": {
-          "command": "git add -A && git commit -m \"{{inputs.task}}\"",
-          "workingDir": "{{inputs.projectPath}}"
+          "repoPath": "{{inputs.repoPath}}",
+          "task": "{{inputs.task}}",
+          "changes": "{{_nodeResult_review}}",
+          "review": "{{_nodeResult_review}}"
         },
-        "condition": "{{inputs.createCommit}}",
-        "description": "Commit les changements si demandé"
-      },
-      {
-        "id": "handle-failure",
-        "name": "Handle Failure",
-        "type": "script",
-        "config": {
-          "language": "javascript",
-          "code": "return { success: false, reason: 'Tests failed or implementation incomplete', agentResult: inputs.agentResult, testResult: inputs.testResult };"
-        },
-        "inputs": {
-          "agentResult": "{{programmer-agent}}",
-          "testResult": "{{final-tests}}"
-        },
-        "description": "Gère les cas d'échec"
+        "description": "Create a clean conventional commit"
       }
     ],
 
-    "connections": [
-      { "from": "initial-status", "to": "explore-project" },
-      { "from": "explore-project", "to": "programmer-agent" },
-      { "from": "programmer-agent", "to": "final-diff" },
-      { "from": "final-diff", "to": "final-tests" },
-      { "from": "final-tests", "to": "validate-result" }
-    ],
-
-    "outputMapping": {
-      "success": "{{validate-result.true ? true : false}}",
-      "summary": "{{programmer-agent.summary}}",
-      "filesChanged": "{{programmer-agent.filesModified}}",
-      "testResults": "{{final-tests}}",
-      "commitId": "{{commit-changes.stdout}}"
-    }
+    "connections": []
   },
 
   "metadata": {
     "category": "development",
-    "tags": ["workflow", "autonomous", "development", "full-pipeline"],
+    "tags": ["workflow", "autonomous", "development", "full-pipeline", "v3"],
     "author": "maestro-team",
-    "createdAt": "2026-01-28T00:00:00Z",
-    "updatedAt": "2026-01-28T00:00:00Z"
+    "tier": 1
   }
 }

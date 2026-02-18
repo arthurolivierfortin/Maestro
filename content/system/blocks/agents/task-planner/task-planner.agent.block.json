@@ -2,25 +2,27 @@
   "id": "task-planner",
   "name": "Task Planner",
   "blockType": "agent",
-  "version": "1.0.0",
-  "isAtomic": false,
-  "description": "Decomposes a development task into concrete, ordered implementation steps. Assesses complexity and asks clarifications when needed.",
+  "version": "2.0.0",
+  "isAtomic": true,
+  "description": "Decomposes a development task into atomic, dependency-ordered implementation steps. Reads project files to understand structure before planning.",
   "inputs": [
-    { "id": "task", "type": "string", "required": true, "description": "The task to plan" },
-    { "id": "context", "type": "string", "required": false, "description": "Analysis context from context-analyzer" },
-    { "id": "projectContext", "type": "string", "required": false, "description": "Project context from preparer" }
+    { "id": "task", "type": "string", "required": true, "description": "The development task to decompose" },
+    { "id": "context", "type": "string", "required": false, "description": "Project context from project-preparer (stack, conventions, architecture)" },
+    { "id": "repoPath", "type": "string", "required": false, "description": "Path to the repository for reading files" }
   ],
   "outputs": [
-    { "id": "plan", "type": "object", "description": "Structured plan with ordered steps" }
+    { "id": "response", "type": "string", "description": "JSON array of ordered implementation steps" }
   ],
   "config": {
-    "model": "claude-sonnet",
-    "maxIterations": 10,
-    "wallClockTimeoutSeconds": 120
+    "model": "claude-opus",
+    "maxIterations": 8,
+    "wallClockTimeoutSeconds": 600,
+    "systemPromptFile": "system-prompt.md"
   },
   "metadata": {
     "category": "development",
     "designation": "autonomous",
-    "tags": ["planning", "decomposition", "task"]
+    "tags": ["planning", "decomposition", "task", "architecture"],
+    "tier": 1
   }
 }
