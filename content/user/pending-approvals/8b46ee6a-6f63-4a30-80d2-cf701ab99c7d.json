@@ -1,0 +1,14 @@
+{
+  "id": "8b46ee6a-6f63-4a30-80d2-cf701ab99c7d",
+  "blockId": "test-executor",
+  "blockName": "Test Executor",
+  "blockType": "agent",
+  "sourceSessionId": null,
+  "status": "approved",
+  "rejectionReason": null,
+  "metadata": null,
+  "submittedAt": "2026-02-18T21:29:14.5414362+00:00",
+  "submittedBy": "cli-user",
+  "reviewedAt": "2026-02-18T21:47:36.3748186+00:00",
+  "reviewedBy": "cli-user"
+}

@@ -1,0 +1,28 @@
+{
+  "id": "implement-single-step",
+  "name": "Implement Single Step",
+  "blockType": "agent",
+  "version": "3.0.0",
+  "isAtomic": true,
+  "description": "Implements a single step from a development plan. Uses an agentic loop to read context files, write code, and verify it compiles. Receives exactly one step at a time via the for-each loop in the workflow.",
+  "config": {
+    "model": "claude-sonnet",
+    "maxIterations": 15,
+    "wallClockTimeoutSeconds": 600,
+    "systemPromptFile": "system-prompt.md",
+    "path": "C:\\Meastro\\content\\system\\blocks\\agents\\implement-single-step"
+  },
+  "metadata": {
+    "category": "development",
+    "designation": "autonomous",
+    "tags": [
+      "implementation",
+      "code",
+      "step",
+      "agentic"
+    ],
+    "tier": 1,
+    "_sourcePath": "C:\\Meastro\\content\\system\\blocks\\agents\\implement-single-step\\implement-single-step.agent.block.json"
+  },
+  "capabilities": []
+}

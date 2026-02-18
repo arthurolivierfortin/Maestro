@@ -1,0 +1,14 @@
+{
+  "id": "496fa883-fc6a-4190-805a-41956f286b9a",
+  "blockId": "implement-single-step",
+  "blockName": "Implement Single Step",
+  "blockType": "agent",
+  "sourceSessionId": null,
+  "status": "approved",
+  "rejectionReason": null,
+  "metadata": null,
+  "submittedAt": "2026-02-18T21:29:06.1529565+00:00",
+  "submittedBy": "cli-user",
+  "reviewedAt": "2026-02-18T21:47:27.7485975+00:00",
+  "reviewedBy": "cli-user"
+}

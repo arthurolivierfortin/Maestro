@@ -1,0 +1,14 @@
+{
+  "id": "28c491f0-8e7a-4e63-99a9-8827403d6357",
+  "blockId": "step-validator",
+  "blockName": "Step Validator",
+  "blockType": "tool",
+  "sourceSessionId": null,
+  "status": "approved",
+  "rejectionReason": null,
+  "metadata": null,
+  "submittedAt": "2026-02-18T21:29:41.5924271+00:00",
+  "submittedBy": "cli-user",
+  "reviewedAt": "2026-02-18T21:48:02.9545453+00:00",
+  "reviewedBy": "cli-user"
+}

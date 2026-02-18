@@ -1,0 +1,26 @@
+{
+  "id": "step-validator",
+  "name": "Step Validator",
+  "blockType": "tool",
+  "version": "1.0.0",
+  "isAtomic": true,
+  "description": "Validates that an implementation step was completed by checking the filesystem. Returns specific errors if files are missing or empty.",
+  "config": {
+    "toolType": "script",
+    "runtime": "node",
+    "scriptFile": "validate-step.js",
+    "path": "C:\\Meastro\\content\\system\\blocks\\tools\\step-validator"
+  },
+  "metadata": {
+    "category": "validation",
+    "tags": [
+      "step",
+      "validator",
+      "filesystem",
+      "anti-hallucination"
+    ],
+    "_sourcePath": "C:\\Meastro\\content\\system\\blocks\\tools\\step-validator\\step-validator.tool.block.json",
+    "designation": "tool"
+  },
+  "capabilities": []
+}

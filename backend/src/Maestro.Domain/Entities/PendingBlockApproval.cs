@@ -186,6 +186,14 @@ public class PendingBlockApproval
     }
 
     /// <summary>
+    /// Sets the block definition (used when re-fetching after deserialization).
+    /// </summary>
+    public void SetBlockDefinition(BlockDefinition blockDefinition)
+    {
+        BlockDefinition = blockDefinition;
+    }
+
+    /// <summary>
     /// Whether this approval is still pending.
     /// </summary>
     public bool IsPending => Status == ApprovalStatus.Pending;

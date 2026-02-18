@@ -1,0 +1,16 @@
+{
+  "schema": "maestro-block-manifest/1.0",
+  "id": "json-validator",
+  "version": "2.0.0",
+  "type": "tool",
+  "author": "cli-user",
+  "description": "Generic JSON validator. Schema is passed as input (not hardcoded). Strips prefixes, extracts from markdown, validates required fields/types/allowed values. Returns cleaned JSON or specific error messages.",
+  "tags": [],
+  "fitness": {},
+  "requirements": {
+    "os": []
+  },
+  "metrics": {
+    "testedAt": "2026-02-18T21:48:12.1500854\u002B00:00"
+  }
+}

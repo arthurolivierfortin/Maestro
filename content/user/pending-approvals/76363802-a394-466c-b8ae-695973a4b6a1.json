@@ -1,0 +1,14 @@
+{
+  "id": "76363802-a394-466c-b8ae-695973a4b6a1",
+  "blockId": "project-preparer",
+  "blockName": "Project Preparer",
+  "blockType": "agent",
+  "sourceSessionId": null,
+  "status": "approved",
+  "rejectionReason": null,
+  "metadata": null,
+  "submittedAt": "2026-02-18T21:46:57.5446262+00:00",
+  "submittedBy": "cli-user",
+  "reviewedAt": "2026-02-18T21:47:10.5145339+00:00",
+  "reviewedBy": "cli-user"
+}

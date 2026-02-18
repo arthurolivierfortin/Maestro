@@ -56,6 +56,20 @@ public class EntryPointExecutor
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Entry point execution failed: {EntryPoint} on session {SessionId}", entryPoint, sessionId.Value);
+                // Update session state so the monitor shows the failure instead of silently stopping
+                try
+                {
+                    var failedSession = await _repository.GetByIdAsync(sessionId);
+                    if (failedSession != null)
+                    {
+                        AppendExecutionLog(failedSession, "error", $"Workflow crashed: {ex.Message}");
+                        await _repository.SaveAsync(failedSession);
+                    }
+                }
+                catch (Exception saveEx)
+                {
+                    _logger.LogError(saveEx, "Failed to save error state for session {SessionId}", sessionId.Value);
+                }
             }
         });
 
@@ -497,26 +511,41 @@ public class EntryPointExecutor
                     await _repository.SaveAsync(session);
             }
 
-            switch (nodeType)
+            try
             {
-                case "while":
-                    lastOutput = await ExecuteWhileNodeAsync(session, configNode, workflowConfig, workingDir, workflowId, activePhaseId, displayTree, lastOutput);
-                    break;
-                case "for-each":
-                    lastOutput = await ExecuteForEachNodeAsync(session, configNode, workflowConfig, workingDir, workflowId, displayTree, lastOutput);
-                    break;
-                case "phase":
-                    lastOutput = await ExecutePhaseNodeAsync(session, configNode, workflowConfig, workingDir, workflowId, displayTree, lastOutput);
-                    break;
-                case "conditional":
-                    lastOutput = await ExecuteConditionalNodeAsync(session, configNode, workflowConfig, workingDir, displayTree, lastOutput);
-                    break;
-                case "set-variable":
-                    lastOutput = ExecuteSetVariableNode(session, configNode, lastOutput);
-                    break;
-                default:
-                    lastOutput = await ExecuteRegularNodeAsync(session, nodeId, workflowConfig, workingDir, activePhaseId, displayTree, lastOutput, configNode);
-                    break;
+                switch (nodeType)
+                {
+                    case "while":
+                        lastOutput = await ExecuteWhileNodeAsync(session, configNode, workflowConfig, workingDir, workflowId, activePhaseId, displayTree, lastOutput);
+                        break;
+                    case "for-each":
+                        lastOutput = await ExecuteForEachNodeAsync(session, configNode, workflowConfig, workingDir, workflowId, displayTree, lastOutput);
+                        break;
+                    case "phase":
+                        lastOutput = await ExecutePhaseNodeAsync(session, configNode, workflowConfig, workingDir, workflowId, displayTree, lastOutput);
+                        break;
+                    case "conditional":
+                        lastOutput = await ExecuteConditionalNodeAsync(session, configNode, workflowConfig, workingDir, displayTree, lastOutput);
+                        break;
+                    case "set-variable":
+                        lastOutput = ExecuteSetVariableNode(session, configNode, lastOutput);
+                        UpdateNodeById(displayTree, nodeId, "done", $"Variable set");
+                        session.SetVariable("_executionTree", displayTree);
+                        break;
+                    default:
+                        lastOutput = await ExecuteRegularNodeAsync(session, nodeId, workflowConfig, workingDir, activePhaseId, displayTree, lastOutput, configNode);
+                        break;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Config node execution failed: {NodeId}", nodeId);
+                UpdateNodeById(displayTree, nodeId, "error", $"(error: {ex.Message})");
+                session.SetVariable("_executionTree", displayTree);
+                AppendExecutionLog(session, "error", $"{nodeId}: {ex.Message}");
+                await _repository.SaveAsync(session);
+                // Continue to next node instead of crashing the entire workflow
+                continue;
             }
 
             // Mark phase as done after node completes (top-level only)

@@ -1,0 +1,14 @@
+{
+  "id": "96e01082-f780-44a2-bc20-4673e7961a01",
+  "blockId": "autonomous-development",
+  "blockName": "Autonomous Development Workflow",
+  "blockType": "workflow",
+  "sourceSessionId": null,
+  "status": "approved",
+  "rejectionReason": null,
+  "metadata": null,
+  "submittedAt": "2026-02-18T21:29:58.7499404+00:00",
+  "submittedBy": "cli-user",
+  "reviewedAt": "2026-02-18T21:48:21.6750843+00:00",
+  "reviewedBy": "cli-user"
+}

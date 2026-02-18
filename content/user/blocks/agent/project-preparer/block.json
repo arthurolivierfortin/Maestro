@@ -1,0 +1,28 @@
+{
+  "id": "project-preparer",
+  "name": "Project Preparer",
+  "blockType": "agent",
+  "version": "2.0.0",
+  "isAtomic": true,
+  "description": "Analyzes a project repository to understand its stack, architecture, and conventions. Creates missing documentation in .maestro/docs/. Produces structured project context for downstream agents.",
+  "config": {
+    "model": "claude-opus",
+    "maxIterations": 8,
+    "wallClockTimeoutSeconds": 600,
+    "systemPromptFile": "system-prompt.md",
+    "path": "C:\\Meastro\\content\\system\\blocks\\agents\\project-preparer"
+  },
+  "metadata": {
+    "category": "development",
+    "designation": "autonomous",
+    "tags": [
+      "project",
+      "preparation",
+      "context",
+      "analysis"
+    ],
+    "tier": 1,
+    "_sourcePath": "C:\\Meastro\\content\\system\\blocks\\agents\\project-preparer\\project-preparer.agent.block.json"
+  },
+  "capabilities": []
+}

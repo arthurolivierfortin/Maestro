@@ -1,0 +1,16 @@
+{
+  "schema": "maestro-block-manifest/1.0",
+  "id": "test-executor",
+  "version": "2.0.0",
+  "type": "agent",
+  "author": "cli-user",
+  "description": "Detects the test framework, runs tests, parses results, and optionally runs type checking. Handles vitest, jest, mocha, pytest, cargo test.",
+  "tags": [],
+  "fitness": {},
+  "requirements": {
+    "os": []
+  },
+  "metrics": {
+    "testedAt": "2026-02-18T21:47:36.3761118\u002B00:00"
+  }
+}

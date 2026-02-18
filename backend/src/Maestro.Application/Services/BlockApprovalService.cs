@@ -2,6 +2,7 @@ using Maestro.Application.Interfaces;
 using Maestro.Domain.Entities;
 using Microsoft.Extensions.Logging;
 
+
 namespace Maestro.Application.Services;
 
 /// <summary>
@@ -54,18 +55,18 @@ public interface IBlockApprovalService
 public class BlockApprovalService : IBlockApprovalService
 {
     private readonly IBlockApprovalRepository _approvalRepository;
-    private readonly IBlockRepository _blockRepository;
+    private readonly IBlockDiscoveryService _discoveryService;
     private readonly IBlockPublisher _publisher;
     private readonly ILogger<BlockApprovalService> _logger;
 
     public BlockApprovalService(
         IBlockApprovalRepository approvalRepository,
-        IBlockRepository blockRepository,
+        IBlockDiscoveryService discoveryService,
         IBlockPublisher publisher,
         ILogger<BlockApprovalService> logger)
     {
         _approvalRepository = approvalRepository;
-        _blockRepository = blockRepository;
+        _discoveryService = discoveryService;
         _publisher = publisher;
         _logger = logger;
     }
@@ -77,8 +78,8 @@ public class BlockApprovalService : IBlockApprovalService
         Dictionary<string, object>? metadata = null,
         CancellationToken ct = default)
     {
-        // Get the block
-        var block = await _blockRepository.GetByIdAsync(blockId, ct);
+        // Get the block via discovery (searches all paths: system, project, user)
+        var block = await _discoveryService.GetByIdAsync(blockId, ct);
         if (block == null)
         {
             throw new InvalidOperationException($"Block '{blockId}' not found");
@@ -124,6 +125,17 @@ public class BlockApprovalService : IBlockApprovalService
         if (approval == null)
         {
             throw new InvalidOperationException($"Approval '{id}' not found");
+        }
+
+        // BlockDefinition may be null if loaded from disk (not serialized).
+        // Re-fetch from discovery to enable quality gate validation.
+        if (approval.BlockDefinition == null)
+        {
+            var block = await _discoveryService.GetByIdAsync(approval.BlockId, ct);
+            if (block != null)
+            {
+                approval.SetBlockDefinition(block);
+            }
         }
 
         // Quality gate enforcement: validate block meets minimum requirements
@@ -196,6 +208,7 @@ public class BlockApprovalService : IBlockApprovalService
         // Config is Dictionary<string, object> — check for known content keys
         var config = block.Config;
         var hasContent = config.ContainsKey("systemPrompt")
+                      || config.ContainsKey("systemPromptFile")
                       || config.ContainsKey("scriptFile")
                       || config.ContainsKey("nodes");
 

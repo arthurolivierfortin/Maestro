@@ -1,0 +1,16 @@
+{
+  "schema": "maestro-block-manifest/1.0",
+  "id": "implement-single-step",
+  "version": "3.0.0",
+  "type": "agent",
+  "author": "cli-user",
+  "description": "Implements a single step from a development plan. Uses an agentic loop to read context files, write code, and verify it compiles. Receives exactly one step at a time via the for-each loop in the workflow.",
+  "tags": [],
+  "fitness": {},
+  "requirements": {
+    "os": []
+  },
+  "metrics": {
+    "testedAt": "2026-02-18T21:47:27.7500045\u002B00:00"
+  }
+}

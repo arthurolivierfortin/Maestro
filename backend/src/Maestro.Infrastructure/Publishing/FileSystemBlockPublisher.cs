@@ -13,7 +13,7 @@ namespace Maestro.Infrastructure.Publishing;
 /// </summary>
 public class FileSystemBlockPublisher : IBlockPublisher
 {
-    private readonly IBlockRepository _blockRepository;
+    private readonly IBlockDiscoveryService _discoveryService;
     private readonly MaestroConfiguration _config;
     private readonly ILogger<FileSystemBlockPublisher>? _logger;
 
@@ -26,11 +26,11 @@ public class FileSystemBlockPublisher : IBlockPublisher
     };
 
     public FileSystemBlockPublisher(
-        IBlockRepository blockRepository,
+        IBlockDiscoveryService discoveryService,
         MaestroConfiguration config,
         ILogger<FileSystemBlockPublisher>? logger = null)
     {
-        _blockRepository = blockRepository;
+        _discoveryService = discoveryService;
         _config = config;
         _logger = logger;
     }
@@ -44,8 +44,8 @@ public class FileSystemBlockPublisher : IBlockPublisher
         CancellationToken ct = default,
         bool force = false)
     {
-        // 1. Get the block definition from the repository
-        var block = await _blockRepository.GetByIdAsync(blockId, ct);
+        // 1. Get the block definition via discovery (searches all paths)
+        var block = await _discoveryService.GetByIdAsync(blockId, ct);
         if (block == null)
         {
             throw new InvalidOperationException($"Block '{blockId}' not found in repository");

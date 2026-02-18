@@ -1,0 +1,14 @@
+{
+  "id": "64c1f244-f1b0-441c-87df-b2e71c0d1263",
+  "blockId": "code-reviewer",
+  "blockName": "Code Reviewer",
+  "blockType": "inference",
+  "sourceSessionId": null,
+  "status": "approved",
+  "rejectionReason": null,
+  "metadata": null,
+  "submittedAt": "2026-02-18T21:29:22.9378071+00:00",
+  "submittedBy": "cli-user",
+  "reviewedAt": "2026-02-18T21:47:45.5576866+00:00",
+  "reviewedBy": "cli-user"
+}

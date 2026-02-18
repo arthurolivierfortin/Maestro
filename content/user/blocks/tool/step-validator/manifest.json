@@ -1,0 +1,16 @@
+{
+  "schema": "maestro-block-manifest/1.0",
+  "id": "step-validator",
+  "version": "1.0.0",
+  "type": "tool",
+  "author": "cli-user",
+  "description": "Validates that an implementation step was completed by checking the filesystem. Returns specific errors if files are missing or empty.",
+  "tags": [],
+  "fitness": {},
+  "requirements": {
+    "os": []
+  },
+  "metrics": {
+    "testedAt": "2026-02-18T21:48:02.9565755\u002B00:00"
+  }
+}

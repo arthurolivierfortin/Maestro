@@ -1,0 +1,16 @@
+{
+  "schema": "maestro-block-manifest/1.0",
+  "id": "autonomous-development",
+  "version": "3.0.0",
+  "type": "workflow",
+  "author": "cli-user",
+  "description": "Complete autonomous development workflow v3: analyze \u2192 validate \u2192 plan \u2192 validate \u2192 for-each step (implement \u002B verify) \u2192 test \u2192 review \u2192 commit. Uses json-validator and step-validator blocks for anti-hallucination.",
+  "tags": [],
+  "fitness": {},
+  "requirements": {
+    "os": []
+  },
+  "metrics": {
+    "testedAt": "2026-02-18T21:48:21.6772798\u002B00:00"
+  }
+}

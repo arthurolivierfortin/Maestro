@@ -1,0 +1,27 @@
+{
+  "id": "json-validator",
+  "name": "JSON Validator",
+  "blockType": "tool",
+  "version": "2.0.0",
+  "isAtomic": true,
+  "description": "Generic JSON validator. Schema is passed as input (not hardcoded). Strips prefixes, extracts from markdown, validates required fields/types/allowed values. Returns cleaned JSON or specific error messages.",
+  "config": {
+    "toolType": "script",
+    "runtime": "node",
+    "scriptFile": "validate.js",
+    "path": "C:\\Meastro\\content\\system\\blocks\\tools\\json-validator"
+  },
+  "metadata": {
+    "category": "validation",
+    "tags": [
+      "json",
+      "validator",
+      "schema",
+      "data-quality",
+      "generic"
+    ],
+    "_sourcePath": "C:\\Meastro\\content\\system\\blocks\\tools\\json-validator\\json-validator.tool.block.json",
+    "designation": "tool"
+  },
+  "capabilities": []
+}

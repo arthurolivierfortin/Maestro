@@ -1,6 +1,96 @@
 {
-  "type": "block-catalog",
-  "version": "1.0.0",
-  "scope": "user",
-  "entries": []
+  "schema": "maestro-catalog/1.0",
+  "updatedAt": "2026-02-18T21:48:21.6986804\u002B00:00",
+  "blocks": [
+    {
+      "id": "project-preparer",
+      "version": "2.0.0",
+      "type": "agent",
+      "author": "cli-user",
+      "description": "Analyzes a project repository to understand its stack, architecture, and conventions. Creates missing documentation in .maestro/docs/. Produces structured project context for downstream agents.",
+      "tags": [],
+      "publishedAt": "2026-02-18T21:47:10.6420687\u002B00:00",
+      "path": "blocks/agent/project-preparer"
+    },
+    {
+      "id": "task-planner",
+      "version": "2.0.0",
+      "type": "agent",
+      "author": "cli-user",
+      "description": "Decomposes a development task into atomic, dependency-ordered implementation steps. Reads project files to understand structure before planning.",
+      "tags": [],
+      "publishedAt": "2026-02-18T21:47:18.9906904\u002B00:00",
+      "path": "blocks/agent/task-planner"
+    },
+    {
+      "id": "implement-single-step",
+      "version": "3.0.0",
+      "type": "agent",
+      "author": "cli-user",
+      "description": "Implements a single step from a development plan. Uses an agentic loop to read context files, write code, and verify it compiles. Receives exactly one step at a time via the for-each loop in the workflow.",
+      "tags": [],
+      "publishedAt": "2026-02-18T21:47:27.7563635\u002B00:00",
+      "path": "blocks/agent/implement-single-step"
+    },
+    {
+      "id": "test-executor",
+      "version": "2.0.0",
+      "type": "agent",
+      "author": "cli-user",
+      "description": "Detects the test framework, runs tests, parses results, and optionally runs type checking. Handles vitest, jest, mocha, pytest, cargo test.",
+      "tags": [],
+      "publishedAt": "2026-02-18T21:47:36.3847118\u002B00:00",
+      "path": "blocks/agent/test-executor"
+    },
+    {
+      "id": "code-reviewer",
+      "version": "2.0.0",
+      "type": "inference",
+      "author": "cli-user",
+      "description": "Reviews code changes against conventions and test results. Produces a structured review with score, approval status, per-axis ratings, and actionable issues. Single LLM call \u2014 no agentic loop.",
+      "tags": [],
+      "publishedAt": "2026-02-18T21:47:45.5674551\u002B00:00",
+      "path": "blocks/inference/code-reviewer"
+    },
+    {
+      "id": "git-committer",
+      "version": "2.0.0",
+      "type": "agent",
+      "author": "cli-user",
+      "description": "Creates a clean git commit for implemented changes. Runs git status/diff, generates a conventional commit message, selectively stages files, and commits.",
+      "tags": [],
+      "publishedAt": "2026-02-18T21:47:54.6883345\u002B00:00",
+      "path": "blocks/agent/git-committer"
+    },
+    {
+      "id": "step-validator",
+      "version": "1.0.0",
+      "type": "tool",
+      "author": "cli-user",
+      "description": "Validates that an implementation step was completed by checking the filesystem. Returns specific errors if files are missing or empty.",
+      "tags": [],
+      "publishedAt": "2026-02-18T21:48:02.9651947\u002B00:00",
+      "path": "blocks/tool/step-validator"
+    },
+    {
+      "id": "json-validator",
+      "version": "2.0.0",
+      "type": "tool",
+      "author": "cli-user",
+      "description": "Generic JSON validator. Schema is passed as input (not hardcoded). Strips prefixes, extracts from markdown, validates required fields/types/allowed values. Returns cleaned JSON or specific error messages.",
+      "tags": [],
+      "publishedAt": "2026-02-18T21:48:12.1567405\u002B00:00",
+      "path": "blocks/tool/json-validator"
+    },
+    {
+      "id": "autonomous-development",
+      "version": "3.0.0",
+      "type": "workflow",
+      "author": "cli-user",
+      "description": "Complete autonomous development workflow v3: analyze \u2192 validate \u2192 plan \u2192 validate \u2192 for-each step (implement \u002B verify) \u2192 test \u2192 review \u2192 commit. Uses json-validator and step-validator blocks for anti-hallucination.",
+      "tags": [],
+      "publishedAt": "2026-02-18T21:48:21.6986761\u002B00:00",
+      "path": "blocks/workflow/autonomous-development"
+    }
+  ]
 }

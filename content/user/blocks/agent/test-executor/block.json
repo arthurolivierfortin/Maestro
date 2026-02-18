@@ -1,0 +1,27 @@
+{
+  "id": "test-executor",
+  "name": "Test Executor",
+  "blockType": "agent",
+  "version": "2.0.0",
+  "isAtomic": true,
+  "description": "Detects the test framework, runs tests, parses results, and optionally runs type checking. Handles vitest, jest, mocha, pytest, cargo test.",
+  "config": {
+    "model": "claude-sonnet",
+    "maxIterations": 10,
+    "wallClockTimeoutSeconds": 300,
+    "systemPromptFile": "system-prompt.md",
+    "path": "C:\\Meastro\\content\\system\\blocks\\agents\\test-executor"
+  },
+  "metadata": {
+    "category": "development",
+    "designation": "autonomous",
+    "tags": [
+      "testing",
+      "execution",
+      "verification"
+    ],
+    "tier": 1,
+    "_sourcePath": "C:\\Meastro\\content\\system\\blocks\\agents\\test-executor\\test-executor.agent.block.json"
+  },
+  "capabilities": []
+}

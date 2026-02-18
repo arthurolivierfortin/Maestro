@@ -1,0 +1,16 @@
+{
+  "schema": "maestro-block-manifest/1.0",
+  "id": "code-reviewer",
+  "version": "2.0.0",
+  "type": "inference",
+  "author": "cli-user",
+  "description": "Reviews code changes against conventions and test results. Produces a structured review with score, approval status, per-axis ratings, and actionable issues. Single LLM call \u2014 no agentic loop.",
+  "tags": [],
+  "fitness": {},
+  "requirements": {
+    "os": []
+  },
+  "metrics": {
+    "testedAt": "2026-02-18T21:47:45.5591664\u002B00:00"
+  }
+}

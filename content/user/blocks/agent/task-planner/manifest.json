@@ -1,0 +1,16 @@
+{
+  "schema": "maestro-block-manifest/1.0",
+  "id": "task-planner",
+  "version": "2.0.0",
+  "type": "agent",
+  "author": "cli-user",
+  "description": "Decomposes a development task into atomic, dependency-ordered implementation steps. Reads project files to understand structure before planning.",
+  "tags": [],
+  "fitness": {},
+  "requirements": {
+    "os": []
+  },
+  "metrics": {
+    "testedAt": "2026-02-18T21:47:18.9785572\u002B00:00"
+  }
+}

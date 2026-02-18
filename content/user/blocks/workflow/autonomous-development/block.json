@@ -1,0 +1,133 @@
+{
+  "id": "autonomous-development",
+  "name": "Autonomous Development Workflow",
+  "blockType": "workflow",
+  "version": "3.0.0",
+  "isAtomic": false,
+  "description": "Complete autonomous development workflow v3: analyze \u2192 validate \u2192 plan \u2192 validate \u2192 for-each step (implement \u002B verify) \u2192 test \u2192 review \u2192 commit. Uses json-validator and step-validator blocks for anti-hallucination.",
+  "config": {
+    "nodes": [
+      {
+        "id": "prepare",
+        "name": "Analyze Project",
+        "blockRef": "project-preparer",
+        "inputs": {
+          "repoPath": "{{inputs.repoPath}}",
+          "task": "{{inputs.task}}"
+        },
+        "description": "Analyze the project structure, stack, and conventions"
+      },
+      {
+        "id": "plan",
+        "name": "Plan Implementation",
+        "blockRef": "task-planner",
+        "inputs": {
+          "repoPath": "{{inputs.repoPath}}",
+          "task": "{{inputs.task}}",
+          "context": "{{_nodeResult_prepare}}"
+        },
+        "description": "Decompose the task into ordered implementation steps"
+      },
+      {
+        "id": "validate-plan",
+        "name": "Validate Plan",
+        "blockRef": "json-validator",
+        "inputs": {
+          "data": "{{previousOutput}}",
+          "schema": "{\u0022type\u0022:\u0022array\u0022,\u0022minItems\u0022:1,\u0022items\u0022:{\u0022requiredFields\u0022:[\u0022id\u0022,\u0022action\u0022,\u0022target\u0022,\u0022description\u0022],\u0022fieldTypes\u0022:{\u0022id\u0022:\u0022number\u0022,\u0022action\u0022:\u0022string\u0022,\u0022target\u0022:\u0022string\u0022,\u0022description\u0022:\u0022string\u0022},\u0022allowedValues\u0022:{\u0022action\u0022:[\u0022create\u0022,\u0022modify\u0022,\u0022delete\u0022,\u0022add-dependency\u0022,\u0022run-command\u0022]}}}"
+        },
+        "description": "Validate the plan JSON: array of steps with id, action, target, description"
+      },
+      {
+        "id": "store-plan",
+        "type": "set-variable",
+        "variable": "_planSteps",
+        "value": "{{previousOutput}}",
+        "description": "Store the validated plan steps for for-each iteration"
+      },
+      {
+        "id": "implement-steps",
+        "name": "Implement Steps",
+        "type": "for-each",
+        "source": "_planSteps",
+        "itemId": "id",
+        "configLookup": false,
+        "nodes": [
+          {
+            "id": "implement-step",
+            "name": "Implement Step",
+            "blockRef": "implement-single-step",
+            "inputs": {
+              "step": "{{_currentItemJson}}",
+              "workingDir": "{{inputs.repoPath}}",
+              "context": "{{_nodeResult_prepare}}"
+            },
+            "description": "Implement a single step from the plan"
+          },
+          {
+            "id": "validate-step",
+            "name": "Verify Step",
+            "blockRef": "step-validator",
+            "inputs": {
+              "step": "{{_currentItemJson}}",
+              "result": "{{previousOutput}}",
+              "workingDir": "{{inputs.repoPath}}"
+            },
+            "description": "Verify the step was actually implemented on disk"
+          }
+        ],
+        "description": "Iterate over each plan step: implement then verify on disk"
+      },
+      {
+        "id": "test",
+        "name": "Run Tests",
+        "blockRef": "test-executor",
+        "inputs": {
+          "repoPath": "{{inputs.repoPath}}",
+          "task": "{{inputs.task}}"
+        },
+        "description": "Detect and run the project test suite"
+      },
+      {
+        "id": "review",
+        "name": "Review Code Quality",
+        "blockRef": "code-reviewer",
+        "inputs": {
+          "changes": "Task: {{inputs.task}}\n\nPlan steps executed: {{_planSteps}}\n\nTest results:\n{{_nodeResult_test}}",
+          "testResults": "{{_nodeResult_test}}",
+          "conventions": "{{_nodeResult_prepare}}",
+          "task": "{{inputs.task}}"
+        },
+        "description": "Score the implementation quality"
+      },
+      {
+        "id": "commit",
+        "name": "Commit Changes",
+        "blockRef": "git-committer",
+        "inputs": {
+          "repoPath": "{{inputs.repoPath}}",
+          "task": "{{inputs.task}}",
+          "changes": "{{_nodeResult_review}}",
+          "review": "{{_nodeResult_review}}"
+        },
+        "description": "Create a clean conventional commit"
+      }
+    ],
+    "connections": [],
+    "path": "C:\\Meastro\\content\\system\\blocks\\workflows"
+  },
+  "metadata": {
+    "category": "development",
+    "tags": [
+      "workflow",
+      "autonomous",
+      "development",
+      "full-pipeline",
+      "v3"
+    ],
+    "author": "maestro-team",
+    "tier": 1,
+    "_sourcePath": "C:\\Meastro\\content\\system\\blocks\\workflows\\autonomous-development.workflow.block.json"
+  },
+  "capabilities": []
+}

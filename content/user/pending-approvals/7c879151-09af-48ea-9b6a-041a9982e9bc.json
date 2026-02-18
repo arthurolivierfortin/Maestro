@@ -1,0 +1,14 @@
+{
+  "id": "7c879151-09af-48ea-9b6a-041a9982e9bc",
+  "blockId": "json-validator",
+  "blockName": "JSON Validator",
+  "blockType": "tool",
+  "sourceSessionId": null,
+  "status": "approved",
+  "rejectionReason": null,
+  "metadata": null,
+  "submittedAt": "2026-02-18T21:29:50.3775619+00:00",
+  "submittedBy": "cli-user",
+  "reviewedAt": "2026-02-18T21:48:12.148184+00:00",
+  "reviewedBy": "cli-user"
+}

@@ -1,0 +1,27 @@
+{
+  "id": "git-committer",
+  "name": "Git Committer",
+  "blockType": "agent",
+  "version": "2.0.0",
+  "isAtomic": true,
+  "description": "Creates a clean git commit for implemented changes. Runs git status/diff, generates a conventional commit message, selectively stages files, and commits.",
+  "config": {
+    "model": "claude-sonnet",
+    "maxIterations": 8,
+    "wallClockTimeoutSeconds": 180,
+    "systemPromptFile": "system-prompt.md",
+    "path": "C:\\Meastro\\content\\system\\blocks\\agents\\git-committer"
+  },
+  "metadata": {
+    "category": "development",
+    "designation": "autonomous",
+    "tags": [
+      "git",
+      "commit",
+      "version-control"
+    ],
+    "tier": 1,
+    "_sourcePath": "C:\\Meastro\\content\\system\\blocks\\agents\\git-committer\\git-committer.agent.block.json"
+  },
+  "capabilities": []
+}
