@@ -38,7 +38,16 @@
       "Bash(netstat:*)",
       "Bash(cd:*)",
       "WebSearch",
-      "WebFetch"
+      "WebFetch",
+      "Bash(powershell.exe -Command \"cd C:\\\\Meastro; git log --oneline -3\")",
+      "Bash(powershell.exe -Command \"cd C:\\\\Meastro; git tag -a v0.1.0-alpha -m ''Phases 4-31: Complete infrastructure + autonomous-dev v3 \\(3/3 tests passing\\)''\")",
+      "Bash(powershell.exe -Command \"cd C:\\\\Meastro; git log --oneline -1; git tag -l ''v*''; git branch --show-current\")",
+      "Bash(powershell.exe -Command \"cd C:\\\\Meastro; git branch -d feat/MAESTRO-8-create-first-real-session\")",
+      "Bash(powershell.exe -Command \"Get-ChildItem C:\\\\Meastro\\\\docs\\\\phases\\\\ -Directory | Select-Object -ExpandProperty Name | Sort-Object\")",
+      "Bash(powershell.exe -Command \"New-Item -ItemType Directory -Force -Path ''C:\\\\Meastro\\\\docs\\\\phases\\\\PHASE-34'',''C:\\\\Meastro\\\\docs\\\\phases\\\\PHASE-35'',''C:\\\\Meastro\\\\docs\\\\phases\\\\PHASE-36'',''C:\\\\Meastro\\\\docs\\\\phases\\\\PHASE-37''\")",
+      "Bash(powershell.exe -Command \"cd C:\\\\Meastro; git add docs/phases/PHASE-31/README.md docs/phases/PHASE-32/README.md docs/phases/PHASE-33/README.md docs/phases/PHASE-34/README.md docs/phases/PHASE-35/README.md docs/phases/PHASE-36/README.md docs/phases/PHASE-37/README.md docs/ROADMAP.md\")",
+      "Bash(powershell.exe -Command \"cd C:\\\\Meastro; git status --short\")",
+      "Bash(powershell.exe -Command \"cd C:\\\\Meastro; Remove-Item dev-scripts/temp-commit.ps1 -Force\")"
     ]
   }
 }

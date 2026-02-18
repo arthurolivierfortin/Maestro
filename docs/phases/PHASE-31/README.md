@@ -1,60 +1,166 @@
-# Phase 31 : CLI `maestro code`
+# Phase 31 : Solidification des fondations
 
-**Statut** : A faire
-**Prerequis** : Phase 30 COMPLETE (agent autonomous-dev publie, >= 4/5 E2E reussis)
-**Objectif** : Un mode interactif TUI pour le developpement, comme Claude Code mais avec les widgets Maestro et l'agent composite.
+**Statut** : EN COURS
+**Prerequis** : Phase 30-C COMPLETE (autonomous-dev v3, 3/3 tests passing)
+**Tag de depart** : `v0.1.0-alpha`
+**Objectif** : Rendre operationnel tout ce qui existe. Publier, utiliser, corriger.
 
 ---
 
-## Vision
+## Contexte
 
-`maestro code` est l'experience utilisateur finale. L'utilisateur ouvre un terminal dans son projet, tape `maestro code`, et un agent autonome prend en charge le developpement avec :
-- Detection automatique du projet
-- Selection de l'agent/tier optimal
-- Widgets TUI pour suivre la progression
-- Interaction en temps reel (pause, questions, redirection)
+Phase 30-C a prouve que l'architecture Maestro fonctionne : un workflow composite
+de 8 noeuds produit des vrais commits sur de vrais repos. Mais le systeme n'a jamais
+ete utilise de bout en bout comme prevu : aucun block publie, aucun fitness mesure,
+aucune session foundry reelle. 85+ blocks existent comme fichiers JSON mais seuls 8
+ont ete testes end-to-end.
+
+La Phase 31 Presolidification (P1-P5) a corrige les bugs critiques (TUI memory leaks,
+phase display, json-validator generique, version conflict protection, quality gates,
+provenance tracking). Il reste P4-A : publier les blocks.
+
+**Principe** : Arreter de construire. Commencer a utiliser.
 
 ---
 
 ## Sous-phases
 
-| Phase | Titre | Objectif |
-|-------|-------|----------|
-| 31-A | Mode interactif de base | La commande `maestro code` fonctionne |
-| 31-B | Test et amelioration | Iterer avec l'agent Tier 1 sur Cantante |
+| Phase | Titre | Objectif | Effort |
+|-------|-------|----------|--------|
+| 31-A | Publier les blocks Phase 30 | P4-A : 8 blocks dans le catalogue via approval flow | 0.5 jour |
+| 31-B | Audit et nettoyage des blocks | Trier les 85+ blocks : actifs vs placeholders | 1 jour |
+| 31-C | Usage reel sur Cantante | 3 vraies taches via autonomous-dev, documenter les problemes | 2-3 jours |
+| 31-D | Corrections post-usage | Fixer ce que 31-C revele (prompts, erreurs, UX) | 3-5 jours |
+| 31-E | Guide quickstart | Doc "comment utiliser maestro en 5 minutes" | 0.5 jour |
 
 ---
 
-## Dependances
+## 31-A : Publier les blocks Phase 30
 
-- Phase 30 fournit l'agent `autonomous-dev` publie et teste
-- Les composants TUI existent deja dans `shared/tui/` et `maestro-cli/monitor/ink/`
-- Le template `project-autonomous` (30-A-4) est reutilise
+Executer la procedure P4-A documentee dans `PHASE-31-PRESOLIDIFICATION/README.md` :
+
+```bash
+cd C:\Meastro\maestro-cli
+
+# Publier les 8 blocks (sous-blocks d'abord, workflow en dernier)
+node index.js block publish project-preparer --metadata '{"sourceSessionId":"phase-30","modelUsed":"claude-sonnet","trainingIterations":7,"finalFitness":1.0}'
+node index.js block publish task-planner --metadata '{"sourceSessionId":"phase-30","modelUsed":"claude-sonnet","trainingIterations":7,"finalFitness":1.0}'
+node index.js block publish implement-single-step --metadata '{"sourceSessionId":"phase-30","modelUsed":"claude-sonnet","trainingIterations":7,"finalFitness":1.0}'
+node index.js block publish test-executor --metadata '{"sourceSessionId":"phase-30","modelUsed":"claude-sonnet","trainingIterations":7,"finalFitness":1.0}'
+node index.js block publish code-reviewer --metadata '{"sourceSessionId":"phase-30","finalFitness":1.0}'
+node index.js block publish git-committer --metadata '{"sourceSessionId":"phase-30","modelUsed":"claude-sonnet","trainingIterations":7,"finalFitness":1.0}'
+node index.js block publish step-validator --metadata '{"finalFitness":1.0}'
+node index.js block publish json-validator --metadata '{"finalFitness":1.0}'
+node index.js block publish autonomous-development --metadata '{"sourceSessionId":"phase-30","modelUsed":"claude-sonnet","trainingIterations":7,"finalFitness":1.0}'
+
+# Lister et approuver
+node index.js approval list
+# node index.js approval approve <id>  (pour chaque)
+```
+
+**Critere de completion** : `maestro catalog` affiche 9 blocks avec version et type.
 
 ---
 
-## Principe
+## 31-B : Audit et nettoyage des blocks
 
-`maestro code` est un FRONTEND pour l'agent — pas un prerequis. L'agent doit fonctionner SANS `maestro code` (via `session invoke`). `maestro code` ajoute :
-1. La creation automatique de session
-2. L'interface interactive
-3. Les widgets de progression
+Passer en revue les 85+ blocks dans `content/system/blocks/`. Pour chaque :
 
-## Risque technique : TUI interactive inline
+1. **Actif** : Le block fonctionne, a ete teste, est utilise par un workflow.
+   → Reste en place.
 
-Le moniteur actuel (Ink) prend le controle complet du terminal (fullscreen). `maestro code` necessite de combiner :
-- Un rendu TUI (widgets, execution tree, plan view)
-- Un input utilisateur en temps reel (prompt, commandes)
-- L'execution de l'agent en background (async)
+2. **Placeholder** : Le JSON existe mais le contenu est vide, le prompt est generique,
+   ou le block n'a jamais ete invoque.
+   → Deplacer vers `content/system/blocks/_drafts/`
 
-C'est un defi technique non trivial. Avant de construire les 3 issues de 31-A, **valider la faisabilite** :
+3. **Legacy** : Le block a ete remplace par un autre (ex: l'ancien `autonomous-task`
+   vs le nouveau `autonomous-development`).
+   → Supprimer.
 
-### Prototype a faire EN PREMIER (avant 31-A-1)
+**Categories suspectes a auditer en priorite** :
+- `system/` (20+ blocks : orchestrator-agent, trainer-agent, etc. — probablement placeholders)
+- `system/strategies/` (10 strategies — probablement placeholders)
+- `system/ui/` (5 UI blocks — probablement placeholders)
+- `workflows/foundry/` (7 workflows — partiellement fonctionnels)
 
-1. Creer un prototype minimal Ink qui combine : un panel de rendu (texte auto-refresh) + un input utilisateur en bas
-2. Verifier que Ink supporte le mode "split" (rendu + input dans le meme terminal)
-3. Si Ink ne le supporte pas nativement : evaluer les alternatives (blessed mode, raw terminal, deux panes)
+**Critere de completion** : Chaque block a un statut clair. Le catalogue ne contient que des blocks actifs.
 
-**Si le prototype echoue** : l'alternative est un mode split terminal (agent dans une fenetre, input dans une autre) ou un mode "poll + prompt" (afficher l'etat, attendre l'input, re-afficher).
+---
 
-Le plan 31-A doit etre ajuste apres ce prototype.
+## 31-C : Usage reel sur Cantante
+
+Choisir 3 taches REELLES pour le projet Cantante et les executer via autonomous-dev.
+
+**Procedure pour chaque tache** :
+```bash
+cd C:\Meastro\maestro-cli
+
+# 1. Creer une session
+node index.js session create --type project --name "Cantante - <Feature>" --repo "C:\Cantante" --template project-autonomous --start
+
+# 2. Lancer le monitor
+powershell.exe -Command "Start-Process powershell -ArgumentList '-NoExit','-Command','cd C:\Meastro\maestro-cli; node index.js monitor <session-id>'"
+
+# 3. Invoquer l'agent
+node index.js session invoke <session-id> dev --input task="<description>" repoPath="C:\Cantante"
+```
+
+**Documenter pour chaque tache** :
+- La tache demandee
+- Le resultat (succes/echec/partiel)
+- Les problemes rencontres (prompt, erreur, UX, monitor)
+- Le temps total
+- Le commit produit (si succes)
+
+**Critere de completion** : 3 taches executees, journal complet dans `PHASE-31/journal-usage.md`.
+
+---
+
+## 31-D : Corrections post-usage
+
+Fixer les problemes identifies en 31-C. Probablement :
+- Prompts d'agents a ajuster
+- Gestion d'erreurs manquante
+- Cas limites non geres (fichiers inexistants, tests qui crash, etc.)
+- UX du CLI (messages d'erreur, format de sortie)
+
+**Critere de completion** : Les 3 taches de 31-C fonctionnent apres corrections.
+
+---
+
+## 31-E : Guide quickstart
+
+Ecrire `docs/guides/users/quickstart.md` :
+
+```markdown
+# Quickstart : Utiliser l'agent autonome Maestro
+
+## Prerequis
+- Backend en cours d'execution
+- LLM-Provider avec au moins un modele configure
+
+## 1. Creer une session
+maestro session create --type project --name "Mon Projet - Feature" --repo <chemin> --template project-autonomous --start
+
+## 2. Lancer le monitor (optionnel mais recommande)
+maestro monitor <session-id>
+
+## 3. Donner une tache a l'agent
+maestro session invoke <id> dev --input task="Ajouter un bouton de login" repoPath="<chemin>"
+
+## 4. Observer
+L'agent va : analyser le projet → planifier → implementer etape par etape → tester → reviewer → committer.
+```
+
+**Critere de completion** : Un developpeur qui n'a jamais vu Maestro peut suivre le guide et obtenir un commit.
+
+---
+
+## Documents
+
+| Document | Contenu |
+|----------|---------|
+| `PHASE-31-PRESOLIDIFICATION/` | Issues P1-P5 (bugs corrigees avant cette phase) |
+| `PHASE-31-PAUSE/COMPREHENSIVE-ANALYSIS.md` | Analyse complete du projet (reference) |
+| `PHASE-31-PAUSE/NOTES.md` | Notes de travail pour continuite |
+| `PHASE-31/journal-usage.md` | A creer pendant 31-C |

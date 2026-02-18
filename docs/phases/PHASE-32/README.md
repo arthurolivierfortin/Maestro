@@ -1,63 +1,142 @@
-# Phase 32 : Optimisation multi-tiers
+# Phase 32 : CLI Polish + `maestro init`
 
 **Statut** : A faire
-**Prerequis** : Phase 31 COMPLETE (maestro code fonctionnel avec Tier 1)
-**Objectif** : Creer 5 tiers d'optimisation en substituant les modeles Claude par des modeles plus petits, bloc par bloc. Chaque tier est mesure et publie avec un manifeste.
+**Prerequis** : Phase 31 COMPLETE (blocks publies, agent teste en usage reel)
+**Objectif** : Rendre le CLI utilisable par un nouveau developpeur sans aide.
 
 ---
 
-## Vision
+## Contexte
 
-Le Tier 1 utilise Claude Opus/Sonnet partout — qualite maximale, cout maximal. Les tiers 2-5 substituent progressivement des modeles plus petits (Haiku, Qwen, locaux) pour les blocs qui le tolerent, jusqu'au Tier 5 100% local.
+Le CLI a 100+ commandes mais l'experience utilisateur n'a jamais eu de phase dediee.
+Les problemes identifies :
+- Pas de point d'entree (`maestro init`) pour un nouveau projet
+- Le flag `--input` avec quoting est penible
+- Pas d'auto-completion pour les IDs (sessions, blocks)
+- Pas de messages d'erreur utiles (suggestions, alternatives)
+- Pas d'alias system (`maestro agent` → `maestro run-interactive autonomous-dev-v3`)
 
-```
-Tier 1 : Opus + Sonnet        → Qualite 100%, cout $$$
-Tier 2 : Opus + Sonnet + Haiku → Qualite ~95%, cout $$
-Tier 3 : Sonnet + Haiku + Qwen → Qualite ~85%, cout $
-Tier 4 : Sonnet + Qwen local   → Qualite ~75%, cout minimal
-Tier 5 : Tout local (Qwen)     → Qualite ~60%, cout 0
-```
+Cette phase vient AVANT `maestro code` car le mode interactif sera construit
+sur le CLI. Si le CLI a une mauvaise UX, `maestro code` herite des problemes.
 
 ---
 
 ## Sous-phases
 
-| Phase | Titre | Objectif |
-|-------|-------|----------|
-| 32-A | Substitution par bloc | Creer les tiers 2-5 |
-| 32-B | Manifeste et `maestro check` | Publier avec metadata + outil de compatibilite |
-| 32-C | Selection automatique dans `maestro code` | Detection des modeles disponibles → meilleur tier |
+| Phase | Titre | Objectif | Effort |
+|-------|-------|----------|--------|
+| 32-A | `maestro init` | Initialiser `.maestro/` dans un repo, detecter le stack | 1-2 jours |
+| 32-B | Aliases system | `aliases.json` : `maestro agent` → workflow configurable | 1 jour |
+| 32-C | UX improvements | Auto-completion IDs, meilleurs messages d'erreur, `--input` simplifie | 2-3 jours |
 
 ---
 
-## Principe
+## 32-A : `maestro init`
 
-- **Substitution granulaire** : on change UN bloc a la fois, pas tout d'un coup
-- **Mesure obligatoire** : chaque substitution est mesuree dans la foundry
-- **Pas de degradation silencieuse** : si un modele plus petit ne tient pas la qualite, on ne le substitue pas
-- **Le manifeste documente tout** : modeles, fitness, substituts testes
+Point d'entree pour tout nouvel utilisateur.
 
-## Avertissement : complexite de la substitution vers des petits modeles
+```bash
+$ cd mon-projet
+$ maestro init
 
-La substitution n'est PAS un simple changement de `model_id` dans le .block.json. Les constats de la Phase 13 (research) et Phase 26 (agents) montrent :
+Maestro v0.1.0
+Detecting project...
+  Found: package.json (Node.js), tsconfig.json (TypeScript)
+  Framework: React (detected from dependencies)
 
-1. **Les prompts qui fonctionnent avec Opus NE FONCTIONNENT PAS avec Qwen/SmolLM** — les petits modeles necessitent des prompts plus explicites, avec des few-shot examples, des formats de sortie exacts, et moins d'ambiguite.
-2. **SmolLM2-1.7B ne suit pas le protocole tool-call** — il ne peut pas etre utilise pour les agents (Phase 26, valide). Qwen2.5-Coder-1.5B fonctionne mais ajoute des patterns non desires.
-3. **Le re-training d'un bloc avec un modele plus petit = reecrire le system prompt** — pas juste le repointer. Budget : 1-2h par bloc par modele, pas 30min.
+Created .maestro/ directory:
+  .maestro/CONVENTIONS.md  — Edit with your project conventions
+  .maestro/README.md       — Project description for the agent
+  .maestro/config.json     — Maestro configuration
 
-### Estimations realistes
+Next steps:
+  1. Edit .maestro/CONVENTIONS.md with your coding standards
+  2. Run: maestro code    (interactive agent mode)
+  3. Or:  maestro session create --template project-autonomous --start
+```
 
-| Tier | Estimation originale | Estimation corrigee | Raison |
-|------|---------------------|--------------------|----|
-| 2 (Sonnet/Haiku) | 2-3h | 3-5h | Haiku proche de Sonnet, adaptation minimale |
-| 3 (Haiku/Qwen) | 2-3h | 5-8h | Qwen necessite reecriture des prompts |
-| 4 (Sonnet/Qwen local) | 2-3h | 8-12h | Prompts agent avec Qwen = travail significatif |
-| 5 (tout Qwen) | 2-3h | 12-20h | plan + implement avec Qwen = risque d'echec total |
+**Ce que `maestro init` fait** :
+1. Detecte le type de projet (package.json, pom.xml, .csproj, pyproject.toml, etc.)
+2. Cree `.maestro/` avec des fichiers templates
+3. Genere un `CONVENTIONS.md` avec des defaults adaptes au stack detecte
+4. Cree un `config.json` local (model preferences, default template, etc.)
 
-### Strategie recommandee
+**Ce que `maestro init` ne fait PAS** :
+- Ne cree pas de session (c'est une commande separee)
+- Ne demarre pas de backend (prerequis)
+- Ne telecharge pas de modeles
 
-- **Tier 2** (Sonnet + Haiku) : realisable rapidement, peu de risque
-- **Tier 3** (Haiku + Qwen) : realisable avec effort, fitness probablement degrade
-- **Tier 4-5** (majoritairement/tout local) : risque eleve. Ne pas promettre. Tester et voir.
+---
 
-**Si Tier 4 ou 5 ne tient pas un fitness minimal (< 0.50)** : ne pas les publier. Mieux vaut 3 tiers de qualite que 5 tiers dont 2 sont inutilisables.
+## 32-B : Aliases system
+
+Fichier `~/.maestro/aliases.json` (ou `.maestro/aliases.json` par projet) :
+
+```json
+{
+  "agent": {
+    "workflow": "autonomous-development",
+    "template": "project-autonomous",
+    "entryPoint": "dev"
+  },
+  "commit": {
+    "workflow": "generate-commit-message",
+    "template": null,
+    "entryPoint": "start"
+  }
+}
+```
+
+**Usage** :
+```bash
+maestro agent "Ajouter un bouton de login"
+# Equivalent a :
+# maestro session create --template project-autonomous --start
+# maestro session invoke <id> dev --input task="Ajouter un bouton de login" repoPath="."
+```
+
+**Principe** : Les alias sont des raccourcis de DATA, pas de code. `maestro agent`
+n'est PAS une commande hardcodee — c'est un lookup dans aliases.json.
+Un utilisateur qui cree un workflow de traduction peut ajouter `"translator": {...}`
+et obtenir `maestro translator "Traduire en francais"`.
+
+---
+
+## 32-C : UX improvements
+
+### Auto-completion des IDs
+- Quand l'utilisateur tape un ID partiel, le CLI cherche la correspondance
+- `maestro session info abc` → resout `abc12345-6789-...` automatiquement
+- Fonctionne pour sessions, blocks, approvals, workspaces
+
+### Meilleurs messages d'erreur
+```
+# Avant :
+Error: Session not found
+
+# Apres :
+Error: Session "abc" not found.
+  Did you mean one of these?
+    abc12345  "Cantante - File Tree"     (active)
+    abd98765  "Cantante - Login Page"    (idle)
+  Run 'maestro session list' to see all sessions.
+```
+
+### Simplification du `--input`
+```bash
+# Actuel (penible avec quoting) :
+node index.js session invoke <id> dev --input task="Ajouter un login" --input repoPath="C:\Cantante"
+
+# Ameliore :
+maestro session invoke <id> dev task="Ajouter un login" repoPath="C:\Cantante"
+# Les arguments non-flag apres l'entry point sont traites comme inputs
+```
+
+---
+
+## Criteres de completion
+
+- [ ] `maestro init` fonctionne dans un repo Node.js et cree `.maestro/`
+- [ ] `maestro agent "task"` resout l'alias et execute le workflow
+- [ ] Les IDs partiels sont resolus automatiquement
+- [ ] Les erreurs donnent des suggestions utiles
