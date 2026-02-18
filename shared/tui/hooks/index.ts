@@ -20,3 +20,5 @@ export { useApiData } from './useApiData.ts';
 export type { ConnectionStatus, UseApiDataReturn } from './useApiData.ts';
 export { useMouse } from './useMouse.ts';
 export type { UseMouseOptions, ScrollDirection } from './useMouse.ts';
+export { useSelectableList } from './useSelectableList.ts';
+export type { UseSelectableListOptions, UseSelectableListReturn } from './useSelectableList.ts';
