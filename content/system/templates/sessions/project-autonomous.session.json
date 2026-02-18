@@ -35,12 +35,13 @@
     "reviewScore": 0,
 
     "_phases": [
-      { "id": "prepare", "name": "1. Prepare", "status": "pending", "description": "Understand project structure and conventions" },
+      { "id": "prepare", "name": "1. Prepare", "status": "pending", "description": "Analyze project structure and conventions" },
       { "id": "plan", "name": "2. Plan", "status": "pending", "description": "Decompose task into atomic steps" },
-      { "id": "implement", "name": "3. Implement", "status": "pending", "description": "Code each step with focused context" },
-      { "id": "test", "name": "4. Test", "status": "pending", "description": "Run tests and detect failures" },
-      { "id": "review", "name": "5. Review", "status": "pending", "description": "Evaluate quality of all changes" },
-      { "id": "commit", "name": "6. Commit", "status": "pending", "description": "Stage and commit with semantic message" }
+      { "id": "validate-plan", "name": "3. Validate", "status": "pending", "description": "Validate the plan structure" },
+      { "id": "implement-steps", "name": "4. Implement", "status": "pending", "description": "Code each step with focused context" },
+      { "id": "test", "name": "5. Test", "status": "pending", "description": "Run tests and detect failures" },
+      { "id": "review", "name": "6. Review", "status": "pending", "description": "Evaluate quality of all changes" },
+      { "id": "commit", "name": "7. Commit", "status": "pending", "description": "Stage and commit with semantic message" }
     ],
 
     "_blockOutputs": {},

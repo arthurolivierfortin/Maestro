@@ -13,6 +13,7 @@ public class BlockManifest
     public FitnessInfo Fitness { get; set; } = new();
     public RequirementsInfo Requirements { get; set; } = new();
     public MetricsInfo Metrics { get; set; } = new();
+    public ProvenanceInfo? Provenance { get; set; }
 
     public class FitnessInfo
     {
@@ -70,6 +71,20 @@ public class BlockManifest
         public string? TestedAt { get; set; }
         public string? TestSessionId { get; set; }
     }
+
+    public class ProvenanceInfo
+    {
+        public string? SourceSessionId { get; set; }
+        public string? SourceSessionName { get; set; }
+        public string? WorkspaceId { get; set; }
+        public string? WorkspaceName { get; set; }
+        public string? TrainedAt { get; set; }
+        public string? ModelUsed { get; set; }
+        public int? TrainingIterations { get; set; }
+        public double? FinalFitness { get; set; }
+        public string? ApprovedBy { get; set; }
+        public string? ApprovedAt { get; set; }
+    }
 }
 
 public interface IBlockPublisher
@@ -80,5 +95,6 @@ public interface IBlockPublisher
         string blockType,
         string? submittedBy,
         Dictionary<string, object>? metadata,
-        CancellationToken ct = default);
+        CancellationToken ct = default,
+        bool force = false);
 }

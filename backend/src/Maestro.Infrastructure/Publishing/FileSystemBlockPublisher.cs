@@ -41,7 +41,8 @@ public class FileSystemBlockPublisher : IBlockPublisher
         string blockType,
         string? submittedBy,
         Dictionary<string, object>? metadata,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        bool force = false)
     {
         // 1. Get the block definition from the repository
         var block = await _blockRepository.GetByIdAsync(blockId, ct);
@@ -53,7 +54,19 @@ public class FileSystemBlockPublisher : IBlockPublisher
         // 2. Build the manifest
         var manifest = BuildManifest(block, submittedBy, metadata);
 
-        // 3. Write block definition and manifest to content/user/blocks/{blockType}/{blockId}/
+        // 3. Check for version conflict before publishing
+        if (!force)
+        {
+            await CheckVersionConflictAsync(manifest, ct);
+        }
+        else
+        {
+            _logger?.LogWarning(
+                "Force-publishing block '{BlockId}@{Version}' — existing version will be overwritten",
+                manifest.Id, manifest.Version);
+        }
+
+        // 4. Write block definition and manifest to content/user/blocks/{blockType}/{blockId}/
         var blockDir = Path.Combine(_config.DataPath, "blocks", blockType, blockId);
         Directory.CreateDirectory(blockDir);
 
@@ -69,7 +82,7 @@ public class FileSystemBlockPublisher : IBlockPublisher
             "Published block '{BlockId}' to {Path}",
             blockId, blockDir);
 
-        // 4. Update catalog index
+        // 5. Update catalog index
         await UpdateCatalogIndexAsync(manifest, ct);
 
         return manifest;
@@ -128,6 +141,47 @@ public class FileSystemBlockPublisher : IBlockPublisher
             TestedAt = DateTimeOffset.UtcNow.ToString("o")
         };
 
+        // Extract provenance info from metadata if present
+        if (metadata != null)
+        {
+            var provenance = new BlockManifest.ProvenanceInfo
+            {
+                ApprovedBy = submittedBy,
+                ApprovedAt = DateTimeOffset.UtcNow.ToString("o")
+            };
+            var hasProvenance = false;
+
+            if (metadata.TryGetValue("sourceSessionId", out var sid) && sid is string sessionId)
+            { provenance.SourceSessionId = sessionId; hasProvenance = true; }
+
+            if (metadata.TryGetValue("workspaceId", out var wid) && wid is string workspaceId)
+            { provenance.WorkspaceId = workspaceId; hasProvenance = true; }
+
+            if (metadata.TryGetValue("modelUsed", out var mid) && mid is string model)
+            { provenance.ModelUsed = model; hasProvenance = true; }
+
+            if (metadata.TryGetValue("trainingIterations", out var itr))
+            {
+                if (itr is int iterations)
+                { provenance.TrainingIterations = iterations; hasProvenance = true; }
+                else if (itr is JsonElement itrEl && itrEl.ValueKind == JsonValueKind.Number)
+                { provenance.TrainingIterations = itrEl.GetInt32(); hasProvenance = true; }
+            }
+
+            if (metadata.TryGetValue("finalFitness", out var fit))
+            {
+                if (fit is double fitness)
+                { provenance.FinalFitness = fitness; hasProvenance = true; }
+                else if (fit is JsonElement fitEl && fitEl.ValueKind == JsonValueKind.Number)
+                { provenance.FinalFitness = fitEl.GetDouble(); hasProvenance = true; }
+            }
+
+            if (hasProvenance)
+            {
+                manifest.Provenance = provenance;
+            }
+        }
+
         return manifest;
     }
 
@@ -147,6 +201,41 @@ public class FileSystemBlockPublisher : IBlockPublisher
         };
 
         return JsonSerializer.Serialize(dto, JsonOptions);
+    }
+
+    /// <summary>
+    /// Checks whether a block with the same ID and version already exists in the catalog.
+    /// Throws InvalidOperationException if conflict found (caller handles 409 response).
+    /// </summary>
+    private async Task CheckVersionConflictAsync(BlockManifest manifest, CancellationToken ct)
+    {
+        var catalogDir = Path.Combine(_config.DataPath, "catalog");
+        var indexPath = Path.Combine(catalogDir, "index.json");
+
+        if (!File.Exists(indexPath)) return;
+
+        try
+        {
+            var existingJson = await File.ReadAllTextAsync(indexPath, ct);
+            var catalog = JsonSerializer.Deserialize<CatalogIndex>(existingJson, JsonOptions);
+            if (catalog == null) return;
+
+            var existing = catalog.Blocks.FirstOrDefault(
+                b => b.Id == manifest.Id && b.Version == manifest.Version);
+
+            if (existing != null)
+            {
+                throw new InvalidOperationException(
+                    $"Version conflict: {manifest.Id}@{manifest.Version} already exists in catalog " +
+                    $"(published at {existing.PublishedAt}). " +
+                    $"Use --force to overwrite, or increment the version.");
+            }
+        }
+        catch (JsonException)
+        {
+            // Corrupted catalog — let it be overwritten
+            _logger?.LogWarning("Catalog index is corrupted, skipping conflict check");
+        }
     }
 
     private async Task UpdateCatalogIndexAsync(BlockManifest manifest, CancellationToken ct)

@@ -21,6 +21,10 @@ export const icons = {
   scrollUp: '\u25B2',
   scrollDown: '\u25BC',
   focus: '\u25C6',
+  warning: '\u26A0',
+  info: '\u2139',
+  spinner: ['\u280B', '\u2819', '\u2838', '\u28B0', '\u28E0', '\u28C4', '\u2846', '\u2807'],
+  bar: ['\u2581', '\u2582', '\u2583', '\u2584', '\u2585', '\u2586', '\u2587', '\u2588'],
 };
 
 export const border = {

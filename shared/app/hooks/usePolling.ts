@@ -18,6 +18,14 @@ export interface UsePollingReturn<T> {
   refresh: () => Promise<void>;
 }
 
+interface PollingState<T> {
+  data: T | null;
+  error: string | null;
+  connectionStatus: ConnectionStatus;
+  latency: number;
+  lastRefresh: Date | null;
+}
+
 /**
  * Polls a fetch function at a given interval.
  *
@@ -25,11 +33,13 @@ export interface UsePollingReturn<T> {
  * @param interval - Polling interval in ms (default 3000)
  */
 export function usePolling<T>(fetchFn: () => Promise<T>, interval: number = 3000): UsePollingReturn<T> {
-  const [data, setData] = useState<T | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('connecting');
-  const [latency, setLatency] = useState<number>(0);
-  const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
+  const [state, setState] = useState<PollingState<T>>({
+    data: null,
+    error: null,
+    connectionStatus: 'connecting',
+    latency: 0,
+    lastRefresh: null,
+  });
   const mountedRef = useRef<boolean>(true);
   const fetchFnRef = useRef<() => Promise<T>>(fetchFn);
   fetchFnRef.current = fetchFn;
@@ -39,16 +49,22 @@ export function usePolling<T>(fetchFn: () => Promise<T>, interval: number = 3000
     try {
       const result = await fetchFnRef.current();
       if (!mountedRef.current) return;
-      setData(result);
-      setLatency(Date.now() - start);
-      setLastRefresh(new Date());
-      setConnectionStatus('connected');
-      setError(null);
+      // Single setState instead of 5 separate calls — one re-render per poll
+      setState({
+        data: result,
+        latency: Date.now() - start,
+        lastRefresh: new Date(),
+        connectionStatus: 'connected',
+        error: null,
+      });
     } catch (err: unknown) {
       if (!mountedRef.current) return;
-      setLatency(Date.now() - start);
-      setConnectionStatus('error');
-      setError(err instanceof Error ? err.message : String(err));
+      setState((prev: PollingState<T>) => ({
+        ...prev,
+        latency: Date.now() - start,
+        connectionStatus: 'error' as ConnectionStatus,
+        error: err instanceof Error ? err.message : String(err),
+      }));
     }
   }, []);
 
@@ -62,7 +78,7 @@ export function usePolling<T>(fetchFn: () => Promise<T>, interval: number = 3000
     };
   }, [interval, refresh]);
 
-  return { data, error, connectionStatus, latency, lastRefresh, refresh };
+  return { ...state, refresh };
 }
 
 // Legacy alias for backward compatibility

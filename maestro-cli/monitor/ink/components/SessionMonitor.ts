@@ -542,8 +542,9 @@ const SessionMonitor = ({ sessionId, apiClient, onExit, onQuit, onNavigate }) =>
   }, [session, treeNavTree, setMaxScroll]);
 
   // ── Auto-scroll: follow cursor and expand/collapse in tree panels ──
-  const prevCursorRef = useRef({});
-  const prevExpandedSizeRef = useRef({});
+  // Bounded to known panel names to prevent unbounded ref growth
+  const prevCursorRef = useRef<Record<string, number>>({});
+  const prevExpandedSizeRef = useRef<Record<string, number>>({});
   const activeExpandedSize = activeTreeNav?.expanded?.size ?? 0;
   useEffect(() => {
     if (!activeTreeNav || !focusedPanel) return;
@@ -666,18 +667,23 @@ const SessionMonitor = ({ sessionId, apiClient, onExit, onQuit, onNavigate }) =>
   const isTooSmall = termCols < 60;
 
   // ── Stale data detection (P2-26) ──
-  // Use state + effect with timer to detect staleness reactively
+  // Store lastRefresh in a ref so the timer doesn't need to be recreated
+  // when lastRefresh changes (which happens every 2s during normal polling).
+  // Previously, the timer was recreated on every lastRefresh change — rapid allocation.
+  const lastRefreshRef = useRef(lastRefresh);
+  lastRefreshRef.current = lastRefresh;
   const [isStale, setIsStale] = useState(false);
   useEffect(() => {
-    if (!lastRefresh) { setIsStale(false); return; }
     const checkStale = () => {
-      const lastRefreshTime = lastRefresh instanceof Date ? lastRefresh.getTime() : new Date(lastRefresh).getTime();
+      const lr = lastRefreshRef.current;
+      if (!lr) { setIsStale(false); return; }
+      const lastRefreshTime = lr instanceof Date ? lr.getTime() : new Date(lr).getTime();
       setIsStale((Date.now() - lastRefreshTime) > 10000);
     };
     checkStale();
     const timer = setInterval(checkStale, 2000);
     return () => clearInterval(timer);
-  }, [lastRefresh]);
+  }, []); // Timer created once, reads lastRefresh via ref
 
   // ── Build context object for child components ──
   const vars = (session && session.variables) || {};

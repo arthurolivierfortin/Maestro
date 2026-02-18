@@ -1,5 +1,7 @@
 # Complete Pipeline: From Development to Production
 
+> **Note**: This document describes the **complete foundry vision** with features like draft management, auto-evaluation, improvement suggestions, and session comparison. Most of these features are **not yet implemented**. For the actual pipeline that works today, see **[current-pipeline.md](current-pipeline.md)**.
+
 ## Overview
 
 This guide presents the **complete workflow** of Maestro:

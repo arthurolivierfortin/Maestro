@@ -35,6 +35,7 @@ public interface IBlockApprovalService
     Task<PendingBlockApproval> ApproveAsync(
         string id,
         string? reviewedBy = null,
+        bool force = false,
         CancellationToken ct = default);
 
     /// <summary>
@@ -116,12 +117,21 @@ public class BlockApprovalService : IBlockApprovalService
     public async Task<PendingBlockApproval> ApproveAsync(
         string id,
         string? reviewedBy = null,
+        bool force = false,
         CancellationToken ct = default)
     {
         var approval = await _approvalRepository.GetByIdAsync(id, ct);
         if (approval == null)
         {
             throw new InvalidOperationException($"Approval '{id}' not found");
+        }
+
+        // Quality gate enforcement: validate block meets minimum requirements
+        var gateFailures = ValidateQualityGates(approval);
+        if (gateFailures.Count > 0)
+        {
+            throw new InvalidOperationException(
+                $"Quality gate failed: {string.Join("; ", gateFailures)}");
         }
 
         approval.Approve(reviewedBy);
@@ -136,7 +146,8 @@ public class BlockApprovalService : IBlockApprovalService
                 approval.BlockType,
                 approval.SubmittedBy,
                 approval.Metadata.Count > 0 ? approval.Metadata : null,
-                ct);
+                ct,
+                force);
 
             _logger.LogInformation(
                 "Block '{BlockId}' approved and published (approval: {ApprovalId}, version: {Version})",
@@ -151,6 +162,49 @@ public class BlockApprovalService : IBlockApprovalService
         }
 
         return approval;
+    }
+
+    /// <summary>
+    /// Validates mandatory quality gates before allowing approval.
+    /// Returns a list of gate failure messages (empty if all gates pass).
+    /// </summary>
+    private static List<string> ValidateQualityGates(PendingBlockApproval approval)
+    {
+        var failures = new List<string>();
+        var block = approval.BlockDefinition;
+
+        // Gate 1: Block must have a name
+        if (string.IsNullOrWhiteSpace(approval.BlockName))
+        {
+            failures.Add("Block has no name");
+        }
+
+        // Gate 2: Block definition must exist for content checks
+        if (block == null)
+        {
+            failures.Add("Block definition not available for quality validation");
+            return failures;
+        }
+
+        // Gate 3: Version must be set
+        if (string.IsNullOrWhiteSpace(block.Version))
+        {
+            failures.Add("Block has no version set");
+        }
+
+        // Gate 4: Block must have content (system prompt, script, or workflow nodes)
+        // Config is Dictionary<string, object> — check for known content keys
+        var config = block.Config;
+        var hasContent = config.ContainsKey("systemPrompt")
+                      || config.ContainsKey("scriptFile")
+                      || config.ContainsKey("nodes");
+
+        if (!hasContent)
+        {
+            failures.Add("Block has no content (no systemPrompt, scriptFile, or workflow nodes)");
+        }
+
+        return failures;
     }
 
     public async Task<PendingBlockApproval> RejectAsync(

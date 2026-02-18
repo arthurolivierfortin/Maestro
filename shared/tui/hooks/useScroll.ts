@@ -53,8 +53,10 @@ const useScroll = (): UseScrollReturn => {
         if ((prev[panel] || 0) === 0) return prev;
         return { ...prev, [panel]: 0 };
       });
+      delete maxOffsetsRef.current[panel];
     } else {
       setOffsets({});
+      maxOffsetsRef.current = {};
     }
   }, []);
   return { getOffset, scrollUp, scrollDown, scrollTo, reset, setMaxScroll };

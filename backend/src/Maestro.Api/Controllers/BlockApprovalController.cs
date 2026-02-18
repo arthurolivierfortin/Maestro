@@ -86,15 +86,28 @@ public class BlockApprovalController : ControllerBase
     /// Approve a pending block.
     /// </summary>
     [HttpPost("{id}/approve")]
-    public async Task<ActionResult<PendingBlockApprovalDto>> Approve(string id, [FromBody] ReviewRequest? request = null)
+    public async Task<ActionResult<PendingBlockApprovalDto>> Approve(
+        string id,
+        [FromBody] ApproveRequest? request = null,
+        [FromQuery] bool force = false)
     {
         try
         {
-            var approval = await _approvalService.ApproveAsync(id, request?.ReviewedBy);
+            var approval = await _approvalService.ApproveAsync(id, request?.ReviewedBy, force);
 
             _logger.LogInformation("Approval '{ApprovalId}' approved", id);
 
             return Ok(PendingBlockApprovalDto.FromDomain(approval));
+        }
+        catch (InvalidOperationException ex) when (ex.Message.StartsWith("Version conflict:"))
+        {
+            _logger.LogWarning(ex, "Version conflict for approval {ApprovalId}", id);
+            return Conflict(new { error = ex.Message });
+        }
+        catch (InvalidOperationException ex) when (ex.Message.StartsWith("Quality gate failed:"))
+        {
+            _logger.LogWarning(ex, "Quality gate failed for approval {ApprovalId}", id);
+            return UnprocessableEntity(new { error = ex.Message });
         }
         catch (InvalidOperationException ex)
         {
@@ -178,9 +191,9 @@ public record SubmitApprovalRequest
 }
 
 /// <summary>
-/// Request to review (approve) an approval.
+/// Request to approve a pending block.
 /// </summary>
-public record ReviewRequest
+public record ApproveRequest
 {
     public string? ReviewedBy { get; init; }
 }

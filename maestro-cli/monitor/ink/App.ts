@@ -90,7 +90,11 @@ const App = ({ initialSessionId, apiClient, initialDetailType }: AppProps) => {
     const entry = dv
       ? { ...dv, state: sourceState || null }
       : { type: 'page' as const, page: cp, state: sourceState || null };
-    setNavStack(stack => [...stack, entry]);
+    setNavStack(stack => {
+      const next = [...stack, entry];
+      // Cap navigation depth to prevent unbounded memory growth
+      return next.length > 20 ? next.slice(-20) : next;
+    });
     setDetailView(targetView);
     setRestoredState(null);
   }, []);

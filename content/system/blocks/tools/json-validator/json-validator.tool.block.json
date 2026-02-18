@@ -2,12 +2,12 @@
   "id": "json-validator",
   "name": "JSON Validator",
   "blockType": "tool",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "isAtomic": true,
-  "description": "Validates JSON data against named schemas. Strips prefixes, extracts from markdown, checks required fields. Returns cleaned JSON or specific error messages.",
+  "description": "Generic JSON validator. Schema is passed as input (not hardcoded). Strips prefixes, extracts from markdown, validates required fields/types/allowed values. Returns cleaned JSON or specific error messages.",
   "inputs": [
     { "id": "data", "type": "string", "required": true, "description": "Raw data to validate (may have prefixes, markdown wrapping, etc.)" },
-    { "id": "schema", "type": "string", "required": true, "description": "Schema name: project-context, plan-steps, step-result, test-results" }
+    { "id": "schema", "type": "string", "required": false, "description": "JSON schema definition: {type, requiredFields, fieldTypes, items, allowedValues}. If omitted, only checks JSON parseability." }
   ],
   "outputs": [
     { "id": "content", "type": "string", "description": "When valid: the parsed JSON data directly (pass-through). When invalid: {isValid: false, errors: [...], parsed: null}" }
@@ -19,6 +19,6 @@
   },
   "metadata": {
     "category": "validation",
-    "tags": ["json", "validator", "schema", "data-quality"]
+    "tags": ["json", "validator", "schema", "data-quality", "generic"]
   }
 }

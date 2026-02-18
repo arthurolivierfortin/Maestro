@@ -475,6 +475,28 @@ public class EntryPointExecutor
             var nodeId = configNode.TryGetProperty("id", out var idProp) ? idProp.GetString() ?? "unknown" : "unknown";
             var nodeType = configNode.TryGetProperty("type", out var typeProp) ? typeProp.GetString() : null;
 
+            // Auto-update _phases for top-level nodes (activePhaseId == null).
+            // Nested contexts (for-each, while, phase) manage their own phase status.
+            //
+            // Phase mapping priority:
+            //   1. Explicit "phaseId" property on the node (allows N-to-1 mapping)
+            //   2. Fall back to the node's own "id" (convention: nodeId == phaseId)
+            //
+            // UpdatePhaseStatus returns false if no phase matched, avoiding unnecessary saves.
+            // This is fully data-driven: the template defines which phases exist,
+            // the workflow nodes optionally declare which phase they belong to.
+            string? autoPhaseId = null;
+            if (activePhaseId == null)
+            {
+                autoPhaseId = configNode.TryGetProperty("phaseId", out var phaseIdProp)
+                    && phaseIdProp.ValueKind == JsonValueKind.String
+                    ? phaseIdProp.GetString()
+                    : nodeId;
+
+                if (UpdatePhaseStatus(session, autoPhaseId!, "running", 0))
+                    await _repository.SaveAsync(session);
+            }
+
             switch (nodeType)
             {
                 case "while":
@@ -496,6 +518,10 @@ public class EntryPointExecutor
                     lastOutput = await ExecuteRegularNodeAsync(session, nodeId, workflowConfig, workingDir, activePhaseId, displayTree, lastOutput, configNode);
                     break;
             }
+
+            // Mark phase as done after node completes (top-level only)
+            if (autoPhaseId != null && UpdatePhaseStatus(session, autoPhaseId, "done"))
+                await _repository.SaveAsync(session);
         }
 
         return lastOutput;
@@ -886,8 +912,8 @@ public class EntryPointExecutor
                 AppendExecutionLog(session, "info", $"Item '{itemId}' uses plateau detection (runs: {GetConfigInt(iterationConfig, "evaluation.plateauRuns", 5)})");
             }
 
-            // Update item status to running (if item has a status field)
-            if (itemDict.ContainsKey("status"))
+            // Update item status to running (if item has a status field and a valid ID)
+            if (itemDict.ContainsKey("status") && itemId != null)
             {
                 UpdatePhaseStatus(session, itemId, "running", 0);
             }
@@ -938,7 +964,7 @@ public class EntryPointExecutor
             var tokens = ReadIntVariable(session, "_tokenCount", 0);
 
             // Update item status to done and store summary
-            if (itemDict.ContainsKey("status"))
+            if (itemDict.ContainsKey("status") && itemId != null)
             {
                 UpdatePhaseStatus(session, itemId, "done");
                 StorePhaseSummary(session, itemId, iteration, fitness);
@@ -2694,7 +2720,12 @@ public class EntryPointExecutor
 
     // ===== Display Descriptor Helpers (generic, session-data-driven) =====
 
-    private static void UpdatePhaseStatus(Domain.Entities.ProjectSession session, string phaseId, string status, int? progress = null)
+    /// <summary>
+    /// Updates a phase's status in the session's _phases variable.
+    /// Returns true if a matching phase was found and updated, false otherwise.
+    /// This is a no-op when phaseId doesn't match any entry in _phases.
+    /// </summary>
+    private static bool UpdatePhaseStatus(Domain.Entities.ProjectSession session, string phaseId, string status, int? progress = null)
     {
         var phases = session.GetVariable("_phases");
         if (phases is List<object> phaseList)
@@ -2708,11 +2739,12 @@ public class EntryPointExecutor
                         phase["progress"] = progress.Value;
                     else
                         phase.Remove("progress");
-                    break;
+                    session.SetVariable("_phases", phaseList);
+                    return true;
                 }
             }
-            session.SetVariable("_phases", phaseList);
         }
+        return false;
     }
 
     private static void SetActiveBlock(Domain.Entities.ProjectSession session, string id, string name, string type, string status, string? output = null)

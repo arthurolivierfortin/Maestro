@@ -57,9 +57,9 @@
         "blockRef": "json-validator",
         "inputs": {
           "data": "{{previousOutput}}",
-          "schema": "plan-steps"
+          "schema": "{\"type\":\"array\",\"minItems\":1,\"items\":{\"requiredFields\":[\"id\",\"action\",\"target\",\"description\"],\"fieldTypes\":{\"id\":\"number\",\"action\":\"string\",\"target\":\"string\",\"description\":\"string\"},\"allowedValues\":{\"action\":[\"create\",\"modify\",\"delete\",\"add-dependency\",\"run-command\"]}}}"
         },
-        "description": "Validate the plan JSON against the plan-steps schema"
+        "description": "Validate the plan JSON: array of steps with id, action, target, description"
       },
       {
         "id": "store-plan",

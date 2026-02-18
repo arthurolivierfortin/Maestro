@@ -12,18 +12,7 @@ import { Box, Text } from 'ink';
 import { semantic } from '../../theme/colors.ts';
 import { icons, layout } from '../../theme/tokens.ts';
 import { formatTime } from '../../utils/format.ts';
-
-const Shortcut = ({ keyChar, labelText, active }) => {
-  if (active === false) {
-    return h(Text, { dimColor: true }, `[${keyChar}]${labelText}`);
-  }
-  return h(Text, null,
-    h(Text, { color: semantic.shortcut.bracket, dimColor: true }, '['),
-    h(Text, { color: semantic.shortcut.key }, keyChar),
-    h(Text, { color: semantic.shortcut.bracket, dimColor: true }, ']'),
-    h(Text, { color: semantic.shortcut.label }, labelText),
-  );
-};
+import { Shortcut } from './Shortcut.ts';
 
 const StatusBar = ({
   connectionStatus = 'connecting',
@@ -46,17 +35,17 @@ const StatusBar = ({
   const shortcuts = [];
 
   if (isDetailView) {
-    shortcuts.push(h(Shortcut, { key: 'sc-ctrl-lr', keyChar: 'Ctrl+\u2190\u2192', labelText: 'panel', active: true }));
-    shortcuts.push(h(Shortcut, { key: 'sc-jk', keyChar: 'j/k', labelText: 'nav', active: true }));
+    shortcuts.push(h(Shortcut, { key: 'sc-ctrl-lr', k: 'Ctrl+\u2190\u2192', label: 'panel', active: true }));
+    shortcuts.push(h(Shortcut, { key: 'sc-jk', k: 'j/k', label: 'nav', active: true }));
   } else {
-    shortcuts.push(h(Shortcut, { key: 'sc-ctrl-lr', keyChar: 'Ctrl+\u2190\u2192', labelText: 'page', active: true }));
+    shortcuts.push(h(Shortcut, { key: 'sc-ctrl-lr', k: 'Ctrl+\u2190\u2192', label: 'page', active: true }));
   }
 
   if (hasBackOption) {
-    shortcuts.push(h(Shortcut, { key: 'sc-esc', keyChar: 'Esc', labelText: 'back', active: true }));
+    shortcuts.push(h(Shortcut, { key: 'sc-esc', k: 'Esc', label: 'back', active: true }));
   }
-  shortcuts.push(h(Shortcut, { key: 'sc-?', keyChar: '?', labelText: 'help', active: true }));
-  shortcuts.push(h(Shortcut, { key: 'sc-q', keyChar: 'q', labelText: 'uit', active: true }));
+  shortcuts.push(h(Shortcut, { key: 'sc-?', k: '?', label: 'help', active: true }));
+  shortcuts.push(h(Shortcut, { key: 'sc-q', k: 'q', label: 'uit', active: true }));
 
   const shortcutElements = [];
   for (let i = 0; i < shortcuts.length; i++) {
@@ -107,4 +96,4 @@ const StatusBar = ({
   );
 };
 
-export { StatusBar, Shortcut };
+export { StatusBar };
