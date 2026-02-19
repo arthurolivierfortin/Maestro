@@ -4,7 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const minimist = require('minimist');
 const { MaestroApiClient, ApiError } = require('../shared/api-client');
-const { OutputFormatter } = require('./output-formatter.ts');
+const { OutputFormatter, formatDate, suggestCommand } = require('./output-formatter.ts');
 const { JsonInputParser } = require('./json-parser.ts');
 const c = require('../shared/utils/cli-colors.js');
 
@@ -114,12 +114,28 @@ function getContentPath(scope = 'user') {
 
 async function listBlocks(filter: any = {}) {
   try {
-    const blocks = await client.listBlocks(filter);
+    let blocks = await client.listBlocks(filter);
     if (!blocks || blocks.length === 0) {
       const filterDesc = filter.designation ? ` (designation: ${filter.designation})` : filter.type ? ` (type: ${filter.type})` : '';
       console.log(c.gray(`\nNo blocks found${filterDesc}`));
       return;
     }
+
+    // Sort
+    if (filter.sort) {
+      const sortKey = filter.sort.toLowerCase();
+      blocks.sort((a, b) => {
+        if (sortKey === 'name') return (a.name || '').localeCompare(b.name || '');
+        if (sortKey === 'type') return (a.blockType || '').localeCompare(b.blockType || '');
+        if (sortKey === 'score') return (b.metrics?.overallScore || 0) - (a.metrics?.overallScore || 0);
+        if (sortKey === 'runs') return (b.metrics?.totalRuns || 0) - (a.metrics?.totalRuns || 0);
+        return 0;
+      });
+    }
+
+    const total = blocks.length;
+    const limit = filter.limit || 25;
+    if (blocks.length > limit) blocks = blocks.slice(0, limit);
 
     const label = filter.designation
       ? filter.designation.charAt(0).toUpperCase() + filter.designation.slice(1) + 's'
@@ -127,17 +143,18 @@ async function listBlocks(filter: any = {}) {
         ? filter.type + 's'
         : 'Blocks';
 
-    console.log('\n' + c.bold(`${label}:`) + c.gray(` (${blocks.length})`) + '\n');
-    console.table(blocks.map(b => ({
+    const countLabel = total > limit ? `showing ${limit} of ${total}` : `${total}`;
+    console.log('\n' + c.bold(`${label}:`) + c.gray(` (${countLabel})`) + '\n');
+    formatter.table(blocks.map(b => ({
       'ID': b.id,
       'Name': b.name,
       'Type': b.blockType,
-      'Designation': b.designation || '-',
-      'Category': b.category || '-',
+      'Designation': b.designation || '—',
+      'Category': b.category || '—',
       'Version': b.version,
-      'Score': b.metrics?.overallScore?.toFixed(1) || '-',
+      'Score': b.metrics?.overallScore?.toFixed(1) || '—',
       'Runs': b.metrics?.totalRuns || 0,
-    })));
+    })), null, { hideEmpty: true });
   } catch (error) {
     if (error.code === 'ECONNREFUSED' || error.message?.includes('ECONNREFUSED')) {
       console.error(c.fail(`Cannot connect to backend at ${API_URL}`));
@@ -148,6 +165,77 @@ async function listBlocks(filter: any = {}) {
     } else {
       console.error(c.fail(`Error listing blocks: ${error.message}`));
     }
+    process.exit(1);
+  }
+}
+
+// ============= Interactive Tables (Phase 33-B-D) =============
+
+async function launchInteractiveBlocksTable(filter: any = {}) {
+  // TTY check: fall back to text mode if not interactive
+  if (!process.stdout.isTTY) {
+    return await listBlocks(filter);
+  }
+  try {
+    const blocks = await client.listBlocks(filter);
+    if (!blocks || blocks.length === 0) {
+      console.log(c.gray('\nNo blocks found'));
+      return;
+    }
+    const rows = blocks.map(b => ({
+      ID: b.id,
+      Name: b.name,
+      Type: b.blockType,
+      Designation: b.designation || '—',
+      Category: b.category || '—',
+      Version: b.version,
+      Score: b.metrics?.overallScore?.toFixed(1) || '—',
+    }));
+    const columns = [
+      { key: 'ID', label: 'ID', width: 30 },
+      { key: 'Name', label: 'Name', width: 30 },
+      { key: 'Type', label: 'Type', width: 10 },
+      { key: 'Designation', label: 'Designation', width: 12 },
+      { key: 'Category', label: 'Category', width: 14 },
+      { key: 'Version', label: 'Version', width: 8 },
+      { key: 'Score', label: 'Score', width: 6, align: 'right' as const },
+    ];
+    const { launchInkTable } = require('./interactive/ink-table-launcher.ts');
+    await launchInkTable({ title: 'Blocks', columns, rows });
+  } catch (error) {
+    console.error(c.fail(`Error: ${error.message}`));
+    process.exit(1);
+  }
+}
+
+async function launchInteractiveSessionsTable() {
+  if (!process.stdout.isTTY) {
+    return await listSessions();
+  }
+  try {
+    const sessions = await client.listSessions();
+    if (!sessions || sessions.length === 0) {
+      console.log(c.gray('\nNo sessions found'));
+      return;
+    }
+    const rows = sessions.map(s => ({
+      ID: s.id.substring(0, 12) + '...',
+      Name: s.name || '—',
+      Status: s.status,
+      Authority: s.authority || 'human',
+      Created: formatDate(s.createdAt),
+    }));
+    const columns = [
+      { key: 'ID', label: 'ID', width: 16 },
+      { key: 'Name', label: 'Name', width: 45 },
+      { key: 'Status', label: 'Status', width: 10 },
+      { key: 'Authority', label: 'Authority', width: 10 },
+      { key: 'Created', label: 'Created', width: 14 },
+    ];
+    const { launchInkTable } = require('./interactive/ink-table-launcher.ts');
+    await launchInkTable({ title: 'Sessions', columns, rows });
+  } catch (error) {
+    console.error(c.fail(`Error: ${error.message}`));
     process.exit(1);
   }
 }
@@ -189,14 +277,14 @@ async function getTopBlocksCmd(options: any = {}) {
       ? `Top ${options.designation.charAt(0).toUpperCase() + options.designation.slice(1)}s`
       : 'Top Blocks';
     console.log('\n' + c.bold(`${label}:`) + c.gray(` (${blocks.length})`) + '\n');
-    console.table(blocks.map(b => ({
+    formatter.table(blocks.map(b => ({
       'ID': b.id,
       'Name': b.name,
       'Type': b.blockType,
       'Score': b.metrics?.overallScore?.toFixed(1) || '-',
       'Runs': b.metrics?.totalRuns || 0,
       'Success': b.metrics?.successRate ? `${b.metrics.successRate.toFixed(0)}%` : '-',
-    })));
+    })), null, { hideEmpty: true });
   } catch (error) {
     handleApiError(error, 'getting top blocks');
     process.exit(1);
@@ -541,11 +629,11 @@ async function searchBlocks(query) {
     }
 
     console.log('\n' + c.bold('Search results for') + ` "${c.cyan(query)}":` + c.gray(` (${results.length})`) + '\n');
-    console.table(results.map(b => ({
+    formatter.table(results.map(b => ({
       'ID': b.id,
       'Name': b.name,
       'Type': b.blockType
-    })));
+    })), null, { hideEmpty: true });
   } catch (error) {
     console.error(c.fail(`Search failed: ${error.message}`));
     process.exit(1);
@@ -636,13 +724,13 @@ async function listProjects() {
     }
 
     console.log('\nAvailable Projects:\n');
-    console.table(projects.map(p => ({
+    formatter.table(projects.map(p => ({
       'ID': p.id.substring(0, 8) + '...',
       'Name': p.name,
       'Path': p.rootPath,
       'Runtime': p.runtime?.type || 'none',
       'Version': p.version
-    })));
+    })), null, { hideEmpty: true });
   } catch (error) {
     handleApiError(error, 'listing projects');
   }
@@ -814,12 +902,12 @@ async function listProjectBlocks(projectId) {
     }
 
     console.log(`\nBlocks in Project:\n`);
-    console.table(blocks.map(b => ({
+    formatter.table(blocks.map(b => ({
       'ID': b.id,
       'Name': b.name,
       'Type': b.blockType,
       'Version': b.version
-    })));
+    })), null, { hideEmpty: true });
   } catch (error) {
     if (error.status === 404) {
       console.error(`Project not found: ${projectId}`);
@@ -843,11 +931,11 @@ async function discoverProjects(searchPath) {
     }
 
     console.log(`Found ${projects.length} project(s):\n`);
-    console.table(projects.map(p => ({
+    formatter.table(projects.map(p => ({
       'ID': p.id.substring(0, 8) + '...',
       'Name': p.name,
       'Path': p.rootPath
-    })));
+    })), null, { hideEmpty: true });
   } catch (error) {
     handleApiError(error, 'discovering projects');
     process.exit(1);
@@ -1014,13 +1102,13 @@ async function listProjectsWithStatus() {
     );
 
     console.log('\n' + c.bold('Projects:') + c.gray(` (${projectsWithStatus.length})`) + '\n');
-    console.table(projectsWithStatus.map(p => ({
+    formatter.table(projectsWithStatus.map(p => ({
       'ID': p.id.substring(0, 8) + '...',
       'Name': p.name,
       'Status': p.containerStatus,
       'Runtime': p.runtime?.type || 'none',
       'Path': p.rootPath.length > 40 ? '...' + p.rootPath.slice(-37) : p.rootPath
-    })));
+    })), null, { hideEmpty: true });
   } catch (error) {
     handleApiError(error, 'listing projects');
   }
@@ -1080,9 +1168,9 @@ async function listSessions(filter = {}) {
       'Name': s.name || '-',
       'Status': s.status,
       'Authority': s.authority || 'human',
-      'Project': s.config?.projectId?.substring(0, 8) + '...' || '-',
+      'Project': s.config?.projectId ? s.config.projectId.substring(0, 8) + '...' : '—',
       'Commands': s.commandCount || 0,
-      'Created': new Date(s.createdAt).toLocaleDateString()
+      'Created': formatDate(s.createdAt)
     }));
     formatter.table(rows, '\n' + c.bold('Interactive Sessions:') + c.gray(` (${sessions.length})`) + '\n');
   } catch (error) {
@@ -1096,10 +1184,23 @@ async function getSessionInfo(id) {
   try {
     const session = await client.getSession(id);
     const statusStr = c.status(session.status, session.status);
+
+    // Entry points summary
+    const epKeys = session.entryPoints ? Object.keys(session.entryPoints) : [];
+    const epLine = epKeys.length > 0
+      ? `${epKeys.length} (${epKeys.join(', ')})`
+      : 'none';
+
+    // Truncate long names with full name on next line
+    const fullName = session.name || 'N/A';
+    const nameDisplay = fullName.length > 72
+      ? fullName.substring(0, 69) + '...\n                    ' + c.gray(fullName)
+      : fullName;
+
     const message =
       `\n${c.bold('Session Details:')}\n\n` +
       `  ${c.gray('ID:')}           ${session.id}\n` +
-      `  ${c.gray('Name:')}         ${session.name || 'N/A'}\n` +
+      `  ${c.gray('Name:')}         ${nameDisplay}\n` +
       `  ${c.gray('Status:')}       ${statusStr}\n` +
       `  ${c.gray('Authority:')}    ${session.authority || 'human'}\n` +
       `  ${c.gray('Project ID:')}   ${session.config?.projectId || 'N/A'}\n` +
@@ -1108,9 +1209,10 @@ async function getSessionInfo(id) {
       `  ${c.gray('Access Level:')} ${session.config?.access?.level || 'controlled'}\n` +
       `  ${c.gray('Working Dir:')}  ${session.workingDirectory || 'N/A'}\n` +
       `  ${c.gray('Commands:')}     ${session.commandCount || 0}\n` +
-      `  ${c.gray('Created:')}      ${session.createdAt}\n` +
-      `  ${c.gray('Started:')}      ${session.startedAt || 'Not started'}\n` +
-      `  ${c.gray('Completed:')}    ${session.completedAt || 'Not completed'}` +
+      `  ${c.gray('Entry Points:')} ${epLine}\n` +
+      `  ${c.gray('Created:')}      ${formatDate(session.createdAt)}\n` +
+      `  ${c.gray('Started:')}      ${session.startedAt ? formatDate(session.startedAt) : 'Not started'}\n` +
+      `  ${c.gray('Completed:')}    ${session.completedAt ? formatDate(session.completedAt) : 'Not completed'}` +
       `${session.errorMessage ? '\n  ' + c.red('Error:') + '        ' + session.errorMessage : ''}\n`;
     formatter.success(session, message);
   } catch (error) {
@@ -1450,11 +1552,12 @@ async function cancelSession(id) {
   return stopSession(id);
 }
 
-async function importSessionTemplate(sessionId, templateName) {
+async function importSessionTemplate(sessionId, templateName, options: { quiet?: boolean } = {}) {
   try {
     // Load template from foundry templates
     const fs = require('fs');
     const path = require('path');
+    const verbose = !formatter.jsonMode && !options.quiet;
 
     // Look for template in content/system/templates/sessions/
     const templatePath = path.join(__dirname, '../content/system/templates/sessions', `${templateName}.session.json`);
@@ -1467,40 +1570,40 @@ async function importSessionTemplate(sessionId, templateName) {
 
     const templateContent = JSON.parse(fs.readFileSync(templatePath, 'utf8'));
 
-    if (!formatter.jsonMode) {
+    if (verbose) {
       console.log(`\n${c.bold('Importing template:')} ${c.cyan(templateName)}\n`);
     }
 
     // Import variables
     if (templateContent.variables) {
-      if (!formatter.jsonMode) console.log(`  ${c.gray('Variables...')}`);
+      if (verbose) console.log(`  ${c.gray('Variables...')}`);
       for (const [key, value] of Object.entries(templateContent.variables)) {
         await client._fetch('PUT', `/api/sessions/${sessionId}/variables/${key}`, {
           body: { value }
         });
-        if (!formatter.jsonMode) console.log(`    ${c.green('+')} ${key}`);
+        if (verbose) console.log(`    ${c.green('+')} ${key}`);
       }
     }
 
     // Import entry points
     if (templateContent.entryPoints) {
-      if (!formatter.jsonMode) console.log(`  ${c.gray('Entry points...')}`);
+      if (verbose) console.log(`  ${c.gray('Entry points...')}`);
       for (const [name, workflowId] of Object.entries(templateContent.entryPoints)) {
         await client._fetch('PUT', `/api/sessions/${sessionId}/entry-points/${encodeURIComponent(name)}`, {
           body: { workflowId }
         });
-        if (!formatter.jsonMode) console.log(`    ${c.green('+')} ${name} ${c.gray('->')} ${workflowId}`);
+        if (verbose) console.log(`    ${c.green('+')} ${name} ${c.gray('->')} ${workflowId}`);
       }
     }
 
     // Import widgets
     if (templateContent.monitorWidgets) {
-      if (!formatter.jsonMode) console.log(`  ${c.gray('Widgets...')}`);
+      if (verbose) console.log(`  ${c.gray('Widgets...')}`);
       for (const widget of templateContent.monitorWidgets) {
         await client._fetch('POST', `/api/sessions/${sessionId}/widgets`, {
           body: widget
         });
-        if (!formatter.jsonMode) console.log(`    ${c.green('+')} ${widget.id} (${widget.type})`);
+        if (verbose) console.log(`    ${c.green('+')} ${widget.id} (${widget.type})`);
       }
     }
 
@@ -1508,10 +1611,12 @@ async function importSessionTemplate(sessionId, templateName) {
     const epCount = templateContent.entryPoints ? Object.keys(templateContent.entryPoints).length : 0;
     const widgetCount = templateContent.monitorWidgets ? templateContent.monitorWidgets.length : 0;
 
-    formatter.success(
-      { template: templateName, variables: varCount, entryPoints: epCount, widgets: widgetCount },
-      `\n${c.ok('Template imported!')} ${varCount} variables, ${epCount} entry points, ${widgetCount} widgets.\n`
-    );
+    if (!options.quiet) {
+      formatter.success(
+        { template: templateName, variables: varCount, entryPoints: epCount, widgets: widgetCount },
+        `\n${c.ok('Template imported!')} ${varCount} variables, ${epCount} entry points, ${widgetCount} widgets.\n`
+      );
+    }
 
   } catch (error) {
     if (error.code === 'ENOENT') {
@@ -1575,14 +1680,44 @@ function loadConventionsTemplate(stack: string): string {
   }
 }
 
-async function initRepo(targetPath) {
+async function initRepo(targetPath, options: { force?: boolean } = {}) {
   const repoPath = targetPath || process.cwd();
   const maestroDir = path.join(repoPath, '.maestro');
 
-  if (fs.existsSync(maestroDir)) {
+  if (fs.existsSync(maestroDir) && !options.force) {
+    // Show existing config summary instead of just "already exists"
     formatter.info(`.maestro/ already exists in ${repoPath}`);
-    console.log(c.gray('  To reinitialize, remove .maestro/ first.'));
+    console.log('');
+    try {
+      // Try config.json (new format) or project.json (legacy)
+      for (const cfgFile of ['config.json', 'project.json']) {
+        const configPath = path.join(maestroDir, cfgFile);
+        if (fs.existsSync(configPath)) {
+          const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+          if (config.template) console.log(`  ${c.gray('Template:')}  ${config.template}`);
+          if (config.stack) console.log(`  ${c.gray('Stack:')}     ${config.stack}`);
+          if (config.model) console.log(`  ${c.gray('Model:')}     ${config.model}`);
+          if (config.name) console.log(`  ${c.gray('Name:')}      ${config.name}`);
+          const files = fs.readdirSync(maestroDir);
+          console.log(`  ${c.gray('Contents:')}  ${files.length} items (${files.join(', ')})`);
+          break;
+        }
+      }
+      const aliasesPath = path.join(maestroDir, 'aliases.json');
+      if (fs.existsSync(aliasesPath)) {
+        const aliases = JSON.parse(fs.readFileSync(aliasesPath, 'utf8'));
+        const count = Object.keys(aliases).length;
+        console.log(`  ${c.gray('Aliases:')}   ${count} (${Object.keys(aliases).join(', ')})`);
+      }
+    } catch { /* ignore parse errors */ }
+    console.log('');
+    console.log(c.gray(`  To reinitialize: maestro init ${targetPath ? targetPath + ' ' : ''}--force`));
     return;
+  }
+
+  // If --force, remove existing
+  if (fs.existsSync(maestroDir) && options.force) {
+    fs.rmSync(maestroDir, { recursive: true, force: true });
   }
 
   // 1. Detect project stack
@@ -2045,13 +2180,13 @@ async function listTrainingConfigs() {
     }
 
     console.log('\n🏋️ Training Configurations:\n');
-    console.table(configs.map(cfg => ({
+    formatter.table(configs.map(cfg => ({
       'ID': cfg.id.substring(0, 8) + '...',
       'Name': cfg.name,
-      'Workflow': cfg.workflowId?.substring(0, 8) + '...',
+      'Workflow': cfg.workflowId ? cfg.workflowId.substring(0, 8) + '...' : '—',
       'Iterations': cfg.iterations,
       'Goal': cfg.optimizationGoal || 'quality'
-    })));
+    })), null, { hideEmpty: true });
   } catch (error) {
     handleApiError(error, 'listing training configs');
     process.exit(1);
@@ -2114,14 +2249,14 @@ async function listTrainingRuns(filter = {}) {
     }
 
     console.log('\nTraining Runs:\n');
-    console.table(runs.map(r => ({
+    formatter.table(runs.map(r => ({
       'ID': r.id.substring(0, 8) + '...',
       'Name': r.name || '-',
       'Status': r.status,
       'Progress': `${r.completedIterations}/${r.totalIterations}`,
       'Quality': r.averageQualityScore?.toFixed(2) || '-',
       'Cost': r.totalCostUsd ? `$${r.totalCostUsd.toFixed(4)}` : '-'
-    })));
+    })), null, { hideEmpty: true });
   } catch (error) {
     handleApiError(error, 'listing training runs');
     process.exit(1);
@@ -2272,14 +2407,14 @@ async function getFitnessLeaderboard(options = {}) {
     }
 
     console.log('\nModel Fitness Leaderboard:\n');
-    console.table(leaderboard.map(r => ({
+    formatter.table(leaderboard.map(r => ({
       'Rank': r.rank,
       'Model': r.displayName || r.modelId,
       'Provider': r.provider,
       'Avg Fitness': r.averageFitness.toFixed(3),
       'Best': r.bestFitness.toFixed(3),
       'Executions': r.executionCount
-    })));
+    })), null, { hideEmpty: true });
   } catch (error) {
     handleApiError(error, 'getting fitness leaderboard');
     process.exit(1);
@@ -2300,7 +2435,7 @@ async function listModelProfiles(options = {}) {
     }
 
     console.log('\nModel Profiles:\n');
-    console.table(profiles.map(p => ({
+    formatter.table(profiles.map(p => ({
       'Model ID': p.modelId,
       'Name': p.displayName,
       'Provider': p.provider,
@@ -2308,7 +2443,7 @@ async function listModelProfiles(options = {}) {
       'VRAM': p.isLocal ? `${p.vramGb}GB` : '-',
       'Cost': p.isLocal ? 'local' : `$${p.averageCostPerMillion}/M`,
       'Local': p.isLocal ? 'Yes' : 'No'
-    })));
+    })), null, { hideEmpty: true });
   } catch (error) {
     handleApiError(error, 'listing model profiles');
     process.exit(1);
@@ -2362,7 +2497,7 @@ async function listTaskEntropy(options = {}) {
     }
 
     console.log('\nTask Entropy (Specialization Data):\n');
-    console.table(entropies.map(e => ({
+    formatter.table(entropies.map(e => ({
       'Entity': e.entityId,
       'Type': e.entityType,
       'Entropy': e.entropyValue.toFixed(3),
@@ -2370,7 +2505,7 @@ async function listTaskEntropy(options = {}) {
       'Tasks': e.totalTasks,
       'Unique Types': e.uniqueTaskTypes,
       'Dominant': e.dominantTaskType || '-'
-    })));
+    })), null, { hideEmpty: true });
   } catch (error) {
     handleApiError(error, 'listing task entropy');
     process.exit(1);
@@ -2444,13 +2579,13 @@ async function listSystemBlocks() {
     }
 
     console.log('\nSystem Blocks:\n');
-    console.table(blocks.map(b => ({
+    formatter.table(blocks.map(b => ({
       'ID': b.id,
       'Name': b.name,
       'Type': b.blockType,
       'Overridable': b.overridable ? 'Yes' : 'No',
       'Version': b.version
-    })));
+    })), null, { hideEmpty: true });
   } catch (error) {
     handleApiError(error, 'listing system blocks');
     process.exit(1);
@@ -2503,12 +2638,12 @@ async function listUserOverrides() {
     }
 
     console.log('\nUser Overrides:\n');
-    console.table(overrides.map(b => ({
+    formatter.table(overrides.map(b => ({
       'ID': b.id,
       'Overrides': b.overridesSystemBlock,
       'Name': b.name,
       'Type': b.blockType
-    })));
+    })), null, { hideEmpty: true });
   } catch (error) {
     handleApiError(error, 'listing user overrides');
     process.exit(1);
@@ -2610,7 +2745,7 @@ async function listWorkspaces(options = {}) {
     }
 
     console.log('\n🏢 Workspaces:\n');
-    console.table(workspaces.map(w => ({
+    formatter.table(workspaces.map(w => ({
       'ID': w.id.substring(0, 8) + '...',
       'Name': w.name,
       'Type': w.type,
@@ -2618,7 +2753,7 @@ async function listWorkspaces(options = {}) {
       'Sessions': w.sessionIds?.length || 0,
       'Projects': w.projectIds?.length || 0,
       'Isolated': w.isolation?.enabled ? 'Yes' : 'No'
-    })));
+    })), null, { hideEmpty: true });
   } catch (error) {
     handleApiError(error, 'listing workspaces');
     process.exit(1);
@@ -3367,14 +3502,14 @@ async function listExecutionMetrics(filter = {}) {
     }
 
     console.log('\nExecution Metrics:\n');
-    console.table(metrics.slice(0, 20).map(m => ({
-      'Execution ID': m.executionId?.substring(0, 8) + '...' || '-',
-      'Workflow': m.workflowId?.substring(0, 8) + '...' || '-',
+    formatter.table(metrics.slice(0, 20).map(m => ({
+      'Execution ID': m.executionId ? m.executionId.substring(0, 8) + '...' : '—',
+      'Workflow': m.workflowId ? m.workflowId.substring(0, 8) + '...' : '—',
       'Status': m.status || '-',
       'Duration': m.durationMs ? `${m.durationMs}ms` : '-',
       'Tokens': m.totalTokens || '-',
       'Cost': m.costUsd ? `$${m.costUsd.toFixed(4)}` : '-'
-    })));
+    })), null, { hideEmpty: true });
 
     if (metrics.length > 20) {
       console.log(`\n  ... and ${metrics.length - 20} more`);
@@ -3413,13 +3548,13 @@ async function listRuns(filter = {}) {
     }
 
     console.log('\n📜 Execution History:\n');
-    console.table(runs.map(r => ({
-      'ID': r.id?.substring(0, 8) + '...' || '-',
+    formatter.table(runs.map(r => ({
+      'ID': r.id ? r.id.substring(0, 8) + '...' : '—',
       'Type': r.type || 'workflow',
       'Status': r.status,
-      'Started': r.startedAt ? new Date(r.startedAt).toLocaleString() : '-',
+      'Started': r.startedAt ? formatDate(r.startedAt) : '-',
       'Duration': r.durationMs ? `${r.durationMs}ms` : '-'
-    })));
+    })), null, { hideEmpty: true });
   } catch (error) {
     handleApiError(error, 'listing runs');
     process.exit(1);
@@ -3521,7 +3656,7 @@ async function listBlockTestRuns(filter = {}) {
     }
 
     console.log('\nBlock Test Runs:\n');
-    console.table(runs.map(r => ({
+    formatter.table(runs.map(r => ({
       'ID': r.id.substring(0, 8) + '...',
       'Block': r.blockId,
       'Type': r.blockType,
@@ -3529,8 +3664,8 @@ async function listBlockTestRuns(filter = {}) {
       'Status': r.status,
       'Progress': `${r.evaluatedIterations}/${r.totalIterations}`,
       'Score': r.metrics?.overallScore || '-',
-      'Created': new Date(r.createdAt).toLocaleString()
-    })));
+      'Created': formatDate(r.createdAt)
+    })), null, { hideEmpty: true });
   } catch (error) {
     handleApiError(error, 'listing test runs');
     process.exit(1);
@@ -3685,12 +3820,12 @@ async function compareBlockTestRuns(runIds) {
 
     if (comparison.runs && comparison.runs.length > 0) {
       console.log('\n  Run Details:');
-      console.table(comparison.runs.map(r => ({
+      formatter.table(comparison.runs.map(r => ({
         'ID': r.id.substring(0, 8) + '...',
         'Variant': r.variantId,
         'Score': r.metrics?.overallScore || '-',
         'Status': r.status
-      })));
+      })), null, { hideEmpty: true });
     }
 
     console.log('');
@@ -3755,26 +3890,26 @@ async function getFoundryLeaderboard(limit = 10) {
 
     if (leaderboard.agents?.length > 0) {
       console.log('  Top Agents:');
-      console.table(leaderboard.agents.map((a, i) => ({
+      formatter.table(leaderboard.agents.map((a, i) => ({
         'Rank': i + 1,
         'Name': a.name,
         'Category': a.category || 'general',
         'Score': a.score?.toFixed(0) || '-',
         'Runs': a.runs || 0,
         'Success': a.successRate ? `${a.successRate.toFixed(0)}%` : '-'
-      })));
+      })), null, { hideEmpty: true });
     }
 
     if (leaderboard.tools?.length > 0) {
       console.log('\n  Top Tools:');
-      console.table(leaderboard.tools.map((t, i) => ({
+      formatter.table(leaderboard.tools.map((t, i) => ({
         'Rank': i + 1,
         'Name': t.name,
         'Category': t.category || 'general',
         'Score': t.score?.toFixed(0) || '-',
         'Runs': t.runs || 0,
         'Success': t.successRate ? `${t.successRate.toFixed(0)}%` : '-'
-      })));
+      })), null, { hideEmpty: true });
     }
   } catch (error) {
     handleApiError(error, 'getting foundry leaderboard');
@@ -3867,14 +4002,14 @@ async function listExperiments(options = {}) {
     }
 
     console.log('\nTraining Experiments:\n');
-    console.table(experiments.map(e => ({
+    formatter.table(experiments.map(e => ({
       'ID': e.id.substring(0, 12) + '...',
       'Name': e.name,
       'Status': e.status,
       'Strategy': e.strategyBlockId.replace('system:strategy-', ''),
       'Iteration': e.currentIteration,
       'Fitness': e.currentFitness.toFixed(3)
-    })));
+    })), null, { hideEmpty: true });
   } catch (error) {
     handleApiError(error, 'listing experiments');
     process.exit(1);
@@ -4221,14 +4356,14 @@ async function listApprovals(options = {}) {
     }
 
     console.log('\nPending Block Approvals:\n');
-    console.table(approvals.map(a => ({
+    formatter.table(approvals.map(a => ({
       'ID': a.id.substring(0, 8) + '...',
       'Block': a.blockName,
       'Type': a.blockType,
       'Status': a.status,
-      'Submitted': new Date(a.submittedAt).toLocaleString(),
+      'Submitted': formatDate(a.submittedAt),
       'By': a.submittedBy || 'unknown'
-    })));
+    })), null, { hideEmpty: true });
     console.log(`\nTotal: ${approvals.length} pending approval(s)\n`);
   } catch (error) {
     handleApiError(error, 'listing approvals');
@@ -5569,23 +5704,37 @@ async function executeWithArgv(argv) {
       }
     }
 
-    // Phase 18: 'blocks' now supports --designation, --type, --category filters
-    if (cmd === 'blocks') return await listBlocks({
-      designation: argv.designation,
-      type: argv.type,
-      category: argv.category
-    });
+    // Phase 18: 'blocks' now supports --designation, --type, --category, --limit, --sort filters
+    if (cmd === 'blocks') {
+      // Interactive mode with -i flag (requires TTY)
+      if (argv.i || argv.interactive) {
+        return await launchInteractiveBlocksTable({
+          designation: argv.designation,
+          type: argv.type,
+          category: argv.category,
+        });
+      }
+      return await listBlocks({
+        designation: argv.designation,
+        type: argv.type,
+        category: argv.category,
+        limit: argv.limit ? parseInt(argv.limit) : undefined,
+        sort: argv.sort,
+      });
+    }
 
     // Block command — unified block management (Phase 18)
     if (cmd === 'block') {
       const subCmd = argv._[1];
 
-      // block list [--designation tool|agent] [--type Workflow] [--category general]
+      // block list [--designation tool|agent] [--type Workflow] [--category general] [--limit N] [--sort col]
       if (subCmd === 'list' || (!subCmd && !argv['pending-approval'])) {
         return await listBlocks({
           designation: argv.designation,
           type: argv.type,
-          category: argv.category
+          category: argv.category,
+          limit: argv.limit ? parseInt(argv.limit) : undefined,
+          sort: argv.sort,
         });
       }
 
@@ -6130,6 +6279,10 @@ ${c.bold('Quick Start:')}
       if (!subCmd) return await listSessions();
 
       if (subCmd === 'list') {
+        // Interactive mode with -i flag
+        if (argv.i || argv.interactive) {
+          return await launchInteractiveSessionsTable();
+        }
         const recent = argv.recent ? parseInt(argv.recent) : null;
         return await listSessions({
           status: argv.status,
@@ -7189,7 +7342,6 @@ ${c.bold('Quick Start:')}
 
     // Phase 18: Agent commands — shorthand for block --designation agent
     if (cmd === 'agents') {
-      console.error(c.warn('Use "block list --designation agent" instead. See: maestro block --help'));
       const subCmd = argv._[1];
 
       if (!subCmd || subCmd === 'list') {
@@ -7223,7 +7375,6 @@ ${c.bold('Quick Start:')}
 
     // Phase 18: Tool commands — shorthand for block --designation tool
     if (cmd === 'tools') {
-      console.error(c.warn('Use "block list --designation tool" instead. See: maestro block --help'));
       const subCmd = argv._[1];
 
       if (!subCmd || subCmd === 'list') {
@@ -7852,7 +8003,7 @@ ${c.bold('Quick Start:')}
     // Phase 21: Init command
     if (cmd === 'init') {
       const targetPath = argv._[1] || argv.path;
-      return await initRepo(targetPath);
+      return await initRepo(targetPath, { force: argv.force });
     }
 
     // Phase 32-B: List available aliases
@@ -7977,7 +8128,10 @@ ${c.bold('Quick Start:')}
       process.exit(EXIT.USER_ERROR);
     }
 
-    formatter.error(`Unknown command: ${cmd}`, 'UNKNOWN_COMMAND');
+    // "Did you mean...?" suggestion
+    const suggestion = suggestCommand(cmd, [...BUILTIN_COMMANDS]);
+    const hint = suggestion ? ` Did you mean: ${c.cyan(suggestion)}?` : '';
+    formatter.error(`Unknown command: ${cmd}.${hint} Run ${c.cyan('maestro --help')} for available commands.`, 'UNKNOWN_COMMAND');
     process.exit(1);
   } catch (error) {
     formatter.error(`Fatal error: ${error.message}`, 'FATAL');

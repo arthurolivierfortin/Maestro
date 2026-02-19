@@ -22,15 +22,97 @@ interface JsonOutput {
 const MAX_COL_WIDTH = 50;
 const MIN_COL_WIDTH = 4;
 
+// Empty column sentinel values — columns where ALL rows match these are hidden
+const EMPTY_SENTINELS = new Set(['-', '—', '0', '', 'undefined', 'null', 'N/A']);
+
 function truncate(str: string, maxLen: number): string {
   if (!str || str.length <= maxLen) return str || '';
   return str.substring(0, maxLen - 3) + '...';
 }
 
-function formatTable(rows: Record<string, unknown>[]): string {
+/**
+ * Format an ISO date string to a short human-readable format.
+ * Returns "Feb 19 02:36" for recent dates, "2025-12-01" for older dates.
+ */
+function formatDate(iso: string): string {
+  if (!iso) return '—';
+  try {
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return iso;
+    const now = new Date();
+    const diffMs = now.getTime() - d.getTime();
+    const diffMin = Math.floor(diffMs / 60000);
+    const diffHr = Math.floor(diffMs / 3600000);
+    const diffDay = Math.floor(diffMs / 86400000);
+
+    if (diffMin < 1) return 'just now';
+    if (diffMin < 60) return `${diffMin}m ago`;
+    if (diffHr < 24) return `${diffHr}h ago`;
+    if (diffDay < 7) return `${diffDay}d ago`;
+
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const sameYear = d.getFullYear() === now.getFullYear();
+    const day = d.getDate();
+    const month = months[d.getMonth()];
+    const hours = String(d.getHours()).padStart(2, '0');
+    const mins = String(d.getMinutes()).padStart(2, '0');
+
+    if (sameYear) return `${month} ${day} ${hours}:${mins}`;
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+  } catch {
+    return iso;
+  }
+}
+
+/**
+ * Levenshtein distance between two strings.
+ */
+function levenshtein(a: string, b: string): number {
+  const m = a.length, n = b.length;
+  const dp: number[][] = Array.from({ length: m + 1 }, () => Array(n + 1).fill(0));
+  for (let i = 0; i <= m; i++) dp[i][0] = i;
+  for (let j = 0; j <= n; j++) dp[0][j] = j;
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      dp[i][j] = a[i-1] === b[j-1]
+        ? dp[i-1][j-1]
+        : 1 + Math.min(dp[i-1][j-1], dp[i-1][j], dp[i][j-1]);
+    }
+  }
+  return dp[m][n];
+}
+
+/**
+ * Suggest the closest known command for a mistyped command.
+ */
+function suggestCommand(input: string, knownCommands: string[]): string | null {
+  let best: string | null = null;
+  let bestDist = Infinity;
+  for (const cmd of knownCommands) {
+    const d = levenshtein(input.toLowerCase(), cmd.toLowerCase());
+    if (d < bestDist && d <= 2) {
+      bestDist = d;
+      best = cmd;
+    }
+  }
+  return best;
+}
+
+function formatTable(rows: Record<string, unknown>[], options?: { hideEmpty?: boolean }): string {
   if (!rows || rows.length === 0) return '';
 
-  const keys = Object.keys(rows[0]);
+  let keys = Object.keys(rows[0]);
+
+  // Optionally hide columns where all values are empty/sentinel
+  if (options?.hideEmpty) {
+    keys = keys.filter(key => {
+      return rows.some(r => {
+        const v = String(r[key] ?? '');
+        return !EMPTY_SENTINELS.has(v);
+      });
+    });
+    if (keys.length === 0) return '';
+  }
 
   // Calculate optimal column widths
   const widths: Record<string, number> = {};
@@ -121,14 +203,15 @@ class OutputFormatter {
   /**
    * Output a table (array of objects).
    * P2-20: Smart formatting with column width limits and truncation.
+   * hideEmpty: hide columns where all values are empty/sentinel (-, —, 0, etc.)
    */
-  table(rows: Record<string, unknown>[], message: string | null = null): void {
+  table(rows: Record<string, unknown>[], message: string | null = null, options?: { hideEmpty?: boolean }): void {
     if (this.jsonMode) {
       this._writeJson({ status: 'ok', data: rows, message: message || null, command: this._command });
     } else {
       if (message) console.log(message);
       if (rows && rows.length > 0) {
-        console.log(formatTable(rows));
+        console.log(formatTable(rows, options));
       } else {
         console.log(c.gray('  (no results)'));
       }
@@ -144,5 +227,5 @@ class OutputFormatter {
   }
 }
 
-module.exports = { OutputFormatter };
-export { OutputFormatter };
+module.exports = { OutputFormatter, formatDate, levenshtein, suggestCommand };
+export { OutputFormatter, formatDate, levenshtein, suggestCommand };

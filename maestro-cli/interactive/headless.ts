@@ -11,6 +11,7 @@
  *   [HH:MM:SS] [NODE]  ▶ name (running)
  *   [HH:MM:SS] [NODE]  ✓ name (completed)
  *   [HH:MM:SS] [DONE]  Task completed
+ *   [HH:MM:SS] [SUMRY] Duration: 2m 34s
  */
 
 interface HeadlessOptions {
@@ -19,7 +20,7 @@ interface HeadlessOptions {
   template?: string;
   entryPoint?: string;
   task?: string;
-  importSessionTemplate: (sessionId: string, templateName: string) => Promise<void>;
+  importSessionTemplate: (sessionId: string, templateName: string, options?: { quiet?: boolean }) => Promise<void>;
 }
 
 function ts(): string {
@@ -28,6 +29,14 @@ function ts(): string {
 
 function log(level: string, msg: string) {
   console.log(`[${ts()}] [${level.padEnd(5)}] ${msg}`);
+}
+
+function formatDuration(ms: number): string {
+  const secs = Math.floor(ms / 1000);
+  if (secs < 60) return `${secs}s`;
+  const mins = Math.floor(secs / 60);
+  const remSecs = secs % 60;
+  return `${mins}m ${remSecs}s`;
 }
 
 async function runHeadless(options: HeadlessOptions): Promise<void> {
@@ -68,6 +77,8 @@ async function runHeadless(options: HeadlessOptions): Promise<void> {
   log('INFO', `Entry: ${entryPoint}`);
   console.log('');
 
+  const startTime = Date.now();
+
   try {
     // 1. Create session
     log('INFO', 'Creating session...');
@@ -78,9 +89,10 @@ async function runHeadless(options: HeadlessOptions): Promise<void> {
     });
     log('INFO', `Session: ${session.id}`);
 
-    // 2. Import template
+    // 2. Import template (quiet — no console.log pollution)
     log('INFO', `Importing template: ${template}`);
-    await options.importSessionTemplate(session.id, template);
+    await options.importSessionTemplate(session.id, template, { quiet: true });
+    log('INFO', 'Template imported');
 
     // 3. Start session
     await client.startSession(session.id);
@@ -93,15 +105,18 @@ async function runHeadless(options: HeadlessOptions): Promise<void> {
     });
 
     // 5. Poll for completion
-    log('INFO', 'Polling for progress...');
+    log('INFO', 'Waiting for execution...');
     console.log('');
 
     let lastLogCount = 0;
-    let lastTreeHash = '';
+    // Track per-node status to show only transitions (delta)
+    const nodeStatuses = new Map<string, string>();
     let done = false;
+    let spinnerCount = 0;
 
     while (!done) {
       await new Promise(r => setTimeout(r, 2000));
+      spinnerCount++;
 
       try {
         const sess = await client.getSession(session.id);
@@ -117,20 +132,27 @@ async function runHeadless(options: HeadlessOptions): Promise<void> {
           lastLogCount = execLog.length;
         }
 
-        // Execution tree changes
+        // Execution tree changes — only show TRANSITIONS
         const tree: any[] = vars._executionTree || [];
-        const treeHash = JSON.stringify(tree.map(n => `${n.name}:${n.status}`));
-        if (treeHash !== lastTreeHash) {
-          lastTreeHash = treeHash;
-          for (const node of tree) {
+        for (const node of tree) {
+          const prevStatus = nodeStatuses.get(node.name);
+          if (prevStatus !== node.status) {
+            nodeStatuses.set(node.name, node.status);
             if (node.status === 'running') {
-              log('NODE', `▶ ${node.name}`);
+              log('NODE', `\u25B6 ${node.name}`);
             } else if (node.status === 'completed') {
-              log('NODE', `✓ ${node.name}`);
+              log('NODE', `\u2713 ${node.name}`);
             } else if (node.status === 'error') {
-              log('NODE', `✗ ${node.name}: ${node.error || 'failed'}`);
+              log('NODE', `\u2717 ${node.name}: ${node.error || 'failed'}`);
+            } else if (node.status === 'skipped') {
+              log('NODE', `\u2014 ${node.name} (skipped)`);
             }
           }
+        }
+
+        // Spinner dots while waiting (every 5s = every ~2.5 polls)
+        if (nodeStatuses.size === 0 && spinnerCount % 3 === 0) {
+          log('INFO', 'Waiting for first response...');
         }
 
         // Check completion
@@ -142,6 +164,7 @@ async function runHeadless(options: HeadlessOptions): Promise<void> {
         if (allDone || status === 'completed' || status === 'idle') {
           done = true;
           console.log('');
+
           const hasErrors = tree.some((n: any) => n.status === 'error');
           if (hasErrors) {
             log('DONE', 'Task completed with errors');
@@ -150,7 +173,16 @@ async function runHeadless(options: HeadlessOptions): Promise<void> {
           } else {
             log('DONE', 'Session idle (no execution tree)');
           }
-          log('INFO', `Session ID: ${session.id}`);
+
+          // Final summary
+          const duration = Date.now() - startTime;
+          const completedCount = tree.filter((n: any) => n.status === 'completed').length;
+          const errorCount = tree.filter((n: any) => n.status === 'error').length;
+          const skippedCount = tree.filter((n: any) => n.status === 'skipped').length;
+
+          log('SUMRY', `Duration: ${formatDuration(duration)}`);
+          log('SUMRY', `Nodes: ${completedCount} completed${errorCount ? `, ${errorCount} errors` : ''}${skippedCount ? `, ${skippedCount} skipped` : ''}`);
+          log('SUMRY', `Session: ${session.id}`);
         }
       } catch (pollErr: any) {
         // Non-fatal poll error

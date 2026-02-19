@@ -38,6 +38,21 @@
 
 ---
 
+### Phase 33-B : Audit UX & Ameliorations CLI
+
+**But** : Dogfooding complet — utiliser Maestro comme un utilisateur reel, corriger les frictions UX. Rendre le CLI interactif et visuel en reutilisant les widgets partages.
+
+| Sous-phase | Objectif | Effort |
+|------------|----------|--------|
+| 33-B-A | Nettoyage output CLI (tables, dates, undefined, "did you mean") | 1 jour |
+| 33-B-B | Resume et feedback temps reel (spinner, resume final, delta nodes) | 1 jour |
+| 33-B-C | CLI interactif avec widgets partages (tables Ink, PlanView, ProgressBar) | 1-2 jours |
+| 33-B-D | Ameliorations maestro code (plan lateral, raccourcis, --summary) | 1-2 jours |
+
+**Docs** : `docs/phases/PHASE-33B/README.md`
+
+---
+
 ### Phase 34 : Optimisation multi-tiers
 
 **But** : Creer des tiers substituant Claude par des modeles plus petits.

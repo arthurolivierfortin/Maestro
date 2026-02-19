@@ -54,7 +54,7 @@ describe('Headless Mode', () => {
     expect(mockClient.createSession).toHaveBeenCalledWith(
       expect.objectContaining({ repositoryPath: '/test/project' })
     );
-    expect(mockImportTemplate).toHaveBeenCalledWith('sess-aaaa-bbbb-cccc-ddddeeee0000', 'project-autonomous');
+    expect(mockImportTemplate).toHaveBeenCalledWith('sess-aaaa-bbbb-cccc-ddddeeee0000', 'project-autonomous', { quiet: true });
     expect(mockClient.startSession).toHaveBeenCalledWith('sess-aaaa-bbbb-cccc-ddddeeee0000');
     expect(mockClient._fetch).toHaveBeenCalledWith(
       'POST',
@@ -68,11 +68,17 @@ describe('Headless Mode', () => {
     expect(output).toContain('Creating session...');
     expect(output).toContain('sess-aaaa-bbbb-cccc-ddddeeee0000');
     expect(output).toContain('Importing template: project-autonomous');
+    expect(output).toContain('Template imported');
     expect(output).toContain('Session started');
     expect(output).toContain('Invoking: dev');
     expect(output).toContain('✓ Plan');
     expect(output).toContain('Task done');
     expect(output).toContain('Task completed successfully');
+
+    // Verify final summary
+    expect(output).toContain('[SUMRY] Duration:');
+    expect(output).toContain('[SUMRY] Nodes: 1 completed');
+    expect(output).toContain('[SUMRY] Session: sess-aaaa-bbbb-cccc-ddddeeee0000');
   });
 
   it('reports errors from execution tree', async () => {
