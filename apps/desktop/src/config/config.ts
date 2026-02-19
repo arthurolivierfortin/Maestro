@@ -33,7 +33,7 @@ async function loadConfig(): Promise<MaestroConfig> {
       if (import.meta.env.DEV) console.log('[Config] Using VITE_USE_MOCK_BACKEND override:', useMock);
       // Still attempt to load file to merge other values if present
       try {
-        const configModule = await import('../../../maestro.config.json');
+        const configModule = await import('../../../../maestro.config.json');
         loadedConfig = { ...loadedConfig, ...configModule.default } as MaestroConfig;
         // ensure env override stays
         loadedConfig.frontend = { ...loadedConfig.frontend, useMockBackend: useMock };
@@ -44,7 +44,7 @@ async function loadConfig(): Promise<MaestroConfig> {
     }
 
     // No env override, try to load from project root (Vite will resolve this at build time)
-    const configModule = await import('../../../maestro.config.json');
+    const configModule = await import('../../../../maestro.config.json');
     loadedConfig = { ...DEFAULT_CONFIG, ...configModule.default } as MaestroConfig;
 
     if (import.meta.env.DEV) {

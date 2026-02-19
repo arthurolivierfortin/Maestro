@@ -54,8 +54,8 @@ function getBackendPath(): string {
     return path.join(process.resourcesPath, '..', 'backend', 'src', 'Maestro.Api');
   }
 
-  // Dev mode: dotnet run from project
-  return path.join(__dirname, '../..', 'backend', 'src', 'Maestro.Api');
+  // Dev mode: dotnet run from project (apps/desktop/dist-electron → apps/backend/src/Maestro.Api)
+  return path.join(__dirname, '../../..', 'apps', 'backend', 'src', 'Maestro.Api');
 }
 
 /**

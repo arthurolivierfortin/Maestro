@@ -1,19 +1,19 @@
 # Backend-only configuration for use with Electron or web dev server
 # Usage: docker-compose -f docker-compose.backend.yml up
 #
-# Then run frontend with: cd frontend && npm run dev
+# Then run frontend with: cd apps/desktop && npm run dev
 
 services:
   backend:
     build:
-      context: ./backend
+      context: ./apps/backend
       dockerfile: Dockerfile.dev
     container_name: maestro-backend
     ports:
       - "5000:5000"
     volumes:
       # Mount source code for hot reload
-      - ./backend/src:/app/src:rw
+      - ./apps/backend/src:/app/src:rw
       # Mount blocks directories
       - ./blocks:/app/blocks:rw
       - ./.maestro:/app/.maestro:rw

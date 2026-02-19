@@ -4,7 +4,7 @@ services:
   # Backend API service
   backend:
     build:
-      context: ./backend
+      context: ./apps/backend
       dockerfile: Dockerfile
     container_name: maestro-backend
     ports:

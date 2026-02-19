@@ -33,11 +33,11 @@
       "@utils/*": ["./src/utils/*"],
       "@styles/*": ["./src/styles/*"],
       "@electron/*": ["./src/electron/*"],
-      "@shared/*": ["../packages/tui/*"],
+      "@shared/*": ["../../packages/tui/*"],
       "react": ["./node_modules/@types/react"],
       "react/*": ["./node_modules/@types/react/*"]
     }
   },
-  "include": ["src", "electron", "../packages/tui/app", "../packages/tui/types", "../packages/tui/utils", "../packages/tui/theme"],
+  "include": ["src", "electron", "../../packages/tui/app", "../../packages/tui/types", "../../packages/tui/utils", "../../packages/tui/theme"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }

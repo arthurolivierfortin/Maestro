@@ -14,7 +14,7 @@
 powershell -File dev-scripts/dev-start.ps1
 
 # Or manually
-cd backend/src/Maestro.Api
+cd apps/backend/src/Maestro.Api
 dotnet run --urls http://localhost:5000
 ```
 
@@ -39,7 +39,7 @@ taskkill /F /PID <pid>
 **Fix**:
 ```powershell
 taskkill /F /IM Maestro.Api.exe
-cd backend
+cd apps/backend
 dotnet build
 ```
 
@@ -171,7 +171,7 @@ node index.js monitor <session-id> --legacy
 ### Frontend build fails
 
 ```powershell
-cd frontend
+cd apps/desktop
 npm install    # Reinstall deps
 npm run build  # Rebuild
 ```

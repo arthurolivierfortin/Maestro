@@ -175,7 +175,7 @@ function Start-BackendLocal {
     Start-Sleep -Seconds 2
 
     $script = @"
-Set-Location '$MaestroRoot\backend\src\Maestro.Api'
+Set-Location '$MaestroRoot\apps\backend\src\Maestro.Api'
 `$env:MAESTRO_GLOBAL_BLOCKS_PATH = '$MaestroRoot\content\system\blocks'
 `$env:MAESTRO_REPO_ROOT = '$MaestroRoot'
 `$env:LLMProvider__BaseUrl = 'http://localhost:5010'
@@ -200,7 +200,7 @@ function Start-FrontendLocal {
     }
 
     $script = @"
-Set-Location '$MaestroRoot\frontend'
+Set-Location '$MaestroRoot\apps\desktop'
 `$env:VITE_API_BASE_URL = 'http://localhost:5000'
 `$env:VITE_USE_MOCK_BACKEND = 'false'
 Write-Host 'Maestro Frontend starting on port 5173' -ForegroundColor Cyan
@@ -278,8 +278,8 @@ function Show-Summary {
 
     Write-Host ""
     Write-Status "CLI Commands:" "White"
-    Write-Status "  cd $MaestroRoot\maestro-cli && node index.js health" "Gray"
-    Write-Status "  cd $MaestroRoot\maestro-cli && node index.js list-blocks" "Gray"
+    Write-Status "  cd $MaestroRoot\packages\maestro-cli && node index.js health" "Gray"
+    Write-Status "  cd $MaestroRoot\packages\maestro-cli && node index.js list-blocks" "Gray"
     Write-Host ""
 }
 

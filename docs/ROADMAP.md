@@ -32,6 +32,8 @@
 | 32 | CLI Polish + maestro init + aliases + review gate | COMPLETE |
 | 33 | `maestro code` — TUI interactive + headless + tests (29/29) | COMPLETE |
 | 33-B | Audit UX & Ameliorations CLI (32/32 tests) | COMPLETE |
+| 33-C | Consolidation TUI Monorepo (40+4+32 tests) | COMPLETE |
+| 33-D | Restructuration Monorepo (apps/, cleanup, docs) | COMPLETE |
 
 ---
 

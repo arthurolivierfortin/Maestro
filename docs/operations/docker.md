@@ -376,9 +376,9 @@ jobs:
 
 ## Next Steps
 
-- [Frontend Integration Guide](../frontend/BACKEND-INTEGRATION.md)
+- [Frontend Integration Guide](../../apps/desktop/BACKEND-INTEGRATION.md)
 - [CLI Documentation](../tools/maestro-cli/README.md)
-- [MCP Server Documentation](../tools/maestro-mcp/README.md)
+- [MCP Server Documentation](../../apps/mcp/README.md)
 - [Phase 6E Issue](../docs/issues/phase-6e-docker-preparation.md)
 
 ---

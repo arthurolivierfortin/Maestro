@@ -4,12 +4,12 @@
 services:
   backend:
     build:
-      context: ./backend
+      context: ./apps/backend
       dockerfile: Dockerfile.dev
     container_name: maestro-backend-dev
     volumes:
       # Mount source code for hot reload (read-write so dotnet can create build artifacts)
-      - ./backend/src:/app/src:rw
+      - ./apps/backend/src:/app/src:rw
       # Mount blocks directories (read-write)
       - ./blocks:/app/blocks:rw
       - ./.maestro:/app/.maestro:rw
@@ -44,7 +44,7 @@ services:
   # Optional: Frontend development server
   frontend:
     build:
-      context: ./frontend
+      context: ./apps/desktop
       dockerfile: Dockerfile.dev
       target: development
     container_name: maestro-frontend-dev
@@ -52,9 +52,9 @@ services:
       - "5173:5173"
     volumes:
       # Mount source for hot reload
-      - ./frontend/src:/app/src:ro
-      - ./frontend/public:/app/public:ro
-      - ./frontend/index.html:/app/index.html:ro
+      - ./apps/desktop/src:/app/src:ro
+      - ./apps/desktop/public:/app/public:ro
+      - ./apps/desktop/index.html:/app/index.html:ro
       # Mount project config so Vite can import maestro.config.json
       - ./maestro.config.json:/app/maestro.config.json:ro
       # Vite in this project resolves '../../../maestro.config.json' from src/config

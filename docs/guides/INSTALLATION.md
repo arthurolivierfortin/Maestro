@@ -26,7 +26,7 @@ cd maestro
 ### 2. Install backend dependencies
 
 ```powershell
-cd backend
+cd apps/backend
 dotnet restore
 dotnet build
 ```
@@ -34,14 +34,14 @@ dotnet build
 ### 3. Install CLI dependencies
 
 ```powershell
-cd maestro-cli
+cd packages/maestro-cli
 npm install
 ```
 
 ### 4. Install frontend dependencies
 
 ```powershell
-cd frontend
+cd apps/desktop
 npm install
 ```
 
@@ -49,11 +49,11 @@ npm install
 
 ```powershell
 # Check backend builds
-cd backend
+cd apps/backend
 dotnet build
 
 # Check CLI works
-cd maestro-cli
+cd packages/maestro-cli
 node index.js health
 ```
 
@@ -61,7 +61,7 @@ node index.js health
 
 ### Backend (API server)
 
-Default config is at `backend/src/Maestro.Api/appsettings.json`.
+Default config is at `apps/backend/src/Maestro.Api/appsettings.json`.
 
 Key settings:
 - **Port**: 5000 (default)
@@ -80,7 +80,7 @@ This starts the LLM-Provider on port 8000.
 
 **Option B: Azure OpenAI**
 ```bash
-cd maestro-cli
+cd packages/maestro-cli
 node index.js config azure set --endpoint https://YOUR.openai.azure.com --api-key YOUR_KEY --deployment gpt-4
 node index.js config azure test
 ```
@@ -113,11 +113,11 @@ powershell -File dev-scripts/dev-start.ps1 -Stop
 
 ```powershell
 # Terminal 1: Backend
-cd backend/src/Maestro.Api
+cd apps/backend/src/Maestro.Api
 dotnet run --urls http://localhost:5000
 
 # Terminal 2: Frontend
-cd frontend
+cd apps/desktop
 npm run dev
 
 # Terminal 3 (optional): LLM-Provider
@@ -128,7 +128,7 @@ python server.py
 ## Verify Everything Works
 
 ```bash
-cd maestro-cli
+cd packages/maestro-cli
 
 # Health check — shows all service statuses
 node index.js health

@@ -14,7 +14,7 @@ function j() {
     const t = i.join(process.resourcesPath, "backend");
     return h.existsSync(i.join(t, "Maestro.Api.exe")) || h.existsSync(i.join(t, "Maestro.Api")) ? t : i.join(process.resourcesPath, "..", "backend", "src", "Maestro.Api");
   }
-  return i.join(k, "../..", "backend", "src", "Maestro.Api");
+  return i.join(k, "../../..", "apps", "backend", "src", "Maestro.Api");
 }
 function I() {
   const t = process.platform === "win32" ? "C:\\LLM-Provider" : "/opt/LLM-Provider";

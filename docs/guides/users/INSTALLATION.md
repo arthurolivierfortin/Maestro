@@ -20,10 +20,10 @@ cd maestro
 
 ```bash
 # CLI dependencies
-cd maestro-cli && npm install && cd ..
+cd packages/maestro-cli && npm install && cd ../..
 
 # Frontend dependencies
-cd frontend && npm install && cd ..
+cd apps/desktop && npm install && cd ../..
 ```
 
 ### 3. Start all services

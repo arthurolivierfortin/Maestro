@@ -25,7 +25,7 @@ New-Item -ItemType Directory -Force -Path $OutputDir | Out-Null
 # ── Backend ──
 if (-not $SkipBackend) {
     Write-Host "`n[1/3] Building Backend..." -ForegroundColor Yellow
-    $backendProject = "$RepoRoot/backend/src/Maestro.Api/Maestro.Api.csproj"
+    $backendProject = "$RepoRoot/apps/backend/src/Maestro.Api/Maestro.Api.csproj"
     $backendOutput = "$OutputDir/backend"
 
     dotnet publish $backendProject `
@@ -43,7 +43,7 @@ if (-not $SkipBackend) {
 # ── Frontend ──
 if (-not $SkipFrontend) {
     Write-Host "`n[2/3] Building Frontend..." -ForegroundColor Yellow
-    Push-Location "$RepoRoot/frontend"
+    Push-Location "$RepoRoot/apps/desktop"
 
     npm run build
     if ($LASTEXITCODE -ne 0) {
@@ -68,15 +68,10 @@ if (-not $SkipCli) {
     New-Item -ItemType Directory -Force -Path $cliOutput | Out-Null
 
     # Copy CLI files
-    $cliSource = "$RepoRoot/maestro-cli"
+    $cliSource = "$RepoRoot/packages/maestro-cli"
     Copy-Item -Path "$cliSource/package.json" -Destination $cliOutput -Force
     Copy-Item -Path "$cliSource/index.js" -Destination $cliOutput -Force
     Copy-Item -Path "$cliSource/*.ts" -Destination $cliOutput -Force
-
-    # Copy shared
-    $sharedOutput = "$OutputDir/shared"
-    New-Item -ItemType Directory -Force -Path $sharedOutput | Out-Null
-    Copy-Item -Path "$RepoRoot/shared/*" -Destination $sharedOutput -Recurse -Force
 
     # Copy system content
     $contentOutput = "$OutputDir/content/system"

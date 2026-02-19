@@ -46,7 +46,7 @@ Meastro/
 │   │   └── pr-review-workflow.json
 │   └── .gitkeep
 │
-├── backend/                           # .NET Backend
+├── apps/backend/                      # .NET Backend
 │   ├── Maestro.sln                    # Solution file
 │   ├── .editorconfig                  # C# code style
 │   ├── Directory.Build.props          # Common MSBuild properties
@@ -490,19 +490,19 @@ The `shared/` directory contains:
 ### Backend
 
 ```bash
-cd backend
+cd apps/backend
 dotnet restore
 dotnet build
 dotnet test
 dotnet run --project src/Maestro.Api
 ```
 
-Backend runs on `https://localhost:5001` (or configured port).
+Backend runs on `http://localhost:5000` (or configured port).
 
-### Frontend
+### Frontend (Desktop)
 
 ```bash
-cd frontend
+cd apps/desktop
 npm install
 npm run dev    # Development server
 npm run build  # Production build

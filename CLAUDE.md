@@ -82,7 +82,7 @@ node index.js session create --type project --name "<Project> - <Feature>" --rep
 node index.js workspace add-session <workspace-id> <session-id>
 
 # 4. Launch the monitor BEFORE any invoke
-powershell.exe -Command "Start-Process powershell -ArgumentList '-NoExit','-Command','cd C:\Meastro\maestro-cli; node index.js monitor <session-id>'"
+powershell.exe -Command "Start-Process powershell -ArgumentList '-NoExit','-Command','cd C:\Meastro\packages\maestro-cli; node index.js monitor <session-id>'"
 
 # 5. THEN invoke entry points
 node index.js session invoke <session-id> <entry-point> --input key=value
@@ -98,7 +98,7 @@ node index.js session invoke <session-id> <entry-point> --input key=value
 The TUI monitor MUST be running before any `session invoke`. Use `Start-Process` to open a new terminal window:
 
 ```powershell
-powershell.exe -Command "Start-Process powershell -ArgumentList '-NoExit','-Command','cd C:\Meastro\maestro-cli; node index.js monitor <session-id>'"
+powershell.exe -Command "Start-Process powershell -ArgumentList '-NoExit','-Command','cd C:\Meastro\packages\maestro-cli; node index.js monitor <session-id>'"
 ```
 
 Reference: `docs/phases/PHASE-26/PIPELINE-MONITORING-GUIDE.md`
@@ -406,8 +406,8 @@ node index.js monitor <id>        # TUI monitor for a session
 ### Before Making Changes
 
 1. **Run tests before starting work**
-   - Frontend: `cd frontend && npm test -- --run`
-   - Backend: `cd backend && dotnet test`
+   - Frontend: `cd apps/desktop && npm test -- --run`
+   - Backend: `cd apps/backend && dotnet test`
    - CLI interactive: `cd packages/maestro-code && npx vitest run tests/`
    - TUI toolkit: `cd packages/tui && npx vitest run tests/`
    - Monitor: `cd packages/maestro-monitor && npx vitest run tests/`
@@ -424,10 +424,10 @@ node index.js monitor <id>        # TUI monitor for a session
    - New features should include tests where practical
 
 2. **Verify the frontend build**
-   - `cd frontend && npm run build`
+   - `cd apps/desktop && npm run build`
 
 3. **Verify the backend build**
-   - `cd backend && dotnet build`
+   - `cd apps/backend && dotnet build`
    - If processes lock DLLs: `taskkill /F /IM Maestro.Api.exe`
 
 4. **Verify API behavior for session/variable changes**
@@ -445,24 +445,24 @@ node index.js monitor <id>        # TUI monitor for a session
 
 ### Frontend (React + TypeScript)
 
-- **Block types are defined in** `frontend/src/registry/blockTypeDefinitions.ts`
-- **Block type registry** at `frontend/src/registry/BlockTypeRegistry.ts` defines containment rules
-- **Block type interface** at `frontend/src/types/block.types.ts` defines the `Block` interface
+- **Block types are defined in** `apps/desktop/src/registry/blockTypeDefinitions.ts`
+- **Block type registry** at `apps/desktop/src/registry/BlockTypeRegistry.ts` defines containment rules
+- **Block type interface** at `apps/desktop/src/types/block.types.ts` defines the `Block` interface
 - **isAtomic property** determines if a block can contain children:
   - Atomic blocks (`isAtomic: true`): `prompt`, `instruction`, `tool`, `decision`, `validator`, `trigger`, `inference`, `script`
   - Composite blocks (`isAtomic: false`): `workflow`, `agent`, `task`
 
 ### Backend (C# .NET)
 
-- **BlockDto** at `backend/src/Maestro.Application/DTOs/BlockDto.cs` must include all properties from `BlockDefinition`
-- **BlockDefinition** at `backend/src/Maestro.Domain/Entities/BlockDefinition.cs` is the domain entity
+- **BlockDto** at `apps/backend/src/Maestro.Application/DTOs/BlockDto.cs` must include all properties from `BlockDefinition`
+- **BlockDefinition** at `apps/backend/src/Maestro.Domain/Entities/BlockDefinition.cs` is the domain entity
 - **isAtomic property** MUST be included in API responses - missing this causes UI bugs
 
 ### Session Architecture Principles
 
 #### Generic vs Specific Separation (CRITICAL)
 
-Infrastructure code (`backend/src/Maestro.Infrastructure/`) MUST NOT contain session-specific logic:
+Infrastructure code (`apps/backend/src/Maestro.Infrastructure/`) MUST NOT contain session-specific logic:
 - **Phase definitions** → session template variables (`_phases`), never hardcoded in C#
 - **Monitor descriptors** → session template variables (`_monitorDescriptor`), never hardcoded
 - **Workflow structure** → workflow block JSON (`config.nodes`), never hardcoded
@@ -567,7 +567,7 @@ Entry points map to block IDs. The `EntryPointExecutor` dispatches based on bloc
 **Symptoms**: `_phases` shows as `[[[[]],[[]],...]...]` instead of `[{id:"plan",name:"Planning",...},...]`. Monitor shows phases without names. `_monitorDescriptor` layout is broken.
 **Fix**: The `SetVariable` action in `SessionsController.cs` must normalize `JsonElement` to native types using `NormalizeObjectValue()` before storing. This converts `JsonElement.Object` → `Dictionary<string, object>`, `JsonElement.Array` → `List<object>`, `JsonElement.String` → `string`, etc.
 **Verification**: After setting a variable, `curl` the API to verify the response contains proper JSON objects, not nested arrays.
-**Location**: `SessionsController.cs` → `SetVariable()`, `FileSystemProjectSessionRepository.cs` → `SerializeSession()`, `FileSystemFoundrySessionRepository.cs` → `SerializeSession()`
+**Location**: `apps/backend/src/Maestro.Api/Controllers/SessionsController.cs` → `SetVariable()`, `apps/backend/src/Maestro.Infrastructure/Sessions/FileSystemProjectSessionRepository.cs` → `SerializeSession()`, `apps/backend/src/Maestro.Infrastructure/Sessions/FileSystemFoundrySessionRepository.cs` → `SerializeSession()`
 
 ### Session status "created" after start (Idle deserialization bug)
 **Cause**: `Session.GetSessionStatus()` returns `SessionStatus.Idle` for active sessions with no running workflow. The file repository serializes this as `"status": "idle"`. On deserialization, `MapSessionStatusToContainerStatus()` has no mapping for `SessionStatus.Idle`, so it defaults to `ContainerSessionStatus.Created`.

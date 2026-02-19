@@ -8,7 +8,7 @@ The frontend supports two modes: **mock** (for development without backend) and 
 
 ### Environment Variables
 
-Create a `.env` file in the `frontend/` directory:
+Create a `.env` file in the `apps/desktop/` directory:
 
 ```bash
 # Use mock backend (development mode)
@@ -39,7 +39,7 @@ VITE_API_BASE_URL=http://localhost:5000
 
 Run frontend:
 ```bash
-cd frontend
+cd apps/desktop
 npm run dev
 ```
 
@@ -55,7 +55,7 @@ VITE_API_BASE_URL=http://localhost:5000
 
 **Start the backend first:**
 ```bash
-cd backend
+cd apps/backend
 dotnet run --project src/Maestro.Api
 ```
 
@@ -63,7 +63,7 @@ Backend will start on `http://localhost:5000`
 
 **Then start the frontend:**
 ```bash
-cd frontend
+cd apps/desktop
 npm run dev
 ```
 
@@ -269,7 +269,7 @@ unsubscribe?.();
 **Error**: "Cannot connect to the backend"
 
 **Solution**:
-1. Ensure backend is running: `cd backend && dotnet run --project src/Maestro.Api`
+1. Ensure backend is running: `cd apps/backend && dotnet run --project src/Maestro.Api`
 2. Check backend URL in `.env` file
 3. Verify backend is accessible at `http://localhost:5000`
 
@@ -320,19 +320,19 @@ builder.Services.AddCors(options =>
 
 1. Start backend:
    ```bash
-   cd backend
+   cd apps/backend
    dotnet run --project src/Maestro.Api
    ```
 
 2. Set environment to use real backend:
    ```bash
-   # frontend/.env
+   # apps/desktop/.env
    VITE_USE_MOCK_BACKEND=false
    ```
 
 3. Start frontend:
    ```bash
-   cd frontend
+   cd apps/desktop
    npm run dev
    ```
 
@@ -359,11 +359,11 @@ Run integration tests with both frontend and backend:
 
 ```bash
 # Start backend
-cd backend
+cd apps/backend
 dotnet run --project src/Maestro.Api
 
 # In another terminal, run frontend tests
-cd frontend
+cd apps/desktop
 npm test:integration
 ```
 
@@ -373,7 +373,7 @@ For production deployment:
 
 1. Build frontend with production config:
    ```bash
-   cd frontend
+   cd apps/desktop
    VITE_USE_MOCK_BACKEND=false VITE_API_BASE_URL=https://api.yourdomain.com npm run build
    ```
 
@@ -386,6 +386,6 @@ For production deployment:
 ---
 
 **See Also**:
-- [Backend API Documentation](../backend/README.md)
+- [Backend API Documentation](../apps/backend/README.md)
 - [Phase 6D Issue File](../docs/issues/phase-6d-frontend-real-integration.md)
 - [SignalR Documentation](https://docs.microsoft.com/en-us/aspnet/core/signalr/)

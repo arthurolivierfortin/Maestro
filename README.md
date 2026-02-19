@@ -691,7 +691,7 @@ The frontend can run independently of the .NET backend using mock services:
 
 ### Switching to Real Backend
 
-1. Start the .NET backend: `dotnet run --project backend/src/Maestro.Api`
+1. Start the .NET backend: `dotnet run --project apps/backend/src/Maestro.Api`
 2. Update `maestro.config.json`:
    ```json
    {
