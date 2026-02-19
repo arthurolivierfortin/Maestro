@@ -1,6 +1,6 @@
 # Maestro — Roadmap
 
-**Derniere mise a jour** : 2026-02-18
+**Derniere mise a jour** : 2026-02-19
 **Version actuelle** : v0.1.0-alpha (tag sur main)
 
 ---
@@ -31,6 +31,7 @@
 | 31 | Solidification des fondations (publish, audit, usage reel Cantante) | COMPLETE |
 | 32 | CLI Polish + maestro init + aliases + review gate | COMPLETE |
 | 33 | `maestro code` — TUI interactive + headless + tests (29/29) | COMPLETE |
+| 33-B | Audit UX & Ameliorations CLI (32/32 tests) | COMPLETE |
 
 ---
 
@@ -38,18 +39,18 @@
 
 ---
 
-### Phase 33-B : Audit UX & Ameliorations CLI
+### Phase 33-C : Consolidation TUI Monorepo
 
-**But** : Dogfooding complet — utiliser Maestro comme un utilisateur reel, corriger les frictions UX. Rendre le CLI interactif et visuel en reutilisant les widgets partages.
+**But** : Consolider les 3 implementations TUI paralleles (Maestro monitor, LLM-Provider monitor, CLI interactive) en un monorepo npm workspaces avec code partage reel. Supprimer le code mort shared/tui (~35 fichiers), unifier les hooks dupliques, corriger les bugs monitors, ajouter des tests.
 
 | Sous-phase | Objectif | Effort |
 |------------|----------|--------|
-| 33-B-A | Nettoyage output CLI (tables, dates, undefined, "did you mean") | 1 jour |
-| 33-B-B | Resume et feedback temps reel (spinner, resume final, delta nodes) | 1 jour |
-| 33-B-C | CLI interactif avec widgets partages (tables Ink, PlanView, ProgressBar) | 1-2 jours |
-| 33-B-D | Ameliorations maestro code (plan lateral, raccourcis, --summary) | 1-2 jours |
+| 33-C-A | Audit et nettoyage shared/tui (supprimer code mort) | 1 jour |
+| 33-C-B | npm workspaces + migration imports | 2-3 jours |
+| 33-C-C | Unification hooks (une seule version par hook) | 2-3 jours |
+| 33-C-D | Correction bugs monitors + tests monitors | 2-3 jours |
 
-**Docs** : `docs/phases/PHASE-33B/README.md`
+**Docs** : `docs/phases/PHASE-33C/README.md`
 
 ---
 
