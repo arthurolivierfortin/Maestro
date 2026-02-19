@@ -1,7 +1,7 @@
 # Phase 33 : Checkpoint
 
 **Derniere mise a jour** : 2026-02-18
-**Sous-phase en cours** : 33-A/B DONE + Tests + Headless, 33-C A FAIRE
+**Sous-phase en cours** : PHASE 33 COMPLETE (33-A/B/C)
 **Agent** : Claude Opus 4.6
 
 ---
@@ -122,11 +122,36 @@ $ npx vitest run tests/interactive/
 ---
 
 ## 33-C : Test et iteration sur Cantante
-**Statut** : A FAIRE
-**Prerequis** : Backend running + Cantante repo with `.maestro/`
-**Modes de test** :
-- TUI mode: `maestro code` in real terminal with TTY
-- Headless mode: `maestro code --headless --task "..."` from anywhere (including Claude Code)
+**Statut** : DONE
+**Date** : 2026-02-18
+
+**Tests E2E realises** (headless mode, backend live, Cantante repo) :
+
+### Test 1 : Tache simple (creer un fichier markdown)
+- **Commande** : `maestro code --headless --task "Add a CONTRIBUTORS.md file with a placeholder for contributors" --repo C:\Cantante`
+- **Resultat** : SUCCESS — fichier cree (489 bytes), contenu correct
+- **Phases executees** : Prepare → Plan → Validate → Implement → Test → Review → Gate
+- **Score review** : 0.85, approved: true
+- **Duree** : ~2.5 min
+- **Bug decouvert et corrige** : `ResolveTemplate()` appelait `.ToString()` sur `List<object>` → retournait `System.Collections.Generic.List'1[System.Object]` au lieu du JSON. Fix: ajoute serialisation JSON pour `IList` et `IDictionary` dans `EntryPointExecutor.cs:2598`.
+
+### Test 2 : Tache moyenne (creer un module TypeScript)
+- **Commande** : `maestro code --headless --task "Create src/utils/logger.ts with Logger class (info/warn/error, timestamps, ANSI colors)" --repo C:\Cantante`
+- **Resultat** : SUCCESS — fichier cree (880 bytes), TypeScript valide, ANSI colors, named + default export
+- **Phases executees** : Prepare (5 tool calls) → Plan → Validate → Implement (3 tool calls) → Test (type check pass) → Review → Gate
+- **Score review** : 0.72, approved: false (veut des tests unitaires)
+- **Duree** : ~4 min
+
+### Bug corrige pendant 33-C
+**`ResolveTemplate` List<object> serialization** :
+- **Fichier** : `backend/src/Maestro.Infrastructure/Sessions/EntryPointExecutor.cs`
+- **Ligne** : ~2598
+- **Avant** : `return value.ToString() ?? "0"` → `System.Collections.Generic.List'1[System.Object]`
+- **Apres** : Ajoute `if (value is IList || value is IDictionary) return JsonSerializer.Serialize(value);`
+- **Impact** : Le code-reviewer recoit maintenant les plan steps en JSON au lieu du nom du type C#
+
+### Probleme connu (pre-existant)
+**review-gate conditional** : Le `{{_nodeResult_review.approved}}` resout le JSON brut du reviewer (avec backticks markdown) au lieu d'extraire le champ `approved`. La comparaison `"```json\n{...}\n```" == "true"` echoue toujours → le gate ne bloque jamais. Ce bug etait deja connu avant Phase 33 — a corriger dans une phase future.
 
 ---
 

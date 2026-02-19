@@ -2595,6 +2595,13 @@ public class EntryPointExecutor
                 return jv.Value?.ToString() ?? "0";
             }
 
+            // Collections (List<object>, Dictionary<string,object>) must be serialized to JSON,
+            // not .ToString() which returns the C# type name.
+            if (value is System.Collections.IList || value is System.Collections.IDictionary)
+            {
+                return JsonSerializer.Serialize(value);
+            }
+
             return value.ToString() ?? "0";
         });
     }
