@@ -149,7 +149,7 @@ namespace Maestro.Infrastructure.Configuration
         {
             // Start from current directory and walk up looking for repo markers
             var current = Directory.GetCurrentDirectory();
-            var markers = new[] { ".git", "Maestro.sln", "maestro.config.json" };
+            var markers = new[] { ".git", "maestro.config.json" };
             
             while (!string.IsNullOrEmpty(current))
             {
