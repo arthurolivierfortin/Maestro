@@ -2523,18 +2523,28 @@ public class EntryPointExecutor
         return Regex.Replace(template, @"\{\{([^}]+)\}\}", match =>
         {
             var varPath = match.Groups[1].Value.Trim();
+            string? jsonSubPath = null;
 
             // {{inputs.xxx}} → session variable "xxx"
             if (varPath.StartsWith("inputs."))
                 varPath = varPath["inputs.".Length..];
 
             // {{state.results.xxx}} → session variable "_nodeResult_xxx"
-            // {{state.results.xxx.yyy}} → session variable "_nodeResult_xxx" (sub-path ignored, returns full output)
+            // {{state.results.xxx.yyy}} → session variable "_nodeResult_xxx", sub-path "yyy"
             if (varPath.StartsWith("state.results."))
             {
                 var afterResults = varPath["state.results.".Length..];
-                var nodeId = afterResults.Contains('.') ? afterResults[..afterResults.IndexOf('.')] : afterResults;
-                varPath = $"_nodeResult_{nodeId}";
+                var dotIdx = afterResults.IndexOf('.');
+                if (dotIdx >= 0)
+                {
+                    var nodeId = afterResults[..dotIdx];
+                    jsonSubPath = afterResults[(dotIdx + 1)..];
+                    varPath = $"_nodeResult_{nodeId}";
+                }
+                else
+                {
+                    varPath = $"_nodeResult_{afterResults}";
+                }
             }
             // {{state.xxx}} → session variable "_state_xxx" (general state access)
             else if (varPath.StartsWith("state."))
@@ -2543,9 +2553,24 @@ public class EntryPointExecutor
                 var stateKey = statePath.Contains('.') ? statePath[..statePath.IndexOf('.')] : statePath;
                 varPath = $"_state_{stateKey}";
             }
+            // {{_nodeResult_xxx.yyy}} → variable "_nodeResult_xxx", sub-path "yyy"
+            else if (varPath.StartsWith("_nodeResult_") && varPath.Contains('.'))
+            {
+                var dotIdx = varPath.IndexOf('.');
+                jsonSubPath = varPath[(dotIdx + 1)..];
+                varPath = varPath[..dotIdx];
+            }
 
             var value = session.GetVariable(varPath);
             if (value == null) return "0";
+
+            // Phase 32-C: JSON sub-path extraction
+            // If a sub-path is specified (e.g., .approved, .score), try to extract from JSON
+            if (jsonSubPath != null)
+            {
+                var extracted = ExtractJsonSubPath(value, jsonSubPath);
+                if (extracted != null) return extracted;
+            }
 
             if (value is double d) return d.ToString(System.Globalization.CultureInfo.InvariantCulture);
             if (value is int i) return i.ToString(System.Globalization.CultureInfo.InvariantCulture);
@@ -2572,6 +2597,66 @@ public class EntryPointExecutor
 
             return value.ToString() ?? "0";
         });
+    }
+
+    /// <summary>
+    /// Extract a field from a JSON value by sub-path (e.g., "approved", "score").
+    /// Handles string values that are parseable JSON, JsonElement objects, and JObject/JValue.
+    /// </summary>
+    private static string? ExtractJsonSubPath(object value, string subPath)
+    {
+        try
+        {
+            // If value is a string, try to parse as JSON
+            var jsonStr = value as string;
+            if (jsonStr == null && value is JsonElement je && je.ValueKind == JsonValueKind.String)
+                jsonStr = je.GetString();
+
+            if (jsonStr != null)
+            {
+                using var doc = JsonDocument.Parse(jsonStr);
+                if (doc.RootElement.TryGetProperty(subPath, out var prop))
+                {
+                    return prop.ValueKind switch
+                    {
+                        JsonValueKind.Number => prop.GetDouble().ToString(System.Globalization.CultureInfo.InvariantCulture),
+                        JsonValueKind.String => prop.GetString() ?? "0",
+                        JsonValueKind.True => "true",
+                        JsonValueKind.False => "false",
+                        _ => prop.ToString()
+                    };
+                }
+            }
+
+            // If value is a JsonElement object, navigate directly
+            if (value is JsonElement obj && obj.ValueKind == JsonValueKind.Object)
+            {
+                if (obj.TryGetProperty(subPath, out var prop))
+                {
+                    return prop.ValueKind switch
+                    {
+                        JsonValueKind.Number => prop.GetDouble().ToString(System.Globalization.CultureInfo.InvariantCulture),
+                        JsonValueKind.String => prop.GetString() ?? "0",
+                        JsonValueKind.True => "true",
+                        JsonValueKind.False => "false",
+                        _ => prop.ToString()
+                    };
+                }
+            }
+
+            // If value is a JObject (Newtonsoft), navigate
+            if (value is Newtonsoft.Json.Linq.JObject jObj)
+            {
+                var token = jObj[subPath];
+                if (token != null) return token.ToString();
+            }
+        }
+        catch
+        {
+            // Parse failure — fall back to returning null (caller uses full value)
+        }
+
+        return null;
     }
 
     /// <summary>

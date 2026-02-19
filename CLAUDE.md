@@ -377,10 +377,28 @@ The Maestro CLI is at `maestro-cli/index.js`:
 
 ```bash
 cd C:\Meastro\maestro-cli
+
+# Quick start (Phase 32-33)
+node index.js init                                    # Initialize .maestro/ in current project
+node index.js code                                    # Interactive TUI mode (Ink)
+node index.js code --headless --task "description"    # Headless mode (CI, pipes, Claude Code)
+
+# Aliases (defined in .maestro/aliases.json)
+node index.js agent "Add login page"                  # Alias → project-autonomous workflow
+
+# Status
 node index.js health              # Check services health
 node index.js list-blocks         # List all blocks
 node index.js llm                 # Check LLM status
+
+# Block execution
 node index.js execute <block-id>  # Execute a block
+node index.js run <block-id> --input key=value
+
+# Sessions (advanced — maestro code handles this automatically)
+node index.js session create --type project --name "..." --repo "..." --template project-autonomous --start
+node index.js session invoke <id> dev --input task="..." repoPath="..."
+node index.js monitor <id>        # TUI monitor for a session
 ```
 
 ## Testing Requirements
@@ -390,6 +408,7 @@ node index.js execute <block-id>  # Execute a block
 1. **Run tests before starting work**
    - Frontend: `cd frontend && npm test -- --run`
    - Backend: `cd backend && dotnet test`
+   - CLI interactive: `cd maestro-cli && npx vitest run tests/interactive/`
 
 2. **Understand test baseline**
    - Note the number of passing/failing tests

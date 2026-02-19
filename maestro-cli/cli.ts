@@ -1032,14 +1032,16 @@ function handleApiError(error, action) {
       'Start the backend: powershell -File dev-scripts/dev-start.ps1');
     process.exitCode = EXIT.SERVER_ERROR;
   } else if (error.status === 404) {
-    // Phase 22: Context-specific 404 messages
+    // Phase 22/32: Context-specific 404 messages
     const suggestions = {
-      'session': "Use 'maestro session list' to see available sessions.",
-      'workspace': "Use 'maestro workspace list' to see available workspaces.",
-      'block': "Use 'maestro list-blocks' to see available blocks.",
-      'project': "Use 'maestro project list' to see available projects.",
-      'template': "Use 'maestro templates' to see available templates.",
-      'entry point': "Use 'maestro session show <id>' to see entry points.",
+      'session': "Run 'maestro session list' to see available sessions.",
+      'workspace': "Run 'maestro workspace list' to see available workspaces.",
+      'block': "Run 'maestro block list' to see available blocks.",
+      'project': "Run 'maestro projects' to see available projects.",
+      'template': "Run 'maestro templates' to see available templates.",
+      'entry point': "Run 'maestro session info <id>' to see entry points.",
+      'approval': "Run 'maestro block --pending-approval' to see pending approvals.",
+      'invoking': "Run 'maestro session info <id>' to check session status and entry points.",
     };
     const hint = Object.entries(suggestions).find(([key]) => action.toLowerCase().includes(key))?.[1];
     formatter.error(`Not found: ${error.message || action}`, 'NOT_FOUND', hint);
@@ -1523,7 +1525,55 @@ async function importSessionTemplate(sessionId, templateName) {
   }
 }
 
-// ============= Init Command (Phase 21) =============
+// ============= Init Command (Phase 32-A) =============
+
+/**
+ * Detect the project stack by looking for known marker files.
+ * Returns: 'node' | 'csharp' | 'python' | 'java' | 'rust' | 'unknown'
+ */
+function detectProjectStack(repoPath: string): string {
+  const markers = [
+    { file: 'package.json', stack: 'node' },
+    { file: '*.csproj', stack: 'csharp', glob: true },
+    { file: 'pyproject.toml', stack: 'python' },
+    { file: 'setup.py', stack: 'python' },
+    { file: 'requirements.txt', stack: 'python' },
+    { file: 'pom.xml', stack: 'java' },
+    { file: 'build.gradle', stack: 'java' },
+    { file: 'Cargo.toml', stack: 'rust' },
+  ];
+
+  for (const marker of markers) {
+    if (marker.glob) {
+      // Check for glob pattern (e.g. *.csproj)
+      try {
+        const files = fs.readdirSync(repoPath);
+        const ext = marker.file.replace('*', '');
+        if (files.some((f: string) => f.endsWith(ext))) return marker.stack;
+      } catch { /* ignore */ }
+    } else {
+      if (fs.existsSync(path.join(repoPath, marker.file))) return marker.stack;
+    }
+  }
+  return 'unknown';
+}
+
+/**
+ * Load a CONVENTIONS.md template for the detected stack.
+ * Templates live in content/system/templates/init/<stack>.md
+ */
+function loadConventionsTemplate(stack: string): string {
+  const templateDir = path.join(__dirname, '..', 'content', 'system', 'templates', 'init');
+  const templateFile = stack === 'unknown' ? 'default.md' : `${stack}.md`;
+  const templatePath = path.join(templateDir, templateFile);
+
+  try {
+    return fs.readFileSync(templatePath, 'utf-8');
+  } catch {
+    // Fallback if template is missing
+    return `# Project Conventions\n\n<!-- Fill in your project conventions here -->\n`;
+  }
+}
 
 async function initRepo(targetPath) {
   const repoPath = targetPath || process.cwd();
@@ -1531,20 +1581,178 @@ async function initRepo(targetPath) {
 
   if (fs.existsSync(maestroDir)) {
     formatter.info(`.maestro/ already exists in ${repoPath}`);
+    console.log(c.gray('  To reinitialize, remove .maestro/ first.'));
     return;
   }
 
+  // 1. Detect project stack
+  const stack = detectProjectStack(repoPath);
+  const stackLabel = stack === 'unknown' ? 'unknown (generic)' : stack;
+
+  // 2. Create directory structure
   const dirs = ['blocks', 'docs', 'logs', 'artifacts', 'metrics'];
   for (const dir of dirs) {
     fs.mkdirSync(path.join(maestroDir, dir), { recursive: true });
   }
 
-  // Create a minimal README
-  fs.writeFileSync(path.join(maestroDir, 'README.md'),
-    '# Maestro\n\nThis directory contains Maestro configuration for this repository.\n\n- `blocks/` — Custom blocks for this project\n- `docs/` — Project documentation\n- `logs/` — Execution logs\n- `artifacts/` — Generated artifacts\n- `metrics/` — Metrics data\n');
+  // 3. Create config.json
+  const config = {
+    template: 'project-autonomous',
+    model: null,
+    stack: stack === 'unknown' ? null : stack,
+  };
+  fs.writeFileSync(
+    path.join(maestroDir, 'config.json'),
+    JSON.stringify(config, null, 2) + '\n'
+  );
 
+  // 4. Create CONVENTIONS.md from stack template
+  const conventions = loadConventionsTemplate(stack);
+  fs.writeFileSync(path.join(maestroDir, 'CONVENTIONS.md'), conventions);
+
+  // 5. Create README.md
+  const readme = `# Maestro
+
+This directory contains Maestro configuration for this repository.
+
+## Files
+
+- \`config.json\` — Maestro configuration (template, model, stack)
+- \`CONVENTIONS.md\` — Project conventions for AI agents (edit this!)
+- \`blocks/\` — Custom blocks for this project
+- \`docs/\` — Project documentation
+- \`logs/\` — Execution logs
+- \`artifacts/\` — Generated artifacts
+- \`metrics/\` — Metrics data
+
+## Getting Started
+
+1. Edit \`CONVENTIONS.md\` to describe your project's conventions
+2. Start the Maestro backend: \`powershell.exe -File dev-scripts/dev-start.ps1\`
+3. Create a session: \`maestro session create --template project-autonomous --start\`
+4. Launch the monitor: \`maestro monitor <session-id>\`
+5. Run a task: \`maestro session invoke <session-id> dev --input task="your task"\`
+`;
+  fs.writeFileSync(path.join(maestroDir, 'README.md'), readme);
+
+  // 6. Copy default aliases
+  const defaultAliasesPath = path.join(__dirname, '..', 'content', 'system', 'templates', 'init', 'aliases-default.json');
+  try {
+    const aliasesContent = fs.readFileSync(defaultAliasesPath, 'utf-8');
+    fs.writeFileSync(path.join(maestroDir, 'aliases.json'), aliasesContent);
+  } catch {
+    // If template missing, create a minimal aliases file
+    fs.writeFileSync(path.join(maestroDir, 'aliases.json'), JSON.stringify({
+      agent: {
+        workflow: 'autonomous-development',
+        template: 'project-autonomous',
+        entryPoint: 'dev',
+        description: 'Autonomous development agent'
+      }
+    }, null, 2) + '\n');
+  }
+
+  // 7. Output results
+  console.log('');
   formatter.info(`Initialized .maestro/ in ${repoPath}`);
-  dirs.forEach(d => console.log(`  created .maestro/${d}/`));
+  console.log(`  ${c.gray('Stack detected:')} ${c.cyan(stackLabel)}`);
+  console.log('');
+  console.log(`  ${c.green('created')} .maestro/config.json`);
+  console.log(`  ${c.green('created')} .maestro/CONVENTIONS.md`);
+  console.log(`  ${c.green('created')} .maestro/README.md`);
+  console.log(`  ${c.green('created')} .maestro/aliases.json`);
+  dirs.forEach(d => console.log(`  ${c.green('created')} .maestro/${d}/`));
+
+  // 8. Next steps
+  console.log('');
+  console.log(c.bold('Next steps:'));
+  console.log(`  1. ${c.cyan('Edit .maestro/CONVENTIONS.md')} — describe your project's conventions`);
+  console.log(`  2. ${c.cyan('maestro agent "your task"')} — run the dev agent (alias)`);
+  console.log(`  3. ${c.cyan('maestro monitor <session-id>')} — launch the TUI monitor`);
+  console.log('');
+}
+
+// ============= Alias System (Phase 32-B) =============
+
+/**
+ * Load aliases from local (.maestro/aliases.json) and global (~/.maestro/aliases.json).
+ * Local aliases take priority over global ones.
+ */
+function loadAliases(): Record<string, { workflow: string; template: string; entryPoint: string; description?: string }> {
+  const os = require('os');
+  const aliases: Record<string, any> = {};
+
+  // Load global aliases first (~/.maestro/aliases.json)
+  const globalPath = path.join(os.homedir(), '.maestro', 'aliases.json');
+  const globalAliases = loadJson(globalPath);
+  if (globalAliases) Object.assign(aliases, globalAliases);
+
+  // Load local aliases (override global) — .maestro/aliases.json in cwd
+  const localPath = path.join(process.cwd(), '.maestro', 'aliases.json');
+  const localAliases = loadJson(localPath);
+  if (localAliases) Object.assign(aliases, localAliases);
+
+  return aliases;
+}
+
+/**
+ * Execute an alias: create a session, import template, start it, invoke the entry point.
+ * This is the full flow for `maestro <alias> "task description"`.
+ */
+async function executeAlias(aliasName: string, aliasDef: any, taskArg: string) {
+  const repoPath = process.cwd();
+  const template = aliasDef.template || 'project-autonomous';
+  const entryPoint = aliasDef.entryPoint || 'dev';
+
+  console.log('');
+  console.log(`${c.bold('Alias:')} ${c.cyan(aliasName)}${aliasDef.description ? c.gray(` — ${aliasDef.description}`) : ''}`);
+  console.log(`  ${c.gray('Template:')}    ${template}`);
+  console.log(`  ${c.gray('Entry point:')} ${entryPoint}`);
+  console.log(`  ${c.gray('Repo:')}        ${repoPath}`);
+  if (taskArg) console.log(`  ${c.gray('Task:')}        ${taskArg}`);
+  console.log('');
+
+  try {
+    // 1. Create session
+    console.log(`  ${c.gray('Creating session...')}`);
+    const session = await client.createSession({
+      repositoryPath: repoPath,
+      authority: 'human',
+      name: `${path.basename(repoPath)} - ${taskArg || aliasName}`,
+    });
+
+    // 2. Import template
+    console.log(`  ${c.gray('Importing template...')}`);
+    await importSessionTemplate(session.id, template);
+
+    // 3. Start session
+    console.log(`  ${c.gray('Starting session...')}`);
+    await client.startSession(session.id);
+
+    // 4. Invoke entry point
+    const inputs: Record<string, string> = { repoPath };
+    if (taskArg) inputs.task = taskArg;
+
+    console.log(`  ${c.gray('Invoking')} ${entryPoint}${c.gray('...')}`);
+    const response = await client._fetch('POST', `/api/sessions/${session.id}/invoke/${entryPoint}`, {
+      body: { inputs }
+    });
+
+    console.log('');
+    console.log(c.ok('Session running!'));
+    console.log('');
+    console.log(`  ${c.gray('Session ID:')} ${session.id}`);
+    console.log(`  ${c.gray('Workflow:')}   ${response.workflowId || 'N/A'}`);
+    console.log(`  ${c.gray('Status:')}     ${response.status || 'running'}`);
+    console.log('');
+    const short = session.id.substring(0, 8);
+    console.log(`  ${c.gray('Monitor:')}  maestro monitor ${short}`);
+    console.log(`  ${c.gray('Info:')}     maestro session info ${short}`);
+    console.log('');
+  } catch (error) {
+    handleApiError(error, `executing alias '${aliasName}'`);
+    process.exit(EXIT.SERVER_ERROR);
+  }
 }
 
 // ============= Session Variables Functions =============
@@ -4201,7 +4409,7 @@ async function main() {
     const helpCmd = cmd;
 
     // Commands with their own --help: forward to executeWithArgv
-    if (helpCmd === 'session' || helpCmd === 'sessions') {
+    if (helpCmd === 'session' || helpCmd === 'sessions' || helpCmd === 'code') {
       return await executeWithArgv(argv);
     }
 
@@ -4298,14 +4506,18 @@ ${c.bold('Usage:')} maestro <command> [options]
        maestro                    Launch interactive shell
 
 ${c.bold('Quick Start:')}
-  ${c.cyan('maestro session create --project <id> --template foundry-default --start')}
-  ${c.cyan('maestro session invoke <id> start')}
-  ${c.cyan('maestro monitor <id>')}
+  ${c.cyan('maestro code')}                 Interactive mode — type tasks, see results
+  ${c.cyan('maestro agent "Add login"')}    Run autonomous dev agent on a task (alias)
+  ${c.cyan('maestro monitor <id>')}         Launch TUI monitor for a session
 
 ${c.bold('Status & Info:')}
   health               Check backend status (--verbose for full diagnostics)
   llm                  LLM provider status and active model
   logs [type]          View logs (audit). --limit N for count
+
+${c.bold('Interactive:')}
+  code                 Interactive mode — REPL with live session feedback
+  monitor [id]         Launch TUI monitor
 
 ${c.bold('Sessions:')}
   session              Session management (--help for details)
@@ -4315,7 +4527,6 @@ ${c.bold('Sessions:')}
   session info <id>    Session details
   session invoke <id>  Invoke entry point
   session vars <id>    Variables (list/get/set/remove)
-  monitor [id]         Launch TUI monitor
   templates            List available session templates
 
 ${c.bold('Blocks:')}
@@ -4358,6 +4569,7 @@ ${c.bold('Security:')}
 
 ${c.bold('Setup:')}
   init [path]          Initialize .maestro/ in a repository
+  aliases              List available command aliases
 
 ${c.bold('System:')}
   system               System block overrides
@@ -5337,6 +5549,26 @@ async function executeWithArgv(argv) {
   };
 
   try {
+    // ─── Phase 32-B: Alias resolution (runs BEFORE normal dispatch) ───
+    // Check if cmd matches an alias. Built-in commands are never overridden.
+    const BUILTIN_COMMANDS = new Set([
+      'blocks', 'block', 'session', 'sessions', 'health', 'llm', 'logs', 'monitor', 'code',
+      'templates', 'template', 'run', 'execute', 'validate', 'projects', 'workspace',
+      'docs', 'training', 'fitness', 'experiment', 'research', 'foundry', 'test',
+      'approval', 'approvals', 'auth', 'init', 'aliases', 'system', 'orchestrator', 'metrics',
+      'runs', 'config', 'schema', 'search', 'catalog', 'children', 'info', 'chat',
+      'setup', 'tools', 'agents', 'workflows', 'prompts',
+    ]);
+
+    if (cmd && !BUILTIN_COMMANDS.has(cmd)) {
+      const aliases = loadAliases();
+      if (aliases[cmd]) {
+        // Collect the task argument: everything after the alias name
+        const taskArg = argv._.slice(1).join(' ') || argv.task || '';
+        return await executeAlias(cmd, aliases[cmd], taskArg);
+      }
+    }
+
     // Phase 18: 'blocks' now supports --designation, --type, --category filters
     if (cmd === 'blocks') return await listBlocks({
       designation: argv.designation,
@@ -5532,13 +5764,55 @@ async function executeWithArgv(argv) {
       return await showLogs({ type: argv._[1] || 'audit', limit: argv.limit || argv.lines });
     }
 
-    // Phase 28-B: Code mode — interactive TUI (like Claude Code)
+    // Phase 33-B: Interactive mode (`maestro code`) — replaces Phase 28-B code mode
     if (cmd === 'code') {
-      const { startCodeMode } = require('./modes/code/index.ts');
-      return startCodeMode(client, {
-        agent: argv.agent || argv.a || argv._[1],
-        repo: argv.repo || argv.r,
-        session: argv.session || argv.s,
+      if (argv.help || argv.h) {
+        console.log(`
+${c.boldColor('cyan', 'Interactive Mode')}
+
+${c.bold('Usage:')} maestro code [options]
+
+${c.bold('Description:')}
+  Interactive REPL for Maestro. Type a task, press Enter, and Maestro
+  creates a session, runs the autonomous workflow, and shows progress.
+
+${c.bold('Options:')}
+  --template <name>     Session template (default: project-autonomous)
+  --entry <name>        Entry point to invoke (default: dev)
+  --repo <path>         Repository path (default: current directory)
+  --headless            Run without TUI (structured text output, no TTY needed)
+  --task <text>         Task to execute (headless mode, avoids stdin prompt)
+
+${c.bold('Examples:')}
+  maestro code                                   Interactive TUI mode
+  maestro code --headless --task "Add login"      Headless mode with task
+  echo "Fix bug" | maestro code --headless        Headless mode with piped input
+`);
+        return;
+      }
+
+      // Headless mode: no Ink, structured text output, works without TTY
+      if (argv.headless) {
+        const { runHeadless } = require('./interactive/headless.ts');
+        return runHeadless({
+          apiClient: client,
+          repoPath: argv.repo || process.cwd(),
+          template: argv.template || 'project-autonomous',
+          entryPoint: argv.entry || 'dev',
+          task: argv.task || argv._.slice(1).join(' ') || undefined,
+          importSessionTemplate,
+        });
+      }
+
+      // Interactive TUI mode (requires TTY)
+      const { startInteractiveMode } = require('./interactive/launcher.ts');
+
+      return startInteractiveMode({
+        apiClient: client,
+        repoPath: argv.repo || process.cwd(),
+        template: argv.template || 'project-autonomous',
+        entryPoint: argv.entry || 'dev',
+        importSessionTemplate,
       });
     }
 
@@ -5836,7 +6110,7 @@ ${c.bold('Commands:')}
   import <id> --template <t>   Import a session template
   vars <id> [list|get|set|remove]  Manage variables
   entry-points <id>            Manage entry points
-  invoke <id> [entry-point]    Invoke entry point (default: start)
+  invoke <id> [entry-point]    Invoke entry point (--input key=val or key=val)
   widgets <id>                 Manage monitor widgets
   exec <id> "<cmd>"            Execute command in session
   events <id>                  Show event history
@@ -6132,6 +6406,16 @@ ${c.bold('Quick Start:')}
             if (eqIdx > 0) {
               inputs[String(arg).slice(0, eqIdx)] = String(arg).slice(eqIdx + 1);
             }
+          }
+        }
+
+        // Phase 32-C: Also parse positional key=value args after entry point
+        // e.g. maestro session invoke <id> dev task="Add login" repoPath="."
+        for (let i = 4; i < argv._.length; i++) {
+          const arg = String(argv._[i]);
+          const eqIdx = arg.indexOf('=');
+          if (eqIdx > 0) {
+            inputs[arg.slice(0, eqIdx)] = arg.slice(eqIdx + 1);
           }
         }
 
@@ -7569,6 +7853,26 @@ ${c.bold('Quick Start:')}
     if (cmd === 'init') {
       const targetPath = argv._[1] || argv.path;
       return await initRepo(targetPath);
+    }
+
+    // Phase 32-B: List available aliases
+    if (cmd === 'aliases') {
+      const aliases = loadAliases();
+      const names = Object.keys(aliases);
+      if (names.length === 0) {
+        console.log(c.gray('\nNo aliases configured.'));
+        console.log(c.gray('  Run `maestro init` to create .maestro/aliases.json with defaults.'));
+        console.log(c.gray('  Or create ~/.maestro/aliases.json for global aliases.\n'));
+        return;
+      }
+      console.log(`\n${c.bold('Available aliases:')}\n`);
+      for (const name of names) {
+        const def = aliases[name];
+        console.log(`  ${c.cyan(name)}${def.description ? c.gray(` — ${def.description}`) : ''}`);
+        console.log(`    ${c.gray('template:')} ${def.template || 'project-autonomous'}  ${c.gray('entry:')} ${def.entryPoint || 'dev'}`);
+      }
+      console.log(`\n${c.gray('Usage:')} maestro <alias> "task description"\n`);
+      return;
     }
 
     // Phase 20: Auth commands

@@ -28,52 +28,13 @@
 | 29 | Purpose document (adapt/optimize) | COMPLETE (planning) |
 | 30 | Autonomous Dev v3 (8 nodes, 7 sub-blocks, 3/3 tests) | COMPLETE |
 | 31-PRESOL | Bug fixes (TUI leaks, phase display, json-validator, quality gates) | COMPLETE |
+| 31 | Solidification des fondations (publish, audit, usage reel Cantante) | COMPLETE |
+| 32 | CLI Polish + maestro init + aliases + review gate | COMPLETE |
+| 33 | `maestro code` — TUI interactive + headless + tests (29/29) | COMPLETE |
 
 ---
 
 ## Phases actives et a venir
-
-### Phase 31 : Solidification des fondations ← EN COURS
-
-**But** : Publier, utiliser, corriger. Rendre reel ce qui existe.
-
-| Sous-phase | Objectif | Effort |
-|------------|----------|--------|
-| 31-A | Publier les 9 blocks via approval flow | 0.5 jour |
-| 31-B | Auditer les 85+ blocks (actifs vs placeholders) | 1 jour |
-| 31-C | Usage reel de autonomous-dev sur 3 taches Cantante | 2-3 jours |
-| 31-D | Corriger ce que 31-C revele | 3-5 jours |
-| 31-E | Ecrire le guide quickstart | 0.5 jour |
-
-**Docs** : `docs/phases/PHASE-31/README.md`
-
----
-
-### Phase 32 : CLI Polish + `maestro init`
-
-**But** : Rendre le CLI utilisable par un nouveau dev sans aide.
-
-| Sous-phase | Objectif | Effort |
-|------------|----------|--------|
-| 32-A | `maestro init` (detecte le projet, cree .maestro/) | 1-2 jours |
-| 32-B | Aliases system (`maestro agent` → workflow configurable) | 1 jour |
-| 32-C | UX (auto-completion IDs, meilleurs messages d'erreur) | 2-3 jours |
-
-**Docs** : `docs/phases/PHASE-32/README.md`
-
----
-
-### Phase 33 : `maestro code` — Mode interactif
-
-**But** : L'experience Claude Code mais avec Maestro.
-
-| Sous-phase | Objectif | Effort |
-|------------|----------|--------|
-| 33-A | Prototype TUI interactive (Ink split: rendu + input) | 1-2 jours |
-| 33-B | Mode interactif fonctionnel E2E | 3-5 jours |
-| 33-C | Test et amelioration sur Cantante | 3-5 jours |
-
-**Docs** : `docs/phases/PHASE-33/README.md`
 
 ---
 

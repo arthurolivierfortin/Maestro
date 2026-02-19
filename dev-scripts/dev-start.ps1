@@ -317,15 +317,21 @@ if ($Stop) {
 
 Write-Header "Maestro Development Startup ($Mode mode)"
 
-# Clean up first
+# Check existing services (skip if already running)
 Write-Status "Checking for existing services..." "Gray"
+$allRunning = $true
 foreach ($service in $Ports.Keys) {
     $port = $Ports[$service]
     if (Test-Port $port) {
-        Write-Status "  Port $port ($service) is in use, stopping..." "Yellow"
-        Stop-ProcessOnPort $port
-        Start-Sleep -Seconds 2
+        Write-Status "  $service already running on port $port" "Green"
+    } else {
+        $allRunning = $false
     }
+}
+if ($allRunning -and -not $Rebuild) {
+    Write-Status "All services already running. Use -Stop to restart." "Green"
+    Show-Summary
+    exit 0
 }
 
 if ($Mode -eq "docker") {

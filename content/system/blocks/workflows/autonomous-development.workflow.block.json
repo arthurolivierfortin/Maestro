@@ -3,9 +3,9 @@
   "id": "autonomous-development",
   "name": "Autonomous Development Workflow",
   "blockType": "workflow",
-  "version": "3.0.0",
+  "version": "3.1.0",
   "isAtomic": false,
-  "description": "Complete autonomous development workflow v3: analyze → validate → plan → validate → for-each step (implement + verify) → test → review → commit. Uses json-validator and step-validator blocks for anti-hallucination.",
+  "description": "Complete autonomous development workflow v3.1: analyze → plan → validate → for-each step (implement + verify) → test → review → conditional commit (only if review approved). Uses json-validator and step-validator blocks for anti-hallucination.",
 
   "inputs": [
     {
@@ -124,16 +124,22 @@
         "description": "Score the implementation quality"
       },
       {
-        "id": "commit",
-        "name": "Commit Changes",
-        "blockRef": "git-committer",
-        "inputs": {
-          "repoPath": "{{inputs.repoPath}}",
-          "task": "{{inputs.task}}",
-          "changes": "{{_nodeResult_review}}",
-          "review": "{{_nodeResult_review}}"
+        "id": "review-gate",
+        "name": "Review Gate",
+        "type": "conditional",
+        "condition": "{{_nodeResult_review.approved}} == true",
+        "then": {
+          "id": "commit",
+          "name": "Commit Changes",
+          "blockRef": "git-committer",
+          "inputs": {
+            "repoPath": "{{inputs.repoPath}}",
+            "task": "{{inputs.task}}",
+            "changes": "{{_nodeResult_review}}",
+            "review": "{{_nodeResult_review}}"
+          }
         },
-        "description": "Create a clean conventional commit"
+        "description": "Only commit if review approved (score >= 0.8)"
       }
     ],
 

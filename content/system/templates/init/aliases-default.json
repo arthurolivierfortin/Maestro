@@ -1,0 +1,8 @@
+{
+  "agent": {
+    "workflow": "autonomous-development",
+    "template": "project-autonomous",
+    "entryPoint": "dev",
+    "description": "Autonomous development agent"
+  }
+}

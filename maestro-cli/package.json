@@ -23,13 +23,17 @@
   },
   "scripts": {
     "test": "tsx tests/validator.test.ts && tsx tests/execute-integration.test.ts && tsx tests/phase-workflow-tree.test.ts",
+    "test:ink": "vitest run tests/interactive/",
+    "test:all": "npm test && npm run test:ink",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "typecheck:ink": "tsc --noEmit -p monitor/ink/tsconfig.json"
   },
   "devDependencies": {
     "@types/node": "^25.2.3",
     "@types/react": "^19.2.14",
+    "ink-testing-library": "^4.0.0",
     "tsx": "^4.21.0",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.18"
   }
 }

@@ -10,7 +10,7 @@ This guide shows how to use Maestro to autonomously implement tasks in a target 
 2. **LLM-Provider running** on port 5010 with at least one model available
 
 ```bash
-# Start all services
+# Start all services (skips already-running services)
 powershell.exe -File C:\Meastro\dev-scripts\dev-start.ps1
 
 # Verify
@@ -34,7 +34,63 @@ powershell.exe -Command "Start-Process powershell -ArgumentList '-NoExit','-Comm
 
 ---
 
-## Step 1: Create a Session
+## Fast Path: `maestro code`
+
+The fastest way to use Maestro (Phase 33):
+
+### Interactive TUI
+
+```bash
+cd C:\Meastro\maestro-cli
+node index.js code --repo C:\path\to\your\project
+```
+
+This opens an Ink-based TUI with a prompt. Type your task, press Enter, and watch the execution in real-time. Session creation, template import, and workflow invocation are handled automatically.
+
+### Headless Mode
+
+For CI, automation, or non-TTY environments:
+
+```bash
+node index.js code --headless --task "Add a MIT LICENSE file" --repo C:\path\to\your\project
+```
+
+Output is structured text to stdout:
+```
+[12:34:56] [INFO ] Task: Add a MIT LICENSE file
+[12:34:56] [INFO ] Creating session...
+[12:34:57] [INFO ] Session started
+[12:34:57] [NODE ] ▶ Plan
+[12:35:02] [NODE ] ✓ Plan
+[12:35:02] [NODE ] ▶ Implement
+[12:35:10] [NODE ] ✓ Implement
+[12:35:15] [DONE ] Task completed successfully
+```
+
+### Using Aliases
+
+If you've initialized your project with `maestro init`:
+
+```bash
+cd C:\path\to\your\project
+cd C:\Meastro\maestro-cli
+
+# Initialize project (creates .maestro/ with config + aliases)
+node index.js init C:\path\to\your\project
+
+# Then use aliases
+node index.js agent "Add login page"
+```
+
+Aliases map short commands to templates + entry points. See `.maestro/aliases.json`.
+
+---
+
+## Advanced: Manual Session Workflow
+
+For full control over session lifecycle, use the manual workflow:
+
+### Step 1: Create a Session
 
 ```bash
 cd C:\Meastro\maestro-cli
@@ -48,9 +104,7 @@ node index.js session create \
 
 Note the **Session ID** returned (e.g., `38ec6ae5-f7dd-44bd-9037-2b051666b0fe`).
 
----
-
-## Step 2: Launch the Monitor
+### Step 2: Launch the Monitor
 
 Open a new terminal window with the TUI monitor:
 
@@ -60,9 +114,7 @@ powershell.exe -Command "Start-Process powershell -ArgumentList '-NoExit','-Comm
 
 The monitor shows real-time progress: phases (Prepare, Plan, Validate, Implement, Test, Review, Commit), execution tree, and logs.
 
----
-
-## Step 3: Invoke the Workflow
+### Step 3: Invoke the Workflow
 
 ```bash
 node index.js session invoke <session-id> dev \
@@ -70,23 +122,19 @@ node index.js session invoke <session-id> dev \
   repoPath="C:\path\to\your\project"
 ```
 
-### Example tasks (tested):
+---
+
+## Example Tasks (Tested)
 
 ```bash
 # Simple: create a file
-node index.js session invoke <id> dev \
-  --input task="Add a MIT LICENSE file to the project" \
-  repoPath="C:\Cantante"
+node index.js code --headless --task "Add a MIT LICENSE file to the project" --repo C:\Cantante
 
 # Medium: fix code issues
-node index.js session invoke <id> dev \
-  --input task="Fix TypeScript compilation errors in src/modules/file-tree.ts" \
-  repoPath="C:\Cantante"
+node index.js code --headless --task "Fix TypeScript compilation errors in src/modules/file-tree.ts" --repo C:\Cantante
 
 # Complex: create new module
-node index.js session invoke <id> dev \
-  --input task="Create the Electron main process entry point in src/main/index.ts with a BrowserWindow" \
-  repoPath="C:\Cantante"
+node index.js code --headless --task "Create the Electron main process entry point in src/main/index.ts with a BrowserWindow" --repo C:\Cantante
 ```
 
 ---
@@ -148,11 +196,18 @@ curl -s http://localhost:5010/api/v1/health/
 curl -s http://localhost:5010/api/v1/models
 ```
 
+### Interactive mode requires a terminal (TTY)
+If running `maestro code` in a non-TTY context, use `--headless` mode instead:
+```bash
+node index.js code --headless --task "your task"
+```
+
 ---
 
 ## Tips
 
 - **Be specific in task descriptions.** Instead of "fix the code", say "Fix TypeScript compilation errors in src/modules/file-tree.ts — FileNode is used as a class but declared as an interface."
-- **One task per session.** Create a new session for each task.
+- **One task per session.** Create a new session for each task (or use `maestro code` which does this automatically).
 - **Check git status first.** If your repo has uncommitted changes, the agent may include them in its commit.
 - The review score is informational. Currently, `approved: false` does not block the commit.
+- **`maestro code` is the recommended workflow.** Manual session management is only needed for advanced use cases.

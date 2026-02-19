@@ -1,6 +1,6 @@
 # Maestro CLI
 
-**Location**: `C:\Meastro\tools\maestro-cli\index.js`
+**Location**: `C:\Meastro\maestro-cli\index.js`
 
 ---
 
@@ -10,45 +10,80 @@ The Maestro CLI is the primary interface for interacting with Maestro. It follow
 
 ---
 
-## CLI-First Principle
+## Quick Start
 
-```
-┌─────────────────────────────────────┐
-│  HUMAN                             │
-│  $ maestro session start sess-001  │
-└─────────────────┬───────────────────┘
-                  │
-                  ▼
-         ┌────────────────┐
-         │   MAESTRO CLI  │  ← Same interface
-         └────────┬───────┘
-                  │
-                  ▼
-┌─────────────────────────────────────┐
-│  AGENT                              │
-│  maestro_cli("session start ...")   │
-└─────────────────────────────────────┘
-```
+```bash
+cd C:\Meastro\maestro-cli
 
-Agents have ONE tool: `maestro-cli`. Through it, they access everything their context allows.
+# 1. Initialize a project
+node index.js init /path/to/your/project
+
+# 2. Run a task interactively
+node index.js code
+
+# Or headless (CI, pipes, automation)
+node index.js code --headless --task "Add a login page"
+```
 
 ---
 
-## CLI as a Block
+## Command Reference
 
-The CLI is itself a block: `system:maestro-cli` (see [DESIGN-MAESTRO-CLI-BLOCK.md](../../system/architecture/DESIGN-MAESTRO-CLI-BLOCK.md)).
+### Initialization (Phase 32)
 
-This aligns with Maestro's philosophy: **"Everything is a block"**.
+```bash
+maestro init [path]              # Initialize .maestro/ in a project
+```
 
----
+Detects project stack (Node, C#, Python, Java, Rust), creates `.maestro/config.json` with conventions, and sets up `aliases.json` for quick commands.
 
-## Command Categories
+### Interactive Mode (Phase 33)
+
+```bash
+maestro code                     # TUI mode — Ink-based interactive REPL
+maestro code --headless --task "description"  # Headless mode — structured text output
+maestro code --template <name>   # Use a specific session template (default: project-autonomous)
+maestro code --entry <name>      # Use a specific entry point (default: dev)
+maestro code --repo <path>       # Specify repo path (default: cwd)
+```
+
+**TUI mode** renders an Ink app with:
+- `OutputPanel` — scrollable log with timestamps
+- `StatusBar` — session ID and running/ready status
+- `InputPrompt` — text input for task descriptions
+
+**Headless mode** outputs structured text to stdout:
+```
+[HH:MM:SS] [INFO ] Task: Add login page
+[HH:MM:SS] [INFO ] Creating session...
+[HH:MM:SS] [NODE ] ▶ Plan (running)
+[HH:MM:SS] [NODE ] ✓ Plan (completed)
+[HH:MM:SS] [DONE ] Task completed successfully
+```
+
+Works in CI, pipes, and non-TTY environments (including Claude Code).
+
+**Session lifecycle** (both modes):
+1. `POST /api/sessions` — create session
+2. `importSessionTemplate()` — set variables, entry points, widgets
+3. `POST /api/sessions/{id}/start`
+4. `POST /api/sessions/{id}/invoke/dev` — inputs: `{repoPath, task}`
+5. Poll `GET /api/sessions/{id}` every 2s for `_executionTree` and `_executionLog`
+
+### Aliases (Phase 32)
+
+```bash
+maestro agent "Add login page"   # Alias → runs project-autonomous workflow
+maestro aliases                  # List configured aliases
+```
+
+Aliases are defined in `.maestro/aliases.json` (created by `maestro init`). Each alias maps a command name to a template + entry point.
 
 ### Health & Status
 
 ```bash
-maestro health              # Check system status
-maestro llm                 # Check LLM provider status
+maestro health              # Check system status (backend + LLM)
+maestro llm                 # Check LLM provider status and models
 ```
 
 ### Blocks
@@ -59,68 +94,89 @@ maestro workflows           # List workflow blocks
 maestro info <block-id>     # Block details
 maestro search <query>      # Search blocks
 maestro children <block-id> # List child blocks
+maestro run <block-id> --input key=value  # Execute a block directly
 ```
 
-### Sessions
+### Sessions (Advanced)
+
+`maestro code` handles session management automatically. These commands are for advanced/manual usage:
 
 ```bash
-maestro session create      # Create new session
-maestro session start <id>  # Start session
-maestro session stop <id>   # Stop session
-maestro session invoke <id> <entry-point>  # Invoke entry point
-maestro session vars <id> get <key>        # Get variable
-maestro session vars <id> set <key> <val>  # Set variable
-maestro session import --template <name>   # Import template
-maestro session list        # List all sessions
+maestro session create --type project --name "..." --repo "..." --template project-autonomous --start
+maestro session start <id>
+maestro session stop <id>
+maestro session invoke <id> <entry-point> --input task="..." repoPath="..."
+maestro session vars <id> get <key>
+maestro session vars <id> set <key> <value>
+maestro session import --template <name>
+maestro session list
 ```
 
 ### Monitor
 
 ```bash
-maestro monitor <session-id>               # Open TUI monitor
+maestro monitor <session-id>                # Open TUI monitor for a session
 maestro monitor <session-id> --layout workflow
-maestro monitor --sessions <id1>,<id2> --split horizontal
 ```
 
-### Projects
+The monitor polls `GET /api/sessions/{id}` every 2s and renders phases, execution tree, logs, and LLM activity.
+
+### Workspaces & Projects
 
 ```bash
-maestro project list        # List projects
-maestro project create      # Create new project
-maestro project open <id>   # Open project
-```
-
-### Training & Tools
-
-```bash
-maestro tools               # List all tools
-maestro tools --category <category>
-maestro run <block-id> --input key=value
-maestro data read/write/list  # Manage workspace data
+maestro workspace list
+maestro workspace create --name "..." --repo "..."
+maestro workspace add-session <workspace-id> <session-id>
+maestro project list
+maestro project create
 ```
 
 ---
 
-## Usage for Agents
+## CLI-First Principle
 
-Agents execute CLI commands via the `maestro_cli` tool:
-
-```python
-# Agent discovers available tools
-maestro_cli({ command: "list-tools" })
-
-# Agent gets block details
-maestro_cli({ command: "describe fitness-calculator" })
-
-# Agent executes a block
-maestro_cli({ command: "run fitness-calculator --input modelId=xyz" })
 ```
+┌─────────────────────────────────────┐
+│  HUMAN                             │
+│  $ maestro code --task "..."       │
+└─────────────────┬───────────────────┘
+                  │
+                  ▼
+         ┌────────────────┐
+         │   MAESTRO CLI  │  ← Same interface
+         └────────┬───────┘
+                  │
+                  ▼
+┌─────────────────────────────────────┐
+│  AGENT                              │
+│  maestro_cli("code --headless ...")  │
+└─────────────────────────────────────┘
+```
+
+Agents have ONE tool: `maestro-cli`. Through it, they access everything their context allows.
+
+The CLI is itself a block: `system:maestro-cli` (see [DESIGN-MAESTRO-CLI-BLOCK.md](../../system/architecture/DESIGN-MAESTRO-CLI-BLOCK.md)).
 
 ---
 
-## Permission System
+## Testing
 
-All CLI commands are permission-checked against the current context (workspace/session). An agent in a restricted training session cannot create blocks or access unauthorized tools.
+CLI interactive components are tested with **vitest** + **ink-testing-library**:
+
+```bash
+cd C:\Meastro\maestro-cli
+npx vitest run tests/interactive/    # 29 tests (25 App + 4 headless)
+```
+
+Test files:
+- `tests/interactive/App.test.ts` — OutputPanel, StatusBar, InputPrompt, InteractiveApp, SessionManager
+- `tests/interactive/headless.test.ts` — headless mode lifecycle, error handling, output format
+
+Key testing patterns:
+- `render(h(Component, props))` → `{lastFrame, stdin}` — renders without TTY
+- `await delay()` before `stdin.write()` — React effects run async
+- `typeText(stdin, 'text')` — sends characters one by one (Ink's `useInput` expects individual keypresses)
+- `stripAnsi(lastFrame())` — removes ANSI codes for text assertions
 
 ---
 
