@@ -1,0 +1,110 @@
+{
+  "totalRequests": 88,
+  "latency": {
+    "p50": 0,
+    "p95": 0,
+    "p99": 0,
+    "average": 0
+  },
+  "totalTokens": {
+    "promptTokens": 76934,
+    "completionTokens": 67179,
+    "totalTokens": 144113
+  },
+  "modelStats": [
+    {
+      "modelId": {
+        "value": "opus"
+      },
+      "requestCount": 27,
+      "latency": {
+        "p50": 14621,
+        "p95": 41203.99999999999,
+        "p99": 47615.499999999985,
+        "average": 17726.703703703704
+      },
+      "totalTokens": {
+        "promptTokens": 56536,
+        "completionTokens": 21218,
+        "totalTokens": 77754
+      },
+      "requestsPerMinute": 0.5966269948292073,
+      "errorRate": 0
+    },
+    {
+      "modelId": {
+        "value": "sonnet"
+      },
+      "requestCount": 61,
+      "latency": {
+        "p50": 9284,
+        "p95": 35553,
+        "p99": 69865.4,
+        "average": 14505.065573770491
+      },
+      "totalTokens": {
+        "promptTokens": 20398,
+        "completionTokens": 45961,
+        "totalTokens": 66359
+      },
+      "requestsPerMinute": 1.3405477172283764,
+      "errorRate": 0
+    }
+  ],
+  "queue": {
+    "currentDepth": 0,
+    "depthByModel": {},
+    "currentModel": null,
+    "avgWaitTimeMs": 0,
+    "totalEnqueued": 0,
+    "totalProcessed": 0
+  },
+  "switching": {
+    "totalSwitches": 0,
+    "switchesAvoided": 0,
+    "avgSwitchDuration": "00:00:00",
+    "recentDecisions": []
+  },
+  "timeWindows": [
+    {
+      "windowName": "1m",
+      "windowSeconds": 60,
+      "requestCount": 0,
+      "requestsPerMinute": 0,
+      "latency": {
+        "p50": 0,
+        "p95": 0,
+        "p99": 0,
+        "average": 0
+      },
+      "tokensTotal": 144113
+    },
+    {
+      "windowName": "5m",
+      "windowSeconds": 300,
+      "requestCount": 0,
+      "requestsPerMinute": 0,
+      "latency": {
+        "p50": 0,
+        "p95": 0,
+        "p99": 0,
+        "average": 0
+      },
+      "tokensTotal": 144113
+    },
+    {
+      "windowName": "15m",
+      "windowSeconds": 900,
+      "requestCount": 0,
+      "requestsPerMinute": 0,
+      "latency": {
+        "p50": 0,
+        "p95": 0,
+        "p99": 0,
+        "average": 0
+      },
+      "tokensTotal": 144113
+    }
+  ],
+  "generatedAt": "2026-02-18T23:59:12.8943999+00:00"
+}

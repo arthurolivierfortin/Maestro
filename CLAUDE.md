@@ -373,10 +373,10 @@ powershell.exe -File C:\Meastro\dev-scripts\dev-start.ps1 -Stop
 
 ### CLI Commands
 
-The Maestro CLI is at `maestro-cli/index.js`:
+The Maestro CLI is at `packages/maestro-cli/index.js`:
 
 ```bash
-cd C:\Meastro\maestro-cli
+cd C:\Meastro\packages\maestro-cli
 
 # Quick start (Phase 32-33)
 node index.js init                                    # Initialize .maestro/ in current project
@@ -408,7 +408,9 @@ node index.js monitor <id>        # TUI monitor for a session
 1. **Run tests before starting work**
    - Frontend: `cd frontend && npm test -- --run`
    - Backend: `cd backend && dotnet test`
-   - CLI interactive: `cd maestro-cli && npx vitest run tests/interactive/`
+   - CLI interactive: `cd packages/maestro-code && npx vitest run tests/`
+   - TUI toolkit: `cd packages/tui && npx vitest run tests/`
+   - Monitor: `cd packages/maestro-monitor && npx vitest run tests/`
 
 2. **Understand test baseline**
    - Note the number of passing/failing tests
@@ -497,7 +499,7 @@ Session templates (`content/system/templates/sessions/*.session.json`) carry ALL
 - `variables` — Initial state including `_phases`, `_monitorDescriptor`, `_workflowConfig`
 - `entryPoints` — Maps names to workflow block IDs
 - `monitorWidgets` — Widget configs (legacy, used when no `_monitorDescriptor`)
-- Template import is done by CLI (`importSessionTemplate` in `maestro-cli/index.js`)
+- Template import is done by CLI (`importSessionTemplate` in `packages/maestro-cli/cli.ts`)
 - CLI reads JSON, calls PUT APIs for variables, entry points, widgets
 - No backend code changes needed for new session types
 

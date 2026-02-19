@@ -1,0 +1,12 @@
+global using System;
+global using System.Collections.Generic;
+global using System.Linq;
+global using System.Threading;
+global using System.Threading.Tasks;
+global using Microsoft.AspNetCore.Mvc;
+global using LLMProvider.Domain.Entities;
+global using LLMProvider.Domain.ValueObjects;
+global using LLMProvider.Domain.Enums;
+global using LLMProvider.Application.Interfaces;
+global using LLMProvider.Application.Services;
+global using LLMProvider.Application.DTOs;

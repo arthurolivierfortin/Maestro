@@ -151,7 +151,6 @@ _ReSharper*/
 # NuGet Packages
 *.nupkg
 *.snupkg
-**/packages/*
 
 # Backup files
 *.bak
@@ -174,3 +173,9 @@ content/user/training/
 content/user/testing/
 content/user/fitness/
 content/user/experiments/
+
+# LLM-Provider build artifacts
+llm-provider/dotnet/**/bin/
+llm-provider/dotnet/**/obj/
+llm-provider/api/__pycache__/
+llm-provider/api/.venv/

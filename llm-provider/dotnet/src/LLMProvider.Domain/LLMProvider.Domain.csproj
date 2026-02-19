@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>LLMProvider.Domain</RootNamespace>
+    <AssemblyName>LLMProvider.Domain</AssemblyName>
+    <Description>Core domain entities, value objects, and business rules for the LLM Provider Platform.</Description>
+  </PropertyGroup>
+
+  <!-- Domain layer has NO external dependencies -->
+
+</Project>

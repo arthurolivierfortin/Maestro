@@ -1,0 +1,18 @@
+{
+  "name": "@maestro/cli",
+  "version": "0.1.0",
+  "bin": { "maestro": "./index.js" },
+  "engines": { "node": ">=18.0.0" },
+  "dependencies": {
+    "@maestro/tui": "*",
+    "@maestro/monitor": "*",
+    "@maestro/code": "*",
+    "minimist": "^1.2.8",
+    "ink": "^6.7.0",
+    "react": "^19.2.4"
+  },
+  "scripts": {
+    "test:ink": "vitest run tests/interactive/",
+    "test:all": "npm test && npm run test:ink"
+  }
+}

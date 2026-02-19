@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <RootNamespace>LLMProvider.Web</RootNamespace>
+    <AssemblyName>LLMProvider.Web</AssemblyName>
+    <Description>REST API host for the LLM Provider Platform.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\LLMProvider.Application\LLMProvider.Application.csproj" />
+    <ProjectReference Include="..\LLMProvider.Infrastructure\LLMProvider.Infrastructure.csproj" />
+    <ProjectReference Include="..\LLMProvider.AzureProvider\LLMProvider.AzureProvider.csproj" />
+    <ProjectReference Include="..\LLMProvider.AzureInferenceProvider\LLMProvider.AzureInferenceProvider.csproj" />
+    <ProjectReference Include="..\LLMProvider.LocalProvider\LLMProvider.LocalProvider.csproj" />
+    <ProjectReference Include="..\LLMProvider.ClaudeCodeProvider\LLMProvider.ClaudeCodeProvider.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Azure.Extensions.AspNetCore.Configuration.Secrets" Version="1.3.2" />
+    <PackageReference Include="Azure.Identity" Version="1.13.1" />
+    <PackageReference Include="Serilog.AspNetCore" Version="9.0.0" />
+    <PackageReference Include="Serilog.Sinks.File" Version="6.0.0" />
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="8.0.0" />
+  </ItemGroup>
+
+</Project>

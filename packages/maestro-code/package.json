@@ -1,0 +1,15 @@
+{
+  "name": "@maestro/code",
+  "version": "0.1.0",
+  "exports": {
+    ".": "./launcher.ts",
+    "./launcher.ts": "./launcher.ts",
+    "./headless.ts": "./headless.ts",
+    "./ink-table-launcher.ts": "./ink-table-launcher.ts"
+  },
+  "dependencies": {
+    "@maestro/tui": "*",
+    "ink": "^6.7.0",
+    "react": "^19.2.4"
+  }
+}

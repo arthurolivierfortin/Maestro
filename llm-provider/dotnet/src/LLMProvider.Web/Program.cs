@@ -1,0 +1,164 @@
+using Azure.Identity;
+using LLMProvider.AzureProvider;
+using LLMProvider.AzureInferenceProvider;
+using LLMProvider.ClaudeCodeProvider;
+using LLMProvider.Infrastructure;
+using LLMProvider.LocalProvider;
+using LLMProvider.Web.Endpoints;
+using LLMProvider.Web.Middleware;
+using LLMProvider.Web.Services;
+using Microsoft.OpenApi.Models;
+using Serilog;
+
+var builder = WebApplication.CreateBuilder(args);
+
+// Configure Serilog early for logging during startup
+Log.Logger = new LoggerConfiguration()
+    .ReadFrom.Configuration(builder.Configuration)
+    .Enrich.FromLogContext()
+    .WriteTo.Console()
+    .CreateLogger();
+
+builder.Host.UseSerilog();
+
+// Add Azure Key Vault configuration (if configured)
+var keyVaultUrl = builder.Configuration["KeyVault:Url"];
+if (!string.IsNullOrEmpty(keyVaultUrl))
+{
+    try
+    {
+        builder.Configuration.AddAzureKeyVault(
+            new Uri(keyVaultUrl),
+            new DefaultAzureCredential());
+        Log.Information("Azure Key Vault configuration loaded from {Url}", keyVaultUrl);
+    }
+    catch (Exception ex)
+    {
+        Log.Warning(ex, "Failed to load Azure Key Vault configuration from {Url}. Continuing without it.", keyVaultUrl);
+    }
+}
+
+// Configure Kestrel for localhost binding in Production
+if (!builder.Environment.IsDevelopment())
+{
+    builder.WebHost.ConfigureKestrel(options =>
+    {
+        var bindAddress = builder.Configuration["Server:BindAddress"] ?? "127.0.0.1";
+        var port = builder.Configuration.GetValue<int>("Server:Port", 5000);
+
+        if (System.Net.IPAddress.TryParse(bindAddress, out var ipAddress))
+        {
+            options.Listen(ipAddress, port);
+            Log.Information("Kestrel configured to listen on {Address}:{Port}", bindAddress, port);
+        }
+        else
+        {
+            Log.Warning("Invalid bind address '{Address}', defaulting to localhost", bindAddress);
+            options.Listen(System.Net.IPAddress.Loopback, port);
+        }
+    });
+}
+
+// Add services to the container
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen(options =>
+{
+    options.SwaggerDoc("v1", new()
+    {
+        Title = "LLM Provider API",
+        Version = "v1",
+        Description = "A provider-agnostic API for interacting with multiple LLM providers."
+    });
+
+    // Add API Key authentication to Swagger
+    options.AddSecurityDefinition("ApiKey", new OpenApiSecurityScheme
+    {
+        Description = "API Key authentication. Enter your API key in the X-API-Key header.",
+        Name = "X-API-Key",
+        In = ParameterLocation.Header,
+        Type = SecuritySchemeType.ApiKey,
+        Scheme = "ApiKeyScheme"
+    });
+
+    options.AddSecurityRequirement(new OpenApiSecurityRequirement
+    {
+        {
+            new OpenApiSecurityScheme
+            {
+                Reference = new OpenApiReference
+                {
+                    Type = ReferenceType.SecurityScheme,
+                    Id = "ApiKey"
+                }
+            },
+            Array.Empty<string>()
+        }
+    });
+});
+
+// Add infrastructure and application services
+builder.Services.AddInfrastructure();
+builder.Services.AddApplicationServices(builder.Configuration);
+
+// Add providers
+builder.Services.AddAzureProvider(builder.Configuration);
+builder.Services.AddAzureInferenceProvider(builder.Configuration);
+builder.Services.AddLocalProvider(builder.Configuration);
+builder.Services.AddClaudeCodeProvider(builder.Configuration);
+
+// Add TUI Monitor auto-launch
+builder.Services.AddHostedService<MonitorHostedService>();
+
+// Add CORS for development
+builder.Services.AddCors(options =>
+{
+    options.AddDefaultPolicy(policy =>
+    {
+        policy.AllowAnyOrigin()
+              .AllowAnyMethod()
+              .AllowAnyHeader();
+    });
+});
+
+var app = builder.Build();
+
+// Configure the HTTP request pipeline
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
+
+// API Key authentication middleware (checks Security:ApiKey:Enabled config)
+app.UseMiddleware<ApiKeyAuthenticationMiddleware>();
+
+app.UseCors();
+app.UseSerilogRequestLogging();
+
+// Map endpoints
+app.MapModelsEndpoints();
+app.MapConversationsEndpoints();
+app.MapLLMEndpoints();
+app.MapHealthEndpoints();
+app.MapStatisticsEndpoints();
+
+// Root redirect to Swagger
+app.MapGet("/", () => Results.Redirect("/swagger"))
+    .ExcludeFromDescription();
+
+try
+{
+    Log.Information("Starting LLM Provider API");
+    app.Run();
+}
+catch (Exception ex)
+{
+    Log.Fatal(ex, "Application terminated unexpectedly");
+}
+finally
+{
+    Log.CloseAndFlush();
+}
+
+// Make Program class accessible for integration tests
+public partial class Program { }

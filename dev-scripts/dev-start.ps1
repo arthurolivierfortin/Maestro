@@ -20,7 +20,7 @@ param(
 
 $ErrorActionPreference = "Continue"
 $MaestroRoot = Split-Path -Parent $PSScriptRoot
-$LLMProviderRoot = "C:\LLM-Provider"
+$LLMProviderRoot = "$MaestroRoot\llm-provider"
 
 # Port configuration
 $Ports = @{

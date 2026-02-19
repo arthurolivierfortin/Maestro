@@ -1,0 +1,19 @@
+{
+  "name": "@maestro/provider-monitor",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "./src/index.ts",
+  "scripts": {
+    "dev": "tsx src/index.ts",
+    "start": "tsx src/index.ts start",
+    "status": "tsx src/index.ts status"
+  },
+  "dependencies": {
+    "@maestro/tui": "*",
+    "ink": "^6.0.0",
+    "react": "^19.0.0",
+    "minimist": "^1.2.8",
+    "chalk": "^5.4.1",
+    "tail": "^2.2.6"
+  }
+}

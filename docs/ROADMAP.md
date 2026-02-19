@@ -41,14 +41,14 @@
 
 ### Phase 33-C : Consolidation TUI Monorepo
 
-**But** : Consolider les 3 implementations TUI paralleles (Maestro monitor, LLM-Provider monitor, CLI interactive) en un monorepo npm workspaces avec code partage reel. Supprimer le code mort shared/tui (~35 fichiers), unifier les hooks dupliques, corriger les bugs monitors, ajouter des tests.
+**But** : Consolider les 3 implementations TUI paralleles (Maestro monitor, LLM-Provider monitor, CLI interactive) en un monorepo npm workspaces avec code partage reel. Supprimer le code mort shared/tui (~28 fichiers), unifier les hooks dupliques, corriger les bugs monitors, ajouter des tests.
 
 | Sous-phase | Objectif | Effort |
 |------------|----------|--------|
-| 33-C-A | Audit et nettoyage shared/tui (supprimer code mort) | 1 jour |
-| 33-C-B | npm workspaces + migration imports | 2-3 jours |
-| 33-C-C | Unification hooks (une seule version par hook) | 2-3 jours |
-| 33-C-D | Correction bugs monitors + tests monitors | 2-3 jours |
+| 33-C-A | Migration LLM-Provider + restructuration packages/ | 2-3 jours |
+| 33-C-B | Construire @maestro/tui (audit, nettoyage, merge hooks/components, theme configurable) | 2-3 jours |
+| 33-C-C | Migrer les consommateurs (maestro-monitor, provider-monitor, maestro-code, maestro-cli) | 2-3 jours |
+| 33-C-D | Fix bugs, tests du toolkit, validation E2E | 2-3 jours |
 
 **Docs** : `docs/phases/PHASE-33C/README.md`
 

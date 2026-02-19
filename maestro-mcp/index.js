@@ -6,7 +6,7 @@
  * Uses the Maestro API backend instead of direct filesystem access
  */
 
-const { MaestroApiClient, ApiError } = require('../shared/api-client');
+const { MaestroApiClient, ApiError } = require('../packages/maestro-cli/api-client');
 
 // Configuration
 const API_URL = process.env.MAESTRO_API_URL || 'http://localhost:5000';

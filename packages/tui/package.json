@@ -1,0 +1,23 @@
+{
+  "name": "@maestro/tui",
+  "version": "0.1.0",
+  "type": "module",
+  "exports": {
+    ".": "./index.ts",
+    "./hooks": "./hooks/index.ts",
+    "./components": "./components/index.ts",
+    "./theme": "./theme/index.ts",
+    "./keybindings": "./keybindings/index.ts",
+    "./keybindings/*": "./keybindings/*",
+    "./theme/*": "./theme/*",
+    "./types": "./types/index.ts",
+    "./utils": "./utils/index.ts",
+    "./utils/*": "./utils/*",
+    "./app": "./app/index.ts",
+    "./app/*": "./app/*"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0",
+    "ink": "^6.0.0"
+  }
+}
