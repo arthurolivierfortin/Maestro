@@ -59,7 +59,7 @@ async function resolveId(shortId, resourceType = 'session') {
  * List available session templates by scanning the template directory.
  */
 function listAvailableTemplates() {
-  const templateDir = path.join(__dirname, '../content/system/templates/sessions');
+  const templateDir = path.join(__dirname, '../../content/system/templates/sessions');
   try {
     return fs.readdirSync(templateDir)
       .filter(f => f.endsWith('.session.json'))
@@ -106,7 +106,7 @@ function loadJson(p) {
 
 // Content path helper
 function getContentPath(scope = 'user') {
-  const root = path.resolve(__dirname, '..');
+  const root = path.resolve(__dirname, '../..');
   return path.join(root, 'content', scope);
 }
 
@@ -1560,7 +1560,7 @@ async function importSessionTemplate(sessionId, templateName, options: { quiet?:
     const verbose = !formatter.jsonMode && !options.quiet;
 
     // Look for template in content/system/templates/sessions/
-    const templatePath = path.join(__dirname, '../content/system/templates/sessions', `${templateName}.session.json`);
+    const templatePath = path.join(__dirname, '../../content/system/templates/sessions', `${templateName}.session.json`);
 
     if (!fs.existsSync(templatePath)) {
       const available = listAvailableTemplates();
@@ -1668,7 +1668,7 @@ function detectProjectStack(repoPath: string): string {
  * Templates live in content/system/templates/init/<stack>.md
  */
 function loadConventionsTemplate(stack: string): string {
-  const templateDir = path.join(__dirname, '..', 'content', 'system', 'templates', 'init');
+  const templateDir = path.join(__dirname, '..', '..', 'content', 'system', 'templates', 'init');
   const templateFile = stack === 'unknown' ? 'default.md' : `${stack}.md`;
   const templatePath = path.join(templateDir, templateFile);
 
@@ -1771,7 +1771,7 @@ This directory contains Maestro configuration for this repository.
   fs.writeFileSync(path.join(maestroDir, 'README.md'), readme);
 
   // 6. Copy default aliases
-  const defaultAliasesPath = path.join(__dirname, '..', 'content', 'system', 'templates', 'init', 'aliases-default.json');
+  const defaultAliasesPath = path.join(__dirname, '..', '..', 'content', 'system', 'templates', 'init', 'aliases-default.json');
   try {
     const aliasesContent = fs.readFileSync(defaultAliasesPath, 'utf-8');
     fs.writeFileSync(path.join(maestroDir, 'aliases.json'), aliasesContent);
@@ -6630,7 +6630,7 @@ ${c.bold('Quick Start:')}
           return;
         }
         const rows = templates.map(name => {
-          const templatePath = path.join(__dirname, '../content/system/templates/sessions', `${name}.session.json`);
+          const templatePath = path.join(__dirname, '../../content/system/templates/sessions', `${name}.session.json`);
           try {
             const content = JSON.parse(fs.readFileSync(templatePath, 'utf8'));
             const epCount = content.entryPoints ? Object.keys(content.entryPoints).length : 0;
@@ -6653,7 +6653,7 @@ ${c.bold('Quick Start:')}
         formatter.setCommand('templates.show');
         const name = argv._[2];
         if (!name) { formatter.error('Template name required', 'MISSING_PARAM'); process.exit(EXIT.USER_ERROR); }
-        const templatePath = path.join(__dirname, '../content/system/templates/sessions', `${name}.session.json`);
+        const templatePath = path.join(__dirname, '../../content/system/templates/sessions', `${name}.session.json`);
         if (!fs.existsSync(templatePath)) {
           const available = listAvailableTemplates();
           formatter.error(`Template not found: ${name}. Available: ${available.join(', ')}`, 'NOT_FOUND');

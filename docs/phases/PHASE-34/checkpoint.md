@@ -1,8 +1,8 @@
 # Phase 34 : Checkpoint
 
-**Derniere mise a jour** : 2026-02-19 22:20
+**Derniere mise a jour** : 2026-02-20 (audit + checkpoints retroactifs)
 **Sous-phase en cours** : 34-E (BLOQUE — services down)
-**Agent** : Claude Code session — Phase 34 execution (34-B → 34-D → 34-E)
+**Agent** : Claude Code session — Phase 34 execution (34-A → 34-B → 34-C → 34-D → 34-E)
 
 ---
 
@@ -76,6 +76,23 @@ Passed!  - Failed: 0, Passed: 93, Skipped: 0, Total: 93, Duration: 71 ms
 3. Grep confirme les 12 occurrences de checkpoint (save + read + skip + cleanup)
 4. Inspection du code confirme la logique correcte
 
+**Checkpoint dedie** : `docs/phases/PHASE-34/34-B/checkpoint.md`
+
+---
+
+## 34-C : Agents Specialistes + Workflow v4
+**Statut** : DONE (tous les blocs crees, tests runtime non executes)
+**Date** : 2026-02-19 (checkpoint ecrit retroactivement 2026-02-20)
+**Agents crees** : 10 agents + 8 inference blocks = 18 blocs specialistes (+ step-validator + plan-validator + git-committer = 21 total)
+**Workflow v4 cree** : OUI (`maestro-agent-v4.workflow.block.json` — 7 phases, parallel, while, for-each)
+**Session template v4 cree** : OUI (`project-v4.session.json`)
+**Agents testes individuellement** : NON (services down)
+**Workflow teste end-to-end** : NON (services down)
+**Conformite spec** : 31/31 blocs existent (21 specialistes + 2 composites + 8 tools)
+**Ecart note** : `task-architect` utilise Sonnet au lieu d'Opus (spec demandait Opus pour Tier 1)
+**Correction appliquee** : `plan-validator` — ajout `system-prompt.md` manquant + passage de `systemPrompt` inline a `systemPromptFile`
+**Checkpoint dedie** : `docs/phases/PHASE-34/34-C/checkpoint.md`
+
 ---
 
 ## 34-D-1 : WidgetRenderer
@@ -137,6 +154,7 @@ WidgetRenderer|sendMessage|startWidgetPolling|sendWidgetResponse|pendingInteract
 h(WidgetRenderer in render: 1 occurrence
 File lines: 605 (was 349)
 ```
+**Checkpoint dedie** : `docs/phases/PHASE-34/34-D/checkpoint.md`
 
 ---
 
