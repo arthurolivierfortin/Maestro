@@ -63,11 +63,10 @@ public class RunCommandHandler : ICommandHandler
                 blockId, context.WorkspaceId);
         }
 
-        // Parse inputs
+        // Parse inputs — use RepeatedArguments to handle multiple --input flags
         var inputs = new Dictionary<string, object>();
 
-        // Handle --input key=value arguments
-        foreach (var arg in command.Arguments)
+        foreach (var arg in command.RepeatedArguments)
         {
             if (arg.Key.Equals("input", StringComparison.OrdinalIgnoreCase))
             {
@@ -81,8 +80,6 @@ public class RunCommandHandler : ICommandHandler
             {
                 try
                 {
-                    // Sanitize JSON: escape literal newlines inside string values
-                    // (LLMs often produce JSON with unescaped newlines in strings)
                     var sanitized = SanitizeJsonNewlines(arg.Value);
                     var jsonInputs = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(sanitized);
                     if (jsonInputs != null)
@@ -96,6 +93,23 @@ public class RunCommandHandler : ICommandHandler
                 catch (Exception ex)
                 {
                     return CliResult.Failure($"Invalid JSON input: {ex.Message}");
+                }
+            }
+        }
+
+        // Fallback: positional args matching key=value are treated as inputs.
+        // This handles cases where agents send: --input path=X content=Y
+        // (content=Y becomes positional because it's not preceded by --input)
+        foreach (var posArg in command.PositionalArgs)
+        {
+            var eqIdx = posArg.IndexOf('=');
+            if (eqIdx > 0)
+            {
+                var key = posArg.Substring(0, eqIdx);
+                var val = posArg.Substring(eqIdx + 1);
+                if (!inputs.ContainsKey(key))
+                {
+                    inputs[key] = val;
                 }
             }
         }

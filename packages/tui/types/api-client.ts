@@ -4,11 +4,11 @@
  * Both MockApiClient and MaestroApiClient implement this contract.
  */
 
-import type { Session } from './session.js';
-import type { Block } from './block.js';
-import type { Workspace } from './workspace.js';
-import type { Project } from './project.js';
-import type { LLMHealth, LLMModel, LLMStatus, ModelPerformance } from './llm.js';
+import type { Session } from './session.ts';
+import type { Block } from './block.ts';
+import type { Workspace } from './workspace.ts';
+import type { Project } from './project.ts';
+import type { LLMHealth, LLMModel, LLMStatus, ModelPerformance } from './llm.ts';
 
 export interface HealthResponse {
   status: string;

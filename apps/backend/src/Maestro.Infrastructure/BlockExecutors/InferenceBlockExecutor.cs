@@ -95,7 +95,11 @@ public class InferenceBlockExecutor : LLMBlockExecutorBase
         if (response != null)
         {
             ParseOutputs(result, response.Content, block);
-            result.Logs.Add("LLM response received");
+            result.PromptTokens = response.PromptTokens;
+            result.CompletionTokens = response.CompletionTokens;
+            result.TotalTokens = response.TotalTokens;
+            result.EstimatedCostUsd = EstimateCost(response.Model ?? modelId, response.PromptTokens, response.CompletionTokens);
+            result.Logs.Add($"Tokens: {response.TotalTokens} (prompt={response.PromptTokens}, completion={response.CompletionTokens}), cost=${result.EstimatedCostUsd:F6}");
         }
         else
         {

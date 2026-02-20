@@ -19,8 +19,9 @@ public sealed class ClaudeCodeProviderOptions
 
     /// <summary>
     /// Timeout in seconds for CLI execution.
+    /// 300s allows for complex prompts with large context windows.
     /// </summary>
-    public int TimeoutSeconds { get; set; } = 120;
+    public int TimeoutSeconds { get; set; } = 300;
 
     /// <summary>
     /// Max agent turns. 1 = stateless single-shot (recommended for Maestro).

@@ -21,7 +21,7 @@ export type {
   WorkflowConfig,
   SessionVariables,
   Session,
-} from './session.js';
+} from './session.ts';
 
 export type {
   BlockType,
@@ -29,17 +29,17 @@ export type {
   TaskFitnessDimensions,
   TaskFitness,
   Block,
-} from './block.js';
+} from './block.ts';
 
 export type {
   WorkspaceSettings,
   Workspace,
-} from './workspace.js';
+} from './workspace.ts';
 
 export type {
   MaestroInfo,
   Project,
-} from './project.js';
+} from './project.ts';
 
 export type {
   LLMHealth,
@@ -47,10 +47,10 @@ export type {
   LLMStatus,
   TaskFitnessEntry,
   ModelPerformance,
-} from './llm.js';
+} from './llm.ts';
 
 export type {
   HealthResponse,
   IApiClient,
-} from './api-client.js';
+} from './api-client.ts';
 

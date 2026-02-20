@@ -37,6 +37,7 @@ public static class CliParser
         var verb = tokens[0];
         string? target = null;
         var arguments = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var repeatedArguments = new List<KeyValuePair<string, string>>();
         var positionalArgs = new List<string>();
         var flags = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
@@ -61,7 +62,9 @@ public static class CliParser
                 // Check if next token is a value (not another flag)
                 if (i + 1 < tokens.Count && !tokens[i + 1].StartsWith("-"))
                 {
-                    arguments[key] = tokens[i + 1];
+                    var value = tokens[i + 1];
+                    arguments[key] = value; // Last value wins for dict
+                    repeatedArguments.Add(new KeyValuePair<string, string>(key, value));
                     i += 2;
                 }
                 else
@@ -78,7 +81,9 @@ public static class CliParser
 
                 if (i + 1 < tokens.Count && !tokens[i + 1].StartsWith("-"))
                 {
-                    arguments[key] = tokens[i + 1];
+                    var value = tokens[i + 1];
+                    arguments[key] = value;
+                    repeatedArguments.Add(new KeyValuePair<string, string>(key, value));
                     i += 2;
                 }
                 else
@@ -100,6 +105,7 @@ public static class CliParser
             Verb = verb,
             Target = target,
             Arguments = arguments,
+            RepeatedArguments = repeatedArguments,
             PositionalArgs = positionalArgs,
             Flags = flags,
             RawCommand = command

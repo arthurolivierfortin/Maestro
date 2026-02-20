@@ -83,48 +83,55 @@ A **tool** says: "Give me X, return Y"
 - Can contain: Anything (agents, workflows, tools, atomic operations)
 - Use case: Expose a capability as an API
 
-### Agent: Enriched Inference Interface
+### Agent: Same Interface as Inference, Composite Implementation
 
 An **agent** says: "Give me a task, I reason and accomplish it"
 
 - Interface: **Same as inference** — prompt/context in, response/score out
-- Can contain: Tools, other agents, workflows, atomic blocks
+- Implementation: **Composite** (`isAtomic: false`) — a black box that can contain any blocks
+- Can contain: Tools, other agents, workflows, inference blocks, validators — anything
 - Use case: Delegate reasoning and decision-making
 
-**Key insight**: An agent is an inference block with more internal capability. From the outside, the interface is identical. A workflow node can point to an inference block OR an agent block interchangeably — it only sees input/output.
+**Key insight**: An agent has the same **interface** as an inference block, but a different **nature**. From the outside, the interface is identical — a workflow node can point to an inference block OR an agent block interchangeably. But internally, the agent is composite (like a workflow): its behavior is defined by its child blocks, not by hardcoded code.
 
 ```
-inference block:  prompt → [1 LLM call] → response
-agent block:      prompt → [workflow: reasoning → tool discovery → execution → validation] → response
-                           ↑ hidden from caller ↑
+From the outside (interface — identical):
+  inference block:  prompt → response
+  agent block:      prompt → response
+
+From the inside (implementation — different):
+  inference block:  prompt → [1 LLM call] → response                             (atomic)
+  agent block:      prompt → [black box: any combination of child blocks] → response  (composite)
 ```
 
-Tools are **discovered dynamically** by the agent's internal inference block, not declared statically. The discovery scope comes from the session/workspace, not from the agent definition.
+The agent's internal structure could be:
+- A single inference block in an agentic loop
+- Multiple inference blocks with different models
+- A pipeline of tools and validators
+- A workflow with conditional branching
+- Anything — the inside is a black box defined by `config.nodes`
 
-#### How agents work (CRITICAL)
+Tools available to the agent come from its **system prompt**, not from code. The agent uses tool calls (JSON format) to interact with its available blocks.
 
-Agent and inference blocks share a base executor class (`LLMBlockExecutorBase`) that provides common LLM plumbing: mock loading, model resolution, template resolution, output parsing, and JSON extraction.
+#### How agents SHOULD work (target architecture)
 
-- `InferenceBlockExecutor` handles single LLM calls (template → call → response)
-- `AgentBlockExecutor` handles the agentic loop (systemPrompt → multi-turn → tool calls → response)
+The agent's behavior should be defined by its `config.nodes` (child blocks), not by hardcoded C# in the executor:
 
-Both are **thin and mechanical**. All content (system prompts, tool descriptions, context strategy) comes from block config — never from C#.
+1. The block's `config.nodes` defines child blocks (inference, tools, validators, etc.)
+2. The executor orchestrates child blocks mechanically — it doesn't know WHAT they do
+3. The system prompt describes available tools
+4. Tool call dispatch routes to child blocks by name, passing `args` as JSON inputs
+5. When the agent signals `step-complete`, the executor returns the final output
 
-How the agentic loop works:
+**The executor is mechanical plumbing. All intelligence lives in the block's prompt. All behavior lives in the block's child nodes.**
 
-1. The block's **system prompt describes available tools** in text (like any prompt template)
-2. The executor sends the prompt to the LLM
-3. If the LLM response contains a tool call JSON, the executor runs it via `maestro-cli` (CLI-First)
-4. The tool result is fed back as a new message, and the executor loops
-5. When the LLM signals "done", the executor returns the final output
-
-**The executor is mechanical plumbing. All intelligence lives in the block's prompt.**
-
-**There is no `tools.json` file.** Tool descriptions live in the system prompt text. The agent uses `maestro_cli` as its single tool — through which it can run any block, read files, execute commands, etc.
+**There is no `tools.json` file.** Tool descriptions live in the system prompt text.
 
 **There is no hardcoded tool list or default system prompt in C#.** If `config.systemPrompt` or `system-prompt.md` is missing, the agent errors — no fallback content is invented.
 
-**Litmus test**: Can you create a new agent by writing ONLY a `.block.json` with a `system-prompt.md`? If yes, the architecture is correct. If you need to modify executor code — it's violated.
+**Known architectural debt**: The current `AgentBlockExecutor` inherits from `LLMBlockExecutorBase` and calls `_llmGateway.SendAsync()` directly. The agentic loop (while loop, tool call parsing, conversation management) is hardcoded in C# instead of being defined by child blocks. This means the agent's internal behavior is prescribed by infrastructure code, not by its `config.nodes`. This violates the principle "the type defines its interface, not its implementation." Tracked for correction in Phase 35-PRE.
+
+**Litmus test**: Can you create a new agent by writing ONLY a `.block.json` with child nodes? If yes, the architecture is correct. If you need to modify executor code — it's violated.
 
 ### Workflow: Orchestration Interface
 

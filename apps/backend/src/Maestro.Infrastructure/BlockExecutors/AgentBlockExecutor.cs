@@ -16,31 +16,51 @@ using ExecutionContext = Maestro.Domain.Entities.ExecutionContext;
 namespace Maestro.Infrastructure.BlockExecutors;
 
 /// <summary>
-/// Executor for agent blocks: systemPrompt → multi-turn agentic loop → tool calls via CLI → response.
+/// Executor for agent blocks: systemPrompt → multi-turn agentic loop → tool calls → response.
+/// Decoupled from LLMBlockExecutorBase — agents are composite (isAtomic: false).
+/// LLM parameters (model, temperature, maxTokens) come from config.nodes child blocks
+/// (or from own config as deprecated fallback for agents without config.nodes).
+/// Tool calls are dispatched two ways:
+///   1. Generic block dispatch: tool name = block-id, args = JSON inputs (recommended)
+///   2. maestro_cli: legacy CLI string parsing (backward compat)
+/// Agent signals completion via "step-complete" tool call.
 /// All content (system prompt, tool descriptions) comes from block config/files.
 /// The executor is pure mechanical plumbing — it never defines what tools are available.
 /// </summary>
-public class AgentBlockExecutor : LLMBlockExecutorBase
+public class AgentBlockExecutor : IBlockExecutor
 {
+    private readonly ILLMGateway _llmGateway;
     private readonly IServiceProvider? _serviceProvider;
     private readonly IServiceScopeFactory? _scopeFactory;
-    private readonly ContextProcessorFactory _contextProcessorFactory;
+    private readonly IConversationManager _conversationManager;
+    private readonly IContextAssembler _contextAssembler;
+    private IBlockDiscoveryService? _blockDiscovery;
+    private BlockExecutorRegistry? _executorRegistry;
     private ICliExecutor? _cliExecutor;
 
     public AgentBlockExecutor(ILLMGateway llmGateway, IServiceProvider? serviceProvider = null, IExecutionMonitor? monitor = null)
-        : base(llmGateway, monitor)
     {
+        _llmGateway = llmGateway ?? throw new ArgumentNullException(nameof(llmGateway));
         _serviceProvider = serviceProvider;
         // Use IServiceScopeFactory to create per-execution scopes for CLI tool calls.
         // This avoids ObjectDisposedException when the original DI scope is disposed
         // before background Task.Run completes (session invoke path).
         _scopeFactory = serviceProvider?.GetService<IServiceScopeFactory>();
-        _contextProcessorFactory = new ContextProcessorFactory(serviceProvider);
+        // Resolve IConversationManager from DI (registered as singleton)
+        _conversationManager = serviceProvider?.GetService<IConversationManager>()
+            ?? new Maestro.Infrastructure.Context.InMemoryConversationManager();
+        // Resolve IContextAssembler from DI
+        _contextAssembler = serviceProvider?.GetService<IContextAssembler>()
+            ?? new Maestro.Infrastructure.Context.ContextAssembler(
+                _conversationManager, new ContextProcessorFactory(serviceProvider));
+        // Block discovery and executor registry are resolved LAZILY at execution time
+        // to avoid circular DI: AgentBlockExecutor ↔ BlockExecutorRegistry deadlock.
+        // _blockDiscovery and _executorRegistry are populated on first use in ExecuteViaBlockDispatchAsync.
     }
 
-    public override string SupportedType => "agent";
+    public string SupportedType => "agent";
 
-    public override async Task<BlockExecutionResult> ExecuteAsync(
+    public async Task<BlockExecutionResult> ExecuteAsync(
         BlockDefinition block, ExecutionContext context,
         Dictionary<string, object> inputs, CancellationToken ct = default)
     {
@@ -48,32 +68,49 @@ public class AgentBlockExecutor : LLMBlockExecutorBase
         var result = new BlockExecutionResult();
 
         // 1. Mock check
-        var mockResult = await TryLoadMockResponse(block, sw, ct);
+        var mockResult = await LLMBlockExecutorBase.TryLoadMockResponse(block, sw, ct);
         if (mockResult != null) return mockResult;
 
         // 2. Load systemPrompt — MUST exist in config or file. No hardcoded default.
         var systemPrompt = await LoadSystemPrompt(block, ct);
         if (string.IsNullOrEmpty(systemPrompt))
         {
-            return ErrorResult(
+            return LLMBlockExecutorBase.ErrorResult(
                 "Agent block requires a system prompt. Provide config.systemPrompt or system-prompt.md in the block directory.",
                 sw.ElapsedMilliseconds);
         }
 
-        // 3. Build conversation messages
-        var messages = new List<ChatMessage>();
-        messages.Add(ChatMessage.System(systemPrompt));
-
+        // 3. Build conversation via IConversationManager
+        var conversationId = _conversationManager.CreateConversation(systemPrompt);
         var userContent = BuildUserMessage(inputs, block);
-        messages.Add(ChatMessage.User(userContent));
+        _conversationManager.AddMessage(conversationId, "user", userContent);
 
-        // 4. Resolve params
-        var modelId = ResolveModelId(block, inputs);
-        var (maxTokens, temperature) = ResolveGenerationParams(block);
+        // 4. Resolve LLM params from config.nodes (composite) or own config (legacy/deprecated)
+        var childNodeConfig = ResolveChildNodeConfig(block);
+        string? modelId;
+        int maxTokens;
+        float temperature;
+
+        if (childNodeConfig.HasValue)
+        {
+            // Composite path: LLM params come from child inference node in config.nodes
+            modelId = childNodeConfig.Value.ModelId
+                ?? LLMBlockExecutorBase.ResolveModelId(block, inputs);
+            maxTokens = childNodeConfig.Value.MaxTokens;
+            temperature = childNodeConfig.Value.Temperature;
+            result.Logs.Add("Agent config: composite (LLM params from config.nodes child)");
+        }
+        else
+        {
+            // Legacy path: no config.nodes — read from agent's own config (deprecated)
+            modelId = LLMBlockExecutorBase.ResolveModelId(block, inputs);
+            (maxTokens, temperature) = LLMBlockExecutorBase.ResolveGenerationParams(block);
+            result.Logs.Add("Agent config: legacy (no config.nodes — using own config)");
+        }
+
         var maxIterations = ResolveMaxIterations(block);
         var wallClockTimeoutSeconds = ResolveWallClockTimeout(block);
         var contextConfig = GetContextConfig(block.Config);
-        var contextProcessor = _contextProcessorFactory.Create(contextConfig.Strategy);
 
         result.Logs.Add($"Using model: {modelId ?? "default"}, temperature: {temperature}, maxTokens: {maxTokens}");
         result.Logs.Add($"Context strategy: {contextConfig.Strategy}, maxTokens: {contextConfig.MaxTokens}");
@@ -94,6 +131,11 @@ public class AgentBlockExecutor : LLMBlockExecutorBase
         var nonJsonRetryCount = 0;   // A-2 non-JSON retry counter
         LLMResponse? lastResponse = null;
 
+        // Token accumulators across all LLM calls in the agentic loop
+        var totalPromptTokens = 0;
+        var totalCompletionTokens = 0;
+        var totalAllTokens = 0;
+
         while (true)
         {
             // INFRA-2: Check wall-clock timeout
@@ -107,14 +149,8 @@ public class AgentBlockExecutor : LLMBlockExecutorBase
             iteration++;
             result.Logs.Add($"Agent iteration {iteration}/{maxIterations}");
 
-            // Process context before sending to LLM
-            var contextInput = new ContextInput
-            {
-                Messages = messages.Where(m => m.Role != "system").ToList(),
-                SystemPrompt = systemPrompt,
-                Config = contextConfig
-            };
-            var contextResult = await contextProcessor.ProcessAsync(contextInput, agentCt);
+            // Process context before sending to LLM (via IContextAssembler)
+            var contextResult = await _contextAssembler.AssembleAsync(conversationId, contextConfig, agentCt);
 
             if (contextResult.WasTruncated)
                 result.Logs.Add($"Context truncated: {contextResult.MessagesRemoved} messages removed, ~{contextResult.EstimatedTokens} tokens");
@@ -125,7 +161,8 @@ public class AgentBlockExecutor : LLMBlockExecutorBase
                 Messages = contextResult.Messages,
                 ModelId = modelId,
                 MaxNewTokens = maxTokens,
-                Temperature = temperature
+                Temperature = temperature,
+                ConversationId = conversationId
             };
 
             LLMResponse response;
@@ -144,7 +181,12 @@ public class AgentBlockExecutor : LLMBlockExecutorBase
                 result.Logs.Add($"LLM request failed: {ex.Message}");
                 result.Success = false;
                 result.Outputs["error"] = $"LLM request failed: {ex.Message}";
+                result.PromptTokens = totalPromptTokens;
+                result.CompletionTokens = totalCompletionTokens;
+                result.TotalTokens = totalAllTokens;
+                result.EstimatedCostUsd = LLMBlockExecutorBase.EstimateCost(lastResponse?.Model ?? modelId, totalPromptTokens, totalCompletionTokens);
                 result.DurationMs = sw.ElapsedMilliseconds;
+                _conversationManager.CleanupConversation(conversationId);
                 return result;
             }
 
@@ -156,20 +198,31 @@ public class AgentBlockExecutor : LLMBlockExecutorBase
                 {
                     result.Success = false;
                     result.Outputs["error"] = "LLM returned empty response. Check if LLM-Provider service is running.";
+                    result.PromptTokens = totalPromptTokens;
+                    result.CompletionTokens = totalCompletionTokens;
+                    result.TotalTokens = totalAllTokens;
+                    result.EstimatedCostUsd = LLMBlockExecutorBase.EstimateCost(modelId, totalPromptTokens, totalCompletionTokens);
                     result.DurationMs = sw.ElapsedMilliseconds;
+                    _conversationManager.CleanupConversation(conversationId);
                     return result;
                 }
                 break; // On subsequent iterations, use last valid response
             }
 
             lastResponse = response;
+
+            // Accumulate token metrics
+            totalPromptTokens += response.PromptTokens;
+            totalCompletionTokens += response.CompletionTokens;
+            totalAllTokens += response.TotalTokens;
+
             result.Logs.Add($"LLM response: {(response.Content.Length > 100 ? response.Content.Substring(0, 100) + "..." : response.Content)}");
 
             // Parse tool call from response
             var toolCalled = false;
             try
             {
-                var jsonContent = ExtractJson(response.Content);
+                var jsonContent = LLMBlockExecutorBase.ExtractJson(response.Content);
                 if (!string.IsNullOrEmpty(jsonContent))
                 {
                     using var doc = JsonDocument.Parse(jsonContent);
@@ -180,51 +233,50 @@ public class AgentBlockExecutor : LLMBlockExecutorBase
 
                         result.Logs.Add($"Tool call detected: {toolId}");
 
-                        // Check for "done" tool — agent finished
-                        if (toolId == "done")
+                        // Check for "step-complete" tool — agent finished
+                        if (toolId == "step-complete")
                         {
-                            // Multi-tool response detection: if the LLM produced both a maestro_cli
-                            // tool call AND a done call in the same response, ExtractJson may have
+                            // Multi-tool response detection: if the LLM produced both a tool
+                            // call AND a step-complete call in the same response, ExtractJson may have
                             // skipped the tool call (due to complex nested escaping in file content)
-                            // and returned the "done" JSON instead. Detect this and ask for retry.
+                            // and returned the step-complete JSON instead. Detect this and ask for retry.
                             var rawContent = response.Content;
-                            var donePos = rawContent.IndexOf("\"done\"");
+                            var stepCompletePos = rawContent.IndexOf("\"step-complete\"");
                             var maestroPos = rawContent.IndexOf("maestro_cli");
-                            if (maestroPos >= 0 && donePos >= 0 && maestroPos < donePos)
+                            if (maestroPos >= 0 && stepCompletePos >= 0 && maestroPos < stepCompletePos)
                             {
-                                result.Logs.Add("Multi-tool response detected: maestro_cli found before done. Asking for single tool call.");
+                                result.Logs.Add("Multi-tool response detected: maestro_cli found before step-complete. Asking for single tool call.");
                                 // CRITICAL: Do NOT add the full response to history.
-                                // If the LLM sees its own "done" in history, it will not retry the write.
+                                // If the LLM sees its own "step-complete" in history, it will not retry.
                                 // Instead, add a synthetic assistant message acknowledging the attempt,
                                 // then a clear user message demanding the write.
-                                messages.Add(ChatMessage.Assistant("{\"acknowledged\":\"multi-tool-rejected\"}"));
-                                messages.Add(ChatMessage.User(
+                                _conversationManager.AddMessage(conversationId, "assistant", "{\"acknowledged\":\"multi-tool-rejected\"}");
+                                _conversationManager.AddMessage(conversationId, "user",
                                     "SYSTEM ERROR: Your response contained multiple tool calls. It was NOT executed. " +
-                                    "The file was NOT written to disk. Nothing happened. " +
-                                    "You MUST re-send the file-write (or shell command) as your ONLY response — just the JSON object, nothing else. " +
-                                    "Do NOT call done. Do NOT include any other tool call. ONLY the maestro_cli file-write."));
+                                    "Nothing was done. " +
+                                    "You MUST re-send the tool call as your ONLY response — just the JSON object, nothing else. " +
+                                    "Do NOT call step-complete. Do NOT include any other tool call. ONLY the tool call you need to execute.");
                                 toolCalled = true;
                                 nonJsonRetryCount = 0;
                                 continue;
                             }
 
-                            // A-2 done guard: reject premature "done" if zero real tool calls were made
-                            if (actualToolCallCount == 0 && iteration < maxIterations - 1)
+                            // Log if the agent completed without any maestro_cli tool calls.
+                            // This is valid for planning/analysis agents that produce output directly.
+                            if (actualToolCallCount == 0)
                             {
-                                result.Logs.Add("Agent claimed 'done' with 0 tool calls. Forcing real work.");
-                                messages.Add(ChatMessage.Assistant(jsonContent));
-                                messages.Add(ChatMessage.User(
-                                    "You have not made any tool calls yet. " +
-                                    "You must use tools to complete the task. " +
-                                    "Start by reading a file or listing the directory."));
-                                toolCalled = true;
-                                continue;
+                                result.Logs.Add("Agent called 'step-complete' with 0 tool calls (planning/analysis mode).");
                             }
+
+                            // Store full args as structured output (supports arbitrary properties)
+                            var resultOutput = args.ValueKind == JsonValueKind.Object
+                                ? args.ToString()
+                                : "Task completed";
+                            result.Outputs["result"] = resultOutput;
 
                             var summary = args.ValueKind == JsonValueKind.Object && args.TryGetProperty("summary", out var sumProp)
                                 ? sumProp.GetString() ?? "Task completed"
                                 : "Task completed";
-                            result.Outputs["result"] = summary;
                             result.Logs.Add($"Agent completed ({actualToolCallCount} tool calls): {summary}");
                             break;
                         }
@@ -248,8 +300,8 @@ public class AgentBlockExecutor : LLMBlockExecutorBase
                         actualToolCallCount++;
 
                         // Feed back into conversation
-                        messages.Add(ChatMessage.Assistant(jsonContent));
-                        messages.Add(ChatMessage.User($"Tool result for {toolId}:\n{toolOutput}"));
+                        _conversationManager.AddMessage(conversationId, "assistant", jsonContent);
+                        _conversationManager.AddMessage(conversationId, "user", $"Tool result for {toolId}:\n{toolOutput}");
                         toolCalled = true;
                         nonJsonRetryCount = 0; // Reset retry counter on successful tool call
                     }
@@ -268,10 +320,10 @@ public class AgentBlockExecutor : LLMBlockExecutorBase
                 if (nonJsonRetryCount < 2)
                 {
                     nonJsonRetryCount++;
-                    messages.Add(ChatMessage.Assistant(response.Content));
-                    messages.Add(ChatMessage.User(
+                    _conversationManager.AddMessage(conversationId, "assistant", response.Content);
+                    _conversationManager.AddMessage(conversationId, "user",
                         "Your response caused a parsing error. " +
-                        "Respond with ONLY a valid JSON object. No text before or after."));
+                        "Respond with ONLY a valid JSON object. No text before or after.");
                     continue;
                 }
             }
@@ -283,11 +335,11 @@ public class AgentBlockExecutor : LLMBlockExecutorBase
                 {
                     nonJsonRetryCount++;
                     result.Logs.Add($"Response not valid JSON (retry {nonJsonRetryCount}/2).");
-                    messages.Add(ChatMessage.Assistant(response.Content));
-                    messages.Add(ChatMessage.User(
+                    _conversationManager.AddMessage(conversationId, "assistant", response.Content);
+                    _conversationManager.AddMessage(conversationId, "user",
                         "Your response was not a valid JSON tool call. " +
                         "Respond with ONLY a JSON object. Example:\n" +
-                        "{\"tool\":\"maestro_cli\",\"args\":{\"command\":\"run directory-list --input path=/some/path\"}}"));
+                        "{\"tool\":\"file-read\",\"args\":{\"path\":\"/some/path\"}}");
                     continue;
                 }
                 break;
@@ -304,7 +356,7 @@ public class AgentBlockExecutor : LLMBlockExecutorBase
         {
             if (lastResponse != null && !string.IsNullOrWhiteSpace(lastResponse.Content))
             {
-                ParseOutputs(result, lastResponse.Content, block);
+                LLMBlockExecutorBase.ParseOutputs(result, lastResponse.Content, block);
                 result.Logs.Add("Agent LLM response received (fallback output)");
             }
             else
@@ -314,6 +366,24 @@ public class AgentBlockExecutor : LLMBlockExecutorBase
                 result.Logs.Add("Warning: Agent completed but no valid output was produced");
             }
         }
+
+        // 7. Publish conversation state for observability (monitor can read this)
+        var finalState = _conversationManager.GetState(conversationId);
+        if (finalState != null)
+        {
+            result.Outputs["_conversationState"] = System.Text.Json.JsonSerializer.Serialize(finalState);
+            result.Logs.Add($"Conversation stats: {finalState.TotalMessageCount} messages, ~{finalState.EstimatedTotalTokens} tokens");
+        }
+
+        // 8. Write token metrics into result
+        result.PromptTokens = totalPromptTokens;
+        result.CompletionTokens = totalCompletionTokens;
+        result.TotalTokens = totalAllTokens;
+        result.EstimatedCostUsd = LLMBlockExecutorBase.EstimateCost(lastResponse?.Model ?? modelId, totalPromptTokens, totalCompletionTokens);
+        result.Logs.Add($"Total tokens: {totalAllTokens} (prompt={totalPromptTokens}, completion={totalCompletionTokens}), cost=${result.EstimatedCostUsd:F6}");
+
+        // 9. Cleanup conversation
+        _conversationManager.CleanupConversation(conversationId);
 
         result.DurationMs = sw.ElapsedMilliseconds;
         return result;
@@ -325,7 +395,7 @@ public class AgentBlockExecutor : LLMBlockExecutorBase
     /// </summary>
     private async Task<string> LoadSystemPrompt(BlockDefinition block, CancellationToken ct)
     {
-        var path = GetBlockPath(block);
+        var path = LLMBlockExecutorBase.GetBlockPath(block);
         if (path != null)
         {
             var sp = Path.Combine(path, "system-prompt.md");
@@ -464,28 +534,40 @@ public class AgentBlockExecutor : LLMBlockExecutorBase
     }
 
     /// <summary>
-    /// Executes a tool call via the CLI executor. Handles maestro_cli and legacy tool mappings.
+    /// Executes a tool call. Two paths:
+    /// 1. maestro_cli → legacy CLI string parsing (backward compat)
+    /// 2. Any other tool name → generic block dispatch (tool name = block-id, args = JSON inputs)
     /// </summary>
     private async Task<string> ExecuteToolCall(
         string toolId, JsonElement args, string jsonContent,
         BlockDefinition block, ExecutionContext context,
         BlockExecutionResult result, CancellationToken ct)
     {
-        string? command = null;
-
-        // Handle maestro_cli tool (the recommended approach)
+        // Path 1: maestro_cli (legacy, kept for backward compatibility)
         if (toolId == "maestro_cli" || toolId == "maestro-cli")
         {
+            string? command = null;
             if (args.ValueKind == JsonValueKind.Object && args.TryGetProperty("command", out var cmdProp))
                 command = cmdProp.GetString();
             result.Logs.Add($"maestro_cli tool call: {command}");
-        }
-        if (string.IsNullOrEmpty(command))
-        {
-            result.Logs.Add($"Unknown tool: {toolId}. Use maestro_cli with a command argument.");
-            return $"Error: Unknown tool '{toolId}'. Use maestro_cli with a command argument. Example: {{\"tool\":\"maestro_cli\",\"args\":{{\"command\":\"help\"}}}}";
+
+            if (string.IsNullOrEmpty(command))
+                return "Error: maestro_cli requires a 'command' argument.";
+
+            return await ExecuteViaCliAsync(command, block, context, result, ct);
         }
 
+        // Path 2: Generic block dispatch — tool name = block-id, args = JSON inputs
+        return await ExecuteViaBlockDispatchAsync(toolId, args, context, result, ct);
+    }
+
+    /// <summary>
+    /// Executes a tool call via the CLI executor (legacy maestro_cli path).
+    /// </summary>
+    private async Task<string> ExecuteViaCliAsync(
+        string command, BlockDefinition block, ExecutionContext context,
+        BlockExecutionResult result, CancellationToken ct)
+    {
         var cliExecutor = GetCliExecutor();
         if (cliExecutor == null)
         {
@@ -520,8 +602,104 @@ public class AgentBlockExecutor : LLMBlockExecutorBase
             toolOutput = $"Error: {cliResult.Error}";
         }
 
-        result.Logs.Add($"Tool result: {(toolOutput.Length > 100 ? toolOutput.Substring(0, 100) + "..." : toolOutput)}");
+        result.Logs.Add($"CLI result: {(toolOutput.Length > 100 ? toolOutput.Substring(0, 100) + "..." : toolOutput)}");
         return toolOutput;
+    }
+
+    /// <summary>
+    /// Generic block dispatch: treats tool name as a block-id, passes args as JSON inputs.
+    /// This is the new recommended path — no CLI string parsing, JSON stays structured.
+    /// </summary>
+    private async Task<string> ExecuteViaBlockDispatchAsync(
+        string toolId, JsonElement args, ExecutionContext context,
+        BlockExecutionResult result, CancellationToken ct)
+    {
+        // Lazy resolution to avoid circular DI: AgentBlockExecutor ↔ BlockExecutorRegistry
+        _blockDiscovery ??= _serviceProvider?.GetService<IBlockDiscoveryService>();
+        _executorRegistry ??= _serviceProvider?.GetService<BlockExecutorRegistry>();
+        if (_blockDiscovery == null || _executorRegistry == null)
+        {
+            result.Logs.Add($"Block dispatch not available for tool '{toolId}' — services not resolved.");
+            return $"Error: Tool '{toolId}' cannot be dispatched. Block discovery services unavailable.";
+        }
+
+        // Resolve block by ID
+        var targetBlock = await _blockDiscovery.GetByIdAsync(toolId, ct);
+        if (targetBlock == null)
+        {
+            result.Logs.Add($"Block not found: '{toolId}'");
+            return $"Error: Tool '{toolId}' does not exist. " +
+                   "Check available tools in your system prompt. " +
+                   "To finish, use: {\"tool\":\"step-complete\",\"args\":{\"summary\":\"what was done\"}}";
+        }
+
+        // Get executor for block type
+        var executor = _executorRegistry.Get(targetBlock.BlockType);
+        if (executor == null)
+        {
+            result.Logs.Add($"No executor for block type '{targetBlock.BlockType}' (block: {toolId})");
+            return $"Error: No executor available for block '{toolId}' (type: {targetBlock.BlockType}).";
+        }
+
+        // Build inputs from args — JSON properties become dictionary entries
+        var inputs = new Dictionary<string, object>();
+        if (args.ValueKind == JsonValueKind.Object)
+        {
+            foreach (var prop in args.EnumerateObject())
+            {
+                inputs[prop.Name] = DeserializeJsonElement(prop.Value);
+            }
+        }
+
+        // Propagate working directory from parent context if not in args
+        if (!inputs.ContainsKey("workingDir") && context.Variables.TryGetValue("workingDir", out var wd))
+            inputs["workingDir"] = wd;
+
+        result.Logs.Add($"Dispatching to block '{toolId}' (type: {targetBlock.BlockType}) with {inputs.Count} inputs");
+
+        // Execute the block
+        var blockResult = await executor.ExecuteAsync(targetBlock, context, inputs, ct);
+
+        // Format output for the agent conversation
+        if (blockResult.Success)
+        {
+            if (blockResult.Outputs.TryGetValue("result", out var r))
+                return r?.ToString() ?? "Success";
+            if (blockResult.Outputs.TryGetValue("content", out var c))
+                return c?.ToString() ?? "Success";
+            if (blockResult.Outputs.Count > 0)
+            {
+                try { return JsonSerializer.Serialize(blockResult.Outputs); }
+                catch { return blockResult.Outputs.Values.First()?.ToString() ?? "Success"; }
+            }
+            return "Success";
+        }
+        else
+        {
+            var errorMsg = blockResult.Outputs.TryGetValue("error", out var err)
+                ? err?.ToString() ?? "Unknown error"
+                : blockResult.Logs.LastOrDefault() ?? "Block execution failed";
+            return $"Error: {errorMsg}";
+        }
+    }
+
+    /// <summary>
+    /// Converts a JsonElement to a native .NET type for use in block inputs.
+    /// </summary>
+    private static object DeserializeJsonElement(JsonElement element)
+    {
+        return element.ValueKind switch
+        {
+            JsonValueKind.String => element.GetString() ?? "",
+            JsonValueKind.Number => element.TryGetInt64(out var l) ? (object)l : element.GetDouble(),
+            JsonValueKind.True => true,
+            JsonValueKind.False => false,
+            JsonValueKind.Null => "",
+            // For objects and arrays, keep as JSON string — block executors expect string inputs
+            JsonValueKind.Object => element.ToString(),
+            JsonValueKind.Array => element.ToString(),
+            _ => element.ToString()
+        };
     }
 
     private ICliExecutor? GetCliExecutor()
@@ -594,5 +772,68 @@ public class AgentBlockExecutor : LLMBlockExecutorBase
         }
 
         return config;
+    }
+
+    /// <summary>
+    /// Config resolved from a child node in config.nodes.
+    /// Agent blocks are composite — their LLM parameters come from child inference nodes.
+    /// </summary>
+    private record struct ChildNodeConfig(string? ModelId, int MaxTokens, float Temperature);
+
+    /// <summary>
+    /// Reads config.nodes from the agent block definition and extracts LLM parameters
+    /// from the first child node's config. Returns null if no config.nodes exists
+    /// (legacy agent, deprecated — uses own config).
+    /// </summary>
+    private static ChildNodeConfig? ResolveChildNodeConfig(BlockDefinition block)
+    {
+        if (block.Config == null || !block.Config.TryGetValue("nodes", out var nodesObj))
+            return null;
+
+        // Parse nodes array — handles both JsonElement and JArray (Newtonsoft API path)
+        JsonElement nodesElement;
+        if (nodesObj is JsonElement je && je.ValueKind == JsonValueKind.Array)
+        {
+            nodesElement = je;
+        }
+        else if (nodesObj is Newtonsoft.Json.Linq.JArray jArr)
+        {
+            using var doc = JsonDocument.Parse(jArr.ToString());
+            nodesElement = doc.RootElement.Clone();
+        }
+        else
+        {
+            // Try generic serialization
+            try
+            {
+                var serialized = JsonSerializer.Serialize(nodesObj);
+                using var doc = JsonDocument.Parse(serialized);
+                if (doc.RootElement.ValueKind == JsonValueKind.Array)
+                    nodesElement = doc.RootElement.Clone();
+                else
+                    return null;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        // Find the first node with config (typically the inference/reasoning node)
+        foreach (var node in nodesElement.EnumerateArray())
+        {
+            if (!node.TryGetProperty("config", out var nodeConfig) || nodeConfig.ValueKind != JsonValueKind.Object)
+                continue;
+
+            string? modelId = nodeConfig.TryGetProperty("model", out var m) ? m.GetString() : null;
+            int maxTokens = nodeConfig.TryGetProperty("maxTokens", out var mt) && mt.TryGetInt32(out var mtVal) ? mtVal : 1024;
+            float temperature = nodeConfig.TryGetProperty("temperature", out var t)
+                ? t.GetSingle() : 0f;
+
+            return new ChildNodeConfig(modelId, maxTokens, temperature);
+        }
+
+        // Nodes exist but none have config — treat as no-config
+        return null;
     }
 }

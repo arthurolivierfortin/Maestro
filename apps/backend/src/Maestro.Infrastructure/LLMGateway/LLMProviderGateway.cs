@@ -43,9 +43,10 @@ public class LLMProviderGateway : ILLMGateway, IDisposable
 
     public async Task<LLMResponse> SendAsync(LLMRequest request, CancellationToken cancellationToken = default)
     {
-        // Build the prompt: if messages are provided, concatenate them for the LLM-Provider API
+        // Build the prompt and structured messages for the LLM-Provider API
         var prompt = request.Prompt ?? string.Empty;
         string? systemPrompt = request.SystemPrompt;
+        List<MessageDto>? structuredMessages = null;
 
         if (request.Messages != null && request.Messages.Count > 0)
         {
@@ -57,9 +58,24 @@ public class LLMProviderGateway : ILLMGateway, IDisposable
                     systemPrompt = systemMsg.Content;
             }
 
-            prompt = string.Join("\n\n", request.Messages
+            // Send structured messages (with roles preserved) to LLM-Provider.
+            // This is critical for multi-turn agentic conversations where the LLM
+            // needs to distinguish its own previous responses from user messages.
+            var nonSystemMessages = request.Messages
                 .Where(m => m.Role != "system")
-                .Select(m => m.Content));
+                .ToList();
+
+            if (nonSystemMessages.Count > 0)
+            {
+                structuredMessages = nonSystemMessages
+                    .Select(m => new MessageDto { Role = m.Role, Content = m.Content })
+                    .ToList();
+
+                // Use the last user message as the flat prompt (for backwards compat
+                // with providers that don't support structured messages)
+                var lastUserMsg = nonSystemMessages.LastOrDefault(m => m.Role == "user");
+                prompt = lastUserMsg?.Content ?? prompt;
+            }
         }
 
         var completeRequest = new CompleteRequest
@@ -68,7 +84,13 @@ public class LLMProviderGateway : ILLMGateway, IDisposable
             Model = request.ModelId ?? _settings.DefaultModel,
             MaxTokens = request.MaxNewTokens ?? _settings.MaxNewTokens,
             Temperature = request.Temperature ?? _settings.Temperature,
-            SystemPrompt = systemPrompt ?? _settings.SystemPrompt
+            SystemPrompt = systemPrompt ?? _settings.SystemPrompt,
+            Messages = structuredMessages,
+            ConversationId = request.ConversationId,
+            // Maestro manages its own conversation via IConversationManager.
+            // Tell LLM-Provider to skip its internal conversation repo lookup
+            // and use the inline Messages instead.
+            MemoryStrategy = structuredMessages != null ? "None" : null
         };
 
         _logger?.LogDebug("Sending LLM request to {BaseUrl}/api/v1/llm/complete with model {Model}",
@@ -135,6 +157,15 @@ public class LLMProviderGateway : ILLMGateway, IDisposable
                 _logger?.LogWarning("LLM request failed with status {Status}: {Error}",
                     httpResponse.StatusCode, errorContent);
 
+                // Don't retry on 500 server errors (timeouts, internal failures).
+                // These are persistent issues that won't recover by retrying immediately.
+                if ((int)httpResponse.StatusCode >= 500)
+                {
+                    throw new HttpRequestException(
+                        $"LLM-Provider returned {httpResponse.StatusCode}: {errorContent}",
+                        null, httpResponse.StatusCode);
+                }
+
                 if (attempts < _settings.MaxRetries)
                 {
                     await Task.Delay(delayMs, cancellationToken);
@@ -154,7 +185,7 @@ public class LLMProviderGateway : ILLMGateway, IDisposable
         }
 
         _logger?.LogError("LLM request failed after {MaxRetries} attempts", _settings.MaxRetries);
-        return null;
+        throw new HttpRequestException($"LLM request failed after {_settings.MaxRetries} attempts");
     }
 
     public Task SwitchModelAsync(string modelId, CancellationToken cancellationToken = default)
@@ -232,6 +263,34 @@ internal class CompleteRequest
     public int? MaxTokens { get; set; }
     public float? Temperature { get; set; }
     public string? SystemPrompt { get; set; }
+
+    /// <summary>
+    /// Structured conversation messages with roles preserved.
+    /// When provided, the LLM-Provider uses these for multi-turn conversations
+    /// instead of the flat Prompt.
+    /// </summary>
+    public List<MessageDto>? Messages { get; set; }
+
+    /// <summary>
+    /// Correlation ID for multi-turn conversations.
+    /// Allows providers to track their internal session state (e.g. Claude CLI --resume).
+    /// </summary>
+    public string? ConversationId { get; set; }
+
+    /// <summary>
+    /// Memory strategy for LLM-Provider conversation management.
+    /// "None" = skip conversation repo lookup, use inline Messages.
+    /// </summary>
+    public string? MemoryStrategy { get; set; }
+}
+
+/// <summary>
+/// A single message with role information for multi-turn conversations.
+/// </summary>
+internal class MessageDto
+{
+    public string Role { get; set; } = string.Empty;
+    public string Content { get; set; } = string.Empty;
 }
 
 /// <summary>

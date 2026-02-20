@@ -1,15 +1,15 @@
 {
-  "totalRequests": 78,
+  "totalRequests": 13,
   "latency": {
-    "p50": 0,
-    "p95": 0,
-    "p99": 0,
-    "average": 0
+    "p50": 9415,
+    "p95": 11760.2,
+    "p99": 11874.44,
+    "average": 9483.153846153846
   },
   "totalTokens": {
-    "promptTokens": 241,
-    "completionTokens": 153500,
-    "totalTokens": 153741
+    "promptTokens": 46,
+    "completionTokens": 2274,
+    "totalTokens": 2320
   },
   "modelStats": [
     {
@@ -18,55 +18,36 @@
       },
       "requestCount": 1,
       "latency": {
-        "p50": 26995,
-        "p95": 26995,
-        "p99": 26995,
-        "average": 26995
+        "p50": 11665,
+        "p95": 11665,
+        "p99": 11665,
+        "average": 11665
       },
       "totalTokens": {
         "promptTokens": 10,
-        "completionTokens": 2752,
-        "totalTokens": 2762
+        "completionTokens": 618,
+        "totalTokens": 628
       },
       "requestsPerMinute": 0,
       "errorRate": 0
     },
     {
       "modelId": {
-        "value": "opus"
-      },
-      "requestCount": 15,
-      "latency": {
-        "p50": 29414,
-        "p95": 87590.8,
-        "p99": 88137.36,
-        "average": 40735.86666666667
-      },
-      "totalTokens": {
-        "promptTokens": 45,
-        "completionTokens": 28510,
-        "totalTokens": 28555
-      },
-      "requestsPerMinute": 0.2115210901447572,
-      "errorRate": 0
-    },
-    {
-      "modelId": {
         "value": "sonnet"
       },
-      "requestCount": 62,
+      "requestCount": 12,
       "latency": {
-        "p50": 30506.5,
-        "p95": 95035.2499999999,
-        "p99": 113359.35999999999,
-        "average": 33755.3870967742
+        "p50": 9337,
+        "p95": 11329.899999999998,
+        "p99": 11788.380000000001,
+        "average": 9301.333333333334
       },
       "totalTokens": {
-        "promptTokens": 186,
-        "completionTokens": 122238,
-        "totalTokens": 122424
+        "promptTokens": 36,
+        "completionTokens": 1656,
+        "totalTokens": 1692
       },
-      "requestsPerMinute": 0.6315827218418761,
+      "requestsPerMinute": 5.061976737532637,
       "errorRate": 0
     }
   ],
@@ -96,34 +77,34 @@
         "p99": 0,
         "average": 0
       },
-      "tokensTotal": 153741
+      "tokensTotal": 2320
     },
     {
       "windowName": "5m",
       "windowSeconds": 300,
-      "requestCount": 0,
-      "requestsPerMinute": 0,
+      "requestCount": 6,
+      "requestsPerMinute": 1.2,
       "latency": {
-        "p50": 0,
-        "p95": 0,
-        "p99": 0,
-        "average": 0
+        "p50": 9337,
+        "p95": 11351,
+        "p99": 11792.6,
+        "average": 9456.166666666666
       },
-      "tokensTotal": 153741
+      "tokensTotal": 2320
     },
     {
       "windowName": "15m",
       "windowSeconds": 900,
-      "requestCount": 0,
-      "requestsPerMinute": 0,
+      "requestCount": 13,
+      "requestsPerMinute": 0.8666666666666667,
       "latency": {
-        "p50": 0,
-        "p95": 0,
-        "p99": 0,
-        "average": 0
+        "p50": 9415,
+        "p95": 11760.2,
+        "p99": 11874.44,
+        "average": 9483.153846153846
       },
-      "tokensTotal": 153741
+      "tokensTotal": 2320
     }
   ],
-  "generatedAt": "2026-02-20T13:55:18.9166577+00:00"
+  "generatedAt": "2026-02-20T23:57:25.0830595+00:00"
 }

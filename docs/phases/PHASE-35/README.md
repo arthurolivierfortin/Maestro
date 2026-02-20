@@ -1,117 +1,217 @@
-# Phase 35 : `maestro adapt` + `maestro optimize`
+# Phase 35 : Contexte et Conversation comme Blocs
 
 **Statut** : A faire
-**Prerequis** : Phase 34 COMPLETE (au moins 2 tiers publies avec manifestes)
-**Objectif** : Automatiser l'adaptation des workflows aux modeles disponibles de l'utilisateur et l'optimisation des tiers.
+**Prerequis** : Phase 34-E COMPLETE (workflow v4 fonctionnel avec messages structures)
+**Objectif** : Formaliser la conversation, le contexte et la memoire comme des blocs first-class, observables et composables.
 
 ---
 
-## Vision
+## Probleme
 
-Phase 34 cree les tiers manuellement. Phase 35 automatise ce processus :
+Aujourd'hui, la gestion du contexte viole la philosophie Maestro "Everything is a block" :
 
-- **`maestro adapt <workflow>`** : L'utilisateur a ses propres modeles (locaux ou cloud).
-  L'outil lit le manifeste du workflow, detecte les modeles disponibles, teste des
-  substitutions automatiquement, et produit un workflow personnalise.
+- La **conversation** est une `List<ChatMessage>` ephemere dans une variable locale de `AgentBlockExecutor` — invisible, non-composable, non-persistante
+- Le **contexte** est un service interne (`IContextProcessor`) appele dans l'executor — pas un bloc configurable
+- La **memoire** n'existe pas cote Maestro — aucun mecanisme de connaissances persistantes entre executions
 
-- **`maestro optimize <block>`** : Meta-workflow qui prend un bloc et tente de
-  l'optimiser avec des strategies pluggables (model-downgrade, prompt-refinement,
-  temperature-tuning). Les strategies sont elles-memes des blocs.
+L'optimisation du contexte est une des cles de performance de Maestro : un petit LLM avec le bon contexte bat un gros LLM avec un contexte pollue. Sans blocs formels, cette optimisation est impossible a observer, configurer, et ameliorer.
+
+---
+
+## Architecture cible
+
+```
+Memory Block(s)     ──┐
+  (connaissances       │
+   persistantes)       │
+                       ├──→  Context Block  ──→  Inference Block
+Conversation Block  ──┘     (assembleur          (appel LLM)
+  (historique de             final)
+   messages)
+```
+
+### 3 types de blocs
+
+| Bloc | Type | Etat | Responsabilite |
+|------|------|------|---------------|
+| Conversation | Stateful | Messages organises en sections | Stocker, organiser, persister les messages d'une execution |
+| Context | Stateless | Transformateur pur | Assembler et optimiser le contexte final pour le LLM (depuis conversation + memories) |
+| Memory | Stateful | Connaissances persistantes | Stocker des connaissances durables (comme memory.md mais structure) |
+
+### Flux dans la boucle agentique
+
+```
+Agent Executor (boucle mecanique) :
+
+  conversation = ConversationBlock.Create(systemPrompt)
+  conversation.AddMessage(user, taskDescription)
+  memories = MemoryBlock.Load(agentId)
+
+  while (not done):
+    messages = conversation.GetMessages()
+    knowledge = memories.GetRelevant(context)
+    optimized = ContextBlock.Assemble(messages, knowledge, config)
+    response = InferenceBlock.Send(optimized)
+
+    toolCall = parse(response)
+    toolResult = executeTool(toolCall)
+
+    conversation.AddMessage(assistant, response)
+    conversation.AddMessage(user, toolResult)
+```
+
+L'executor reste du plumbing mecanique. Les 3 blocs sont configurables, observables, composables.
 
 ---
 
 ## Sous-phases
 
-| Phase | Titre | Objectif | Effort |
-|-------|-------|----------|--------|
-| 35-A | `maestro adapt` | Adaptation automatique aux modeles de l'utilisateur | 1-2 semaines |
-| 35-B | `maestro optimize` | Meta-workflow d'optimisation avec strategies pluggables | 1-2 semaines |
+| Phase | Titre | Effort |
+|-------|-------|--------|
+| 35-A | Conversation Block — extraction de AgentBlockExecutor | 3-5 jours |
+| 35-B | Context Block — formalisation du context processor | 2-3 jours |
+| 35-C | Memory Block — connaissances persistantes | 5-8 jours |
+| 35-D | TUI Context Panel — observabilite en temps reel | 3-5 jours |
+| 35-E | Orchestration avancee — selection de contexte par l'orchestrateur | 5-8 jours |
 
 ---
 
-## 35-A : `maestro adapt`
+## 35-A : Conversation Block
 
-```bash
-$ maestro adapt autonomous-development
+### Ce que cette sous-phase fait
 
-Reading manifest for autonomous-development@3.0.0 (Tier 1)...
-Detecting available models...
-  ✓ claude-sonnet (via ClaudeCodeProvider)
-  ✓ qwen-2.5-coder-1.5b (via LocalProvider)
-  ✗ claude-haiku (not configured)
+1. Creer l'entite `Conversation` dans `Maestro.Domain` avec sections (system, history)
+2. Creer le service `IConversationManager` dans `Maestro.Application`
+3. Creer l'implementation `InMemoryConversationManager` dans `Maestro.Infrastructure`
+4. Refactorer `AgentBlockExecutor` : remplacer `List<ChatMessage>` par `IConversationManager`
+5. Exposer l'etat via session variable `_conversation_{id}` (observable par le monitor)
+6. Creer le `ConversationBlockExecutor` dans `BlockExecutors/`
 
-Testing substitutions:
-  project-preparer: claude-sonnet → qwen-2.5-coder... fitness 0.65 (below 0.80, keeping claude-sonnet)
-  git-committer:    claude-sonnet → qwen-2.5-coder... fitness 0.88 (OK, substituting)
-  code-reviewer:    claude-sonnet → qwen-2.5-coder... fitness 0.72 (below 0.80, keeping claude-sonnet)
+### Fichiers a modifier/creer
 
-Result: Custom tier generated
-  4/6 blocks: claude-sonnet
-  2/6 blocks: qwen-2.5-coder-1.5b
-  Global fitness: 0.87
-  Estimated cost reduction: 25%
+| Fichier | Action |
+|---------|--------|
+| `Maestro.Domain/Entities/Conversation.cs` | Creer — entite avec sections, messages, token counts |
+| `Maestro.Application/Interfaces/IConversationManager.cs` | Creer — Create, AddMessage, GetMessages, GetState, Cleanup |
+| `Maestro.Infrastructure/Context/InMemoryConversationManager.cs` | Creer — implementation ConcurrentDictionary |
+| `Maestro.Infrastructure/BlockExecutors/AgentBlockExecutor.cs` | Modifier — utiliser IConversationManager au lieu de List<ChatMessage> |
+| `Maestro.Infrastructure/BlockExecutors/ConversationBlockExecutor.cs` | Modifier — connecter au IConversationManager |
+| `Maestro.Api/Program.cs` | Modifier — enregistrer IConversationManager en DI |
 
-Save as personal tier? [Y/n]
-```
-
-**Mecanisme** :
-1. Lire le manifeste du workflow (modeles requis, fitness par bloc, substituts deja testes)
-2. Detecter les modeles disponibles via `LLM-Provider /api/v1/models/`
-3. Pour chaque bloc, tester les substituts disponibles (mini-session foundry, 3 iterations, evaluateur heuristique)
-4. Garder la substitution seulement si fitness >= seuil (configurable, default 0.80)
-5. Sauvegarder le workflow adapte comme tier personnel
-
-**3 niveaux d'evaluateurs** :
-- Niveau 1 (Heuristique) : JSON valide, champs requis, efficacite tokens — gratuit, toujours
-- Niveau 2 (LLM local) : Un modele local evalue la sortie d'un autre — gratuit si 7B+ disponible
-- Niveau 3 (Cloud) : Evaluation par Claude/GPT-4 — payant, futur (Phase 37+)
-
-Par defaut, `maestro adapt` utilise le Niveau 1. Si un modele 7B+ est disponible, Niveau 2.
+### Anti-patterns
+- Ne PAS persister les conversations sur disque dans cette sous-phase — en memoire suffit
+- Ne PAS ajouter de logique de truncation dans la conversation — c'est le role du context block
+- Ne PAS hardcoder des sections specifiques — le systeme de sections doit etre generique
 
 ---
 
-## 35-B : `maestro optimize`
+## 35-B : Context Block
 
-```bash
-$ maestro optimize project-preparer --strategy model-downgrade
+### Ce que cette sous-phase fait
 
-Optimizing project-preparer (current: claude-sonnet, fitness: 0.95)...
-Strategy: model-downgrade
+1. Transformer `IContextProcessor` en bloc formel (`blockType: "context"`)
+2. Le context block prend en entree : messages de conversation + config
+3. Il produit en sortie : messages optimises prets pour le LLM
+4. L'interface est concue pour accepter des sources multiples (conversation + memory dans 35-C)
+5. Refactorer `AgentBlockExecutor` : utiliser le context block au lieu de `contextProcessor.ProcessAsync()`
 
-Testing claude-haiku... fitness 0.92 (delta: -0.03) ✓
-Testing qwen-2.5-coder... fitness 0.65 (delta: -0.30) ✗
-Testing smollm2-1.7b... fitness 0.40 (delta: -0.55) ✗
+### Fichiers a modifier/creer
 
-Best: claude-haiku (fitness 0.92, cost reduction 60%)
-Publish optimized block? [Y/n]
-```
+| Fichier | Action |
+|---------|--------|
+| `Maestro.Application/Interfaces/IContextAssembler.cs` | Creer — interface pour l'assembleur de contexte |
+| `Maestro.Infrastructure/Context/ContextAssembler.cs` | Creer — implementation qui delegue aux strategies |
+| `Maestro.Infrastructure/BlockExecutors/ContextBlockExecutor.cs` | Modifier — connecter a IContextAssembler |
+| `Maestro.Infrastructure/BlockExecutors/AgentBlockExecutor.cs` | Modifier — utiliser IContextAssembler |
 
-**Strategies (elles-memes des blocs)** :
-- `model-downgrade` : Tester des modeles moins chers
-- `prompt-refinement` : Reecrire le prompt pour un modele plus petit
-- `temperature-tuning` : Ajuster la temperature pour meilleur fitness
-- Plus tard : `few-shot-injection`, `context-compression`, etc.
-
-**Mode recursif** :
-```bash
-$ maestro optimize autonomous-development --recursive
-# Optimise chaque sous-bloc bottom-up, puis le workflow global
-```
+### Anti-patterns
+- Ne PAS supprimer IContextProcessor — le context block l'utilise en interne
+- Ne PAS hardcoder les sources (conversation only) — l'interface doit supporter N sources
 
 ---
 
-## Principe architectural
+## 35-C : Memory Block
 
-- `adapt` et `optimize` sont des WORKFLOWS, pas de l'infrastructure
-- Les strategies sont des BLOCS (pas du code C#)
-- Les evaluateurs sont des BLOCS (pas du code C#)
-- Ajouter une nouvelle strategie = creer un .block.json, zero changement C#
+### Ce que cette sous-phase fait
+
+1. Creer l'entite `MemoryStore` — connaissances persistantes organisees par categorie
+2. Creer `IMemoryManager` — CRUD sur les memories
+3. Creer `MemoryBlockExecutor` (`blockType: "memory"`)
+4. Les memories sont persistees sur disque (comme les blocks)
+5. Integrer les memories dans le context block (source additionnelle)
+6. Les agents peuvent ecrire dans leurs memories (apprentissage)
+
+### Structure d'une memory
+
+```json
+{
+  "id": "agent-implement-step-memory",
+  "category": "coding-patterns",
+  "entries": [
+    {
+      "key": "typescript-imports",
+      "content": "Always use named imports, never default imports",
+      "confidence": 0.95,
+      "source": "foundry-session-abc123",
+      "lastUsed": "2026-02-20T10:00:00Z"
+    }
+  ]
+}
+```
+
+### Anti-patterns
+- Ne PAS implementer de RAG/embeddings dans cette sous-phase — recherche par categorie/cle suffit
+- Ne PAS coupler les memories a un agent specifique — elles sont des blocs reutilisables
+
+---
+
+## 35-D : TUI Context Panel
+
+### Ce que cette sous-phase fait
+
+1. Widget `context-panel` dans le monitor
+2. Affiche en temps reel : sections de la conversation, token counts, strategie, truncation
+3. Affiche les memories actives pour l'agent en cours
+4. Utilise les session variables `_conversation_{id}` et `_contextState`
+
+### Anti-patterns
+- Ne PAS ajouter de logique metier dans le TUI — lecture seule des session variables
+- Ne PAS creer un nouveau endpoint API — utiliser les variables de session existantes
+
+---
+
+## 35-E : Orchestration avancee
+
+### Ce que cette sous-phase fait
+
+1. Un orchestrateur peut configurer quel contexte chaque sous-agent recoit
+2. Le context block supporte les filtres de sections
+3. Plusieurs conversations peuvent coexister dans une session
+4. L'orchestrateur peut injecter des memories specifiques par agent
+
+### Anti-patterns
+- Ne PAS hardcoder les regles de selection dans l'executor — tout en config bloc
+- Ne PAS creer un nouveau type de bloc pour l'orchestration — utiliser la composition de blocs existants
+
+---
+
+## Gestion de la memoire
+
+### Checkpoint global
+Fichier `docs/phases/PHASE-35/checkpoint.md` — format defini dans AGENT-PROTOCOL.md.
+
+### Mise a jour MEMORY.md apres completion
+- Ajouter : "Phase 35 : Conversation, Context et Memory sont des blocs first-class. IConversationManager, IContextAssembler, IMemoryManager dans Application/Interfaces/"
+- Ajouter : "TUI context-panel widget disponible"
+- Retirer : "Context = IContextProcessor interne a AgentBlockExecutor"
 
 ---
 
 ## Criteres de completion
 
-- [ ] `maestro adapt <workflow>` produit un tier personnalise
-- [ ] `maestro optimize <block>` teste au moins 2 strategies
-- [ ] L'evaluateur heuristique (Niveau 1) fonctionne sans LLM
-- [ ] Les strategies sont des blocs, pas du code hardcode
+- [ ] La conversation est une entite observable (pas une List<ChatMessage> locale)
+- [ ] Le context block assemble depuis conversation + memories
+- [ ] Les memories sont persistees et reutilisables entre sessions
+- [ ] Le TUI panel montre le contexte en temps reel
+- [ ] Un orchestrateur peut choisir quel contexte passer a quel agent
+- [ ] Aucun code de gestion de messages dans AgentBlockExecutor — tout delegue aux blocs

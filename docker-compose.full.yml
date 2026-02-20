@@ -10,7 +10,7 @@ services:
   # LLM Provider - Python FastAPI server for local model inference
   llm-provider:
     build:
-      context: ${LLM_PROVIDER_PATH:-C:/LLM-Provider}
+      context: ${LLM_PROVIDER_PATH:-./llm-provider}
       dockerfile: Dockerfile
     container_name: maestro-llm-provider
     ports:
@@ -19,8 +19,8 @@ services:
       # Mount model cache to avoid re-downloading
       - llm-model-cache:/root/.cache/huggingface
       # Mount source for development
-      - ${LLM_PROVIDER_PATH:-C:/LLM-Provider}/api:/app/api:ro
-      - ${LLM_PROVIDER_PATH:-C:/LLM-Provider}/src:/app/src:ro
+      - ${LLM_PROVIDER_PATH:-./llm-provider}/api:/app/api:ro
+      - ${LLM_PROVIDER_PATH:-./llm-provider}/src:/app/src:ro
     environment:
       - LLM_PRELOAD_MODEL=${LLM_DEFAULT_MODEL:-deepseek-ai/deepseek-coder-1.3b-instruct}
       - CUDA_VISIBLE_DEVICES=0

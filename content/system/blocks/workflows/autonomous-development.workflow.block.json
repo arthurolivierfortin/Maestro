@@ -65,8 +65,8 @@
         "id": "store-plan",
         "type": "set-variable",
         "variable": "_planSteps",
-        "value": "{{previousOutput}}",
-        "description": "Store the validated plan steps for for-each iteration"
+        "value": "{{_nodeResult_plan}}",
+        "description": "Store the plan output for for-each iteration (uses plan node result, not validator output)"
       },
       {
         "id": "implement-steps",

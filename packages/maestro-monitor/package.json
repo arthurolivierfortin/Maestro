@@ -3,7 +3,8 @@
   "version": "0.1.0",
   "main": "./tui-monitor.ts",
   "exports": {
-    ".": "./tui-monitor.ts"
+    ".": "./tui-monitor.ts",
+    "./tui-monitor.ts": "./tui-monitor.ts"
   },
   "dependencies": {
     "@maestro/tui": "*",

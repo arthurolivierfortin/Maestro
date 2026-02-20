@@ -183,7 +183,12 @@ public static class LLMEndpoints
             WindowSize = request.WindowSize,
             MaxTokens = request.MaxTokens,
             Temperature = request.Temperature,
-            SystemPrompt = request.SystemPrompt
+            SystemPrompt = request.SystemPrompt,
+            Messages = request.Messages?.Select(m => new InlineMessage
+            {
+                Role = m.Role,
+                Content = m.Content
+            }).ToList()
         };
     }
 }
@@ -199,6 +204,21 @@ public record CompleteRequest
     public int? MaxTokens { get; init; }
     public float? Temperature { get; init; }
     public string? SystemPrompt { get; init; }
+
+    /// <summary>
+    /// Structured conversation messages (with roles). When provided, these are used
+    /// instead of the flat Prompt for multi-turn agentic conversations.
+    /// </summary>
+    public List<ChatMessageDto>? Messages { get; init; }
+}
+
+/// <summary>
+/// A single message in a conversation, with role information preserved.
+/// </summary>
+public record ChatMessageDto
+{
+    public required string Role { get; init; }
+    public required string Content { get; init; }
 }
 
 public record CompleteResponse

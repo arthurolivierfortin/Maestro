@@ -19,7 +19,7 @@ try {
 Write-Host ""
 Write-Host "=== Recent Metrics ==="
 try {
-    $metrics = Get-Content "C:\LLM-Provider\dotnet\src\LLMProvider.Web\data\statistics\metrics-2026-02-20.json" -Raw | ConvertFrom-Json
+    $metrics = Get-Content "C:\Meastro\llm-provider\dotnet\src\LLMProvider.Web\data\statistics\metrics-2026-02-20.json" -Raw | ConvertFrom-Json
     Write-Host "  Total entries: $($metrics.Count)"
     if ($metrics.Count -gt 0) {
         $metrics | Select-Object -Last 3 | ForEach-Object {

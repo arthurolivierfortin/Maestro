@@ -595,6 +595,10 @@ namespace Maestro.Api.Controllers
                     Logs = result.Logs,
                     Success = result.Success,
                     DurationMs = result.DurationMs,
+                    PromptTokens = result.PromptTokens,
+                    CompletionTokens = result.CompletionTokens,
+                    TotalTokens = result.TotalTokens,
+                    EstimatedCostUsd = result.EstimatedCostUsd,
                     Scores = scores
                 });
             }
@@ -630,6 +634,10 @@ namespace Maestro.Api.Controllers
         public List<string> Logs { get; set; } = new();
         public bool Success { get; set; }
         public long DurationMs { get; set; }
+        public int PromptTokens { get; set; }
+        public int CompletionTokens { get; set; }
+        public int TotalTokens { get; set; }
+        public decimal EstimatedCostUsd { get; set; }
         public RunScores? Scores { get; set; }
     }
 

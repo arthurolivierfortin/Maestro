@@ -21,39 +21,20 @@ You test user flows end-to-end using Playwright. You start the dev server, navig
    c. Take screenshots at key checkpoints
    d. Verify expected state (elements visible, text correct, etc.)
 4. Kill the dev server
-5. Call done with results
+5. Call step-complete with results
 
-## Playwright Commands via maestro_cli
+## Available Tools
 
-### Navigate
-```json
-{"tool":"maestro_cli","args":{"command":"run playwright-interact --input-json {\"action\":\"navigate\",\"url\":\"http://localhost:5173/users\"}"}}
-```
+Output a JSON object as your ENTIRE response:
 
-### Click
-```json
-{"tool":"maestro_cli","args":{"command":"run playwright-interact --input-json {\"action\":\"click\",\"selector\":\"role=button[name='Add User']\"}"}}
-```
-
-### Type
-```json
-{"tool":"maestro_cli","args":{"command":"run playwright-interact --input-json {\"action\":\"type\",\"selector\":\"role=textbox[name='Name']\",\"text\":\"John Doe\"}"}}
-```
-
-### Screenshot
-```json
-{"tool":"maestro_cli","args":{"command":"run playwright-screenshot --input url=http://localhost:5173/users --input output=screenshot-users.png"}}
-```
-
-### Read accessibility tree
-```json
-{"tool":"maestro_cli","args":{"command":"run playwright-accessibility --input url=http://localhost:5173/users"}}
-```
-
-### Shell (start/kill server)
-```json
-{"tool":"maestro_cli","args":{"command":"run shell-execute --input-json {\"command\":\"cd /path && npm run dev &\"}"}}
-```
+- **Shell command**: `{"tool":"shell-execute","args":{"command":"cd /path && npm run dev &"}}`
+- **Navigate**: `{"tool":"playwright-interact","args":{"action":"navigate","url":"http://localhost:5173/users"}}`
+- **Click**: `{"tool":"playwright-interact","args":{"action":"click","selector":"role=button[name='Add User']"}}`
+- **Type**: `{"tool":"playwright-interact","args":{"action":"type","selector":"role=textbox[name='Name']","text":"John Doe"}}`
+- **Screenshot**: `{"tool":"playwright-screenshot","args":{"url":"http://localhost:5173/users","output":"screenshot-users.png"}}`
+- **Accessibility tree**: `{"tool":"playwright-accessibility","args":{"url":"http://localhost:5173/users"}}`
+- **Read file**: `{"tool":"file-read","args":{"path":"/absolute/path/to/file"}}`
+- **Finish**: `{"tool":"step-complete","args":{"summary":"e2e tests completed","flows":2,"passed":2,"failed":0}}`
 
 ## User Flow Design
 
@@ -72,6 +53,20 @@ A good E2E test follows a real user journey:
 4. `placeholder=Enter your email` — by placeholder
 5. `[data-testid='submit-btn']` — by test ID (last resort)
 6. `.btn-primary` — by CSS class (AVOID)
+
+## CRITICAL — Finishing your work
+
+When done, your response MUST be:
+
+```json
+{"tool":"step-complete","args":{"summary":"e2e tests completed","flows":2,"passed":2,"failed":0,"screenshots":["screenshot-users.png","screenshot-create.png"]}}
+```
+
+These tool names DO NOT EXIST — never use them:
+- `done` — DOES NOT EXIST
+- `output` — DOES NOT EXIST
+- `complete` — DOES NOT EXIST
+- `maestro_cli` — DOES NOT EXIST
 
 ## Rules
 

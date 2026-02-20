@@ -115,52 +115,56 @@ Reference: `docs/phases/PHASE-26/PIPELINE-MONITORING-GUIDE.md`
 > *"There is no Agent entity. There is no Tool entity. There are only Blocks with different types."*
 
 - **Every block has metrics**: success rate, avg time, cost, score — not just agents
-- **An agent is an enriched inference block**: same interface (prompt → response), more internal capability (workflow inside)
-- **Tools are discovered, not declared**: an agent's internal inference block selects tools from the session scope at runtime
+- **An agent has the same interface as an inference block** (prompt → response), but is composite — its internal implementation is a black box
+- **Tools are discovered, not declared**: tools available to an agent come from its system prompt and session scope, not from code
 - **One discovery system**: `FileSystemBlockDiscoveryService` finds everything
 - **One file format**: `*.block.json` for all types
 - **One API**: `/api/blocks` with filters (`?type=agent`, `?designation=tool`)
 
 See: `docs/phases/PHASE-18/ADR-BLOCKS-ARE-THE-UNIVERSAL-UNIT.md`
 
-#### Agent = Inference Block (CRITICAL — Read This)
+#### Agent: Same Interface as Inference, Composite Implementation (CRITICAL — Read This)
 
-> *"An agent is an inference block whose prompt describes available tools. The executor is mechanical plumbing — all intelligence lives in the block's prompt."*
+> *"Le type d'un block definit son interface, pas son implementation."*
 
-Agent and inference blocks share a base executor class (`LLMBlockExecutorBase`) that provides common LLM plumbing: mock loading, model resolution, template resolution, output parsing, JSON extraction.
+**Interface**: An agent has the **same interface** as an inference block: prompt in → response out. A workflow node can point to an inference block OR an agent block interchangeably — it only sees input/output.
 
-- `InferenceBlockExecutor` — thin: template → single LLM call → response
-- `AgentBlockExecutor` — thin: systemPrompt → multi-turn agentic loop → tool calls via CLI → response
+**Implementation**: An agent is **composite** (`isAtomic: false`), like a workflow. Its internal structure is a **black box** defined by its `config.nodes`. It could contain 0, 1, or 10 inference blocks, tools, validators, other agents — anything. The caller doesn't know and doesn't need to know.
 
-Both are **mechanical plumbing**. All content (system prompts, tool descriptions, context strategy) comes from block config/files — never from C#.
+```
+From the outside (interface):
+  inference block:  prompt → response
+  agent block:      prompt → response     (identical)
+
+From the inside (implementation):
+  inference block:  prompt → [1 LLM call] → response                    (atomic)
+  agent block:      prompt → [anything: child blocks, loops, tools] → response  (composite, black box)
+```
 
 **What this means concretely:**
 
 | WRONG | RIGHT |
 |-------|-------|
-| Hardcoded tool lists in C# (`var availableTools = new List<string> { ... }`) | Tools described in the block's `system-prompt.md` or `config.systemPrompt` |
-| `tools.json` file loaded by special handler | Available tools listed in the prompt text, like any prompt template |
+| Hardcoded tool lists in C# | Tools described in the block's `system-prompt.md` or `config.systemPrompt` |
+| `tools.json` file loaded by special handler | Available tools listed in the prompt text |
 | Default system prompt built in C# | System prompt MUST exist in block config/file — if missing, error (no fallback) |
 | Separate `AgentDefinition` / `ToolDefinition` entities | One entity: `BlockDefinition` with `metadata.designation` |
-| Separate `AgentMetrics` / `ToolMetrics` classes | One metrics system on `BlockDefinition` |
-| Content-specific logic in executor code | Executor is mechanical: load prompt, call LLM, parse tool calls, loop |
+| Content-specific logic in executor code | Executor is mechanical plumbing only |
+| Agent executor calls `_llmGateway.SendAsync()` directly | Agent executor orchestrates child blocks defined in `config.nodes` |
+| Agent executor hardcodes the agentic loop in C# | The agentic loop structure comes from the block's config, not from code |
+| Prescribing what child blocks an agent must contain | The inside is a black box — any composition is valid |
 
 **Tool availability comes from the prompt**, not from code:
 ```markdown
 # system-prompt.md for an agent block
-You have ONE tool: maestro_cli. Use it to interact with the system.
-Available commands:
-- Run a block: {"tool":"maestro_cli","args":{"command":"run <block-id> --input key=value"}}
-- Read a file: {"tool":"maestro_cli","args":{"command":"run file-read --input path=<path>"}}
-...
+You have these tools. Call them by outputting a JSON object as your ENTIRE response:
+- Read file: {"tool":"file-read","args":{"path":"/absolute/path"}}
+- Write file: {"tool":"file-write","args":{"path":"/absolute/path","content":"..."}}
+- Run a block: {"tool":"<block-id>","args":{"input1":"value1"}}
+- Finish: {"tool":"step-complete","args":{"summary":"what was accomplished"}}
 ```
 
-**Executor class hierarchy:**
-```
-LLMBlockExecutorBase (abstract — shared LLM plumbing)
-├── InferenceBlockExecutor (single call)
-└── AgentBlockExecutor (agentic loop, no hardcoded content)
-```
+**Known architectural debt**: The current `AgentBlockExecutor` inherits from `LLMBlockExecutorBase` and calls `_llmGateway.SendAsync()` directly, bypassing the block composition system. This means the agent's internal behavior (agentic loop, tool call parsing, conversation management) is hardcoded in C# instead of being defined by child blocks. This violates "the type defines its interface, not its implementation" — the implementation should come from `config.nodes`, not from executor code. Tracked for correction in Phase 35-PRE.
 
 **Litmus test**: Can you create a new agent by writing ONLY a `.block.json` file with a `system-prompt.md`? If yes, correct. If you need to modify C# executor code — the architecture is violated.
 
@@ -193,9 +197,9 @@ Concrete examples of what this means:
 
 **Maestro has ONE LLM gateway** — `LLMProviderGateway` — which talks to the LLM-Provider .NET API. **All provider-specific logic lives in LLM-Provider, never in Maestro.**
 
-#### LLM-Provider Architecture (C:\LLM-Provider)
+#### LLM-Provider Architecture (C:\Meastro\llm-provider)
 
-LLM-Provider is a **.NET Clean Architecture solution** (`C:\LLM-Provider\dotnet\`) with a Python FastAPI service (`C:\LLM-Provider\api\`) used ONLY for local GPU inference via PyTorch.
+LLM-Provider is a **.NET Clean Architecture solution** (`C:\Meastro\llm-provider\dotnet\`) with a Python FastAPI service (`C:\Meastro\llm-provider\api\`) used ONLY for local GPU inference via PyTorch.
 
 ```
 LLM-Provider .NET API (port 5010) ← THE multi-provider gateway
@@ -242,7 +246,7 @@ If the answer is no, the architecture is violated.
 - Provider configuration (API keys, CLI paths, endpoints)
 - Knowledge of how a model is served (local GPU vs cloud API vs CLI)
 
-**Adding a new provider** = create a new `LLMProvider.XxxProvider` project in `C:\LLM-Provider\dotnet\`, implement `ILLMProvider`, register via DI in `Program.cs`. Zero Maestro changes.
+**Adding a new provider** = create a new `LLMProvider.XxxProvider` project in `C:\Meastro\llm-provider\dotnet\`, implement `ILLMProvider`, register via DI in `Program.cs`. Zero Maestro changes.
 
 ### CLI-First: Everything Goes Through the CLI
 
@@ -291,7 +295,7 @@ The infrastructure reads these — it NEVER creates them. If a variable is missi
 - A tool can internally contain workflows, agents, validators — its complexity is invisible to callers
 - Conditions, loops, and parallelism are BLOCKS, not arrows (tree structure, not graph)
 - Even system agents are blocks with the same interface, metrics, and fitness tracking
-- **An agent IS an inference block** — same executor, same interface. The agent's tools are described in its prompt, not in special config or code. See the "Agent = Inference Block" section above for the full rule.
+- **An agent has the same interface as an inference block** (prompt → response), but is **composite** (`isAtomic: false`) — its internal implementation is a black box that can contain any blocks. See the "Agent: Same Interface as Inference, Composite Implementation" section above.
 
 ### Specialization over Generality
 
@@ -615,15 +619,18 @@ Entry points map to block IDs. The `EntryPointExecutor` dispatches based on bloc
 **Fix**: Use generic operations: `session set-var <id> <key> <value>` to reset any variable. The CLI operates on generic abstractions (sessions, variables, blocks, entry points), never on session-specific concepts (phases, fitness, iterations).
 
 ### Treating agents as special entities
-**Cause**: Creating separate entities, metrics classes, or hardcoding content in executor code for agents — treating them as fundamentally different from inference blocks.
+**Cause**: Creating separate entities, metrics classes, or hardcoding content/behavior in executor code for agents.
 **Examples of violations to watch for**:
 - Hardcoded tool lists (`var availableTools = new List<string> { ... }`) in C#
 - Default system prompt built in C# instead of block config
 - `tools.json` file loaded by handler
 - Separate `AgentDefinition` / `ToolDefinition` entities alongside `BlockDefinition`
-**Fix**: Agent and inference share `LLMBlockExecutorBase`. Both executors are thin and mechanical. All content (system prompts, tools) lives in block config/files. One entity (`BlockDefinition`), one metrics system. The `LegacyToolMapping` is marked `[Obsolete]` for backwards compat.
+- Agent executor calling `_llmGateway.SendAsync()` directly instead of orchestrating child blocks
+- Hardcoding the agentic loop structure (while loop, tool dispatch) in C# instead of in `config.nodes`
+- Prescribing what an agent must contain internally (it's a black box)
+**Fix**: One entity (`BlockDefinition`), one metrics system. All content (system prompts, tools) lives in block config/files. The agent is composite (`isAtomic: false`) — its internal behavior should be defined by its child blocks in `config.nodes`, not by hardcoded C# logic.
 **ADRs**: `docs/phases/PHASE-18/ADR-BLOCKS-ARE-THE-UNIVERSAL-UNIT.md`, `docs/phases/PHASE-26/REFACTORING-AGENT-INFERENCE-MERGE.md`
-**Current state**: Refactoring COMPLETED (Phase 26). `AgentDefinition` and `ToolDefinition` deleted. Executors are thin. No hardcoded content.
+**Current state**: Phase 26 deleted `AgentDefinition`/`ToolDefinition` and removed hardcoded content. But `AgentBlockExecutor` still calls LLM directly and hardcodes the agentic loop in C# — this architectural debt is tracked for Phase 35-PRE.
 
 ### Creating blocks outside the workspace/foundry workflow
 **Cause**: Writing block JSON files directly into `content/system/blocks/` without a workspace or foundry session, because it's faster
@@ -636,12 +643,12 @@ Entry points map to block IDs. The `EntryPointExecutor` dispatches based on bloc
 
 ### Putting LLM provider logic in Maestro instead of LLM-Provider
 **Cause**: Creating gateway classes in Maestro C# for specific providers (ClaudeCodeGateway, AnthropicApiGateway, MultiProviderGateway) instead of adding them to LLM-Provider .NET.
-**Fix**: Maestro has ONE gateway (`LLMProviderGateway`) that talks to LLM-Provider .NET API (`C:\LLM-Provider\dotnet\`). All provider-specific logic lives in LLM-Provider .NET as `ILLMProvider` implementations (e.g., `AzureLLMProvider`, `LocalLLMProvider`, `ClaudeCodeLLMProvider`). Adding a new provider = create a new project in LLM-Provider .NET, zero Maestro changes.
-**Concrete violation that happened**: Phase 26-B initially created `MultiProviderGateway`, `CliAgentGateway`, `ClaudeCodeGateway`, `AnthropicApiGateway` in `Maestro.Infrastructure/LLMGateway/`. This was discarded. The correct approach is to add providers in `C:\LLM-Provider\dotnet\src\LLMProvider.XxxProvider\`.
+**Fix**: Maestro has ONE gateway (`LLMProviderGateway`) that talks to LLM-Provider .NET API (`C:\Meastro\llm-provider\dotnet\`). All provider-specific logic lives in LLM-Provider .NET as `ILLMProvider` implementations (e.g., `AzureLLMProvider`, `LocalLLMProvider`, `ClaudeCodeLLMProvider`). Adding a new provider = create a new project in LLM-Provider .NET, zero Maestro changes.
+**Concrete violation that happened**: Phase 26-B initially created `MultiProviderGateway`, `CliAgentGateway`, `ClaudeCodeGateway`, `AnthropicApiGateway` in `Maestro.Infrastructure/LLMGateway/`. This was discarded. The correct approach is to add providers in `C:\Meastro\llm-provider\dotnet\src\LLMProvider.XxxProvider\`.
 
 ### Assuming LLM-Provider is Python-only
-**Cause**: Only looking at `C:\LLM-Provider\api\` (Python FastAPI) and missing `C:\LLM-Provider\dotnet\` (full .NET Clean Architecture with ILLMProvider, ILLMProviderFactory, orchestration service, 3 concrete providers).
-**Fix**: LLM-Provider is a .NET solution that CONTAINS a Python service for local GPU inference only. The multi-provider gateway, routing, factory, conversations, token tracking, and API are all in .NET. Always check `C:\LLM-Provider\dotnet\` first.
+**Cause**: Only looking at `C:\Meastro\llm-provider\api\` (Python FastAPI) and missing `C:\Meastro\llm-provider\dotnet\` (full .NET Clean Architecture with ILLMProvider, ILLMProviderFactory, orchestration service, 3 concrete providers).
+**Fix**: LLM-Provider is a .NET solution that CONTAINS a Python service for local GPU inference only. The multi-provider gateway, routing, factory, conversations, token tracking, and API are all in .NET. Always check `C:\Meastro\llm-provider\dotnet\` first.
 ### Hardcoding domain-specific features in infrastructure
 **Cause**: Creating CLI commands like `maestro agent` that hardcode code-development logic (commit, test, review), or adding optimization logic that only works for code.
 **Fix**: Infrastructure MUST be domain-agnostic. Use `maestro run-interactive <workflow>` (generic) + aliases system (`aliases.json`) for shortcuts. `maestro agent` = alias → `autonomous-dev-v3`, defined in content, not code. A user creating a translation workflow should get `maestro translator` the same way.

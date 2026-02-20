@@ -1,0 +1,1 @@
+﻿export function formatDate(date: Date): string {\n  const year = date.getFullYear();\n  const month = String(date.getMonth() + 1).padStart(2, '0');\n  const day = String(date.getDate()).padStart(2, '0');\n  return `${year}-${month}-${day}`;\n}\n

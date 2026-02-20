@@ -40,7 +40,7 @@ public abstract class LLMBlockExecutorBase : IBlockExecutor
     /// <summary>
     /// Resolves the block's on-disk path from config["path"].
     /// </summary>
-    protected static string? GetBlockPath(BlockDefinition block)
+    internal static string? GetBlockPath(BlockDefinition block)
     {
         if (block.Config != null && block.Config.TryGetValue("path", out var p) && p is string pstr)
             return pstr;
@@ -51,7 +51,7 @@ public abstract class LLMBlockExecutorBase : IBlockExecutor
     /// Checks for mock-response.json in the block path. If found, returns a result with mock outputs.
     /// Returns null if no mock is available.
     /// </summary>
-    protected async Task<BlockExecutionResult?> TryLoadMockResponse(BlockDefinition block, Stopwatch sw, CancellationToken ct)
+    internal static async Task<BlockExecutionResult?> TryLoadMockResponse(BlockDefinition block, Stopwatch sw, CancellationToken ct)
     {
         var path = GetBlockPath(block);
         if (path == null) return null;
@@ -88,7 +88,7 @@ public abstract class LLMBlockExecutorBase : IBlockExecutor
     /// <summary>
     /// Resolves model ID: input override > config > null (use active model).
     /// </summary>
-    protected static string? ResolveModelId(BlockDefinition block, Dictionary<string, object> inputs)
+    internal static string? ResolveModelId(BlockDefinition block, Dictionary<string, object> inputs)
     {
         if (inputs.TryGetValue("model", out var modelInput) && modelInput != null)
             return modelInput.ToString();
@@ -102,7 +102,7 @@ public abstract class LLMBlockExecutorBase : IBlockExecutor
     /// <summary>
     /// Resolves generation parameters (maxTokens, temperature) from block config.
     /// </summary>
-    protected static (int maxTokens, float temperature) ResolveGenerationParams(BlockDefinition block)
+    internal static (int maxTokens, float temperature) ResolveGenerationParams(BlockDefinition block)
     {
         int maxTokens = 1024;
         float temperature = 0.0f;
@@ -122,7 +122,7 @@ public abstract class LLMBlockExecutorBase : IBlockExecutor
     /// <summary>
     /// Resolves {{key}} placeholders in a template string using input values.
     /// </summary>
-    protected static string ResolveTemplate(string template, Dictionary<string, object> inputs)
+    internal static string ResolveTemplate(string template, Dictionary<string, object> inputs)
     {
         if (string.IsNullOrEmpty(template)) return string.Empty;
         return Regex.Replace(template, @"\{\{\s*(.+?)\s*\}\}", m =>
@@ -137,7 +137,7 @@ public abstract class LLMBlockExecutorBase : IBlockExecutor
     /// Parses structured outputs from LLM response content based on block config.
     /// If outputKey is defined, extracts that key from JSON response. Otherwise stores raw content.
     /// </summary>
-    protected static void ParseOutputs(BlockExecutionResult result, string? responseContent, BlockDefinition block)
+    internal static void ParseOutputs(BlockExecutionResult result, string? responseContent, BlockDefinition block)
     {
         if (string.IsNullOrWhiteSpace(responseContent))
         {
@@ -176,7 +176,7 @@ public abstract class LLMBlockExecutorBase : IBlockExecutor
     /// <summary>
     /// Extracts JSON from a response that may contain markdown code blocks or extra text.
     /// </summary>
-    protected static string? ExtractJson(string content)
+    internal static string? ExtractJson(string content)
     {
         if (string.IsNullOrWhiteSpace(content)) return null;
 
@@ -231,9 +231,58 @@ public abstract class LLMBlockExecutorBase : IBlockExecutor
     }
 
     /// <summary>
+    /// Estimates cost in USD based on model ID and token counts.
+    /// Lookup per million tokens. Returns 0 for unknown/local models.
+    /// </summary>
+    internal static decimal EstimateCost(string? modelId, int promptTokens, int completionTokens)
+    {
+        if (string.IsNullOrEmpty(modelId) || (promptTokens == 0 && completionTokens == 0))
+            return 0m;
+
+        var id = modelId.ToLowerInvariant();
+
+        decimal inputPerM, outputPerM;
+
+        if (id.Contains("opus"))
+        {
+            inputPerM = 15m; outputPerM = 75m;
+        }
+        else if (id.Contains("sonnet"))
+        {
+            inputPerM = 3m; outputPerM = 15m;
+        }
+        else if (id.Contains("haiku") && (id.Contains("4.5") || id.Contains("4-5")))
+        {
+            inputPerM = 0.80m; outputPerM = 4m;
+        }
+        else if (id.Contains("haiku"))
+        {
+            inputPerM = 0.25m; outputPerM = 1.25m;
+        }
+        else if (id.Contains("gpt-4o"))
+        {
+            inputPerM = 2.50m; outputPerM = 10m;
+        }
+        else if (id.Contains("gpt-4"))
+        {
+            inputPerM = 30m; outputPerM = 60m;
+        }
+        else if (id.Contains("qwen") || id.Contains("llama") || id.Contains("smollm") || id.Contains("local"))
+        {
+            return 0m;
+        }
+        else
+        {
+            return 0m;
+        }
+
+        return (promptTokens * inputPerM / 1_000_000m) + (completionTokens * outputPerM / 1_000_000m);
+    }
+
+    /// <summary>
     /// Creates an error result with the given message.
     /// </summary>
-    protected static BlockExecutionResult ErrorResult(string message, long durationMs = 0)
+    internal static BlockExecutionResult ErrorResult(string message, long durationMs = 0)
     {
         return new BlockExecutionResult
         {

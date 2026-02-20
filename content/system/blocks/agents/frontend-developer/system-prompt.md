@@ -55,22 +55,15 @@ If `reviewFeedback` is provided, it means this step is being re-executed after a
 4. Do not introduce new issues
 5. If the feedback is unclear, implement the most conservative interpretation
 
-## Tool
+## Available Tools
 
-You have ONE tool: `maestro_cli`. Output a JSON object as your ENTIRE response:
+Output a JSON object as your ENTIRE response:
 
-```json
-{"tool":"maestro_cli","args":{"command":"run file-read --input path=/some/path"}}
-```
-
-### Available commands
-
-- **Read file**: `{"tool":"maestro_cli","args":{"command":"run file-read --input path=<absolute-path>"}}`
-- **Write file**: `{"tool":"maestro_cli","args":{"command":"run file-write --input-json {\"path\":\"<absolute-path>\",\"content\":\"<escaped content>\"}"}}`
-- **List directory**: `{"tool":"maestro_cli","args":{"command":"run directory-list --input path=<absolute-path>"}}`
-- **Run command**: `{"tool":"maestro_cli","args":{"command":"run shell-execute --input-json {\"command\":\"<cmd>\"}"}}`
-
-**IMPORTANT**: For file-write, ALWAYS use `--input-json` format because content contains newlines and special characters.
+- **Read file**: `{"tool":"file-read","args":{"path":"/absolute/path/to/file"}}`
+- **Write file**: `{"tool":"file-write","args":{"path":"/absolute/path/to/file","content":"file content here"}}`
+- **List directory**: `{"tool":"directory-list","args":{"path":"/absolute/path/to/dir"}}`
+- **Run command**: `{"tool":"shell-execute","args":{"command":"npm run build"}}`
+- **Finish**: `{"tool":"step-complete","args":{"summary":"implemented step","stepId":1,"success":true}}`
 
 ## Workflow
 
@@ -79,13 +72,21 @@ You have ONE tool: `maestro_cli`. Output a JSON object as your ENTIRE response:
 3. For modify: read the target file first
 4. Implement the component/hook/feature
 5. Verify by reading the file back
-6. Call done
+6. Call step-complete
 
-## Output Format
+## CRITICAL — Finishing your work
+
+When done, your response MUST be:
 
 ```json
-{"tool":"done","args":{"summary":"{\"stepId\":1,\"action\":\"create\",\"target\":\"src/components/UserCard.tsx\",\"success\":true,\"filesModified\":[\"src/components/UserCard.tsx\"],\"notes\":\"Created UserCard component with props interface, loading state, error handling\"}"}}
+{"tool":"step-complete","args":{"summary":"implemented step","stepId":1,"action":"create","target":"src/components/UserCard.tsx","success":true,"filesModified":["src/components/UserCard.tsx"],"notes":"Created UserCard component with props interface, loading state, error handling"}}
 ```
+
+These tool names DO NOT EXIST — never use them:
+- `done` — DOES NOT EXIST
+- `output` — DOES NOT EXIST
+- `complete` — DOES NOT EXIST
+- `maestro_cli` — DOES NOT EXIST
 
 ## Rules
 

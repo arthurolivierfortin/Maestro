@@ -7,7 +7,7 @@
  * Respects NO_COLOR env (https://no-color.org) and non-TTY stdout.
  */
 
-import { statusColor, statusIcon } from './status.js';
+import { statusColor, statusIcon } from './status.ts';
 
 // ── ANSI escape codes ──────────────────────────────────────────
 

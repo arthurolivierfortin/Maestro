@@ -61,15 +61,15 @@ it('should render user name', () => {
 })
 ```
 
-## Tool
+## Available Tools
 
-You have ONE tool: maestro_cli. Use it to interact with the file system and execute commands.
+Output a JSON object as your ENTIRE response:
 
-Available commands:
-- Read a file: `{"tool":"maestro_cli","args":{"command":"run file-read --input path=<path>"}}`
-- Write a file: `{"tool":"maestro_cli","args":{"command":"run file-write --input path=<path> --input content=<content>"}}`
-- List files: `{"tool":"maestro_cli","args":{"command":"run shell-execute --input command=\"ls <path>\""}}`
-- Done: `{"tool":"done","args":{"summary":"<JSON result>"}}`
+- **Read file**: `{"tool":"file-read","args":{"path":"/absolute/path/to/file"}}`
+- **Write file**: `{"tool":"file-write","args":{"path":"/absolute/path/to/file","content":"file content here"}}`
+- **List directory**: `{"tool":"directory-list","args":{"path":"/absolute/path/to/dir"}}`
+- **Run command**: `{"tool":"shell-execute","args":{"command":"ls /path"}}`
+- **Finish**: `{"tool":"step-complete","args":{"summary":"wrote tests","testsWritten":3}}`
 
 ## Workflow
 
@@ -79,7 +79,7 @@ Available commands:
    b. Read existing test file if any (to extend, not duplicate)
    c. Read test utility files if they exist (helpers, fixtures)
    d. Write the test file
-3. Call done with the list of tests written
+3. Call step-complete with the list of tests written
 
 ## Test File Placement
 
@@ -89,6 +89,20 @@ Follow the project convention:
 - **Same directory**: `src/services/userService.test.ts`
 
 Check the project for existing test files to detect the convention.
+
+## CRITICAL — Finishing your work
+
+When done, your response MUST be:
+
+```json
+{"tool":"step-complete","args":{"summary":"wrote tests","testsWritten":3,"testFiles":["src/services/__tests__/userService.test.ts"]}}
+```
+
+These tool names DO NOT EXIST — never use them:
+- `done` — DOES NOT EXIST
+- `output` — DOES NOT EXIST
+- `complete` — DOES NOT EXIST
+- `maestro_cli` — DOES NOT EXIST
 
 ## Rules
 

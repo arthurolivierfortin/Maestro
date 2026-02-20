@@ -73,6 +73,23 @@ public sealed class LLMOrchestrationService
         // 2. Get conversation history if applicable
         var (conversation, history) = await GetConversationContextAsync(request, cancellationToken);
 
+        // 2b. If inline messages are provided (no persistent conversation), convert them
+        //     to Message entities so the provider receives structured conversation data.
+        if (history is null && request.Messages is { Count: > 0 })
+        {
+            history = request.Messages
+                .Select(m => new Message(
+                    MessageId.New(),
+                    m.Role.ToLowerInvariant() switch
+                    {
+                        "system" => MessageRole.System,
+                        "assistant" => MessageRole.Assistant,
+                        _ => MessageRole.User
+                    },
+                    m.Content))
+                .ToList();
+        }
+
         // 3. Execute the request
         var response = await provider.CompleteAsync(request, history, cancellationToken);
 

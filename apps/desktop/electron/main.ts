@@ -62,9 +62,9 @@ function getBackendPath(): string {
  * Find the LLM-Provider path
  */
 function getLLMProviderPath(): string {
-  // LLM-Provider is expected to be at C:\LLM-Provider
+  // LLM-Provider is inside the monorepo at llm-provider/
   // In production, it might be bundled differently
-  const defaultPath = process.platform === 'win32' ? 'C:\\LLM-Provider' : '/opt/LLM-Provider';
+  const defaultPath = process.platform === 'win32' ? 'C:\\Meastro\\llm-provider' : '/opt/LLM-Provider';
 
   // Check if LLM_PROVIDER_PATH env var is set
   if (process.env.LLM_PROVIDER_PATH && fs.existsSync(process.env.LLM_PROVIDER_PATH)) {

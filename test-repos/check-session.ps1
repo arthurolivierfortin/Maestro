@@ -1,28 +1,40 @@
-$sessionId = 'eee8f93f-0672-4a4f-9e3f-189f423837d2'
-$session = Invoke-RestMethod "http://localhost:5000/api/sessions/$sessionId"
+$sessionId = '5719f8d1-8d11-4daf-b58f-a0fdccca18f3'
+$sessionsDir = 'C:\Meastro\content\user\sessions'
 
-Write-Host "Status: $($session.status)"
-Write-Host "Variables:"
+Write-Host "=== Listing sessions in $sessionsDir ==="
+if (Test-Path $sessionsDir) {
+    Get-ChildItem $sessionsDir -Recurse -ErrorAction SilentlyContinue | ForEach-Object {
+        Write-Host "  $($_.FullName)"
+    }
+} else {
+    Write-Host "Sessions dir does not exist"
+}
 
-# Check execution tree
-$execTree = Invoke-RestMethod "http://localhost:5000/api/sessions/$sessionId/variables/_executionTree"
-Write-Host "  _executionTree: $($execTree | ConvertTo-Json -Depth 3 -Compress)"
-
-# Check execution log
-$execLog = Invoke-RestMethod "http://localhost:5000/api/sessions/$sessionId/variables/_executionLog"
-Write-Host "  _executionLog entries: $($execLog.Count)"
-if ($execLog.Count -gt 0) {
-    $execLog | Select-Object -Last 5 | ForEach-Object {
-        Write-Host "    [$($_.level)] $($_.msg)"
+# Also check templates for session storage config
+Write-Host "`n=== Checking templates dir ==="
+$templatesDir = 'C:\Meastro\content\system\templates\sessions'
+if (Test-Path $templatesDir) {
+    Get-ChildItem $templatesDir -ErrorAction SilentlyContinue | ForEach-Object {
+        Write-Host "  $($_.Name)"
     }
 }
 
-# Check current step
-$step = Invoke-RestMethod "http://localhost:5000/api/sessions/$sessionId/variables/currentStep"
-Write-Host "  currentStep: $step"
-
-# Check phases
-$phases = Invoke-RestMethod "http://localhost:5000/api/sessions/$sessionId/variables/_phases"
-$phases | ForEach-Object {
-    Write-Host "  Phase: $($_.name) - $($_.status)"
+# Check the backend for session storage configuration
+Write-Host "`n=== Checking backend appsettings for session storage path ==="
+$appsettings = 'C:\Meastro\apps\backend\src\Maestro.Api\appsettings.json'
+if (Test-Path $appsettings) {
+    $content = Get-Content $appsettings -Raw
+    Write-Host $content
 }
+
+# Search broadly for the session ID across the entire Meastro directory (skip node_modules, .git, bin, obj)
+Write-Host "`n=== Broad search for session ID (may take a moment) ==="
+Get-ChildItem 'C:\Meastro' -Recurse -Filter '*.json' -ErrorAction SilentlyContinue | 
+    Where-Object { $_.FullName -notmatch '(node_modules|\.git|bin|obj|\.next)' -and $_.Length -lt 5MB } |
+    ForEach-Object {
+        $c = Get-Content $_.FullName -Raw -ErrorAction SilentlyContinue
+        if ($c -match '5719f8d1') {
+            Write-Host "  FOUND in: $($_.FullName)"
+        }
+    }
+Write-Host "Search complete."

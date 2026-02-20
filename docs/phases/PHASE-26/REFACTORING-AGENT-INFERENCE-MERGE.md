@@ -94,3 +94,21 @@ LLMBlockExecutorBase (abstract)
 **Can you create a new agent by writing ONLY a `.block.json` with a `system-prompt.md`?**
 
 Yes. The `AgentBlockExecutor` reads `systemPrompt` from config or file. It loops mechanically. All tool descriptions are in the prompt text. No C# changes needed.
+
+---
+
+## Addendum (2026-02-20) — Architectural Debt Identified
+
+This refactoring correctly removed hardcoded content (tool lists, default prompts, separate entities). However, it introduced a deeper architectural issue: **the `AgentBlockExecutor` calls `_llmGateway.SendAsync()` directly and hardcodes the agentic loop in C#.**
+
+An agent block is composite (`isAtomic: false`), like a workflow. Its internal behavior should be defined by child blocks in `config.nodes`, not by C# code. The current implementation means:
+
+- The agentic loop structure (while, tool parse, dispatch) is hardcoded in infrastructure
+- The agent cannot have a different internal structure without modifying C#
+- The agent's implementation is prescribed by executor code, not by block composition
+
+**What should have been done**: The `AgentBlockExecutor` should orchestrate child blocks defined in `config.nodes`, the same way a workflow executor walks its nodes. The LLM call should go through a child inference block, not through a direct `_llmGateway.SendAsync()` call.
+
+**The principle**: "Le type d'un block definit son interface, pas son implementation." An agent's interface (prompt → response) is the same as inference. But its implementation is a black box — it could contain any combination of child blocks.
+
+**Status**: Tracked for correction in Phase 35-PRE. The shared `LLMBlockExecutorBase` remains valid for `InferenceBlockExecutor` (which IS atomic and directly calls the LLM). But `AgentBlockExecutor` should not inherit from it — it should orchestrate children instead.

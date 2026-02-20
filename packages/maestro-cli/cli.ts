@@ -680,7 +680,10 @@ async function runBlockUnified(blockId, inputs, options = {}) {
     const duration = Date.now() - startTime;
 
     if (result.success) {
-      console.log(c.ok(`Executed in ${duration}ms`) + '\n');
+      const tokens = result.totalTokens || 0;
+      const cost = result.estimatedCostUsd || 0;
+      const metricsStr = tokens > 0 ? ` | tokens: ${tokens}, cost: $${cost.toFixed(4)}` : '';
+      console.log(c.ok(`Executed in ${duration}ms${metricsStr}`) + '\n');
       if (result.outputs) {
         console.log(c.gray('Outputs:'));
         console.log(JSON.stringify(result.outputs, null, 2));
@@ -690,7 +693,10 @@ async function runBlockUnified(blockId, inputs, options = {}) {
         result.logs.forEach(log => console.log(`  ${log}`));
       }
     } else {
-      console.error(c.fail('Execution failed') + '\n');
+      const tokens = result.totalTokens || 0;
+      const cost = result.estimatedCostUsd || 0;
+      const metricsStr = tokens > 0 ? ` | tokens: ${tokens}, cost: $${cost.toFixed(4)}` : '';
+      console.error(c.fail(`Execution failed (${duration}ms${metricsStr})`) + '\n');
       if (result.error) console.error(`  ${result.error}`);
       if (result.logs && result.logs.length > 0) {
         result.logs.forEach(log => console.error(`  ${log}`));

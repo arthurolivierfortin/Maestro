@@ -27,7 +27,7 @@ LLM:          healthy
 
 If LLM shows "unavailable", the LLM-Provider is not running. Start it separately:
 ```bash
-powershell.exe -Command "Start-Process powershell -ArgumentList '-NoExit','-Command','cd C:\LLM-Provider\dotnet; dotnet run --project src/LLMProvider.Web'"
+powershell.exe -Command "Start-Process powershell -ArgumentList '-NoExit','-Command','cd C:\Meastro\llm-provider\dotnet; dotnet run --project src/LLMProvider.Web'"
 ```
 
 3. **A target project** (git repository) where you want Maestro to work

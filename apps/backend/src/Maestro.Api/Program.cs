@@ -18,6 +18,7 @@ using Maestro.Infrastructure.Workspaces;
 using Maestro.Infrastructure.Repositories;
 using Maestro.Infrastructure.Publishing;
 using Maestro.Infrastructure.Cli;
+using Maestro.Infrastructure.Context;
 using Maestro.Infrastructure.Security;
 using Maestro.Application.Services;
 using Maestro.Infrastructure.Cli.CommandHandlers;
@@ -78,14 +79,25 @@ Console.WriteLine($"[Maestro] LLM Gateway: LLM-Provider ({llmBaseUrl})");
 // LLM Provider admin service (health, models, hardware — separate from inference gateway)
 builder.Services.AddHttpClient<ILLMProviderService, LLMProviderService>();
 
+// Phase 34-E-PRE: Conversation Manager (singleton — conversations live in memory across scopes)
+builder.Services.AddSingleton<IConversationManager, InMemoryConversationManager>();
+
+// Phase 34-E-PRE: Context Assembler (reads from conversation, delegates to context processor strategies)
+builder.Services.AddSingleton<ContextProcessorFactory>(sp => new ContextProcessorFactory(sp));
+builder.Services.AddSingleton<IContextAssembler>(sp =>
+    new ContextAssembler(
+        sp.GetRequiredService<IConversationManager>(),
+        sp.GetRequiredService<ContextProcessorFactory>()));
+
 builder.Services.AddScoped<IExecutionMonitor, ExecutionMonitor>();
 // Prefer SignalR-backed monitor when available (scaffold). Register both if needed.
 // Prefer SignalR-backed monitor when available (scaffold). Register both if needed.
 builder.Services.AddScoped<Maestro.Application.Interfaces.IExecutionMonitor, Maestro.Api.Monitoring.SignalRExecutionMonitor>();
 // Register block executors from Infrastructure
 builder.Services.AddScoped<Maestro.Application.Interfaces.IBlockExecutor, Maestro.Infrastructure.BlockExecutors.PromptBlockExecutor>();
-// LLM executors: InferenceBlockExecutor (single call) and AgentBlockExecutor (agentic loop)
-// Both inherit from LLMBlockExecutorBase — shared plumbing, thin subclasses.
+// InferenceBlockExecutor (single LLM call) inherits LLMBlockExecutorBase.
+// AgentBlockExecutor (multi-turn agentic loop) implements IBlockExecutor directly — composite block.
+// Agent reads LLM params from config.nodes child blocks (or own config as deprecated fallback).
 builder.Services.AddScoped<Maestro.Application.Interfaces.IBlockExecutor>(sp =>
     new Maestro.Infrastructure.BlockExecutors.InferenceBlockExecutor(
         sp.GetRequiredService<Maestro.Application.Interfaces.ILLMGateway>(),

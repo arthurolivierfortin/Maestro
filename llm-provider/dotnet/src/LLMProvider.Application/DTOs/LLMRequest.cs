@@ -57,4 +57,22 @@ public sealed record LLMRequest
     /// Provider-specific options (passed through to provider).
     /// </summary>
     public IReadOnlyDictionary<string, object>? ProviderOptions { get; init; }
+
+    /// <summary>
+    /// Inline conversation messages with roles (system/user/assistant).
+    /// When provided, these are passed to the provider for multi-turn conversations
+    /// without requiring a persistent ConversationId.
+    /// </summary>
+    public IReadOnlyList<InlineMessage>? Messages { get; init; }
+}
+
+/// <summary>
+/// A lightweight message DTO for inline conversation messages.
+/// Used when the caller wants to pass a full conversation without
+/// creating a persistent Conversation in the repository.
+/// </summary>
+public sealed record InlineMessage
+{
+    public required string Role { get; init; }
+    public required string Content { get; init; }
 }

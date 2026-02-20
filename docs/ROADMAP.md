@@ -1,6 +1,6 @@
 # Maestro — Roadmap
 
-**Derniere mise a jour** : 2026-02-19
+**Derniere mise a jour** : 2026-02-20
 **Version actuelle** : v0.1.0-alpha (tag sur main)
 
 ---
@@ -34,6 +34,7 @@
 | 33-B | Audit UX & Ameliorations CLI (32/32 tests) | COMPLETE |
 | 33-C | Consolidation TUI Monorepo (40+4+32 tests) | COMPLETE |
 | 33-D | Restructuration Monorepo (apps/, cleanup, docs) | COMPLETE |
+| 34-E-PRE | Extraction Conversation + Context comme entites | COMPLETE |
 
 ---
 
@@ -51,50 +52,67 @@
 | 34-B | Infrastructure — Tool blocks (Playwright, web-search) + State Manager + Checkpointing | 3-5 jours |
 | 34-C | Agents specialistes + Workflow orchestrateur v4 (~19 blocs) | 5-8 jours |
 | 34-D | Interaction Handler + Widget Protocol (feature differenciante) | 5-8 jours |
-| 34-E | Integration + Fitness Tier 1 + Comparaison vs Claude Code | 3-5 jours |
+| 34-E-PRE | Extraction Conversation + Context comme entites (fondation pour 34-E) | 1 jour |
+| 34-E | Integration + Fixes messages structures + --resume + Fitness Tier 1 | 3-5 jours |
 | 34-F | Degradation progressive — Tiers 2+ (par paliers de ~5%) | 5-10 jours |
 
 **Docs** : `docs/phases/PHASE-34/README.md`
 
 ---
 
-### Phase 35 : `maestro adapt` + `maestro optimize`
+### Phase 35 : Contexte et Conversation comme Blocs
 
-**But** : Automatiser l'adaptation aux modeles de l'utilisateur.
+**But** : Formaliser la conversation, le contexte et la memoire comme des blocs first-class, observables et composables. Fondation pour l'optimisation de contexte et le TUI panel.
 
 | Sous-phase | Objectif | Effort |
 |------------|----------|--------|
-| 35-A | `maestro adapt` (adaptation automatique) | 1-2 semaines |
-| 35-B | `maestro optimize` (strategies pluggables) | 1-2 semaines |
+| 35-A | Conversation Block — extraction de AgentBlockExecutor | 3-5 jours |
+| 35-B | Context Block — formalisation du context assembler | 2-3 jours |
+| 35-C | Memory Block — connaissances persistantes | 5-8 jours |
+| 35-D | TUI Context Panel — observabilite en temps reel | 3-5 jours |
+| 35-E | Orchestration avancee — selection de contexte par l'orchestrateur | 5-8 jours |
 
 **Docs** : `docs/phases/PHASE-35/README.md`
 
 ---
 
-### Phase 36 : Premiere version distribuable
+### Phase 36 : `maestro adapt` + `maestro optimize`
 
-**But** : Maestro installable et utilisable par quelqu'un d'autre.
+**But** : Automatiser l'adaptation aux modeles de l'utilisateur.
 
 | Sous-phase | Objectif | Effort |
 |------------|----------|--------|
-| 36-A | Packaging et installation | 1 semaine |
-| 36-B | Onboarding premier lancement | 3-5 jours |
-| 36-C | Documentation utilisateur | 3-5 jours |
-| 36-D | Beta testing (3-5 testeurs) | 2 semaines |
+| 36-A | `maestro adapt` (adaptation automatique) | 1-2 semaines |
+| 36-B | `maestro optimize` (strategies pluggables) | 1-2 semaines |
 
 **Docs** : `docs/phases/PHASE-36/README.md`
 
 ---
 
-### Phase 37+ : Futur
+### Phase 37 : Premiere version distribuable
 
-- 37 : Catalogue communautaire
-- 38 : Auth et subscriptions
-- 39 : Evaluateur cloud
-- 40 : Agent Creator (meta-programmation)
-- 41+ : Multi-domaine
+**But** : Maestro installable et utilisable par quelqu'un d'autre.
+
+| Sous-phase | Objectif | Effort |
+|------------|----------|--------|
+| 37-A | Packaging et installation | 1 semaine |
+| 37-B | Onboarding premier lancement | 3-5 jours |
+| 37-C | Documentation utilisateur | 3-5 jours |
+| 37-D | Beta testing (3-5 testeurs) | 2 semaines |
 
 **Docs** : `docs/phases/PHASE-37/README.md`
+
+---
+
+### Phase 38+ : Futur
+
+- 38 : Catalogue communautaire
+- 39 : Auth et subscriptions
+- 40 : Evaluateur cloud
+- 41 : Agent Creator (meta-programmation)
+- 42+ : Multi-domaine
+
+**Docs** : `docs/phases/PHASE-38/README.md`
 
 ---
 

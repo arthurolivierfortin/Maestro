@@ -38,9 +38,14 @@ public record ParsedCommand
     public string? Target { get; init; }
 
     /// <summary>
-    /// Named arguments (--key value).
+    /// Named arguments (--key value). Last value wins for duplicate keys.
     /// </summary>
     public Dictionary<string, string> Arguments { get; init; } = new();
+
+    /// <summary>
+    /// All named arguments in order, including duplicates (e.g., repeated --input flags).
+    /// </summary>
+    public List<KeyValuePair<string, string>> RepeatedArguments { get; init; } = new();
 
     /// <summary>
     /// Positional arguments after the target.

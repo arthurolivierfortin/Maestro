@@ -1,0 +1,44 @@
+{
+  "id": "dev-orchestrator",
+  "name": "Development Orchestrator",
+  "blockType": "agent",
+  "version": "1.0.0",
+  "isAtomic": false,
+  "description": "Intelligent orchestrator for development tasks. Decides approach based on task complexity: simple tasks are done directly, complex tasks are planned first. Has access to file I/O, shell, validation, and delegation tools.",
+  "inputs": [
+    { "id": "task", "type": "string", "required": true, "description": "Description of what to implement" },
+    { "id": "workingDir", "type": "string", "required": true, "description": "Absolute path to the repository root" },
+    { "id": "context", "type": "string", "required": false, "description": "Project context (stack, conventions, structure)" }
+  ],
+  "outputs": [
+    { "id": "result", "type": "string", "description": "JSON summary of what was accomplished" }
+  ],
+  "config": {
+    "maxIterations": 30,
+    "wallClockTimeoutSeconds": 600,
+    "systemPromptFile": "system-prompt.md",
+    "context": {
+      "strategy": "sliding-window",
+      "maxTokens": 8192,
+      "keepSystemPrompt": true,
+      "keepLastN": 20
+    },
+    "nodes": [
+      {
+        "id": "reasoning",
+        "blockRef": "inference",
+        "config": {
+          "model": "claude-sonnet-4-6",
+          "maxTokens": 4096,
+          "temperature": 0
+        }
+      }
+    ]
+  },
+  "metadata": {
+    "category": "development",
+    "designation": "orchestrator",
+    "tags": ["orchestration", "development", "adaptive", "autonomous"],
+    "tier": 1
+  }
+}

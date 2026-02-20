@@ -600,8 +600,23 @@ public class EntryPointExecutor
                 UpdateNodeById(displayTree, nodeId, "error", $"(error: {ex.Message})");
                 session.SetVariable("_executionTree", displayTree);
                 AppendExecutionLog(session, "error", $"{nodeId}: {ex.Message}");
+
+                // Mark phase as error (top-level only)
+                if (autoPhaseId != null)
+                    UpdatePhaseStatus(session, autoPhaseId, "error");
+
                 await _repository.SaveAsync(session);
-                // Continue to next node instead of crashing the entire workflow
+
+                // Stop sequence on error by default (aligned with "no silent failures" principle).
+                // Nodes can opt-in to "continueOnError": true for non-critical steps.
+                var continueOnError = configNode.TryGetProperty("continueOnError", out var coeProp)
+                    && coeProp.ValueKind == JsonValueKind.True;
+                if (!continueOnError)
+                {
+                    AppendExecutionLog(session, "warning", $"Stopping sequence: node '{nodeId}' failed");
+                    await _repository.SaveAsync(session);
+                    break;
+                }
                 continue;
             }
 
@@ -1189,18 +1204,50 @@ public class EntryPointExecutor
         if (string.IsNullOrEmpty(source))
         {
             AppendExecutionLog(session, "error", $"for-each '{nodeId}': missing 'source' property");
-            return previousOutput;
+            throw new InvalidOperationException($"for-each '{nodeId}': missing 'source' property");
         }
 
         // Normalize source variable (may be JArray/JsonElement from API — convert to List<object>)
         NormalizeJsonElementToList(session, source);
 
+        // If the source variable is a string containing JSON, try to parse it.
+        // This happens when set-variable stores agent output (a string) that contains a JSON array.
+        var rawSourceVar = session.GetVariable(source);
+        if (rawSourceVar is string sourceStr && !string.IsNullOrWhiteSpace(sourceStr))
+        {
+            // Try to extract a JSON array from the string (may have prose/error prefix)
+            var bracketStart = sourceStr.IndexOf('[');
+            var bracketEnd = sourceStr.LastIndexOf(']');
+            if (bracketStart >= 0 && bracketEnd > bracketStart)
+            {
+                var jsonCandidate = sourceStr.Substring(bracketStart, bracketEnd - bracketStart + 1);
+                try
+                {
+                    var parsed = JArray.Parse(jsonCandidate);
+                    if (parsed != null && parsed.Count > 0)
+                    {
+                        // Store as JArray, then NormalizeJsonElementToList will convert to List<Dictionary>
+                        session.SetVariable(source, parsed);
+                        NormalizeJsonElementToList(session, source);
+                        var normalized = session.GetVariable(source);
+                        var count = normalized is List<object> nl ? nl.Count : 0;
+                        AppendExecutionLog(session, "info", $"for-each '{nodeId}': parsed source string into {count} items");
+                    }
+                }
+                catch (Newtonsoft.Json.JsonException ex)
+                {
+                    _logger.LogWarning(ex, "for-each '{NodeId}': failed to parse source string as JSON array", nodeId);
+                }
+            }
+        }
+
         // Read the source list from session variable
         var sourceVar = session.GetVariable(source);
         if (sourceVar is not List<object> items || items.Count == 0)
         {
-            AppendExecutionLog(session, "warning", $"for-each '{nodeId}': source '{source}' is empty or not a list");
-            return previousOutput;
+            var errorMsg = $"for-each '{nodeId}': source '{source}' is empty or not a list (type: {sourceVar?.GetType().Name ?? "null"})";
+            AppendExecutionLog(session, "error", errorMsg);
+            throw new InvalidOperationException(errorMsg);
         }
 
         // Read resetVariables from JSON config (data-driven, not hardcoded)
@@ -1244,6 +1291,8 @@ public class EntryPointExecutor
             // Clear the state so it's not re-used
             session.SetVariable("_workflowCheckpoint_foreachIndex", null);
         }
+
+        var failCount = 0;
 
         foreach (var item in items)
         {
@@ -1294,10 +1343,18 @@ public class EntryPointExecutor
                 AppendExecutionLog(session, "info", $"Item '{itemId}' uses plateau detection (runs: {GetConfigInt(iterationConfig, "evaluation.plateauRuns", 5)})");
             }
 
+            // Resolve phaseId: explicit phaseId on item takes priority, fallback to itemId
+            var phaseId = itemDict.TryGetValue("phaseId", out var pidVal) ? pidVal?.ToString() : null;
+
             // Update item status to running (if item has a status field and a valid ID)
             if (itemDict.ContainsKey("status") && itemId != null)
             {
                 UpdatePhaseStatus(session, itemId, "running", 0);
+            }
+            // Also update explicit phaseId if it differs from itemId
+            if (phaseId != null && phaseId != itemId)
+            {
+                UpdatePhaseStatus(session, phaseId, "running", 0);
             }
 
             // Reset child nodes in display tree for this iteration
@@ -1333,9 +1390,33 @@ public class EntryPointExecutor
                 session.SetVariable("_currentItemJson", itemId ?? "");
             }
 
-            // Execute child nodes with per-item config and itemId as activePhaseId
+            // Execute child nodes with per-item config and itemId as activePhaseId.
+            // IMPORTANT: Clear child node IDs from _workflowCheckpoint before each iteration.
+            // Without this, after item 1 completes "implement-step", the checkpoint contains
+            // {"nodeId":"implement-step","status":"completed"}. When item 2 starts,
+            // ExecuteConfigNodesAsync reads the checkpoint, sees "implement-step" is already
+            // completed, and SKIPS it — even though it hasn't run for item 2 yet.
+            // The fix: collect child node IDs and remove them from the checkpoint before each item.
             if (forEachNode.TryGetProperty("nodes", out var children) && children.ValueKind == JsonValueKind.Array)
             {
+                var childNodeIds = new HashSet<string>();
+                foreach (var child in children.EnumerateArray())
+                {
+                    if (child.TryGetProperty("id", out var cid))
+                        childNodeIds.Add(cid.GetString() ?? "");
+                }
+
+                // Remove child node IDs from checkpoint so they aren't skipped for this new item
+                var currentCheckpoint = session.GetVariable("_workflowCheckpoint") as List<object>;
+                if (currentCheckpoint != null && childNodeIds.Count > 0)
+                {
+                    currentCheckpoint.RemoveAll(entry =>
+                        entry is Dictionary<string, object> dict
+                        && dict.TryGetValue("nodeId", out var nid)
+                        && childNodeIds.Contains(nid?.ToString() ?? ""));
+                    session.SetVariable("_workflowCheckpoint", currentCheckpoint);
+                }
+
                 lastOutput = await ExecuteConfigNodesAsync(
                     session, children, iterationConfig, workingDir, workflowId, itemId, displayTree, lastOutput);
             }
@@ -1353,24 +1434,49 @@ public class EntryPointExecutor
             var iteration = ReadIntVariable(session, "currentIteration", 0);
             var tokens = ReadIntVariable(session, "_tokenCount", 0);
 
-            // Update item status to done and store summary
+            // Detect item failure: check if lastOutput contains an error marker
+            var itemFailed = false;
+            if (lastOutput is string lastOutputStr)
+            {
+                itemFailed = lastOutputStr.StartsWith("Error:", StringComparison.OrdinalIgnoreCase)
+                    || lastOutputStr.Contains("\"error\":", StringComparison.OrdinalIgnoreCase);
+            }
+            // Also check session variable for execution errors
+            var execError = session.GetVariable<string>("_lastExecutionError", "");
+            if (!string.IsNullOrEmpty(execError)) itemFailed = true;
+
+            // Update item status based on result
+            var itemStatus = itemFailed ? "error" : "done";
             if (itemDict.ContainsKey("status") && itemId != null)
             {
-                UpdatePhaseStatus(session, itemId, "done");
+                UpdatePhaseStatus(session, itemId, itemStatus);
                 StorePhaseSummary(session, itemId, iteration, fitness);
             }
+            // Also update explicit phaseId if it differs from itemId
+            if (phaseId != null && phaseId != itemId)
+            {
+                UpdatePhaseStatus(session, phaseId, itemStatus);
+                StorePhaseSummary(session, phaseId, iteration, fitness);
+            }
+            if (itemFailed) failCount++;
 
-            var logMsg = $"Item '{itemId}' completed (fitness: {fitness:F2}, iterations: {iteration}";
+            var logLevel = itemFailed ? "error" : "success";
+            var logMsg = $"Item '{itemId}' {(itemFailed ? "failed" : "completed")} (fitness: {fitness:F2}, iterations: {iteration}";
             if (tokens > 0) logMsg += $", ~{tokens} tokens";
             logMsg += ")";
-            AppendExecutionLog(session, "success", logMsg);
+            AppendExecutionLog(session, logLevel, logMsg);
             await _repository.SaveAsync(session);
         }
 
-        // For-each loop done
-        UpdateNodeById(displayTree, nodeId, "done", $"Completed: {items.Count} items");
+        // For-each loop done — status reflects child results
+        var forEachStatus = failCount == items.Count ? "error" : "done";
+        var forEachSummary = failCount > 0
+            ? $"Completed: {items.Count} items ({failCount} failed)"
+            : $"Completed: {items.Count} items";
+        UpdateNodeById(displayTree, nodeId, forEachStatus, forEachSummary);
         session.SetVariable("_executionTree", displayTree);
-        AppendExecutionLog(session, "success", $"for-each '{nodeId}' completed ({items.Count} items)");
+        var forEachLogLevel = failCount == items.Count ? "error" : (failCount > 0 ? "warning" : "success");
+        AppendExecutionLog(session, forEachLogLevel, $"for-each '{nodeId}' completed ({items.Count} items, {failCount} failed)");
         await _repository.SaveAsync(session);
 
         return lastOutput;
@@ -1461,7 +1567,7 @@ public class EntryPointExecutor
         {
             _logger.LogWarning("BlockExecutorRegistry not available — cannot execute blockRef '{BlockRef}'", blockRefId);
             AppendExecutionLog(session, "error", $"No executor registry for blockRef '{blockRefId}'");
-            return previousOutput ?? $"(blockRef '{blockRefId}' skipped — no executor registry)";
+            throw new InvalidOperationException($"BlockExecutorRegistry not available — cannot execute blockRef '{blockRefId}'");
         }
 
         // Resolve the block definition
@@ -1470,7 +1576,7 @@ public class EntryPointExecutor
         {
             _logger.LogWarning("Block not found for blockRef: {BlockRef}", blockRefId);
             AppendExecutionLog(session, "error", $"Block not found: {blockRefId}");
-            return previousOutput ?? $"(block '{blockRefId}' not found)";
+            throw new InvalidOperationException($"Block not found: {blockRefId}");
         }
 
         // Get executor for this block type
@@ -1479,7 +1585,7 @@ public class EntryPointExecutor
         {
             _logger.LogWarning("No executor for block type '{BlockType}' (blockRef: {BlockRef})", block.BlockType, blockRefId);
             AppendExecutionLog(session, "error", $"No executor for block type '{block.BlockType}'");
-            return previousOutput ?? $"(no executor for '{block.BlockType}')";
+            throw new InvalidOperationException($"No executor for block type '{block.BlockType}' (blockRef: {blockRefId})");
         }
 
         // Build inputs from phase node config
@@ -1592,18 +1698,24 @@ public class EntryPointExecutor
                 });
             }
 
-            // Build output string from result
+            // Build output string from result.
+            // Filter out internal metadata keys (starting with '_') so they don't
+            // contaminate downstream JSON parsing (e.g., _conversationState from agents).
+            var contentOutputs = result.Outputs
+                .Where(kv => !kv.Key.StartsWith("_"))
+                .ToDictionary(kv => kv.Key, kv => kv.Value);
+
             // Single output: raw value (no "key: " prefix that would break downstream JSON parsing)
             // Multiple outputs: keep "key: value" format for disambiguation
             string output;
-            if (result.Outputs.Count == 1)
+            if (contentOutputs.Count == 1)
             {
-                output = result.Outputs.Values.First()?.ToString() ?? "";
+                output = contentOutputs.Values.First()?.ToString() ?? "";
             }
-            else if (result.Outputs.Count > 1)
+            else if (contentOutputs.Count > 1)
             {
                 var outputParts = new List<string>();
-                foreach (var kv in result.Outputs)
+                foreach (var kv in contentOutputs)
                     outputParts.Add($"{kv.Key}: {kv.Value}");
                 output = string.Join("\n", outputParts);
             }
@@ -1617,19 +1729,19 @@ public class EntryPointExecutor
             if (!result.Success)
             {
                 AppendExecutionLog(session, "error", $"blockRef '{blockRefId}' failed: {output}");
-            }
-            else
-            {
-                AppendExecutionLog(session, "success", $"blockRef '{blockRefId}' completed ({output.Length} chars)");
+                // Propagate block failure as exception so caller marks node as "error"
+                // and sequence-level error handling can stop execution.
+                throw new InvalidOperationException($"Block '{blockRefId}' failed: {output}");
             }
 
+            AppendExecutionLog(session, "success", $"blockRef '{blockRefId}' completed ({output.Length} chars)");
             return output;
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "BlockRef execution failed: {BlockRef}", blockRefId);
             AppendExecutionLog(session, "error", $"blockRef '{blockRefId}' error: {ex.Message}");
-            return previousOutput ?? $"(error executing '{blockRefId}': {ex.Message})";
+            throw;
         }
     }
 
@@ -1700,8 +1812,11 @@ public class EntryPointExecutor
                 session.SetVariable("_executionTree", displayTree);
                 UpdateActiveBlockStatus(session, "error");
                 AppendExecutionLog(session, "error", $"{nodeId}: {ex.Message}");
+                // Store error output so _nodeResult_{nodeId} is set even on failure
+                session.SetVariable($"_nodeResult_{nodeId}", errorMsg);
                 await _repository.SaveAsync(session);
-                return previousOutput;
+                // Re-throw so the sequence-level handler can stop execution
+                throw;
             }
         }
 
@@ -1758,7 +1873,8 @@ public class EntryPointExecutor
             UpdateActiveBlockStatus(session, "error");
             AppendExecutionLog(session, "error", $"{nodeId}: {ex.Message}");
             await _repository.SaveAsync(session);
-            return previousOutput;
+            // Re-throw so the sequence-level handler can stop execution
+            throw;
         }
 
         // Set done
@@ -2953,7 +3069,7 @@ public class EntryPointExecutor
             }
 
             var value = session.GetVariable(varPath);
-            if (value == null) return "0";
+            if (value == null) return "";
 
             // Phase 32-C: JSON sub-path extraction
             // If a sub-path is specified (e.g., .approved, .score), try to extract from JSON
