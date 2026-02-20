@@ -1,0 +1,14 @@
+{
+  "id": "7bba7180-31f4-4fcd-a088-e7ca11950f36",
+  "blockId": "project-analyzer",
+  "blockName": "Project Analyzer v4",
+  "blockType": "agent",
+  "sourceSessionId": null,
+  "status": "pending",
+  "rejectionReason": null,
+  "metadata": null,
+  "submittedAt": "2026-02-20T00:48:31.2082011+00:00",
+  "submittedBy": "cli-user",
+  "reviewedAt": null,
+  "reviewedBy": null
+}

@@ -1,0 +1,14 @@
+{
+  "id": "ea2f97a5-259f-4625-a4cc-222b10fb6382",
+  "blockId": "task-planner",
+  "blockName": "Task Planner v4",
+  "blockType": "agent",
+  "sourceSessionId": null,
+  "status": "pending",
+  "rejectionReason": null,
+  "metadata": null,
+  "submittedAt": "2026-02-20T00:47:16.6665458+00:00",
+  "submittedBy": "cli-user",
+  "reviewedAt": null,
+  "reviewedBy": null
+}

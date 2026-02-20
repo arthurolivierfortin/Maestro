@@ -1,0 +1,28 @@
+{
+  "id": "test-writer",
+  "name": "Test Writer v4",
+  "blockType": "agent",
+  "version": "4.0.0",
+  "isAtomic": true,
+  "description": "Writes unit tests for code that was just implemented. Creates comprehensive test suites covering happy paths, edge cases, and error handling. Split from the old test-executor — writes only, does not run.",
+  "inputs": [
+    { "id": "implementedSteps", "type": "string", "required": true, "description": "JSON array of implemented steps with their files" },
+    { "id": "projectContext", "type": "string", "required": true, "description": "JSON object with stack, testFramework, conventions" },
+    { "id": "workingDir", "type": "string", "required": true, "description": "Absolute path to the project repository" }
+  ],
+  "outputs": [
+    { "id": "response", "type": "string", "description": "JSON object: { testsWritten, totalTests, notes }" }
+  ],
+  "config": {
+    "model": "claude-sonnet-4-6",
+    "maxIterations": 15,
+    "wallClockTimeoutSeconds": 600,
+    "systemPromptFile": "system-prompt.md"
+  },
+  "metadata": {
+    "category": "development",
+    "designation": "autonomous",
+    "tags": ["testing", "unit-tests", "quality", "v4"],
+    "tier": 1
+  }
+}

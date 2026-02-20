@@ -1,0 +1,27 @@
+{
+  "id": "architecture-reviewer",
+  "name": "Architecture Reviewer v4",
+  "blockType": "inference",
+  "version": "4.0.0",
+  "isAtomic": true,
+  "description": "Evaluates whether implemented code is architecturally coherent with the project's existing patterns and the design decisions from the task-architect. Assesses separation of concerns, dependency direction, consistency, and design adherence. Single LLM call.",
+  "inputs": [
+    { "id": "implementedCode", "type": "string", "required": true, "description": "JSON array of implemented files with path and content" },
+    { "id": "projectContext", "type": "string", "required": true, "description": "JSON object with architecture patterns, existing code structure" },
+    { "id": "architecture", "type": "string", "required": false, "description": "JSON object from task-architect output (design decisions)" }
+  ],
+  "outputs": [
+    { "id": "response", "type": "string", "description": "JSON object: { score, coherent, assessments, issues }" }
+  ],
+  "config": {
+    "systemPromptFile": "system-prompt.md",
+    "model": "claude-opus-4-6",
+    "temperature": 0.2,
+    "maxTokens": 4000
+  },
+  "metadata": {
+    "category": "development",
+    "tags": ["architecture", "review", "coherence", "patterns", "v4"],
+    "tier": 1
+  }
+}

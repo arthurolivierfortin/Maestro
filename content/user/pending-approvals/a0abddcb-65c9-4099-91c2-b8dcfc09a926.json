@@ -1,0 +1,14 @@
+{
+  "id": "a0abddcb-65c9-4099-91c2-b8dcfc09a926",
+  "blockId": "git-committer",
+  "blockName": "Git Committer v4",
+  "blockType": "agent",
+  "sourceSessionId": null,
+  "status": "pending",
+  "rejectionReason": null,
+  "metadata": null,
+  "submittedAt": "2026-02-20T00:49:24.9137515+00:00",
+  "submittedBy": "cli-user",
+  "reviewedAt": null,
+  "reviewedBy": null
+}

@@ -1,0 +1,28 @@
+{
+  "id": "changelog-writer",
+  "name": "Changelog Writer v4",
+  "blockType": "inference",
+  "version": "4.0.0",
+  "isAtomic": true,
+  "description": "Generates a CHANGELOG.md entry following the Keep a Changelog format. Produces user-facing descriptions of changes (not file-level details). Single LLM call.",
+  "inputs": [
+    { "id": "commitMessage", "type": "string", "required": true, "description": "The conventional commit message from git-committer" },
+    { "id": "implementedSteps", "type": "string", "required": true, "description": "JSON array of what was implemented" },
+    { "id": "reviewResult", "type": "string", "required": false, "description": "JSON object with review score and issues" },
+    { "id": "existingChangelog", "type": "string", "required": false, "description": "Current content of CHANGELOG.md (or null if none exists)" }
+  ],
+  "outputs": [
+    { "id": "response", "type": "string", "description": "JSON object: { entry, section, hasChangelog }" }
+  ],
+  "config": {
+    "systemPromptFile": "system-prompt.md",
+    "model": "claude-sonnet-4-6",
+    "temperature": 0.3,
+    "maxTokens": 2000
+  },
+  "metadata": {
+    "category": "development",
+    "tags": ["changelog", "documentation", "release-notes", "v4"],
+    "tier": 1
+  }
+}

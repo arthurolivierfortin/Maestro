@@ -1,0 +1,28 @@
+{
+  "id": "classify-intent",
+  "name": "Intent Classifier v4",
+  "blockType": "inference",
+  "version": "4.0.0",
+  "isAtomic": true,
+  "description": "Classifies user messages sent during an autonomous development workflow into intent categories (question, feedback, change-request, override, acknowledgment) with urgency levels. Conservative classification — when uncertain, defaults to 'question' (least disruptive).",
+  "inputs": [
+    { "id": "userMessage", "type": "string", "required": true, "description": "The raw user message to classify" },
+    { "id": "currentState", "type": "string", "required": true, "description": "JSON: {status, currentPhase, currentNode, iteration}" },
+    { "id": "conversationHistory", "type": "string", "required": false, "description": "JSON array: last 10 exchanges [{role, content, time}]" }
+  ],
+  "outputs": [
+    { "id": "response", "type": "string", "description": "JSON: {intent, urgency, requiresPause, affectedPhases, confidence, details}" }
+  ],
+  "config": {
+    "systemPromptFile": "system-prompt.md",
+    "model": "claude-opus-4-6",
+    "temperature": 0.1,
+    "maxTokens": 1000
+  },
+  "metadata": {
+    "category": "interaction",
+    "designation": "inference",
+    "tags": ["intent", "classification", "interaction", "v4"],
+    "tier": 1
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "id": "80ecf11c-01d4-4c6b-90b6-0a76dcd32c97",
+  "blockId": "memory-read",
+  "blockName": "Memory Read",
+  "blockType": "tool",
+  "sourceSessionId": null,
+  "status": "pending",
+  "rejectionReason": null,
+  "metadata": null,
+  "submittedAt": "2026-02-20T00:54:37.0897358+00:00",
+  "submittedBy": "cli-user",
+  "reviewedAt": null,
+  "reviewedBy": null
+}

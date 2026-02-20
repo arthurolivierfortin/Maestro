@@ -1,0 +1,14 @@
+{
+  "id": "8d08dfc3-c9dd-4b61-95a8-f699606378ac",
+  "blockId": "playwright-accessibility",
+  "blockName": "Playwright Accessibility Tree",
+  "blockType": "tool",
+  "sourceSessionId": null,
+  "status": "pending",
+  "rejectionReason": null,
+  "metadata": null,
+  "submittedAt": "2026-02-20T00:55:39.0937236+00:00",
+  "submittedBy": "cli-user",
+  "reviewedAt": null,
+  "reviewedBy": null
+}

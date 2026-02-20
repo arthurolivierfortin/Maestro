@@ -1,0 +1,14 @@
+{
+  "id": "90bf2daf-1d85-4335-bd60-49b107f952a5",
+  "blockId": "backend-developer",
+  "blockName": "Backend Developer v4",
+  "blockType": "agent",
+  "sourceSessionId": null,
+  "status": "pending",
+  "rejectionReason": null,
+  "metadata": null,
+  "submittedAt": "2026-02-20T00:50:04.2462715+00:00",
+  "submittedBy": "cli-user",
+  "reviewedAt": null,
+  "reviewedBy": null
+}

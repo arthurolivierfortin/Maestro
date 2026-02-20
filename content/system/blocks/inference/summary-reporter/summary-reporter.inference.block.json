@@ -1,0 +1,31 @@
+{
+  "id": "summary-reporter",
+  "name": "Summary Reporter v4",
+  "blockType": "inference",
+  "version": "4.0.0",
+  "isAtomic": true,
+  "description": "Produces a concise, informative summary of the work completed by the autonomous agent. Includes metrics, files modified, commit info, and project-specific learnings. Displayed to the user as final output.",
+  "inputs": [
+    { "id": "task", "type": "string", "required": true, "description": "The original task description" },
+    { "id": "implementedSteps", "type": "string", "required": true, "description": "JSON array of all implemented steps" },
+    { "id": "testResults", "type": "string", "required": false, "description": "JSON object with test results from the VERIFIER phase" },
+    { "id": "reviewResult", "type": "string", "required": false, "description": "JSON object with review scores and details" },
+    { "id": "commitResult", "type": "string", "required": false, "description": "JSON object with commit hash and message from git-committer" },
+    { "id": "iterations", "type": "string", "required": false, "description": "Number of iterations performed (0 = first pass succeeded)" },
+    { "id": "duration", "type": "string", "required": false, "description": "Total execution duration (e.g. '4m 32s')" }
+  ],
+  "outputs": [
+    { "id": "response", "type": "string", "description": "JSON object: { summary, metrics, learnings }" }
+  ],
+  "config": {
+    "systemPromptFile": "system-prompt.md",
+    "model": "claude-sonnet-4-6",
+    "temperature": 0.3,
+    "maxTokens": 3000
+  },
+  "metadata": {
+    "category": "development",
+    "tags": ["summary", "reporting", "metrics", "learnings", "v4"],
+    "tier": 1
+  }
+}

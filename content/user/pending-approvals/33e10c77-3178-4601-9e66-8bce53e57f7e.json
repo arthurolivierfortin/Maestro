@@ -1,0 +1,14 @@
+{
+  "id": "33e10c77-3178-4601-9e66-8bce53e57f7e",
+  "blockId": "memory-write",
+  "blockName": "Memory Write",
+  "blockType": "tool",
+  "sourceSessionId": null,
+  "status": "pending",
+  "rejectionReason": null,
+  "metadata": null,
+  "submittedAt": "2026-02-20T00:54:43.8230791+00:00",
+  "submittedBy": "cli-user",
+  "reviewedAt": null,
+  "reviewedBy": null
+}

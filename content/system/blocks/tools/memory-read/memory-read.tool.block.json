@@ -1,0 +1,30 @@
+{
+  "id": "memory-read",
+  "name": "Memory Read",
+  "blockType": "tool",
+  "version": "4.0.0",
+  "isAtomic": true,
+  "description": "Reads a memory file from .maestro/memory/ in the project directory. If 'file' is provided, reads that specific file. If 'topic' is provided, searches across all memory files. If neither, reads index.md.",
+  "inputs": [
+    { "id": "file", "type": "string", "required": false, "description": "File name to read (e.g. 'conventions.md'). Default: index.md" },
+    { "id": "topic", "type": "string", "required": false, "description": "Topic to search for across all memory files" },
+    { "id": "workingDir", "type": "string", "required": false, "description": "Project root directory containing .maestro/ (default: cwd)" }
+  ],
+  "outputs": [
+    { "id": "content", "type": "string", "description": "File content or search results" },
+    { "id": "file", "type": "string", "description": "The file that was read" },
+    { "id": "exists", "type": "boolean", "description": "Whether the file/directory exists" },
+    { "id": "success", "type": "boolean", "description": "Whether the read succeeded" }
+  ],
+  "config": {
+    "runtime": "node",
+    "scriptFile": "read-memory.js",
+    "parseOutput": "json",
+    "timeout": 5000
+  },
+  "metadata": {
+    "category": "memory",
+    "designation": "tool",
+    "tags": ["memory", "read", "persistence", "context", "v4"]
+  }
+}

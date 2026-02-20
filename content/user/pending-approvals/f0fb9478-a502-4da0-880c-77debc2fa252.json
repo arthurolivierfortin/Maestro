@@ -1,0 +1,14 @@
+{
+  "id": "f0fb9478-a502-4da0-880c-77debc2fa252",
+  "blockId": "step-validator",
+  "blockName": "Step Validator v4",
+  "blockType": "inference",
+  "sourceSessionId": null,
+  "status": "pending",
+  "rejectionReason": null,
+  "metadata": null,
+  "submittedAt": "2026-02-20T00:48:35.5886331+00:00",
+  "submittedBy": "cli-user",
+  "reviewedAt": null,
+  "reviewedBy": null
+}

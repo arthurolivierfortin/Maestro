@@ -1,0 +1,14 @@
+{
+  "id": "0cfd5676-ff09-4e01-8870-fc258c27c900",
+  "blockId": "compilation-checker",
+  "blockName": "Compilation Checker v4",
+  "blockType": "agent",
+  "sourceSessionId": null,
+  "status": "pending",
+  "rejectionReason": null,
+  "metadata": null,
+  "submittedAt": "2026-02-20T00:48:50.9754139+00:00",
+  "submittedBy": "cli-user",
+  "reviewedAt": null,
+  "reviewedBy": null
+}

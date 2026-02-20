@@ -1,0 +1,27 @@
+{
+  "id": "project-analyzer",
+  "name": "Project Analyzer v4",
+  "blockType": "agent",
+  "version": "4.0.0",
+  "isAtomic": true,
+  "description": "Analyzes a project repository to understand its stack, architecture, conventions, and gaps. Produces structured JSON context used by downstream agents (task-architect, planner, developers).",
+  "inputs": [
+    { "id": "repoPath", "type": "string", "required": true, "description": "Absolute path to the project repository" },
+    { "id": "task", "type": "string", "required": true, "description": "Description of the task to be accomplished" }
+  ],
+  "outputs": [
+    { "id": "response", "type": "string", "description": "JSON object: { project, stack, architecture, conventions, existingCode, gaps, relevantFiles }" }
+  ],
+  "config": {
+    "model": "claude-sonnet-4-6",
+    "maxIterations": 8,
+    "wallClockTimeoutSeconds": 600,
+    "systemPromptFile": "system-prompt.md"
+  },
+  "metadata": {
+    "category": "development",
+    "designation": "autonomous",
+    "tags": ["project", "analysis", "context", "v4"],
+    "tier": 1
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "id": "decide-action",
+  "name": "Action Decider v4",
+  "blockType": "inference",
+  "version": "4.0.0",
+  "isAtomic": true,
+  "description": "Given a classified user intent and full workflow state, decides what action to take (respond, pause-and-modify, rewind, inject, override) and constructs the response message and widget configuration.",
+  "inputs": [
+    { "id": "classifiedIntent", "type": "string", "required": true, "description": "JSON output from classify-intent: {intent, urgency, requiresPause, affectedPhases, confidence, details}" },
+    { "id": "fullState", "type": "string", "required": true, "description": "JSON: complete workflow state from state-manager (status, currentPhase, results, history, userOverrides)" },
+    { "id": "userMessage", "type": "string", "required": true, "description": "Original user message (for context in generating responseMessage)" }
+  ],
+  "outputs": [
+    { "id": "response", "type": "string", "description": "JSON: {action, params, responseMessage, widgetType, widgetParams}" }
+  ],
+  "config": {
+    "systemPromptFile": "system-prompt.md",
+    "model": "claude-opus-4-6",
+    "temperature": 0.2,
+    "maxTokens": 2000
+  },
+  "metadata": {
+    "category": "interaction",
+    "designation": "inference",
+    "tags": ["decision", "action", "interaction", "v4"],
+    "tier": 1
+  }
+}

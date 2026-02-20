@@ -1,0 +1,27 @@
+{
+  "id": "compilation-checker",
+  "name": "Compilation Checker v4",
+  "blockType": "agent",
+  "version": "4.0.0",
+  "isAtomic": true,
+  "description": "Builds the project and reports compilation results. Detects the correct build command from project context, executes it, and parses errors and warnings from the output. Read-only — never modifies code.",
+  "inputs": [
+    { "id": "projectContext", "type": "string", "required": true, "description": "JSON output from project-analyzer (buildTool, packageManager, stack)" },
+    { "id": "workingDir", "type": "string", "required": true, "description": "Absolute path to the project repository" }
+  ],
+  "outputs": [
+    { "id": "response", "type": "string", "description": "JSON object: { compiles, buildCommand, duration, errors: [{ file, line, message }], warnings }" }
+  ],
+  "config": {
+    "model": "claude-haiku-4-5-20251001",
+    "maxIterations": 4,
+    "wallClockTimeoutSeconds": 300,
+    "systemPromptFile": "system-prompt.md"
+  },
+  "metadata": {
+    "category": "development",
+    "designation": "autonomous",
+    "tags": ["compilation", "build", "checker", "validation", "v4"],
+    "tier": 1
+  }
+}

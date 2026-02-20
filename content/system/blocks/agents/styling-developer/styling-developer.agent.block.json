@@ -1,0 +1,29 @@
+{
+  "id": "styling-developer",
+  "name": "Styling Developer v4",
+  "blockType": "agent",
+  "version": "4.0.0",
+  "isAtomic": true,
+  "description": "Specialized styling and animation developer. Handles CSS, Tailwind, animations (CSS transitions, Framer Motion, GSAP), responsive design, and visual polish. Modifies existing components without removing functionality.",
+  "inputs": [
+    { "id": "step", "type": "string", "required": true, "description": "JSON object: the current plan step (id, action, target, description)" },
+    { "id": "projectContext", "type": "string", "required": true, "description": "JSON output from project-analyzer (stack, conventions, CSS framework)" },
+    { "id": "workingDir", "type": "string", "required": true, "description": "Absolute path to the project repository" },
+    { "id": "designContext", "type": "string", "required": false, "description": "JSON from architecture.visualComponents (animations, components, theme)" }
+  ],
+  "outputs": [
+    { "id": "response", "type": "string", "description": "JSON object: { stepId, action, target, success, filesModified, notes }" }
+  ],
+  "config": {
+    "model": "claude-sonnet-4-6",
+    "maxIterations": 10,
+    "wallClockTimeoutSeconds": 600,
+    "systemPromptFile": "system-prompt.md"
+  },
+  "metadata": {
+    "category": "development",
+    "designation": "autonomous",
+    "tags": ["styling", "css", "animation", "tailwind", "responsive", "v4"],
+    "tier": 1
+  }
+}

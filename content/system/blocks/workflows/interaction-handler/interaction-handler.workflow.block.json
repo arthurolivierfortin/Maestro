@@ -1,0 +1,276 @@
+{
+  "id": "interaction-handler",
+  "name": "Interaction Handler v4",
+  "blockType": "workflow",
+  "version": "4.0.0",
+  "isAtomic": false,
+  "description": "Agent composite that manages human-agent interaction in parallel with the main workflow. Receives user messages, classifies intent, decides actions (respond, inject, pause, rewind, override), executes via state-manager, and responds via widgets. Runs as an infinite loop until the main workflow completes.",
+  "inputs": [
+    { "id": "sessionId", "type": "string", "required": true, "description": "Session UUID for state-manager operations" }
+  ],
+  "outputs": [
+    { "id": "summary", "type": "string", "description": "Interaction summary when workflow ends" }
+  ],
+  "config": {
+    "nodes": [
+      {
+        "id": "interaction-loop",
+        "type": "while",
+        "description": "Main interaction loop — runs until workflow completes or is cancelled",
+        "condition": "{{_workflowStatus}} != completed",
+        "maxIterations": 1000,
+        "nodes": [
+
+          {
+            "id": "wait-for-message",
+            "type": "shell",
+            "description": "Poll _userMessage every 500ms until a new message arrives or workflow completes",
+            "command": "node",
+            "args": ["-e", "async function poll(){const API=process.env.MAESTRO_API_URL||'http://localhost:5000';const sid=process.env.MAESTRO_SESSION_ID||process.env.SESSION_ID;for(let i=0;i<600;i++){try{const r=await fetch(`${API}/api/sessions/${sid}/variables/_userMessage`);if(r.ok){const d=await r.json();if(d&&d.text){console.log(JSON.stringify(d));return;}}}catch{}try{const s=await fetch(`${API}/api/sessions/${sid}/variables/_workflowStatus`);if(s.ok){const v=await s.text();if(v.includes('completed')){console.log(JSON.stringify({text:'__WORKFLOW_DONE__'}));return;}}}catch{}await new Promise(r=>setTimeout(r,500));}console.log(JSON.stringify({text:'__TIMEOUT__'}));}poll();"]
+          },
+
+          {
+            "id": "check-message-valid",
+            "type": "conditional",
+            "description": "Skip processing if no real message (timeout or workflow done)",
+            "condition": "{{_nodeResult_wait-for-message}} contains text",
+            "then": {
+              "id": "process-message",
+              "description": "Process the user message through the interaction pipeline",
+              "nodes": [
+
+                {
+                  "id": "read-state",
+                  "blockRef": "state-manager",
+                  "description": "Read current workflow state for classify-intent and decide-action",
+                  "inputs": {
+                    "operation": "get",
+                    "sessionId": "{{inputs.sessionId}}",
+                    "path": ""
+                  }
+                },
+
+                {
+                  "id": "classify",
+                  "blockRef": "classify-intent",
+                  "description": "Classify the user's intent",
+                  "inputs": {
+                    "userMessage": "{{_nodeResult_wait-for-message}}",
+                    "currentState": "{{_nodeResult_read-state}}",
+                    "conversationHistory": "{{_conversationHistory}}"
+                  }
+                },
+
+                {
+                  "id": "decide",
+                  "blockRef": "decide-action",
+                  "description": "Decide what action to take",
+                  "inputs": {
+                    "classifiedIntent": "{{_nodeResult_classify}}",
+                    "fullState": "{{_nodeResult_read-state}}",
+                    "userMessage": "{{_nodeResult_wait-for-message}}"
+                  }
+                },
+
+                {
+                  "id": "execute-action",
+                  "type": "conditional",
+                  "description": "Route to the correct action branch based on decide-action output",
+                  "condition": "{{_nodeResult_decide}}",
+                  "branches": {
+
+                    "respond": {
+                      "id": "action-respond",
+                      "description": "No workflow modification needed — just pass through to send-response",
+                      "nodes": []
+                    },
+
+                    "inject": {
+                      "id": "action-inject",
+                      "blockRef": "state-manager",
+                      "description": "Inject value into workflow state without pausing",
+                      "inputs": {
+                        "operation": "inject",
+                        "sessionId": "{{inputs.sessionId}}",
+                        "path": "{{_nodeResult_decide}}",
+                        "value": "{{_nodeResult_decide}}"
+                      }
+                    },
+
+                    "pause-and-modify": {
+                      "id": "action-pause-modify",
+                      "description": "Pause workflow, apply modifications, resume",
+                      "nodes": [
+                        {
+                          "id": "do-pause",
+                          "blockRef": "state-manager",
+                          "inputs": { "operation": "pause", "sessionId": "{{inputs.sessionId}}" }
+                        },
+                        {
+                          "id": "do-modify",
+                          "blockRef": "state-manager",
+                          "inputs": {
+                            "operation": "inject",
+                            "sessionId": "{{inputs.sessionId}}",
+                            "path": "{{_nodeResult_decide}}",
+                            "value": "{{_nodeResult_decide}}"
+                          }
+                        },
+                        {
+                          "id": "do-resume",
+                          "blockRef": "state-manager",
+                          "inputs": { "operation": "resume", "sessionId": "{{inputs.sessionId}}" }
+                        }
+                      ]
+                    },
+
+                    "rewind": {
+                      "id": "action-rewind",
+                      "description": "Send confirmation widget, wait for user response, then rewind if confirmed",
+                      "nodes": [
+                        {
+                          "id": "send-rewind-confirmation",
+                          "type": "set-variable",
+                          "variable": "_widgetRequest",
+                          "value": "{\"widget\":{\"type\":\"confirmation\",\"content\":\"Rewind to earlier phase?\",\"params\":{\"action\":\"Rewind\",\"consequence\":\"All results after this phase will be cleared and re-executed.\"},\"id\":\"rewind-confirm\",\"interactive\":true}}"
+                        },
+                        {
+                          "id": "wait-rewind-response",
+                          "type": "shell",
+                          "description": "Wait for user confirmation via _widgetResponse",
+                          "command": "node",
+                          "args": ["-e", "async function poll(){const API=process.env.MAESTRO_API_URL||'http://localhost:5000';const sid=process.env.MAESTRO_SESSION_ID||process.env.SESSION_ID;for(let i=0;i<120;i++){try{const r=await fetch(`${API}/api/sessions/${sid}/variables/_widgetResponse`);if(r.ok){const d=await r.json();if(d&&d.response){console.log(JSON.stringify(d));return;}}}catch{}await new Promise(r=>setTimeout(r,500));}console.log(JSON.stringify({response:'timeout'}));}poll();"]
+                        },
+                        {
+                          "id": "do-rewind-if-confirmed",
+                          "type": "conditional",
+                          "condition": "{{_nodeResult_wait-rewind-response}} contains yes",
+                          "then": {
+                            "id": "rewind-sequence",
+                            "description": "Execute rewind: pause -> rewind -> resume",
+                            "nodes": [
+                              {
+                                "id": "rewind-pause",
+                                "blockRef": "state-manager",
+                                "inputs": { "operation": "pause", "sessionId": "{{inputs.sessionId}}" }
+                              },
+                              {
+                                "id": "rewind-execute",
+                                "blockRef": "state-manager",
+                                "inputs": {
+                                  "operation": "rewind",
+                                  "sessionId": "{{inputs.sessionId}}",
+                                  "phase": "{{_nodeResult_decide}}"
+                                }
+                              },
+                              {
+                                "id": "rewind-resume",
+                                "blockRef": "state-manager",
+                                "inputs": { "operation": "resume", "sessionId": "{{inputs.sessionId}}" }
+                              }
+                            ]
+                          }
+                        }
+                      ]
+                    },
+
+                    "override": {
+                      "id": "action-override",
+                      "description": "Send confirmation widget, wait for response, then bypass gate if confirmed",
+                      "nodes": [
+                        {
+                          "id": "send-override-confirmation",
+                          "type": "set-variable",
+                          "variable": "_widgetRequest",
+                          "value": "{\"widget\":{\"type\":\"confirmation\",\"content\":\"Override quality gate?\",\"params\":{\"action\":\"Bypass gate\",\"consequence\":\"The quality gate will be skipped.\"},\"id\":\"override-confirm\",\"interactive\":true}}"
+                        },
+                        {
+                          "id": "wait-override-response",
+                          "type": "shell",
+                          "description": "Wait for user confirmation",
+                          "command": "node",
+                          "args": ["-e", "async function poll(){const API=process.env.MAESTRO_API_URL||'http://localhost:5000';const sid=process.env.MAESTRO_SESSION_ID||process.env.SESSION_ID;for(let i=0;i<120;i++){try{const r=await fetch(`${API}/api/sessions/${sid}/variables/_widgetResponse`);if(r.ok){const d=await r.json();if(d&&d.response){console.log(JSON.stringify(d));return;}}}catch{}await new Promise(r=>setTimeout(r,500));}console.log(JSON.stringify({response:'timeout'}));}poll();"]
+                        },
+                        {
+                          "id": "do-override-if-confirmed",
+                          "type": "conditional",
+                          "condition": "{{_nodeResult_wait-override-response}} contains yes",
+                          "then": {
+                            "id": "override-sequence",
+                            "description": "Execute override: pause -> transition -> resume",
+                            "nodes": [
+                              {
+                                "id": "override-pause",
+                                "blockRef": "state-manager",
+                                "inputs": { "operation": "pause", "sessionId": "{{inputs.sessionId}}" }
+                              },
+                              {
+                                "id": "override-transition",
+                                "blockRef": "state-manager",
+                                "inputs": {
+                                  "operation": "transition",
+                                  "sessionId": "{{inputs.sessionId}}",
+                                  "phase": "{{_nodeResult_decide}}"
+                                }
+                              },
+                              {
+                                "id": "override-resume",
+                                "blockRef": "state-manager",
+                                "inputs": { "operation": "resume", "sessionId": "{{inputs.sessionId}}" }
+                              }
+                            ]
+                          }
+                        }
+                      ]
+                    },
+
+                    "default": {
+                      "id": "action-default",
+                      "description": "Unknown action — log warning and respond",
+                      "nodes": []
+                    }
+                  }
+                },
+
+                {
+                  "id": "format-and-send",
+                  "blockRef": "send-widget-response",
+                  "description": "Format response as widget JSON",
+                  "inputs": {
+                    "responseMessage": "{{_nodeResult_decide}}",
+                    "widgetType": "{{_nodeResult_decide}}",
+                    "widgetParams": "{{_nodeResult_decide}}"
+                  }
+                },
+
+                {
+                  "id": "write-widget-to-session",
+                  "type": "set-variable",
+                  "description": "Write the widget JSON to _widgetRequest for the TUI to pick up",
+                  "variable": "_widgetRequest",
+                  "value": "{{_nodeResult_format-and-send}}"
+                },
+
+                {
+                  "id": "clear-user-message",
+                  "type": "set-variable",
+                  "description": "Clear _userMessage so the next poll waits for a new message",
+                  "variable": "_userMessage",
+                  "value": ""
+                }
+              ]
+            }
+          }
+        ]
+      }
+    ],
+
+    "connections": []
+  },
+  "metadata": {
+    "category": "interaction",
+    "designation": "workflow",
+    "tags": ["interaction", "parallel", "widget", "pause", "resume", "rewind", "v4"],
+    "tier": 1
+  }
+}

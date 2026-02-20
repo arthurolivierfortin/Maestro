@@ -1,0 +1,28 @@
+{
+  "id": "test-runner",
+  "name": "Test Runner v4",
+  "blockType": "agent",
+  "version": "4.0.0",
+  "isAtomic": true,
+  "description": "Executes tests and parses results. Detects the test framework, runs the test command, and produces structured results with pass/fail counts and failure details. Never modifies files.",
+  "inputs": [
+    { "id": "projectContext", "type": "string", "required": true, "description": "JSON object with testFramework, packageManager" },
+    { "id": "workingDir", "type": "string", "required": true, "description": "Absolute path to the project repository" },
+    { "id": "testsWritten", "type": "string", "required": false, "description": "JSON array of test files to run (if absent, runs all tests)" }
+  ],
+  "outputs": [
+    { "id": "response", "type": "string", "description": "JSON object: { framework, command, passed, failed, skipped, total, duration, failures, coverage }" }
+  ],
+  "config": {
+    "model": "claude-sonnet-4-6",
+    "maxIterations": 4,
+    "wallClockTimeoutSeconds": 300,
+    "systemPromptFile": "system-prompt.md"
+  },
+  "metadata": {
+    "category": "development",
+    "designation": "autonomous",
+    "tags": ["testing", "execution", "runner", "v4"],
+    "tier": 1
+  }
+}

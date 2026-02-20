@@ -1,0 +1,14 @@
+{
+  "id": "48dd45f6-a6fa-4265-b81f-b97b420e8d68",
+  "blockId": "send-widget-response",
+  "blockName": "Widget Response Formatter v4",
+  "blockType": "inference",
+  "sourceSessionId": null,
+  "status": "pending",
+  "rejectionReason": null,
+  "metadata": null,
+  "submittedAt": "2026-02-20T00:51:49.5637325+00:00",
+  "submittedBy": "cli-user",
+  "reviewedAt": null,
+  "reviewedBy": null
+}

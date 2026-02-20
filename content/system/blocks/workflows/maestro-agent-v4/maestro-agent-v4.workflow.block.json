@@ -1,0 +1,497 @@
+{
+  "id": "maestro-agent-v4",
+  "name": "Maestro Agent v4 — Autonomous Fullstack Developer",
+  "blockType": "workflow",
+  "version": "4.0.0",
+  "isAtomic": false,
+  "description": "Complete autonomous development workflow v4: comprendre (analyze, architect, research) -> planifier (plan, validate) -> implementer (for-each step with routing) -> verifier (tests, e2e, UI review) -> reviewer (code, security, architecture) -> iterer (while loop) -> livrer (commit, changelog, report). Runs interaction-handler in parallel.",
+
+  "inputs": [
+    {
+      "id": "task",
+      "name": "Development Task",
+      "type": "string",
+      "required": true,
+      "description": "The development task to accomplish"
+    },
+    {
+      "id": "repoPath",
+      "name": "Repository Path",
+      "type": "string",
+      "required": true,
+      "description": "Absolute path to the target repository"
+    }
+  ],
+
+  "outputs": [
+    { "id": "summary", "type": "string", "description": "Workflow execution summary and final report" }
+  ],
+
+  "config": {
+    "nodes": [
+      {
+        "id": "root",
+        "type": "parallel",
+        "description": "Main workflow + interaction-handler in parallel",
+        "nodes": [
+          {
+            "id": "main-workflow",
+            "description": "Main development workflow (7 phases)",
+            "nodes": [
+
+              {
+                "id": "init",
+                "blockRef": "state-manager",
+                "description": "Initialize workflow state",
+                "inputs": {
+                  "operation": "set",
+                  "path": "",
+                  "value": "{\"status\":\"running\",\"currentPhase\":\"comprendre\",\"iteration\":0,\"maxIterations\":3,\"results\":{},\"history\":[],\"userOverrides\":{}}",
+                  "sessionId": "{{_sessionId}}"
+                }
+              },
+
+              {
+                "id": "load-memory",
+                "blockRef": "memory-read",
+                "description": "Load persistent memory from .maestro/memory/",
+                "inputs": {
+                  "file": "index.md",
+                  "workingDir": "{{inputs.repoPath}}"
+                }
+              },
+
+              {
+                "id": "phase-comprendre",
+                "phaseId": "comprendre",
+                "description": "Phase 1: Understand the project and the task",
+                "nodes": [
+                  {
+                    "id": "analyze-project",
+                    "blockRef": "project-analyzer",
+                    "description": "Analyze the project repository",
+                    "inputs": {
+                      "repoPath": "{{inputs.repoPath}}",
+                      "task": "{{inputs.task}}"
+                    }
+                  },
+                  {
+                    "id": "design-architecture",
+                    "blockRef": "task-architect",
+                    "description": "Design high-level architecture",
+                    "inputs": {
+                      "task": "{{inputs.task}}",
+                      "projectContext": "{{_nodeResult_analyze-project}}"
+                    }
+                  },
+                  {
+                    "id": "needs-research",
+                    "type": "conditional",
+                    "description": "Does the task-architect identify questions needing research?",
+                    "condition": "{{_nodeResult_design-architecture}} contains designDecisions",
+                    "then": {
+                      "id": "do-research",
+                      "blockRef": "research-agent",
+                      "description": "Complementary web research",
+                      "inputs": {
+                        "query": "{{inputs.task}}",
+                        "projectContext": "{{_nodeResult_analyze-project}}"
+                      }
+                    }
+                  },
+                  {
+                    "id": "checkpoint-comprendre",
+                    "blockRef": "state-manager",
+                    "description": "Checkpoint comprendre results",
+                    "inputs": {
+                      "operation": "set",
+                      "path": "results.comprendre",
+                      "value": "{\"project\":\"stored\",\"architecture\":\"stored\",\"research\":\"stored\"}",
+                      "sessionId": "{{_sessionId}}"
+                    }
+                  },
+                  {
+                    "id": "transition-planifier",
+                    "blockRef": "state-manager",
+                    "description": "Transition to planifier phase",
+                    "inputs": {
+                      "operation": "transition",
+                      "phase": "planifier",
+                      "sessionId": "{{_sessionId}}"
+                    }
+                  }
+                ]
+              },
+
+              {
+                "id": "phase-planifier",
+                "phaseId": "planifier",
+                "description": "Phase 2: Plan the implementation",
+                "nodes": [
+                  {
+                    "id": "plan-loop",
+                    "type": "while",
+                    "description": "Plan -> validate -> re-plan loop (max 2 iterations)",
+                    "condition": "{{planValid}} != true",
+                    "maxIterations": 2,
+                    "nodes": [
+                      {
+                        "id": "create-plan",
+                        "blockRef": "task-planner",
+                        "description": "Create implementation plan",
+                        "inputs": {
+                          "task": "{{inputs.task}}",
+                          "projectContext": "{{_nodeResult_analyze-project}}",
+                          "architecture": "{{_nodeResult_design-architecture}}",
+                          "researchContext": "{{_nodeResult_do-research}}",
+                          "userOverrides": "{{userOverrides}}",
+                          "previousValidation": "{{_nodeResult_validate-plan}}"
+                        }
+                      },
+                      {
+                        "id": "validate-plan",
+                        "blockRef": "plan-validator",
+                        "description": "Validate the plan against architecture and conventions",
+                        "inputs": {
+                          "plan": "{{_nodeResult_create-plan}}",
+                          "projectContext": "{{_nodeResult_analyze-project}}",
+                          "architecture": "{{_nodeResult_design-architecture}}"
+                        }
+                      },
+                      {
+                        "id": "set-plan-valid",
+                        "type": "set-variable",
+                        "variable": "planValid",
+                        "value": "{{_nodeResult_validate-plan}}",
+                        "description": "Store plan validation result"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "store-plan",
+                    "type": "set-variable",
+                    "variable": "_planSteps",
+                    "value": "{{_nodeResult_create-plan}}",
+                    "description": "Store validated plan steps for for-each iteration"
+                  },
+                  {
+                    "id": "checkpoint-planifier",
+                    "blockRef": "state-manager",
+                    "description": "Checkpoint planifier results",
+                    "inputs": {
+                      "operation": "set",
+                      "path": "results.planifier",
+                      "value": "{\"plan\":\"stored\",\"validated\":true}",
+                      "sessionId": "{{_sessionId}}"
+                    }
+                  },
+                  {
+                    "id": "transition-implementer",
+                    "blockRef": "state-manager",
+                    "description": "Transition to implementer phase",
+                    "inputs": {
+                      "operation": "transition",
+                      "phase": "implementer",
+                      "sessionId": "{{_sessionId}}"
+                    }
+                  }
+                ]
+              },
+
+              {
+                "id": "phase-iteration-loop",
+                "phaseId": "iteration",
+                "type": "while",
+                "description": "Main loop: implement -> verify -> review, max 3 iterations",
+                "condition": "{{reviewApproved}} != true",
+                "maxIterations": 3,
+                "nodes": [
+
+                  {
+                    "id": "phase-implementer",
+                    "phaseId": "implementer",
+                    "type": "for-each",
+                    "description": "Phase 3: Implement each plan step",
+                    "source": "_planSteps",
+                    "itemId": "id",
+                    "configLookup": false,
+                    "nodes": [
+                      {
+                        "id": "implement-step",
+                        "blockRef": "implement-single-step",
+                        "description": "Implement a single step (routes to appropriate developer internally)",
+                        "inputs": {
+                          "step": "{{_currentItemJson}}",
+                          "projectContext": "{{_nodeResult_analyze-project}}",
+                          "workingDir": "{{inputs.repoPath}}",
+                          "reviewFeedback": "{{reviewFeedback}}"
+                        }
+                      },
+                      {
+                        "id": "validate-step-impl",
+                        "blockRef": "step-validator",
+                        "description": "Verify the step was actually implemented on disk",
+                        "inputs": {
+                          "step": "{{_currentItemJson}}",
+                          "result": "{{previousOutput}}",
+                          "workingDir": "{{inputs.repoPath}}"
+                        }
+                      }
+                    ]
+                  },
+
+                  {
+                    "id": "checkpoint-implementer",
+                    "blockRef": "state-manager",
+                    "description": "Checkpoint implementation results",
+                    "inputs": {
+                      "operation": "set",
+                      "path": "results.implementer",
+                      "value": "{{_nodeResult_phase-implementer}}",
+                      "sessionId": "{{_sessionId}}"
+                    }
+                  },
+
+                  {
+                    "id": "phase-verifier",
+                    "phaseId": "verifier",
+                    "description": "Phase 4: Verify the implemented code",
+                    "nodes": [
+                      {
+                        "id": "write-tests",
+                        "blockRef": "test-writer",
+                        "description": "Write unit tests for implemented changes",
+                        "inputs": {
+                          "implementedSteps": "{{_nodeResult_phase-implementer}}",
+                          "projectContext": "{{_nodeResult_analyze-project}}",
+                          "workingDir": "{{inputs.repoPath}}"
+                        }
+                      },
+                      {
+                        "id": "run-tests",
+                        "blockRef": "test-runner",
+                        "description": "Execute the test suite",
+                        "inputs": {
+                          "projectContext": "{{_nodeResult_analyze-project}}",
+                          "workingDir": "{{inputs.repoPath}}",
+                          "testsWritten": "{{_nodeResult_write-tests}}"
+                        }
+                      },
+                      {
+                        "id": "has-ui",
+                        "type": "conditional",
+                        "description": "Does the project have a UI to test visually?",
+                        "condition": "{{_nodeResult_design-architecture}} contains visualComponents",
+                        "then": {
+                          "id": "visual-verification",
+                          "description": "Visual verification sequence",
+                          "nodes": [
+                            {
+                              "id": "run-e2e",
+                              "blockRef": "e2e-tester",
+                              "description": "Run end-to-end tests with Playwright",
+                              "inputs": {
+                                "projectContext": "{{_nodeResult_analyze-project}}",
+                                "workingDir": "{{inputs.repoPath}}",
+                                "implementedSteps": "{{_nodeResult_phase-implementer}}"
+                              }
+                            },
+                            {
+                              "id": "review-ui",
+                              "blockRef": "ui-reviewer",
+                              "description": "Review UI screenshots and accessibility",
+                              "inputs": {
+                                "screenshots": "{{_nodeResult_run-e2e}}",
+                                "accessibilityTree": "{{_nodeResult_run-e2e}}",
+                                "designContext": "{{_nodeResult_design-architecture}}",
+                                "projectContext": "{{_nodeResult_analyze-project}}"
+                              }
+                            },
+                            {
+                              "id": "check-a11y",
+                              "blockRef": "accessibility-checker",
+                              "description": "Check WCAG accessibility compliance",
+                              "inputs": {
+                                "accessibilityTree": "{{_nodeResult_run-e2e}}"
+                              }
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  },
+
+                  {
+                    "id": "checkpoint-verifier",
+                    "blockRef": "state-manager",
+                    "description": "Checkpoint verification results",
+                    "inputs": {
+                      "operation": "set",
+                      "path": "results.verifier",
+                      "value": "{{_nodeResult_run-tests}}",
+                      "sessionId": "{{_sessionId}}"
+                    }
+                  },
+
+                  {
+                    "id": "phase-reviewer",
+                    "phaseId": "reviewer",
+                    "description": "Phase 5: Review the code",
+                    "nodes": [
+                      {
+                        "id": "review-code",
+                        "blockRef": "code-reviewer",
+                        "description": "Score implementation quality across 7 axes",
+                        "inputs": {
+                          "implementedSteps": "{{_nodeResult_phase-implementer}}",
+                          "projectContext": "{{_nodeResult_analyze-project}}",
+                          "testResults": "{{_nodeResult_run-tests}}",
+                          "iteration": "{{iteration}}"
+                        }
+                      },
+                      {
+                        "id": "review-security",
+                        "blockRef": "security-reviewer",
+                        "description": "OWASP top 10 security audit",
+                        "inputs": {
+                          "implementedCode": "{{_nodeResult_phase-implementer}}",
+                          "projectContext": "{{_nodeResult_analyze-project}}"
+                        }
+                      },
+                      {
+                        "id": "review-architecture",
+                        "blockRef": "architecture-reviewer",
+                        "description": "Architecture coherence check",
+                        "inputs": {
+                          "implementedCode": "{{_nodeResult_phase-implementer}}",
+                          "projectContext": "{{_nodeResult_analyze-project}}",
+                          "architecture": "{{_nodeResult_design-architecture}}"
+                        }
+                      },
+                      {
+                        "id": "compute-approved",
+                        "type": "set-variable",
+                        "variable": "reviewApproved",
+                        "value": "{{_nodeResult_review-code}}",
+                        "description": "Store review approval status (the code-reviewer block returns approved/rejected)"
+                      },
+                      {
+                        "id": "build-feedback",
+                        "type": "conditional",
+                        "description": "If not approved, build feedback for next iteration",
+                        "condition": "{{reviewApproved}} != true",
+                        "then": {
+                          "id": "aggregate-feedback",
+                          "type": "set-variable",
+                          "variable": "reviewFeedback",
+                          "value": "{{_nodeResult_review-code}}"
+                        }
+                      }
+                    ]
+                  },
+
+                  {
+                    "id": "checkpoint-reviewer",
+                    "blockRef": "state-manager",
+                    "description": "Checkpoint review results",
+                    "inputs": {
+                      "operation": "set",
+                      "path": "results.reviewer",
+                      "value": "{{_nodeResult_review-code}}",
+                      "sessionId": "{{_sessionId}}"
+                    }
+                  }
+                ]
+              },
+
+              {
+                "id": "phase-livrer",
+                "phaseId": "livrer",
+                "description": "Phase 7: Deliver (commit, changelog, report)",
+                "nodes": [
+                  {
+                    "id": "do-commit",
+                    "blockRef": "git-committer",
+                    "description": "Create conventional commit",
+                    "inputs": {
+                      "implementedSteps": "{{_nodeResult_phase-implementer}}",
+                      "reviewResult": "{{_nodeResult_review-code}}",
+                      "workingDir": "{{inputs.repoPath}}",
+                      "repoPath": "{{inputs.repoPath}}"
+                    }
+                  },
+                  {
+                    "id": "write-changelog",
+                    "blockRef": "changelog-writer",
+                    "description": "Update the changelog",
+                    "inputs": {
+                      "commitMessage": "{{_nodeResult_do-commit}}",
+                      "implementedSteps": "{{_nodeResult_phase-implementer}}",
+                      "reviewResult": "{{_nodeResult_review-code}}"
+                    }
+                  },
+                  {
+                    "id": "generate-report",
+                    "blockRef": "summary-reporter",
+                    "description": "Generate final execution report",
+                    "inputs": {
+                      "task": "{{inputs.task}}",
+                      "implementedSteps": "{{_nodeResult_phase-implementer}}",
+                      "testResults": "{{_nodeResult_run-tests}}",
+                      "reviewResult": "{{_nodeResult_review-code}}",
+                      "commitResult": "{{_nodeResult_do-commit}}",
+                      "iterations": "{{iteration}}"
+                    }
+                  },
+                  {
+                    "id": "save-learnings",
+                    "type": "conditional",
+                    "description": "Save learnings to memory if any",
+                    "condition": "{{_nodeResult_generate-report}} contains learnings",
+                    "then": {
+                      "id": "write-learnings",
+                      "blockRef": "memory-write",
+                      "description": "Append learnings to memory",
+                      "inputs": {
+                        "file": "learnings.md",
+                        "content": "{{_nodeResult_generate-report}}",
+                        "mode": "append",
+                        "workingDir": "{{inputs.repoPath}}"
+                      }
+                    }
+                  },
+                  {
+                    "id": "set-completed",
+                    "blockRef": "state-manager",
+                    "description": "Mark workflow as completed",
+                    "inputs": {
+                      "operation": "set",
+                      "path": "status",
+                      "value": "\"completed\"",
+                      "sessionId": "{{_sessionId}}"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+
+          {
+            "id": "interaction-handler-loop",
+            "blockRef": "interaction-handler",
+            "description": "Interaction handler agent running in parallel (terminates when main-workflow ends)"
+          }
+        ]
+      }
+    ],
+
+    "connections": []
+  },
+
+  "metadata": {
+    "category": "development",
+    "tags": ["workflow", "autonomous", "development", "full-pipeline", "v4"],
+    "author": "maestro-team",
+    "tier": 1
+  }
+}

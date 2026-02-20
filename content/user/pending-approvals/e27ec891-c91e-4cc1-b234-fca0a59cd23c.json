@@ -1,0 +1,14 @@
+{
+  "id": "e27ec891-c91e-4cc1-b234-fca0a59cd23c",
+  "blockId": "decide-action",
+  "blockName": "Action Decider v4",
+  "blockType": "inference",
+  "sourceSessionId": null,
+  "status": "pending",
+  "rejectionReason": null,
+  "metadata": null,
+  "submittedAt": "2026-02-20T00:51:39.1421522+00:00",
+  "submittedBy": "cli-user",
+  "reviewedAt": null,
+  "reviewedBy": null
+}

@@ -1,0 +1,26 @@
+{
+  "id": "security-reviewer",
+  "name": "Security Reviewer v4",
+  "blockType": "inference",
+  "version": "4.0.0",
+  "isAtomic": true,
+  "description": "Audits code for security vulnerabilities focusing on OWASP Top 10 (2021). Identifies actual vulnerabilities with severity levels, provides concrete fixes, and assesses whether code is safe to deploy. Single LLM call with deep security reasoning.",
+  "inputs": [
+    { "id": "implementedCode", "type": "string", "required": true, "description": "JSON array of implemented files with path and content" },
+    { "id": "projectContext", "type": "string", "required": true, "description": "JSON object with stack, framework information" }
+  ],
+  "outputs": [
+    { "id": "response", "type": "string", "description": "JSON object: { pass, score, vulnerabilities, warnings, recommendations }" }
+  ],
+  "config": {
+    "systemPromptFile": "system-prompt.md",
+    "model": "claude-opus-4-6",
+    "temperature": 0.2,
+    "maxTokens": 4000
+  },
+  "metadata": {
+    "category": "development",
+    "tags": ["security", "owasp", "audit", "vulnerabilities", "v4"],
+    "tier": 1
+  }
+}

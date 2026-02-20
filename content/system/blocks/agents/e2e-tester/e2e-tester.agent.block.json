@@ -1,0 +1,28 @@
+{
+  "id": "e2e-tester",
+  "name": "E2E Tester v4",
+  "blockType": "agent",
+  "version": "4.0.0",
+  "isAtomic": true,
+  "description": "Tests user flows end-to-end using Playwright. Starts the dev server, navigates through the application, interacts with the UI, takes screenshots, and verifies expected behavior.",
+  "inputs": [
+    { "id": "projectContext", "type": "string", "required": true, "description": "JSON object with stack, framework, devServerCommand, port" },
+    { "id": "workingDir", "type": "string", "required": true, "description": "Absolute path to the project repository" },
+    { "id": "implementedSteps", "type": "string", "required": true, "description": "JSON array of implemented steps (to know what to test)" }
+  ],
+  "outputs": [
+    { "id": "response", "type": "string", "description": "JSON object: { testsRun, passed, failed, flows, failures }" }
+  ],
+  "config": {
+    "model": "claude-sonnet-4-6",
+    "maxIterations": 15,
+    "wallClockTimeoutSeconds": 600,
+    "systemPromptFile": "system-prompt.md"
+  },
+  "metadata": {
+    "category": "development",
+    "designation": "autonomous",
+    "tags": ["testing", "e2e", "playwright", "ui", "v4"],
+    "tier": 1
+  }
+}

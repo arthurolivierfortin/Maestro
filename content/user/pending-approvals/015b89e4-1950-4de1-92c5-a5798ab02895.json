@@ -1,0 +1,14 @@
+{
+  "id": "015b89e4-1950-4de1-92c5-a5798ab02895",
+  "blockId": "compilation-check",
+  "blockName": "Compilation Check",
+  "blockType": "tool",
+  "sourceSessionId": null,
+  "status": "pending",
+  "rejectionReason": null,
+  "metadata": null,
+  "submittedAt": "2026-02-20T00:54:54.549935+00:00",
+  "submittedBy": "cli-user",
+  "reviewedAt": null,
+  "reviewedBy": null
+}

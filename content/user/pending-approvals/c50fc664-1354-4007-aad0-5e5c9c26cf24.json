@@ -1,0 +1,14 @@
+{
+  "id": "c50fc664-1354-4007-aad0-5e5c9c26cf24",
+  "blockId": "classify-intent",
+  "blockName": "Intent Classifier v4",
+  "blockType": "inference",
+  "sourceSessionId": null,
+  "status": "pending",
+  "rejectionReason": null,
+  "metadata": null,
+  "submittedAt": "2026-02-20T00:51:30.2383546+00:00",
+  "submittedBy": "cli-user",
+  "reviewedAt": null,
+  "reviewedBy": null
+}

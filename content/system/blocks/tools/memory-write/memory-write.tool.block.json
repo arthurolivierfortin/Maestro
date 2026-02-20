@@ -1,0 +1,30 @@
+{
+  "id": "memory-write",
+  "name": "Memory Write",
+  "blockType": "tool",
+  "version": "4.0.0",
+  "isAtomic": true,
+  "description": "Writes or appends to a memory file in .maestro/memory/. Creates the directory structure if it does not exist.",
+  "inputs": [
+    { "id": "file", "type": "string", "required": true, "description": "File name to write (e.g. 'conventions.md')" },
+    { "id": "content", "type": "string", "required": true, "description": "Content to write" },
+    { "id": "mode", "type": "string", "required": false, "description": "Write mode: 'write' (overwrite, default) or 'append'" },
+    { "id": "workingDir", "type": "string", "required": false, "description": "Project root directory containing .maestro/ (default: cwd)" }
+  ],
+  "outputs": [
+    { "id": "success", "type": "boolean", "description": "Whether the write succeeded" },
+    { "id": "filePath", "type": "string", "description": "Absolute path to the written file" },
+    { "id": "bytesWritten", "type": "number", "description": "Number of bytes written" }
+  ],
+  "config": {
+    "runtime": "node",
+    "scriptFile": "write-memory.js",
+    "parseOutput": "json",
+    "timeout": 5000
+  },
+  "metadata": {
+    "category": "memory",
+    "designation": "tool",
+    "tags": ["memory", "write", "persistence", "context", "v4"]
+  }
+}

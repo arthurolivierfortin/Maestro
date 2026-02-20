@@ -1,0 +1,28 @@
+{
+  "id": "ui-reviewer",
+  "name": "UI Reviewer v4",
+  "blockType": "inference",
+  "version": "4.0.0",
+  "isAtomic": true,
+  "description": "Reviews visual quality of implemented UI by analyzing screenshots and accessibility trees. Evaluates layout, alignment, spacing, color, animations, responsiveness, and accessibility. Uses vision model for screenshot analysis.",
+  "inputs": [
+    { "id": "screenshots", "type": "string", "required": true, "description": "JSON array of screenshot file paths captured by e2e-tester" },
+    { "id": "accessibilityTree", "type": "string", "required": true, "description": "Accessibility tree of the page from playwright-accessibility" },
+    { "id": "designContext", "type": "string", "required": false, "description": "JSON object with architecture.visualComponents (expected animations, components)" },
+    { "id": "projectContext", "type": "string", "required": false, "description": "JSON object with CSS framework, design system info" }
+  ],
+  "outputs": [
+    { "id": "response", "type": "string", "description": "JSON object: { score, issues, positives, accessibilityIssues }" }
+  ],
+  "config": {
+    "systemPromptFile": "system-prompt.md",
+    "model": "claude-opus-4-6",
+    "temperature": 0.3,
+    "maxTokens": 4000
+  },
+  "metadata": {
+    "category": "development",
+    "tags": ["review", "ui", "visual", "accessibility", "vision", "v4"],
+    "tier": 1
+  }
+}

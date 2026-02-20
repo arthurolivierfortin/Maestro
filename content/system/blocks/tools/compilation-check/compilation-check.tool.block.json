@@ -1,0 +1,32 @@
+{
+  "id": "compilation-check",
+  "name": "Compilation Check",
+  "blockType": "tool",
+  "version": "4.0.0",
+  "isAtomic": true,
+  "description": "Builds the project and reports compilation results. Auto-detects the build command from project files (package.json, *.csproj, Cargo.toml, go.mod, pyproject.toml). Returns success/failure, errors, and warnings.",
+  "inputs": [
+    { "id": "workingDir", "type": "string", "required": true, "description": "Project root directory" },
+    { "id": "buildCommand", "type": "string", "required": false, "description": "Override build command (auto-detected if not provided)" }
+  ],
+  "outputs": [
+    { "id": "success", "type": "boolean", "description": "Whether the build succeeded" },
+    { "id": "buildCommand", "type": "string", "description": "The build command that was executed" },
+    { "id": "stdout", "type": "string", "description": "Build stdout (truncated to 10KB)" },
+    { "id": "stderr", "type": "string", "description": "Build stderr (truncated to 10KB)" },
+    { "id": "errorCount", "type": "number", "description": "Number of detected errors" },
+    { "id": "warningCount", "type": "number", "description": "Number of detected warnings" },
+    { "id": "exitCode", "type": "number", "description": "Build process exit code" }
+  ],
+  "config": {
+    "runtime": "node",
+    "scriptFile": "check.js",
+    "parseOutput": "json",
+    "timeout": 120000
+  },
+  "metadata": {
+    "category": "validation",
+    "designation": "tool",
+    "tags": ["compilation", "build", "validation", "check", "v4"]
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "id": "playwright-interact",
+  "name": "Playwright Interact",
+  "blockType": "tool",
+  "version": "4.0.0",
+  "isAtomic": true,
+  "description": "Interacts with a web page via Playwright: navigation, clicks, text input, scroll, wait, evaluate JavaScript. Supports accessibility-first selectors (role, text, label).",
+  "inputs": [
+    { "id": "action", "type": "string", "required": true, "description": "Action: navigate|click|type|select|scroll|wait|evaluate" },
+    { "id": "url", "type": "string", "required": false, "description": "URL for navigate action" },
+    { "id": "selector", "type": "string", "required": false, "description": "Element selector (role-based preferred, e.g. role=button[name='Submit'])" },
+    { "id": "text", "type": "string", "required": false, "description": "Text for type action, or JS code for evaluate action" },
+    { "id": "value", "type": "string", "required": false, "description": "Value for select action" },
+    { "id": "timeout", "type": "number", "required": false, "description": "Timeout in ms (default: 5000)" }
+  ],
+  "outputs": [
+    { "id": "success", "type": "boolean", "description": "Whether the action succeeded" },
+    { "id": "result", "type": "string", "description": "Action result (page title after navigate, evaluate return value, etc.)" },
+    { "id": "pageTitle", "type": "string", "description": "Current page title after action" },
+    { "id": "currentUrl", "type": "string", "description": "Current page URL after action" }
+  ],
+  "config": {
+    "runtime": "node",
+    "scriptFile": "interact.js",
+    "parseOutput": "json",
+    "timeout": 30000
+  },
+  "metadata": {
+    "category": "browser",
+    "designation": "tool",
+    "tags": ["playwright", "interact", "browser", "dom", "v4"]
+  }
+}

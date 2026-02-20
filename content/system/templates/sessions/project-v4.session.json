@@ -1,0 +1,141 @@
+{
+  "id": "project-v4",
+  "name": "Maestro Agent v4 — Autonomous Development",
+  "description": "Project session using the maestro-agent-v4 workflow. Provides the complete 7-phase pipeline: comprendre -> planifier -> implementer -> verifier -> reviewer -> iterer -> livrer, with interaction-handler in parallel.",
+
+  "type": "project",
+  "authority": {
+    "type": "human",
+    "identifier": "default",
+    "displayName": "Developer"
+  },
+
+  "permissions": {
+    "allowedCommands": ["*"],
+    "allowedTools": ["*"],
+    "allowedBlocks": ["*"],
+    "canCreateBlocks": false,
+    "canCreateSessions": false,
+    "canAccessNetwork": true,
+    "canAccessFilesystem": true
+  },
+
+  "entryPoints": {
+    "dev": "maestro-agent-v4",
+    "plan": "task-planner",
+    "review": "code-reviewer",
+    "analyze": "project-analyzer"
+  },
+
+  "variables": {
+    "sessionMode": "autonomous-dev-v4",
+    "currentTask": "",
+    "currentStep": "idle",
+    "filesModified": [],
+    "testsPassed": false,
+    "reviewScore": 0,
+    "reviewApproved": false,
+    "planValid": false,
+    "reviewFeedback": "",
+    "userOverrides": "",
+    "iteration": 0,
+
+    "_phases": [
+      { "id": "comprendre", "name": "1. Comprendre", "status": "pending", "description": "Analyze project, design architecture, research" },
+      { "id": "planifier", "name": "2. Planifier", "status": "pending", "description": "Create and validate implementation plan" },
+      { "id": "implementer", "name": "3. Implementer", "status": "pending", "description": "Implement each plan step with specialized developers" },
+      { "id": "verifier", "name": "4. Verifier", "status": "pending", "description": "Write tests, run tests, E2E, UI review" },
+      { "id": "reviewer", "name": "5. Reviewer", "status": "pending", "description": "Code review, security audit, architecture check" },
+      { "id": "iteration", "name": "6. Iterer", "status": "pending", "description": "Loop implement-verify-review if score < threshold" },
+      { "id": "livrer", "name": "7. Livrer", "status": "pending", "description": "Commit, changelog, final report" }
+    ],
+
+    "_workflowState": {},
+    "_blockOutputs": {},
+    "_llmActivity": [],
+    "_executionLog": [],
+    "_executionTree": [],
+    "_planSteps": [],
+
+    "_monitorDescriptor": {
+      "layout": {
+        "mode": "phased-v2",
+        "zones": {
+          "header-left": { "width": "60%", "height": 7, "components": ["header"] },
+          "header-right": { "width": "40%", "height": 7, "components": ["session-metrics"] },
+          "left": { "width": "55%", "height": "75%", "components": ["phase-workflow"] },
+          "right": { "width": "45%", "height": "75%", "components": ["llm-activity"] },
+          "bottom": { "width": "100%", "height": "25%", "components": ["execution-log"] }
+        }
+      },
+      "components": [
+        { "id": "phase-workflow", "type": "phase-workflow", "data": ["$.variables._phases", "$.variables._executionTree"] },
+        { "id": "llm-activity", "type": "llm-activity", "data": "$.variables._llmActivity" },
+        { "id": "execution-log", "type": "execution-log", "data": "$.variables._executionLog" },
+        { "id": "session-metrics", "type": "widgets", "data": "$.monitorWidgets" }
+      ]
+    }
+  },
+
+  "monitorWidgets": [
+    {
+      "id": "current-phase",
+      "type": "counter",
+      "zone": "custom",
+      "config": {
+        "label": "Current Phase",
+        "value": "$.variables.currentStep"
+      }
+    },
+    {
+      "id": "iteration-count",
+      "type": "counter",
+      "zone": "custom",
+      "config": {
+        "label": "Iteration",
+        "value": "$.variables.iteration"
+      }
+    },
+    {
+      "id": "review-score",
+      "type": "counter",
+      "zone": "custom",
+      "config": {
+        "label": "Review Score",
+        "value": "$.variables.reviewScore"
+      }
+    },
+    {
+      "id": "plan-valid",
+      "type": "counter",
+      "zone": "custom",
+      "config": {
+        "label": "Plan Valid",
+        "value": "$.variables.planValid"
+      }
+    },
+    {
+      "id": "tests-passed",
+      "type": "counter",
+      "zone": "custom",
+      "config": {
+        "label": "Tests",
+        "value": "$.variables.testsPassed"
+      }
+    }
+  ],
+
+  "config": {
+    "maxIterations": 200,
+    "timeout": 14400000,
+    "autoSave": true,
+    "saveInterval": 15000
+  },
+
+  "metadata": {
+    "category": "development",
+    "priority": "high",
+    "version": "4.0.0",
+    "author": "maestro-phase-34"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "id": "761eba25-edaa-431d-9eee-fa250094e3c3",
+  "blockId": "architecture-reviewer",
+  "blockName": "Architecture Reviewer v4",
+  "blockType": "inference",
+  "sourceSessionId": null,
+  "status": "pending",
+  "rejectionReason": null,
+  "metadata": null,
+  "submittedAt": "2026-02-20T00:48:53.2436016+00:00",
+  "submittedBy": "cli-user",
+  "reviewedAt": null,
+  "reviewedBy": null
+}

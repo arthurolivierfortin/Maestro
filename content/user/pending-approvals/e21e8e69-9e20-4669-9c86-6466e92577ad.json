@@ -1,0 +1,14 @@
+{
+  "id": "e21e8e69-9e20-4669-9c86-6466e92577ad",
+  "blockId": "research-agent",
+  "blockName": "Research Agent v4",
+  "blockType": "agent",
+  "sourceSessionId": null,
+  "status": "pending",
+  "rejectionReason": null,
+  "metadata": null,
+  "submittedAt": "2026-02-20T00:52:35.9010292+00:00",
+  "submittedBy": "cli-user",
+  "reviewedAt": null,
+  "reviewedBy": null
+}

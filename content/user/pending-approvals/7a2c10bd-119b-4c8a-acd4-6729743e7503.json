@@ -1,0 +1,14 @@
+{
+  "id": "7a2c10bd-119b-4c8a-acd4-6729743e7503",
+  "blockId": "test-writer",
+  "blockName": "Test Writer v4",
+  "blockType": "agent",
+  "sourceSessionId": null,
+  "status": "pending",
+  "rejectionReason": null,
+  "metadata": null,
+  "submittedAt": "2026-02-20T00:49:32.3779715+00:00",
+  "submittedBy": "cli-user",
+  "reviewedAt": null,
+  "reviewedBy": null
+}

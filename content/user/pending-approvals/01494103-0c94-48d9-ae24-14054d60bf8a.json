@@ -1,0 +1,14 @@
+{
+  "id": "01494103-0c94-48d9-ae24-14054d60bf8a",
+  "blockId": "ui-reviewer",
+  "blockName": "UI Reviewer v4",
+  "blockType": "inference",
+  "sourceSessionId": null,
+  "status": "pending",
+  "rejectionReason": null,
+  "metadata": null,
+  "submittedAt": "2026-02-20T00:49:43.343224+00:00",
+  "submittedBy": "cli-user",
+  "reviewedAt": null,
+  "reviewedBy": null
+}

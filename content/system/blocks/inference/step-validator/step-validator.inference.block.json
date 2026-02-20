@@ -1,0 +1,27 @@
+{
+  "id": "step-validator",
+  "name": "Step Validator v4",
+  "blockType": "inference",
+  "version": "4.0.0",
+  "isAtomic": true,
+  "description": "Validates that an implementation step was executed correctly. Checks file existence, non-emptiness, and action-specific criteria. Read-only — never modifies files.",
+  "inputs": [
+    { "id": "step", "type": "string", "required": true, "description": "JSON object: the plan step (action, target)" },
+    { "id": "implementationResult", "type": "string", "required": true, "description": "JSON output from the developer agent (stepId, action, target, success, filesModified, notes)" },
+    { "id": "workingDir", "type": "string", "required": true, "description": "Absolute path to the project repository" }
+  ],
+  "outputs": [
+    { "id": "response", "type": "string", "description": "JSON object: { valid, checks: [{ check, target, passed }] }" }
+  ],
+  "config": {
+    "model": "claude-haiku-4-5-20251001",
+    "temperature": 0.1,
+    "maxTokens": 2000,
+    "systemPrompt": "# Step Validator v4\n\nYou verify that an implementation step was executed correctly. You check that files exist, are non-empty, and match the expected action.\n\n## CRITICAL RULES\n\n1. Your ENTIRE response is a single JSON object — the validation result.\n2. NEVER modify any file. You only validate based on the implementation result.\n3. valid=true ONLY if ALL checks pass.\n4. Be strict: if the implementation result says success=false, the validation is automatically invalid.\n\n## Verification Rules\n\n| Action | Checks |\n|--------|--------|\n| create | implementationResult.success=true AND filesModified includes the target |\n| modify | implementationResult.success=true AND filesModified includes the target |\n| delete | implementationResult.success=true AND target is in filesModified |\n| add-dependency | implementationResult.success=true |\n| run-command | implementationResult.success=true |\n\n## Output Format\n\n```json\n{\n  \"valid\": true,\n  \"checks\": [\n    { \"check\": \"file-exists\", \"target\": \"src/services/userService.ts\", \"passed\": true },\n    { \"check\": \"non-empty\", \"target\": \"src/services/userService.ts\", \"passed\": true }\n  ]\n}\n```\n\nIf implementationResult.success is false:\n```json\n{\n  \"valid\": false,\n  \"checks\": [\n    { \"check\": \"implementation-success\", \"target\": \"src/services/userService.ts\", \"passed\": false }\n  ]\n}\n```\n\nOutput ONLY the JSON object. No prose, no markdown, no explanation."
+  },
+  "metadata": {
+    "category": "development",
+    "tags": ["validation", "step", "implementation", "quality-gate", "v4"],
+    "tier": 1
+  }
+}

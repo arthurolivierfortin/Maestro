@@ -1,0 +1,14 @@
+{
+  "id": "064d18a9-529d-4037-8387-41c44d15ba68",
+  "blockId": "test-runner",
+  "blockName": "Test Runner v4",
+  "blockType": "agent",
+  "sourceSessionId": null,
+  "status": "pending",
+  "rejectionReason": null,
+  "metadata": null,
+  "submittedAt": "2026-02-20T00:49:51.9947914+00:00",
+  "submittedBy": "cli-user",
+  "reviewedAt": null,
+  "reviewedBy": null
+}

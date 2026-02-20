@@ -1,0 +1,30 @@
+{
+  "id": "backend-developer",
+  "name": "Backend Developer v4",
+  "blockType": "agent",
+  "version": "4.0.0",
+  "isAtomic": true,
+  "description": "Specialized backend developer agent. Implements ONE step at a time, focusing on server-side code: APIs, services, data models, business logic, configuration, and type definitions. Follows project conventions exactly.",
+  "inputs": [
+    { "id": "step", "type": "string", "required": true, "description": "JSON object: the current plan step (id, action, target, description, dependencies, context_files, acceptance, verification)" },
+    { "id": "projectContext", "type": "string", "required": true, "description": "JSON output from project-analyzer (stack, conventions)" },
+    { "id": "workingDir", "type": "string", "required": true, "description": "Absolute path to the project repository" },
+    { "id": "previousResults", "type": "string", "required": false, "description": "JSON results from previously completed steps" },
+    { "id": "reviewFeedback", "type": "string", "required": false, "description": "Feedback from reviewer if this is a re-execution after review" }
+  ],
+  "outputs": [
+    { "id": "response", "type": "string", "description": "JSON object: { stepId, action, target, success, filesModified, notes }" }
+  ],
+  "config": {
+    "model": "claude-sonnet-4-6",
+    "maxIterations": 12,
+    "wallClockTimeoutSeconds": 600,
+    "systemPromptFile": "system-prompt.md"
+  },
+  "metadata": {
+    "category": "development",
+    "designation": "autonomous",
+    "tags": ["backend", "developer", "implementation", "api", "services", "v4"],
+    "tier": 1
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "id": "frontend-developer",
+  "name": "Frontend Developer v4",
+  "blockType": "agent",
+  "version": "4.0.0",
+  "isAtomic": true,
+  "description": "Specialized frontend developer agent. Implements ONE step at a time, focusing on UI components, state management, routing, hooks, and user interactions. Enforces accessibility and responsive design.",
+  "inputs": [
+    { "id": "step", "type": "string", "required": true, "description": "JSON object: the current plan step (id, action, target, description, dependencies, context_files, acceptance, verification)" },
+    { "id": "projectContext", "type": "string", "required": true, "description": "JSON output from project-analyzer (stack, conventions)" },
+    { "id": "workingDir", "type": "string", "required": true, "description": "Absolute path to the project repository" },
+    { "id": "previousResults", "type": "string", "required": false, "description": "JSON results from previously completed steps" },
+    { "id": "reviewFeedback", "type": "string", "required": false, "description": "Feedback from reviewer if this is a re-execution after review" },
+    { "id": "designContext", "type": "string", "required": false, "description": "JSON from architecture.visualComponents (components, animations, needsDesignReview)" }
+  ],
+  "outputs": [
+    { "id": "response", "type": "string", "description": "JSON object: { stepId, action, target, success, filesModified, notes }" }
+  ],
+  "config": {
+    "model": "claude-sonnet-4-6",
+    "maxIterations": 15,
+    "wallClockTimeoutSeconds": 600,
+    "systemPromptFile": "system-prompt.md"
+  },
+  "metadata": {
+    "category": "development",
+    "designation": "autonomous",
+    "tags": ["frontend", "developer", "implementation", "react", "components", "v4"],
+    "tier": 1
+  }
+}

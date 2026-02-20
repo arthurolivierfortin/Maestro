@@ -1,28 +1,30 @@
 {
   "id": "task-planner",
-  "name": "Task Planner",
+  "name": "Task Planner v4",
   "blockType": "agent",
-  "version": "2.0.0",
+  "version": "4.0.0",
   "isAtomic": true,
-  "description": "Decomposes a development task into atomic, dependency-ordered implementation steps. Reads project files to understand structure before planning.",
+  "description": "Development task planner. Given a task, project context, and high-level architecture, produces an atomic, dependency-ordered implementation plan with domain routing for each step.",
   "inputs": [
-    { "id": "task", "type": "string", "required": true, "description": "The development task to decompose" },
-    { "id": "context", "type": "string", "required": false, "description": "Project context from project-preparer (stack, conventions, architecture)" },
-    { "id": "repoPath", "type": "string", "required": false, "description": "Path to the repository for reading files" }
+    { "id": "task", "type": "string", "required": true, "description": "Description of the task to implement" },
+    { "id": "projectContext", "type": "string", "required": true, "description": "JSON output from project-analyzer (stack, conventions, architecture)" },
+    { "id": "architecture", "type": "string", "required": true, "description": "JSON output from task-architect (modules, design decisions, visual components)" },
+    { "id": "researchContext", "type": "string", "required": false, "description": "JSON output from research-agent (if available)" },
+    { "id": "userOverrides", "type": "string", "required": false, "description": "JSON modifications injected by the interaction-handler (if any)" }
   ],
   "outputs": [
-    { "id": "response", "type": "string", "description": "JSON array of ordered implementation steps" }
+    { "id": "response", "type": "string", "description": "JSON array of ordered implementation steps, each with id, domain, developer, action, target, description, dependencies, context_files, acceptance, verification" }
   ],
   "config": {
-    "model": "claude-opus",
-    "maxIterations": 8,
+    "model": "claude-sonnet-4-6",
+    "maxIterations": 6,
     "wallClockTimeoutSeconds": 600,
     "systemPromptFile": "system-prompt.md"
   },
   "metadata": {
     "category": "development",
     "designation": "autonomous",
-    "tags": ["planning", "decomposition", "task", "architecture"],
+    "tags": ["planning", "decomposition", "task", "implementation-plan", "v4"],
     "tier": 1
   }
 }

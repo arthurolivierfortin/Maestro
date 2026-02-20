@@ -1,0 +1,28 @@
+{
+  "id": "task-architect",
+  "name": "Task Architect v4",
+  "blockType": "agent",
+  "version": "4.0.0",
+  "isAtomic": true,
+  "description": "Senior software architect. Given a task and project context, designs high-level architecture: decomposes into modules with dependencies, makes design decisions, identifies visual components.",
+  "inputs": [
+    { "id": "task", "type": "string", "required": true, "description": "Description of the task to implement" },
+    { "id": "projectContext", "type": "string", "required": true, "description": "JSON output from project-analyzer" },
+    { "id": "researchContext", "type": "string", "required": false, "description": "JSON output from research-agent (if available)" }
+  ],
+  "outputs": [
+    { "id": "response", "type": "string", "description": "JSON object: { taskAnalysis, architecture, designDecisions, visualComponents }" }
+  ],
+  "config": {
+    "model": "claude-opus-4-6",
+    "maxIterations": 6,
+    "wallClockTimeoutSeconds": 600,
+    "systemPromptFile": "system-prompt.md"
+  },
+  "metadata": {
+    "category": "development",
+    "designation": "autonomous",
+    "tags": ["architecture", "design", "decomposition", "v4"],
+    "tier": 1
+  }
+}

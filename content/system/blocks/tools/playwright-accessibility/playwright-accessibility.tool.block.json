@@ -1,0 +1,28 @@
+{
+  "id": "playwright-accessibility",
+  "name": "Playwright Accessibility Tree",
+  "blockType": "tool",
+  "version": "4.0.0",
+  "isAtomic": true,
+  "description": "Reads the accessibility tree of a web page using Playwright. Returns a structured JSON tree with roles, names, and states. Much cheaper than screenshots for LLM consumption (~500 tokens vs ~2000 for vision).",
+  "inputs": [
+    { "id": "url", "type": "string", "required": true, "description": "URL to analyze" },
+    { "id": "selector", "type": "string", "required": false, "description": "CSS selector to scope the tree (default: entire page)" }
+  ],
+  "outputs": [
+    { "id": "tree", "type": "object", "description": "Accessibility tree as JSON (roles, names, children)" },
+    { "id": "nodeCount", "type": "number", "description": "Total number of accessible nodes" },
+    { "id": "success", "type": "boolean", "description": "Whether the tree was read successfully" }
+  ],
+  "config": {
+    "runtime": "node",
+    "scriptFile": "accessibility.js",
+    "parseOutput": "json",
+    "timeout": 20000
+  },
+  "metadata": {
+    "category": "browser",
+    "designation": "tool",
+    "tags": ["playwright", "accessibility", "a11y", "browser", "v4"]
+  }
+}

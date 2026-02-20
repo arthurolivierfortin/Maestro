@@ -1,0 +1,26 @@
+{
+  "id": "accessibility-checker",
+  "name": "Accessibility Checker v4",
+  "blockType": "inference",
+  "version": "4.0.0",
+  "isAtomic": true,
+  "description": "Audits web pages for WCAG 2.1 AA compliance by analyzing the accessibility tree and optionally HTML source. Identifies violations, suggests fixes, and scores overall accessibility.",
+  "inputs": [
+    { "id": "accessibilityTree", "type": "string", "required": true, "description": "Complete accessibility tree of the page" },
+    { "id": "htmlSource", "type": "string", "required": false, "description": "HTML source code of the page (optional, for deeper analysis)" }
+  ],
+  "outputs": [
+    { "id": "response", "type": "string", "description": "JSON object: { score, level, violations, passes, incomplete }" }
+  ],
+  "config": {
+    "systemPromptFile": "system-prompt.md",
+    "model": "claude-sonnet-4-6",
+    "temperature": 0.2,
+    "maxTokens": 4000
+  },
+  "metadata": {
+    "category": "development",
+    "tags": ["accessibility", "wcag", "a11y", "audit", "v4"],
+    "tier": 1
+  }
+}

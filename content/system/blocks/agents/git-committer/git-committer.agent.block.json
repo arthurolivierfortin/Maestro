@@ -1,21 +1,20 @@
 {
   "id": "git-committer",
-  "name": "Git Committer",
+  "name": "Git Committer v4",
   "blockType": "agent",
-  "version": "2.0.0",
+  "version": "4.0.0",
   "isAtomic": true,
-  "description": "Creates a clean git commit for implemented changes. Runs git status/diff, generates a conventional commit message, selectively stages files, and commits.",
+  "description": "Creates clean, conventional git commits for implemented changes. Stages files individually (never git add . or git add -A), writes a meaningful conventional commit message, and verifies the commit exists.",
   "inputs": [
-    { "id": "repoPath", "type": "string", "required": true, "description": "Absolute path to the repository" },
-    { "id": "changes", "type": "string", "required": false, "description": "Summary of changes made by implement-single-step" },
-    { "id": "task", "type": "string", "required": false, "description": "Original task description for commit message context" },
-    { "id": "review", "type": "string", "required": false, "description": "Review result from code-reviewer" }
+    { "id": "implementedSteps", "type": "string", "required": true, "description": "JSON array of implemented steps with their modified files" },
+    { "id": "reviewResult", "type": "string", "required": true, "description": "JSON object with review score and approved status" },
+    { "id": "workingDir", "type": "string", "required": true, "description": "Absolute path to the project repository" }
   ],
   "outputs": [
-    { "id": "response", "type": "string", "description": "JSON object with committed, hash, message, filesStaged" }
+    { "id": "response", "type": "string", "description": "JSON object: { committed, commitHash, commitMessage, filesStaged, notes }" }
   ],
   "config": {
-    "model": "claude-sonnet",
+    "model": "claude-sonnet-4-6",
     "maxIterations": 8,
     "wallClockTimeoutSeconds": 180,
     "systemPromptFile": "system-prompt.md"
@@ -23,7 +22,7 @@
   "metadata": {
     "category": "development",
     "designation": "autonomous",
-    "tags": ["git", "commit", "version-control"],
+    "tags": ["git", "commit", "version-control", "conventional-commits", "v4"],
     "tier": 1
   }
 }

@@ -1,0 +1,14 @@
+{
+  "id": "2ea373b0-6b4f-4450-9331-ec44dd60c24d",
+  "blockId": "e2e-tester",
+  "blockName": "E2E Tester v4",
+  "blockType": "agent",
+  "sourceSessionId": null,
+  "status": "pending",
+  "rejectionReason": null,
+  "metadata": null,
+  "submittedAt": "2026-02-20T00:50:06.1233095+00:00",
+  "submittedBy": "cli-user",
+  "reviewedAt": null,
+  "reviewedBy": null
+}

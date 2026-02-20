@@ -1,0 +1,14 @@
+{
+  "id": "327b472f-af1e-4bf0-8f02-44902d6bd6b4",
+  "blockId": "web-search",
+  "blockName": "Web Search",
+  "blockType": "tool",
+  "sourceSessionId": null,
+  "status": "pending",
+  "rejectionReason": null,
+  "metadata": null,
+  "submittedAt": "2026-02-20T00:55:04.9614049+00:00",
+  "submittedBy": "cli-user",
+  "reviewedAt": null,
+  "reviewedBy": null
+}

@@ -1,0 +1,14 @@
+{
+  "id": "3bc3e112-c260-4e5a-a1f7-1f5470073b98",
+  "blockId": "task-architect",
+  "blockName": "Task Architect v4",
+  "blockType": "agent",
+  "sourceSessionId": null,
+  "status": "pending",
+  "rejectionReason": null,
+  "metadata": null,
+  "submittedAt": "2026-02-20T00:50:49.117704+00:00",
+  "submittedBy": "cli-user",
+  "reviewedAt": null,
+  "reviewedBy": null
+}

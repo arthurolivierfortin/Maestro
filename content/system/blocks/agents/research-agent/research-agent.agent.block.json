@@ -1,0 +1,27 @@
+{
+  "id": "research-agent",
+  "name": "Research Agent v4",
+  "blockType": "agent",
+  "version": "4.0.0",
+  "isAtomic": true,
+  "description": "Research agent that searches the web for documentation, examples, and best practices. Returns structured findings with source URLs and actionable recommendations.",
+  "inputs": [
+    { "id": "query", "type": "string", "required": true, "description": "What to search for (derived from task and context)" },
+    { "id": "projectContext", "type": "string", "required": true, "description": "JSON output from project-analyzer (for tech stack context)" }
+  ],
+  "outputs": [
+    { "id": "response", "type": "string", "description": "JSON object: { findings, recommendations, warnings }" }
+  ],
+  "config": {
+    "model": "claude-sonnet-4-6",
+    "maxIterations": 6,
+    "wallClockTimeoutSeconds": 600,
+    "systemPromptFile": "system-prompt.md"
+  },
+  "metadata": {
+    "category": "development",
+    "designation": "autonomous",
+    "tags": ["research", "web-search", "documentation", "v4"],
+    "tier": 1
+  }
+}

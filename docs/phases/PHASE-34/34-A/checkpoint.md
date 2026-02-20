@@ -55,3 +55,34 @@ Le block `parallel` n'est **PAS implemente** dans `EntryPointExecutor.cs`. C'est
 ### Problemes
 
 Aucun probleme bloquant.
+
+---
+
+## Plan D : Specialists PLANIFIER
+**Statut** : DONE
+**Date** : 2026-02-20
+**Blocs crees** : 2 / 2
+  - task-planner : CREE / PUBLIE (approval ea2f97a5) — v2 overwritten with v4
+  - plan-validator : CREE / PUBLIE (approval e8229efc) — new block
+**P score** :
+  - task-planner : not measured / 0.85 (LLM-Provider not running)
+  - plan-validator : not measured / 0.90 (LLM-Provider not running)
+**W score** :
+  - task-planner : not measured / 0.95 (LLM-Provider not running)
+  - plan-validator : not measured / 1.0 (LLM-Provider not running)
+
+### Verification performed
+- JSON syntax validation: both files parse correctly (node JSON.parse)
+- Backend discovery: both blocks found via `block info <id>` with correct metadata
+- Publication: both blocks submitted for approval and appear in `approval list`
+- task-planner v2 fully replaced (no legacy files remain)
+
+### Files created/modified
+| File | Action |
+|------|--------|
+| `content/system/blocks/agents/task-planner/task-planner.agent.block.json` | OVERWRITTEN (v2 -> v4) |
+| `content/system/blocks/agents/task-planner/system-prompt.md` | OVERWRITTEN (v2 -> v4) |
+| `content/system/blocks/inference/plan-validator/plan-validator.inference.block.json` | CREATED |
+
+### Problemes
+- LLM-Provider not running: execution tests impossible. P and W scores unmeasured. Documented in irritations.md.

@@ -1,0 +1,29 @@
+{
+  "id": "web-search",
+  "name": "Web Search",
+  "blockType": "tool",
+  "version": "4.0.0",
+  "isAtomic": true,
+  "description": "Searches the web and returns structured results. Tries SearXNG API first (localhost:8888), falls back to DuckDuckGo HTML search scraping via HTTPS.",
+  "inputs": [
+    { "id": "query", "type": "string", "required": true, "description": "Search query" },
+    { "id": "maxResults", "type": "number", "required": false, "description": "Maximum number of results to return (default: 5)" }
+  ],
+  "outputs": [
+    { "id": "results", "type": "array", "description": "Array of {title, url, snippet}" },
+    { "id": "query", "type": "string", "description": "The query that was executed" },
+    { "id": "totalResults", "type": "number", "description": "Number of results returned" },
+    { "id": "success", "type": "boolean", "description": "Whether the search succeeded" }
+  ],
+  "config": {
+    "runtime": "node",
+    "scriptFile": "search.js",
+    "parseOutput": "json",
+    "timeout": 30000
+  },
+  "metadata": {
+    "category": "research",
+    "designation": "tool",
+    "tags": ["web", "search", "research", "v4"]
+  }
+}

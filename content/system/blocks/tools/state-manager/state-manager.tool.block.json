@@ -1,0 +1,31 @@
+{
+  "id": "state-manager",
+  "name": "State Manager",
+  "blockType": "tool",
+  "version": "4.0.0",
+  "isAtomic": true,
+  "description": "Manages shared state between the workflow and the interaction-handler. Reads/writes session variables via the Maestro REST API. Supports operations: get, set, transition, pause, resume, rewind, inject.",
+  "inputs": [
+    { "id": "operation", "type": "string", "required": true, "description": "Operation: get|set|transition|pause|resume|rewind|inject" },
+    { "id": "path", "type": "string", "required": false, "description": "Dot-notation path for get/set (e.g. 'results.comprendre', 'currentPhase')" },
+    { "id": "value", "type": "string", "required": false, "description": "Value for set/inject operations (JSON string)" },
+    { "id": "phase", "type": "string", "required": false, "description": "Target phase for transition/rewind operations" },
+    { "id": "sessionId", "type": "string", "required": false, "description": "Session ID (auto-detected from MAESTRO_SESSION_ID env var if not provided)" }
+  ],
+  "outputs": [
+    { "id": "success", "type": "boolean", "description": "Whether the operation succeeded" },
+    { "id": "value", "type": "string", "description": "Retrieved value for get operation (JSON string)" },
+    { "id": "previousState", "type": "string", "description": "Previous state before mutation (for undo support)" }
+  ],
+  "config": {
+    "runtime": "node",
+    "scriptFile": "state.js",
+    "parseOutput": "json",
+    "timeout": 10000
+  },
+  "metadata": {
+    "category": "infrastructure",
+    "designation": "tool",
+    "tags": ["state", "manager", "session", "workflow", "v4"]
+  }
+}

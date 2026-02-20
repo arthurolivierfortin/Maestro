@@ -1,0 +1,31 @@
+{
+  "id": "playwright-screenshot",
+  "name": "Playwright Screenshot",
+  "blockType": "tool",
+  "version": "4.0.0",
+  "isAtomic": true,
+  "description": "Captures a screenshot of a web page at a given URL using Playwright. Returns the output file path and image dimensions.",
+  "inputs": [
+    { "id": "url", "type": "string", "required": true, "description": "URL to screenshot" },
+    { "id": "output", "type": "string", "required": false, "description": "Output file path (default: auto-generated in OS temp dir)" },
+    { "id": "fullPage", "type": "boolean", "required": false, "description": "Capture full scrollable page (default: false)" },
+    { "id": "viewport", "type": "string", "required": false, "description": "Viewport size as 'WxH' e.g. '1280x720' (default: 1280x720)" }
+  ],
+  "outputs": [
+    { "id": "filePath", "type": "string", "description": "Absolute path to the saved screenshot" },
+    { "id": "width", "type": "number", "description": "Image width in pixels" },
+    { "id": "height", "type": "number", "description": "Image height in pixels" },
+    { "id": "success", "type": "boolean", "description": "Whether the screenshot was captured successfully" }
+  ],
+  "config": {
+    "runtime": "node",
+    "scriptFile": "screenshot.js",
+    "parseOutput": "json",
+    "timeout": 45000
+  },
+  "metadata": {
+    "category": "browser",
+    "designation": "tool",
+    "tags": ["playwright", "screenshot", "browser", "visual", "v4"]
+  }
+}

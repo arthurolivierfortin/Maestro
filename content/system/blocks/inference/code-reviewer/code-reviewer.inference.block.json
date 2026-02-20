@@ -1,30 +1,28 @@
 {
   "id": "code-reviewer",
-  "name": "Code Reviewer",
+  "name": "Code Reviewer v4",
   "blockType": "inference",
-  "version": "2.0.0",
+  "version": "4.0.0",
   "isAtomic": true,
-  "description": "Reviews code changes against conventions and test results. Produces a structured review with score, approval status, per-axis ratings, and actionable issues. Single LLM call — no agentic loop.",
+  "description": "Reviews implemented code for quality, completeness, and adherence to best practices. Evaluates on 7 weighted axes (completeness, code quality, error handling, tests, conventions, architecture, security). Single LLM call with deep reasoning.",
   "inputs": [
-    { "id": "changes", "type": "string", "required": true, "description": "Summary of code changes: files created/modified, key decisions" },
-    { "id": "testResults", "type": "string", "required": false, "description": "Test execution results JSON (passed, failed, failures)" },
-    { "id": "conventions", "type": "string", "required": false, "description": "Project conventions (naming, patterns, imports)" },
-    { "id": "task", "type": "string", "required": false, "description": "Original task description for completeness check" }
+    { "id": "implementedSteps", "type": "string", "required": true, "description": "JSON array of implemented steps with files modified" },
+    { "id": "projectContext", "type": "string", "required": true, "description": "JSON object with conventions, architecture patterns" },
+    { "id": "testResults", "type": "string", "required": false, "description": "JSON object with test results from the VERIFIER phase" },
+    { "id": "iteration", "type": "string", "required": false, "description": "Current iteration number (0 = first pass). If > 0, previous issues must be verified as resolved." }
   ],
   "outputs": [
-    { "id": "response", "type": "string", "description": "JSON review object with score, approved, axes, issues, summary" }
+    { "id": "response", "type": "string", "description": "JSON object: { score, approved, axes, issues, summary }" }
   ],
   "config": {
-    "model": "claude-opus",
+    "systemPromptFile": "system-prompt.md",
+    "model": "claude-opus-4-6",
     "temperature": 0.2,
-    "maxTokens": 2048,
-    "outputKey": "response",
-    "systemPrompt": "You are a senior code reviewer. Your reviews are HONEST and CRITICAL — never lenient.\n\nGiven code changes, test results, and project conventions, produce a structured review.\n\nYour output MUST be valid JSON with this EXACT structure:\n```json\n{\n  \"score\": 0.85,\n  \"approved\": true,\n  \"axes\": {\n    \"completeness\": 0.9,\n    \"codeQuality\": 0.85,\n    \"tests\": 0.8,\n    \"architecture\": 0.9,\n    \"security\": 0.8\n  },\n  \"issues\": [\n    {\n      \"severity\": \"warning\",\n      \"file\": \"src/service.ts\",\n      \"description\": \"Missing error handling in async call\",\n      \"suggestion\": \"Add try-catch around the fetch call\"\n    }\n  ],\n  \"summary\": \"Good implementation with minor issues in error handling\"\n}\n```\n\n## Scoring Rules\n\n- `score` is the WEIGHTED AVERAGE of axes: completeness (30%), codeQuality (25%), tests (20%), architecture (15%), security (10%)\n- `approved` = true if score >= 0.8\n- Each axis is 0.0 to 1.0\n\n## Axis Definitions\n\n- **completeness**: Does the code fully implement the task? All requirements met?\n- **codeQuality**: Clean code, proper naming, no duplication, no TODOs, proper types\n- **tests**: Tests pass, adequate coverage, edge cases considered\n- **architecture**: Follows project patterns, proper separation, correct imports\n- **security**: No injection vulnerabilities, no hardcoded secrets, safe input handling\n\n## Issue Severities\n\n- **error**: Must fix before merge (broken logic, security issue, missing functionality)\n- **warning**: Should fix (poor naming, missing edge case, unclear code)\n- **info**: Nice to have (style suggestion, refactoring opportunity)\n\n## Anti-Leniency Rules\n\n- If tests are failing: `tests` axis <= 0.4\n- If the task is partially implemented: `completeness` axis <= 0.6\n- If conventions are violated: `codeQuality` axis <= 0.7\n- If there are no tests and tests were expected: `tests` axis <= 0.3\n- NEVER give score > 0.9 unless everything is genuinely excellent\n\nOutput ONLY the JSON object. No prose, no markdown, no explanation."
+    "maxTokens": 4000
   },
   "metadata": {
     "category": "development",
-    "designation": "autonomous",
-    "tags": ["review", "quality", "code", "evaluation"],
+    "tags": ["review", "quality", "code", "evaluation", "v4"],
     "tier": 1
   }
 }

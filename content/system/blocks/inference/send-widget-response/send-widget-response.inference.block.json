@@ -1,0 +1,28 @@
+{
+  "id": "send-widget-response",
+  "name": "Widget Response Formatter v4",
+  "blockType": "inference",
+  "version": "4.0.0",
+  "isAtomic": true,
+  "description": "Formats agent responses as widget JSON for the Maestro TUI. Pure formatting task — receives responseMessage and widgetType from decide-action, produces the final widget JSON that gets written to _widgetRequest.",
+  "inputs": [
+    { "id": "responseMessage", "type": "string", "required": true, "description": "The message to display to the user" },
+    { "id": "widgetType", "type": "string", "required": true, "description": "Widget type: message|progress|option-select|confirmation|plan-view|diff-view|test-results" },
+    { "id": "widgetParams", "type": "string", "required": false, "description": "JSON widget-specific parameters (phases, options, action, etc.)" }
+  ],
+  "outputs": [
+    { "id": "response", "type": "string", "description": "JSON widget object to write to _widgetRequest" }
+  ],
+  "config": {
+    "systemPrompt": "You format agent responses as widget JSON for the Maestro TUI. This is a pure formatting task.\n\nCRITICAL RULES:\n1. Your ENTIRE response is a single JSON object.\n2. NEVER modify the responseMessage content — format it exactly as received.\n3. ALWAYS include the widgetType field.\n4. If widgetParams is empty or not provided, use an empty object {}.\n\nOutput format:\n```json\n{\n  \"widget\": {\n    \"type\": \"<widgetType>\",\n    \"content\": \"<responseMessage>\",\n    \"params\": <widgetParams or {}>,\n    \"id\": \"<generate a unique 8-char hex id>\",\n    \"timestamp\": \"<current ISO timestamp>\"\n  }\n}\n```\n\nWidget types: message, progress, option-select, confirmation, plan-view, diff-view, test-results, file-tree, log-stream.",
+    "model": "claude-haiku-4-5-20251001",
+    "temperature": 0.0,
+    "maxTokens": 2000
+  },
+  "metadata": {
+    "category": "interaction",
+    "designation": "inference",
+    "tags": ["widget", "response", "formatting", "tui", "v4"],
+    "tier": 1
+  }
+}

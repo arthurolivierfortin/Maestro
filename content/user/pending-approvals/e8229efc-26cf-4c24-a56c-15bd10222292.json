@@ -1,0 +1,14 @@
+{
+  "id": "e8229efc-26cf-4c24-a56c-15bd10222292",
+  "blockId": "plan-validator",
+  "blockName": "Plan Validator v4",
+  "blockType": "inference",
+  "sourceSessionId": null,
+  "status": "pending",
+  "rejectionReason": null,
+  "metadata": null,
+  "submittedAt": "2026-02-20T00:48:43.9721959+00:00",
+  "submittedBy": "cli-user",
+  "reviewedAt": null,
+  "reviewedBy": null
+}

@@ -1,0 +1,14 @@
+{
+  "id": "6f9c4f92-60de-4946-87ae-e41249e2bd1d",
+  "blockId": "security-reviewer",
+  "blockName": "Security Reviewer v4",
+  "blockType": "inference",
+  "sourceSessionId": null,
+  "status": "pending",
+  "rejectionReason": null,
+  "metadata": null,
+  "submittedAt": "2026-02-20T00:48:35.0024098+00:00",
+  "submittedBy": "cli-user",
+  "reviewedAt": null,
+  "reviewedBy": null
+}

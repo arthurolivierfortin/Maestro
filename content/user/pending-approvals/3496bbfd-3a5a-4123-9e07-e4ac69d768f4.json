@@ -1,0 +1,14 @@
+{
+  "id": "3496bbfd-3a5a-4123-9e07-e4ac69d768f4",
+  "blockId": "interaction-handler",
+  "blockName": "Interaction Handler v4",
+  "blockType": "workflow",
+  "sourceSessionId": null,
+  "status": "pending",
+  "rejectionReason": null,
+  "metadata": null,
+  "submittedAt": "2026-02-20T01:10:48.6031784+00:00",
+  "submittedBy": "cli-user",
+  "reviewedAt": null,
+  "reviewedBy": null
+}

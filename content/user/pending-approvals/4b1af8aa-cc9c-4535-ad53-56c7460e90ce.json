@@ -1,0 +1,14 @@
+{
+  "id": "4b1af8aa-cc9c-4535-ad53-56c7460e90ce",
+  "blockId": "summary-reporter",
+  "blockName": "Summary Reporter v4",
+  "blockType": "inference",
+  "sourceSessionId": null,
+  "status": "pending",
+  "rejectionReason": null,
+  "metadata": null,
+  "submittedAt": "2026-02-20T00:49:56.2317275+00:00",
+  "submittedBy": "cli-user",
+  "reviewedAt": null,
+  "reviewedBy": null
+}

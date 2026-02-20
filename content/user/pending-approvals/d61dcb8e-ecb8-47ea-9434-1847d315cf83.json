@@ -1,0 +1,14 @@
+{
+  "id": "d61dcb8e-ecb8-47ea-9434-1847d315cf83",
+  "blockId": "playwright-interact",
+  "blockName": "Playwright Interact",
+  "blockType": "tool",
+  "sourceSessionId": null,
+  "status": "pending",
+  "rejectionReason": null,
+  "metadata": null,
+  "submittedAt": "2026-02-20T00:55:49.0827047+00:00",
+  "submittedBy": "cli-user",
+  "reviewedAt": null,
+  "reviewedBy": null
+}

@@ -1,0 +1,14 @@
+{
+  "id": "53f81d7c-646f-4c9b-9173-866a5d66d8a4",
+  "blockId": "state-manager",
+  "blockName": "State Manager",
+  "blockType": "tool",
+  "sourceSessionId": null,
+  "status": "pending",
+  "rejectionReason": null,
+  "metadata": null,
+  "submittedAt": "2026-02-20T00:54:51.3178805+00:00",
+  "submittedBy": "cli-user",
+  "reviewedAt": null,
+  "reviewedBy": null
+}
