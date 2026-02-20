@@ -1015,8 +1015,12 @@ public class EntryPointExecutor
             return previousOutput;
         }
 
-        // Build task list — each child is an independent sub-workflow
-        var tasks = new List<Task<string?>>();
+        // Execute children sequentially to avoid shared-state race conditions.
+        // The displayTree, session variables, and repository are shared mutable state.
+        // True parallelism requires per-mutation locking across all Execute* methods.
+        // TODO: Add proper SemaphoreSlim-based locking to enable true parallel execution
+        // when the interaction-handler has a working executor.
+        var results = new List<string?>();
         var childIds = new List<string>();
 
         foreach (var child in childrenEl.EnumerateArray())
@@ -1026,44 +1030,34 @@ public class EntryPointExecutor
             var childId = child.TryGetProperty("id", out var cIdProp) ? cIdProp.GetString() ?? "child" : "child";
             childIds.Add(childId);
 
-            // Capture for closure
-            var capturedChild = child;
-            var capturedPrevious = previousOutput;
-
-            tasks.Add(Task.Run(async () =>
+            try
             {
-                try
-                {
-                    // Each child is dispatched as if it were a standalone node sequence
-                    var childType = capturedChild.TryGetProperty("type", out var ctProp) ? ctProp.GetString() : null;
+                var childType = child.TryGetProperty("type", out var ctProp) ? ctProp.GetString() : null;
 
-                    return childType switch
-                    {
-                        "sequence" => await ExecuteSequenceNodeAsync(session, capturedChild, workflowConfig, workingDir, workflowId, activePhaseId, displayTree, capturedPrevious),
-                        "while" => await ExecuteWhileNodeAsync(session, capturedChild, workflowConfig, workingDir, workflowId, activePhaseId, displayTree, capturedPrevious),
-                        "for-each" => await ExecuteForEachNodeAsync(session, capturedChild, workflowConfig, workingDir, workflowId, displayTree, capturedPrevious),
-                        "conditional" => await ExecuteConditionalNodeAsync(session, capturedChild, workflowConfig, workingDir, displayTree, capturedPrevious),
-                        _ => await ExecuteRegularNodeAsync(session, childId, workflowConfig, workingDir, activePhaseId, displayTree, capturedPrevious, capturedChild)
-                    };
-                }
-                catch (Exception ex)
+                var result = childType switch
                 {
-                    _logger.LogWarning(ex, "Parallel child '{ChildId}' failed in '{NodeId}'", childId, nodeId);
-                    AppendExecutionLog(session, "error", $"Parallel child '{childId}': {ex.Message}");
-                    return capturedPrevious;
-                }
-            }));
+                    "sequence" => await ExecuteSequenceNodeAsync(session, child, workflowConfig, workingDir, workflowId, activePhaseId, displayTree, previousOutput),
+                    "while" => await ExecuteWhileNodeAsync(session, child, workflowConfig, workingDir, workflowId, activePhaseId, displayTree, previousOutput),
+                    "for-each" => await ExecuteForEachNodeAsync(session, child, workflowConfig, workingDir, workflowId, displayTree, previousOutput),
+                    "conditional" => await ExecuteConditionalNodeAsync(session, child, workflowConfig, workingDir, displayTree, previousOutput),
+                    _ => await ExecuteRegularNodeAsync(session, childId, workflowConfig, workingDir, activePhaseId, displayTree, previousOutput, child)
+                };
+                results.Add(result);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Parallel child '{ChildId}' failed in '{NodeId}'", childId, nodeId);
+                AppendExecutionLog(session, "error", $"Parallel child '{childId}': {ex.Message}");
+                results.Add(previousOutput);
+            }
         }
 
-        // Wait for all children to complete
-        var results = await Task.WhenAll(tasks);
-
         // Use the output of the first child as the "main" output (convention: first child is main-workflow)
-        var mainOutput = results.Length > 0 ? results[0] : previousOutput;
+        var mainOutput = results.Count > 0 ? results[0] : previousOutput;
 
-        UpdateNodeById(displayTree, nodeId, "done", $"All {tasks.Count} children completed");
+        UpdateNodeById(displayTree, nodeId, "done", $"All {results.Count} children completed");
         session.SetVariable("_executionTree", displayTree);
-        AppendExecutionLog(session, "success", $"Parallel '{nodeId}': All {tasks.Count} children completed");
+        AppendExecutionLog(session, "success", $"Parallel '{nodeId}': All {results.Count} children completed");
         await _repository.SaveAsync(session);
 
         return mainOutput;
@@ -1709,6 +1703,24 @@ public class EntryPointExecutor
                 await _repository.SaveAsync(session);
                 return previousOutput;
             }
+        }
+
+        // Guard: a node with child "nodes" but no "type" is a workflow authoring error.
+        // Every container node MUST have an explicit type (sequence, parallel, while, etc.).
+        if (nodeConfig.HasValue
+            && nodeConfig.Value.TryGetProperty("nodes", out var childNodes)
+            && childNodes.ValueKind == JsonValueKind.Array
+            && childNodes.GetArrayLength() > 0)
+        {
+            var errorMsg = $"Node '{nodeId}' has {childNodes.GetArrayLength()} child nodes but no 'type' property. " +
+                           "Every container node must declare its type (sequence, parallel, while, for-each, conditional). " +
+                           "Fix the workflow block JSON.";
+            _logger.LogError(errorMsg);
+            AppendExecutionLog(session, "error", errorMsg);
+            UpdateNodeById(displayTree, nodeId, "error", errorMsg);
+            session.SetVariable("_executionTree", displayTree);
+            await _repository.SaveAsync(session);
+            throw new InvalidOperationException(errorMsg);
         }
 
         // Standard pattern-matching dispatch (fallback for nodes without blockRef)

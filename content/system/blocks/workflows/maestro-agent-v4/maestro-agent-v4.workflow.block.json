@@ -36,6 +36,7 @@
         "nodes": [
           {
             "id": "main-workflow",
+            "type": "sequence",
             "description": "Main development workflow (7 phases)",
             "nodes": [
 
@@ -63,6 +64,7 @@
 
               {
                 "id": "phase-comprendre",
+                "type": "sequence",
                 "phaseId": "comprendre",
                 "description": "Phase 1: Understand the project and the task",
                 "nodes": [
@@ -125,6 +127,7 @@
 
               {
                 "id": "phase-planifier",
+                "type": "sequence",
                 "phaseId": "planifier",
                 "description": "Phase 2: Plan the implementation",
                 "nodes": [
@@ -254,6 +257,7 @@
 
                   {
                     "id": "phase-verifier",
+                    "type": "sequence",
                     "phaseId": "verifier",
                     "description": "Phase 4: Verify the implemented code",
                     "nodes": [
@@ -284,6 +288,7 @@
                         "condition": "{{_nodeResult_design-architecture}} contains visualComponents",
                         "then": {
                           "id": "visual-verification",
+                          "type": "sequence",
                           "description": "Visual verification sequence",
                           "nodes": [
                             {
@@ -335,6 +340,7 @@
 
                   {
                     "id": "phase-reviewer",
+                    "type": "sequence",
                     "phaseId": "reviewer",
                     "description": "Phase 5: Review the code",
                     "nodes": [
@@ -406,6 +412,7 @@
 
               {
                 "id": "phase-livrer",
+                "type": "sequence",
                 "phaseId": "livrer",
                 "description": "Phase 7: Deliver (commit, changelog, report)",
                 "nodes": [

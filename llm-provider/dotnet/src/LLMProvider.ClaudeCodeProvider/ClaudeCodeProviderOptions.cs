@@ -37,7 +37,11 @@ public sealed class ClaudeCodeProviderOptions
         new() { ModelId = "claude-haiku", Alias = "haiku", ContextLength = 200000, Capabilities = ["chat", "code"] },
         new() { ModelId = "sonnet", Alias = "sonnet", ContextLength = 200000, Capabilities = ["chat", "code", "reasoning"] },
         new() { ModelId = "opus", Alias = "opus", ContextLength = 200000, Capabilities = ["chat", "code", "reasoning"] },
-        new() { ModelId = "haiku", Alias = "haiku", ContextLength = 200000, Capabilities = ["chat", "code"] }
+        new() { ModelId = "haiku", Alias = "haiku", ContextLength = 200000, Capabilities = ["chat", "code"] },
+        new() { ModelId = "claude-sonnet-4-6", Alias = "sonnet", ContextLength = 200000, Capabilities = ["chat", "code", "reasoning"] },
+        new() { ModelId = "claude-opus-4-6", Alias = "opus", ContextLength = 200000, Capabilities = ["chat", "code", "reasoning"] },
+        new() { ModelId = "claude-haiku-4-5-20251001", Alias = "haiku", ContextLength = 200000, Capabilities = ["chat", "code"] },
+        new() { ModelId = "claude-haiku-4-5", Alias = "haiku", ContextLength = 200000, Capabilities = ["chat", "code"] }
     ];
 }
 

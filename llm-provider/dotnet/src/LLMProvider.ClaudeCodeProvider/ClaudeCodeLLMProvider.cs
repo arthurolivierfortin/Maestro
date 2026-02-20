@@ -24,7 +24,11 @@ public sealed class ClaudeCodeLLMProvider : ILLMProvider
     {
         ["claude-sonnet"] = "sonnet",
         ["claude-opus"] = "opus",
-        ["claude-haiku"] = "haiku"
+        ["claude-haiku"] = "haiku",
+        ["claude-sonnet-4-6"] = "sonnet",
+        ["claude-opus-4-6"] = "opus",
+        ["claude-haiku-4-5-20251001"] = "haiku",
+        ["claude-haiku-4-5"] = "haiku"
     };
 
     public ProviderType ProviderType => ProviderType.Anthropic;
