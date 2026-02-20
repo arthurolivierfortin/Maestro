@@ -172,6 +172,12 @@ public class EntryPointExecutor
             await ExecuteNodesAsync(session, tree, workflowConfig, workingDir, null);
         }
 
+        // Clean up checkpoint variables on normal workflow completion
+        // (prevents stale checkpoint data from affecting the next workflow invocation)
+        session.SetVariable("_workflowCheckpoint", null);
+        session.SetVariable("_workflowCheckpoint_whileState", null);
+        session.SetVariable("_workflowCheckpoint_foreachIndex", null);
+
         ClearActiveBlock(session);
         session.SetVariable("_activeWorkflow", "");
         await _repository.SaveAsync(session);
@@ -493,6 +499,25 @@ public class EntryPointExecutor
     {
         string? lastOutput = previousOutput;
 
+        // Read checkpoint to build set of already-completed node IDs (enables resume after crash)
+        var completedNodeIds = new HashSet<string>();
+        string? checkpointLastOutput = null;
+        var checkpointVar = session.GetVariable("_workflowCheckpoint");
+        if (checkpointVar is List<object> checkpointList)
+        {
+            foreach (var entry in checkpointList)
+            {
+                if (entry is Dictionary<string, object> dict && dict.TryGetValue("nodeId", out var nid))
+                {
+                    completedNodeIds.Add(nid?.ToString() ?? "");
+                    if (dict.TryGetValue("previousOutput", out var po))
+                        checkpointLastOutput = po?.ToString();
+                }
+            }
+        }
+        if (checkpointLastOutput != null && lastOutput == null)
+            lastOutput = checkpointLastOutput;
+
         foreach (var configNode in configNodes.EnumerateArray())
         {
             if (configNode.ValueKind != JsonValueKind.Object) continue;
@@ -520,6 +545,18 @@ public class EntryPointExecutor
 
                 if (UpdatePhaseStatus(session, autoPhaseId!, "running", 0))
                     await _repository.SaveAsync(session);
+            }
+
+            // Skip already-completed nodes on checkpoint resume
+            if (completedNodeIds.Contains(nodeId))
+            {
+                _logger.LogInformation("Skipping already-completed node '{NodeId}' (checkpoint resume)", nodeId);
+                AppendExecutionLog(session, "info", $"Skipped '{nodeId}' (checkpoint resume)");
+                // Restore the _nodeResult for this node (needed by downstream template resolution)
+                var savedResult = session.GetVariable($"_nodeResult_{nodeId}");
+                if (savedResult != null)
+                    lastOutput = savedResult.ToString();
+                continue;
             }
 
             try
@@ -568,6 +605,17 @@ public class EntryPointExecutor
                 continue;
             }
 
+            // Save checkpoint after successful node execution (enables resume after crash)
+            var checkpoint = session.GetVariable("_workflowCheckpoint") as List<object> ?? new List<object>();
+            checkpoint.Add(new Dictionary<string, object>
+            {
+                ["nodeId"] = nodeId,
+                ["status"] = "completed",
+                ["timestamp"] = DateTime.UtcNow.ToString("o"),
+                ["previousOutput"] = lastOutput ?? ""
+            });
+            session.SetVariable("_workflowCheckpoint", checkpoint);
+
             // Mark phase as done after node completes (top-level only)
             if (autoPhaseId != null && UpdatePhaseStatus(session, autoPhaseId, "done"))
                 await _repository.SaveAsync(session);
@@ -611,6 +659,20 @@ public class EntryPointExecutor
 
         var iteration = 0;
         string? lastOutput = previousOutput;
+
+        // Resume while loop from checkpoint if available
+        var whileState = session.GetVariable("_workflowCheckpoint_whileState") as Dictionary<string, object>;
+        if (whileState != null && whileState.TryGetValue("nodeId", out var wsId) && wsId?.ToString() == nodeId)
+        {
+            if (whileState.TryGetValue("iteration", out var wsIter))
+            {
+                var resumeIter = wsIter is int ri ? ri : (int.TryParse(wsIter?.ToString(), out var parsed) ? parsed : 0);
+                iteration = resumeIter;
+                AppendExecutionLog(session, "info", $"Resuming while '{nodeId}' at iteration {iteration}");
+            }
+            // Clear the while state so it's not re-used on next normal execution
+            session.SetVariable("_workflowCheckpoint_whileState", null);
+        }
 
         // Initialize iteration variable for condition evaluation
         session.SetVariable("iteration", iteration);
@@ -659,6 +721,14 @@ public class EntryPointExecutor
             }
 
             await _repository.SaveAsync(session);
+
+            // Save while-loop checkpoint state (enables resume at correct iteration)
+            session.SetVariable("_workflowCheckpoint_whileState", new Dictionary<string, object>
+            {
+                ["nodeId"] = nodeId,
+                ["iteration"] = iteration,
+                ["maxIterations"] = safetyMaxIterations
+            });
 
             // Execute child nodes
             if (whileNode.TryGetProperty("nodes", out var children) && children.ValueKind == JsonValueKind.Array)
@@ -1167,6 +1237,20 @@ public class EntryPointExecutor
         string? lastOutput = previousOutput;
         var itemIndex = 0;
 
+        // Resume for-each from checkpoint if available (skip already-processed items)
+        var foreachResumeIndex = 0;
+        var foreachState = session.GetVariable("_workflowCheckpoint_foreachIndex") as Dictionary<string, object>;
+        if (foreachState != null && foreachState.TryGetValue("nodeId", out var feId) && feId?.ToString() == nodeId)
+        {
+            if (foreachState.TryGetValue("currentIndex", out var feIdx))
+            {
+                foreachResumeIndex = feIdx is int fi ? fi : (int.TryParse(feIdx?.ToString(), out var parsed) ? parsed : 0);
+                AppendExecutionLog(session, "info", $"Resuming for-each '{nodeId}' from item index {foreachResumeIndex}");
+            }
+            // Clear the state so it's not re-used
+            session.SetVariable("_workflowCheckpoint_foreachIndex", null);
+        }
+
         foreach (var item in items)
         {
             if (item is not Dictionary<string, object> itemDict) continue;
@@ -1178,6 +1262,16 @@ public class EntryPointExecutor
             // Check if item is already done (skip completed items on resume)
             if (itemDict.TryGetValue("status", out var statusVal) && statusVal?.ToString() == "done")
             {
+                itemIndex++;
+                continue;
+            }
+
+            // Skip items below checkpoint resume index (items processed before crash)
+            if (itemIndex < foreachResumeIndex)
+            {
+                _logger.LogInformation("Skipping for-each item '{ItemId}' (checkpoint resume, index {Index} < {ResumeIndex})",
+                    itemId, itemIndex, foreachResumeIndex);
+                AppendExecutionLog(session, "info", $"Skipped item '{itemId}' (checkpoint resume)");
                 itemIndex++;
                 continue;
             }
@@ -1220,6 +1314,14 @@ public class EntryPointExecutor
             {
                 ResetNodeTree(childrenList);
             }
+
+            // Save for-each checkpoint state (enables resume at correct item)
+            session.SetVariable("_workflowCheckpoint_foreachIndex", new Dictionary<string, object>
+            {
+                ["nodeId"] = nodeId,
+                ["currentIndex"] = itemIndex,
+                ["totalItems"] = items.Count
+            });
 
             UpdateNodeById(displayTree, nodeId, "running", $"Item {itemIndex}/{items.Count}: {itemId}");
             session.SetVariable("_executionTree", displayTree);

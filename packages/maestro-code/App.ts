@@ -29,6 +29,15 @@ interface InteractiveOptions {
   importSessionTemplate?: (sessionId: string, templateName: string) => Promise<void>;
 }
 
+interface Widget {
+  type: string;
+  content: string;
+  params: Record<string, any>;
+  id: string;
+  interactive?: boolean;
+  timestamp?: string;
+}
+
 // ── Timestamp helper ──────────────────────────────────────────
 
 function ts(): string {
@@ -48,6 +57,8 @@ class SessionManager {
   private pollTimer: ReturnType<typeof setInterval> | null = null;
   private lastLogCount = 0;
   private lastTreeHash = '';
+  private widgetPollTimer: ReturnType<typeof setInterval> | null = null;
+  private lastWidgetId: string | null = null;
 
   constructor(options: InteractiveOptions) {
     this.client = options.apiClient;
@@ -163,6 +174,78 @@ class SessionManager {
       clearInterval(this.pollTimer);
       this.pollTimer = null;
     }
+    this.stopWidgetPolling();
+  }
+
+  async sendMessage(message: string, addLine: (line: LogLine) => void): Promise<void> {
+    if (!this.sessionId) return;
+
+    try {
+      await this.client._fetch('PUT',
+        `/api/sessions/${this.sessionId}/variables/_userMessage`,
+        { body: { value: { text: message, time: new Date().toISOString() } } }
+      );
+      addLine({ text: `> ${message}`, color: 'green', bold: true, timestamp: ts() });
+    } catch (err: any) {
+      addLine({ text: `Error sending message: ${err.message}`, color: 'red', timestamp: ts() });
+    }
+  }
+
+  startWidgetPolling(
+    addLine: (line: LogLine) => void,
+    setWidget: (w: Widget | null) => void,
+    setPendingInteractive: (w: Widget | null) => void
+  ): void {
+    this.widgetPollTimer = setInterval(async () => {
+      try {
+        const session = await this.client.getSession(this.sessionId);
+        const vars = session.variables || {};
+        const widgetReq = vars._widgetRequest;
+
+        if (widgetReq && widgetReq.widget && widgetReq.widget.id !== this.lastWidgetId) {
+          this.lastWidgetId = widgetReq.widget.id;
+          const widget = widgetReq.widget as Widget;
+          setWidget(widget);
+
+          if (!widget.interactive) {
+            addLine({
+              text: `[${widget.type}] ${widget.content}`,
+              color: 'blue',
+              timestamp: widget.timestamp || ts(),
+            });
+          } else {
+            setPendingInteractive(widget);
+          }
+        }
+      } catch {
+        // Non-fatal
+      }
+    }, 500);
+  }
+
+  async sendWidgetResponse(
+    response: string,
+    widgetId: string,
+    addLine: (line: LogLine) => void
+  ): Promise<void> {
+    if (!this.sessionId) return;
+
+    try {
+      await this.client._fetch('PUT',
+        `/api/sessions/${this.sessionId}/variables/_widgetResponse`,
+        { body: { value: { response, widgetId } } }
+      );
+      addLine({ text: `  Response: ${response}`, color: 'cyan', timestamp: ts() });
+    } catch (err: any) {
+      addLine({ text: `Error sending response: ${err.message}`, color: 'red', timestamp: ts() });
+    }
+  }
+
+  stopWidgetPolling(): void {
+    if (this.widgetPollTimer) {
+      clearInterval(this.widgetPollTimer);
+      this.widgetPollTimer = null;
+    }
   }
 
   getSessionId(): string | null {
@@ -213,6 +296,142 @@ const StatusBar = ({ sessionId, busy }: { sessionId: string | null; busy: boolea
     h(Text, { color: 'gray', dimColor: true }, sessionLabel),
     h(Text, { color: statusColor, dimColor: !busy }, statusLabel)
   );
+};
+
+// ── WidgetRenderer ──────────────────────────────────────────────
+
+const WidgetRenderer = ({ widget, onResponse }: { widget: Widget | null; onResponse: (response: string) => void }) => {
+  if (!widget) return null;
+
+  switch (widget.type) {
+    case 'message':
+      return h(Box, { borderStyle: 'round', borderColor: 'blue', paddingX: 1, marginY: 1 },
+        h(Text, { color: 'blue', bold: true }, 'Agent: '),
+        h(Text, null, widget.content)
+      );
+
+    case 'progress':
+      return h(Box, {
+        flexDirection: 'column',
+        borderStyle: 'round',
+        borderColor: 'cyan',
+        paddingX: 1,
+        marginY: 1,
+      },
+        h(Text, { color: 'cyan', bold: true }, 'Progress'),
+        h(Text, null, widget.content),
+        ...(widget.params.phases || []).map((phase: any, i: number) =>
+          h(Box, { key: i },
+            h(Text, {
+              color: phase.status === 'completed' ? 'green'
+                : phase.status === 'in_progress' ? 'yellow'
+                : 'gray',
+            },
+              phase.status === 'completed' ? '  [done] '
+                : phase.status === 'in_progress' ? '  [>>]   '
+                : '  [  ]   '
+            ),
+            h(Text, null, `${phase.name}${phase.detail ? ` — ${phase.detail}` : ''}`)
+          )
+        )
+      );
+
+    case 'confirmation':
+      return h(Box, {
+        flexDirection: 'column',
+        borderStyle: 'round',
+        borderColor: 'yellow',
+        paddingX: 1,
+        marginY: 1,
+      },
+        h(Text, { color: 'yellow', bold: true }, 'Confirmation required'),
+        h(Text, null, widget.content),
+        h(Text, { color: 'gray', dimColor: true },
+          `Action: ${widget.params.action || 'N/A'}`
+        ),
+        h(Text, { color: 'gray', dimColor: true },
+          `Consequence: ${widget.params.consequence || 'N/A'}`
+        ),
+        h(Text, { color: 'cyan' }, 'Type "yes" or "no" to respond.')
+      );
+
+    case 'option-select':
+      return h(Box, {
+        flexDirection: 'column',
+        borderStyle: 'round',
+        borderColor: 'magenta',
+        paddingX: 1,
+        marginY: 1,
+      },
+        h(Text, { color: 'magenta', bold: true }, widget.params.prompt || 'Choose:'),
+        h(Text, null, widget.content),
+        ...(widget.params.options || []).map((opt: any, i: number) =>
+          h(Box, { key: i },
+            h(Text, { color: 'cyan' }, `  [${opt.id}] `),
+            h(Text, null, opt.label),
+            opt.description
+              ? h(Text, { color: 'gray', dimColor: true }, ` — ${opt.description}`)
+              : null
+          )
+        ),
+        h(Text, { color: 'cyan' }, 'Type the option ID to select.')
+      );
+
+    case 'plan-view':
+      return h(Box, {
+        flexDirection: 'column',
+        borderStyle: 'round',
+        borderColor: 'green',
+        paddingX: 1,
+        marginY: 1,
+      },
+        h(Text, { color: 'green', bold: true }, 'Implementation Plan'),
+        ...(widget.params.steps || []).map((step: any, i: number) =>
+          h(Box, { key: i },
+            h(Text, {
+              color: step.status === 'done' ? 'green'
+                : step.status === 'in_progress' ? 'yellow'
+                : 'gray',
+            },
+              step.status === 'done' ? '  [done] '
+                : step.status === 'in_progress' ? '  [>>]   '
+                : '  [  ]   '
+            ),
+            h(Text, null, step.description),
+            step.domain
+              ? h(Text, { color: 'gray', dimColor: true }, ` (${step.domain})`)
+              : null
+          )
+        )
+      );
+
+    case 'test-results':
+      return h(Box, {
+        flexDirection: 'column',
+        borderStyle: 'round',
+        borderColor: 'green',
+        paddingX: 1,
+        marginY: 1,
+      },
+        h(Text, { color: 'green', bold: true }, 'Test Results'),
+        ...(widget.params.suites || []).map((suite: any, i: number) =>
+          h(Box, { key: i },
+            h(Text, {
+              color: suite.failed > 0 ? 'red' : 'green',
+            }, `  ${suite.name}: `),
+            h(Text, { color: 'green' }, `${suite.passed} passed`),
+            suite.failed > 0
+              ? h(Text, { color: 'red' }, ` / ${suite.failed} failed`)
+              : null
+          )
+        )
+      );
+
+    default:
+      return h(Box, { borderStyle: 'round', borderColor: 'gray', paddingX: 1, marginY: 1 },
+        h(Text, { color: 'gray' }, `[${widget.type}] ${widget.content}`)
+      );
+  }
 };
 
 // ── InputPrompt ────────────────────────────────────────────────
@@ -272,6 +491,8 @@ const InteractiveApp = ({ sessionManager }: { sessionManager: SessionManager | n
   ]);
   const [busy, setBusy] = useState(false);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
+  const [currentWidget, setCurrentWidget] = useState<Widget | null>(null);
+  const [pendingInteractive, setPendingInteractive] = useState<Widget | null>(null);
 
   useEffect(() => {
     const onResize = () => {
@@ -281,7 +502,10 @@ const InteractiveApp = ({ sessionManager }: { sessionManager: SessionManager | n
     return () => {
       stdout.off('resize', onResize);
       // Cleanup polling on unmount
-      if (sessionManager) sessionManager.stopPolling();
+      if (sessionManager) {
+        sessionManager.stopPolling();
+        sessionManager.stopWidgetPolling();
+      }
     };
   }, [stdout, sessionManager]);
 
@@ -296,14 +520,37 @@ const InteractiveApp = ({ sessionManager }: { sessionManager: SessionManager | n
     setLines(prev => [...prev, line]);
   }, []);
 
-  const handleSubmit = useCallback((task: string) => {
-    addLine({ text: `> ${task}`, color: 'green', bold: true });
+  const handleSubmit = useCallback((input: string) => {
+    // Branch 1: User responding to an interactive widget
+    if (pendingInteractive) {
+      addLine({ text: `> ${input}`, color: 'green' });
+      if (sessionManager) {
+        sessionManager.sendWidgetResponse(input, pendingInteractive.id, addLine);
+      }
+      setPendingInteractive(null);
+      setCurrentWidget(null);
+      return;
+    }
+
+    // Branch 2: Session running — send as user message
+    if (busy && sessionManager?.getSessionId()) {
+      sessionManager.sendMessage(input, addLine);
+      return;
+    }
+
+    // Branch 3: First message — create session (existing behavior)
+    addLine({ text: `> ${input}`, color: 'green', bold: true });
 
     if (sessionManager) {
-      sessionManager.submitTask(task, addLine, (b) => {
+      sessionManager.submitTask(input, addLine, (b) => {
         setBusy(b);
-        if (!b) setCurrentSessionId(null);
-        else setCurrentSessionId(sessionManager.getSessionId());
+        if (!b) {
+          setCurrentSessionId(null);
+          sessionManager.stopWidgetPolling();
+        } else {
+          setCurrentSessionId(sessionManager.getSessionId());
+          sessionManager.startWidgetPolling(addLine, setCurrentWidget, setPendingInteractive);
+        }
       });
     } else {
       // Demo mode (no API client)
@@ -315,14 +562,23 @@ const InteractiveApp = ({ sessionManager }: { sessionManager: SessionManager | n
         setBusy(false);
       }, 1000);
     }
-  }, [addLine, sessionManager]);
+  }, [addLine, sessionManager, busy, pendingInteractive]);
 
   const outputHeight = Math.max(rows - 7, 5);
 
   return h(Box, { flexDirection: 'column', width: '100%', height: rows },
-    h(OutputPanel, { lines, height: outputHeight }),
+    h(OutputPanel, { lines, height: outputHeight - (currentWidget ? 8 : 0) }),
+    currentWidget ? h(WidgetRenderer, { widget: currentWidget, onResponse: () => {} }) : null,
     h(StatusBar, { sessionId: currentSessionId, busy }),
-    h(InputPrompt, { onSubmit: handleSubmit, disabled: busy })
+    h(InputPrompt, {
+      onSubmit: handleSubmit,
+      disabled: false,
+      placeholder: pendingInteractive
+        ? 'Respond to the widget above...'
+        : busy
+          ? 'Send a message to the agent...'
+          : 'Describe your task...',
+    })
   );
 };
 
@@ -345,5 +601,5 @@ async function startInteractive(options: InteractiveOptions = {}): Promise<void>
   await instance.waitUntilExit();
 }
 
-export { startInteractive, InteractiveApp, OutputPanel, InputPrompt, StatusBar, SessionManager };
-export type { LogLine as InteractiveLogLine, InteractiveOptions };
+export { startInteractive, InteractiveApp, OutputPanel, InputPrompt, StatusBar, SessionManager, WidgetRenderer };
+export type { LogLine as InteractiveLogLine, InteractiveOptions, Widget };

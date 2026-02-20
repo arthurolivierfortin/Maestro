@@ -1,0 +1,32 @@
+{
+  "name": "notifications-app",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "server": "npx tsx server/index.ts"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "express": "^4.21.0",
+    "cors": "^2.8.5",
+    "socket.io": "^4.8.1",
+    "socket.io-client": "^4.8.1"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@types/express": "^4.17.21",
+    "@types/cors": "^2.8.17",
+    "@vitejs/plugin-react": "^4.3.4",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.11",
+    "tailwindcss": "^3.4.15",
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.4.49"
+  }
+}
