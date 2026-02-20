@@ -379,8 +379,19 @@ public class EntryPointExecutor
         var displayName = NodeIdToDisplayName(id);
         var treeNode = CreateNode(id, displayName, "pending");
 
-        // Nest children for while/conditional nodes
-        if (node.TryGetProperty("nodes", out var nestedNodes) && nestedNodes.ValueKind == JsonValueKind.Array)
+        // Nest children for while/conditional/sequence/parallel nodes
+        // Support "children" key (used by sequence/parallel nodes in v4 workflows)
+        if (node.TryGetProperty("children", out var childNodes) && childNodes.ValueKind == JsonValueKind.Array)
+        {
+            var children = new List<object>();
+            foreach (var child in childNodes.EnumerateArray())
+            {
+                var childNode = BuildTreeNode(child);
+                if (childNode != null) children.Add(childNode);
+            }
+            treeNode["children"] = children;
+        }
+        else if (node.TryGetProperty("nodes", out var nestedNodes) && nestedNodes.ValueKind == JsonValueKind.Array)
         {
             var children = new List<object>();
             foreach (var child in nestedNodes.EnumerateArray())
@@ -513,6 +524,9 @@ public class EntryPointExecutor
 
             try
             {
+                // Check for pause before each node execution
+                await CheckPauseAsync(session, nodeId);
+
                 switch (nodeType)
                 {
                     case "while":
@@ -526,6 +540,12 @@ public class EntryPointExecutor
                         break;
                     case "conditional":
                         lastOutput = await ExecuteConditionalNodeAsync(session, configNode, workflowConfig, workingDir, displayTree, lastOutput);
+                        break;
+                    case "sequence":
+                        lastOutput = await ExecuteSequenceNodeAsync(session, configNode, workflowConfig, workingDir, workflowId, activePhaseId, displayTree, lastOutput);
+                        break;
+                    case "parallel":
+                        lastOutput = await ExecuteParallelNodeAsync(session, configNode, workflowConfig, workingDir, workflowId, activePhaseId, displayTree, lastOutput);
                         break;
                     case "set-variable":
                         lastOutput = ExecuteSetVariableNode(session, configNode, lastOutput);
@@ -701,7 +721,71 @@ public class EntryPointExecutor
         session.SetVariable("_executionTree", displayTree);
         await _repository.SaveAsync(session);
 
-        // Select the branch to execute: "then" if true, "else" if false
+        // Multi-way branches: if "branches" property exists, use resolvedCondition as key
+        if (condNode.TryGetProperty("branches", out var branchesObj) && branchesObj.ValueKind == JsonValueKind.Object)
+        {
+            AppendExecutionLog(session, "info", $"Conditional '{nodeId}': multi-way branch, key='{resolvedCondition}'");
+
+            string? mwOutput = null;
+            var branchKey = resolvedCondition.Trim().Trim('"'); // Remove surrounding quotes if any
+
+            if (branchesObj.TryGetProperty(branchKey, out var selectedBranch) && selectedBranch.ValueKind == JsonValueKind.Object)
+            {
+                try
+                {
+                    if (selectedBranch.TryGetProperty("blockRef", out var brBlockRef) && brBlockRef.ValueKind == JsonValueKind.String)
+                    {
+                        var branchId = selectedBranch.TryGetProperty("id", out var brIdProp) ? brIdProp.GetString() ?? branchKey : branchKey;
+                        mwOutput = await ExecuteBlockRefAsync(session, brBlockRef.GetString()!, selectedBranch, workingDir, displayTree, branchId, previousOutput);
+                        session.SetVariable($"_nodeResult_{branchId}", mwOutput ?? "");
+                    }
+                    else if (selectedBranch.TryGetProperty("blockId", out var brBlockId) && brBlockId.ValueKind == JsonValueKind.String)
+                    {
+                        _logger.LogWarning("Multi-way branch '{BranchKey}' uses deprecated 'blockId' — use 'blockRef' instead", branchKey);
+                        var branchId = selectedBranch.TryGetProperty("id", out var brIdProp) ? brIdProp.GetString() ?? branchKey : branchKey;
+                        mwOutput = await ExecuteBlockRefAsync(session, brBlockId.GetString()!, selectedBranch, workingDir, displayTree, branchId, previousOutput);
+                        session.SetVariable($"_nodeResult_{branchId}", mwOutput ?? "");
+                    }
+                    else if (selectedBranch.TryGetProperty("nodes", out var brNodes) && brNodes.ValueKind == JsonValueKind.Array)
+                    {
+                        mwOutput = await ExecuteConfigNodesAsync(session, brNodes, workflowConfig, workingDir, nodeId, null, displayTree, previousOutput);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Multi-way branch '{BranchKey}' failed in '{NodeId}'", branchKey, nodeId);
+                    mwOutput = $"(error in branch '{branchKey}': {ex.Message})";
+                }
+            }
+            else
+            {
+                // No matching branch — check for "default" branch
+                if (branchesObj.TryGetProperty("default", out var defaultBranch) && defaultBranch.ValueKind == JsonValueKind.Object)
+                {
+                    AppendExecutionLog(session, "info", $"Conditional '{nodeId}': no branch for '{branchKey}', using default");
+                    if (defaultBranch.TryGetProperty("blockRef", out var defBlockRef) && defBlockRef.ValueKind == JsonValueKind.String)
+                    {
+                        mwOutput = await ExecuteBlockRefAsync(session, defBlockRef.GetString()!, defaultBranch, workingDir, displayTree, "default", previousOutput);
+                    }
+                }
+                else
+                {
+                    AppendExecutionLog(session, "warning", $"Conditional '{nodeId}': no branch for '{branchKey}' and no default");
+                }
+            }
+
+            // Finalize
+            mwOutput ??= previousOutput ?? "";
+            var mwTruncated = mwOutput.Length > 500 ? mwOutput[..500] + "..." : mwOutput;
+            UpdateNodeById(displayTree, nodeId, "done", mwTruncated);
+            session.SetVariable("_executionTree", displayTree);
+            session.SetVariable($"_nodeResult_{nodeId}", mwOutput);
+            AppendExecutionLog(session, "success", $"{nodeId}: Multi-way branch completed");
+            await _repository.SaveAsync(session);
+            return mwOutput;
+        }
+
+        // Binary branches (existing behavior): then/else
         string? output = null;
         var branchName = condResult ? "then" : "else";
         var hasBranch = condNode.TryGetProperty(branchName, out var branchNode) && branchNode.ValueKind == JsonValueKind.Object;
@@ -710,11 +794,19 @@ public class EntryPointExecutor
         {
             try
             {
-                // Branch node has a blockRef — dispatch it
-                if (branchNode.TryGetProperty("blockRef", out var blockRefProp) && blockRefProp.ValueKind == JsonValueKind.String)
+                // Branch node has a blockRef (or deprecated blockId) — dispatch it
+                var hasBrBlockRef = branchNode.TryGetProperty("blockRef", out var brBlockRefProp) && brBlockRefProp.ValueKind == JsonValueKind.String;
+                if (!hasBrBlockRef)
+                {
+                    hasBrBlockRef = branchNode.TryGetProperty("blockId", out brBlockRefProp) && brBlockRefProp.ValueKind == JsonValueKind.String;
+                    if (hasBrBlockRef)
+                        _logger.LogWarning("Conditional '{NodeId}' branch '{BranchName}' uses deprecated 'blockId' — use 'blockRef' instead", nodeId, branchName);
+                }
+
+                if (hasBrBlockRef)
                 {
                     var branchId = branchNode.TryGetProperty("id", out var branchIdProp) ? branchIdProp.GetString() ?? branchName : branchName;
-                    var blockRefId = blockRefProp.GetString()!;
+                    var blockRefId = brBlockRefProp.GetString()!;
                     AppendExecutionLog(session, "info", $"Conditional '{nodeId}': executing '{branchName}' branch → blockRef '{blockRefId}'");
                     output = await ExecuteBlockRefAsync(session, blockRefId, branchNode, workingDir, displayTree, branchId, previousOutput);
                     session.SetVariable($"_nodeResult_{branchId}", output ?? "");
@@ -767,6 +859,179 @@ public class EntryPointExecutor
         await _repository.SaveAsync(session);
 
         return output;
+    }
+
+    /// <summary>
+    /// Executes a sequence node — runs child nodes sequentially, passing output through.
+    /// This is the named counterpart of the implicit behavior of ExecuteConfigNodesAsync
+    /// but for nested sequence groups within a workflow.
+    /// </summary>
+    private async Task<string?> ExecuteSequenceNodeAsync(
+        Domain.Entities.ProjectSession session,
+        JsonElement seqNode,
+        Dictionary<string, object>? workflowConfig,
+        string workingDir,
+        string workflowId,
+        string? activePhaseId,
+        List<object> displayTree,
+        string? previousOutput)
+    {
+        var nodeId = seqNode.TryGetProperty("id", out var idProp) ? idProp.GetString() ?? "sequence" : "sequence";
+
+        UpdateNodeById(displayTree, nodeId, "running");
+        session.SetVariable("_executionTree", displayTree);
+        AppendExecutionLog(session, "info", $"Sequence '{nodeId}': Starting");
+        await _repository.SaveAsync(session);
+
+        string? lastOutput = previousOutput;
+
+        if (seqNode.TryGetProperty("children", out var children) && children.ValueKind == JsonValueKind.Array)
+        {
+            lastOutput = await ExecuteConfigNodesAsync(session, children, workflowConfig, workingDir, workflowId, nodeId, displayTree, lastOutput);
+        }
+        // Also support "nodes" property (alternative naming)
+        else if (seqNode.TryGetProperty("nodes", out var nodes) && nodes.ValueKind == JsonValueKind.Array)
+        {
+            lastOutput = await ExecuteConfigNodesAsync(session, nodes, workflowConfig, workingDir, workflowId, nodeId, displayTree, lastOutput);
+        }
+
+        UpdateNodeById(displayTree, nodeId, "done");
+        session.SetVariable("_executionTree", displayTree);
+        AppendExecutionLog(session, "success", $"Sequence '{nodeId}': Completed");
+        await _repository.SaveAsync(session);
+
+        return lastOutput;
+    }
+
+    /// <summary>
+    /// Executes children in parallel using Task.WhenAll.
+    /// Each child runs independently. When all complete, the parallel node is marked done.
+    /// If any child fails, the error is logged but other children continue.
+    ///
+    /// IMPORTANT: The interaction-handler is typically one of the parallel children.
+    /// It should be cancelled when the main workflow completes. This is handled by
+    /// using a CancellationTokenSource that cancels when the first non-interaction child completes.
+    /// For now (MVP), we use simple Task.WhenAll without cancellation.
+    /// </summary>
+    private async Task<string?> ExecuteParallelNodeAsync(
+        Domain.Entities.ProjectSession session,
+        JsonElement parallelNode,
+        Dictionary<string, object>? workflowConfig,
+        string workingDir,
+        string workflowId,
+        string? activePhaseId,
+        List<object> displayTree,
+        string? previousOutput)
+    {
+        var nodeId = parallelNode.TryGetProperty("id", out var idProp) ? idProp.GetString() ?? "parallel" : "parallel";
+
+        UpdateNodeById(displayTree, nodeId, "running");
+        session.SetVariable("_executionTree", displayTree);
+        AppendExecutionLog(session, "info", $"Parallel '{nodeId}': Starting children in parallel");
+        await _repository.SaveAsync(session);
+
+        // Collect children from "children" or "nodes" property
+        JsonElement childrenEl = default;
+        var hasChildren = parallelNode.TryGetProperty("children", out childrenEl) && childrenEl.ValueKind == JsonValueKind.Array;
+        if (!hasChildren)
+            hasChildren = parallelNode.TryGetProperty("nodes", out childrenEl) && childrenEl.ValueKind == JsonValueKind.Array;
+
+        if (!hasChildren)
+        {
+            AppendExecutionLog(session, "warning", $"Parallel '{nodeId}': No children found");
+            UpdateNodeById(displayTree, nodeId, "done", "No children");
+            session.SetVariable("_executionTree", displayTree);
+            await _repository.SaveAsync(session);
+            return previousOutput;
+        }
+
+        // Build task list — each child is an independent sub-workflow
+        var tasks = new List<Task<string?>>();
+        var childIds = new List<string>();
+
+        foreach (var child in childrenEl.EnumerateArray())
+        {
+            if (child.ValueKind != JsonValueKind.Object) continue;
+
+            var childId = child.TryGetProperty("id", out var cIdProp) ? cIdProp.GetString() ?? "child" : "child";
+            childIds.Add(childId);
+
+            // Capture for closure
+            var capturedChild = child;
+            var capturedPrevious = previousOutput;
+
+            tasks.Add(Task.Run(async () =>
+            {
+                try
+                {
+                    // Each child is dispatched as if it were a standalone node sequence
+                    var childType = capturedChild.TryGetProperty("type", out var ctProp) ? ctProp.GetString() : null;
+
+                    return childType switch
+                    {
+                        "sequence" => await ExecuteSequenceNodeAsync(session, capturedChild, workflowConfig, workingDir, workflowId, activePhaseId, displayTree, capturedPrevious),
+                        "while" => await ExecuteWhileNodeAsync(session, capturedChild, workflowConfig, workingDir, workflowId, activePhaseId, displayTree, capturedPrevious),
+                        "for-each" => await ExecuteForEachNodeAsync(session, capturedChild, workflowConfig, workingDir, workflowId, displayTree, capturedPrevious),
+                        "conditional" => await ExecuteConditionalNodeAsync(session, capturedChild, workflowConfig, workingDir, displayTree, capturedPrevious),
+                        _ => await ExecuteRegularNodeAsync(session, childId, workflowConfig, workingDir, activePhaseId, displayTree, capturedPrevious, capturedChild)
+                    };
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Parallel child '{ChildId}' failed in '{NodeId}'", childId, nodeId);
+                    AppendExecutionLog(session, "error", $"Parallel child '{childId}': {ex.Message}");
+                    return capturedPrevious;
+                }
+            }));
+        }
+
+        // Wait for all children to complete
+        var results = await Task.WhenAll(tasks);
+
+        // Use the output of the first child as the "main" output (convention: first child is main-workflow)
+        var mainOutput = results.Length > 0 ? results[0] : previousOutput;
+
+        UpdateNodeById(displayTree, nodeId, "done", $"All {tasks.Count} children completed");
+        session.SetVariable("_executionTree", displayTree);
+        AppendExecutionLog(session, "success", $"Parallel '{nodeId}': All {tasks.Count} children completed");
+        await _repository.SaveAsync(session);
+
+        return mainOutput;
+    }
+
+    /// <summary>
+    /// Checks if the workflow is paused (via session variable _workflowStatus).
+    /// If paused, polls every 1 second until resumed or cancelled.
+    /// This enables the interaction-handler to pause/resume the workflow.
+    /// </summary>
+    private async Task CheckPauseAsync(Domain.Entities.ProjectSession session, string nodeId)
+    {
+        const int pollIntervalMs = 1000;
+        const int maxPauseMs = 300_000; // 5 minutes max pause
+        var elapsed = 0;
+
+        while (true)
+        {
+            // Re-read session from disk to get latest state (interaction-handler may have modified it)
+            var freshSession = await _repository.GetByIdAsync(SessionId.From(session.Id));
+            if (freshSession == null) return;
+
+            var status = freshSession.GetVariable("_workflowStatus")?.ToString();
+            if (status != "paused") return;
+
+            if (elapsed >= maxPauseMs)
+            {
+                _logger.LogWarning("Pause timeout reached ({MaxMs}ms) for node '{NodeId}'. Resuming.", maxPauseMs, nodeId);
+                session.SetVariable("_workflowStatus", "running");
+                await _repository.SaveAsync(session);
+                return;
+            }
+
+            AppendExecutionLog(session, "info", $"Workflow paused at node '{nodeId}'. Waiting...");
+            await _repository.SaveAsync(session);
+            await Task.Delay(pollIntervalMs);
+            elapsed += pollIntervalMs;
+        }
     }
 
     /// <summary>
@@ -1286,13 +1551,25 @@ public class EntryPointExecutor
         string? previousOutput,
         JsonElement? nodeConfig = null)
     {
-        // INFRA-1: BlockRef dispatch — if the node has a blockRef, dispatch via executor registry
+        // INFRA-1: BlockRef dispatch — if the node has a blockRef (or deprecated blockId), dispatch via executor registry
         // This takes priority over pattern-matching by nodeId.
-        if (nodeConfig.HasValue
-            && nodeConfig.Value.TryGetProperty("blockRef", out var blockRefProp)
-            && blockRefProp.ValueKind == JsonValueKind.String)
+        string? resolvedBlockRef = null;
+        if (nodeConfig.HasValue)
         {
-            var blockRefId = blockRefProp.GetString()!;
+            if (nodeConfig.Value.TryGetProperty("blockRef", out var blockRefProp) && blockRefProp.ValueKind == JsonValueKind.String)
+            {
+                resolvedBlockRef = blockRefProp.GetString();
+            }
+            else if (nodeConfig.Value.TryGetProperty("blockId", out var blockIdProp) && blockIdProp.ValueKind == JsonValueKind.String)
+            {
+                resolvedBlockRef = blockIdProp.GetString();
+                _logger.LogWarning("Node '{NodeId}' uses deprecated 'blockId' — use 'blockRef' instead", nodeId);
+            }
+        }
+
+        if (resolvedBlockRef != null)
+        {
+            var blockRefId = resolvedBlockRef;
             var displayName = NodeIdToDisplayName(nodeId);
 
             UpdateNodeById(displayTree, nodeId, "running", $"Executing {blockRefId}...");

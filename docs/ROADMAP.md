@@ -41,31 +41,18 @@
 
 ---
 
-### Phase 33-C : Consolidation TUI Monorepo
+### Phase 34 : Agent Maestro v4 — Dev Fullstack Exceptionnel + Degradation Multi-Tiers
 
-**But** : Consolider les 3 implementations TUI paralleles (Maestro monitor, LLM-Provider monitor, CLI interactive) en un monorepo npm workspaces avec code partage reel. Supprimer le code mort shared/tui (~28 fichiers), unifier les hooks dupliques, corriger les bugs monitors, ajouter des tests.
-
-| Sous-phase | Objectif | Effort |
-|------------|----------|--------|
-| 33-C-A | Migration LLM-Provider + restructuration packages/ | 2-3 jours |
-| 33-C-B | Construire @maestro/tui (audit, nettoyage, merge hooks/components, theme configurable) | 2-3 jours |
-| 33-C-C | Migrer les consommateurs (maestro-monitor, provider-monitor, maestro-code, maestro-cli) | 2-3 jours |
-| 33-C-D | Fix bugs, tests du toolkit, validation E2E | 2-3 jours |
-
-**Docs** : `docs/phases/PHASE-33C/README.md`
-
----
-
-### Phase 34 : Optimisation multi-tiers
-
-**But** : Creer des tiers substituant Claude par des modeles plus petits.
+**But** : Construire un agent fullstack autonome compose de specialistes (verification visuelle, interaction intelligente, memoire persistante) qui depasse considerablement Claude Code, puis le degrader progressivement en tiers mesures.
 
 | Sous-phase | Objectif | Effort |
 |------------|----------|--------|
-| 34-A | Fitness par bloc individuel | 2-3 jours |
-| 34-B | Tier 2 (Sonnet + Haiku) | 3-5 jours |
-| 34-C | Manifeste + `maestro check` | 2-3 jours |
-| 34-D | Tier 3+ si fitness suffisant | 5-10 jours |
+| 34-A | Design Spec — AGENT-V4-SPEC.md (conception complete de chaque bloc) | 1-2 jours |
+| 34-B | Infrastructure — Tool blocks (Playwright, web-search) + State Manager + Checkpointing | 3-5 jours |
+| 34-C | Agents specialistes + Workflow orchestrateur v4 (~19 blocs) | 5-8 jours |
+| 34-D | Interaction Handler + Widget Protocol (feature differenciante) | 5-8 jours |
+| 34-E | Integration + Fitness Tier 1 + Comparaison vs Claude Code | 3-5 jours |
+| 34-F | Degradation progressive — Tiers 2+ (par paliers de ~5%) | 5-10 jours |
 
 **Docs** : `docs/phases/PHASE-34/README.md`
 

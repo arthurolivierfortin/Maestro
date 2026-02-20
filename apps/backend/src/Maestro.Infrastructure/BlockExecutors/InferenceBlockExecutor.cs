@@ -56,6 +56,18 @@ public class InferenceBlockExecutor : LLMBlockExecutorBase
         if (block.Config != null && block.Config.TryGetValue("systemPrompt", out var sp))
             systemPrompt = sp?.ToString();
 
+        // If no inline systemPrompt, try loading from system-prompt.md file
+        if (string.IsNullOrEmpty(systemPrompt))
+        {
+            var blockPath = GetBlockPath(block);
+            if (blockPath != null)
+            {
+                var promptFile = Path.Combine(blockPath, "system-prompt.md");
+                if (File.Exists(promptFile))
+                    systemPrompt = await File.ReadAllTextAsync(promptFile, ct);
+            }
+        }
+
         var request = !string.IsNullOrEmpty(systemPrompt)
             ? new LLMRequest
             {
