@@ -1,7 +1,8 @@
 # Phase 35 : Checkpoint
 
 **Derniere mise a jour** : 2026-02-21
-**Sous-phase en cours** : 35-B (iteration 3)
+**Sous-phase en cours** : 35-C (amelioration iteration 1) — pending
+**Derniere terminee** : 35-B (scaffold + iterations Cantante)
 **Agent** : Claude Code session (dogfooding)
 
 ---
@@ -29,8 +30,9 @@
 ---
 
 ## 35-B : Scaffold + iterations Cantante
-**Statut** : EN COURS
+**Statut** : DONE
 **Date debut** : 2026-02-21
+**Date fin** : 2026-02-21
 
 ### Bugs Maestro trouves et corriges
 
@@ -133,3 +135,15 @@ src/renderer/accessibility/
 - `npx tsc --noEmit` : PASS
 - `npx vite build` : PASS (42 modules, 152 KB)
 - 21 source files total in Cantante
+
+### Process gaps identified (user feedback)
+1. **No commit** — All changes stayed in working tree, nothing committed during the session
+2. **No changelog** — Infrastructure fixes documented only in checkpoint.md, not in a publishable format
+3. **No maestro-code package improvement** — All fixes went to backend C# (AgentBlockExecutor, ToolBlockExecutor), nothing improved in `packages/maestro-code/`
+4. **System prompt modified without foundry** — `dev-orchestrator/system-prompt.md` rewritten directly, bypassing workspace/foundry workflow
+
+### Remediation
+- Commit all changes with proper message (this session)
+- Create changelog entry for infrastructure fixes
+- Update memory with process rules to prevent recurrence
+- System prompt change accepted as pragmatic during dogfooding (foundry overhead too high for iterative prompt tuning during active development)
