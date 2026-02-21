@@ -1173,36 +1173,7 @@ public class EntryPointExecutor
 
                 if (token is JArray jArr)
                 {
-                    var list = new List<object>();
-                    foreach (var item in jArr)
-                    {
-                        if (item is JObject jObj)
-                        {
-                            var dict = new Dictionary<string, object>();
-                            foreach (var prop in jObj.Properties())
-                            {
-                                dict[prop.Name] = prop.Value.Type switch
-                                {
-                                    JTokenType.String => prop.Value.Value<string>()!,
-                                    JTokenType.Integer => (object)prop.Value.Value<long>(),
-                                    JTokenType.Float => (object)prop.Value.Value<double>(),
-                                    JTokenType.Boolean => (object)prop.Value.Value<bool>(),
-                                    JTokenType.Array => prop.Value.ToString(),
-                                    JTokenType.Object => prop.Value.ToString(),
-                                    _ => prop.Value.ToString()
-                                };
-                            }
-                            list.Add(dict);
-                        }
-                        else if (item.Type == JTokenType.String)
-                        {
-                            list.Add(item.Value<string>()!);
-                        }
-                        else
-                        {
-                            list.Add(item.ToString());
-                        }
-                    }
+                    var list = JArrayToNativeList(jArr);
                     session.SetVariable(variableName, list);
                     AppendExecutionLog(session, "info",
                         $"set-variable '{nodeId}': stored {list.Count}-item list in '{variableName}' ({trimmed.Length} chars)");
@@ -1212,8 +1183,15 @@ public class EntryPointExecutor
                     // Common LLM pattern: agent wraps output in {"summary":"[{...}]"} or {"result":"[{...}]"}.
                     // If the JObject has a string field that contains a JSON array, unwrap it.
                     // This is critical for the task-planner → store-plan → for-each pipeline.
+                    //
+                    // PHASE 35-E FIX 36: Three-pass extraction:
+                    // Pass 1: String property that STARTS with "[" (fastest, original logic)
+                    // Pass 2: String property with embedded "[{" anywhere (prose-wrapped JSON)
+                    // Pass 3: JArray property directly (object wrapping an array)
                     JArray? unwrappedArray = null;
                     string? unwrapField = null;
+
+                    // Pass 1: String property starting with "["
                     foreach (var prop in jObj.Properties())
                     {
                         if (prop.Value.Type == JTokenType.String)
@@ -1232,37 +1210,44 @@ public class EntryPointExecutor
                         }
                     }
 
+                    // Pass 2: String property with embedded JSON array (prose wrapping)
+                    // Handles: "Here's the plan:\n[{\"id\":1,...}]" or "```json\n[{...}]\n```"
+                    if (unwrappedArray == null)
+                    {
+                        foreach (var prop in jObj.Properties())
+                        {
+                            if (prop.Value.Type == JTokenType.String)
+                            {
+                                var strVal = prop.Value.Value<string>();
+                                var extracted = TryExtractJsonArrayFromText(strVal);
+                                if (extracted != null)
+                                {
+                                    unwrappedArray = extracted;
+                                    unwrapField = prop.Name + " (embedded)";
+                                    break;
+                                }
+                            }
+                        }
+                    }
+
+                    // Pass 3: JArray property directly ({"steps":[{...}]} pattern)
+                    if (unwrappedArray == null)
+                    {
+                        foreach (var prop in jObj.Properties())
+                        {
+                            if (prop.Value is JArray directArr && directArr.Count > 0)
+                            {
+                                unwrappedArray = directArr;
+                                unwrapField = prop.Name + " (array)";
+                                break;
+                            }
+                        }
+                    }
+
                     if (unwrappedArray != null && unwrappedArray.Count > 0)
                     {
                         // Unwrap: convert JArray → List<object> of native types
-                        var list = new List<object>();
-                        foreach (var item in unwrappedArray)
-                        {
-                            if (item is JObject innerObj)
-                            {
-                                var dict = new Dictionary<string, object>();
-                                foreach (var prop in innerObj.Properties())
-                                {
-                                    dict[prop.Name] = prop.Value.Type switch
-                                    {
-                                        JTokenType.String => prop.Value.Value<string>()!,
-                                        JTokenType.Integer => (object)prop.Value.Value<long>(),
-                                        JTokenType.Float => (object)prop.Value.Value<double>(),
-                                        JTokenType.Boolean => (object)prop.Value.Value<bool>(),
-                                        _ => prop.Value.ToString()
-                                    };
-                                }
-                                list.Add(dict);
-                            }
-                            else if (item.Type == JTokenType.String)
-                            {
-                                list.Add(item.Value<string>()!);
-                            }
-                            else
-                            {
-                                list.Add(item.ToString());
-                            }
-                        }
+                        var list = JArrayToNativeList(unwrappedArray);
                         session.SetVariable(variableName, list);
                         AppendExecutionLog(session, "info",
                             $"set-variable '{nodeId}': unwrapped '{unwrapField}' → stored {list.Count}-item list in '{variableName}'");
@@ -1291,9 +1276,22 @@ public class EntryPointExecutor
         }
         else
         {
-            session.SetVariable(variableName, rawValue);
-            AppendExecutionLog(session, "info",
-                $"set-variable '{nodeId}': stored plain text in '{variableName}' ({rawValue.Length} chars)");
+            // PHASE 35-E FIX 36: Plain text may contain an embedded JSON array
+            // (LLM wrapped its output in prose, markdown code fences, etc.)
+            var embeddedArray = TryExtractJsonArrayFromText(rawValue);
+            if (embeddedArray != null && embeddedArray.Count > 0)
+            {
+                var list = JArrayToNativeList(embeddedArray);
+                session.SetVariable(variableName, list);
+                AppendExecutionLog(session, "info",
+                    $"set-variable '{nodeId}': extracted {list.Count}-item list from plain text in '{variableName}'");
+            }
+            else
+            {
+                session.SetVariable(variableName, rawValue);
+                AppendExecutionLog(session, "info",
+                    $"set-variable '{nodeId}': stored plain text in '{variableName}' ({rawValue.Length} chars)");
+            }
         }
 
         return rawValue;
@@ -1479,6 +1477,54 @@ public class EntryPointExecutor
                     AppendExecutionLog(session, "info", $"for-each '{nodeId}': parsed JValue string to list");
                 }
                 catch { /* fallthrough to error below */ }
+            }
+        }
+        // PHASE 35-E FIX 37: if source is a JObject, try to extract arrays from its properties.
+        // This handles the case where task-planner output was stored as {"summary":"prose with [{...}]"}
+        // or {"steps":[{...}]} — set-variable stored it as JObject because extraction failed.
+        else if (sourceVar is JObject jObjSource)
+        {
+            _logger.LogWarning("for-each '{NodeId}': source is JObject, attempting array extraction", nodeId);
+            JArray? extractedArr = null;
+            string? extractField = null;
+
+            // Check JArray properties first ({"steps":[...]} pattern)
+            foreach (var prop in jObjSource.Properties())
+            {
+                if (prop.Value is JArray directArr && directArr.Count > 0)
+                {
+                    extractedArr = directArr;
+                    extractField = prop.Name;
+                    break;
+                }
+            }
+
+            // Then check string properties for embedded JSON arrays
+            if (extractedArr == null)
+            {
+                foreach (var prop in jObjSource.Properties())
+                {
+                    if (prop.Value.Type == JTokenType.String)
+                    {
+                        var strVal = prop.Value.Value<string>();
+                        var embedded = TryExtractJsonArrayFromText(strVal);
+                        if (embedded != null)
+                        {
+                            extractedArr = embedded;
+                            extractField = prop.Name;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            if (extractedArr != null && extractedArr.Count > 0)
+            {
+                var list = JArrayToNativeList(extractedArr);
+                session.SetVariable(source, list);
+                sourceVar = list;
+                AppendExecutionLog(session, "info",
+                    $"for-each '{nodeId}': extracted {list.Count} items from JObject property '{extractField}'");
             }
         }
 
@@ -4038,5 +4084,111 @@ public class EntryPointExecutor
             return result;
         }
         return new List<object>();
+    }
+
+    /// <summary>
+    /// PHASE 35-E FIX 36: Attempt to extract a JSON array from text that may contain
+    /// prose, markdown code fences, or other non-JSON content around the array.
+    /// Returns null if no valid JSON array is found.
+    /// </summary>
+    private static JArray? TryExtractJsonArrayFromText(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return null;
+
+        // Step 1: Strip markdown code fences (```json ... ``` or ``` ... ```)
+        var stripped = Regex.Replace(text, @"```(?:json|JSON)?\s*\n?", "").Trim();
+
+        // Step 2: Find the first "[{" pattern (start of a JSON array of objects)
+        var arrayStart = stripped.IndexOf("[{", StringComparison.Ordinal);
+        if (arrayStart < 0)
+        {
+            // Also try just "[" for arrays of primitives or "[\"" for arrays of strings
+            arrayStart = stripped.IndexOf('[');
+        }
+        if (arrayStart < 0) return null;
+
+        // Step 3: Find the matching "]" — search from the end backwards
+        var arrayEnd = stripped.LastIndexOf(']');
+        if (arrayEnd <= arrayStart) return null;
+
+        // Step 4: Extract and validate
+        var candidate = stripped.Substring(arrayStart, arrayEnd - arrayStart + 1);
+        try
+        {
+            var parsed = JArray.Parse(candidate);
+            // Only return if the array has items (empty arrays aren't useful)
+            return parsed.Count > 0 ? parsed : null;
+        }
+        catch
+        {
+            // If the greedy approach failed, try a more conservative bracket-matching approach
+            // Count brackets to find the correct closing bracket for the first "["
+            var depth = 0;
+            var inString = false;
+            var escaped = false;
+            for (var i = arrayStart; i <= arrayEnd; i++)
+            {
+                var c = stripped[i];
+                if (escaped) { escaped = false; continue; }
+                if (c == '\\') { escaped = true; continue; }
+                if (c == '"') { inString = !inString; continue; }
+                if (inString) continue;
+                if (c == '[') depth++;
+                if (c == ']')
+                {
+                    depth--;
+                    if (depth == 0)
+                    {
+                        var balanced = stripped.Substring(arrayStart, i - arrayStart + 1);
+                        try
+                        {
+                            var parsed2 = JArray.Parse(balanced);
+                            return parsed2.Count > 0 ? parsed2 : null;
+                        }
+                        catch { return null; }
+                    }
+                }
+            }
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// PHASE 35-E FIX 36: Convert a Newtonsoft JArray to a native List&lt;object&gt;
+    /// of Dictionary/string/primitive types suitable for session variable storage.
+    /// </summary>
+    private static List<object> JArrayToNativeList(JArray jArr)
+    {
+        var list = new List<object>();
+        foreach (var item in jArr)
+        {
+            if (item is JObject jObj)
+            {
+                var dict = new Dictionary<string, object>();
+                foreach (var prop in jObj.Properties())
+                {
+                    dict[prop.Name] = prop.Value.Type switch
+                    {
+                        JTokenType.String => prop.Value.Value<string>()!,
+                        JTokenType.Integer => (object)prop.Value.Value<long>(),
+                        JTokenType.Float => (object)prop.Value.Value<double>(),
+                        JTokenType.Boolean => (object)prop.Value.Value<bool>(),
+                        JTokenType.Array => prop.Value.ToString(),
+                        JTokenType.Object => prop.Value.ToString(),
+                        _ => prop.Value.ToString()
+                    };
+                }
+                list.Add(dict);
+            }
+            else if (item.Type == JTokenType.String)
+            {
+                list.Add(item.Value<string>()!);
+            }
+            else
+            {
+                list.Add(item.ToString());
+            }
+        }
+        return list;
     }
 }

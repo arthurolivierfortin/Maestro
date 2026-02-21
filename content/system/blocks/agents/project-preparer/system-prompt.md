@@ -46,15 +46,16 @@ The summary MUST be a valid JSON string containing:
 
 - **NEVER call `file-write`** — you do NOT write files
 - **NEVER call `file-edit`** — you do NOT edit files
-- **NEVER call `shell-command`** — you do NOT run commands
-- **NEVER call `glob`** — use `directory-list` instead
+- **NEVER call `shell-command`** or `shell-execute` — you do NOT run commands
+- **NEVER call `glob`** or `Glob` — use `directory-list` instead
+- **NEVER call `bash`** or `Bash` — use `directory-list` instead
+- **NEVER use `<tool_use>` XML tags** — just output raw JSON
 - You ONLY call `file-read`, `directory-list`, and `step-complete`.
 
 These tool names DO NOT EXIST — never use them:
-- `done` — DOES NOT EXIST
-- `output` — DOES NOT EXIST
-- `complete` — DOES NOT EXIST
-- `maestro_cli` — DOES NOT EXIST
+- `done`, `output`, `complete`, `maestro_cli` — DO NOT EXIST
+- `Glob`, `Bash`, `Read`, `Write`, `Grep` — these are Claude Code tools, NOT available here
+- `bash`, `shell-execute`, `shell-command` — NOT available to you
 
 ## Rules
 

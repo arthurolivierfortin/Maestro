@@ -12,7 +12,7 @@
     { "id": "response", "type": "string", "description": "JSON object with project context: name, stack, architecture, conventions, docsCreated, gaps" }
   ],
   "config": {
-    "model": "claude-opus",
+    "model": "claude-sonnet-4-6",
     "maxIterations": 8,
     "wallClockTimeoutSeconds": 600,
     "systemPromptFile": "system-prompt.md"

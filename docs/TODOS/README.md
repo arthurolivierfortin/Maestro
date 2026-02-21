@@ -1,16 +1,17 @@
-# TODOS — Features et analyses
+# TODOS — Features planifiees
 
-Ce dossier contient les specifications de features planifiees et les analyses strategiques pour Maestro.
+Ce dossier contient les specifications de features planifiees pour Maestro.
+Chaque feature a une phase cible assignee (voir l'analyse dans `docs/phases/PHASE-35/ANALYSIS-deep-review-phase35.md`).
 
 ## Features
 
-| Feature | Statut | Priorite | Description |
-|---------|--------|----------|-------------|
-| [Documentation attachee](./FEATURE-attached-docs.md) | Planifie | Haute | Systeme de documentation attachee aux blocks, sessions et index global |
-| [Sandbox foundry](./FEATURE-sandbox-foundry.md) | Planifie | Haute | Conteneurs sandbox avec checkpoints pour le test reproductible d'agents en foundry |
+| Feature | Phase cible | Statut | Description |
+|---------|-------------|--------|-------------|
+| [Documentation attachee](./FEATURE-attached-docs.md) | 36-D | Planifie | Systeme de documentation attachee aux blocks, sessions et index global |
+| [Sandbox foundry](./FEATURE-sandbox-foundry.md) | 38 | Planifie | Conteneurs sandbox avec checkpoints pour le test reproductible d'agents en foundry |
 
 ## Analyses
 
-| Document | Date | Description |
-|----------|------|-------------|
-| [Analyse Phase 35](./ANALYSIS-deep-review-phase35.md) | 2026-02-21 | Etat du projet, roadmap vs realite, vision "apps Maestro", sequencement Jarvis/vocal |
+| Document | Date | Lieu |
+|----------|------|------|
+| [Analyse Phase 35](../phases/PHASE-35/ANALYSIS-deep-review-phase35.md) | 2026-02-21 | Etat du projet, refonte du roadmap (35→41), vision "apps Maestro", placement des features |

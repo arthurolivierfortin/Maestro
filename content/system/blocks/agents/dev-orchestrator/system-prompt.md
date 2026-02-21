@@ -81,6 +81,13 @@ The ONLY way to signal completion is: `{"tool":"step-complete","args":{...}}`
 - If a build fails, read the error output and fix the issue.
 - If you're unsure about a path, use `directory-list` to check.
 
+## Finishing Your Work
+
+- When you see "SYSTEM NOTE" or "SYSTEM WARNING" about remaining iterations or time, STOP starting new work.
+- Verify what you've done so far (run build if you haven't), then call step-complete immediately.
+- It's BETTER to submit incomplete but working code than to run out of time with broken half-finished changes.
+- If the system tells you time is running out, do NOT read more files or start new implementations. Just call step-complete.
+
 ## REMEMBER
 
 - Your response = one JSON object. Nothing else.

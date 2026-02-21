@@ -53,16 +53,15 @@
 
 ## Sous-phases
 
-| Phase | Titre | Description |
-|-------|-------|-------------|
-| 35-PRE | Agent composite + tool dispatch | COMPLETE |
-| 35-A | Maestro code sans template | Essayer `maestro code --headless` sans template, corriger ce qui bloque |
-| 35-B | Premier cycle : scaffold Cantante | Invoquer l'agent via maestro code pour scaffolder React+Vite+Electron |
-| 35-C | Amelioration iteration 1 | Analyser echecs 35-B, ameliorer agent ET tooling, re-tester |
-| 35-D | Deuxieme cycle : Monaco editor | Invoquer l'agent pour ajouter l'editeur |
-| 35-E | Amelioration iteration 2 | Analyser echecs 35-D, ameliorer, re-tester |
-| 35-F | Cycles suivants | File tree, accessibility, etc. — autant de cycles que possible |
-| 35-G | Bilan | Metriques globales, documentation, fitness report |
+| Phase | Titre | Statut |
+|-------|-------|--------|
+| 35-PRE | Agent composite + tool dispatch | DONE |
+| 35-A | Pipeline setup + DI fixes (template none, dispatch, deadlock) | DONE |
+| 35-B | Scaffold Cantante + corrections agent (nudge, countdown, multi-tool) | DONE |
+| 35-C | Iterations amelioration (tab, search, theme, terminal, line numbers) + 13 infra fixes | DONE |
+| 35-D | For-each pipeline + JsonElement fix (JToken.Parse, JObject unwrap) | DONE |
+| 35-E | Stabilisation (14 fixes, 7 sessions, 100% post-fix 36-38 — prose retry debloque) | EN COURS |
+| 35-F | Bilan et documentation | A faire |
 
 ---
 
@@ -222,51 +221,39 @@ powershell.exe -Command "cd C:\Meastro\apps\backend; dotnet build"
 
 ---
 
-## 35-D : Deuxieme cycle — Monaco Editor
+## 35-E : Stabilisation finale
 
 ### Lecture obligatoire
-- `docs/phases/PHASE-35/checkpoint.md` — etat Cantante apres scaffold
-- `C:\Cantante\package.json` — dependances actuelles
+- `docs/phases/PHASE-35/checkpoint.md` — metriques actuelles
+- `docs/phases/PHASE-35/CHANGELOG.md` — 29 bugs corriges
+- `docs/phases/PHASE-35/ANALYSIS-deep-review-phase35.md` — analyse approfondie
 
 ### Ce que cette sous-phase fait
 
-Invoquer maestro code pour ajouter Monaco Editor :
-```
-maestro code --headless --task "Add Monaco Editor to this React+Electron app. Install @monaco-editor/react, create an Editor component that renders a code editor with TypeScript syntax highlighting, and integrate it into App.tsx as the main content area." --repo C:\Cantante
-```
+1. **Taux de succes > 75%** : identifier les patterns d'echec restants, corriger
+2. **Tests automatises** : creer des tests pour le pipeline agent (pas juste manuels)
+3. **Degradation multi-tiers** (34-F jamais fait) : Sonnet pour le code-reviewer au lieu d'Opus sur les taches simples
+4. **Cout par task simple < $0.10** : optimiser les iterations gaspillees
+5. **Cantante v0.1** : atteindre 30+ composants fonctionnels avec build OK
+
+### Anti-patterns
+- Ne PAS ajouter de features a Cantante — stabiliser ce qui existe
+- Ne PAS optimiser prematurement le cout — d'abord le taux de succes
+- Ne PAS declarer "stable" sans metriques de confirmation
 
 ### Checkpoint
 ```markdown
-## 35-D : Monaco Editor
+## 35-E : Stabilisation
 **Statut** : DONE / BLOQUE
-**Commande** : [commande exacte]
-**Tokens** : [total]
-**Cout** : $[montant]
-**Fichiers** : [liste]
-**Monaco fonctionne** : OUI / NON
-**Problemes** : [liste]
+**Taux de succes** : [X]% (avant: 59%)
+**Cout moyen task simple** : $[X] (avant: $0.13)
+**Tests agent ajoutes** : [nombre]
+**Cantante composants** : [nombre]
 ```
 
 ---
 
-## 35-E : Amelioration iteration 2
-
-Meme structure que 35-C : diagnostic → corrections agent + tooling → re-test → mesure.
-
----
-
-## 35-F : Cycles suivants
-
-Repeter le pattern (tache → diagnostic → amelioration) pour :
-- File tree sidebar avec navigation clavier
-- Accessibility (ARIA labels, screen reader support)
-- Autres features selon l'avancement
-
-Chaque cycle documente dans le checkpoint avec metriques.
-
----
-
-## 35-G : Bilan et Documentation
+## 35-F : Bilan et Documentation
 
 ### Ce que cette sous-phase fait
 1. Compiler toutes les metriques de la phase
@@ -277,11 +264,10 @@ Chaque cycle documente dans le checkpoint avec metriques.
 
 ### Checkpoint
 ```markdown
-## 35-G : Bilan
+## 35-F : Bilan
 **Cycles completes** : [nombre]
 **Taches reussies** : [N/M] ([X]%)
 **Cout total** : $[montant]
-**Tokens total** : [nombre]
 **Ameliorations agent** : [nombre + description]
 **Ameliorations tooling** : [nombre + description]
 **Etat Cantante** : [description avec liste de features]

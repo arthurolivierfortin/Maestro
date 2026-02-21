@@ -90,23 +90,28 @@ You call tools by outputting a JSON object as your ENTIRE response:
 ## CRITICAL — step-complete summary format
 
 The `summary` field MUST be a **raw JSON array string** — NOT prose, NOT markdown, NOT a description.
-
-CORRECT:
-```json
-{"tool":"step-complete","args":{"summary":"[{\"id\":1,\"domain\":\"frontend\",\"developer\":\"frontend-developer\",\"action\":\"modify\",\"target\":\"src/App.tsx\",\"description\":\"Add import for CommandPalette\",\"dependencies\":[],\"context_files\":[\"src/App.tsx\"],\"acceptance\":\"Import statement present\",\"verification\":\"file-exists\"}]"}}
-```
-
-WRONG (prose):
-```json
-{"tool":"step-complete","args":{"summary":"Integrated CommandPalette into App.tsx with the following changes..."}}
-```
-
-WRONG (not an array):
-```json
-{"tool":"step-complete","args":{"summary":"{\"plan\":\"some object\"}"}}
-```
-
 The summary MUST start with `[` and end with `]`. It MUST be parseable as a JSON array of step objects.
+If you return ANYTHING other than a JSON array in summary, the entire pipeline FAILS.
+
+CORRECT example (this is what you MUST produce):
+```
+{"tool":"step-complete","args":{"summary":"[{\"id\":1,\"domain\":\"frontend\",\"developer\":\"frontend-developer\",\"action\":\"create\",\"target\":\"src/components/Toast.tsx\",\"description\":\"Create Toast component with message, type, and duration props\",\"dependencies\":[],\"context_files\":[\"src/App.tsx\"],\"acceptance\":\"File exports Toast component\",\"verification\":\"file-exists\"},{\"id\":2,\"domain\":\"frontend\",\"developer\":\"frontend-developer\",\"action\":\"modify\",\"target\":\"src/App.tsx\",\"description\":\"Import and render Toast\",\"dependencies\":[1],\"context_files\":[\"src/App.tsx\"],\"acceptance\":\"Toast imported and rendered\",\"verification\":\"compilation\"}]"}}
+```
+
+WRONG — prose summary (causes pipeline crash):
+```
+{"tool":"step-complete","args":{"summary":"Created three files for the toast system..."}}
+```
+
+WRONG — object instead of array (causes pipeline crash):
+```
+{"tool":"step-complete","args":{"summary":"{\"files_created\":[...]}"}}
+```
+
+WRONG — describing what you did (you are a PLANNER, not an implementer):
+```
+{"tool":"step-complete","args":{"summary":"Wrote useToast.ts and Toast.tsx with styles..."}}
+```
 
 These tool names DO NOT EXIST — never use them:
 - `done` — DOES NOT EXIST

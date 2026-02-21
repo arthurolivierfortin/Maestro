@@ -1,6 +1,6 @@
 # Maestro — Roadmap
 
-**Derniere mise a jour** : 2026-02-20
+**Derniere mise a jour** : 2026-02-21
 **Version actuelle** : v0.1.0-alpha (tag sur main)
 
 ---
@@ -43,98 +43,147 @@
 
 ---
 
-### Phase 34 : Agent Maestro v4 — Dev Fullstack Exceptionnel + Degradation Multi-Tiers
-
-**But** : Construire un agent fullstack autonome compose de specialistes (verification visuelle, interaction intelligente, memoire persistante) qui depasse considerablement Claude Code, puis le degrader progressivement en tiers mesures.
-
-| Sous-phase | Objectif | Effort |
-|------------|----------|--------|
-| 34-A | Design Spec — AGENT-V4-SPEC.md (conception complete de chaque bloc) | 1-2 jours |
-| 34-B | Infrastructure — Tool blocks (Playwright, web-search) + State Manager + Checkpointing | 3-5 jours |
-| 34-C | Agents specialistes + Workflow orchestrateur v4 (~19 blocs) | 5-8 jours |
-| 34-D | Interaction Handler + Widget Protocol (feature differenciante) | 5-8 jours |
-| 34-E-PRE | Extraction Conversation + Context comme entites (fondation pour 34-E) | 1 jour |
-| 34-E | Integration + Fixes messages structures + --resume + Fitness Tier 1 | 3-5 jours |
-| 34-F | Degradation progressive — Tiers 2+ (par paliers de ~5%) | 5-10 jours |
-
-**Docs** : `docs/phases/PHASE-34/README.md`
-
----
-
 ### Phase 35 : Dogfooding — Maestro autonome sur Cantante
 
-**But** : Prouver que le pipeline Maestro fonctionne de bout en bout en utilisant le dev-orchestrator pour developper Cantante via `maestro code`. Ameliorer l'agent et le tooling de maniere iterative basee sur l'usage reel.
+**But** : Prouver que le pipeline Maestro fonctionne de bout en bout en utilisant `maestro code` pour developper Cantante. Ameliorer l'agent ET le tooling de maniere iterative basee sur l'usage reel.
 
-| Sous-phase | Objectif | Effort |
+| Sous-phase | Objectif | Statut |
 |------------|----------|--------|
-| 35-PRE | Agent composite, tool dispatch JSON, dev-orchestrator | COMPLETE |
-| 35-A | Pipeline setup — workspace Cantante + session + validation | 1 jour |
-| 35-B | Scaffold — React + Vite + Electron via agent | 1-2 jours |
-| 35-C | Editor — Monaco integration via agent | 1-2 jours |
-| 35-D | Agent improvement — analyse des echecs, amelioration prompts | 2-3 jours |
-| 35-E | File tree + navigation via agent ameliore | 1-2 jours |
-| 35-F | CLI/widget improvements bases sur les gaps | 2-3 jours |
-| 35-G | Bilan — metriques, documentation, fitness report | 1 jour |
+| 35-PRE | Agent composite + tool dispatch + dev-orchestrator | DONE |
+| 35-A | Pipeline setup + DI fixes | DONE |
+| 35-B | Scaffold Cantante + corrections agent (nudge, countdown, multi-tool) | DONE |
+| 35-C | Iterations amelioration (tab, search, theme, terminal) + 13 infra fixes | DONE |
+| 35-D | For-each pipeline + JsonElement fix (JToken.Parse, JObject unwrap) | DONE |
+| 35-E | Stabilisation (14 fixes, 7 sessions, 57% → 100% post-fix 36-38) | EN COURS |
+| 35-F | Bilan dogfooding (metriques, documentation, fitness report) | A faire |
+
+**Metriques actuelles** : 34 sessions, 38 bugs corriges, ~$4.85, prose retry fix debloque le pipeline.
 
 **Docs** : `docs/phases/PHASE-35/README.md`
 
 ---
 
-### Phase 36 : Contexte et Conversation comme Blocs
+### Phase 36 : Contexte, Memoire et Documentation
 
-**But** : Formaliser la conversation, le contexte et la memoire comme des blocs first-class, observables et composables. Fondation pour l'optimisation de contexte et le TUI panel.
+**But** : Formaliser la conversation, le contexte et la memoire comme des blocs first-class, et implementer la documentation attachee aux entites Maestro.
 
 | Sous-phase | Objectif | Effort |
 |------------|----------|--------|
-| 36-A | Conversation Block — extraction de AgentBlockExecutor | 3-5 jours |
-| 36-B | Context Block — formalisation du context assembler | 2-3 jours |
-| 36-C | Memory Block — connaissances persistantes | 5-8 jours |
-| 36-D | TUI Context Panel — observabilite en temps reel | 3-5 jours |
-| 36-E | Orchestration avancee — selection de contexte par l'orchestrateur | 5-8 jours |
+| 36-A | Conversation Block — formalisation depuis IConversationManager | 3-5 jours |
+| 36-B | Context Block — formalisation depuis IContextAssembler | 2-3 jours |
+| 36-C | Memory Block — connaissances persistantes inter-session | 5-8 jours |
+| 36-D | Documentation attachee — companion files, RESEARCH.md auto, index global | 5-8 jours |
+| 36-E | TUI Context Panel — observabilite en temps reel | 3-5 jours |
 
 **Docs** : `docs/phases/PHASE-36/README.md`
 
 ---
 
-### Phase 37 : `maestro adapt` + `maestro optimize`
+### Phase 37 : Maestro Runtime & SDK
 
-**But** : Automatiser l'adaptation aux modeles de l'utilisateur.
+**But** : Permettre aux applications tierces d'embarquer Maestro comme runtime. Ajouter le mode vocal a maestro code et creer l'agent Jarvis generique.
 
 | Sous-phase | Objectif | Effort |
 |------------|----------|--------|
-| 37-A | `maestro adapt` (adaptation automatique) | 1-2 semaines |
-| 37-B | `maestro optimize` (strategies pluggables) | 1-2 semaines |
+| 37-A | SDK client npm (@maestro/client) | 1 semaine |
+| 37-B | Mode sidecar (@maestro/sidecar) | 1 semaine |
+| 37-C | Blocks audio (STT + TTS) | 3-5 jours |
+| 37-D | Mode vocal dans maestro code (toggle a chaud, Ctrl+V) | 3-5 jours |
+| 37-E | Agent Jarvis — template generique de router d'intentions | 3-5 jours |
 
 **Docs** : `docs/phases/PHASE-37/README.md`
 
 ---
 
-### Phase 38 : Premiere version distribuable
+### Phase 38 : Sandbox Foundry — Tests reproductibles
 
-**But** : Maestro installable et utilisable par quelqu'un d'autre.
+**But** : Tester des agents dans des environnements reproductibles avec checkpoints nommes. Automatiser le batch testing pour mesurer la fitness.
 
 | Sous-phase | Objectif | Effort |
 |------------|----------|--------|
-| 38-A | Packaging et installation | 1 semaine |
-| 38-B | Onboarding premier lancement | 3-5 jours |
-| 38-C | Documentation utilisateur | 3-5 jours |
-| 38-D | Beta testing (3-5 testeurs) | 2 semaines |
+| 38-A | Sandbox images — entites, ISandboxManager, git worktrees (V1) | 1 semaine |
+| 38-B | Integration foundry sessions — lancer avec sandbox + checkpoint | 1 semaine |
+| 38-C | Batch testing — tous les checkpoints, rapport fitness | 1 semaine |
+| 38-D | Docker sandbox (V2) — isolation complete, types non-git | 1-2 semaines |
 
 **Docs** : `docs/phases/PHASE-38/README.md`
 
 ---
 
-### Phase 39+ : Futur
+### Phase 39 : `maestro adapt` + `maestro optimize`
 
-- 39 : Catalogue communautaire
-- 40 : Auth et subscriptions
-- 41 : Evaluateur cloud
-- 42 : Agent Creator (meta-programmation)
-- 43+ : Multi-domaine
+**But** : Automatiser l'adaptation des workflows aux modeles de l'utilisateur et l'optimisation des tiers.
+
+| Sous-phase | Objectif | Effort |
+|------------|----------|--------|
+| 39-A | `maestro adapt` — adaptation automatique | 1-2 semaines |
+| 39-B | `maestro optimize` — strategies pluggables d'optimisation | 1-2 semaines |
 
 **Docs** : `docs/phases/PHASE-39/README.md`
 
 ---
+
+### Phase 40 : Premiere version distribuable
+
+**But** : Maestro installable et utilisable par quelqu'un d'autre, incluant le SDK pour apps.
+
+| Sous-phase | Objectif | Effort |
+|------------|----------|--------|
+| 40-A | Packaging et installation (npm global + SDK) | 1 semaine |
+| 40-B | Onboarding premier lancement | 3-5 jours |
+| 40-C | Documentation utilisateur (+ guide "Building Maestro Apps") | 3-5 jours |
+| 40-D | Beta testing (3-5 testeurs) | 2 semaines |
+
+**Docs** : `docs/phases/PHASE-40/README.md`
+
+---
+
+### Phase 41 : Cantante v1 — Premiere app propulsee par Maestro
+
+**But** : Faire de Cantante la premiere application publique qui tourne SUR Maestro, avec navigation vocale et assistance IA embarquee.
+
+| Sous-phase | Objectif | Effort |
+|------------|----------|--------|
+| 41-A | Integration @maestro/client + @maestro/sidecar dans Cantante | 1 semaine |
+| 41-B | Agent Jarvis specialise Cantante (7+ intents vocaux) | 1-2 semaines |
+| 41-C | Case study public (metriques, tutorial, template) | 3-5 jours |
+
+**Docs** : `docs/phases/PHASE-41/README.md`
+
+---
+
+### Phase 42+ : Futur
+
+- 42 : Catalogue communautaire (publier/importer blocks + docs + sandboxes)
+- 43 : Auth et subscriptions
+- 44 : Evaluateur cloud
+- 45 : Agent Creator (meta-programmation)
+- 46+ : Multi-domaine
+
+---
+
+## Chaine de dependances
+
+```
+35 Dogfooding (stabiliser l'agent)
+ └→ 36 Context/Memory/Docs (fondations pour Jarvis + encyclopedie)
+     └→ 37 Runtime & SDK (embarquer Maestro dans des apps + vocal)
+         └→ 38 Sandbox Foundry (tests reproductibles)
+             └→ 39 adapt + optimize (utilise les sandboxes pour la fitness)
+                 └→ 40 Distribution (empaquetter tout)
+                     └→ 41 Cantante v1 (premiere app Maestro publique)
+                         └→ 42+ Communaute, cloud, meta-programmation
+```
+
+## Features planifiees (TODOS)
+
+| Feature | Phase cible | Document |
+|---------|-------------|----------|
+| Documentation attachee | 36-D | `docs/TODOS/FEATURE-attached-docs.md` |
+| Sandbox foundry | 38 | `docs/TODOS/FEATURE-sandbox-foundry.md` |
+| Maestro Runtime & SDK | 37 | `docs/phases/PHASE-37/README.md` |
+| Mode vocal (toggle) | 37-D | `docs/phases/PHASE-37/README.md` |
+| Agent Jarvis | 37-E + 41-B | Generique en 37, specialise Cantante en 41 |
 
 ## Principes
 
@@ -142,3 +191,4 @@
 2. **Usage reel avant features** — Tester sur Cantante avant d'ajouter des commandes
 3. **Pas de phase "complete" sans test** — Un commit sur main ne suffit pas
 4. **Committer directement sur main** — Pas de PRs pour un dev solo, tags pour les milestones
+5. **Chaque phase construit sur la precedente** — Pas de trou dans les dependances

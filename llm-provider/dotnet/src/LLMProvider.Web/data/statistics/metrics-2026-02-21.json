@@ -1,72 +1,72 @@
 {
-  "totalRequests": 55,
+  "totalRequests": 199,
   "latency": {
-    "p50": 0,
-    "p95": 0,
-    "p99": 0,
-    "average": 0
+    "p50": 8872,
+    "p95": 49832.199999999924,
+    "p99": 91828.83999999995,
+    "average": 16506.866666666665
   },
   "totalTokens": {
-    "promptTokens": 175,
-    "completionTokens": 41252,
-    "totalTokens": 41427
+    "promptTokens": 679,
+    "completionTokens": 95224,
+    "totalTokens": 95903
   },
   "modelStats": [
     {
       "modelId": {
         "value": "haiku"
       },
-      "requestCount": 4,
+      "requestCount": 14,
       "latency": {
-        "p50": 19492,
-        "p95": 24353.05,
-        "p99": 24851.41,
-        "average": 19751
+        "p50": 19100.5,
+        "p95": 26392.15,
+        "p99": 27145.63,
+        "average": 19021.928571428572
       },
       "totalTokens": {
-        "promptTokens": 40,
-        "completionTokens": 5853,
-        "totalTokens": 5893
+        "promptTokens": 140,
+        "completionTokens": 19899,
+        "totalTokens": 20039
       },
-      "requestsPerMinute": 0.4472431777899294,
+      "requestsPerMinute": 0.23917736235043868,
       "errorRate": 0
     },
     {
       "modelId": {
         "value": "opus"
       },
-      "requestCount": 4,
+      "requestCount": 19,
       "latency": {
-        "p50": 30400,
-        "p95": 65911.65,
-        "p99": 68137.52999999998,
-        "average": 34753
+        "p50": 9366,
+        "p95": 22386.29999999999,
+        "p99": 26341.260000000002,
+        "average": 11058.157894736842
       },
       "totalTokens": {
-        "promptTokens": 12,
-        "completionTokens": 8226,
-        "totalTokens": 8238
+        "promptTokens": 57,
+        "completionTokens": 2856,
+        "totalTokens": 2913
       },
-      "requestsPerMinute": 0.24467234274687638,
+      "requestsPerMinute": 1.2794140855947218,
       "errorRate": 0
     },
     {
       "modelId": {
         "value": "sonnet"
       },
-      "requestCount": 47,
+      "requestCount": 166,
       "latency": {
-        "p50": 10260,
-        "p95": 38408.699999999975,
-        "p99": 59227.11999999998,
-        "average": 15893.148936170213
+        "p50": 8619.5,
+        "p95": 51797.5,
+        "p99": 132928.9999999999,
+        "average": 16033.638554216868
       },
       "totalTokens": {
-        "promptTokens": 123,
-        "completionTokens": 27173,
-        "totalTokens": 27296
+        "promptTokens": 482,
+        "completionTokens": 72469,
+        "totalTokens": 72951
       },
-      "requestsPerMinute": 3.410755680713883,
+      "requestsPerMinute": 2.5262306233030514,
       "errorRate": 0
     }
   ],
@@ -96,7 +96,7 @@
         "p99": 0,
         "average": 0
       },
-      "tokensTotal": 41427
+      "tokensTotal": 95903
     },
     {
       "windowName": "5m",
@@ -109,21 +109,21 @@
         "p99": 0,
         "average": 0
       },
-      "tokensTotal": 41427
+      "tokensTotal": 95903
     },
     {
       "windowName": "15m",
       "windowSeconds": 900,
-      "requestCount": 0,
-      "requestsPerMinute": 0,
+      "requestCount": 15,
+      "requestsPerMinute": 1,
       "latency": {
-        "p50": 0,
-        "p95": 0,
-        "p99": 0,
-        "average": 0
+        "p50": 8872,
+        "p95": 49832.199999999924,
+        "p99": 91828.83999999995,
+        "average": 16506.866666666665
       },
-      "tokensTotal": 41427
+      "tokensTotal": 95903
     }
   ],
-  "generatedAt": "2026-02-21T20:28:24.9471716+00:00"
+  "generatedAt": "2026-02-21T22:40:15.6909125+00:00"
 }

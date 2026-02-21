@@ -127,6 +127,8 @@ public class AgentBlockExecutor : IBlockExecutor
         using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(wallClockTimeoutSeconds));
         using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(ct, timeoutCts.Token);
         var agentCt = linkedCts.Token;
+        var wallClockStopwatch = Stopwatch.StartNew();
+        var timeoutWarningIssued = false; // Track if we already warned about approaching timeout
 
         // INFRA-3: Loop detection — track recent tool calls to detect repetition
         var recentToolCalls = new List<string>(); // last N tool call signatures
@@ -136,6 +138,7 @@ public class AgentBlockExecutor : IBlockExecutor
         var iteration = 0;
         var actualToolCallCount = 0; // A-2 done guard: track real tool executions
         var nonJsonRetryCount = 0;   // A-2 non-JSON retry counter
+        var proseRetryDone = false;  // FIX 38: one-time prose summary retry
         LLMResponse? lastResponse = null;
 
         // Token accumulators across all LLM calls in the agentic loop
@@ -198,12 +201,16 @@ public class AgentBlockExecutor : IBlockExecutor
                 // + recent messages, giving the agent enough to continue.
                 if (contextConfig.KeepLastN > 4)
                 {
-                    var reducedKeepN = Math.Max(4, contextConfig.KeepLastN / 2);
-                    result.Logs.Add($"Reducing context window from {contextConfig.KeepLastN} to {reducedKeepN} messages and retrying...");
+                    // Gradual reduction: keep 75% of messages instead of halving.
+                    // Halving (/2) was too aggressive — the agent lost critical context
+                    // about which files were read and what changes were made.
+                    var reducedKeepN = Math.Max(4, (int)(contextConfig.KeepLastN * 0.75));
+                    var reducedMaxTokens = Math.Max(2048, (int)(contextConfig.MaxTokens * 0.75));
+                    result.Logs.Add($"Reducing context window from {contextConfig.KeepLastN} to {reducedKeepN} messages, maxTokens {contextConfig.MaxTokens} to {reducedMaxTokens}, and retrying...");
                     contextConfig = new ContextConfig
                     {
                         Strategy = contextConfig.Strategy,
-                        MaxTokens = contextConfig.MaxTokens / 2,
+                        MaxTokens = reducedMaxTokens,
                         ReserveForResponse = contextConfig.ReserveForResponse,
                         KeepSystemPrompt = true,
                         KeepLastN = reducedKeepN,
@@ -320,6 +327,34 @@ public class AgentBlockExecutor : IBlockExecutor
                                 result.Logs.Add("Agent called 'step-complete' with 0 tool calls (planning/analysis mode).");
                             }
 
+                            // PHASE 35-E FIX 38: Prose summary retry.
+                            // If the summary looks like prose (doesn't start with [ or {) and the agent
+                            // hasn't done much work (planning mode), give it ONE chance to reformulate.
+                            // This catches the task-planner prose output problem without adding cost
+                            // to agents that legitimately return prose after doing tool work.
+                            var summaryText = args.ValueKind == JsonValueKind.Object && args.TryGetProperty("summary", out var sumCheck)
+                                ? sumCheck.GetString() ?? "" : "";
+                            var summaryTrimmed = summaryText.Trim();
+                            if (!proseRetryDone
+                                && summaryTrimmed.Length > 50
+                                && !summaryTrimmed.StartsWith("[")
+                                && !summaryTrimmed.StartsWith("{")
+                                && actualToolCallCount <= 2)
+                            {
+                                proseRetryDone = true;
+                                result.Logs.Add("Prose summary detected in step-complete. Asking agent to reformulate as JSON.");
+                                _conversationManager.AddMessage(conversationId, "assistant", jsonContent);
+                                _conversationManager.AddMessage(conversationId, "user",
+                                    "SYSTEM ERROR: Your step-complete summary contains prose text, but it MUST be a raw JSON array. " +
+                                    "The summary field must start with '[' and end with ']'. It must be a valid JSON array of objects. " +
+                                    "Prose summaries cause the downstream pipeline to CRASH. " +
+                                    "Call step-complete again with the summary as a JSON array string. " +
+                                    "Example: {\"tool\":\"step-complete\",\"args\":{\"summary\":\"[{\\\"id\\\":1,\\\"action\\\":\\\"create\\\",...}]\"}}");
+                                toolCalled = true;
+                                nonJsonRetryCount = 0;
+                                continue;
+                            }
+
                             // Store full args as structured output (supports arbitrary properties)
                             var resultOutput = args.ValueKind == JsonValueKind.Object
                                 ? args.ToString()
@@ -426,15 +461,32 @@ public class AgentBlockExecutor : IBlockExecutor
                 break;
             }
 
-            // Iteration countdown nudge: when approaching max iterations, remind the agent
-            var remaining = maxIterations - iteration;
-            if (remaining <= 3 && remaining > 0)
+            // Wall-clock timeout countdown nudge: warn agent when 75% of time is used
+            var elapsedSeconds = wallClockStopwatch.Elapsed.TotalSeconds;
+            var timeoutThreshold = wallClockTimeoutSeconds * 0.75;
+            if (!timeoutWarningIssued && elapsedSeconds >= timeoutThreshold)
             {
+                var remainingSeconds = (int)(wallClockTimeoutSeconds - elapsedSeconds);
+                result.Logs.Add($"Wall-clock timeout warning: {remainingSeconds}s remaining.");
+                _conversationManager.AddMessage(conversationId, "user",
+                    $"SYSTEM WARNING: Wall-clock timeout approaching. You have ~{remainingSeconds} seconds remaining. " +
+                    "Finish your current work and call step-complete with a summary. " +
+                    "Do not start new tasks — the session will be terminated when time runs out.");
+                timeoutWarningIssued = true;
+            }
+
+            // Iteration countdown nudge: when approaching max iterations, remind the agent.
+            // Start early (<=5) so the agent has time to wrap up — at <=3 it's often too late.
+            var remaining = maxIterations - iteration;
+            if (remaining <= 5 && remaining > 0)
+            {
+                var urgency = remaining <= 2 ? "URGENT" : "NOTE";
                 result.Logs.Add($"Iteration countdown: {remaining} iterations remaining.");
                 _conversationManager.AddMessage(conversationId, "user",
-                    $"SYSTEM NOTE: You have {remaining} iteration(s) remaining. " +
-                    "Wrap up your work and call step-complete with a summary of what was accomplished. " +
-                    "Do not start new tasks — finish what you have.");
+                    $"SYSTEM {urgency}: You have {remaining} iteration(s) remaining. " +
+                    (remaining <= 2
+                        ? "You MUST call step-complete NOW with a summary of everything accomplished so far. Do NOT start any new work."
+                        : "Start wrapping up your work. Finish current changes, verify them, and call step-complete. Do not start new tasks."));
             }
 
             if (iteration >= maxIterations)
@@ -905,11 +957,12 @@ public class AgentBlockExecutor : IBlockExecutor
     {
         return toolId switch
         {
-            "bash" or "run" or "exec" or "execute" or "cmd" => "shell-execute",
-            "read-file" or "readFile" or "Read" or "read" => "file-read",
+            "bash" or "Bash" or "run" or "exec" or "execute" or "cmd" => "shell-execute",
+            "read-file" or "readFile" or "Read" or "read" or "cat" => "file-read",
             "write-file" or "writeFile" or "Write" or "write" => "file-write",
-            "list-directory" or "listDirectory" or "ls" or "list-dir" => "directory-list",
+            "list-directory" or "listDirectory" or "ls" or "list-dir" or "Glob" or "glob" or "find" => "directory-list",
             "edit-file" or "editFile" or "edit" or "Edit" => "file-edit",
+            "Grep" or "grep" or "search" or "Search" => "directory-list", // best approximation
             _ => toolId
         };
     }

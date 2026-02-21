@@ -229,7 +229,7 @@ Utilisateur (entend la reponse)
 
 ---
 
-## 5. Quand faire quoi ? Proposition de resequencement
+## 5. Refonte des phases — Proposition complete
 
 ### Le probleme avec le roadmap actuel
 
@@ -238,80 +238,189 @@ Le roadmap actuel dit :
 35 Dogfooding → 36 Context/Memory → 37 adapt/optimize → 38 Distribution → 39+ Communaute
 ```
 
-Mais la vision "Maestro-powered apps" + "Jarvis" est une **nouvelle dimension** qui traverse ces phases. Si on attend Phase 42 (Agent Creator) pour ca, on perd 6+ mois de temps ou Cantante aurait pu etre le showcase.
+Trois problemes :
+1. La vision "Maestro-powered apps" + "Jarvis" n'apparait nulle part
+2. Les features planifiees (docs attachees, sandbox foundry) n'ont pas de phase assignee
+3. Les sous-phases 35-C+ ne refletent plus la realite
 
-### Proposition : inserer "Maestro Runtime" entre 36 et 37
+### Roadmap propose (refonte complete)
 
 ```
-35  Dogfooding (en cours — finaliser)
-    └── Objectif : agent autonome fiable a > 75% de succes
-    └── Delivrable : Cantante v0.1 avec 30+ composants
-
-35-POST  Stabilisation agent
-    └── Tests automatises du pipeline agent (pas juste manuels)
-    └── Degradation multi-tiers (le 34-F jamais fait)
-    └── Cout par task < $0.10 pour les taches simples
-
-36  Context/Memory blocks (tel que planifie)
-    └── Necessaire pour Jarvis (memoire conversationnelle)
-    └── Necessaire pour l'agent autonome (contexte inter-session)
-
-NEW — 36-B ou 37-ALT : Maestro Runtime
-    └── 36-B-A : SDK client npm (@maestro/client)
-         Extraire MaestroApiClient en package npm publiable
-         Ajouter des helpers haut niveau : executeBlock(), createSession(), etc.
-    └── 36-B-B : Mode sidecar
-         Script/module qui lance backend + LLM-provider comme process enfants
-         Auto-detection des ports, healthcheck, shutdown propre
-    └── 36-B-C : Blocks audio
-         speech-to-text.tool.block.json (Web Speech API wrapper)
-         text-to-speech.tool.block.json (Web Speech API wrapper)
-         Les deux fonctionnent comme des blocks normaux dans le pipeline
-    └── 36-B-D : Agent Jarvis (template)
-         jarvis.agent.block.json — router d'intentions + dispatch
-         Session template "vocal-assistant"
-         Integration dans maestro shell ou maestro code (commande vocale)
-
-37  maestro adapt + optimize (tel que planifie)
-
-38  Distribution (tel que planifie, mais maintenant INCLUT le SDK)
-    └── npm install -g @maestro/cli
-    └── npm install @maestro/client  ← NOUVEAU
-    └── La doc inclut "Comment construire une app Maestro"
-
-39  Cantante v1 comme showcase
-    └── Cantante utilise @maestro/client pour le vocal
-    └── Cantante est le premier exemple public d'une "app Maestro"
-    └── Publier le case study
+PHASE 35 — Dogfooding & Stabilisation agent (EN COURS)
+├── 35-PRE : Agent composite + tool dispatch                      DONE
+├── 35-A  : Pipeline setup + DI fixes                             DONE
+├── 35-B  : Scaffold Cantante + corrections agent                 DONE
+├── 35-C  : Iterations amelioration (tab, search, theme, etc.)    DONE
+├── 35-D  : For-each pipeline + JsonElement fix                   DONE
+├── 35-E  : Stabilisation finale
+│     ├── Taux de succes agent > 75%
+│     ├── Tests automatises du pipeline agent (pas juste manuels)
+│     ├── Degradation multi-tiers (le 34-F jamais fait)
+│     └── Cout par task simple < $0.10
+└── 35-F  : Bilan dogfooding
+      ├── Metriques finales, documentation
+      └── Cantante v0.1 — 30+ composants, build OK
 ```
 
-### Pourquoi PAS maintenant (pendant 35)
+```
+PHASE 36 — Contexte, Memoire et Documentation
+├── 36-A : Conversation Block
+│     └── Extraction formelle de AgentBlockExecutor
+├── 36-B : Context Block
+│     └── Formalisation du context assembler comme block
+├── 36-C : Memory Block
+│     └── Connaissances persistantes inter-session
+│     └── Prerequis pour Jarvis (memoire conversationnelle)
+├── 36-D : Documentation attachee (FEATURE-attached-docs.md)
+│     ├── metadata.docs dans BlockDefinition
+│     ├── Companion files (README.md, RESEARCH.md, CHANGELOG.md, FITNESS.md)
+│     ├── Auto-generation de RESEARCH.md depuis les foundry sessions
+│     ├── Variable _docs pour sessions
+│     ├── Index global (.maestro/docs/)
+│     └── CLI : maestro docs show/edit/search/index
+└── 36-E : TUI Context Panel
+      └── Observabilite en temps reel du contexte/memoire
+```
 
-La tentation est de commencer le vocal tout de suite dans Cantante. Mais :
+```
+PHASE 37 — Maestro Runtime & SDK
+├── 37-A : SDK client npm (@maestro/client)
+│     ├── Extraction de MaestroApiClient en package npm publiable
+│     ├── Helpers haut niveau : executeBlock(), createSession(), streamExecution()
+│     └── Types TypeScript, documentation API
+├── 37-B : Mode sidecar
+│     ├── Module qui lance backend + LLM-provider comme process enfants
+│     ├── Auto-detection des ports, healthcheck, shutdown propre
+│     └── npm : @maestro/sidecar
+├── 37-C : Blocks audio
+│     ├── speech-to-text.tool.block.json (Web Speech API / Whisper wrapper)
+│     ├── text-to-speech.tool.block.json (Web Speech API / piper-tts wrapper)
+│     └── Fonctionnent comme des blocks normaux dans le pipeline
+├── 37-D : Mode vocal dans maestro code
+│     ├── Toggle voice ON/OFF a chaud (Ctrl+V ou commande)
+│     ├── STT → texte dans le champ input (peripherique d'entree)
+│     ├── TTS optionnel pour les reponses
+│     └── L'agent ne change pas — il recoit du texte comme d'habitude
+└── 37-E : Agent Jarvis (template)
+      ├── jarvis.agent.block.json — router d'intentions generique
+      ├── Session template "vocal-assistant"
+      └── Cantante : premier branchement via @maestro/client
+```
+
+```
+PHASE 38 — Sandbox Foundry & Tests reproductibles
+├── 38-A : Sandbox images (FEATURE-sandbox-foundry.md)
+│     ├── SandboxImage entity, SandboxCheckpoint value object
+│     ├── ISandboxManager interface
+│     ├── GitWorktreeSandboxManager (V1, sans Docker)
+│     └── CLI : maestro sandbox create/list/inspect
+├── 38-B : Integration foundry sessions
+│     ├── maestro session create --sandbox <id> --checkpoint <id>
+│     ├── maestro session reset --checkpoint <id>
+│     └── Volume de sortie (/output/) pour extraire docs/artifacts
+├── 38-C : Batch testing
+│     ├── maestro foundry test --sandbox <id> --all-checkpoints
+│     ├── Rapport de fitness par checkpoint
+│     └── Alimentation automatique du RESEARCH.md (lien Phase 36-D)
+└── 38-D : Docker sandbox (V2)
+      ├── DockerSandboxManager implementation
+      └── Support types non-git (project, data, broken, docs)
+```
+
+```
+PHASE 39 — maestro adapt + maestro optimize
+├── 39-A : maestro adapt
+│     ├── Adaptation automatique aux modeles de l'utilisateur
+│     └── Manifeste dans les blocks publies (models, fitness, substitutes)
+└── 39-B : maestro optimize
+      ├── Strategies pluggables d'optimisation
+      └── Reduction de cout automatique
+```
+
+```
+PHASE 40 — Distribution
+├── 40-A : Packaging et installation
+│     ├── npm install -g @maestro/cli
+│     ├── npm install @maestro/client   ← SDK pour apps
+│     ├── npm install @maestro/sidecar  ← embarquer Maestro
+│     └── Backend .NET comme service installe ou sidecar
+├── 40-B : Onboarding premier lancement
+│     ├── Detection LLM provider (Claude Code, Anthropic, Azure, Local)
+│     ├── Selection modele par defaut
+│     └── maestro code fonctionne en < 10 minutes
+├── 40-C : Documentation utilisateur
+│     ├── Getting Started, User Guide, Block Development
+│     ├── "Comment construire une app Maestro" (tutorial @maestro/client)
+│     └── FAQ + Troubleshooting
+└── 40-D : Beta testing (3-5 testeurs)
+```
+
+```
+PHASE 41 — Cantante v1 (showcase)
+├── 41-A : Integration @maestro/client dans Cantante
+│     ├── Sidecar dans le process Electron
+│     ├── hooks React : useMaestro, useVoiceAgent
+│     └── VoiceControl.tsx (bouton micro, feedback)
+├── 41-B : Agent Jarvis specialise Cantante
+│     ├── System prompt avec intents specifiques (open file, navigate, read, edit)
+│     ├── Foundry session + fitness mesure sur sandbox
+│     └── Publication du block
+└── 41-C : Case study public
+      ├── Documentation du parcours (phases 35 → 41)
+      ├── Metriques : cout, fitness, modeles testes
+      └── "Comment on a construit Cantante avec Maestro"
+```
+
+```
+PHASE 42+ — Futur
+├── 42 : Catalogue communautaire (publier/importer blocks + docs + sandboxes)
+├── 43 : Auth et subscriptions
+├── 44 : Evaluateur cloud
+├── 45 : Agent Creator (meta-programmation)
+└── 46+ : Multi-domaine
+```
+
+### Placement des features TODOS
+
+| Feature | Phase | Justification |
+|---------|-------|---------------|
+| Documentation attachee | **36-D** | Depend de Memory Block (36-C) pour le RESEARCH.md auto-genere. Naturellement place avec les blocks de contexte/memoire — c'est du "savoir attache". |
+| Sandbox foundry | **38** | Depend de la documentation attachee (36-D) pour que le batch testing alimente le RESEARCH.md. Ne bloque pas le SDK/vocal, peut etre fait en parallele ou apres. |
+| Maestro Runtime (SDK + sidecar) | **37** | Prereq pour les apps Maestro. Doit exister avant la distribution (40) et avant Cantante v1 (41). |
+| Mode vocal maestro code | **37-D** | Depend des blocks STT/TTS (37-C). Pas un nouveau mode — un toggle d'input dans maestro code. |
+| Jarvis agent | **37-E** (template) + **41-B** (specialise Cantante) | Le template generique arrive avec le SDK. La specialisation Cantante arrive quand Cantante integre le SDK. |
+
+### Pourquoi cet ordre
+
+```
+36 (Contexte/Memoire/Docs)
+   ↓ prerequis
+37 (SDK/Runtime/Vocal)        ← le SDK a besoin du systeme de docs pour les blocks publies
+   ↓ prerequis                ← le vocal a besoin de la memoire conversationnelle
+38 (Sandbox/Tests)            ← les sandboxes alimentent la doc attachee (36-D)
+   ↓ peut etre parallele
+39 (adapt/optimize)           ← utilise la fitness des sandboxes pour optimiser
+   ↓ prerequis
+40 (Distribution)             ← tout doit etre stable pour distribuer
+   ↓ prerequis
+41 (Cantante showcase)        ← premiere app Maestro complete, preuve de concept publique
+```
+
+Chaque phase construit sur la precedente. Pas de "trou" ou une feature depend de quelque chose qui n'existe pas encore.
+
+### Pourquoi PAS le vocal maintenant (pendant 35)
 
 1. **L'agent autonome a 59% de succes** — pas pret pour etre embarque dans une app utilisateur
-2. **Pas de Context/Memory blocks** (Phase 36) — Jarvis sans memoire conversationnelle est un jouet
+2. **Pas de Memory blocks** (Phase 36-C) — Jarvis sans memoire conversationnelle est un jouet
 3. **Pas de SDK** — Cantante devrait parler HTTP directement au backend, ce qui cree du couplage
 4. **Le dogfooding n'est pas fini** — il reste des bugs a trouver (minimap echoue, taches complexes echouent)
 
-### Pourquoi PAS en Phase 42+ (trop tard)
+### Pourquoi PAS le vocal en Phase 45+ (trop tard)
 
 1. **Cantante perd son sens** — sans le vocal, Cantante est juste un editeur de code de plus
 2. **Maestro perd son differenciateur** — "construisez des apps propulsees par des agents" est le pitch
-3. **On perd le feedback loop** — chaque phase de Cantante revele des bugs Maestro, retarder = moins de cycles d'amelioration
-4. **Les blocks STT/TTS sont simples** — Web Speech API existe deja dans Cantante (`useSpeechSynthesis.ts`). Les blocks sont des wrappers.
-
-### Timing recommande
-
-```
-Maintenant (35-rest)    : Finir le dogfooding, stabiliser l'agent
-Prochain    (36)        : Context/Memory blocks + SDK client npm
-Suivant     (36-B)      : Blocks audio + Jarvis template + mode sidecar
-Apres       (37)        : adapt/optimize
-Apres       (38)        : Distribution (CLI + SDK + showcase Cantante vocal)
-```
-
-**Estimation** : le "Jarvis basique" (STT → intent → dispatch → TTS) pourrait etre un prototype fonctionnel en Phase 36-B, soit ~3-4 semaines apres le debut de Phase 36. Pas besoin d'attendre Phase 42.
+3. **On perd le feedback loop** — chaque phase de Cantante revele des bugs Maestro
+4. **Les blocks STT/TTS sont simples** — Web Speech API existe deja dans Cantante (`useSpeechSynthesis.ts`)
 
 ---
 
@@ -358,42 +467,57 @@ Cantante/
 
 ## 7. Mode vocal dans Maestro lui-meme
 
-### Ou le vocal vit dans Maestro
+### Le vocal comme parametre activable, pas un flag de lancement
 
-Le user mentionne que le mode vocal pourrait etre dans `maestro shell` ou `maestro code`. Les deux ont des merites :
+Le mode vocal doit etre un **parametre activable a chaud** dans `maestro code`, pas un flag `--voice` au lancement. L'utilisateur est deja dans `maestro code`, il active le micro, il parle, le texte s'ecrit dans le champ input comme s'il tapait — puis il desactive.
 
-| Candidat | Avantage | Inconvenient |
-|----------|----------|--------------|
-| `maestro shell` | REPL interactif, commandes texte, naturel pour le vocal | Pas de TUI riche, pas de monitoring visuel |
-| `maestro code` (TUI) | Interface riche, panels, suivi visuel | L'audio + Ink TUI = complexe |
-| `maestro code --headless` | Stdin/stdout, facile d'ajouter audio comme source | Pas d'interface visuelle |
-| **Nouveau : `maestro voice`** | Dedie, optimise pour l'usage vocal | Un binaire de plus a maintenir |
+```
+maestro code (TUI interactive)
+  ┌─────────────────────────────────────────────┐
+  │  Output Panel                               │
+  │  ...                                        │
+  ├─────────────────────────────────────────────┤
+  │  > [input field]              [🎤 ON/OFF]   │
+  └─────────────────────────────────────────────┘
 
-**Recommandation** : commencer par `maestro code --voice` (flag sur l'existant). Ca ajoute :
-1. STT capture en continu (microphone → texte)
-2. Le texte est envoye comme input task (meme pipeline que `--headless --task "..."`)
-3. La reponse est lue par TTS
+  Ctrl+V ou commande : toggle voice mode
+  Voice ON  → microphone capture → STT → texte s'ecrit dans l'input
+  Voice OFF → retour au clavier normal
+```
 
-C'est un wrapper autour du mode headless, pas un nouveau mode. Si ca prend de l'ampleur, on peut l'extraire en `maestro voice` plus tard.
+**Pourquoi pas un flag `--voice`** :
+- L'utilisateur ne devrait pas devoir quitter `maestro code` et le relancer pour activer/desactiver le micro
+- Le vocal est une **source d'input alternative**, pas un mode different — l'agent recoit le meme texte, qu'il soit tape ou dicte
+- Ca permet de mixer : dicter la tache, puis taper une correction avant d'envoyer
+
+**Ce que fait le mode vocal concretement** :
+1. Active le STT (Web Speech API, Whisper local, ou autre)
+2. Le STT transcrit la voix en texte en temps reel
+3. Le texte s'ecrit dans le champ input de `maestro code` (comme si l'utilisateur tapait)
+4. L'utilisateur voit ce qui a ete transcrit, peut corriger, puis envoie (Enter)
+5. La reponse de l'agent peut optionnellement etre lue par TTS
+
+**L'agent ne change pas** — il recoit du texte comme d'habitude. Le vocal n'est qu'un peripherique d'entree, pas un nouveau pipeline.
 
 ### Le Jarvis dans Maestro vs dans Cantante
 
 ```
-Dans Maestro :
-  maestro code --voice
-  → STT → "ajoute un test pour le composant Button"
-  → headless pipeline → dev-orchestrator → fichiers modifies
-  → TTS → "J'ai cree Button.test.tsx avec 3 tests unitaires"
+Dans Maestro (maestro code, voice mode ON) :
+  Utilisateur parle → STT → texte dans l'input
+  → "ajoute un test pour le composant Button"
+  → [Enter] → pipeline normal → dev-orchestrator → fichiers modifies
+  → Reponse dans l'output panel (+ TTS optionnel)
+  → "J'ai cree Button.test.tsx avec 3 tests unitaires"
 
-Dans Cantante :
+Dans Cantante (app propulsee par Maestro) :
   Bouton micro dans l'UI
   → STT → "ouvre le fichier App.tsx"
-  → Jarvis agent → intent: open_file, target: App.tsx
+  → Jarvis agent block → intent: open_file, target: App.tsx
   → Action Cantante → fichier ouvert dans l'editeur
   → TTS → "App.tsx est ouvert"
 ```
 
-**Difference cle** : dans Maestro, le vocal controle le pipeline de DEV (generer du code). Dans Cantante, le vocal controle l'APP (naviguer, editer, lire). Les deux utilisent les memes blocks STT/TTS mais des agents differents.
+**Difference cle** : dans Maestro, le vocal est un **peripherique d'entree** pour le meme pipeline (l'utilisateur dicte au lieu de taper). Dans Cantante, le vocal est le **mode d'interaction principal** — l'agent Jarvis interprete l'intention et controle l'app. Les deux utilisent les memes blocks STT/TTS mais a des niveaux differents.
 
 ---
 
@@ -413,15 +537,15 @@ Dans Cantante :
 
 1. **Finir Phase 35** : porter le taux de succes de l'agent a > 75%. Les sessions 25 et 27 montrent que c'est possible.
 
-2. **Mettre a jour le roadmap** : les sous-phases 35-C+ doivent refleter la realite. Ajouter Phase 36-B (Maestro Runtime) au roadmap.
+2. **Adopter la refonte du roadmap** (section 5) : rennuméroter les phases, placer les features TODOS, integrer la vision "apps Maestro".
 
-3. **Creer le FEATURE doc** pour "Maestro-powered apps" dans `docs/TODOS/` (ce qui devrait etre un document distinct de cette analyse).
+3. **Creer le FEATURE doc** pour "Maestro-powered apps" dans `docs/TODOS/` (SDK, sidecar, vocal toggle — document distinct de cette analyse).
 
-4. **Ne PAS toucher a l'architecture de Cantante maintenant** : continuer le dogfooding tel quel. Le vocal viendra quand le SDK existera.
+4. **Ne PAS toucher a l'architecture de Cantante maintenant** : continuer le dogfooding tel quel. Le vocal viendra quand le SDK existera (Phase 37).
 
-5. **Extraire `MaestroApiClient` en package npm** : c'est le premier pas concret vers le SDK et ca peut etre fait des Phase 36.
+5. **Extraire `MaestroApiClient` en package npm** : c'est le premier pas concret vers le SDK, a faire en Phase 37-A.
 
-6. **Prototyper le STT block** : `useSpeechSynthesis.ts` de Cantante montre que Web Speech API marche. Ecrire le block wrapper est ~1 jour de travail.
+6. **Prototyper le mode vocal dans maestro code** : ajouter un toggle STT dans le TUI (Ctrl+V) qui ecrit dans l'input. Pas besoin du Jarvis complet — juste le peripherique d'entree vocal.
 
 ---
 
@@ -431,22 +555,30 @@ Dans Cantante :
 
 **Oui**, strategiquement. Le dogfooding a revele 29 bugs en 27 sessions — c'est exactement le but. L'agent fonctionne de bout en bout. Cantante compile et a 31 fichiers generes par l'agent.
 
-**Non**, operationnellement. Le roadmap ne reflete plus les sous-phases reelles. Le taux de succes a 59% n'est pas pret pour la distribution. Et la vision "apps Maestro" n'apparait nulle part dans les phases planifiees.
+**Non**, operationnellement. Le roadmap ne reflete plus les sous-phases reelles. Le taux de succes a 59% n'est pas pret pour la distribution. Et la vision "apps Maestro" n'apparaissait nulle part dans les phases planifiees — la refonte proposee corrige ca.
 
 ### La question "quand faire le vocal ?"
 
-**Phase 36-B** (apres Context/Memory blocks, avant adapt/optimize). Pas maintenant (agent pas pret), pas en Phase 42 (trop tard pour Cantante).
+**Phase 37** (apres Context/Memory/Docs, avant Sandbox/Distribution). Le vocal dans `maestro code` est un toggle d'input (Ctrl+V), pas un nouveau mode — le STT ecrit dans le champ input comme si l'utilisateur tapait. L'agent ne change pas.
+
+### La question "quand placer les features TODOS ?"
+
+| Feature | Phase |
+|---------|-------|
+| Documentation attachee | 36-D (avec Context/Memory) |
+| Sandbox foundry | 38 (phase dediee) |
+| SDK + sidecar | 37 (avec le vocal) |
 
 ### La question "Cantante construit sur Maestro ?"
 
 **Oui, mais par etapes** :
-1. Maintenant : construit AVEC Maestro (dogfooding) ← on y est
-2. Phase 36-B : premiers blocks audio dans Maestro, mode sidecar
-3. Phase 38 : Cantante depend de `@maestro/client` pour le vocal
-4. Phase 39 : Cantante est le showcase public d'une "app Maestro"
+1. **Maintenant (35)** : construit AVEC Maestro (dogfooding) — on y est
+2. **Phase 37** : SDK + blocks audio + toggle vocal dans maestro code
+3. **Phase 40** : Distribution avec `@maestro/client` comme package npm
+4. **Phase 41** : Cantante v1 comme premiere "app Maestro" avec vocal
 
 ### Le vrai differenciateur
 
-La vision ou Maestro est a la fois l'outil qui CONSTRUIT les apps ET le runtime qui les FAIT TOURNER est extremement puissante. C'est ce qui distingue Maestro d'un simple wrapper autour de Claude Code. Le fait que les memes blocks (STT, TTS, agents) soient utilisables dans le CLI ET embarquables dans des apps tierces est le vrai moat.
+La vision ou Maestro est a la fois l'outil qui **construit** les apps ET le runtime qui les **fait tourner** est extremement puissante. C'est ce qui distingue Maestro d'un simple wrapper autour de Claude Code. Le fait que les memes blocks (STT, TTS, agents) soient utilisables dans le CLI ET embarquables dans des apps tierces est le vrai moat.
 
-La cle est de ne pas essayer de tout faire en meme temps. L'ordre propose (agent fiable → context/memory → SDK/runtime → vocal → distribution) construit chaque couche sur la precedente.
+La refonte proposee (35→41) fait de cette vision un chemin concret avec des dependances claires, pas un "futur lointain" en Phase 42+.
