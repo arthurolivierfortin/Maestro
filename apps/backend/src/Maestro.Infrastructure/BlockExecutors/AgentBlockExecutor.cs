@@ -206,7 +206,19 @@ public class AgentBlockExecutor : IBlockExecutor
                     _conversationManager.CleanupConversation(conversationId);
                     return result;
                 }
-                break; // On subsequent iterations, use last valid response
+                // Nudge the agent instead of breaking — empty responses often mean the agent
+                // "thought" but didn't produce output. Give it one more chance.
+                if (nonJsonRetryCount < 2)
+                {
+                    nonJsonRetryCount++;
+                    result.Logs.Add($"Empty response nudge (attempt {nonJsonRetryCount}/2).");
+                    _conversationManager.AddMessage(conversationId, "user",
+                        "Your last response was empty. You MUST respond with a JSON tool call. " +
+                        "If you are done, call step-complete. Otherwise, call your next tool. " +
+                        "Example: {\"tool\":\"step-complete\",\"args\":{\"summary\":\"what was done\"}}");
+                    continue;
+                }
+                break; // After 2 empty nudges, give up
             }
 
             lastResponse = response;
@@ -299,9 +311,35 @@ public class AgentBlockExecutor : IBlockExecutor
                         var toolOutput = await ExecuteToolCall(toolId!, args, jsonContent, block, context, result, agentCt);
                         actualToolCallCount++;
 
+                        // Multi-tool detection: check if the raw response contains additional
+                        // JSON objects after the one we parsed. If so, warn the agent that
+                        // those extra tool calls were NOT executed. This prevents hallucination
+                        // where the agent thinks all tools ran but only the first did.
+                        var extraToolWarning = "";
+                        var fullRawContent = response.Content;
+                        var firstJsonEnd = fullRawContent.IndexOf(jsonContent, StringComparison.Ordinal);
+                        if (firstJsonEnd >= 0)
+                        {
+                            var afterFirst = fullRawContent.Substring(firstJsonEnd + jsonContent.Length).Trim();
+                            if (afterFirst.Contains("{\"tool\":"))
+                            {
+                                var extraCount = 0;
+                                var searchPos = 0;
+                                while ((searchPos = afterFirst.IndexOf("{\"tool\":", searchPos, StringComparison.Ordinal)) >= 0)
+                                {
+                                    extraCount++;
+                                    searchPos += 8;
+                                }
+                                extraToolWarning = $"\n\nWARNING: Your response contained {extraCount} additional tool call(s) that were NOT executed. " +
+                                    "Only the FIRST tool call in your response was executed. " +
+                                    "You MUST send ONE tool call per response. Send your next tool call now.";
+                                result.Logs.Add($"Multi-tool detected: {extraCount} extra tool call(s) dropped from response.");
+                            }
+                        }
+
                         // Feed back into conversation
                         _conversationManager.AddMessage(conversationId, "assistant", jsonContent);
-                        _conversationManager.AddMessage(conversationId, "user", $"Tool result for {toolId}:\n{toolOutput}");
+                        _conversationManager.AddMessage(conversationId, "user", $"Tool result for {toolId}:\n{toolOutput}{extraToolWarning}");
                         toolCalled = true;
                         nonJsonRetryCount = 0; // Reset retry counter on successful tool call
                     }
@@ -338,13 +376,39 @@ public class AgentBlockExecutor : IBlockExecutor
                     _conversationManager.AddMessage(conversationId, "assistant", response.Content);
                     _conversationManager.AddMessage(conversationId, "user",
                         "Your response was not a valid JSON tool call. " +
-                        "Respond with ONLY a JSON object. Example:\n" +
+                        "Respond with ONLY a JSON object — no prose, no markdown.\n\n" +
+                        "If you are DONE with the task, respond with:\n" +
+                        "{\"tool\":\"step-complete\",\"args\":{\"summary\":\"what was accomplished\",\"filesCreated\":[],\"filesModified\":[],\"buildPassed\":true}}\n\n" +
+                        "If you need to do more work, call the next tool:\n" +
                         "{\"tool\":\"file-read\",\"args\":{\"path\":\"/some/path\"}}");
                     continue;
                 }
                 break;
             }
-            if (iteration >= maxIterations) break;
+
+            // Iteration countdown nudge: when approaching max iterations, remind the agent
+            var remaining = maxIterations - iteration;
+            if (remaining <= 3 && remaining > 0)
+            {
+                result.Logs.Add($"Iteration countdown: {remaining} iterations remaining.");
+                _conversationManager.AddMessage(conversationId, "user",
+                    $"SYSTEM NOTE: You have {remaining} iteration(s) remaining. " +
+                    "Wrap up your work and call step-complete with a summary of what was accomplished. " +
+                    "Do not start new tasks — finish what you have.");
+            }
+
+            if (iteration >= maxIterations)
+            {
+                result.Logs.Add("Max iterations reached without step-complete.");
+                // Set success=true if tool calls were made — work was likely done
+                if (actualToolCallCount > 0)
+                {
+                    result.Success = true;
+                    result.Outputs["result"] = $"Agent completed {actualToolCallCount} tool calls but did not call step-complete (max iterations reached).";
+                    result.Outputs["warning"] = "step-complete not called";
+                }
+                break;
+            }
         }
 
         // 6. Parse structured outputs from last response
@@ -557,6 +621,10 @@ public class AgentBlockExecutor : IBlockExecutor
             return await ExecuteViaCliAsync(command, block, context, result, ct);
         }
 
+        // Normalize common tool name aliases. LLMs sometimes use alternate names
+        // (e.g., "bash" instead of "shell-execute", "read-file" instead of "file-read").
+        toolId = NormalizeToolId(toolId);
+
         // Path 2: Generic block dispatch — tool name = block-id, args = JSON inputs
         return await ExecuteViaBlockDispatchAsync(toolId, args, context, result, ct);
     }
@@ -614,9 +682,23 @@ public class AgentBlockExecutor : IBlockExecutor
         string toolId, JsonElement args, ExecutionContext context,
         BlockExecutionResult result, CancellationToken ct)
     {
-        // Lazy resolution to avoid circular DI: AgentBlockExecutor ↔ BlockExecutorRegistry
-        _blockDiscovery ??= _serviceProvider?.GetService<IBlockDiscoveryService>();
-        _executorRegistry ??= _serviceProvider?.GetService<BlockExecutorRegistry>();
+        // Lazy resolution to avoid circular DI: AgentBlockExecutor ↔ BlockExecutorRegistry.
+        // Use _scopeFactory to create a new scope — the original _serviceProvider may be disposed
+        // when running in session invoke path (background Task.Run).
+        if (_blockDiscovery == null || _executorRegistry == null)
+        {
+            if (_scopeFactory != null)
+            {
+                var scope = _scopeFactory.CreateScope();
+                _blockDiscovery ??= scope.ServiceProvider.GetService<IBlockDiscoveryService>();
+                _executorRegistry ??= scope.ServiceProvider.GetService<BlockExecutorRegistry>();
+            }
+            else
+            {
+                _blockDiscovery ??= _serviceProvider?.GetService<IBlockDiscoveryService>();
+                _executorRegistry ??= _serviceProvider?.GetService<BlockExecutorRegistry>();
+            }
+        }
         if (_blockDiscovery == null || _executorRegistry == null)
         {
             result.Logs.Add($"Block dispatch not available for tool '{toolId}' — services not resolved.");
@@ -772,6 +854,24 @@ public class AgentBlockExecutor : IBlockExecutor
         }
 
         return config;
+    }
+
+    /// <summary>
+    /// Normalizes tool IDs by mapping common LLM hallucinated names to actual block IDs.
+    /// LLMs frequently use alternate names (bash, read-file, write-file) despite being told
+    /// the correct names in the system prompt.
+    /// </summary>
+    private static string NormalizeToolId(string toolId)
+    {
+        return toolId switch
+        {
+            "bash" or "run" or "exec" or "execute" or "cmd" => "shell-execute",
+            "read-file" or "readFile" or "Read" or "read" => "file-read",
+            "write-file" or "writeFile" or "Write" or "write" => "file-write",
+            "list-directory" or "listDirectory" or "ls" or "list-dir" => "directory-list",
+            "file-edit" or "edit-file" or "editFile" => "file-write", // no edit tool, use write
+            _ => toolId
+        };
     }
 
     /// <summary>

@@ -1,15 +1,15 @@
 {
-  "totalRequests": 13,
+  "totalRequests": 172,
   "latency": {
-    "p50": 9415,
-    "p95": 11760.2,
-    "p99": 11874.44,
-    "average": 9483.153846153846
+    "p50": 7945,
+    "p95": 26312.75,
+    "p99": 28640.149999999998,
+    "average": 11768.4375
   },
   "totalTokens": {
-    "promptTokens": 46,
-    "completionTokens": 2274,
-    "totalTokens": 2320
+    "promptTokens": 498,
+    "completionTokens": 43496,
+    "totalTokens": 43994
   },
   "modelStats": [
     {
@@ -35,19 +35,19 @@
       "modelId": {
         "value": "sonnet"
       },
-      "requestCount": 12,
+      "requestCount": 171,
       "latency": {
-        "p50": 9337,
-        "p95": 11329.899999999998,
-        "p99": 11788.380000000001,
-        "average": 9301.333333333334
+        "p50": 8479,
+        "p95": 18796,
+        "p99": 44217.70000000051,
+        "average": 11343.730994152047
       },
       "totalTokens": {
-        "promptTokens": 36,
-        "completionTokens": 1656,
-        "totalTokens": 1692
+        "promptTokens": 488,
+        "completionTokens": 42878,
+        "totalTokens": 43366
       },
-      "requestsPerMinute": 5.061976737532637,
+      "requestsPerMinute": 1.8069804307087347,
       "errorRate": 0
     }
   ],
@@ -77,7 +77,7 @@
         "p99": 0,
         "average": 0
       },
-      "tokensTotal": 2320
+      "tokensTotal": 43994
     },
     {
       "windowName": "5m",
@@ -90,21 +90,21 @@
         "p99": 0,
         "average": 0
       },
-      "tokensTotal": 2320
+      "tokensTotal": 43994
     },
     {
       "windowName": "15m",
       "windowSeconds": 900,
-      "requestCount": 13,
-      "requestsPerMinute": 0.8666666666666667,
+      "requestCount": 16,
+      "requestsPerMinute": 1.0666666666666667,
       "latency": {
-        "p50": 9415,
-        "p95": 11760.2,
-        "p99": 11874.44,
-        "average": 9483.153846153846
+        "p50": 7945,
+        "p95": 26312.75,
+        "p99": 28640.149999999998,
+        "average": 11768.4375
       },
-      "tokensTotal": 2320
+      "tokensTotal": 43994
     }
   ],
-  "generatedAt": "2026-02-20T23:59:25.0725909+00:00"
+  "generatedAt": "2026-02-21T01:37:25.0742149+00:00"
 }

@@ -1,21 +1,22 @@
-# Phase 37 : Premiere version distribuable
+# Phase 36 : `maestro adapt` + `maestro optimize`
 
 **Statut** : A faire
-**Prerequis** : Phase 36 COMPLETE (adapt/optimize fonctionnels)
-**Objectif** : Maestro est telechargeble, installable, et utilisable par quelqu'un d'autre.
+**Prerequis** : Phase 35 COMPLETE (contexte/conversation formalises)
+**Objectif** : Automatiser l'adaptation des workflows aux modeles disponibles de l'utilisateur et l'optimisation des tiers.
 
 ---
 
 ## Vision
 
-A ce stade, Maestro a :
-- Un agent autonome fonctionnel avec plusieurs tiers (Phase 34)
-- Un mode interactif `maestro code` (Phase 33)
-- Un systeme de contexte/conversation/memoire formel (Phase 35)
-- Une adaptation automatique aux modeles de l'utilisateur (Phase 36)
-- Un CLI poli avec `maestro init` et aliases (Phase 32)
+Phase 34 cree les tiers manuellement. Phase 36 automatise ce processus :
 
-Phase 37 empaquette tout ca en un produit installable.
+- **`maestro adapt <workflow>`** : L'utilisateur a ses propres modeles (locaux ou cloud).
+  L'outil lit le manifeste du workflow, detecte les modeles disponibles, teste des
+  substitutions automatiquement, et produit un workflow personnalise.
+
+- **`maestro optimize <block>`** : Meta-workflow qui prend un bloc et tente de
+  l'optimiser avec des strategies pluggables (model-downgrade, prompt-refinement,
+  temperature-tuning). Les strategies sont elles-memes des blocs.
 
 ---
 
@@ -23,95 +24,94 @@ Phase 37 empaquette tout ca en un produit installable.
 
 | Phase | Titre | Objectif | Effort |
 |-------|-------|----------|--------|
-| 37-A | Packaging et installation | Script d'installation, prerequisites, setup | 1 semaine |
-| 37-B | Onboarding utilisateur | Premier lancement, configuration guidee | 3-5 jours |
-| 37-C | Documentation utilisateur | Guides complets, FAQ, troubleshooting | 3-5 jours |
-| 37-D | Beta testing | 3-5 testeurs reels, collecte de feedback | 2 semaines |
+| 36-A | `maestro adapt` | Adaptation automatique aux modeles de l'utilisateur | 1-2 semaines |
+| 36-B | `maestro optimize` | Meta-workflow d'optimisation avec strategies pluggables | 1-2 semaines |
 
 ---
 
-## 37-A : Packaging
-
-L'utilisateur telecharge et installe :
+## 36-A : `maestro adapt`
 
 ```bash
-# Option 1 : npm global
-npm install -g @maestro/cli
+$ maestro adapt autonomous-development
 
-# Option 2 : Script d'installation
-curl -fsSL https://maestro.dev/install.sh | bash
+Reading manifest for autonomous-development@3.0.0 (Tier 1)...
+Detecting available models...
+  ✓ claude-sonnet (via ClaudeCodeProvider)
+  ✓ qwen-2.5-coder-1.5b (via LocalProvider)
+  ✗ claude-haiku (not configured)
+
+Testing substitutions:
+  project-preparer: claude-sonnet → qwen-2.5-coder... fitness 0.65 (below 0.80, keeping claude-sonnet)
+  git-committer:    claude-sonnet → qwen-2.5-coder... fitness 0.88 (OK, substituting)
+  code-reviewer:    claude-sonnet → qwen-2.5-coder... fitness 0.72 (below 0.80, keeping claude-sonnet)
+
+Result: Custom tier generated
+  4/6 blocks: claude-sonnet
+  2/6 blocks: qwen-2.5-coder-1.5b
+  Global fitness: 0.87
+  Estimated cost reduction: 25%
+
+Save as personal tier? [Y/n]
 ```
 
-Ce qui est installe :
-- `maestro` CLI (disponible globalement)
-- Backend .NET (demarre en background)
-- Templates et blocks systeme (`content/system/`)
-- Configuration par defaut (`~/.maestro/`)
+**Mecanisme** :
+1. Lire le manifeste du workflow (modeles requis, fitness par bloc, substituts deja testes)
+2. Detecter les modeles disponibles via `LLM-Provider /api/v1/models/`
+3. Pour chaque bloc, tester les substituts disponibles (mini-session foundry, 3 iterations, evaluateur heuristique)
+4. Garder la substitution seulement si fitness >= seuil (configurable, default 0.80)
+5. Sauvegarder le workflow adapte comme tier personnel
 
-Ce qui n'est PAS installe (optionnel) :
-- Frontend web (a lancer separement si desire)
-- LLM-Provider local (seulement si l'utilisateur veut des modeles locaux)
-- Modeles locaux (telechargement separe)
+**3 niveaux d'evaluateurs** :
+- Niveau 1 (Heuristique) : JSON valide, champs requis, efficacite tokens — gratuit, toujours
+- Niveau 2 (LLM local) : Un modele local evalue la sortie d'un autre — gratuit si 7B+ disponible
+- Niveau 3 (Cloud) : Evaluation par Claude/GPT-4 — payant, futur (Phase 38+)
+
+Par defaut, `maestro adapt` utilise le Niveau 1. Si un modele 7B+ est disponible, Niveau 2.
 
 ---
 
-## 37-B : Onboarding
-
-Premier lancement :
+## 36-B : `maestro optimize`
 
 ```bash
-$ maestro
+$ maestro optimize project-preparer --strategy model-downgrade
 
-Welcome to Maestro v1.0.0
+Optimizing project-preparer (current: claude-sonnet, fitness: 0.95)...
+Strategy: model-downgrade
 
-Setup required. Let's configure your environment.
+Testing claude-haiku... fitness 0.92 (delta: -0.03) ✓
+Testing qwen-2.5-coder... fitness 0.65 (delta: -0.30) ✗
+Testing smollm2-1.7b... fitness 0.40 (delta: -0.55) ✗
 
-1. LLM Provider
-   [ ] Claude Code (detected: claude CLI available)
-   [ ] Anthropic API (enter API key)
-   [ ] Azure OpenAI (enter endpoint)
-   [ ] Local models (requires GPU)
+Best: claude-haiku (fitness 0.92, cost reduction 60%)
+Publish optimized block? [Y/n]
+```
 
-2. Default model
-   Recommended: claude-sonnet (via Claude Code)
+**Strategies (elles-memes des blocs)** :
+- `model-downgrade` : Tester des modeles moins chers
+- `prompt-refinement` : Reecrire le prompt pour un modele plus petit
+- `temperature-tuning` : Ajuster la temperature pour meilleur fitness
+- Plus tard : `few-shot-injection`, `context-compression`, etc.
 
-3. Workspace
-   Creating default workspace at ~/.maestro/workspace/
-
-Setup complete! Try:
-  maestro code     — Start coding with AI
-  maestro health   — Check system status
-  maestro help     — See all commands
+**Mode recursif** :
+```bash
+$ maestro optimize autonomous-development --recursive
+# Optimise chaque sous-bloc bottom-up, puis le workflow global
 ```
 
 ---
 
-## 37-C : Documentation
+## Principe architectural
 
-| Document | Contenu |
-|----------|---------|
-| Getting Started | Installation, setup, premier usage |
-| User Guide | Toutes les commandes, workflows, configuration |
-| Block Development | Comment creer ses propres blocks |
-| Architecture | Pour les contributeurs |
-| FAQ | Questions frequentes |
-| Troubleshooting | Problemes connus et solutions |
-
----
-
-## 37-D : Beta testing
-
-- Recruter 3-5 developpeurs (cercle personnel)
-- Leur donner l'installeur + Getting Started
-- Observer : ou ils bloquent, ce qu'ils ne comprennent pas, ce qui manque
-- Collecter le feedback systematiquement
-- Iterer rapidement sur les problemes critiques
+- `adapt` et `optimize` sont des WORKFLOWS, pas de l'infrastructure
+- Les strategies sont des BLOCS (pas du code C#)
+- Les evaluateurs sont des BLOCS (pas du code C#)
+- Ajouter une nouvelle strategie = creer un .block.json, zero changement C#
 
 ---
 
 ## Criteres de completion
 
-- [ ] `npm install -g @maestro/cli` fonctionne
-- [ ] `maestro` au premier lancement guide l'utilisateur
-- [ ] Un developpeur sans contexte peut utiliser `maestro code` en < 10 minutes
-- [ ] 3+ beta testeurs ont complete un flow complet avec feedback
+- [ ] `maestro adapt <workflow>` produit un tier personnalise
+- [ ] `maestro optimize <block>` teste au moins 2 strategies
+- [ ] L'evaluateur heuristique (Niveau 1) fonctionne sans LLM
+- [ ] Les strategies sont des blocs, pas du code hardcode

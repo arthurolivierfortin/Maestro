@@ -138,7 +138,14 @@ public class EntryPointExecutor
         // via for-each nodes in the workflow JSON, not implicit in C#.
         var workflowConfig = GetWorkflowConfig(session, workflowId, null);
 
-        if (workflowBlock?.Config != null && workflowBlock.Config.ContainsKey("nodes"))
+        // Workflow blocks walk config.nodes as execution steps.
+        // Agent/tool blocks with config.nodes use them for LLM params (not execution steps) —
+        // they are dispatched via BlockExecutorRegistry instead.
+        var isWorkflowWithNodes = workflowBlock?.Config != null
+            && workflowBlock.Config.ContainsKey("nodes")
+            && string.Equals(workflowBlock.BlockType, "workflow", StringComparison.OrdinalIgnoreCase);
+
+        if (isWorkflowWithNodes)
         {
             var configNodesObj = workflowBlock.Config["nodes"];
             if (configNodesObj is JsonElement nodesEl && nodesEl.ValueKind == JsonValueKind.Array)
@@ -1612,10 +1619,11 @@ public class EntryPointExecutor
         AppendExecutionLog(session, "info", $"Executing blockRef '{blockRefId}' (type: {block.BlockType}) with {inputs.Count} inputs");
         await _repository.SaveAsync(session);
 
-        // Phase 28-A: Composite blocks (with config.nodes) are executed by walking their nodes,
-        // not by the single-call or agentic-loop executor. This enables workflow-like execution
-        // inside agent blocks (fractal composition).
-        if (block.Config != null && block.Config.TryGetValue("nodes", out var nodesObj))
+        // Workflow blocks with config.nodes are executed by walking their nodes.
+        // Agent/tool blocks with config.nodes use them for LLM params (not execution steps) —
+        // they are dispatched to their type-specific executor (AgentBlockExecutor reads config.nodes for model params).
+        var isWorkflowBlock = string.Equals(block.BlockType, "workflow", StringComparison.OrdinalIgnoreCase);
+        if (isWorkflowBlock && block.Config != null && block.Config.TryGetValue("nodes", out var nodesObj))
         {
             JsonElement? nodesElement = null;
 

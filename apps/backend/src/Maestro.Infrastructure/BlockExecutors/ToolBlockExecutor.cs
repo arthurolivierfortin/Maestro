@@ -875,11 +875,13 @@ public class ToolBlockExecutor : IBlockExecutor
     {
         return encoding?.ToLowerInvariant() switch
         {
-            "utf-8" or "utf8" => System.Text.Encoding.UTF8,
+            // Use UTF8 WITHOUT BOM — BOM breaks Vite, Node.js JSON parsers, and most modern tools.
+            // System.Text.Encoding.UTF8 includes BOM; new UTF8Encoding(false) does not.
+            "utf-8" or "utf8" => new System.Text.UTF8Encoding(false),
             "utf-16" or "utf16" or "unicode" => System.Text.Encoding.Unicode,
             "ascii" => System.Text.Encoding.ASCII,
             "utf-32" or "utf32" => System.Text.Encoding.UTF32,
-            _ => System.Text.Encoding.UTF8
+            _ => new System.Text.UTF8Encoding(false)
         };
     }
 

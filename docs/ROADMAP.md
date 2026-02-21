@@ -35,6 +35,7 @@
 | 33-C | Consolidation TUI Monorepo (40+4+32 tests) | COMPLETE |
 | 33-D | Restructuration Monorepo (apps/, cleanup, docs) | COMPLETE |
 | 34-E-PRE | Extraction Conversation + Context comme entites | COMPLETE |
+| 35-PRE | Agent composite, tool dispatch JSON, dev-orchestrator | COMPLETE |
 
 ---
 
@@ -60,59 +61,78 @@
 
 ---
 
-### Phase 35 : Contexte et Conversation comme Blocs
+### Phase 35 : Dogfooding — Maestro autonome sur Cantante
 
-**But** : Formaliser la conversation, le contexte et la memoire comme des blocs first-class, observables et composables. Fondation pour l'optimisation de contexte et le TUI panel.
+**But** : Prouver que le pipeline Maestro fonctionne de bout en bout en utilisant le dev-orchestrator pour developper Cantante via `maestro code`. Ameliorer l'agent et le tooling de maniere iterative basee sur l'usage reel.
 
 | Sous-phase | Objectif | Effort |
 |------------|----------|--------|
-| 35-A | Conversation Block — extraction de AgentBlockExecutor | 3-5 jours |
-| 35-B | Context Block — formalisation du context assembler | 2-3 jours |
-| 35-C | Memory Block — connaissances persistantes | 5-8 jours |
-| 35-D | TUI Context Panel — observabilite en temps reel | 3-5 jours |
-| 35-E | Orchestration avancee — selection de contexte par l'orchestrateur | 5-8 jours |
+| 35-PRE | Agent composite, tool dispatch JSON, dev-orchestrator | COMPLETE |
+| 35-A | Pipeline setup — workspace Cantante + session + validation | 1 jour |
+| 35-B | Scaffold — React + Vite + Electron via agent | 1-2 jours |
+| 35-C | Editor — Monaco integration via agent | 1-2 jours |
+| 35-D | Agent improvement — analyse des echecs, amelioration prompts | 2-3 jours |
+| 35-E | File tree + navigation via agent ameliore | 1-2 jours |
+| 35-F | CLI/widget improvements bases sur les gaps | 2-3 jours |
+| 35-G | Bilan — metriques, documentation, fitness report | 1 jour |
 
 **Docs** : `docs/phases/PHASE-35/README.md`
 
 ---
 
-### Phase 36 : `maestro adapt` + `maestro optimize`
+### Phase 36 : Contexte et Conversation comme Blocs
 
-**But** : Automatiser l'adaptation aux modeles de l'utilisateur.
+**But** : Formaliser la conversation, le contexte et la memoire comme des blocs first-class, observables et composables. Fondation pour l'optimisation de contexte et le TUI panel.
 
 | Sous-phase | Objectif | Effort |
 |------------|----------|--------|
-| 36-A | `maestro adapt` (adaptation automatique) | 1-2 semaines |
-| 36-B | `maestro optimize` (strategies pluggables) | 1-2 semaines |
+| 36-A | Conversation Block — extraction de AgentBlockExecutor | 3-5 jours |
+| 36-B | Context Block — formalisation du context assembler | 2-3 jours |
+| 36-C | Memory Block — connaissances persistantes | 5-8 jours |
+| 36-D | TUI Context Panel — observabilite en temps reel | 3-5 jours |
+| 36-E | Orchestration avancee — selection de contexte par l'orchestrateur | 5-8 jours |
 
 **Docs** : `docs/phases/PHASE-36/README.md`
 
 ---
 
-### Phase 37 : Premiere version distribuable
+### Phase 37 : `maestro adapt` + `maestro optimize`
 
-**But** : Maestro installable et utilisable par quelqu'un d'autre.
+**But** : Automatiser l'adaptation aux modeles de l'utilisateur.
 
 | Sous-phase | Objectif | Effort |
 |------------|----------|--------|
-| 37-A | Packaging et installation | 1 semaine |
-| 37-B | Onboarding premier lancement | 3-5 jours |
-| 37-C | Documentation utilisateur | 3-5 jours |
-| 37-D | Beta testing (3-5 testeurs) | 2 semaines |
+| 37-A | `maestro adapt` (adaptation automatique) | 1-2 semaines |
+| 37-B | `maestro optimize` (strategies pluggables) | 1-2 semaines |
 
 **Docs** : `docs/phases/PHASE-37/README.md`
 
 ---
 
-### Phase 38+ : Futur
+### Phase 38 : Premiere version distribuable
 
-- 38 : Catalogue communautaire
-- 39 : Auth et subscriptions
-- 40 : Evaluateur cloud
-- 41 : Agent Creator (meta-programmation)
-- 42+ : Multi-domaine
+**But** : Maestro installable et utilisable par quelqu'un d'autre.
+
+| Sous-phase | Objectif | Effort |
+|------------|----------|--------|
+| 38-A | Packaging et installation | 1 semaine |
+| 38-B | Onboarding premier lancement | 3-5 jours |
+| 38-C | Documentation utilisateur | 3-5 jours |
+| 38-D | Beta testing (3-5 testeurs) | 2 semaines |
 
 **Docs** : `docs/phases/PHASE-38/README.md`
+
+---
+
+### Phase 39+ : Futur
+
+- 39 : Catalogue communautaire
+- 40 : Auth et subscriptions
+- 41 : Evaluateur cloud
+- 42 : Agent Creator (meta-programmation)
+- 43+ : Multi-domaine
+
+**Docs** : `docs/phases/PHASE-39/README.md`
 
 ---
 

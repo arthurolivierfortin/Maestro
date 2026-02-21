@@ -89,10 +89,19 @@ async function runHeadless(options: HeadlessOptions): Promise<void> {
     });
     log('INFO', `Session: ${session.id}`);
 
-    // 2. Import template (quiet — no console.log pollution)
-    log('INFO', `Importing template: ${template}`);
-    await options.importSessionTemplate(session.id, template, { quiet: true });
-    log('INFO', 'Template imported');
+    // 2. Import template (skip if "none" or empty)
+    if (template && template !== 'none') {
+      log('INFO', `Importing template: ${template}`);
+      await options.importSessionTemplate(session.id, template, { quiet: true });
+      log('INFO', 'Template imported');
+    } else {
+      log('INFO', 'No template — setting up session manually');
+      // Register the entry point directly as a block reference
+      await client._fetch('PUT', `/api/sessions/${session.id}/entry-points/${entryPoint}`, {
+        body: { workflowId: entryPoint }
+      });
+      log('INFO', `Entry point registered: ${entryPoint}`);
+    }
 
     // 3. Start session
     await client.startSession(session.id);
@@ -101,7 +110,7 @@ async function runHeadless(options: HeadlessOptions): Promise<void> {
     // 4. Invoke entry point
     log('INFO', `Invoking: ${entryPoint}`);
     await client._fetch('POST', `/api/sessions/${session.id}/invoke/${entryPoint}`, {
-      body: { inputs: { repoPath, task } }
+      body: { inputs: { repoPath, task, workingDir: repoPath } }
     });
 
     // 5. Poll for completion
