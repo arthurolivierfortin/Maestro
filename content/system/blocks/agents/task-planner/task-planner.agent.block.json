@@ -19,7 +19,11 @@
     "model": "claude-sonnet-4-6",
     "maxIterations": 6,
     "wallClockTimeoutSeconds": 600,
-    "systemPromptFile": "system-prompt.md"
+    "systemPromptFile": "system-prompt.md",
+    "outputValidation": {
+      "format": "json-array",
+      "retryMessage": "SYSTEM ERROR: Your step-complete summary contains prose text, but it MUST be a raw JSON array. The summary field must start with '[' and end with ']'. It must be a valid JSON array of step objects. Prose summaries crash the downstream pipeline. Call step-complete again with ONLY the JSON array as the summary value."
+    }
   },
   "metadata": {
     "category": "development",

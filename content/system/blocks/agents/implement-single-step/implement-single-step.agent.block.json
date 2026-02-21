@@ -17,7 +17,11 @@
     "model": "claude-sonnet",
     "maxIterations": 15,
     "wallClockTimeoutSeconds": 600,
-    "systemPromptFile": "system-prompt.md"
+    "systemPromptFile": "system-prompt.md",
+    "outputValidation": {
+      "format": "json-object",
+      "retryMessage": "SYSTEM ERROR: Your step-complete summary contains prose text, but it MUST be a raw JSON object. The summary field must start with '{' and end with '}'. It must contain stepId, action, target, linesWritten, verified, and notes. Call step-complete again with ONLY the JSON object as the summary value."
+    }
   },
   "metadata": {
     "category": "development",

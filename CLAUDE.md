@@ -632,6 +632,22 @@ Entry points map to block IDs. The `EntryPointExecutor` dispatches based on bloc
 **ADRs**: `docs/phases/PHASE-18/ADR-BLOCKS-ARE-THE-UNIVERSAL-UNIT.md`, `docs/phases/PHASE-26/REFACTORING-AGENT-INFERENCE-MERGE.md`
 **Current state**: Phase 26 deleted `AgentDefinition`/`ToolDefinition` and removed hardcoded content. But `AgentBlockExecutor` still calls LLM directly and hardcodes the agentic loop in C# — this architectural debt is tracked for Phase 35-PRE.
 
+### Hardcoding format validation or retry messages in executor code
+**Cause**: Adding content-specific logic in executor C# code, such as checking if an agent's output is a "JSON array" or embedding retry messages like "your response must be a JSON array of steps". This violates "executor = mechanical plumbing".
+**Example**: `if (summary.Length > 50 && !summary.StartsWith("[")) { /* hardcoded retry */ }` in `AgentBlockExecutor.cs`.
+**Fix**: Use `config.outputValidation` in the block's JSON definition:
+```json
+"config": {
+  "outputValidation": {
+    "format": "json-array",
+    "retryMessage": "Your step-complete summary must be a raw JSON array..."
+  }
+}
+```
+The executor reads `config.outputValidation` and applies generic format checking. The expected format and retry message are **content** that lives in the block definition, not in C#. Supported formats: `json-array`, `json-object`, `json`.
+**Litmus test**: Can you change the expected output format of a block without modifying C#? If yes, correct.
+**Incident**: Phase 35-E Fix 38 initially hardcoded prose detection in `AgentBlockExecutor.cs`. Refactored to config-driven approach during same session.
+
 ### Creating blocks outside the workspace/foundry workflow
 **Cause**: Writing block JSON files directly into `content/system/blocks/` without a workspace or foundry session, because it's faster
 **Fix**: Always follow the canonical workflow: create a workspace → create a foundry session → develop/test the block → publish when fitness is good → use in project session. See `docs/guides/users/full-pipeline.md`.

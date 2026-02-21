@@ -240,6 +240,7 @@ powershell.exe -Command "cd C:\Meastro\apps\backend; dotnet build"
 - Ne PAS ajouter de features a Cantante — stabiliser ce qui existe
 - Ne PAS optimiser prematurement le cout — d'abord le taux de succes
 - Ne PAS declarer "stable" sans metriques de confirmation
+- Ne PAS hardcoder de logique specifique au contenu dans les executeurs C# — utiliser `config.outputValidation` dans le block JSON pour definir le format attendu et le message de retry. L'executeur est du plumbing mecanique, JAMAIS du contenu.
 
 ### Checkpoint
 ```markdown

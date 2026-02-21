@@ -1,10 +1,10 @@
 {
   "totalRequests": 199,
   "latency": {
-    "p50": 8872,
-    "p95": 49832.199999999924,
-    "p99": 91828.83999999995,
-    "average": 16506.866666666665
+    "p50": 0,
+    "p95": 0,
+    "p99": 0,
+    "average": 0
   },
   "totalTokens": {
     "promptTokens": 679,
@@ -114,16 +114,16 @@
     {
       "windowName": "15m",
       "windowSeconds": 900,
-      "requestCount": 15,
-      "requestsPerMinute": 1,
+      "requestCount": 0,
+      "requestsPerMinute": 0,
       "latency": {
-        "p50": 8872,
-        "p95": 49832.199999999924,
-        "p99": 91828.83999999995,
-        "average": 16506.866666666665
+        "p50": 0,
+        "p95": 0,
+        "p99": 0,
+        "average": 0
       },
       "tokensTotal": 95903
     }
   ],
-  "generatedAt": "2026-02-21T22:40:15.6909125+00:00"
+  "generatedAt": "2026-02-21T22:53:15.7002317+00:00"
 }

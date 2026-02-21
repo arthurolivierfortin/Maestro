@@ -138,7 +138,8 @@ public class AgentBlockExecutor : IBlockExecutor
         var iteration = 0;
         var actualToolCallCount = 0; // A-2 done guard: track real tool executions
         var nonJsonRetryCount = 0;   // A-2 non-JSON retry counter
-        var proseRetryDone = false;  // FIX 38: one-time prose summary retry
+        var outputValidationRetryDone = false;
+        var outputValidation = GetOutputValidation(block.Config);
         LLMResponse? lastResponse = null;
 
         // Token accumulators across all LLM calls in the agentic loop
@@ -327,32 +328,35 @@ public class AgentBlockExecutor : IBlockExecutor
                                 result.Logs.Add("Agent called 'step-complete' with 0 tool calls (planning/analysis mode).");
                             }
 
-                            // PHASE 35-E FIX 38: Prose summary retry.
-                            // If the summary looks like prose (doesn't start with [ or {) and the agent
-                            // hasn't done much work (planning mode), give it ONE chance to reformulate.
-                            // This catches the task-planner prose output problem without adding cost
-                            // to agents that legitimately return prose after doing tool work.
-                            var summaryText = args.ValueKind == JsonValueKind.Object && args.TryGetProperty("summary", out var sumCheck)
-                                ? sumCheck.GetString() ?? "" : "";
-                            var summaryTrimmed = summaryText.Trim();
-                            if (!proseRetryDone
-                                && summaryTrimmed.Length > 50
-                                && !summaryTrimmed.StartsWith("[")
-                                && !summaryTrimmed.StartsWith("{")
-                                && actualToolCallCount <= 2)
+                            // Config-driven output validation: if the block defines
+                            // config.outputValidation, validate the step-complete summary
+                            // against the expected format. Retry once if mismatch.
+                            // ALL content (format, retry message) comes from block config — the
+                            // executor is mechanical plumbing, it never hardcodes format expectations.
+                            if (outputValidation != null && !outputValidationRetryDone)
                             {
-                                proseRetryDone = true;
-                                result.Logs.Add("Prose summary detected in step-complete. Asking agent to reformulate as JSON.");
-                                _conversationManager.AddMessage(conversationId, "assistant", jsonContent);
-                                _conversationManager.AddMessage(conversationId, "user",
-                                    "SYSTEM ERROR: Your step-complete summary contains prose text, but it MUST be a raw JSON array. " +
-                                    "The summary field must start with '[' and end with ']'. It must be a valid JSON array of objects. " +
-                                    "Prose summaries cause the downstream pipeline to CRASH. " +
-                                    "Call step-complete again with the summary as a JSON array string. " +
-                                    "Example: {\"tool\":\"step-complete\",\"args\":{\"summary\":\"[{\\\"id\\\":1,\\\"action\\\":\\\"create\\\",...}]\"}}");
-                                toolCalled = true;
-                                nonJsonRetryCount = 0;
-                                continue;
+                                var summaryText = args.ValueKind == JsonValueKind.Object && args.TryGetProperty("summary", out var sumCheck)
+                                    ? sumCheck.GetString() ?? "" : "";
+                                var summaryTrimmed = summaryText.Trim();
+
+                                var formatMismatch = outputValidation.Format switch
+                                {
+                                    "json-array" => summaryTrimmed.Length > 50 && !summaryTrimmed.StartsWith("["),
+                                    "json-object" => summaryTrimmed.Length > 50 && !summaryTrimmed.StartsWith("{"),
+                                    "json" => summaryTrimmed.Length > 50 && !summaryTrimmed.StartsWith("[") && !summaryTrimmed.StartsWith("{"),
+                                    _ => false
+                                };
+
+                                if (formatMismatch)
+                                {
+                                    outputValidationRetryDone = true;
+                                    result.Logs.Add($"Output validation: expected '{outputValidation.Format}', got prose. Retrying.");
+                                    _conversationManager.AddMessage(conversationId, "assistant", jsonContent);
+                                    _conversationManager.AddMessage(conversationId, "user", outputValidation.RetryMessage);
+                                    toolCalled = true;
+                                    nonJsonRetryCount = 0;
+                                    continue;
+                                }
                             }
 
                             // Store full args as structured output (supports arbitrary properties)
@@ -946,6 +950,36 @@ public class AgentBlockExecutor : IBlockExecutor
         }
 
         return config;
+    }
+
+    /// <summary>
+    /// Output validation configuration read from block config.
+    /// When present, the executor validates step-complete output against the expected format
+    /// and retries once with the provided message if the format doesn't match.
+    /// ALL content lives in block config — the executor is mechanical plumbing.
+    /// </summary>
+    private record OutputValidationConfig(string Format, string RetryMessage);
+
+    /// <summary>
+    /// Reads config.outputValidation from the block definition.
+    /// Returns null if not configured (no validation — executor stays silent).
+    /// </summary>
+    private static OutputValidationConfig? GetOutputValidation(Dictionary<string, object>? blockConfig)
+    {
+        if (blockConfig == null) return null;
+        if (!blockConfig.TryGetValue("outputValidation", out var ovObj) || ovObj == null) return null;
+
+        if (ovObj is JsonElement jel && jel.ValueKind == JsonValueKind.Object)
+        {
+            var format = jel.TryGetProperty("format", out var f) ? f.GetString() : null;
+            var retryMessage = jel.TryGetProperty("retryMessage", out var r) ? r.GetString() : null;
+            if (string.IsNullOrEmpty(format)) return null;
+            return new OutputValidationConfig(
+                format,
+                retryMessage ?? $"SYSTEM ERROR: Your step-complete summary does not match the expected format '{format}'. Please reformulate and call step-complete again.");
+        }
+
+        return null;
     }
 
     /// <summary>

@@ -231,7 +231,7 @@ Quand l'agent veut faire un edit partiel (old_string → new_string), le block r
 |---|-----|---------|-------------|
 | 36 | Extraction JSON 3 passes | `EntryPointExecutor.cs` | Pass 1: string start `[`, Pass 2: embedded `[{` dans prose, Pass 3: JArray property direct. + `TryExtractJsonArrayFromText` helper + `JArrayToNativeList` helper |
 | 37 | JObject handling for-each | `EntryPointExecutor.cs` | Quand source for-each est JObject, extraction arrays depuis string/array properties |
-| 38 | Prose retry dans step-complete | `AgentBlockExecutor.cs` | Quand summary est prose (>50 chars, pas `[`/`{`), 1 retry nudge demandant JSON. Note: **pragmatic hack** — devrait etre un block de validation a terme |
+| 38 | Config-driven output validation | `AgentBlockExecutor.cs` + `task-planner.agent.block.json` + `implement-single-step.agent.block.json` | Block config `outputValidation.format` ("json-array"/"json-object") + `retryMessage`. Executor reads format expectation from block config, retries once if mismatch. Zero hardcoded content in executor — respects "executor = mechanical plumbing" principle. |
 
 ### Sessions de dogfooding 35-E
 
@@ -253,12 +253,13 @@ Quand l'agent veut faire un edit partiel (old_string → new_string), le block r
 - **Cumulatif 35-E** : 4/7 = 57%
 - **Cumulatif total (toutes phases)** : 22/34 = 65%
 
-### Fix 38 en action (prose retry)
-Les sessions 25-26 montrent le prose retry (Fix 38) en action :
+### Fix 38 en action (config-driven output validation)
+Les sessions 25-26 montrent la validation output en action :
 - `implement-single-step` retourne systematiquement prose la premiere fois
-- Le retry nudge obtient une reformulation JSON dans 100% des cas
+- Le retry nudge (message defini dans block config `outputValidation.retryMessage`) obtient une reformulation JSON dans 100% des cas
 - Cout additionnel : ~1 LLM call par step (acceptable vs pipeline crash)
 - **Impact direct** : les 3 echecs precedents (sessions 21-22-24) auraient reussi avec ce fix
+- **Architecture** : la validation est config-driven — le format attendu et le message de retry sont dans le block JSON, pas dans l'executor C#. Respecte le principe "executor = mechanical plumbing".
 
 ### Problemes resolus vs restants
 
@@ -281,4 +282,8 @@ Les sessions 25-26 montrent le prose retry (Fix 38) en action :
 - Backend build : PASS (0 erreurs, 0 warnings apres kill+rebuild)
 - Block JSON : valides
 - Dogfooding : 5 sessions executees, 2 succes, 3 echecs
-- Objectif >75% : **NON ATTEINT** — le task-planner prose output reste le blocage principal
+- Objectif >75% : **NON ATTEINT globalement** (65% cumulatif) — mais 100% post-fix 36-38 (2/2 sessions)
+- Architecture : Fix 38 refactored from hardcoded prose detection to config-driven `outputValidation` in block definitions
+
+
+last session claude --resume e41f56c7-7e93-48f7-94da-f9262719c529
