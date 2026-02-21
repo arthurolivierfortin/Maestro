@@ -645,6 +645,9 @@ public class ToolBlockExecutor : IBlockExecutor
                 case "write":
                     return await HandleFileWriteAsync(filePath, inputs, logs, sw, ct);
 
+                case "edit":
+                    return await HandleFileEditAsync(filePath, inputs, logs, sw, ct);
+
                 case "list":
                     return HandleDirectoryList(filePath, logs, sw);
 
@@ -818,6 +821,159 @@ public class ToolBlockExecutor : IBlockExecutor
         resultOutputs["success"] = true;
         resultOutputs["path"] = filePath;
         resultOutputs["bytesWritten"] = bytesWritten;
+
+        return new BlockExecutionResult
+        {
+            Outputs = resultOutputs.ToDictionary(kv => kv.Key, kv => kv.Value),
+            Logs = logs,
+            Success = true,
+            DurationMs = sw.ElapsedMilliseconds
+        };
+    }
+
+    private async Task<BlockExecutionResult> HandleFileEditAsync(
+        string filePath,
+        Dictionary<string, object> inputs,
+        List<string> logs,
+        Stopwatch sw,
+        CancellationToken ct)
+    {
+        var resultOutputs = new Dictionary<string, object?>();
+
+        logs.Add($"Editing file: {filePath}");
+
+        if (!File.Exists(filePath))
+        {
+            logs.Add($"File not found: {filePath}");
+            resultOutputs["success"] = false;
+            resultOutputs["path"] = filePath;
+            resultOutputs["replacementCount"] = 0;
+
+            return new BlockExecutionResult
+            {
+                Outputs = resultOutputs.ToDictionary(kv => kv.Key, kv => kv.Value),
+                Logs = logs,
+                Success = false,
+                DurationMs = sw.ElapsedMilliseconds
+            };
+        }
+
+        // Get old_string and new_string from inputs
+        string? oldString = null;
+        if (inputs.TryGetValue("old_string", out var osObj))
+        {
+            if (osObj is string s) oldString = s;
+            else if (osObj is System.Text.Json.JsonElement je && je.ValueKind == System.Text.Json.JsonValueKind.String)
+                oldString = je.GetString();
+            else if (osObj != null) oldString = osObj.ToString();
+        }
+
+        string? newString = null;
+        if (inputs.TryGetValue("new_string", out var nsObj))
+        {
+            if (nsObj is string s) newString = s;
+            else if (nsObj is System.Text.Json.JsonElement je && je.ValueKind == System.Text.Json.JsonValueKind.String)
+                newString = je.GetString();
+            else if (nsObj != null) newString = nsObj.ToString();
+        }
+
+        if (oldString == null)
+        {
+            logs.Add("Missing required input: old_string");
+            resultOutputs["success"] = false;
+            resultOutputs["path"] = filePath;
+            resultOutputs["replacementCount"] = 0;
+            return new BlockExecutionResult
+            {
+                Outputs = resultOutputs.ToDictionary(kv => kv.Key, kv => kv.Value),
+                Logs = logs,
+                Success = false,
+                DurationMs = sw.ElapsedMilliseconds
+            };
+        }
+
+        // new_string can be empty (deletion), but must not be null
+        newString ??= string.Empty;
+
+        // Check replace_all flag
+        var replaceAll = false;
+        if (inputs.TryGetValue("replace_all", out var raObj))
+        {
+            if (raObj is bool b) replaceAll = b;
+            else if (raObj is System.Text.Json.JsonElement je)
+            {
+                if (je.ValueKind == System.Text.Json.JsonValueKind.True) replaceAll = true;
+                else if (je.ValueKind == System.Text.Json.JsonValueKind.String)
+                    bool.TryParse(je.GetString(), out replaceAll);
+            }
+            else if (raObj != null) bool.TryParse(raObj.ToString(), out replaceAll);
+        }
+
+        // Read the file
+        var content = await File.ReadAllTextAsync(filePath, new System.Text.UTF8Encoding(false), ct);
+
+        // Count occurrences
+        var count = 0;
+        var idx = 0;
+        while ((idx = content.IndexOf(oldString, idx, StringComparison.Ordinal)) >= 0)
+        {
+            count++;
+            idx += oldString.Length;
+        }
+
+        if (count == 0)
+        {
+            logs.Add("old_string not found in file");
+            resultOutputs["success"] = false;
+            resultOutputs["path"] = filePath;
+            resultOutputs["replacementCount"] = 0;
+            return new BlockExecutionResult
+            {
+                Outputs = resultOutputs.ToDictionary(kv => kv.Key, kv => kv.Value),
+                Logs = logs,
+                Success = false,
+                DurationMs = sw.ElapsedMilliseconds
+            };
+        }
+
+        if (count > 1 && !replaceAll)
+        {
+            logs.Add($"old_string found {count} times — ambiguous. Set replace_all=true to replace all occurrences.");
+            resultOutputs["success"] = false;
+            resultOutputs["path"] = filePath;
+            resultOutputs["replacementCount"] = 0;
+            return new BlockExecutionResult
+            {
+                Outputs = resultOutputs.ToDictionary(kv => kv.Key, kv => kv.Value),
+                Logs = logs,
+                Success = false,
+                DurationMs = sw.ElapsedMilliseconds
+            };
+        }
+
+        // Perform replacement
+        string newContent;
+        int replacementCount;
+        if (replaceAll)
+        {
+            newContent = content.Replace(oldString, newString, StringComparison.Ordinal);
+            replacementCount = count;
+        }
+        else
+        {
+            // Replace first (and only) occurrence
+            var pos = content.IndexOf(oldString, StringComparison.Ordinal);
+            newContent = string.Concat(content.AsSpan(0, pos), newString, content.AsSpan(pos + oldString.Length));
+            replacementCount = 1;
+        }
+
+        // Write back without BOM
+        await File.WriteAllTextAsync(filePath, newContent, new System.Text.UTF8Encoding(false), ct);
+        logs.Add($"Replaced {replacementCount} occurrence(s)");
+
+        resultOutputs["success"] = true;
+        resultOutputs["path"] = filePath;
+        resultOutputs["replacementCount"] = replacementCount;
 
         return new BlockExecutionResult
         {

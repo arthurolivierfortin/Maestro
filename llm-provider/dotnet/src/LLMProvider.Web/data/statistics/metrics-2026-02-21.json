@@ -1,5 +1,5 @@
 {
-  "totalRequests": 34,
+  "totalRequests": 55,
   "latency": {
     "p50": 0,
     "p95": 0,
@@ -7,47 +7,66 @@
     "average": 0
   },
   "totalTokens": {
-    "promptTokens": 95,
-    "completionTokens": 28037,
-    "totalTokens": 28132
+    "promptTokens": 175,
+    "completionTokens": 41252,
+    "totalTokens": 41427
   },
   "modelStats": [
     {
       "modelId": {
-        "value": "opus"
+        "value": "haiku"
       },
-      "requestCount": 8,
+      "requestCount": 4,
       "latency": {
-        "p50": 9478,
-        "p95": 10783.9,
-        "p99": 10975.98,
-        "average": 9492.25
+        "p50": 19492,
+        "p95": 24353.05,
+        "p99": 24851.41,
+        "average": 19751
       },
       "totalTokens": {
-        "promptTokens": 23,
-        "completionTokens": 688,
-        "totalTokens": 711
+        "promptTokens": 40,
+        "completionTokens": 5853,
+        "totalTokens": 5893
       },
-      "requestsPerMinute": 0.3257387216245553,
+      "requestsPerMinute": 0.4472431777899294,
+      "errorRate": 0
+    },
+    {
+      "modelId": {
+        "value": "opus"
+      },
+      "requestCount": 4,
+      "latency": {
+        "p50": 30400,
+        "p95": 65911.65,
+        "p99": 68137.52999999998,
+        "average": 34753
+      },
+      "totalTokens": {
+        "promptTokens": 12,
+        "completionTokens": 8226,
+        "totalTokens": 8238
+      },
+      "requestsPerMinute": 0.24467234274687638,
       "errorRate": 0
     },
     {
       "modelId": {
         "value": "sonnet"
       },
-      "requestCount": 26,
+      "requestCount": 47,
       "latency": {
-        "p50": 12037,
-        "p95": 56032.75,
-        "p99": 95792.5,
-        "average": 21339.03846153846
+        "p50": 10260,
+        "p95": 38408.699999999975,
+        "p99": 59227.11999999998,
+        "average": 15893.148936170213
       },
       "totalTokens": {
-        "promptTokens": 72,
-        "completionTokens": 27349,
-        "totalTokens": 27421
+        "promptTokens": 123,
+        "completionTokens": 27173,
+        "totalTokens": 27296
       },
-      "requestsPerMinute": 0.9090570823140312,
+      "requestsPerMinute": 3.410755680713883,
       "errorRate": 0
     }
   ],
@@ -77,7 +96,7 @@
         "p99": 0,
         "average": 0
       },
-      "tokensTotal": 28132
+      "tokensTotal": 41427
     },
     {
       "windowName": "5m",
@@ -90,7 +109,7 @@
         "p99": 0,
         "average": 0
       },
-      "tokensTotal": 28132
+      "tokensTotal": 41427
     },
     {
       "windowName": "15m",
@@ -103,8 +122,8 @@
         "p99": 0,
         "average": 0
       },
-      "tokensTotal": 28132
+      "tokensTotal": 41427
     }
   ],
-  "generatedAt": "2026-02-21T13:53:09.1533546+00:00"
+  "generatedAt": "2026-02-21T20:28:24.9471716+00:00"
 }

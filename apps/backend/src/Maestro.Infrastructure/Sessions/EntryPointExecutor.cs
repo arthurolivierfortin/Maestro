@@ -1156,30 +1156,144 @@ public class EntryPointExecutor
                 : ResolveTemplate(templateValue, session);
         }
 
-        // Try to parse as JSON for proper List<object>/Dictionary storage
+        // Try to parse as JSON for proper List<object>/Dictionary storage.
+        // CRITICAL: Use Newtonsoft JToken (reference types) instead of System.Text.Json JsonElement
+        // (value struct). Boxed JsonElement stored in Dictionary<string,object> session variables
+        // has proven unreliable for ValueKind checks after retrieval — three attempts with
+        // System.Text.Json all failed despite compiled code being correct. JArray/JObject are
+        // reference types with no boxing issues.
         var trimmed = rawValue.Trim();
+        // Strip BOM/zero-width chars that LLMs sometimes emit
+        trimmed = trimmed.TrimStart('\uFEFF', '\u200B', '\u200C', '\u200D');
         if (trimmed.StartsWith("[") || trimmed.StartsWith("{"))
         {
             try
             {
-                var parsed = JsonSerializer.Deserialize<JsonElement>(trimmed);
-                session.SetVariable(variableName, parsed);
-                NormalizeJsonElementToList(session, variableName);
-                AppendExecutionLog(session, "info",
-                    $"set-variable '{nodeId}': stored parsed JSON in '{variableName}' ({trimmed.Length} chars)");
+                var token = JToken.Parse(trimmed);
+
+                if (token is JArray jArr)
+                {
+                    var list = new List<object>();
+                    foreach (var item in jArr)
+                    {
+                        if (item is JObject jObj)
+                        {
+                            var dict = new Dictionary<string, object>();
+                            foreach (var prop in jObj.Properties())
+                            {
+                                dict[prop.Name] = prop.Value.Type switch
+                                {
+                                    JTokenType.String => prop.Value.Value<string>()!,
+                                    JTokenType.Integer => (object)prop.Value.Value<long>(),
+                                    JTokenType.Float => (object)prop.Value.Value<double>(),
+                                    JTokenType.Boolean => (object)prop.Value.Value<bool>(),
+                                    JTokenType.Array => prop.Value.ToString(),
+                                    JTokenType.Object => prop.Value.ToString(),
+                                    _ => prop.Value.ToString()
+                                };
+                            }
+                            list.Add(dict);
+                        }
+                        else if (item.Type == JTokenType.String)
+                        {
+                            list.Add(item.Value<string>()!);
+                        }
+                        else
+                        {
+                            list.Add(item.ToString());
+                        }
+                    }
+                    session.SetVariable(variableName, list);
+                    AppendExecutionLog(session, "info",
+                        $"set-variable '{nodeId}': stored {list.Count}-item list in '{variableName}' ({trimmed.Length} chars)");
+                }
+                else if (token is JObject jObj)
+                {
+                    // Common LLM pattern: agent wraps output in {"summary":"[{...}]"} or {"result":"[{...}]"}.
+                    // If the JObject has a string field that contains a JSON array, unwrap it.
+                    // This is critical for the task-planner → store-plan → for-each pipeline.
+                    JArray? unwrappedArray = null;
+                    string? unwrapField = null;
+                    foreach (var prop in jObj.Properties())
+                    {
+                        if (prop.Value.Type == JTokenType.String)
+                        {
+                            var strVal = prop.Value.Value<string>();
+                            if (!string.IsNullOrEmpty(strVal) && strVal.TrimStart().StartsWith("["))
+                            {
+                                try
+                                {
+                                    unwrappedArray = JArray.Parse(strVal);
+                                    unwrapField = prop.Name;
+                                    break;
+                                }
+                                catch { /* not a valid JSON array, continue */ }
+                            }
+                        }
+                    }
+
+                    if (unwrappedArray != null && unwrappedArray.Count > 0)
+                    {
+                        // Unwrap: convert JArray → List<object> of native types
+                        var list = new List<object>();
+                        foreach (var item in unwrappedArray)
+                        {
+                            if (item is JObject innerObj)
+                            {
+                                var dict = new Dictionary<string, object>();
+                                foreach (var prop in innerObj.Properties())
+                                {
+                                    dict[prop.Name] = prop.Value.Type switch
+                                    {
+                                        JTokenType.String => prop.Value.Value<string>()!,
+                                        JTokenType.Integer => (object)prop.Value.Value<long>(),
+                                        JTokenType.Float => (object)prop.Value.Value<double>(),
+                                        JTokenType.Boolean => (object)prop.Value.Value<bool>(),
+                                        _ => prop.Value.ToString()
+                                    };
+                                }
+                                list.Add(dict);
+                            }
+                            else if (item.Type == JTokenType.String)
+                            {
+                                list.Add(item.Value<string>()!);
+                            }
+                            else
+                            {
+                                list.Add(item.ToString());
+                            }
+                        }
+                        session.SetVariable(variableName, list);
+                        AppendExecutionLog(session, "info",
+                            $"set-variable '{nodeId}': unwrapped '{unwrapField}' → stored {list.Count}-item list in '{variableName}'");
+                    }
+                    else
+                    {
+                        // Store object as-is (config objects, non-array wrappers)
+                        session.SetVariable(variableName, jObj);
+                        AppendExecutionLog(session, "info",
+                            $"set-variable '{nodeId}': stored JSON object in '{variableName}' ({trimmed.Length} chars)");
+                    }
+                }
+                else
+                {
+                    session.SetVariable(variableName, rawValue);
+                    AppendExecutionLog(session, "info",
+                        $"set-variable '{nodeId}': stored value in '{variableName}' ({trimmed.Length} chars, token type: {token.Type})");
+                }
             }
-            catch
+            catch (Exception ex)
             {
                 session.SetVariable(variableName, rawValue);
-                AppendExecutionLog(session, "info",
-                    $"set-variable '{nodeId}': stored string in '{variableName}' ({rawValue.Length} chars)");
+                AppendExecutionLog(session, "warn",
+                    $"set-variable '{nodeId}': JSON parse failed, stored as string in '{variableName}' ({rawValue.Length} chars, err: {ex.Message})");
             }
         }
         else
         {
             session.SetVariable(variableName, rawValue);
             AppendExecutionLog(session, "info",
-                $"set-variable '{nodeId}': stored in '{variableName}' ({rawValue.Length} chars)");
+                $"set-variable '{nodeId}': stored plain text in '{variableName}' ({rawValue.Length} chars)");
         }
 
         return rawValue;
@@ -1249,7 +1363,125 @@ public class EntryPointExecutor
         }
 
         // Read the source list from session variable
+        // Defense-in-depth: normalize again in case set-variable's normalization didn't stick
+        NormalizeJsonElementToList(session, source);
         var sourceVar = session.GetVariable(source);
+
+        // Direct JsonElement → List<object> conversion if NormalizeJsonElementToList didn't work
+        // This handles the case where JsonElement is stored but ValueKind check fails silently
+        if (sourceVar is JsonElement directJsonEl)
+        {
+            _logger.LogWarning("for-each '{NodeId}': source is still JsonElement (kind={Kind}), converting directly",
+                nodeId, directJsonEl.ValueKind);
+            if (directJsonEl.ValueKind == JsonValueKind.Array)
+            {
+                var directList = new List<object>();
+                foreach (var item in directJsonEl.EnumerateArray())
+                {
+                    if (item.ValueKind == JsonValueKind.Object)
+                    {
+                        var dict = new Dictionary<string, object>();
+                        foreach (var prop in item.EnumerateObject())
+                        {
+                            dict[prop.Name] = prop.Value.ValueKind switch
+                            {
+                                JsonValueKind.String => prop.Value.GetString()!,
+                                JsonValueKind.Number => prop.Value.TryGetInt64(out var lng) ? (object)lng : prop.Value.GetDouble(),
+                                JsonValueKind.True => true,
+                                JsonValueKind.False => false,
+                                JsonValueKind.Array => prop.Value.ToString()!,
+                                JsonValueKind.Object => prop.Value.ToString()!,
+                                _ => prop.Value.ToString()!
+                            };
+                        }
+                        directList.Add(dict);
+                    }
+                    else
+                    {
+                        directList.Add(item.ToString()!);
+                    }
+                }
+                if (directList.Count > 0)
+                {
+                    session.SetVariable(source, directList);
+                    sourceVar = directList;
+                    AppendExecutionLog(session, "info",
+                        $"for-each '{nodeId}': directly converted JsonElement to {directList.Count} items");
+                }
+            }
+            else if (directJsonEl.ValueKind == JsonValueKind.String)
+            {
+                // JsonElement wrapping a string — try to parse the string as JSON array
+                var strContent = directJsonEl.GetString();
+                if (!string.IsNullOrEmpty(strContent))
+                {
+                    var bracketStart = strContent.IndexOf('[');
+                    var bracketEnd = strContent.LastIndexOf(']');
+                    if (bracketStart >= 0 && bracketEnd > bracketStart)
+                    {
+                        try
+                        {
+                            var innerParsed = JsonSerializer.Deserialize<List<Dictionary<string, JsonElement>>>(
+                                strContent.Substring(bracketStart, bracketEnd - bracketStart + 1));
+                            if (innerParsed != null && innerParsed.Count > 0)
+                            {
+                                var innerList = new List<object>();
+                                foreach (var dict in innerParsed)
+                                {
+                                    var converted = new Dictionary<string, object>();
+                                    foreach (var kv in dict)
+                                    {
+                                        converted[kv.Key] = kv.Value.ValueKind switch
+                                        {
+                                            JsonValueKind.String => kv.Value.GetString()!,
+                                            JsonValueKind.Number => kv.Value.TryGetInt64(out var lng) ? (object)lng : kv.Value.GetDouble(),
+                                            JsonValueKind.True => true,
+                                            JsonValueKind.False => false,
+                                            _ => kv.Value.ToString()!
+                                        };
+                                    }
+                                    innerList.Add(converted);
+                                }
+                                session.SetVariable(source, innerList);
+                                sourceVar = innerList;
+                                AppendExecutionLog(session, "info",
+                                    $"for-each '{nodeId}': parsed JsonElement string to {innerList.Count} items");
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogWarning(ex, "for-each '{NodeId}': failed to parse JsonElement string content", nodeId);
+                        }
+                    }
+                }
+            }
+        }
+
+        // Defense-in-depth: if source is still a JArray (Newtonsoft), convert to List<object> here
+        if (sourceVar is JArray jArrSource)
+        {
+            _logger.LogWarning("for-each '{NodeId}': source is JArray ({Count} items), normalizing", nodeId, jArrSource.Count);
+            NormalizeJsonElementToList(session, source);
+            sourceVar = session.GetVariable(source);
+        }
+        // Defense-in-depth: if source is a JToken string wrapping JSON array
+        else if (sourceVar is JValue jVal && jVal.Type == JTokenType.String)
+        {
+            var jStr = jVal.Value<string>();
+            if (!string.IsNullOrEmpty(jStr) && jStr.TrimStart().StartsWith("["))
+            {
+                try
+                {
+                    var arr = JArray.Parse(jStr);
+                    session.SetVariable(source, arr);
+                    NormalizeJsonElementToList(session, source);
+                    sourceVar = session.GetVariable(source);
+                    AppendExecutionLog(session, "info", $"for-each '{nodeId}': parsed JValue string to list");
+                }
+                catch { /* fallthrough to error below */ }
+            }
+        }
+
         if (sourceVar is not List<object> items || items.Count == 0)
         {
             var errorMsg = $"for-each '{nodeId}': source '{source}' is empty or not a list (type: {sourceVar?.GetType().Name ?? "null"})";

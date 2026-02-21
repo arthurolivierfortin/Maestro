@@ -909,7 +909,7 @@ public class AgentBlockExecutor : IBlockExecutor
             "read-file" or "readFile" or "Read" or "read" => "file-read",
             "write-file" or "writeFile" or "Write" or "write" => "file-write",
             "list-directory" or "listDirectory" or "ls" or "list-dir" => "directory-list",
-            "file-edit" or "edit-file" or "editFile" or "edit" or "Edit" => "file-write", // no edit tool, use write
+            "edit-file" or "editFile" or "edit" or "Edit" => "file-edit",
             _ => toolId
         };
     }

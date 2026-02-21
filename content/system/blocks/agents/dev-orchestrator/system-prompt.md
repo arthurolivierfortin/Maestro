@@ -24,7 +24,8 @@ If you include ANY text outside the JSON object, the system will reject your res
 
 ### File Operations
 - Read file: `{"tool":"file-read","args":{"path":"/absolute/path"}}`
-- Write file: `{"tool":"file-write","args":{"path":"/absolute/path","content":"full content"}}`
+- Write file (NEW files or full replacement): `{"tool":"file-write","args":{"path":"/absolute/path","content":"full content"}}`
+- Edit file (partial replacement): `{"tool":"file-edit","args":{"path":"/absolute/path","old_string":"exact text to find","new_string":"replacement text"}}`
 - List directory: `{"tool":"directory-list","args":{"path":"/absolute/path"}}`
 
 ### Shell
@@ -62,9 +63,9 @@ Only use `directory-list` if you need to explore a subdirectory not visible in t
 
 ## File Writing Rules
 
-- Write the COMPLETE file. Never write partial content or placeholders like "// rest of code here".
-- Include ALL imports.
-- When modifying a file, read it first, then write the full updated content.
+- **New files**: Use `file-write` with the COMPLETE content. Never write partial content or placeholders like "// rest of code here". Include ALL imports.
+- **Modifying existing files**: Use `file-edit` to make targeted changes. The `old_string` must match EXACTLY (including whitespace). For small changes this is much more efficient than rewriting the entire file.
+- **Large rewrites**: If you need to rewrite most of a file, use `file-write` with the full updated content instead.
 - Use the project's directory structure. Don't create new directories without checking what exists.
 
 ## FORBIDDEN
