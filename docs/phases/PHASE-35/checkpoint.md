@@ -116,25 +116,58 @@ src/renderer/accessibility/
 6. UTF-8 without BOM → no more encoding issues in files
 7. System prompt v2 → stricter format, clearer tool names
 
-### Sessions continued
+### Sessions continued (35-B + 35-C)
 
 | # | Task | Session (prefix) | Calls | Cout | Duree | Resultat |
 |---|------|------------------|-------|------|-------|----------|
 | 10 | Tab system | 4ac4f85b | 15 | $0.070 | 195s | OK — TabBar + multi-file App state |
+| 11 | Search & Replace | 902200e2 | 17 | $0.341 | 426s | OK — SearchBar, highlight matches, StatusBar count |
+| 12 | File create/delete | b1bffcf4 | 16 | $0.174 | 261s | OK — IPC handlers, context menu, inline input |
+| 13 | Theme system | 5b382b96 | 20 | $0.135 | 281s | OK — CSS vars, useTheme, dark/light toggle |
+| 14 | Terminal panel | e68a5f3d | 18 | $0.192 | 284s | OK — TerminalPanel, IPC runCommand, toggle |
+| 15 | Minimap | - | - | - | - | ECHEC x4 — InternalServerError a l'iteration 6 (--resume CLI corruption) |
+| 16 | Minimap (retry 2) | a7632e9c | 8 | $0.007 | 601s | ECHEC — context reduction retry fonctionne mais timeout 600s |
+| 17 | formatDate (test multi-model) | - | 5 | $0.007 | 45s | OK — test crud-claude, planning opus + exec sonnet |
+| 18 | Line numbers | 7e6793f7 | 15 | $0.151 | 255s | OK — LineNumbers.tsx + CodeEditor.tsx integration |
+| 19 | Command palette | fc93293d | 6 | $0.135 | 283s | PARTIEL — CommandPalette.tsx cree, App.tsx integration echec (file-edit alias) |
 
-### Cout total 35-B : $0.610
+### Cout total 35-B+C : $1.87
+
+### Bug identifie: file-edit alias
+Le `NormalizeToolId` redirige `"edit"` → `"file-write"`, mais le block `file-write` ecrase le fichier complet.
+Quand l'agent veut faire un edit partiel (old_string → new_string), le block recoit les args mais ignore old_string/new_string.
+**Solution necessaire** : creer un vrai block `file-edit` (tool) qui fait de l'edition partielle.
+
+### 35-C Infrastructure improvements
+
+| # | Fix | Fichier | Description |
+|---|-----|---------|-------------|
+| 13 | `"edit"` alias manquant | `AgentBlockExecutor.cs` | `"edit"` et `"Edit"` → `"file-write"` |
+| 14 | Entry point → blockId | `headless.ts` | `workflowId: "dev"` → `"dev-orchestrator"` (bug critique) |
+| 15 | `--block` flag CLI | `cli.ts` + `headless.ts` | Support `--block <id>` pour specifier le block |
+| 16 | Project structure input | `headless.ts` | `projectStructure` tree envoye a l'agent (economise 3-5 iterations) |
+| 17 | System prompt: skip dir-list | `system-prompt.md` | Agent utilise projectStructure au lieu d'explorer |
+| 18 | Cleanup script | `dev-scripts/cleanup-services.ps1` | Nettoie les processus orphelins |
+| 19 | LLM 500 retry gateway | `LLMProviderGateway.cs` | Retry 500 errors once avec 5s delay (avant: crash immediat) |
+| 20 | LLM error context reduction | `AgentBlockExecutor.cs` | Sur echec LLM, reduit KeepLastN/2 et retry (au lieu de crash) |
+| 21 | Multi-model agent | `AgentBlockExecutor.cs` + block config | `planningModel` pour les N premieres iterations (opus planning, sonnet exec) |
+| 22 | --resume count limiter | `ClaudeCodeLLMProvider.cs` | Max 4 `--resume` calls avant fresh session (evite corruption CLI) |
+| 23 | --resume fallback truncated | `ClaudeCodeLLMProvider.cs` | Fallback envoie seulement 3 messages (task + derniers 2) au lieu de tout |
+| 24 | Stdin piping large prompts | `ClaudeCodeLLMProvider.cs` | Prompts > 25KB passes via stdin pour eviter limite cmd Windows 32KB |
 
 ### Agent improvement trend
 - Session 2: FAIL (hallucination, 0 files written)
 - Session 5: OK but 14 wasted iterations (forgot step-complete)
 - Sessions 6-9: Efficient (10-21 calls, no wasted iterations, clean builds)
 - Session 10: Very efficient (15 calls, step-complete from prose, clean build)
-- Agent cost per task: ~$0.03-0.12 depending on complexity
+- Sessions 11-14: Good (15-20 calls, $0.13-0.34, all builds pass)
+- Session 15: FAIL (InternalServerError at iteration 6, --resume CLI corruption)
+- Agent cost per task: ~$0.03-0.34 depending on complexity
 
 ### Build status final
 - `npx tsc --noEmit` : PASS
-- `npx vite build` : PASS (42 modules, 152 KB)
-- 21 source files total in Cantante
+- `npx vite build` : PASS (43 modules, 165 KB)
+- 24 source files total in Cantante
 
 ### Process gaps identified (user feedback)
 1. **No commit** — All changes stayed in working tree, nothing committed during the session

@@ -91,6 +91,9 @@ public class AgentBlockExecutor : IBlockExecutor
         int maxTokens;
         float temperature;
 
+        string? planningModel = null;
+        int planningIterations = 2;
+
         if (childNodeConfig.HasValue)
         {
             // Composite path: LLM params come from child inference node in config.nodes
@@ -98,6 +101,8 @@ public class AgentBlockExecutor : IBlockExecutor
                 ?? LLMBlockExecutorBase.ResolveModelId(block, inputs);
             maxTokens = childNodeConfig.Value.MaxTokens;
             temperature = childNodeConfig.Value.Temperature;
+            planningModel = childNodeConfig.Value.PlanningModel;
+            planningIterations = childNodeConfig.Value.PlanningIterations;
             result.Logs.Add("Agent config: composite (LLM params from config.nodes child)");
         }
         else
@@ -113,6 +118,8 @@ public class AgentBlockExecutor : IBlockExecutor
         var contextConfig = GetContextConfig(block.Config);
 
         result.Logs.Add($"Using model: {modelId ?? "default"}, temperature: {temperature}, maxTokens: {maxTokens}");
+        if (!string.IsNullOrEmpty(planningModel))
+            result.Logs.Add($"Planning model: {planningModel} (first {planningIterations} iterations)");
         result.Logs.Add($"Context strategy: {contextConfig.Strategy}, maxTokens: {contextConfig.MaxTokens}");
         result.Logs.Add($"Wall-clock timeout: {wallClockTimeoutSeconds}s, max iterations: {maxIterations}");
 
@@ -155,11 +162,16 @@ public class AgentBlockExecutor : IBlockExecutor
             if (contextResult.WasTruncated)
                 result.Logs.Add($"Context truncated: {contextResult.MessagesRemoved} messages removed, ~{contextResult.EstimatedTokens} tokens");
 
+            // Select model: use planningModel for first N iterations, then regular model
+            var iterationModel = (!string.IsNullOrEmpty(planningModel) && iteration <= planningIterations)
+                ? planningModel
+                : modelId;
+
             // Send to LLM
             var request = new LLMRequest
             {
                 Messages = contextResult.Messages,
-                ModelId = modelId,
+                ModelId = iterationModel,
                 MaxNewTokens = maxTokens,
                 Temperature = temperature,
                 ConversationId = conversationId
@@ -178,7 +190,35 @@ public class AgentBlockExecutor : IBlockExecutor
             }
             catch (Exception ex)
             {
-                result.Logs.Add($"LLM request failed: {ex.Message}");
+                result.Logs.Add($"LLM request failed (iteration {iteration}): {ex.Message}");
+
+                // Strategy: reduce context window and retry. The failure is often caused by
+                // accumulated conversation exceeding provider limits (command-line length,
+                // CLI session state corruption, timeout). Reducing context keeps system prompt
+                // + recent messages, giving the agent enough to continue.
+                if (contextConfig.KeepLastN > 4)
+                {
+                    var reducedKeepN = Math.Max(4, contextConfig.KeepLastN / 2);
+                    result.Logs.Add($"Reducing context window from {contextConfig.KeepLastN} to {reducedKeepN} messages and retrying...");
+                    contextConfig = new ContextConfig
+                    {
+                        Strategy = contextConfig.Strategy,
+                        MaxTokens = contextConfig.MaxTokens / 2,
+                        ReserveForResponse = contextConfig.ReserveForResponse,
+                        KeepSystemPrompt = true,
+                        KeepLastN = reducedKeepN,
+                        ContextBlockRef = contextConfig.ContextBlockRef
+                    };
+                    // Add recovery message so the agent knows context was lost
+                    _conversationManager.AddMessage(conversationId, "user",
+                        "SYSTEM NOTE: The previous LLM call failed. Some conversation history has been trimmed. " +
+                        "Continue your work. If you need to re-read files, do so. " +
+                        "Remember to call step-complete when done.");
+                    await Task.Delay(3000, agentCt);
+                    continue; // Retry with reduced context
+                }
+
+                // Context already minimized — fail permanently
                 result.Success = false;
                 result.Outputs["error"] = $"LLM request failed: {ex.Message}";
                 result.PromptTokens = totalPromptTokens;
@@ -869,7 +909,7 @@ public class AgentBlockExecutor : IBlockExecutor
             "read-file" or "readFile" or "Read" or "read" => "file-read",
             "write-file" or "writeFile" or "Write" or "write" => "file-write",
             "list-directory" or "listDirectory" or "ls" or "list-dir" => "directory-list",
-            "file-edit" or "edit-file" or "editFile" => "file-write", // no edit tool, use write
+            "file-edit" or "edit-file" or "editFile" or "edit" or "Edit" => "file-write", // no edit tool, use write
             _ => toolId
         };
     }
@@ -878,7 +918,7 @@ public class AgentBlockExecutor : IBlockExecutor
     /// Config resolved from a child node in config.nodes.
     /// Agent blocks are composite — their LLM parameters come from child inference nodes.
     /// </summary>
-    private record struct ChildNodeConfig(string? ModelId, int MaxTokens, float Temperature);
+    private record struct ChildNodeConfig(string? ModelId, int MaxTokens, float Temperature, string? PlanningModel, int PlanningIterations);
 
     /// <summary>
     /// Reads config.nodes from the agent block definition and extracts LLM parameters
@@ -929,8 +969,10 @@ public class AgentBlockExecutor : IBlockExecutor
             int maxTokens = nodeConfig.TryGetProperty("maxTokens", out var mt) && mt.TryGetInt32(out var mtVal) ? mtVal : 1024;
             float temperature = nodeConfig.TryGetProperty("temperature", out var t)
                 ? t.GetSingle() : 0f;
+            string? planningModel = nodeConfig.TryGetProperty("planningModel", out var pm) ? pm.GetString() : null;
+            int planningIterations = nodeConfig.TryGetProperty("planningIterations", out var pi) && pi.TryGetInt32(out var piVal) ? piVal : 2;
 
-            return new ChildNodeConfig(modelId, maxTokens, temperature);
+            return new ChildNodeConfig(modelId, maxTokens, temperature, planningModel, planningIterations);
         }
 
         // Nodes exist but none have config — treat as no-config

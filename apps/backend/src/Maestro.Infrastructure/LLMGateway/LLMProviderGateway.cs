@@ -157,10 +157,17 @@ public class LLMProviderGateway : ILLMGateway, IDisposable
                 _logger?.LogWarning("LLM request failed with status {Status}: {Error}",
                     httpResponse.StatusCode, errorContent);
 
-                // Don't retry on 500 server errors (timeouts, internal failures).
-                // These are persistent issues that won't recover by retrying immediately.
+                // Retry 500 errors once with a longer delay — these can be transient
+                // (CLI process crash, timeout, session state corruption).
                 if ((int)httpResponse.StatusCode >= 500)
                 {
+                    if (attempts < _settings.MaxRetries)
+                    {
+                        _logger?.LogWarning("LLM-Provider returned {Status} (attempt {Attempt}), retrying after 5s...",
+                            httpResponse.StatusCode, attempts);
+                        await Task.Delay(5000, cancellationToken);
+                        continue;
+                    }
                     throw new HttpRequestException(
                         $"LLM-Provider returned {httpResponse.StatusCode}: {errorContent}",
                         null, httpResponse.StatusCode);

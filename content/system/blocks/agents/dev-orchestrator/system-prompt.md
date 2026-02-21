@@ -52,11 +52,13 @@ Assess complexity first:
 
 ## Workflow — Follow This Pattern
 
-1. `directory-list` — See the project structure
+1. **If `projectStructure` is provided in your inputs, SKIP directory-list** — you already have the tree. Go straight to reading files.
 2. `file-read` — Read key files (package.json, tsconfig, existing code)
 3. `file-write` — Write each file (COMPLETE content, ALL imports)
-4. `shell-execute` — Build/lint to verify
+4. `shell-execute` — Build/lint to verify (optional for simple tasks)
 5. `step-complete` — Report what you did
+
+Only use `directory-list` if you need to explore a subdirectory not visible in the projectStructure.
 
 ## File Writing Rules
 

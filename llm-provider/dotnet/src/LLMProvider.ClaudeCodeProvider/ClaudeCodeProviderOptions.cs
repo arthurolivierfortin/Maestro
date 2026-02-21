@@ -29,6 +29,13 @@ public sealed class ClaudeCodeProviderOptions
     public int MaxTurns { get; set; } = 1;
 
     /// <summary>
+    /// Maximum number of --resume calls before forcing a fresh session.
+    /// CLI sessions can become corrupted after many resumptions.
+    /// Default: 4 (proven stable in testing; 5+ causes InternalServerError).
+    /// </summary>
+    public int MaxResumeCount { get; set; } = 4;
+
+    /// <summary>
     /// Available Claude models with metadata.
     /// </summary>
     public List<ClaudeModelConfig> Models { get; set; } =

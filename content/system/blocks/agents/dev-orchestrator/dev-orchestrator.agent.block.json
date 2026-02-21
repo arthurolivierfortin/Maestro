@@ -29,6 +29,8 @@
         "blockRef": "inference",
         "config": {
           "model": "claude-sonnet-4-6",
+          "planningModel": "claude-opus-4-6",
+          "planningIterations": 2,
           "maxTokens": 4096,
           "temperature": 0
         }

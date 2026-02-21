@@ -5954,6 +5954,7 @@ ${c.bold('Examples:')}
           repoPath: argv.repo || process.cwd(),
           template: argv.template || 'project-autonomous',
           entryPoint: argv.entry || 'dev',
+          blockId: argv.block || undefined,
           task: argv.task || argv._.slice(1).join(' ') || undefined,
           importSessionTemplate,
         });

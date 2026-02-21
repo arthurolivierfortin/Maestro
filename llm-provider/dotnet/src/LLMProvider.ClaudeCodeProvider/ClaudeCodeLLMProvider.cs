@@ -98,24 +98,38 @@ public sealed class ClaudeCodeLLMProvider : ILLMProvider, IDisposable
     {
         var conversationKey = request.ConversationId?.Value.ToString("N");
 
-        // Try --resume for existing conversations
+        // Try --resume for existing conversations (limited to MaxResumeCount to avoid
+        // CLI session state corruption after too many turns)
         if (conversationKey != null && _sessions.TryGetValue(conversationKey, out var state))
         {
+            if (state.ResumeCount >= _options.MaxResumeCount)
+            {
+                _logger.LogDebug(
+                    "CLI session {SessionId} reached max resume count ({Count}), starting fresh",
+                    state.CliSessionId, state.ResumeCount);
+                _sessions.TryRemove(conversationKey, out _);
+                // Fall through to fresh call with truncated history
+                var truncated = TruncateHistoryForFallback(conversationHistory);
+                return await FreshCallAsync(request, truncated, conversationKey, cancellationToken);
+            }
+
             try
             {
+                state.ResumeCount++;
                 return await ResumeAsync(request, state, cancellationToken);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 _logger.LogWarning(ex,
-                    "--resume failed for CLI session {SessionId}, falling back to fresh call",
-                    state.CliSessionId);
+                    "--resume failed for CLI session {SessionId} (resume #{Count}), falling back to fresh call",
+                    state.CliSessionId, state.ResumeCount);
                 _sessions.TryRemove(conversationKey, out _);
-                // Fall through to fresh call
+                var truncatedHistory = TruncateHistoryForFallback(conversationHistory);
+                return await FreshCallAsync(request, truncatedHistory, conversationKey, cancellationToken);
             }
         }
 
-        // Fresh call (first iteration or fallback after --resume failure)
+        // Fresh call (first iteration — conversation history is small)
         return await FreshCallAsync(request, conversationHistory, conversationKey, cancellationToken);
     }
 
@@ -152,13 +166,26 @@ public sealed class ClaudeCodeLLMProvider : ILLMProvider, IDisposable
         var model = ResolveModel(request.ModelId.Value);
         var sw = Stopwatch.StartNew();
 
+        // For large prompts, pipe via stdin to avoid Windows command-line limits.
+        // The -p argument is set to a placeholder; actual content comes via stdin.
+        string? stdinContent = null;
+        if (prompt.Length > MaxPromptArgLength)
+        {
+            _logger.LogDebug(
+                "Prompt too large for command line ({Length} chars > {Max}), piping via stdin",
+                prompt.Length, MaxPromptArgLength);
+            stdinContent = prompt;
+            prompt = "(see stdin)"; // Placeholder — stdin content overrides this
+        }
+
         var args = BuildFreshArguments(prompt, model, request.SystemPrompt,
             sessionPersistence: conversationKey != null);
 
-        _logger.LogDebug("Executing claude CLI (fresh): {CliPath} --model {Model}",
-            _options.CliPath, model);
+        _logger.LogDebug("Executing claude CLI (fresh): {CliPath} --model {Model}, prompt={PromptLength} chars{Stdin}",
+            _options.CliPath, model, stdinContent?.Length ?? prompt.Length,
+            stdinContent != null ? " (via stdin)" : "");
 
-        var (stdout, stderr, exitCode) = await RunProcessAsync(args, cancellationToken);
+        var (stdout, stderr, exitCode) = await RunProcessAsync(args, cancellationToken, stdinContent);
         sw.Stop();
 
         if (exitCode != 0)
@@ -315,8 +342,15 @@ public sealed class ClaudeCodeLLMProvider : ILLMProvider, IDisposable
         return sb.ToString().TrimEnd();
     }
 
+    /// <summary>
+    /// Maximum safe length for command-line arguments on Windows.
+    /// CreateProcess limits lpCommandLine to ~32,767 chars.
+    /// We use a conservative threshold to account for other args.
+    /// </summary>
+    private const int MaxPromptArgLength = 25000;
+
     private async Task<(string stdout, string stderr, int exitCode)> RunProcessAsync(
-        List<string> args, CancellationToken cancellationToken)
+        List<string> args, CancellationToken cancellationToken, string? stdinContent = null)
     {
         using var process = new Process();
         process.StartInfo = new ProcessStartInfo
@@ -324,6 +358,7 @@ public sealed class ClaudeCodeLLMProvider : ILLMProvider, IDisposable
             FileName = _options.CliPath,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
+            RedirectStandardInput = stdinContent != null,
             UseShellExecute = false,
             CreateNoWindow = true
         };
@@ -337,6 +372,13 @@ public sealed class ClaudeCodeLLMProvider : ILLMProvider, IDisposable
         process.StartInfo.Environment.Remove("CLAUDECODE");
 
         process.Start();
+
+        // Pipe prompt via stdin if content is provided (avoids command-line limits)
+        if (stdinContent != null)
+        {
+            await process.StandardInput.WriteAsync(stdinContent.AsMemory(), cancellationToken);
+            process.StandardInput.Close();
+        }
 
         var stdoutTask = process.StandardOutput.ReadToEndAsync(cancellationToken);
         var stderrTask = process.StandardError.ReadToEndAsync(cancellationToken);
@@ -418,6 +460,42 @@ public sealed class ClaudeCodeLLMProvider : ILLMProvider, IDisposable
         }
     }
 
+    /// <summary>
+    /// Truncates conversation history for --resume fallback.
+    /// Keeps the first message (task description) and last 2 messages (current context).
+    /// This preserves the agent's understanding of the task while staying within
+    /// Windows command-line limits for the -p argument.
+    /// </summary>
+    private static IReadOnlyList<Message>? TruncateHistoryForFallback(
+        IReadOnlyList<Message>? fullHistory)
+    {
+        if (fullHistory is null or { Count: 0 })
+        {
+            return null;
+        }
+
+        // If history is small enough, use it as-is
+        if (fullHistory.Count <= 4)
+        {
+            return fullHistory;
+        }
+
+        // Keep first message (task) + last 2 messages (current state)
+        var truncated = new List<Message>(3)
+        {
+            fullHistory[0] // First user message = task description
+        };
+
+        // Add the last 2 messages (usually: assistant tool call + user tool result)
+        if (fullHistory.Count >= 2)
+        {
+            truncated.Add(fullHistory[^2]);
+        }
+        truncated.Add(fullHistory[^1]);
+
+        return truncated;
+    }
+
     private string ResolveModel(string modelId)
     {
         if (ModelAliasMap.TryGetValue(modelId, out var alias))
@@ -486,4 +564,7 @@ internal sealed class CliSessionState
 
     /// <summary>Last time this session was used (for TTL cleanup).</summary>
     public DateTime LastUsed { get; set; }
+
+    /// <summary>Number of --resume calls made on this session.</summary>
+    public int ResumeCount { get; set; }
 }

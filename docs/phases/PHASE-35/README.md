@@ -34,6 +34,21 @@
 7. **Documenter chaque iteration** avec metriques avant/apres
 8. **Ne pas s'arreter** — chaque obstacle est soit un bug du tooling soit une lacune de l'agent
 
+### Discipline de livraison (ajout post 35-B)
+
+> Ces regles ont ete ajoutees apres que 35-B a ete termine sans commit, sans changelog, et sans amelioration du package maestro-code. Ne pas repeter.
+
+9. **COMMITER apres chaque sous-phase** — ne JAMAIS laisser une sous-phase complete sans commit. `git add` + `git commit` avec message descriptif. Zero exception.
+10. **CREER un CHANGELOG.md** dans le repertoire de la phase (`docs/phases/PHASE-35/CHANGELOG.md`) avec la liste des fixes, fichiers modifies, et metriques. Le checkpoint.md seul ne suffit PAS.
+11. **VERIFIER : ai-je ameliore le bon package ?** — Si le but est d'ameliorer maestro-code (`packages/maestro-code/`), les fixes backend ne comptent pas comme amelioration du package. Poser la question explicitement : "Qu'est-ce qui a change dans `packages/maestro-code/` ?" — si la reponse est "rien", c'est un echec.
+12. **Modifications de system-prompt** → passer par le workflow foundry sauf pendant une iteration active de dogfooding. Documenter explicitement le contournement dans le checkpoint.
+13. **Avant de declarer DONE** — checklist :
+    - [ ] Commit fait ?
+    - [ ] CHANGELOG.md cree/mis a jour ?
+    - [ ] Checkpoint.md mis a jour avec statut DONE ?
+    - [ ] Memory mise a jour si nouvelles regles/patterns ?
+    - [ ] Le(s) bon(s) package(s) ont ete ameliores (pas juste le backend) ?
+
 ---
 
 ## Sous-phases

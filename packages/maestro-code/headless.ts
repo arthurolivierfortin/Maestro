@@ -19,6 +19,7 @@ interface HeadlessOptions {
   repoPath?: string;
   template?: string;
   entryPoint?: string;
+  blockId?: string;
   task?: string;
   importSessionTemplate: (sessionId: string, templateName: string, options?: { quiet?: boolean }) => Promise<void>;
 }
@@ -96,21 +97,56 @@ async function runHeadless(options: HeadlessOptions): Promise<void> {
       log('INFO', 'Template imported');
     } else {
       log('INFO', 'No template — setting up session manually');
-      // Register the entry point directly as a block reference
+      // Register the entry point to point to the agent block
+      // blockId defaults to 'dev-orchestrator' — the canonical agent for code tasks
+      const targetBlockId = options.blockId || 'dev-orchestrator';
       await client._fetch('PUT', `/api/sessions/${session.id}/entry-points/${entryPoint}`, {
-        body: { workflowId: entryPoint }
+        body: { workflowId: targetBlockId }
       });
-      log('INFO', `Entry point registered: ${entryPoint}`);
+      log('INFO', `Entry point registered: ${entryPoint} → ${targetBlockId}`);
     }
 
     // 3. Start session
     await client.startSession(session.id);
     log('INFO', 'Session started');
 
+    // 3b. Generate project structure snapshot to save agent exploration iterations
+    let projectStructure = '';
+    try {
+      const fs = require('fs');
+      const pathModule = require('path');
+      function listTree(dir: string, prefix: string = '', depth: number = 3): string {
+        if (depth <= 0) return '';
+        let output = '';
+        const entries = fs.readdirSync(dir, { withFileTypes: true })
+          .filter((e: any) => !['node_modules', '.git', 'dist', '.maestro'].includes(e.name))
+          .sort((a: any, b: any) => (a.isDirectory() ? 0 : 1) - (b.isDirectory() ? 0 : 1) || a.name.localeCompare(b.name));
+        for (const entry of entries) {
+          const fullPath = pathModule.join(dir, entry.name);
+          output += `${prefix}${entry.name}${entry.isDirectory() ? '/' : ''}\n`;
+          if (entry.isDirectory()) {
+            output += listTree(fullPath, prefix + '  ', depth - 1);
+          }
+        }
+        return output;
+      }
+      projectStructure = listTree(repoPath);
+      if (projectStructure.length > 3000) {
+        projectStructure = projectStructure.slice(0, 3000) + '\n... (truncated)';
+      }
+      log('INFO', `Project structure: ${projectStructure.split('\n').length - 1} entries`);
+    } catch {
+      // Non-fatal — agent will explore manually
+    }
+
     // 4. Invoke entry point
     log('INFO', `Invoking: ${entryPoint}`);
+    const inputs: Record<string, string> = { repoPath, task, workingDir: repoPath };
+    if (projectStructure) {
+      inputs.projectStructure = projectStructure;
+    }
     await client._fetch('POST', `/api/sessions/${session.id}/invoke/${entryPoint}`, {
-      body: { inputs: { repoPath, task, workingDir: repoPath } }
+      body: { inputs }
     });
 
     // 5. Poll for completion
