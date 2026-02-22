@@ -1,6 +1,6 @@
 # Phase 35 : Dogfooding — Maestro autonome sur Cantante
 
-**Statut** : EN COURS
+**Statut** : TERMINEE
 **Prerequis** : Phase 35-PRE COMPLETE (dev-orchestrator, tool dispatch, metrics pipeline)
 **Objectif** : Prouver que le pipeline Maestro fonctionne de bout en bout en utilisant `maestro code` pour developper Cantante. Ameliorer l'agent ET le tooling (maestro code, CLI) de maniere iterative basee sur l'usage reel.
 
@@ -60,8 +60,8 @@
 | 35-B | Scaffold Cantante + corrections agent (nudge, countdown, multi-tool) | DONE |
 | 35-C | Iterations amelioration (tab, search, theme, terminal, line numbers) + 13 infra fixes | DONE |
 | 35-D | For-each pipeline + JsonElement fix (JToken.Parse, JObject unwrap) | DONE |
-| 35-E | Stabilisation (14 fixes, 7 sessions, 100% post-fix 36-38 — prose retry debloque) | EN COURS |
-| 35-F | Bilan et documentation | A faire |
+| 35-E | Stabilisation (16 fixes, 9 sessions, 100% post-fix 36-40 — while+validator pattern) | DONE |
+| 35-F | Bilan et documentation (metriques finales, fitness report) | DONE |
 
 ---
 

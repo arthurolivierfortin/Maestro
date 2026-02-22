@@ -1,0 +1,39 @@
+{
+  "id": "context",
+  "name": "Context Assembler",
+  "blockType": "context",
+  "version": "1.0.0",
+  "isAtomic": true,
+  "description": "Assembles and optimizes context for LLM calls. Takes conversation messages, applies strategies (sliding-window, passthrough), and produces optimized messages within token limits. Supports multiple input sources (conversation, memory).",
+
+  "inputs": [
+    { "id": "messages", "type": "array", "required": false, "description": "List of {role, content} messages to process" },
+    { "id": "systemPrompt", "type": "string", "required": false, "description": "System prompt to include" },
+    { "id": "newMessage", "type": "string", "required": false, "description": "New message to append before processing" },
+    { "id": "newMessageRole", "type": "string", "required": false, "description": "Role for the new message (default: user)" },
+    { "id": "memoryEntries", "type": "array", "required": false, "description": "Memory entries to inject into context (from memory block)" }
+  ],
+
+  "outputs": [
+    { "id": "messages", "type": "array", "description": "Optimized messages ready for LLM" },
+    { "id": "messageCount", "type": "number", "description": "Number of messages after optimization" },
+    { "id": "estimatedTokens", "type": "number", "description": "Estimated token count" },
+    { "id": "wasTruncated", "type": "boolean", "description": "Whether messages were removed" },
+    { "id": "messagesRemoved", "type": "number", "description": "Number of messages removed by truncation" }
+  ],
+
+  "config": {
+    "strategy": "sliding-window",
+    "maxTokens": 4096,
+    "reserveForResponse": 512,
+    "keepSystemPrompt": true,
+    "keepLastN": 10
+  },
+
+  "metadata": {
+    "category": "infrastructure",
+    "designation": "internal",
+    "tags": ["context", "optimization", "infrastructure", "llm"],
+    "tier": 0
+  }
+}

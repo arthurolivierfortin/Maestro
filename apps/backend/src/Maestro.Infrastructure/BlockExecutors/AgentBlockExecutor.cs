@@ -158,6 +158,24 @@ public class AgentBlockExecutor : IBlockExecutor
             iteration++;
             result.Logs.Add($"Agent iteration {iteration}/{maxIterations}");
 
+            // Publish conversation state to execution context every 5 iterations (real-time observability)
+            if (iteration % 5 == 0 || iteration == 1)
+            {
+                var iterState = _conversationManager.GetState(conversationId);
+                if (iterState != null)
+                {
+                    context.Variables[$"_conversationState_{block.Id}"] = new Dictionary<string, object>
+                    {
+                        ["conversationId"] = iterState.ConversationId,
+                        ["iteration"] = iteration,
+                        ["messageCount"] = iterState.TotalMessageCount,
+                        ["estimatedTokens"] = iterState.EstimatedTotalTokens,
+                        ["systemTokens"] = iterState.EstimatedSystemTokens,
+                        ["historyTokens"] = iterState.EstimatedHistoryTokens
+                    };
+                }
+            }
+
             // Process context before sending to LLM (via IContextAssembler)
             var contextResult = await _contextAssembler.AssembleAsync(conversationId, contextConfig, agentCt);
 

@@ -36,46 +36,12 @@
 | 33-D | Restructuration Monorepo (apps/, cleanup, docs) | COMPLETE |
 | 34-E-PRE | Extraction Conversation + Context comme entites | COMPLETE |
 | 35-PRE | Agent composite, tool dispatch JSON, dev-orchestrator | COMPLETE |
+| 35 | Dogfooding — Maestro autonome sur Cantante (34 sessions, 41 fixes, 100% post-fix) | COMPLETE |
+| 36 | Contexte, Memoire et Documentation (conversation/context/memory blocks, attached docs, TUI context panel) | COMPLETE |
 
 ---
 
 ## Phases actives et a venir
-
----
-
-### Phase 35 : Dogfooding — Maestro autonome sur Cantante
-
-**But** : Prouver que le pipeline Maestro fonctionne de bout en bout en utilisant `maestro code` pour developper Cantante. Ameliorer l'agent ET le tooling de maniere iterative basee sur l'usage reel.
-
-| Sous-phase | Objectif | Statut |
-|------------|----------|--------|
-| 35-PRE | Agent composite + tool dispatch + dev-orchestrator | DONE |
-| 35-A | Pipeline setup + DI fixes | DONE |
-| 35-B | Scaffold Cantante + corrections agent (nudge, countdown, multi-tool) | DONE |
-| 35-C | Iterations amelioration (tab, search, theme, terminal) + 13 infra fixes | DONE |
-| 35-D | For-each pipeline + JsonElement fix (JToken.Parse, JObject unwrap) | DONE |
-| 35-E | Stabilisation (14 fixes, 7 sessions, 57% → 100% post-fix 36-38) | EN COURS |
-| 35-F | Bilan dogfooding (metriques, documentation, fitness report) | A faire |
-
-**Metriques actuelles** : 34 sessions, 38 bugs corriges, ~$4.85, prose retry fix debloque le pipeline.
-
-**Docs** : `docs/phases/PHASE-35/README.md`
-
----
-
-### Phase 36 : Contexte, Memoire et Documentation
-
-**But** : Formaliser la conversation, le contexte et la memoire comme des blocs first-class, et implementer la documentation attachee aux entites Maestro.
-
-| Sous-phase | Objectif | Effort |
-|------------|----------|--------|
-| 36-A | Conversation Block — formalisation depuis IConversationManager | 3-5 jours |
-| 36-B | Context Block — formalisation depuis IContextAssembler | 2-3 jours |
-| 36-C | Memory Block — connaissances persistantes inter-session | 5-8 jours |
-| 36-D | Documentation attachee — companion files, RESEARCH.md auto, index global | 5-8 jours |
-| 36-E | TUI Context Panel — observabilite en temps reel | 3-5 jours |
-
-**Docs** : `docs/phases/PHASE-36/README.md`
 
 ---
 
@@ -165,7 +131,7 @@
 ## Chaine de dependances
 
 ```
-35 Dogfooding (stabiliser l'agent)
+35 Dogfooding (DONE — 34 sessions, 41 fixes, 100% post-fix)
  └→ 36 Context/Memory/Docs (fondations pour Jarvis + encyclopedie)
      └→ 37 Runtime & SDK (embarquer Maestro dans des apps + vocal)
          └→ 38 Sandbox Foundry (tests reproductibles)

@@ -1,0 +1,44 @@
+{
+  "id": "memory",
+  "name": "Memory Manager",
+  "blockType": "memory",
+  "version": "1.0.0",
+  "isAtomic": true,
+  "description": "Manages persistent memory stores. Stores knowledge entries organized by category with confidence scores, tags, and usage tracking. Memories persist across sessions and can be queried by relevance (confidence * recency * usage).",
+
+  "inputs": [
+    { "id": "operation", "type": "string", "required": false, "description": "Operation: create-store, add-entry, search, get-relevant, remove-entry, delete-store (default: get-relevant)" },
+    { "id": "storeId", "type": "string", "required": false, "description": "Memory store ID (required for most operations)" },
+    { "id": "name", "type": "string", "required": false, "description": "Store name (for create-store)" },
+    { "id": "category", "type": "string", "required": false, "description": "Category for filtering (e.g., coding-patterns, project-context)" },
+    { "id": "blockId", "type": "string", "required": false, "description": "Scope to a specific block ID" },
+    { "id": "sessionId", "type": "string", "required": false, "description": "Scope to a specific session ID" },
+    { "id": "key", "type": "string", "required": false, "description": "Entry key (for add-entry, remove-entry)" },
+    { "id": "content", "type": "string", "required": false, "description": "Entry content (for add-entry)" },
+    { "id": "confidence", "type": "number", "required": false, "description": "Confidence score 0.0-1.0 (for add-entry, default: 0.5)" },
+    { "id": "source", "type": "string", "required": false, "description": "Source of the knowledge (for add-entry)" },
+    { "id": "tags", "type": "array", "required": false, "description": "Tags for filtering (for add-entry, get-relevant)" },
+    { "id": "query", "type": "string", "required": false, "description": "Search query (for search)" },
+    { "id": "maxResults", "type": "number", "required": false, "description": "Max results (for search, default: 20)" },
+    { "id": "maxEntries", "type": "number", "required": false, "description": "Max entries (for get-relevant, default: 10)" }
+  ],
+
+  "outputs": [
+    { "id": "entries", "type": "array", "description": "Retrieved memory entries" },
+    { "id": "count", "type": "number", "description": "Number of entries returned" },
+    { "id": "storeId", "type": "string", "description": "Store ID (for create/delete operations)" },
+    { "id": "key", "type": "string", "description": "Entry key (for add/remove operations)" }
+  ],
+
+  "config": {
+    "persistence": "filesystem",
+    "basePath": "memory"
+  },
+
+  "metadata": {
+    "category": "infrastructure",
+    "designation": "internal",
+    "tags": ["memory", "persistence", "knowledge", "infrastructure"],
+    "tier": 0
+  }
+}

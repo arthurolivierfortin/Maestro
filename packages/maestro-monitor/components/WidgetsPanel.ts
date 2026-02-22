@@ -6,7 +6,7 @@
  *
  * Widget types:
  *   progress-bar, counter, score-chart, status-list,
- *   fitness-summary, knowledge-status
+ *   fitness-summary, knowledge-status, context-panel
  *
  * Default widgets: auto-generated from session variables
  *   (fitness, iteration, scoreHistory, phase)
@@ -308,6 +308,87 @@ const KnowledgeStatusWidget = ({ labelText, data }) => {
   return h(Box, { flexDirection: 'column' }, ...children);
 };
 
+// ── Context panel sub-component ─────────────────────────────────
+
+const ContextPanelWidget = ({ labelText, data }) => {
+  const children = [];
+
+  children.push(
+    h(Box, { key: 'ctx-label', paddingLeft: 2 }, muted(labelText))
+  );
+
+  if (!data || typeof data !== 'object') {
+    children.push(
+      h(Box, { key: 'ctx-empty', paddingLeft: 2 }, dim('(no context data)'))
+    );
+    return h(Box, { flexDirection: 'column' }, ...children);
+  }
+
+  // Conversation ID (truncated)
+  if (data.conversationId) {
+    const shortId = String(data.conversationId).substring(0, 12);
+    children.push(
+      h(Box, { key: 'ctx-id', flexDirection: 'row', paddingLeft: 2 },
+        dim('Conv:'),
+        h(Text, null, ' '),
+        muted(shortId)
+      )
+    );
+  }
+
+  // Iteration
+  if (data.iteration !== undefined) {
+    children.push(
+      h(Box, { key: 'ctx-iter', flexDirection: 'row', paddingLeft: 2 },
+        dim('Iteration:'),
+        h(Text, null, ' '),
+        primary(String(data.iteration))
+      )
+    );
+  }
+
+  // Message count
+  const msgCount = data.messageCount || 0;
+  children.push(
+    h(Box, { key: 'ctx-msgs', flexDirection: 'row', paddingLeft: 2 },
+      dim('Messages:'),
+      h(Text, null, ' '),
+      primary(String(msgCount))
+    )
+  );
+
+  // Token usage with bar
+  const estimated = data.estimatedTokens || 0;
+  if (estimated > 0) {
+    const maxTokens = 128000; // reasonable display max
+    const pct = Math.min(100, Math.round((estimated / maxTokens) * 100));
+    children.push(
+      h(Box, { key: 'ctx-tokens', flexDirection: 'row', paddingLeft: 2 },
+        dim('Tokens:'),
+        h(Text, null, ' '),
+        T(progressColor(pct), progressBar(pct, 10)),
+        h(Text, null, ' '),
+        muted(estimated.toLocaleString())
+      )
+    );
+
+    // System vs history breakdown
+    const sys = data.systemTokens || 0;
+    const hist = data.historyTokens || 0;
+    if (sys > 0 || hist > 0) {
+      children.push(
+        h(Box, { key: 'ctx-breakdown', flexDirection: 'row', paddingLeft: 4 },
+          dim('sys:' + sys.toLocaleString()),
+          h(Text, null, '  '),
+          dim('hist:' + hist.toLocaleString())
+        )
+      );
+    }
+  }
+
+  return h(Box, { flexDirection: 'column' }, ...children);
+};
+
 // ── Widget dispatcher ───────────────────────────────────────────
 
 const renderWidget = (widget, session) => {
@@ -375,6 +456,16 @@ const renderWidget = (widget, session) => {
       const labelText = config.label || 'Knowledge Base';
       const data = resolvePath(session, config.data) || {};
       return h(KnowledgeStatusWidget, {
+        key: 'w-' + widget.id,
+        labelText,
+        data,
+      });
+    }
+
+    case 'context-panel': {
+      const labelText = config.label || 'Context Window';
+      const data = resolvePath(session, config.data) || {};
+      return h(ContextPanelWidget, {
         key: 'w-' + widget.id,
         labelText,
         data,
@@ -451,6 +542,23 @@ const DefaultWidgets = ({ session }) => {
       )
     );
     children.push(h(Box, { key: 'gap-phase', height: 1 }));
+  }
+
+  // Phase 36-E: Auto-detect conversation context state variables
+  const contextKeys = Object.keys(vars).filter(k => k.startsWith('_conversationState_'));
+  for (const key of contextKeys) {
+    const blockId = key.replace('_conversationState_', '');
+    const data = vars[key];
+    if (data && typeof data === 'object') {
+      children.push(
+        h(ContextPanelWidget, {
+          key: 'default-ctx-' + blockId,
+          labelText: 'Context: ' + blockId.substring(0, 20),
+          data,
+        })
+      );
+      children.push(h(Box, { key: 'gap-ctx-' + blockId, height: 1 }));
+    }
   }
 
   if (children.length === 0) {

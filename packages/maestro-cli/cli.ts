@@ -640,6 +640,53 @@ async function searchBlocks(query) {
   }
 }
 
+// ============= Phase 36-D: Block Documentation =============
+
+async function listBlockDocs(blockId) {
+  try {
+    const result = await client._fetch('GET', `/api/blocks/${blockId}/docs`);
+    const docs = result.docs || {};
+    const keys = Object.keys(docs);
+
+    if (keys.length === 0) {
+      console.log(`\nNo documentation found for block ${c.cyan(blockId)}`);
+      return;
+    }
+
+    console.log(`\n${c.bold('Documentation for')} ${c.cyan(blockId)}:\n`);
+    for (const [name, path] of Object.entries(docs)) {
+      console.log(`  ${c.cyan(name.padEnd(15))} ${c.gray(path)}`);
+    }
+    console.log(`\n  ${c.gray('Use:')} maestro block docs ${blockId} <docName>\n`);
+  } catch (error) {
+    console.error(c.fail(`Failed to list docs: ${error.message}`));
+    process.exit(1);
+  }
+}
+
+async function showBlockDoc(blockId, docName) {
+  try {
+    const result = await client._fetch('GET', `/api/blocks/${blockId}/docs/${docName}`);
+    console.log(`\n${c.bold(result.docName)} ${c.gray(`(${result.path})`)}\n`);
+    console.log(result.content);
+  } catch (error) {
+    if (error.status === 404) {
+      console.error(c.fail(`Doc '${docName}' not found for block '${blockId}'.`));
+      // Try listing available docs
+      try {
+        const list = await client._fetch('GET', `/api/blocks/${blockId}/docs`);
+        const keys = Object.keys(list.docs || {});
+        if (keys.length > 0) {
+          console.error(`  Available: ${keys.join(', ')}`);
+        }
+      } catch (e) { /* ignore */ }
+    } else {
+      console.error(c.fail(`Failed to show doc: ${error.message}`));
+    }
+    process.exit(1);
+  }
+}
+
 // ============= Block Execution (unified run) =============
 
 async function runBlockUnified(blockId, inputs, options = {}) {
@@ -5888,8 +5935,19 @@ async function executeWithArgv(argv) {
         return await searchBlocks(query);
       }
 
+      // Phase 36-D: block docs <id> [docName]
+      if (subCmd === 'docs') {
+        const id = argv._[2];
+        if (!id) { console.error('Block ID required'); process.exit(1); }
+        const docName = argv._[3];
+        if (docName) {
+          return await showBlockDoc(id, docName);
+        }
+        return await listBlockDocs(id);
+      }
+
       console.error(`Unknown block subcommand: ${subCmd}`);
-      console.error('   Available: list, info, metrics, top, designate, publish, approve, reject, create, update, delete, content, children, search');
+      console.error('   Available: list, info, metrics, top, designate, publish, approve, reject, create, update, delete, content, children, search, docs');
       process.exit(1);
     }
     // Phase 18: Standalone block shortcuts (compatibility aliases)

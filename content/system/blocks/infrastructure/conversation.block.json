@@ -1,0 +1,31 @@
+{
+  "id": "conversation",
+  "name": "Conversation Manager",
+  "blockType": "conversation",
+  "version": "1.0.0",
+  "isAtomic": true,
+  "description": "Manages multi-turn conversations as first-class entities. Stores messages organized by section (system, history), tracks token counts, and provides observable state snapshots. Used internally by agent executors during agentic loops.",
+
+  "inputs": [
+    { "id": "systemPrompt", "type": "string", "required": false, "description": "System prompt to initialize the conversation with" },
+    { "id": "messages", "type": "array", "required": false, "description": "Existing messages to restore (for conversation resume)" }
+  ],
+
+  "outputs": [
+    { "id": "conversationId", "type": "string", "description": "Unique identifier for this conversation" },
+    { "id": "state", "type": "object", "description": "Observable conversation state (message counts, token estimates)" }
+  ],
+
+  "config": {
+    "persistence": "memory",
+    "maxMessages": 100,
+    "tokenEstimation": "chars-div-4"
+  },
+
+  "metadata": {
+    "category": "infrastructure",
+    "designation": "internal",
+    "tags": ["conversation", "context", "infrastructure", "state-management"],
+    "tier": 0
+  }
+}

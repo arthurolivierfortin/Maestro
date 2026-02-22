@@ -611,6 +611,51 @@ namespace Maestro.Api.Controllers
                 return StatusCode(500, new { error = $"Execution failed: {ex.Message}", runId = run.Id });
             }
         }
+
+        /// <summary>
+        /// Gets a documentation companion file for a block.
+        /// </summary>
+        [HttpGet("{id}/docs/{docName}")]
+        public async Task<IActionResult> GetBlockDoc(string id, string docName)
+        {
+            var block = await _discovery.GetByIdAsync(id);
+            if (block == null)
+                return NotFound(new { error = $"Block '{id}' not found" });
+
+            var docs = block.Docs;
+            if (docs == null || !docs.TryGetValue(docName.ToLowerInvariant(), out var relativePath))
+                return NotFound(new { error = $"Doc '{docName}' not found for block '{id}'", availableDocs = docs?.Keys });
+
+            // Resolve the full path relative to the block's source directory
+            var sourcePath = block.Metadata.TryGetValue("_sourcePath", out var sp) ? sp?.ToString() : null;
+            if (string.IsNullOrEmpty(sourcePath))
+                return NotFound(new { error = "Block source path unknown" });
+
+            var blockDir = Path.GetDirectoryName(sourcePath);
+            if (blockDir == null)
+                return NotFound(new { error = "Block directory unknown" });
+
+            var fullPath = Path.Combine(blockDir, relativePath.Replace('/', Path.DirectorySeparatorChar));
+            if (!System.IO.File.Exists(fullPath))
+                return NotFound(new { error = $"Doc file not found: {relativePath}" });
+
+            var content = await System.IO.File.ReadAllTextAsync(fullPath);
+            return Ok(new { docName, path = relativePath, content });
+        }
+
+        /// <summary>
+        /// Lists all available documentation for a block.
+        /// </summary>
+        [HttpGet("{id}/docs")]
+        public async Task<IActionResult> ListBlockDocs(string id)
+        {
+            var block = await _discovery.GetByIdAsync(id);
+            if (block == null)
+                return NotFound(new { error = $"Block '{id}' not found" });
+
+            var docs = block.Docs ?? new Dictionary<string, string>();
+            return Ok(new { blockId = id, docs });
+        }
     }
 
     /// <summary>

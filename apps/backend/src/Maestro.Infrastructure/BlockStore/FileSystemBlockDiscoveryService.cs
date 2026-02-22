@@ -501,6 +501,9 @@ namespace Maestro.Infrastructure.BlockStore
                 }
             }
 
+            // Phase 36-D: Scan companion docs (docs/ folder next to block or in block's subfolder)
+            ScanCompanionDocs(def, filePath);
+
             // Try to enrich using a specific handler
             try
             {
@@ -533,6 +536,65 @@ namespace Maestro.Infrastructure.BlockStore
             catch { /* swallow handler errors */ }
 
             return def;
+        }
+
+        /// <summary>
+        /// Scans for companion documentation files in a docs/ folder adjacent to the block.
+        /// Checks two locations: docs/ next to the block JSON, and {blockId}/docs/ for blocks with subfolders.
+        /// Auto-populates metadata.docs if companion files are found and docs aren't already declared.
+        /// </summary>
+        private static void ScanCompanionDocs(BlockDefinition block, string blockFilePath)
+        {
+            // If docs are already declared in metadata, don't override
+            if (block.Docs != null && block.Docs.Count > 0) return;
+
+            var blockDir = Path.GetDirectoryName(blockFilePath);
+            if (blockDir == null) return;
+
+            // Check two locations for docs/:
+            // 1. {blockDir}/{blockId}/docs/ (blocks with subfolders like agents)
+            // 2. {blockDir}/docs/ (blocks at directory root)
+            var candidateDirs = new List<string>();
+
+            // Block subfolder (e.g., content/system/blocks/agents/task-planner/docs/)
+            var blockSubDir = Path.Combine(blockDir, block.Id, "docs");
+            if (Directory.Exists(blockSubDir))
+                candidateDirs.Add(blockSubDir);
+
+            // Direct docs folder (e.g., content/system/blocks/infrastructure/docs/)
+            var directDocsDir = Path.Combine(blockDir, "docs");
+            if (Directory.Exists(directDocsDir) && !candidateDirs.Contains(directDocsDir))
+                candidateDirs.Add(directDocsDir);
+
+            foreach (var docsDir in candidateDirs)
+            {
+                var docs = new Dictionary<string, string>();
+
+                foreach (var file in Directory.GetFiles(docsDir, "*.md"))
+                {
+                    var fileName = Path.GetFileNameWithoutExtension(file).ToLowerInvariant();
+                    var relativePath = Path.GetRelativePath(blockDir, file).Replace('\\', '/');
+
+                    // Map well-known doc names
+                    var docKey = fileName switch
+                    {
+                        "readme" => "readme",
+                        "research" => "research",
+                        "changelog" => "changelog",
+                        "fitness" => "fitness",
+                        "decisions" => "decisions",
+                        _ => fileName
+                    };
+
+                    docs[docKey] = relativePath;
+                }
+
+                if (docs.Count > 0)
+                {
+                    block.SetDocs(docs);
+                    return; // Use first found docs directory
+                }
+            }
         }
 
         /// <summary>

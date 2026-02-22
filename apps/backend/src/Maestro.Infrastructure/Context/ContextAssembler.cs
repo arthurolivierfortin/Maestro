@@ -10,20 +10,23 @@ namespace Maestro.Infrastructure.Context;
 /// This is the bridge between conversations (message storage) and
 /// context processors (optimization strategies).
 ///
-/// Future (Phase 35): will also read from IMemoryManager to inject
-/// persistent knowledge into the context.
+/// Phase 36-C: Also reads from IMemoryManager to inject persistent
+/// knowledge entries into the system prompt context.
 /// </summary>
 public class ContextAssembler : IContextAssembler
 {
     private readonly IConversationManager _conversationManager;
     private readonly ContextProcessorFactory _processorFactory;
+    private readonly IMemoryManager? _memoryManager;
 
     public ContextAssembler(
         IConversationManager conversationManager,
-        ContextProcessorFactory processorFactory)
+        ContextProcessorFactory processorFactory,
+        IMemoryManager? memoryManager = null)
     {
         _conversationManager = conversationManager;
         _processorFactory = processorFactory;
+        _memoryManager = memoryManager;
     }
 
     /// <inheritdoc />
@@ -45,7 +48,22 @@ public class ContextAssembler : IContextAssembler
             .Where(m => m.Role != "system")
             .ToList();
 
-        // 3. Build context input
+        // 3. Inject memory entries into system prompt if available
+        if (_memoryManager != null)
+        {
+            var memoryEntries = await _memoryManager.GetRelevantEntriesAsync(
+                maxEntries: 5, ct: ct);
+
+            if (memoryEntries.Count > 0)
+            {
+                var memorySection = FormatMemoryEntries(memoryEntries);
+                systemPrompt = string.IsNullOrEmpty(systemPrompt)
+                    ? memorySection
+                    : $"{systemPrompt}\n\n{memorySection}";
+            }
+        }
+
+        // 4. Build context input
         var contextInput = new ContextInput
         {
             Messages = historyMessages,
@@ -53,10 +71,23 @@ public class ContextAssembler : IContextAssembler
             Config = config
         };
 
-        // 4. Delegate to the appropriate context processor strategy
+        // 5. Delegate to the appropriate context processor strategy
         var processor = _processorFactory.Create(config.Strategy);
         var result = await processor.ProcessAsync(contextInput, ct);
 
         return result;
+    }
+
+    private static string FormatMemoryEntries(IReadOnlyList<Domain.Entities.MemoryEntry> entries)
+    {
+        var lines = new List<string> { "## Relevant Knowledge (from memory)" };
+
+        foreach (var entry in entries)
+        {
+            var tags = entry.Tags.Count > 0 ? $" [{string.Join(", ", entry.Tags)}]" : "";
+            lines.Add($"- **{entry.Key}**{tags}: {entry.Content}");
+        }
+
+        return string.Join("\n", lines);
     }
 }

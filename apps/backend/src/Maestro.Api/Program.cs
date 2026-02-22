@@ -19,6 +19,7 @@ using Maestro.Infrastructure.Repositories;
 using Maestro.Infrastructure.Publishing;
 using Maestro.Infrastructure.Cli;
 using Maestro.Infrastructure.Context;
+using Maestro.Infrastructure.Memory;
 using Maestro.Infrastructure.Security;
 using Maestro.Application.Services;
 using Maestro.Infrastructure.Cli.CommandHandlers;
@@ -87,7 +88,8 @@ builder.Services.AddSingleton<ContextProcessorFactory>(sp => new ContextProcesso
 builder.Services.AddSingleton<IContextAssembler>(sp =>
     new ContextAssembler(
         sp.GetRequiredService<IConversationManager>(),
-        sp.GetRequiredService<ContextProcessorFactory>()));
+        sp.GetRequiredService<ContextProcessorFactory>(),
+        sp.GetService<IMemoryManager>()));
 
 builder.Services.AddScoped<IExecutionMonitor, ExecutionMonitor>();
 // Prefer SignalR-backed monitor when available (scaffold). Register both if needed.
@@ -108,6 +110,20 @@ builder.Services.AddScoped<Maestro.Infrastructure.BlockExecutors.ToolBlockExecut
 builder.Services.AddScoped<Maestro.Application.Interfaces.IBlockExecutor>(sp =>
     sp.GetRequiredService<Maestro.Infrastructure.BlockExecutors.ToolBlockExecutor>());
 builder.Services.AddScoped<Maestro.Application.Interfaces.IBlockExecutor, Maestro.Infrastructure.BlockExecutors.ContextBlockExecutor>();
+builder.Services.AddScoped<Maestro.Application.Interfaces.IBlockExecutor>(sp =>
+    new Maestro.Infrastructure.BlockExecutors.ConversationBlockExecutor(
+        sp.GetRequiredService<Maestro.Application.Interfaces.IConversationManager>()));
+
+// Phase 36-C: Memory Manager (persistent knowledge stores)
+var memoryBasePath = Path.Combine(AppContext.BaseDirectory, "memory-stores");
+builder.Services.AddSingleton<IMemoryManager>(sp =>
+    new FileSystemMemoryManager(
+        memoryBasePath,
+        sp.GetService<ILogger<FileSystemMemoryManager>>()));
+builder.Services.AddScoped<Maestro.Application.Interfaces.IBlockExecutor>(sp =>
+    new Maestro.Infrastructure.BlockExecutors.MemoryBlockExecutor(
+        sp.GetRequiredService<IMemoryManager>()));
+
 builder.Services.AddScoped<Maestro.Infrastructure.BlockExecutors.AgentBlockExecutor>(sp =>
     new Maestro.Infrastructure.BlockExecutors.AgentBlockExecutor(
         sp.GetRequiredService<Maestro.Application.Interfaces.ILLMGateway>(),

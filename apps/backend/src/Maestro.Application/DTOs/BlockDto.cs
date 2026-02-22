@@ -66,6 +66,12 @@ namespace Maestro.Application.DTOs
         /// </summary>
         public object? Metrics { get; init; }
 
+        /// <summary>
+        /// Documentation companion files. Maps doc names (readme, research, changelog, fitness)
+        /// to relative paths. Extracted from Metadata["docs"].
+        /// </summary>
+        public Dictionary<string, string>? Docs { get; init; }
+
         public static BlockDto FromDomain(Domain.Entities.BlockDefinition block, string? sourcePath = null)
         {
             return new BlockDto
@@ -90,7 +96,8 @@ namespace Maestro.Application.DTOs
                 Category = block.Category,
                 Author = block.Author,
                 Tags = block.Tags ?? block.Capabilities, // fallback to capabilities if no tags
-                Metrics = block.GetAggregatedMetrics()
+                Metrics = block.GetAggregatedMetrics(),
+                Docs = block.Docs
             };
         }
 

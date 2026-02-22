@@ -58,6 +58,12 @@ namespace Maestro.Domain.Entities
         /// </summary>
         public List<string>? Tags => GetMetadataList("tags");
 
+        /// <summary>
+        /// Documentation companion files. Maps doc names to relative paths.
+        /// Extracted from metadata["docs"]. Example: {"readme": "docs/README.md", "research": "docs/RESEARCH.md"}
+        /// </summary>
+        public Dictionary<string, string>? Docs => GetMetadataDocs("docs");
+
         private BlockDefinition() { }
 
         public static BlockDefinition Create(string id, string name, string blockType)
@@ -159,6 +165,14 @@ namespace Maestro.Domain.Entities
                 Metadata.Remove("tags");
         }
 
+        public void SetDocs(Dictionary<string, string>? docs)
+        {
+            if (docs != null && docs.Count > 0)
+                Metadata["docs"] = docs;
+            else
+                Metadata.Remove("docs");
+        }
+
         // ── Metrics ──
 
         /// <summary>
@@ -248,6 +262,38 @@ namespace Maestro.Domain.Entities
                 }
                 return result;
             }
+            return null;
+        }
+
+        private Dictionary<string, string>? GetMetadataDocs(string key)
+        {
+            if (!Metadata.ContainsKey(key)) return null;
+            var val = Metadata[key];
+
+            if (val is Dictionary<string, string> dict) return dict;
+
+            if (val is Dictionary<string, object> objDict)
+            {
+                var result = new Dictionary<string, string>();
+                foreach (var kvp in objDict)
+                {
+                    if (kvp.Value is string s) result[kvp.Key] = s;
+                    else if (kvp.Value != null) result[kvp.Key] = kvp.Value.ToString()!;
+                }
+                return result.Count > 0 ? result : null;
+            }
+
+            if (val is JsonElement je && je.ValueKind == JsonValueKind.Object)
+            {
+                var result = new Dictionary<string, string>();
+                foreach (var prop in je.EnumerateObject())
+                {
+                    if (prop.Value.ValueKind == JsonValueKind.String)
+                        result[prop.Name] = prop.Value.GetString()!;
+                }
+                return result.Count > 0 ? result : null;
+            }
+
             return null;
         }
 

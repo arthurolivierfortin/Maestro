@@ -15,7 +15,7 @@
   ],
   "config": {
     "model": "claude-sonnet",
-    "maxIterations": 15,
+    "maxIterations": 12,
     "wallClockTimeoutSeconds": 600,
     "systemPromptFile": "system-prompt.md"
   },

@@ -2,7 +2,7 @@
 
 **Date** : 2026-02-20 → 2026-02-21
 **Branch** : main
-**Sous-phases** : 35-PRE, 35-A, 35-B, 35-C, 35-D
+**Sous-phases** : 35-PRE, 35-A, 35-B, 35-C, 35-D, 35-E
 
 ---
 
@@ -10,15 +10,16 @@
 
 | Metrique | Valeur |
 |----------|--------|
-| Sessions executees | 27 |
-| Sessions reussies | 16 (59%) |
-| Sessions echouees | 9 (33%) |
-| Sessions partielles | 2 (7%) |
-| Cout total | ~$3.14 |
-| Bugs Maestro trouves et corriges | 29 |
+| Sessions executees | 34 |
+| Sessions reussies | 22 (65%) |
+| Sessions echouees | 10 (29%) |
+| Sessions partielles | 2 (6%) |
+| Cout total | ~$4.85 |
+| Bugs Maestro trouves et corriges | 41 |
 | Fichiers Cantante crees | 31 |
 | Build Cantante | PASS (43 modules, 165 KB) |
 | **Premier workflow E2E complet** | **Session 25** |
+| **Taux succes post-fix 36-40** | **100% (4/4)** |
 
 ---
 
@@ -220,6 +221,76 @@ Le code-reviewer (Opus) est le poste le plus cher. Considerer Sonnet pour les re
 
 ---
 
+## 35-E : Stabilisation finale (Fixes 25-41)
+
+### Fixes comportement agent (25-31)
+
+| # | Bug | Fichier | Fix |
+|---|-----|---------|-----|
+| 25 | Iteration countdown trop tardif (remaining<=3) | `AgentBlockExecutor.cs` | `remaining<=5` + urgency escalation |
+| 26 | Context reduction trop agressive (/2) | `AgentBlockExecutor.cs` | `*0.75` (graduel), minimum 2048 tokens |
+| 27 | Wall-clock timeout sans avertissement | `AgentBlockExecutor.cs` | Avertissement a 75% du temps |
+| 28 | Wall-clock timeout trop court | `dev-orchestrator.agent.block.json` | 600s → 900s |
+| 29 | keepLastN insuffisant | `dev-orchestrator.agent.block.json` | 20 → 25 messages |
+| 30 | Code-reviewer toujours Opus | `code-reviewer.inference.block.json` | → Sonnet (~60% reduction) |
+| 31 | Pas de section "Finishing" prompt | `dev-orchestrator/system-prompt.md` | Instructions reagir aux warnings |
+
+### Fixes tool normalization + prompts (32-35)
+
+| # | Bug | Fichier | Fix |
+|---|-----|---------|-----|
+| 32 | NormalizeToolId incomplet | `AgentBlockExecutor.cs` | +Glob, Bash, Grep, Read, find, cat |
+| 33 | project-preparer hallucine Glob | `project-preparer/system-prompt.md` | FORBIDDEN renforce |
+| 34 | project-preparer trop cher (Opus) | `project-preparer.agent.block.json` | → Sonnet (5x moins cher) |
+| 35 | task-planner format pas assez strict | `task-planner/system-prompt.md` | Exemples CORRECT/WRONG + "causes pipeline crash" |
+
+### Fixes extraction JSON + prose retry (36-38)
+
+| # | Bug | Fichier | Fix |
+|---|-----|---------|-----|
+| 36 | Extraction JSON 3 passes | `EntryPointExecutor.cs` | Pass 1: start `[`, Pass 2: embedded `[{`, Pass 3: JArray property |
+| 37 | JObject handling for-each | `EntryPointExecutor.cs` | Extraction arrays depuis JObject string/array properties |
+| 38 | Output validation dans executor C# | Refactored → workflow blocks | **`outputValidation` retire de AgentBlockExecutor.cs** → while + json-validator + conditional gate dans `autonomous-development.workflow.block.json` v3.2.0. ~30 lignes C# supprimees. |
+
+### Fixes post-refactoring (39-41)
+
+| # | Bug | Fichier | Fix |
+|---|-----|---------|-----|
+| 39 | json-validator recoit wrapper | `autonomous-development.workflow.block.json` | `{{_nodeResult_plan}}` → `{{_nodeResult_plan.summary}}` |
+| 40 | While loop checkpoint pas nettoye | `EntryPointExecutor.cs` | Clear child node IDs avant chaque iteration while |
+| 41 | model_manager.py manquant | `llm-provider/src/model_manager.py` (NOUVEAU) | `ModelManager` class + `get_default_manager()` singleton |
+
+### Sessions 35-E
+
+| # | Task | Cout | Resultat |
+|---|------|------|----------|
+| 20 | Breadcrumb | ~$0.20 | OK — pipeline complet |
+| 21 | useSettings | $0.17 | ECHEC — planner prose |
+| 22 | Toast | $0.19 | ECHEC — planner prose + preparer hallucine |
+| 23 | Toast retry (post-fix 32-35) | ~$0.12 | OK — Glob normalise, planner OK |
+| 24 | useSettings retry | $0.03 | ECHEC — context truncation |
+| 25 | useSettings (post-fix 36-38) | ~$0.10 | OK — prose retry fonctionne |
+| 26 | NotificationToast | ~$0.20 | OK — 5 steps, prose retry x3 |
+| 27 | Tooltip (post-refactoring) | ~$0.15 | OK — while loop 1 iteration |
+| 28 | Shortcut manager | ~$0.15 | OK — while loop 2 iterations (retry) |
+
+### Amelioration architecturale majeure : while + validator blocks
+
+Le pattern `outputValidation` dans executor C# a ete supprime. Toute validation de format est desormais declarative dans le workflow JSON :
+
+```
+plan-retry-loop (while: _planFormatValid != true, max 3)
+  ├── plan (task-planner, recoit validationError)
+  ├── validate-plan (json-validator)
+  └── plan-format-gate (conditional)
+        then: set-variable _planValidationError
+        else: set-variable _planFormatValid = true
+```
+
+L'executor est du plumbing mecanique. Zero awareness du contenu.
+
+---
+
 ## Fichiers modifies — Liste complete
 
 ### Backend (C#)
@@ -242,6 +313,18 @@ Le code-reviewer (Opus) est le poste le plus cher. Considerer Sonnet pour les re
 - `content/system/blocks/agents/dev-orchestrator/system-prompt.md` — v2 + file-edit docs + regles d'utilisation
 - `content/system/blocks/agents/task-planner/system-prompt.md` — **section FORBIDDEN** (file-write, file-edit, shell-command), exemples CORRECT/WRONG du format step-complete
 - `content/system/blocks/agents/project-preparer/system-prompt.md` — **section FORBIDDEN** (file-write, file-edit, shell-command)
+
+### Blocks 35-E (JSON/Markdown)
+- `content/system/blocks/workflows/autonomous-development.workflow.block.json` — v3.2.0 : while + json-validator + conditional gate (plan-retry-loop)
+- `content/system/blocks/agents/task-planner/task-planner.agent.block.json` — remove outputValidation, add validationError input
+- `content/system/blocks/agents/task-planner/system-prompt.md` — Validation Error Recovery section
+- `content/system/blocks/agents/implement-single-step/implement-single-step.agent.block.json` — remove outputValidation
+- `content/system/blocks/agents/project-preparer/project-preparer.agent.block.json` — Opus → Sonnet
+- `content/system/blocks/inference/code-reviewer.inference.block.json` — Opus → Sonnet
+
+### LLM-Provider Python (35-E)
+- `llm-provider/src/__init__.py` — NOUVEAU — package marker
+- `llm-provider/src/model_manager.py` — NOUVEAU — ModelManager class (load/unload/switch/generate)
 
 ### Scripts
 - `dev-scripts/cleanup-services.ps1` — NOUVEAU — nettoyage ports 5000/5010/5173

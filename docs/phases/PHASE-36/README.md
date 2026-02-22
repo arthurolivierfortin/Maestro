@@ -1,6 +1,6 @@
 # Phase 36 : Contexte, Memoire et Documentation
 
-**Statut** : A faire
+**Statut** : TERMINEE
 **Prerequis** : Phase 35 COMPLETE (dogfooding stabilise, agent > 75% succes)
 **Objectif** : Formaliser la conversation, le contexte et la memoire comme des blocs first-class, et implementer la documentation attachee aux entites Maestro.
 
