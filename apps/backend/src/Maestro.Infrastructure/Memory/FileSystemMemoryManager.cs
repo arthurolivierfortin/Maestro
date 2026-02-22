@@ -86,7 +86,10 @@ public class FileSystemMemoryManager : IMemoryManager
         await EnsureLoadedAsync(ct);
 
         if (!_cache.TryGetValue(storeId, out var store))
-            throw new InvalidOperationException($"Memory store '{storeId}' not found.");
+        {
+            // Auto-create the store if it doesn't exist (agents shouldn't manage store lifecycle)
+            store = await CreateStoreAsync(storeId, storeId, "general", ct: ct);
+        }
 
         var existing = store.Entries.FindIndex(e => e.Key == entry.Key);
         if (existing >= 0)

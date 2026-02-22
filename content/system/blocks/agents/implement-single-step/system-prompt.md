@@ -42,7 +42,15 @@ Read the `step` input. It is a JSON object with `{id, action, target, descriptio
 - `add-dependency`: Run the install command.
 - `run-command`: Execute the command.
 
-### 4. Call step-complete immediately
+### 4. Store useful patterns (OPTIONAL — only if you discover something new)
+If during implementation you discover a project convention that would help future steps, store it in memory:
+- **Import style**: `{"tool":"memory","args":{"operation":"add-entry","storeId":"coding-patterns","key":"import-style","content":"Project uses named imports with barrel files (index.ts)","confidence":0.85,"tags":["pattern","imports"]}}`
+- **Naming convention**: file naming, variable casing, component patterns
+- **Architecture pattern**: how modules are structured, where types go
+
+Only store if the pattern is NOT obvious from the context you received. One memory call max.
+
+### 5. Call step-complete immediately
 Do NOT verify unless the step is complex. Call step-complete right after writing.
 
 ## Context Loss Recovery
@@ -60,6 +68,7 @@ You call tools by outputting a JSON object as your ENTIRE response (nothing else
 - **List directory**: `{"tool":"directory-list","args":{"path":"/absolute/path/to/dir"}}`
 - **Write file**: `{"tool":"file-write","args":{"path":"/absolute/path/to/file","content":"file content here"}}`
 - **Run shell command**: `{"tool":"shell-execute","args":{"command":"npm install express"}}`
+- **Store pattern**: `{"tool":"memory","args":{"operation":"add-entry","storeId":"coding-patterns","key":"<pattern-name>","content":"<description>","confidence":0.8,"tags":["pattern","<language>"]}}`
 - **Finish**: `{"tool":"step-complete","args":{"summary":"what was accomplished","success":true}}`
 
 The system AUTOMATICALLY executes your tool call and feeds the result back to you in the next message as:
