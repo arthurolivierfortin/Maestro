@@ -174,6 +174,32 @@ describe('SandboxManager', () => {
     manager.destroyWorktree(REPO_PATH, worktreePath);
   });
 
+  it('should reset a worktree to a different checkpoint', () => {
+    // Provision at 'feature' checkpoint first
+    const worktreePath = manager.provisionWorktree('test-sandbox', 'feature');
+    expect(fs.existsSync(worktreePath)).toBe(true);
+
+    // Verify it's at the feature commit
+    let log = execSync('git log --oneline -1', { cwd: worktreePath, encoding: 'utf-8' }).trim();
+    expect(log).toContain('feature commit');
+
+    // Reset to 'main-clean' checkpoint — same path, different content
+    const resetPath = manager.resetWorktree('test-sandbox', 'main-clean', worktreePath);
+    expect(fs.existsSync(resetPath)).toBe(true);
+
+    // Verify path is stable (same location)
+    const normalizedWorktree = worktreePath.replace(/\\/g, '/');
+    const normalizedReset = resetPath.replace(/\\/g, '/');
+    expect(normalizedReset).toBe(normalizedWorktree);
+
+    // Verify content changed to main (second commit)
+    log = execSync('git log --oneline -1', { cwd: resetPath, encoding: 'utf-8' }).trim();
+    expect(log).toContain('second commit');
+
+    // Cleanup
+    manager.destroyWorktree(REPO_PATH, resetPath);
+  });
+
   it('should delete a sandbox image', () => {
     manager.delete('test-sandbox');
     expect(manager.get('test-sandbox')).toBeNull();

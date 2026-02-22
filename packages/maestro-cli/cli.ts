@@ -1282,8 +1282,38 @@ async function getSessionInfo(id) {
 async function createSession(options) {
   formatter.setCommand('session.create');
   try {
+    // Phase 38-B: Auto-provision sandbox worktree if --sandbox provided
+    let sandboxMeta = null;
+    if (options.sandbox) {
+      const sandbox = new SandboxManager(process.cwd());
+      const image = sandbox.get(options.sandbox);
+      if (!image) {
+        formatter.error(`Sandbox image '${options.sandbox}' not found. Run 'maestro sandbox list' to see available images.`, 'NOT_FOUND');
+        process.exit(EXIT.NOT_FOUND);
+      }
+
+      const cpId = options.checkpoint || (image.checkpoints[0] ? image.checkpoints[0].id : null);
+      if (!cpId) {
+        formatter.error(`Sandbox image '${options.sandbox}' has no checkpoints.`, 'MISSING_PARAM');
+        process.exit(EXIT.USER_ERROR);
+      }
+
+      const cp = image.checkpoints.find(ch => ch.id === cpId);
+      if (!cp) {
+        const available = image.checkpoints.map(ch => ch.id).join(', ');
+        formatter.error(`Checkpoint '${cpId}' not found in image '${options.sandbox}'. Available: ${available}`, 'NOT_FOUND');
+        process.exit(EXIT.NOT_FOUND);
+      }
+
+      const worktreePath = sandbox.provisionWorktree(options.sandbox, cpId);
+      console.log(`${c.ok('Worktree provisioned:')} ${worktreePath}`);
+
+      options.repo = worktreePath;
+      sandboxMeta = { imageId: options.sandbox, checkpointId: cpId, worktreePath };
+    }
+
     if (!options.projectId && !options.repo) {
-      formatter.error('Either --project or --repo is required', 'MISSING_PARAM');
+      formatter.error('Either --project, --repo, or --sandbox is required', 'MISSING_PARAM');
       process.exit(1);
     }
 
@@ -1321,6 +1351,17 @@ async function createSession(options) {
     };
 
     const session = await client.createSession(request);
+
+    // Phase 38-B: Store sandbox metadata as session variable for audit/replay
+    if (sandboxMeta) {
+      try {
+        await client._fetch('PUT', `/api/sessions/${session.id}/variables/_sandbox`, {
+          body: { value: sandboxMeta }
+        });
+      } catch (e) {
+        console.log(`${c.warn('Warning:')} Failed to store _sandbox metadata: ${e.message}`);
+      }
+    }
 
     // P1-8: Auto-import template if --template provided
     if (options.template) {
@@ -6317,6 +6358,8 @@ ${c.bold('Commands:')}
   list                         List sessions (--status, --recent, --limit)
   info <id>                    Show session details
   create                       Create session (--project, --template, --start)
+    --sandbox <id>               Use sandbox image for repo isolation
+    --checkpoint <id>            Checkpoint within sandbox (default: first)
   start <id>                   Start session (--monitor to launch TUI)
   pause <id>                   Pause a running session
   resume <id>                  Resume a paused session
@@ -6332,13 +6375,15 @@ ${c.bold('Commands:')}
   events <id>                  Show event history
   bind-repo <id> --path <p>    Bind to repository
   take-control <id>            Transfer authority
+  reset-sandbox <id>           Reset sandbox to different checkpoint
+    --checkpoint <id>            Target checkpoint (required)
   last                         Show most recent session
 
 ${c.bold('ID Shortcuts:')}
   Use ID prefixes instead of full UUIDs: ${c.cyan('maestro session info f2e844')}
 
 ${c.bold('Quick Start:')}
-  maestro session create --project <id> --template foundry-default --start
+  maestro session create --sandbox my-image --checkpoint main --template project-autonomous --start
 `);
         return;
       }
@@ -6400,7 +6445,10 @@ ${c.bold('Quick Start:')}
           excludePatterns: argv['exclude-patterns'],
           // P1-8: Streamlined creation with --template and --start
           template: argv.template,
-          autoStart: argv.start
+          autoStart: argv.start,
+          // Phase 38-B: Sandbox integration
+          sandbox: argv.sandbox,
+          checkpoint: argv.checkpoint
         });
         return result;
       }
@@ -6679,6 +6727,60 @@ ${c.bold('Quick Start:')}
 
         formatter.error(`Unknown widgets command: ${widgetCmd}. Available: list, add --type <type> --id <id> [--config {...}], remove <id>`, 'UNKNOWN_COMMAND');
         process.exit(EXIT.USER_ERROR);
+      }
+
+      // Phase 38-B: Reset sandbox to a different checkpoint
+      if (subCmd === 'reset-sandbox') {
+        const id = argv._[2];
+        if (!id) { formatter.error('Session ID required', 'MISSING_PARAM'); process.exit(EXIT.USER_ERROR); }
+        const resolvedId = await resolveId(id, 'session');
+
+        try {
+          // Read _sandbox variable from session
+          const session = await client.getSession(resolvedId);
+          const sandboxVar = session.variables?._sandbox;
+          if (!sandboxVar || !sandboxVar.imageId) {
+            formatter.error('This session was not created with --sandbox. No _sandbox metadata found.', 'INVALID_STATE');
+            process.exit(EXIT.USER_ERROR);
+          }
+
+          const newCheckpointId = argv.checkpoint;
+          if (!newCheckpointId) {
+            formatter.error('--checkpoint <id> is required for reset-sandbox', 'MISSING_PARAM');
+            process.exit(EXIT.USER_ERROR);
+          }
+
+          const sandbox = new SandboxManager(process.cwd());
+          const image = sandbox.get(sandboxVar.imageId);
+          if (!image) {
+            formatter.error(`Sandbox image '${sandboxVar.imageId}' not found. Was it deleted?`, 'NOT_FOUND');
+            process.exit(EXIT.NOT_FOUND);
+          }
+
+          const cp = image.checkpoints.find(ch => ch.id === newCheckpointId);
+          if (!cp) {
+            const available = image.checkpoints.map(ch => ch.id).join(', ');
+            formatter.error(`Checkpoint '${newCheckpointId}' not found. Available: ${available}`, 'NOT_FOUND');
+            process.exit(EXIT.NOT_FOUND);
+          }
+
+          // Reset: destroy + re-provision at same path
+          sandbox.resetWorktree(sandboxVar.imageId, newCheckpointId, sandboxVar.worktreePath);
+          console.log(`${c.ok('Sandbox reset to checkpoint:')} ${newCheckpointId}`);
+          console.log(`  ${c.gray('Path:')} ${sandboxVar.worktreePath}`);
+
+          // Update _sandbox variable with new checkpoint
+          const updatedMeta = { ...sandboxVar, checkpointId: newCheckpointId };
+          await client._fetch('PUT', `/api/sessions/${resolvedId}/variables/_sandbox`, {
+            body: { value: updatedMeta }
+          });
+          console.log(`  ${c.gray('_sandbox variable updated')}`);
+        } catch (error) {
+          if (error.code) throw error; // Re-throw API errors
+          handleApiError(error, 'resetting sandbox');
+          process.exit(EXIT.USER_ERROR);
+        }
+        return;
       }
 
       formatter.error(`Unknown session command: ${subCmd}. Run 'maestro session --help' for available commands.`, 'UNKNOWN_COMMAND');

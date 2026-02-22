@@ -330,6 +330,28 @@ class SandboxManager {
     return worktreePath;
   }
 
+  // ── Reset Worktree ─────────────────────────────────────────
+
+  resetWorktree(sandboxId: string, checkpointId: string, worktreePath: string): string {
+    const image = this.get(sandboxId);
+    if (!image) throw new Error(`Sandbox image '${sandboxId}' not found`);
+
+    const checkpoint = image.checkpoints.find(c => c.id === checkpointId);
+    if (!checkpoint) throw new Error(`Checkpoint '${checkpointId}' not found in image '${sandboxId}'`);
+
+    const { sha } = resolveRef(image.source_path, checkpoint.git_ref);
+
+    // Destroy existing worktree then re-provision at the SAME path
+    this.destroyWorktree(image.source_path, worktreePath);
+    const normalizedPath = normalizePath(path.resolve(worktreePath));
+    const parentDir = path.dirname(normalizedPath);
+    if (!fs.existsSync(parentDir)) {
+      fs.mkdirSync(parentDir, { recursive: true });
+    }
+    runGit(image.source_path, `worktree add --detach "${normalizedPath}" ${sha}`);
+    return normalizedPath;
+  }
+
   // ── Destroy Worktree ────────────────────────────────────────
 
   destroyWorktree(sourceRepo: string, worktreePath: string): void {
