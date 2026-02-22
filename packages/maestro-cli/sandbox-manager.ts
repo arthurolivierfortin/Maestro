@@ -2,8 +2,9 @@
 /**
  * SandboxManager — CLI-local sandbox image management.
  *
- * Sandbox images are immutable snapshots of git repos with named checkpoints.
- * V1 uses git worktrees for isolation (no Docker).
+ * Sandbox images are immutable snapshots with named checkpoints.
+ * V1: git worktrees for filesystem isolation.
+ * V2: Docker containers for full OS isolation + custom dependencies.
  * Storage: .maestro/sandboxes/<id>/sandbox.json
  */
 
@@ -16,8 +17,9 @@ const { execSync } = require('child_process');
 interface SandboxCheckpoint {
   id: string;
   description?: string;
-  git_ref: string;
-  git_state: 'clean' | 'dirty' | 'conflict';
+  git_ref?: string;                              // git-worktree type
+  script?: string;                               // docker type: checkpoint script filename
+  git_state?: 'clean' | 'dirty' | 'conflict';   // git-worktree type
   affected_files?: string[];
   conflict_branch?: string;
 }
@@ -80,6 +82,32 @@ function resolveRef(cwd: string, ref: string): { sha: string; message: string } 
   const message = runGit(cwd, `log -1 --format=%s ${sha}`);
   return { sha, message };
 }
+
+// ── Docker Helpers ──────────────────────────────────────────────────
+
+function isDockerAvailable(): boolean {
+  try {
+    execSync('docker info', { stdio: 'pipe', timeout: 10_000 });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function runDocker(args: string, timeout = 120_000): string {
+  try {
+    return execSync(`docker ${args}`, {
+      encoding: 'utf-8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+      timeout,
+    }).trim();
+  } catch (err: any) {
+    const stderr = err.stderr?.toString().trim() || err.message;
+    throw new Error(`docker ${args.split(' ')[0]} failed: ${stderr}`);
+  }
+}
+
+const CONTAINER_MARKER = '.maestro-container';
 
 // ── SandboxManager ──────────────────────────────────────────────────
 
@@ -165,6 +193,171 @@ class SandboxManager {
     return image;
   }
 
+  // ── Create Docker ─────────────────────────────────────────
+
+  createDocker(
+    id: string,
+    dockerfilePath: string,
+    checkpoints: Array<{ name: string; script: string }>,
+    description?: string
+  ): SandboxImage {
+    this.ensureDir();
+
+    if (!/^[a-zA-Z0-9_-]+$/.test(id)) {
+      throw new Error(`Invalid sandbox ID '${id}': use only letters, numbers, hyphens, underscores`);
+    }
+    if (fs.existsSync(this.imagePath(id))) {
+      throw new Error(`Sandbox image '${id}' already exists. Delete it first or use a different name.`);
+    }
+
+    // Validate Dockerfile
+    const resolvedDockerfile = path.resolve(dockerfilePath);
+    if (!fs.existsSync(resolvedDockerfile)) {
+      throw new Error(`Dockerfile not found: ${resolvedDockerfile}`);
+    }
+    const dockerContext = path.dirname(resolvedDockerfile);
+
+    // Require Docker
+    if (!isDockerAvailable()) {
+      throw new Error('Docker is not available. Start Docker Desktop and try again.');
+    }
+
+    // Create sandbox directory structure
+    const sandboxDir = path.join(this.basePath, id);
+    fs.mkdirSync(sandboxDir, { recursive: true });
+    const checkpointsDir = path.join(sandboxDir, 'checkpoints');
+    fs.mkdirSync(checkpointsDir, { recursive: true });
+
+    // Copy Dockerfile
+    fs.copyFileSync(resolvedDockerfile, path.join(sandboxDir, 'Dockerfile'));
+
+    // Copy and validate checkpoint scripts
+    const builtCheckpoints: SandboxCheckpoint[] = [];
+    for (const cp of checkpoints) {
+      const scriptPath = path.resolve(dockerContext, cp.script);
+      if (!fs.existsSync(scriptPath)) {
+        // Cleanup on failure
+        fs.rmSync(sandboxDir, { recursive: true, force: true });
+        throw new Error(`Checkpoint script not found: ${scriptPath} (for checkpoint '${cp.name}')`);
+      }
+      const destScript = `${cp.name}.sh`;
+      fs.copyFileSync(scriptPath, path.join(checkpointsDir, destScript));
+      builtCheckpoints.push({ id: cp.name, script: destScript });
+    }
+
+    // Build Docker image
+    const imageName = `maestro-sandbox-${id}`;
+    const normalizedDir = normalizePath(sandboxDir);
+    try {
+      runDocker(`build -t ${imageName} -f "${normalizePath(path.join(sandboxDir, 'Dockerfile'))}" "${normalizePath(dockerContext)}"`, 300_000);
+    } catch (err: any) {
+      fs.rmSync(sandboxDir, { recursive: true, force: true });
+      throw new Error(`Docker build failed for sandbox '${id}': ${err.message}`);
+    }
+
+    const image: SandboxImage = {
+      id,
+      version: 1,
+      description: description || undefined,
+      type: 'docker',
+      source_path: normalizePath(dockerContext),
+      checkpoints: builtCheckpoints,
+      created_at: new Date().toISOString(),
+      metadata: { dockerImage: imageName },
+    };
+
+    fs.writeFileSync(this.imagePath(id), JSON.stringify(image, null, 2), 'utf-8');
+    return image;
+  }
+
+  // ── Provision Docker ──────────────────────────────────────
+
+  private provisionDocker(sandboxId: string, checkpointId: string, targetPath?: string): string {
+    if (!isDockerAvailable()) {
+      throw new Error('Docker is not available. Start Docker Desktop and try again.');
+    }
+
+    const image = this.get(sandboxId);
+    if (!image) throw new Error(`Sandbox image '${sandboxId}' not found`);
+
+    const checkpoint = image.checkpoints.find(c => c.id === checkpointId);
+    if (!checkpoint) throw new Error(`Checkpoint '${checkpointId}' not found in image '${sandboxId}'`);
+
+    const imageName = (image.metadata?.dockerImage as string) || `maestro-sandbox-${sandboxId}`;
+    const sandboxDir = path.join(this.basePath, sandboxId);
+    const checkpointsDir = normalizePath(path.join(sandboxDir, 'checkpoints'));
+
+    // Host mount path
+    const mountPath = targetPath
+      ? normalizePath(path.resolve(targetPath))
+      : normalizePath(path.join(this.basePath, sandboxId, 'mounts', checkpointId));
+
+    // Output path (persists across resets)
+    const outputPath = normalizePath(path.join(this.basePath, sandboxId, 'output'));
+
+    // Ensure directories
+    for (const dir of [mountPath, outputPath]) {
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+    }
+
+    // Clean stale mount
+    if (fs.existsSync(path.join(mountPath, CONTAINER_MARKER))) {
+      try {
+        const oldContainer = fs.readFileSync(path.join(mountPath, CONTAINER_MARKER), 'utf-8').trim();
+        this.destroyDocker(oldContainer, mountPath);
+      } catch { /* best effort */ }
+    }
+
+    // Container name
+    const containerName = `maestro-sb-${sandboxId}-${checkpointId}-${Date.now()}`;
+    const scriptFile = checkpoint.script || `${checkpointId}.sh`;
+
+    // Run container with mounts
+    runDocker(
+      `run -d --name ${containerName}` +
+      ` -v "${mountPath}:/workspace"` +
+      ` -v "${outputPath}:/output"` +
+      ` -v "${checkpointsDir}:/checkpoints:ro"` +
+      ` -w /workspace` +
+      ` ${imageName}` +
+      ` sh -c "sh /checkpoints/${scriptFile} && sleep infinity"`,
+      60_000
+    );
+
+    // Write container marker
+    fs.writeFileSync(path.join(mountPath, CONTAINER_MARKER), containerName, 'utf-8');
+
+    // Wait for checkpoint script to finish (container stays alive via sleep infinity)
+    // We detect readiness by checking if the script part finished
+    try {
+      // Give the script a moment to execute
+      execSync('sleep 2', { stdio: 'pipe' });
+    } catch { /* ignore */ }
+
+    return mountPath;
+  }
+
+  // ── Destroy Docker ────────────────────────────────────────
+
+  private destroyDocker(containerName: string, mountPath: string): void {
+    // Stop and remove container
+    try { runDocker(`stop ${containerName} -t 5`, 30_000); } catch { /* ignore */ }
+    try { runDocker(`rm ${containerName}`, 15_000); } catch { /* ignore */ }
+
+    // Remove marker file
+    const markerPath = path.join(mountPath, CONTAINER_MARKER);
+    if (fs.existsSync(markerPath)) {
+      try { fs.unlinkSync(markerPath); } catch { /* ignore */ }
+    }
+
+    // Clean mount dir (but NOT output — that persists)
+    if (fs.existsSync(mountPath) && !mountPath.endsWith('/output')) {
+      try { fs.rmSync(mountPath, { recursive: true, force: true }); } catch { /* ignore */ }
+    }
+  }
+
   // ── List ────────────────────────────────────────────────────
 
   list(): SandboxImage[] {
@@ -211,20 +404,32 @@ class SandboxManager {
     const checkpoints: CheckpointInspection[] = [];
 
     for (const cp of image.checkpoints) {
-      try {
-        const { sha, message } = resolveRef(image.source_path, cp.git_ref);
+      if (image.type === 'docker') {
+        // Docker checkpoints: validate script exists in sandbox dir
+        const scriptPath = path.join(this.basePath, id, 'checkpoints', cp.script || `${cp.id}.sh`);
         checkpoints.push({
           checkpoint: cp,
-          valid: true,
-          resolved_sha: sha,
-          commit_message: message,
+          valid: fs.existsSync(scriptPath),
+          commit_message: cp.script ? `script: ${cp.script}` : undefined,
+          error: fs.existsSync(scriptPath) ? undefined : `Script not found: ${scriptPath}`,
         });
-      } catch (err: any) {
-        checkpoints.push({
-          checkpoint: cp,
-          valid: false,
-          error: err.message,
-        });
+      } else {
+        // Git worktree checkpoints: resolve ref
+        try {
+          const { sha, message } = resolveRef(image.source_path, cp.git_ref!);
+          checkpoints.push({
+            checkpoint: cp,
+            valid: true,
+            resolved_sha: sha,
+            commit_message: message,
+          });
+        } catch (err: any) {
+          checkpoints.push({
+            checkpoint: cp,
+            valid: false,
+            error: err.message,
+          });
+        }
       }
     }
 
@@ -239,20 +444,39 @@ class SandboxManager {
       throw new Error(`Sandbox image '${id}' not found`);
     }
 
-    // Clean up any active worktrees first
-    const worktreeDir = path.join(dir, 'worktrees');
-    if (fs.existsSync(worktreeDir)) {
-      const image = this.get(id);
-      if (image) {
+    const image = this.get(id);
+
+    if (image && image.type === 'docker') {
+      // Docker: stop/rm any active containers, remove image
+      const mountsDir = path.join(dir, 'mounts');
+      if (fs.existsSync(mountsDir)) {
+        const entries = fs.readdirSync(mountsDir, { withFileTypes: true });
+        for (const entry of entries) {
+          if (!entry.isDirectory()) continue;
+          const mountPath = path.join(mountsDir, entry.name);
+          const markerPath = path.join(mountPath, CONTAINER_MARKER);
+          if (fs.existsSync(markerPath)) {
+            try {
+              const containerName = fs.readFileSync(markerPath, 'utf-8').trim();
+              this.destroyDocker(containerName, mountPath);
+            } catch { /* best effort */ }
+          }
+        }
+      }
+      // Remove Docker image
+      const imageName = (image.metadata?.dockerImage as string) || `maestro-sandbox-${id}`;
+      try { runDocker(`rmi ${imageName}`, 30_000); } catch { /* best effort */ }
+    } else if (image) {
+      // Git worktree: clean up active worktrees
+      const worktreeDir = path.join(dir, 'worktrees');
+      if (fs.existsSync(worktreeDir)) {
         const entries = fs.readdirSync(worktreeDir, { withFileTypes: true });
         for (const entry of entries) {
           if (!entry.isDirectory()) continue;
           const worktreePath = path.join(worktreeDir, entry.name);
           try {
             this.destroyWorktree(image.source_path, worktreePath);
-          } catch {
-            // Best effort cleanup
-          }
+          } catch { /* best effort */ }
         }
       }
     }
@@ -297,11 +521,16 @@ class SandboxManager {
     const image = this.get(sandboxId);
     if (!image) throw new Error(`Sandbox image '${sandboxId}' not found`);
 
+    // Docker dispatch
+    if (image.type === 'docker') {
+      return this.provisionDocker(sandboxId, checkpointId, targetPath);
+    }
+
     const checkpoint = image.checkpoints.find(c => c.id === checkpointId);
     if (!checkpoint) throw new Error(`Checkpoint '${checkpointId}' not found in image '${sandboxId}'`);
 
     // Resolve ref to SHA for deterministic worktree
-    const { sha } = resolveRef(image.source_path, checkpoint.git_ref);
+    const { sha } = resolveRef(image.source_path, checkpoint.git_ref!);
 
     // Determine worktree path
     const worktreePath = targetPath
@@ -339,7 +568,17 @@ class SandboxManager {
     const checkpoint = image.checkpoints.find(c => c.id === checkpointId);
     if (!checkpoint) throw new Error(`Checkpoint '${checkpointId}' not found in image '${sandboxId}'`);
 
-    const { sha } = resolveRef(image.source_path, checkpoint.git_ref);
+    // Docker dispatch: destroy container, re-provision at same path
+    if (image.type === 'docker') {
+      const markerPath = path.join(worktreePath, CONTAINER_MARKER);
+      if (fs.existsSync(markerPath)) {
+        const containerName = fs.readFileSync(markerPath, 'utf-8').trim();
+        this.destroyDocker(containerName, worktreePath);
+      }
+      return this.provisionDocker(sandboxId, checkpointId, worktreePath);
+    }
+
+    const { sha } = resolveRef(image.source_path, checkpoint.git_ref!);
 
     // Destroy existing worktree then re-provision at the SAME path
     this.destroyWorktree(image.source_path, worktreePath);
@@ -356,6 +595,13 @@ class SandboxManager {
 
   destroyWorktree(sourceRepo: string, worktreePath: string): void {
     const normalizedPath = normalizePath(path.resolve(worktreePath));
+
+    // Docker dispatch: check for container marker
+    const markerPath = path.join(normalizedPath, CONTAINER_MARKER);
+    if (fs.existsSync(markerPath)) {
+      const containerName = fs.readFileSync(markerPath, 'utf-8').trim();
+      return this.destroyDocker(containerName, normalizedPath);
+    }
 
     // Try git worktree remove first
     try {
@@ -380,4 +626,4 @@ class SandboxManager {
   }
 }
 
-module.exports = { SandboxManager };
+module.exports = { SandboxManager, isDockerAvailable };

@@ -3740,6 +3740,160 @@ async function startBlockTest(blockId, options = {}) {
   }
 }
 
+// Phase 38-C: Batch test a block against all checkpoints in a sandbox image
+async function batchTestBlock(blockId, sandboxId, options: any = {}) {
+  const sandbox = new SandboxManager(process.cwd());
+  const image = sandbox.get(sandboxId);
+  if (!image) {
+    formatter.error(`Sandbox image '${sandboxId}' not found.`, 'NOT_FOUND');
+    process.exit(EXIT.NOT_FOUND);
+  }
+
+  // Filter checkpoints if specific ones requested
+  let checkpoints = image.checkpoints;
+  if (options.checkpoints) {
+    const ids = options.checkpoints.split(',');
+    checkpoints = checkpoints.filter(cp => ids.includes(cp.id));
+    if (checkpoints.length === 0) {
+      formatter.error(`No matching checkpoints found. Available: ${image.checkpoints.map(cp => cp.id).join(', ')}`, 'NOT_FOUND');
+      process.exit(EXIT.NOT_FOUND);
+    }
+  }
+
+  // Verify block exists
+  let block;
+  try {
+    block = await client._fetch('GET', `/api/blocks/${blockId}`);
+  } catch (e) {
+    formatter.error(`Block not found: ${blockId}`, 'NOT_FOUND');
+    process.exit(EXIT.NOT_FOUND);
+  }
+
+  const inputKey = options.inputKey || 'repoPath';
+  const extraInputs = {};
+  if (options.input) {
+    const inputArgs = Array.isArray(options.input) ? options.input : [options.input];
+    for (const arg of inputArgs) {
+      const eqIdx = String(arg).indexOf('=');
+      if (eqIdx > 0) {
+        extraInputs[String(arg).slice(0, eqIdx)] = String(arg).slice(eqIdx + 1);
+      }
+    }
+  }
+
+  console.log(`\n${c.boldColor('cyan', 'Batch Test')}\n`);
+  console.log(`  ${c.gray('Block:')}       ${blockId} (${block.blockType})`);
+  console.log(`  ${c.gray('Sandbox:')}     ${sandboxId} (${checkpoints.length} checkpoint${checkpoints.length > 1 ? 's' : ''})`);
+  console.log(`  ${c.gray('Input key:')}   ${inputKey}`);
+  if (Object.keys(extraInputs).length > 0) {
+    console.log(`  ${c.gray('Extra inputs:')} ${JSON.stringify(extraInputs)}`);
+  }
+  console.log('');
+
+  const results: Array<{
+    checkpoint: string;
+    status: 'OK' | 'FAIL' | 'ERROR';
+    duration: number;
+    outputs?: any;
+    error?: string;
+    tokens?: number;
+    cost?: number;
+  }> = [];
+
+  for (let i = 0; i < checkpoints.length; i++) {
+    const cp = checkpoints[i];
+    const prefix = `[${i + 1}/${checkpoints.length}]`;
+    process.stdout.write(`  ${c.gray(prefix)} ${cp.id.padEnd(24)} `);
+
+    let worktreePath: string | null = null;
+    try {
+      // Provision worktree
+      worktreePath = sandbox.provisionWorktree(sandboxId, cp.id);
+
+      // Build inputs: repo path + any extras
+      const inputs = { ...extraInputs, [inputKey]: worktreePath };
+
+      // Execute block
+      const startTime = Date.now();
+      let result;
+
+      const isWorkflow = block.blockType === 'workflow';
+      if (isWorkflow) {
+        result = await client.executeWorkflow(blockId, {
+          inputs,
+          workingDirectory: worktreePath
+        });
+      } else {
+        result = await client._fetch('POST', `/api/blocks/${blockId}/execute`, {
+          body: { inputs, workingDirectory: worktreePath }
+        });
+      }
+
+      const duration = Date.now() - startTime;
+
+      if (result.success) {
+        const tokens = result.totalTokens || 0;
+        const cost = result.estimatedCostUsd || 0;
+        const metricsStr = tokens > 0 ? `${tokens} tok, $${cost.toFixed(4)}` : '';
+        console.log(`${c.ok('OK')}    ${(duration + 'ms').padEnd(10)} ${c.gray(metricsStr)}`);
+        results.push({ checkpoint: cp.id, status: 'OK', duration, outputs: result.outputs, tokens, cost });
+      } else {
+        console.log(`${c.fail('FAIL')}  ${(duration + 'ms').padEnd(10)} ${c.gray(result.error || '')}`);
+        results.push({ checkpoint: cp.id, status: 'FAIL', duration, error: result.error, outputs: result.outputs });
+      }
+    } catch (err: any) {
+      console.log(`${c.fail('ERROR')} ${c.gray(err.message?.substring(0, 60) || 'Unknown error')}`);
+      results.push({ checkpoint: cp.id, status: 'ERROR', duration: 0, error: err.message });
+    } finally {
+      // Destroy worktree
+      if (worktreePath) {
+        try { sandbox.destroyWorktree(image.source_path, worktreePath); } catch { /* best effort */ }
+      }
+    }
+  }
+
+  // ── Report ──────────────────────────────────────────────────
+  const passed = results.filter(r => r.status === 'OK').length;
+  const failed = results.filter(r => r.status !== 'OK').length;
+  const totalDuration = results.reduce((sum, r) => sum + r.duration, 0);
+  const totalTokens = results.reduce((sum, r) => sum + (r.tokens || 0), 0);
+  const totalCost = results.reduce((sum, r) => sum + (r.cost || 0), 0);
+
+  console.log(`\n${c.bold('Results:')}`);
+  console.log(`  ${c.gray('Passed:')}   ${passed}/${results.length}`);
+  console.log(`  ${c.gray('Failed:')}   ${failed}/${results.length}`);
+  console.log(`  ${c.gray('Duration:')} ${totalDuration}ms total`);
+  if (totalTokens > 0) {
+    console.log(`  ${c.gray('Tokens:')}   ${totalTokens} ($${totalCost.toFixed(4)})`);
+  }
+
+  // Fitness = pass rate (simple V1)
+  const fitness = results.length > 0 ? passed / results.length : 0;
+  const fitnessStr = (fitness * 100).toFixed(0) + '%';
+  const fitnessColor = fitness >= 0.8 ? c.ok(fitnessStr) : fitness >= 0.5 ? c.warn(fitnessStr) : c.fail(fitnessStr);
+  console.log(`  ${c.gray('Fitness:')}  ${fitnessColor}`);
+
+  if (failed > 0) {
+    console.log(`\n  ${c.bold('Failures:')}`);
+    for (const r of results.filter(r => r.status !== 'OK')) {
+      console.log(`    ${c.fail(r.checkpoint)}: ${r.error || 'execution failed'}`);
+    }
+  }
+
+  // JSON output if requested
+  if (formatter.jsonMode) {
+    formatter.success({
+      blockId,
+      sandboxId,
+      checkpoints: results,
+      summary: { passed, failed, total: results.length, fitness, totalDuration, totalTokens, totalCost }
+    });
+  }
+
+  console.log('');
+  return { results, fitness };
+}
+
 async function listBlockTestRuns(filter = {}) {
   try {
     const runs = await client.listBlockTestRuns(filter);
@@ -7137,46 +7291,70 @@ ${c.bold('Quick Start:')}
 
       if (subCmd === 'create') {
         const name = argv.name || argv._[2];
-        const fromRepo = argv['from-repo'] || '.';
+        const sandboxType = argv.type || 'git-worktree';
         const description = argv.description;
 
         if (!name) {
-          formatter.error('Sandbox name required. Usage: maestro sandbox create --from-repo . --name <id> --checkpoint "name:ref"', 'MISSING_PARAM');
+          formatter.error('Sandbox name required. Usage: maestro sandbox create --name <id> --checkpoint "name:ref"', 'MISSING_PARAM');
           process.exit(EXIT.USER_ERROR);
         }
 
-        // Parse --checkpoint flags (repeatable): "name:ref"
+        // Parse --checkpoint flags (repeatable): "name:ref" (git) or "name:script.sh" (docker)
         let checkpointArgs = argv.checkpoint || [];
         if (typeof checkpointArgs === 'string') checkpointArgs = [checkpointArgs];
         if (!Array.isArray(checkpointArgs)) checkpointArgs = [checkpointArgs];
 
-        const checkpoints = checkpointArgs.map((cp: string) => {
-          const colonIdx = cp.indexOf(':');
-          if (colonIdx === -1) {
-            formatter.error(`Invalid checkpoint format: "${cp}". Use "name:ref" (e.g., "clean-main:main")`, 'INVALID_FORMAT');
-            process.exit(EXIT.USER_ERROR);
-          }
-          return {
-            name: cp.substring(0, colonIdx),
-            ref: cp.substring(colonIdx + 1),
-          };
-        });
-
-        if (checkpoints.length === 0) {
-          formatter.error('At least one --checkpoint "name:ref" is required', 'MISSING_PARAM');
+        if (checkpointArgs.length === 0) {
+          formatter.error('At least one --checkpoint is required', 'MISSING_PARAM');
           process.exit(EXIT.USER_ERROR);
         }
 
         try {
-          const image = sandbox.create(name, fromRepo, checkpoints, description);
+          let image;
+
+          if (sandboxType === 'docker') {
+            // Docker sandbox: --dockerfile required, checkpoints are "name:script.sh"
+            const dockerfile = argv.dockerfile;
+            if (!dockerfile) {
+              formatter.error('--dockerfile <path> is required for docker type', 'MISSING_PARAM');
+              process.exit(EXIT.USER_ERROR);
+            }
+
+            const checkpoints = checkpointArgs.map((cp: string) => {
+              const colonIdx = cp.indexOf(':');
+              if (colonIdx === -1) {
+                formatter.error(`Invalid checkpoint format: "${cp}". Use "name:script.sh"`, 'INVALID_FORMAT');
+                process.exit(EXIT.USER_ERROR);
+              }
+              return { name: cp.substring(0, colonIdx), script: cp.substring(colonIdx + 1) };
+            });
+
+            image = sandbox.createDocker(name, dockerfile, checkpoints, description);
+          } else {
+            // Git worktree sandbox (default): --from-repo, checkpoints are "name:ref"
+            const fromRepo = argv['from-repo'] || '.';
+
+            const checkpoints = checkpointArgs.map((cp: string) => {
+              const colonIdx = cp.indexOf(':');
+              if (colonIdx === -1) {
+                formatter.error(`Invalid checkpoint format: "${cp}". Use "name:ref" (e.g., "clean-main:main")`, 'INVALID_FORMAT');
+                process.exit(EXIT.USER_ERROR);
+              }
+              return { name: cp.substring(0, colonIdx), ref: cp.substring(colonIdx + 1) };
+            });
+
+            image = sandbox.create(name, fromRepo, checkpoints, description);
+          }
+
           if (formatter.jsonMode) {
             console.log(JSON.stringify(image, null, 2));
             return;
           }
           console.log(`\n${c.green('✓')} Sandbox image '${c.cyan(image.id)}' created`);
+          console.log(`  Type: ${image.type}`);
           console.log(`  Source: ${image.source_path}`);
           console.log(`  Checkpoints: ${image.checkpoints.map(cp => cp.id).join(', ')}`);
-          console.log(`  Path: ${sandbox.get(image.id) ? path.join(repoRoot, '.maestro', 'sandboxes', image.id) : 'unknown'}`);
+          console.log(`  Path: ${path.join(repoRoot, '.maestro', 'sandboxes', image.id)}`);
         } catch (err) {
           formatter.error(err.message, 'SANDBOX_CREATE_FAILED');
           process.exit(EXIT.USER_ERROR);
@@ -7205,10 +7383,16 @@ ${c.bold('Quick Start:')}
           console.log(`\n${c.bold('Checkpoints:')}`);
           for (const cp of result.checkpoints) {
             const status = cp.valid ? c.green('✓') : c.red('✗');
-            console.log(`  ${status} ${c.cyan(cp.checkpoint.id)} → ${cp.checkpoint.git_ref} (${cp.checkpoint.git_state})`);
+            if (result.image.type === 'docker') {
+              console.log(`  ${status} ${c.cyan(cp.checkpoint.id)} → script: ${cp.checkpoint.script || '(none)'}`);
+            } else {
+              console.log(`  ${status} ${c.cyan(cp.checkpoint.id)} → ${cp.checkpoint.git_ref} (${cp.checkpoint.git_state || 'clean'})`);
+            }
             if (cp.resolved_sha) {
               console.log(`    SHA: ${cp.resolved_sha.substring(0, 12)}`);
-              console.log(`    Message: ${cp.commit_message}`);
+            }
+            if (cp.commit_message) {
+              console.log(`    ${result.image.type === 'docker' ? 'Info' : 'Message'}: ${cp.commit_message}`);
             }
             if (cp.error) {
               console.log(`    ${c.red('Error:')} ${cp.error}`);
@@ -7757,6 +7941,25 @@ ${c.bold('Examples:')}
 
       if (subCmd === 'leaderboard') {
         return await getFoundryLeaderboard(argv.limit ? parseInt(argv.limit) : 10);
+      }
+
+      // Phase 38-C: Batch test a block against sandbox checkpoints
+      if (subCmd === 'test') {
+        const blockId = argv._[2];
+        if (!blockId) {
+          formatter.error('Block ID required. Usage: maestro foundry test <block-id> --sandbox <id> [--all-checkpoints | --checkpoints a,b]', 'MISSING_PARAM');
+          process.exit(EXIT.USER_ERROR);
+        }
+        const sandboxId = argv.sandbox;
+        if (!sandboxId) {
+          formatter.error('--sandbox <id> is required', 'MISSING_PARAM');
+          process.exit(EXIT.USER_ERROR);
+        }
+        return await batchTestBlock(blockId, sandboxId, {
+          checkpoints: argv['all-checkpoints'] ? null : argv.checkpoints,
+          inputKey: argv['input-key'] || 'repoPath',
+          input: argv.input,
+        });
       }
 
       // Phase 18: 'foundry promote' now uses 'block designate'

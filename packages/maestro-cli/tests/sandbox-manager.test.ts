@@ -11,7 +11,7 @@ import fs from 'fs';
 import path from 'path';
 import { execSync } from 'child_process';
 
-const { SandboxManager } = require('../sandbox-manager.ts');
+const { SandboxManager, isDockerAvailable } = require('../sandbox-manager.ts');
 
 // ── Temp repo setup ─────────────────────────────────────────────
 
@@ -208,5 +208,98 @@ describe('SandboxManager', () => {
 
   it('should throw when deleting non-existent sandbox', () => {
     expect(() => manager.delete('nonexistent')).toThrow(/not found/);
+  });
+});
+
+// ── Docker Sandbox Tests ─────────────────────────────────────────
+
+const dockerAvailable = isDockerAvailable();
+const DOCKER_DIR = path.join(TEMP_ROOT, 'docker-sandbox');
+
+describe('DockerSandboxManager', () => {
+  let manager: any;
+
+  beforeAll(() => {
+    manager = new SandboxManager(REPO_PATH);
+
+    // Create Docker test fixtures: Dockerfile + checkpoint script
+    fs.mkdirSync(DOCKER_DIR, { recursive: true });
+    fs.writeFileSync(path.join(DOCKER_DIR, 'Dockerfile'),
+      'FROM alpine:3.19\nRUN mkdir -p /workspace-src\nCOPY . /workspace-src/\nRUN mkdir -p /checkpoints\nWORKDIR /workspace\n');
+    fs.writeFileSync(path.join(DOCKER_DIR, 'setup.sh'),
+      '#!/bin/sh\necho "checkpoint-executed" > /workspace/marker.txt\n');
+    fs.writeFileSync(path.join(DOCKER_DIR, 'alt.sh'),
+      '#!/bin/sh\necho "alt-checkpoint" > /workspace/alt-marker.txt\n');
+  });
+
+  it('should detect Docker availability without throwing', () => {
+    const result = isDockerAvailable();
+    expect(typeof result).toBe('boolean');
+  });
+
+  it('should reject docker sandbox without Dockerfile', () => {
+    expect(() => {
+      manager.createDocker('bad-docker', '/nonexistent/Dockerfile', [{ name: 'x', script: 'x.sh' }]);
+    }).toThrow(/Dockerfile not found/);
+  });
+
+  it('should reject docker sandbox with missing checkpoint script', () => {
+    if (!dockerAvailable) return; // Docker needed for build step
+    expect(() => {
+      manager.createDocker('bad-script', path.join(DOCKER_DIR, 'Dockerfile'),
+        [{ name: 'x', script: 'nonexistent.sh' }]);
+    }).toThrow(/Checkpoint script not found/);
+  });
+
+  describe.skipIf(!dockerAvailable)('Docker integration (requires Docker Desktop)', () => {
+    it('should create a docker sandbox image', () => {
+      const image = manager.createDocker('docker-test',
+        path.join(DOCKER_DIR, 'Dockerfile'),
+        [
+          { name: 'default', script: 'setup.sh' },
+          { name: 'alt', script: 'alt.sh' },
+        ],
+        'Docker test sandbox'
+      );
+
+      expect(image.id).toBe('docker-test');
+      expect(image.type).toBe('docker');
+      expect(image.checkpoints).toHaveLength(2);
+      expect(image.checkpoints[0].script).toBe('default.sh');
+      expect(image.checkpoints[1].script).toBe('alt.sh');
+      expect(image.metadata.dockerImage).toBe('maestro-sandbox-docker-test');
+    });
+
+    it('should inspect docker sandbox with script validation', () => {
+      const result = manager.inspect('docker-test');
+      expect(result.image.type).toBe('docker');
+      for (const cp of result.checkpoints) {
+        expect(cp.valid).toBe(true);
+      }
+    });
+
+    it('should provision a docker container from checkpoint', () => {
+      const mountPath = manager.provisionWorktree('docker-test', 'default');
+      expect(fs.existsSync(mountPath)).toBe(true);
+
+      // Container marker should exist
+      const markerPath = path.join(mountPath, '.maestro-container');
+      expect(fs.existsSync(markerPath)).toBe(true);
+
+      // Checkpoint script should have created marker.txt
+      // Give the container a few seconds to run the checkpoint script
+      execSync('sleep 5', { stdio: 'pipe' });
+      const markerFile = path.join(mountPath, 'marker.txt');
+      expect(fs.existsSync(markerFile)).toBe(true);
+      expect(fs.readFileSync(markerFile, 'utf-8').trim()).toBe('checkpoint-executed');
+
+      // Cleanup
+      manager.destroyWorktree('', mountPath);
+    }, 30_000);
+
+    it('should delete docker sandbox and remove image', () => {
+      manager.delete('docker-test');
+      expect(manager.get('docker-test')).toBeNull();
+    });
   });
 });
