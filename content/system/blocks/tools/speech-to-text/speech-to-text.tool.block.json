@@ -1,0 +1,29 @@
+{
+  "id": "speech-to-text",
+  "name": "Speech to Text",
+  "blockType": "tool",
+  "version": "1.0.0",
+  "isAtomic": true,
+  "description": "Converts audio input to text. Client-side execution — the embedding application provides the actual STT implementation.",
+  "inputs": [
+    { "id": "language", "type": "string", "required": false, "description": "Language code (e.g., 'en-US', 'fr-FR'). Defaults to browser/system default." },
+    { "id": "continuous", "type": "boolean", "required": false, "description": "Whether to listen continuously or stop after first result. Default: false." },
+    { "id": "interimResults", "type": "boolean", "required": false, "description": "Whether to return interim results. Default: false." }
+  ],
+  "outputs": [
+    { "id": "transcript", "type": "string", "description": "The transcribed text" },
+    { "id": "confidence", "type": "number", "description": "Confidence score (0-1)" },
+    { "id": "language", "type": "string", "description": "Detected language code" }
+  ],
+  "config": {
+    "executorType": "client-side",
+    "clientCapability": "speech-to-text",
+    "timeout": 30000
+  },
+  "metadata": {
+    "category": "audio",
+    "designation": "tool",
+    "tags": ["audio", "speech", "stt", "transcription", "client-side"],
+    "tier": 1
+  }
+}

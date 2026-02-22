@@ -62,6 +62,7 @@ export const DEFAULT_KEYBINDINGS: KeybindingMap = {
     'toggle.widgets': 'w',
     'toggle.vars': 'v',
     'toggle.logs': 'l',
+    'voice.toggle': 'Ctrl+v',
   },
 };
 

@@ -1,0 +1,30 @@
+{
+  "id": "text-to-speech",
+  "name": "Text to Speech",
+  "blockType": "tool",
+  "version": "1.0.0",
+  "isAtomic": true,
+  "description": "Converts text to spoken audio. Client-side execution — the embedding application provides the actual TTS implementation.",
+  "inputs": [
+    { "id": "text", "type": "string", "required": true, "description": "Text to speak" },
+    { "id": "language", "type": "string", "required": false, "description": "Language code (e.g., 'en-US', 'fr-FR')" },
+    { "id": "rate", "type": "number", "required": false, "description": "Speech rate (0.5-2.0). Default: 1.0" },
+    { "id": "pitch", "type": "number", "required": false, "description": "Speech pitch (0.5-2.0). Default: 1.0" },
+    { "id": "voice", "type": "string", "required": false, "description": "Voice identifier (platform-specific)" }
+  ],
+  "outputs": [
+    { "id": "success", "type": "boolean", "description": "Whether speech was successfully initiated" },
+    { "id": "duration", "type": "number", "description": "Estimated duration in milliseconds" }
+  ],
+  "config": {
+    "executorType": "client-side",
+    "clientCapability": "text-to-speech",
+    "timeout": 60000
+  },
+  "metadata": {
+    "category": "audio",
+    "designation": "tool",
+    "tags": ["audio", "speech", "tts", "synthesis", "client-side"],
+    "tier": 1
+  }
+}

@@ -44,6 +44,25 @@ public class ToolBlockExecutor : IBlockExecutor
             return await ExecuteCliBridgeAsync(block, context, inputs, sw, ct);
         }
 
+        // Handle client-side executor type — block is executed by the embedding application
+        if (executorType == "client-side")
+        {
+            var clientOutputs = new Dictionary<string, object?>
+            {
+                ["_clientSideExecution"] = true,
+                ["_blockId"] = block.Id,
+                ["_config"] = System.Text.Json.JsonSerializer.Serialize(config)
+            };
+            sw.Stop();
+            return new BlockExecutionResult
+            {
+                Outputs = clientOutputs.ToDictionary(kv => kv.Key, kv => kv.Value),
+                Success = true,
+                Logs = new List<string> { $"Client-side block '{block.Id}' — execution delegated to embedding application" },
+                DurationMs = sw.ElapsedMilliseconds
+            };
+        }
+
         // Support both "script" format and "command"+"args" format
         var script = GetConfigString(config, "script");
 

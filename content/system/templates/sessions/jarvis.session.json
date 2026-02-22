@@ -1,0 +1,61 @@
+{
+  "id": "jarvis",
+  "name": "Jarvis Assistant",
+  "description": "General-purpose assistant session using the Jarvis intent router agent.",
+  "type": "project",
+  "authority": {
+    "type": "human",
+    "identifier": "user",
+    "displayName": "User"
+  },
+  "permissions": {
+    "allowedCommands": ["*"],
+    "allowedTools": ["*"],
+    "canAccessFilesystem": true,
+    "canExecuteCode": true,
+    "canAccessNetwork": false
+  },
+  "entryPoints": {
+    "ask": "jarvis"
+  },
+  "variables": {
+    "sessionMode": "assistant",
+    "_phases": [
+      { "id": "listen", "name": "Listening", "status": "pending", "description": "Waiting for user input" },
+      { "id": "route", "name": "Routing", "status": "pending", "description": "Classifying intent and routing" },
+      { "id": "execute", "name": "Executing", "status": "pending", "description": "Executing the routed action" }
+    ],
+    "_blockOutputs": {},
+    "_llmActivity": [],
+    "_executionLog": [],
+    "_executionTree": [],
+    "_monitorDescriptor": {
+      "layout": {
+        "mode": "split-horizontal",
+        "zones": {
+          "top": { "height": "60%" },
+          "bottom": { "height": "40%" }
+        }
+      },
+      "components": [
+        { "id": "exec-tree", "type": "execution-tree", "zone": "top", "data": "$.variables._executionTree" },
+        { "id": "exec-log", "type": "log-panel", "zone": "bottom", "data": "$.variables._executionLog" }
+      ]
+    }
+  },
+  "monitorWidgets": [
+    { "id": "status", "type": "text", "config": { "label": "Mode", "value": "$.variables.sessionMode" } }
+  ],
+  "config": {
+    "maxIterations": 20,
+    "timeout": 600000,
+    "autoSave": true,
+    "saveInterval": 30000
+  },
+  "metadata": {
+    "category": "general",
+    "priority": 1,
+    "version": "1.0.0",
+    "author": "maestro"
+  }
+}

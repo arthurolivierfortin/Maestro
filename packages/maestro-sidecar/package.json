@@ -1,0 +1,25 @@
+{
+  "name": "@maestro/sidecar",
+  "version": "1.0.0",
+  "description": "Sidecar process manager — spawns Maestro backend and LLM-Provider as child processes for embedding in Electron/Node.js apps.",
+  "type": "module",
+  "exports": {
+    ".": "./index.ts"
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "npx vitest run tests/",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@maestro/client": "workspace:*",
+    "tree-kill": "^1.2.2"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

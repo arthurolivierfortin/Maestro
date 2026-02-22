@@ -3,7 +3,7 @@
 const fs = require('fs');
 const path = require('path');
 const minimist = require('minimist');
-const { MaestroApiClient, ApiError } = require('./api-client.js');
+const { MaestroApiClient, ApiError } = require('./api-client.ts');
 const { OutputFormatter, formatDate, suggestCommand } = require('./output-formatter.ts');
 const { JsonInputParser } = require('./json-parser.ts');
 const c = require('./utils/cli-colors.ts');

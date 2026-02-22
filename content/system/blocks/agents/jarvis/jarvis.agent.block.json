@@ -1,0 +1,44 @@
+{
+  "id": "jarvis",
+  "name": "Jarvis Intent Router",
+  "blockType": "agent",
+  "version": "1.0.0",
+  "isAtomic": false,
+  "description": "Generic intent router agent. Classifies user messages by intent and routes to appropriate tools or sub-agents. Domain-agnostic — works for any project type.",
+  "inputs": [
+    { "id": "message", "type": "string", "required": true, "description": "User message to classify and route" },
+    { "id": "context", "type": "string", "required": false, "description": "Project context (stack, conventions, recent activity)" },
+    { "id": "availableBlocks", "type": "string", "required": false, "description": "JSON list of available block IDs the agent can delegate to" }
+  ],
+  "outputs": [
+    { "id": "result", "type": "string", "description": "JSON summary of what was accomplished" }
+  ],
+  "config": {
+    "maxIterations": 20,
+    "wallClockTimeoutSeconds": 600,
+    "systemPromptFile": "system-prompt.md",
+    "context": {
+      "strategy": "sliding-window",
+      "maxTokens": 8192,
+      "keepSystemPrompt": true,
+      "keepLastN": 20
+    },
+    "nodes": [
+      {
+        "id": "reasoning",
+        "blockRef": "inference",
+        "config": {
+          "model": "claude-sonnet-4-6",
+          "maxTokens": 4096,
+          "temperature": 0
+        }
+      }
+    ]
+  },
+  "metadata": {
+    "category": "general",
+    "designation": "orchestrator",
+    "tags": ["intent-routing", "general-purpose", "orchestrator", "assistant"],
+    "tier": 1
+  }
+}

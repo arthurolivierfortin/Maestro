@@ -287,13 +287,16 @@ const OutputPanel = ({ lines, height }: { lines: LogLine[]; height: number }) =>
 
 // ── StatusBar ─────────────────────────────────────────────────
 
-const StatusBar = ({ sessionId, busy }: { sessionId: string | null; busy: boolean }) => {
+const StatusBar = ({ sessionId, busy, voiceActive }: { sessionId: string | null; busy: boolean; voiceActive?: boolean }) => {
   const sessionLabel = sessionId ? `Session: ${sessionId.slice(0, 8)}` : 'No session';
   const statusLabel = busy ? 'Running...' : 'Ready';
   const statusColor = busy ? 'yellow' : 'green';
 
   return h(Box, { paddingX: 1, justifyContent: 'space-between' },
-    h(Text, { color: 'gray', dimColor: true }, sessionLabel),
+    h(Box, null,
+      h(Text, { color: 'gray', dimColor: true }, sessionLabel),
+      voiceActive ? h(Text, { color: 'magenta', bold: true }, ' VOICE') : null
+    ),
     h(Text, { color: statusColor, dimColor: !busy }, statusLabel)
   );
 };
@@ -486,13 +489,14 @@ const InteractiveApp = ({ sessionManager }: { sessionManager: SessionManager | n
   const [rows, setRows] = useState(stdout.rows || 24);
   const [lines, setLines] = useState<LogLine[]>([
     { text: 'Maestro Interactive Mode', color: 'cyan', bold: true },
-    { text: 'Type a task and press Enter. Ctrl+C to quit.', color: 'gray', dim: true },
+    { text: 'Type a task and press Enter. Ctrl+C to quit. Ctrl+V to toggle voice mode.', color: 'gray', dim: true },
     { text: '' },
   ]);
   const [busy, setBusy] = useState(false);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [currentWidget, setCurrentWidget] = useState<Widget | null>(null);
   const [pendingInteractive, setPendingInteractive] = useState<Widget | null>(null);
+  const [voiceMode, setVoiceMode] = useState(false);
 
   useEffect(() => {
     const onResize = () => {
@@ -513,6 +517,9 @@ const InteractiveApp = ({ sessionManager }: { sessionManager: SessionManager | n
     if (input === 'c' && key.ctrl) {
       if (sessionManager) sessionManager.stopPolling();
       exit();
+    }
+    if (input === 'v' && key.ctrl) {
+      setVoiceMode(v => !v);
     }
   });
 
@@ -569,15 +576,17 @@ const InteractiveApp = ({ sessionManager }: { sessionManager: SessionManager | n
   return h(Box, { flexDirection: 'column', width: '100%', height: rows },
     h(OutputPanel, { lines, height: outputHeight - (currentWidget ? 8 : 0) }),
     currentWidget ? h(WidgetRenderer, { widget: currentWidget, onResponse: () => {} }) : null,
-    h(StatusBar, { sessionId: currentSessionId, busy }),
+    h(StatusBar, { sessionId: currentSessionId, busy, voiceActive: voiceMode }),
     h(InputPrompt, {
       onSubmit: handleSubmit,
       disabled: false,
       placeholder: pendingInteractive
         ? 'Respond to the widget above...'
-        : busy
-          ? 'Send a message to the agent...'
-          : 'Describe your task...',
+        : voiceMode
+          ? 'Listening...'
+          : busy
+            ? 'Send a message to the agent...'
+            : 'Describe your task...',
     })
   );
 };
