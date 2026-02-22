@@ -353,6 +353,23 @@ public class AgentBlockExecutor : IBlockExecutor
                             var summary = args.ValueKind == JsonValueKind.Object && args.TryGetProperty("summary", out var sumProp)
                                 ? sumProp.GetString() ?? "Task completed"
                                 : "Task completed";
+
+                            // Capture trailing text after JSON — LLMs often put details after the JSON object
+                            var jsonEndPos = response.Content.IndexOf(jsonContent, StringComparison.Ordinal);
+                            if (jsonEndPos >= 0)
+                            {
+                                var trailing = response.Content.Substring(jsonEndPos + jsonContent.Length).Trim();
+                                if (!string.IsNullOrEmpty(trailing) && trailing.Length > 10)
+                                {
+                                    // Clean up common prefixes
+                                    trailing = trailing.TrimStart('\n', '\r', '-', '*', ' ');
+                                    if (trailing.StartsWith("Here ") || trailing.StartsWith("The ") || trailing.StartsWith("Below "))
+                                    {
+                                        summary = summary + ". " + trailing;
+                                    }
+                                }
+                            }
+
                             result.Logs.Add($"Agent completed ({actualToolCallCount} tool calls): {summary}");
                             break;
                         }
@@ -403,7 +420,9 @@ public class AgentBlockExecutor : IBlockExecutor
 
                         // Feed back into conversation
                         _conversationManager.AddMessage(conversationId, "assistant", jsonContent);
-                        _conversationManager.AddMessage(conversationId, "user", $"Tool result for {toolId}:\n{toolOutput}{extraToolWarning}");
+                        _conversationManager.AddMessage(conversationId, "user",
+                            $"Tool result for {toolId}:\n{toolOutput}{extraToolWarning}\n\n" +
+                            "Respond with your next JSON tool call, or {\"tool\":\"step-complete\",\"args\":{\"summary\":\"...\"}} if done.");
                         toolCalled = true;
                         nonJsonRetryCount = 0; // Reset retry counter on successful tool call
                     }
