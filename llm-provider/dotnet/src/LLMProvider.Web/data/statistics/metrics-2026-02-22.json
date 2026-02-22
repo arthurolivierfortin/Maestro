@@ -1,5 +1,5 @@
 {
-  "totalRequests": 0,
+  "totalRequests": 142,
   "latency": {
     "p50": 0,
     "p95": 0,
@@ -7,24 +7,252 @@
     "average": 0
   },
   "totalTokens": {
-    "promptTokens": 0,
-    "completionTokens": 0,
-    "totalTokens": 0
+    "promptTokens": 17247,
+    "completionTokens": 45470,
+    "totalTokens": 62717
   },
-  "modelStats": [],
+  "modelStats": [
+    {
+      "modelId": {
+        "value": "haiku"
+      },
+      "requestCount": 78,
+      "latency": {
+        "p50": 6296.5,
+        "p95": 12212.499999999996,
+        "p99": 22371.940000000024,
+        "average": 7117.307692307692
+      },
+      "totalTokens": {
+        "promptTokens": 778,
+        "completionTokens": 28592,
+        "totalTokens": 29370
+      },
+      "requestsPerMinute": 5.416704331569772,
+      "errorRate": 0
+    },
+    {
+      "modelId": {
+        "value": "deepseek-ai/deepseek-coder-1.3b-instruct"
+      },
+      "requestCount": 13,
+      "latency": {
+        "p50": 5722,
+        "p95": 10131.199999999997,
+        "p99": 10720.64,
+        "average": 6141.846153846154
+      },
+      "totalTokens": {
+        "promptTokens": 16316,
+        "completionTokens": 1981,
+        "totalTokens": 18297
+      },
+      "requestsPerMinute": 1.827082101536443,
+      "errorRate": 0
+    },
+    {
+      "modelId": {
+        "value": "sonnet"
+      },
+      "requestCount": 51,
+      "latency": {
+        "p50": 8142,
+        "p95": 15418,
+        "p99": 29331,
+        "average": 9809.29411764706
+      },
+      "totalTokens": {
+        "promptTokens": 153,
+        "completionTokens": 14897,
+        "totalTokens": 15050
+      },
+      "requestsPerMinute": 0.18196520256271861,
+      "errorRate": 0
+    }
+  ],
   "queue": {
     "currentDepth": 0,
     "depthByModel": {},
-    "currentModel": null,
-    "avgWaitTimeMs": 0,
+    "currentModel": "deepseek-ai/deepseek-coder-1.3b-instruct",
+    "avgWaitTimeMs": 6211.692307692308,
     "totalEnqueued": 0,
-    "totalProcessed": 0
+    "totalProcessed": 13
   },
   "switching": {
     "totalSwitches": 0,
-    "switchesAvoided": 0,
+    "switchesAvoided": 13,
     "avgSwitchDuration": "00:00:00",
-    "recentDecisions": []
+    "recentDecisions": [
+      {
+        "from": {
+          "value": "deepseek-ai/deepseek-coder-1.3b-instruct"
+        },
+        "to": {
+          "value": "deepseek-ai/deepseek-coder-1.3b-instruct"
+        },
+        "decision": 1,
+        "score": -1.7976931348623157E+308,
+        "reason": "",
+        "duration": "00:00:00",
+        "timestamp": "2026-02-22T08:21:41.8789184+00:00"
+      },
+      {
+        "from": {
+          "value": "deepseek-ai/deepseek-coder-1.3b-instruct"
+        },
+        "to": {
+          "value": "deepseek-ai/deepseek-coder-1.3b-instruct"
+        },
+        "decision": 1,
+        "score": -1.7976931348623157E+308,
+        "reason": "",
+        "duration": "00:00:00",
+        "timestamp": "2026-02-22T08:21:48.266112+00:00"
+      },
+      {
+        "from": {
+          "value": "deepseek-ai/deepseek-coder-1.3b-instruct"
+        },
+        "to": {
+          "value": "deepseek-ai/deepseek-coder-1.3b-instruct"
+        },
+        "decision": 1,
+        "score": -1.7976931348623157E+308,
+        "reason": "",
+        "duration": "00:00:00",
+        "timestamp": "2026-02-22T08:24:27.9139347+00:00"
+      },
+      {
+        "from": {
+          "value": "deepseek-ai/deepseek-coder-1.3b-instruct"
+        },
+        "to": {
+          "value": "deepseek-ai/deepseek-coder-1.3b-instruct"
+        },
+        "decision": 1,
+        "score": -1.7976931348623157E+308,
+        "reason": "",
+        "duration": "00:00:00",
+        "timestamp": "2026-02-22T08:24:33.1509087+00:00"
+      },
+      {
+        "from": {
+          "value": "deepseek-ai/deepseek-coder-1.3b-instruct"
+        },
+        "to": {
+          "value": "deepseek-ai/deepseek-coder-1.3b-instruct"
+        },
+        "decision": 1,
+        "score": -1.7976931348623157E+308,
+        "reason": "",
+        "duration": "00:00:00",
+        "timestamp": "2026-02-22T08:27:52.7554015+00:00"
+      },
+      {
+        "from": {
+          "value": "deepseek-ai/deepseek-coder-1.3b-instruct"
+        },
+        "to": {
+          "value": "deepseek-ai/deepseek-coder-1.3b-instruct"
+        },
+        "decision": 1,
+        "score": -1.7976931348623157E+308,
+        "reason": "",
+        "duration": "00:00:00",
+        "timestamp": "2026-02-22T08:28:03.9753949+00:00"
+      },
+      {
+        "from": {
+          "value": "deepseek-ai/deepseek-coder-1.3b-instruct"
+        },
+        "to": {
+          "value": "deepseek-ai/deepseek-coder-1.3b-instruct"
+        },
+        "decision": 1,
+        "score": -1.7976931348623157E+308,
+        "reason": "",
+        "duration": "00:00:00",
+        "timestamp": "2026-02-22T08:28:08.7618484+00:00"
+      },
+      {
+        "from": {
+          "value": "deepseek-ai/deepseek-coder-1.3b-instruct"
+        },
+        "to": {
+          "value": "deepseek-ai/deepseek-coder-1.3b-instruct"
+        },
+        "decision": 1,
+        "score": -1.7976931348623157E+308,
+        "reason": "",
+        "duration": "00:00:00",
+        "timestamp": "2026-02-22T08:28:19.7127759+00:00"
+      },
+      {
+        "from": {
+          "value": "deepseek-ai/deepseek-coder-1.3b-instruct"
+        },
+        "to": {
+          "value": "deepseek-ai/deepseek-coder-1.3b-instruct"
+        },
+        "decision": 1,
+        "score": -1.7976931348623157E+308,
+        "reason": "",
+        "duration": "00:00:00",
+        "timestamp": "2026-02-22T08:28:27.8543642+00:00"
+      },
+      {
+        "from": {
+          "value": "deepseek-ai/deepseek-coder-1.3b-instruct"
+        },
+        "to": {
+          "value": "deepseek-ai/deepseek-coder-1.3b-instruct"
+        },
+        "decision": 1,
+        "score": -1.7976931348623157E+308,
+        "reason": "",
+        "duration": "00:00:00",
+        "timestamp": "2026-02-22T08:28:34.7013576+00:00"
+      },
+      {
+        "from": {
+          "value": "deepseek-ai/deepseek-coder-1.3b-instruct"
+        },
+        "to": {
+          "value": "deepseek-ai/deepseek-coder-1.3b-instruct"
+        },
+        "decision": 1,
+        "score": -1.7976931348623157E+308,
+        "reason": "",
+        "duration": "00:00:00",
+        "timestamp": "2026-02-22T08:28:37.34538+00:00"
+      },
+      {
+        "from": {
+          "value": "deepseek-ai/deepseek-coder-1.3b-instruct"
+        },
+        "to": {
+          "value": "deepseek-ai/deepseek-coder-1.3b-instruct"
+        },
+        "decision": 1,
+        "score": -1.7976931348623157E+308,
+        "reason": "",
+        "duration": "00:00:00",
+        "timestamp": "2026-02-22T08:28:43.205691+00:00"
+      },
+      {
+        "from": {
+          "value": "deepseek-ai/deepseek-coder-1.3b-instruct"
+        },
+        "to": {
+          "value": "deepseek-ai/deepseek-coder-1.3b-instruct"
+        },
+        "decision": 1,
+        "score": -1.7976931348623157E+308,
+        "reason": "",
+        "duration": "00:00:00",
+        "timestamp": "2026-02-22T08:28:46.6328072+00:00"
+      }
+    ]
   },
   "timeWindows": [
     {
@@ -38,7 +266,7 @@
         "p99": 0,
         "average": 0
       },
-      "tokensTotal": 0
+      "tokensTotal": 62717
     },
     {
       "windowName": "5m",
@@ -51,7 +279,7 @@
         "p99": 0,
         "average": 0
       },
-      "tokensTotal": 0
+      "tokensTotal": 62717
     },
     {
       "windowName": "15m",
@@ -64,8 +292,8 @@
         "p99": 0,
         "average": 0
       },
-      "tokensTotal": 0
+      "tokensTotal": 62717
     }
   ],
-  "generatedAt": "2026-02-22T07:32:59.208828+00:00"
+  "generatedAt": "2026-02-22T16:13:59.8271003+00:00"
 }
