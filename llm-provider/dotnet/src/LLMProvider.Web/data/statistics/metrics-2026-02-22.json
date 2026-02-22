@@ -1,53 +1,34 @@
 {
-  "totalRequests": 208,
+  "totalRequests": 1,
   "latency": {
-    "p50": 0,
-    "p95": 0,
-    "p99": 0,
-    "average": 0
+    "p50": 5093,
+    "p95": 5093,
+    "p99": 5093,
+    "average": 5093
   },
   "totalTokens": {
-    "promptTokens": 694,
-    "completionTokens": 90490,
-    "totalTokens": 91184
+    "promptTokens": 3,
+    "completionTokens": 26,
+    "totalTokens": 29
   },
   "modelStats": [
     {
       "modelId": {
-        "value": "haiku"
-      },
-      "requestCount": 12,
-      "latency": {
-        "p50": 16638.5,
-        "p95": 28065.199999999997,
-        "p99": 30641.840000000004,
-        "average": 17634.916666666668
-      },
-      "totalTokens": {
-        "promptTokens": 120,
-        "completionTokens": 15782,
-        "totalTokens": 15902
-      },
-      "requestsPerMinute": 0.10043246948799488,
-      "errorRate": 0
-    },
-    {
-      "modelId": {
         "value": "sonnet"
       },
-      "requestCount": 196,
+      "requestCount": 1,
       "latency": {
-        "p50": 8780.5,
-        "p95": 53190,
-        "p99": 101045.85000000008,
-        "average": 14237.586734693878
+        "p50": 5093,
+        "p95": 5093,
+        "p99": 5093,
+        "average": 5093
       },
       "totalTokens": {
-        "promptTokens": 574,
-        "completionTokens": 74708,
-        "totalTokens": 75282
+        "promptTokens": 3,
+        "completionTokens": 26,
+        "totalTokens": 29
       },
-      "requestsPerMinute": 1.5884100077320813,
+      "requestsPerMinute": 0,
       "errorRate": 0
     }
   ],
@@ -69,42 +50,42 @@
     {
       "windowName": "1m",
       "windowSeconds": 60,
-      "requestCount": 0,
-      "requestsPerMinute": 0,
+      "requestCount": 1,
+      "requestsPerMinute": 1,
       "latency": {
-        "p50": 0,
-        "p95": 0,
-        "p99": 0,
-        "average": 0
+        "p50": 5093,
+        "p95": 5093,
+        "p99": 5093,
+        "average": 5093
       },
-      "tokensTotal": 91184
+      "tokensTotal": 29
     },
     {
       "windowName": "5m",
       "windowSeconds": 300,
-      "requestCount": 0,
-      "requestsPerMinute": 0,
+      "requestCount": 1,
+      "requestsPerMinute": 0.2,
       "latency": {
-        "p50": 0,
-        "p95": 0,
-        "p99": 0,
-        "average": 0
+        "p50": 5093,
+        "p95": 5093,
+        "p99": 5093,
+        "average": 5093
       },
-      "tokensTotal": 91184
+      "tokensTotal": 29
     },
     {
       "windowName": "15m",
       "windowSeconds": 900,
-      "requestCount": 0,
-      "requestsPerMinute": 0,
+      "requestCount": 1,
+      "requestsPerMinute": 0.06666666666666667,
       "latency": {
-        "p50": 0,
-        "p95": 0,
-        "p99": 0,
-        "average": 0
+        "p50": 5093,
+        "p95": 5093,
+        "p99": 5093,
+        "average": 5093
       },
-      "tokensTotal": 91184
+      "tokensTotal": 29
     }
   ],
-  "generatedAt": "2026-02-22T04:38:43.6921496+00:00"
+  "generatedAt": "2026-02-22T06:36:27.5595588+00:00"
 }

@@ -7,6 +7,7 @@ const { MaestroApiClient, ApiError } = require('./api-client.ts');
 const { OutputFormatter, formatDate, suggestCommand } = require('./output-formatter.ts');
 const { JsonInputParser } = require('./json-parser.ts');
 const c = require('./utils/cli-colors.ts');
+const { SandboxManager } = require('./sandbox-manager.ts');
 
 // Configuration (Phase 20: config.ts provides getBackendUrl/getApiKey)
 const { getBackendUrl, getApiKey } = require('./config.ts');
@@ -1778,7 +1779,7 @@ async function initRepo(targetPath, options: { force?: boolean } = {}) {
   const stackLabel = stack === 'unknown' ? 'unknown (generic)' : stack;
 
   // 2. Create directory structure
-  const dirs = ['blocks', 'docs', 'logs', 'artifacts', 'metrics'];
+  const dirs = ['blocks', 'docs', 'logs', 'artifacts', 'metrics', 'sandboxes'];
   for (const dir of dirs) {
     fs.mkdirSync(path.join(maestroDir, dir), { recursive: true });
   }
@@ -4747,6 +4748,7 @@ ${c.bold('Foundry & Testing:')}
   foundry              Agent foundry dashboard
   test                 Block testing
   approval             Block approval workflow
+  sandbox              Sandbox images for reproducible test environments
 
 ${c.bold('Security:')}
   auth status          Auth status (enabled/disabled)
@@ -5745,7 +5747,7 @@ async function executeWithArgv(argv) {
       'docs', 'training', 'fitness', 'experiment', 'research', 'foundry', 'test',
       'approval', 'approvals', 'auth', 'init', 'aliases', 'system', 'orchestrator', 'metrics',
       'runs', 'config', 'schema', 'search', 'catalog', 'children', 'info', 'chat',
-      'setup', 'tools', 'agents', 'workflows', 'prompts',
+      'setup', 'tools', 'agents', 'workflows', 'prompts', 'sandbox',
     ]);
 
     if (cmd && !BUILTIN_COMMANDS.has(cmd)) {
@@ -7001,6 +7003,271 @@ ${c.bold('Quick Start:')}
 
       console.error(`Unknown workspace subcommand: ${subCmd}`);
       console.error('   Available commands: info, create, delete, add-session, add-project, permissions, topology, promote');
+      process.exit(1);
+    }
+
+    // ─── Sandbox commands (Phase 38-A) ───────────────────────────
+    if (cmd === 'sandbox') {
+      const subCmd = argv._[1];
+      const repoRoot = process.cwd();
+      const sandbox = new SandboxManager(repoRoot);
+
+      if (!subCmd || subCmd === 'list') {
+        const images = sandbox.list();
+        if (images.length === 0) {
+          console.log('\nNo sandbox images found.');
+          console.log(`  Create one with: ${c.cyan('maestro sandbox create --from-repo . --name <id> --checkpoint "name:ref"')}`);
+          return;
+        }
+        if (formatter.jsonMode) {
+          console.log(JSON.stringify(images, null, 2));
+          return;
+        }
+        formatter.table(images.map(img => ({
+          ID: img.id,
+          Type: img.type,
+          Checkpoints: img.checkpoints.length,
+          Source: img.source_path,
+          Created: formatDate(img.created_at),
+        })));
+        return;
+      }
+
+      if (subCmd === 'create') {
+        const name = argv.name || argv._[2];
+        const fromRepo = argv['from-repo'] || '.';
+        const description = argv.description;
+
+        if (!name) {
+          formatter.error('Sandbox name required. Usage: maestro sandbox create --from-repo . --name <id> --checkpoint "name:ref"', 'MISSING_PARAM');
+          process.exit(EXIT.USER_ERROR);
+        }
+
+        // Parse --checkpoint flags (repeatable): "name:ref"
+        let checkpointArgs = argv.checkpoint || [];
+        if (typeof checkpointArgs === 'string') checkpointArgs = [checkpointArgs];
+        if (!Array.isArray(checkpointArgs)) checkpointArgs = [checkpointArgs];
+
+        const checkpoints = checkpointArgs.map((cp: string) => {
+          const colonIdx = cp.indexOf(':');
+          if (colonIdx === -1) {
+            formatter.error(`Invalid checkpoint format: "${cp}". Use "name:ref" (e.g., "clean-main:main")`, 'INVALID_FORMAT');
+            process.exit(EXIT.USER_ERROR);
+          }
+          return {
+            name: cp.substring(0, colonIdx),
+            ref: cp.substring(colonIdx + 1),
+          };
+        });
+
+        if (checkpoints.length === 0) {
+          formatter.error('At least one --checkpoint "name:ref" is required', 'MISSING_PARAM');
+          process.exit(EXIT.USER_ERROR);
+        }
+
+        try {
+          const image = sandbox.create(name, fromRepo, checkpoints, description);
+          if (formatter.jsonMode) {
+            console.log(JSON.stringify(image, null, 2));
+            return;
+          }
+          console.log(`\n${c.green('✓')} Sandbox image '${c.cyan(image.id)}' created`);
+          console.log(`  Source: ${image.source_path}`);
+          console.log(`  Checkpoints: ${image.checkpoints.map(cp => cp.id).join(', ')}`);
+          console.log(`  Path: ${sandbox.get(image.id) ? path.join(repoRoot, '.maestro', 'sandboxes', image.id) : 'unknown'}`);
+        } catch (err) {
+          formatter.error(err.message, 'SANDBOX_CREATE_FAILED');
+          process.exit(EXIT.USER_ERROR);
+        }
+        return;
+      }
+
+      if (subCmd === 'inspect') {
+        const id = argv._[2];
+        if (!id) {
+          formatter.error('Sandbox ID required. Usage: maestro sandbox inspect <id>', 'MISSING_PARAM');
+          process.exit(EXIT.USER_ERROR);
+        }
+
+        try {
+          const result = sandbox.inspect(id);
+          if (formatter.jsonMode) {
+            console.log(JSON.stringify(result, null, 2));
+            return;
+          }
+          console.log(`\n${c.bold('Sandbox Image:')} ${c.cyan(result.image.id)}`);
+          console.log(`  Type:        ${result.image.type}`);
+          console.log(`  Source:      ${result.image.source_path}`);
+          console.log(`  Description: ${result.image.description || '(none)'}`);
+          console.log(`  Created:     ${formatDate(result.image.created_at)}`);
+          console.log(`\n${c.bold('Checkpoints:')}`);
+          for (const cp of result.checkpoints) {
+            const status = cp.valid ? c.green('✓') : c.red('✗');
+            console.log(`  ${status} ${c.cyan(cp.checkpoint.id)} → ${cp.checkpoint.git_ref} (${cp.checkpoint.git_state})`);
+            if (cp.resolved_sha) {
+              console.log(`    SHA: ${cp.resolved_sha.substring(0, 12)}`);
+              console.log(`    Message: ${cp.commit_message}`);
+            }
+            if (cp.error) {
+              console.log(`    ${c.red('Error:')} ${cp.error}`);
+            }
+          }
+        } catch (err) {
+          formatter.error(err.message, 'SANDBOX_INSPECT_FAILED');
+          process.exit(EXIT.USER_ERROR);
+        }
+        return;
+      }
+
+      if (subCmd === 'delete') {
+        const id = argv._[2];
+        if (!id) {
+          formatter.error('Sandbox ID required. Usage: maestro sandbox delete <id> [--force]', 'MISSING_PARAM');
+          process.exit(EXIT.USER_ERROR);
+        }
+
+        if (!argv.force) {
+          console.log(`\nThis will permanently delete sandbox image '${id}' and all its worktrees.`);
+          console.log(`Use ${c.cyan('--force')} to confirm.`);
+          return;
+        }
+
+        try {
+          sandbox.delete(id);
+          console.log(`${c.green('✓')} Sandbox image '${id}' deleted.`);
+        } catch (err) {
+          formatter.error(err.message, 'SANDBOX_DELETE_FAILED');
+          process.exit(EXIT.USER_ERROR);
+        }
+        return;
+      }
+
+      if (subCmd === 'add-checkpoint') {
+        const id = argv._[2];
+        if (!id) {
+          formatter.error('Sandbox ID required. Usage: maestro sandbox add-checkpoint <id> --checkpoint "name:ref"', 'MISSING_PARAM');
+          process.exit(EXIT.USER_ERROR);
+        }
+
+        let checkpointArg = argv.checkpoint;
+        if (!checkpointArg) {
+          formatter.error('--checkpoint "name:ref" required', 'MISSING_PARAM');
+          process.exit(EXIT.USER_ERROR);
+        }
+        if (Array.isArray(checkpointArg)) checkpointArg = checkpointArg[0];
+
+        const colonIdx = checkpointArg.indexOf(':');
+        if (colonIdx === -1) {
+          formatter.error(`Invalid checkpoint format: "${checkpointArg}". Use "name:ref"`, 'INVALID_FORMAT');
+          process.exit(EXIT.USER_ERROR);
+        }
+
+        const cpName = checkpointArg.substring(0, colonIdx);
+        const cpRef = checkpointArg.substring(colonIdx + 1);
+
+        try {
+          const cp = sandbox.addCheckpoint(id, {
+            name: cpName,
+            ref: cpRef,
+            description: argv.description,
+            state: argv.state,
+          });
+          if (formatter.jsonMode) {
+            console.log(JSON.stringify(cp, null, 2));
+            return;
+          }
+          console.log(`${c.green('✓')} Checkpoint '${c.cyan(cp.id)}' added to sandbox '${id}'`);
+          console.log(`  Ref: ${cp.git_ref}`);
+          console.log(`  State: ${cp.git_state}`);
+        } catch (err) {
+          formatter.error(err.message, 'SANDBOX_CHECKPOINT_FAILED');
+          process.exit(EXIT.USER_ERROR);
+        }
+        return;
+      }
+
+      if (subCmd === 'provision') {
+        const id = argv._[2];
+        const checkpointId = argv._[3] || argv.checkpoint;
+        if (!id || !checkpointId) {
+          formatter.error('Usage: maestro sandbox provision <sandbox-id> <checkpoint-id> [--target <path>]', 'MISSING_PARAM');
+          process.exit(EXIT.USER_ERROR);
+        }
+
+        try {
+          const worktreePath = sandbox.provisionWorktree(id, checkpointId, argv.target);
+          if (formatter.jsonMode) {
+            console.log(JSON.stringify({ path: worktreePath }, null, 2));
+            return;
+          }
+          console.log(`${c.green('✓')} Worktree provisioned at: ${c.cyan(worktreePath)}`);
+        } catch (err) {
+          formatter.error(err.message, 'SANDBOX_PROVISION_FAILED');
+          process.exit(EXIT.USER_ERROR);
+        }
+        return;
+      }
+
+      if (subCmd === 'destroy') {
+        const worktreePath = argv._[2] || argv.path;
+        if (!worktreePath) {
+          formatter.error('Usage: maestro sandbox destroy <worktree-path>', 'MISSING_PARAM');
+          process.exit(EXIT.USER_ERROR);
+        }
+
+        // Need source repo to destroy — find it from the worktree's sandbox image
+        const images = sandbox.list();
+        let sourceRepo: string | null = null;
+        for (const img of images) {
+          if (path.resolve(worktreePath).startsWith(path.resolve(path.join(repoRoot, '.maestro', 'sandboxes', img.id)))) {
+            sourceRepo = img.source_path;
+            break;
+          }
+        }
+        if (!sourceRepo) {
+          formatter.error('Could not determine source repo for this worktree. Provide the sandbox ID.', 'SANDBOX_NOT_FOUND');
+          process.exit(EXIT.USER_ERROR);
+        }
+
+        try {
+          sandbox.destroyWorktree(sourceRepo, worktreePath);
+          console.log(`${c.green('✓')} Worktree destroyed: ${worktreePath}`);
+        } catch (err) {
+          formatter.error(err.message, 'SANDBOX_DESTROY_FAILED');
+          process.exit(EXIT.USER_ERROR);
+        }
+        return;
+      }
+
+      if (subCmd === 'help' || subCmd === '--help') {
+        console.log(`
+${c.bold('Usage:')} maestro sandbox <command> [options]
+
+${c.bold('Commands:')}
+  list                                List sandbox images
+  create --from-repo . --name <id>    Create from git repo
+    --checkpoint "name:ref"           Add checkpoint (repeatable)
+    --description "..."               Image description
+  inspect <id>                        Show image details + ref validity
+  delete <id> --force                 Delete sandbox image
+  add-checkpoint <id>                 Add checkpoint to existing image
+    --checkpoint "name:ref"           Checkpoint spec (name:git-ref)
+    --description "..."               Checkpoint description
+  provision <id> <checkpoint>         Create git worktree for a checkpoint
+    --target <path>                   Custom worktree path
+  destroy <worktree-path>             Remove a provisioned worktree
+
+${c.bold('Examples:')}
+  maestro sandbox create --from-repo . --name my-test --checkpoint "main:main" --checkpoint "feature:feature/auth"
+  maestro sandbox inspect my-test
+  maestro sandbox provision my-test main
+  maestro sandbox delete my-test --force
+`);
+        return;
+      }
+
+      console.error(`Unknown sandbox subcommand: ${subCmd}`);
+      console.error('   Run: maestro sandbox help');
       process.exit(1);
     }
 
