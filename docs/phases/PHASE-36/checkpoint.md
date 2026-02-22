@@ -1,7 +1,7 @@
 # Phase 36 : Checkpoint
 
-**Derniere mise a jour** : 2026-02-21
-**Sous-phase en cours** : AUCUNE — Phase 36 TERMINEE
+**Derniere mise a jour** : 2026-02-22
+**Sous-phase en cours** : AUCUNE — Phase 36 TERMINEE + Dogfooding VALIDE
 **Agent** : Claude Code session
 
 ---
@@ -63,3 +63,34 @@
 **Tests** : 4 passed (0 regressions)
 **Fichier modifie** :
 - `packages/maestro-monitor/components/WidgetsPanel.ts` — ContextPanelWidget + renderWidget case + DefaultWidgets auto-detect
+
+## Dogfooding : Memory Integration (Option B)
+**Statut** : DONE
+**Date** : 2026-02-22
+**Sessions** : 7 dogfooding sessions on Cantante
+
+### What works
+- **Memory READ** : Both project-preparer and task-planner correctly call `memory` with `get-relevant` on iteration 1
+- **Memory STORE (workflow-level)** : `cache-context` workflow node stores project-preparer output in memory after completion
+- **Memory persistence across sessions** : Session 7 read cached context from session 6, completing in 2 iterations instead of 5+
+- **Plan validation loop** : While loop + json-validator correctly retries on prose output, producing valid JSON array on retry
+- **End-to-end pipeline** : Files created correctly on Cantante (formatDuration, clamp)
+- **file-edit tool** : ToolBlockExecutor properly handles old_string/new_string replacement (memory note was outdated)
+
+### What doesn't work (known limitations)
+- **Agent tool name compliance** : claude-sonnet-4-6 frequently uses Claude Code tool names (Bash, Glob, Read) instead of Maestro tool names (directory-list, file-read). NormalizeToolId maps them, but args don't always match.
+- **Agent format compliance** : Agents often output prose text before/after JSON, or use XML tags. This wastes iterations on retries.
+- **shell-execute on Windows** : Agents send Unix commands (ls, head) to cmd.exe which fails. Need PowerShell wrapper or WSL detection.
+- **Agent memory store via tool call** : Agents never successfully called `memory` with `add-entry` directly. Solved by moving storage to workflow level.
+
+### Architecture decision
+**Workflow-level memory store** > **Agent-level memory store**. The `cache-context` node guarantees storage without relying on agent compliance. Agents only need to READ memory (which they do reliably). Storage is orchestrated by the workflow.
+
+### Files modified
+- `content/system/blocks/agents/project-preparer/system-prompt.md` — Simplified (4 tools, memory read only)
+- `content/system/blocks/agents/project-preparer/project-preparer.agent.block.json` — maxIterations 6
+- `content/system/blocks/agents/task-planner/system-prompt.md` — Added memory read + validation error recovery
+- `content/system/blocks/agents/task-planner/task-planner.agent.block.json` — maxIterations 7, validationError input
+- `content/system/blocks/agents/implement-single-step/system-prompt.md` — Optional memory write for patterns
+- `content/system/blocks/workflows/autonomous-development.workflow.block.json` — Added cache-context node, descriptive task for project-preparer
+- `apps/backend/src/Maestro.Infrastructure/Memory/FileSystemMemoryManager.cs` — Auto-create stores in AddEntryAsync

@@ -36,9 +36,23 @@
         "blockRef": "project-preparer",
         "inputs": {
           "repoPath": "{{inputs.repoPath}}",
-          "task": "{{inputs.task}}"
+          "task": "Analyze the project repository at the path provided in repoPath. List its root directory, read package.json or equivalent config file, then store your findings in memory and call step-complete with structured JSON context."
         },
         "description": "Analyze the project structure, stack, and conventions"
+      },
+      {
+        "id": "cache-context",
+        "name": "Cache Project Context",
+        "blockRef": "memory",
+        "inputs": {
+          "operation": "add-entry",
+          "storeId": "project-context",
+          "key": "repo-structure",
+          "content": "{{_nodeResult_prepare}}",
+          "confidence": "0.9",
+          "tags": "project,context"
+        },
+        "description": "Store project analysis in memory for future runs"
       },
       {
         "id": "plan-retry-loop",

@@ -1,8 +1,8 @@
 # Phase 36 : Contexte, Memoire et Documentation — CHANGELOG
 
-**Statut** : TERMINEE
-**Date** : 2026-02-21
-**Sous-phases** : 5 (36-A through 36-E)
+**Statut** : TERMINEE + DOGFOODING VALIDE
+**Date** : 2026-02-22
+**Sous-phases** : 5 (36-A through 36-E) + Dogfooding (Option B)
 
 ---
 
@@ -107,6 +107,30 @@ Nouveau type de widget `context-panel` dans WidgetsPanel :
 - `apps/backend/src/Maestro.Application/DTOs/BlockDto.cs`
 - `packages/maestro-cli/cli.ts`
 - `packages/maestro-monitor/components/WidgetsPanel.ts`
+
+## Dogfooding : Memory Integration (Option B)
+
+**Date** : 2026-02-22
+**Sessions** : 7 on Cantante
+
+### Architecture decision
+Workflow-level memory store (`cache-context` node) > Agent-level memory store. Agents read memory reliably but fail to write (tool name confusion, format issues). The workflow guarantees storage.
+
+| Action | Fichier |
+|--------|---------|
+| Modifie | `content/system/blocks/agents/project-preparer/system-prompt.md` — Simplified (4 tools, memory read only) |
+| Modifie | `content/system/blocks/agents/project-preparer/project-preparer.agent.block.json` — maxIterations 6 |
+| Modifie | `content/system/blocks/agents/task-planner/system-prompt.md` — Memory read + validation error recovery |
+| Modifie | `content/system/blocks/agents/task-planner/task-planner.agent.block.json` — maxIterations 7, validationError input |
+| Modifie | `content/system/blocks/agents/implement-single-step/system-prompt.md` — Optional memory write for patterns |
+| Modifie | `content/system/blocks/workflows/autonomous-development.workflow.block.json` — cache-context node, descriptive task for prepare |
+| Modifie | `apps/backend/src/Maestro.Infrastructure/Memory/FileSystemMemoryManager.cs` — Auto-create stores |
+
+### Resultats valides
+- Memory read works (both agents, iteration 1)
+- Memory persistence across sessions (session 7 read session 6 cache → 2 iterations vs 5+)
+- Plan validation while loop works (retry on prose → valid JSON array)
+- End-to-end pipeline produces correct files on Cantante
 
 ### Build
 - Backend : 0 errors, 102 warnings (pre-existants)
