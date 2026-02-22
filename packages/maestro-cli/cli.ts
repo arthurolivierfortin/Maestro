@@ -8,6 +8,7 @@ const { OutputFormatter, formatDate, suggestCommand } = require('./output-format
 const { JsonInputParser } = require('./json-parser.ts');
 const c = require('./utils/cli-colors.ts');
 const { SandboxManager } = require('./sandbox-manager.ts');
+const { maestroAdapt, maestroOptimize } = require('./adapt-optimize.ts');
 
 // Configuration (Phase 20: config.ts provides getBackendUrl/getApiKey)
 const { getBackendUrl, getApiKey } = require('./config.ts');
@@ -4945,6 +4946,10 @@ ${c.bold('Foundry & Testing:')}
   approval             Block approval workflow
   sandbox              Sandbox images for reproducible test environments
 
+${c.bold('Adaptation & Optimization:')}
+  adapt <workflow>     Adapt workflow to available models (--sandbox, --dry-run)
+  optimize <block>     Optimize block with strategies (--sandbox, --strategy)
+
 ${c.bold('Security:')}
   auth status          Auth status (enabled/disabled)
   auth setup           Create initial admin API key
@@ -5942,7 +5947,7 @@ async function executeWithArgv(argv) {
       'docs', 'training', 'fitness', 'experiment', 'research', 'foundry', 'test',
       'approval', 'approvals', 'auth', 'init', 'aliases', 'system', 'orchestrator', 'metrics',
       'runs', 'config', 'schema', 'search', 'catalog', 'children', 'info', 'chat',
-      'setup', 'tools', 'agents', 'workflows', 'prompts', 'sandbox',
+      'setup', 'tools', 'agents', 'workflows', 'prompts', 'sandbox', 'adapt', 'optimize',
     ]);
 
     if (cmd && !BUILTIN_COMMANDS.has(cmd)) {
@@ -7975,6 +7980,79 @@ ${c.bold('Examples:')}
 
       console.error(`Unknown foundry subcommand: ${subCmd}`);
       process.exit(1);
+    }
+
+    // Phase 39: maestro adapt <workflow> — adapt to available models
+    if (cmd === 'adapt') {
+      const targetId = argv._[1];
+      if (!targetId) {
+        formatter.error('Workflow or block ID required.\nUsage: maestro adapt <workflow-id> --sandbox <id> [--dry-run] [--threshold 0.80] [--save]', 'MISSING_PARAM');
+        process.exit(EXIT.USER_ERROR);
+      }
+      const sandboxId = argv.sandbox;
+      if (!sandboxId && !argv['dry-run']) {
+        formatter.error('--sandbox <id> is required (use --dry-run to skip testing)', 'MISSING_PARAM');
+        process.exit(EXIT.USER_ERROR);
+      }
+      // Parse extra inputs
+      const extraInputs = {};
+      if (argv.input) {
+        const inputArgs = Array.isArray(argv.input) ? argv.input : [argv.input];
+        for (const arg of inputArgs) {
+          const eqIdx = String(arg).indexOf('=');
+          if (eqIdx > 0) extraInputs[String(arg).slice(0, eqIdx)] = String(arg).slice(eqIdx + 1);
+        }
+      }
+      const result = await maestroAdapt(targetId, sandboxId || '', client, c, {
+        threshold: argv.threshold ? parseFloat(argv.threshold) : undefined,
+        checkpoints: argv.checkpoints,
+        dryRun: !!argv['dry-run'],
+        save: !!argv.save,
+        jsonMode: formatter.jsonMode,
+        inputKey: argv['input-key'],
+        extraInputs: Object.keys(extraInputs).length > 0 ? extraInputs : undefined,
+      });
+      if (formatter.jsonMode && result) {
+        formatter.success(result);
+      }
+      return;
+    }
+
+    // Phase 39: maestro optimize <block> — optimize with strategies
+    if (cmd === 'optimize') {
+      const targetId = argv._[1];
+      if (!targetId) {
+        formatter.error('Block ID required.\nUsage: maestro optimize <block-id> --sandbox <id> [--strategy model-downgrade] [--recursive] [--threshold 0.80]', 'MISSING_PARAM');
+        process.exit(EXIT.USER_ERROR);
+      }
+      const sandboxId = argv.sandbox;
+      if (!sandboxId) {
+        formatter.error('--sandbox <id> is required for reproducible testing', 'MISSING_PARAM');
+        process.exit(EXIT.USER_ERROR);
+      }
+      // Parse extra inputs
+      const extraInputs = {};
+      if (argv.input) {
+        const inputArgs = Array.isArray(argv.input) ? argv.input : [argv.input];
+        for (const arg of inputArgs) {
+          const eqIdx = String(arg).indexOf('=');
+          if (eqIdx > 0) extraInputs[String(arg).slice(0, eqIdx)] = String(arg).slice(eqIdx + 1);
+        }
+      }
+      const results = await maestroOptimize(targetId, sandboxId, client, c, {
+        strategy: argv.strategy,
+        threshold: argv.threshold ? parseFloat(argv.threshold) : undefined,
+        recursive: !!argv.recursive,
+        checkpoints: argv.checkpoints,
+        save: !!argv.save,
+        jsonMode: formatter.jsonMode,
+        inputKey: argv['input-key'],
+        extraInputs: Object.keys(extraInputs).length > 0 ? extraInputs : undefined,
+      });
+      if (formatter.jsonMode) {
+        formatter.success(results);
+      }
+      return;
     }
 
     // Phase 18: Agent commands — shorthand for block --designation agent
