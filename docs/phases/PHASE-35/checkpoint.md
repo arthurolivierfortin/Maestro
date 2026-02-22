@@ -253,13 +253,21 @@ Quand l'agent veut faire un edit partiel (old_string → new_string), le block r
 - **Cumulatif 35-E** : 4/7 = 57%
 - **Cumulatif total (toutes phases)** : 22/34 = 65%
 
-### Fix 38 en action (config-driven output validation)
-Les sessions 25-26 montrent la validation output en action :
-- `implement-single-step` retourne systematiquement prose la premiere fois
-- Le retry nudge (message defini dans block config `outputValidation.retryMessage`) obtient une reformulation JSON dans 100% des cas
-- Cout additionnel : ~1 LLM call par step (acceptable vs pipeline crash)
-- **Impact direct** : les 3 echecs precedents (sessions 21-22-24) auraient reussi avec ce fix
-- **Architecture** : la validation est config-driven — le format attendu et le message de retry sont dans le block JSON, pas dans l'executor C#. Respecte le principe "executor = mechanical plumbing".
+### Fix 38 refactored: while + validator blocks (post config-driven)
+Fix 38 originally used `config.outputValidation` in `AgentBlockExecutor.cs` — the executor read format expectations from block config and retried once on mismatch. While the content lived in JSON, the validation logic was still in C#.
+
+**Refactored to**: while loop + json-validator block + conditional gate in `autonomous-development.workflow.block.json` v3.2.0. The executor (`AgentBlockExecutor.cs`) no longer contains any output validation code — ~30 lines removed including `OutputValidationConfig` record, `GetOutputValidation()` method, and the format mismatch check+retry block.
+
+**How it works**:
+1. `plan-retry-loop` (while: `_planFormatValid != true`, max 3)
+2. `plan` node receives `validationError` input (empty on first run, error message on retry)
+3. `validate-plan` (json-validator) validates the plan JSON
+4. `plan-format-gate` (conditional): if `isValid == false` → store error in `_planValidationError`; else → set `_planFormatValid = true`
+5. `store-plan` after loop stores `_nodeResult_plan` for for-each
+
+**Also removed**: `outputValidation` from `implement-single-step.agent.block.json` — downstream consumers handle prose without executor-level retry.
+
+**Architecture**: The executor is now pure mechanical plumbing. Zero format awareness, zero content-specific logic. All validation is expressed declaratively in workflow JSON using existing infrastructure blocks (while, conditional, set-variable, json-validator).
 
 ### Problemes resolus vs restants
 
@@ -270,7 +278,25 @@ Les sessions 25-26 montrent la validation output en action :
 **Restants :**
 1. **project-preparer loop detection** (faible) : Le preparer boucle sur `directory-list` du meme path 3 fois avant d'etre coupe. Output minimal (~52 chars). Le planning fonctionne quand meme grace a la `projectStructure` fournie en input.
 2. **implement-single-step exploration excessive** (faible) : Step 2 de session 26 a fait 10 tool calls pour explorer le projet au lieu d'implementer. Cause : context truncation perd le step description. Impact faible car step-complete est quand meme appele.
-3. **json-validator always "got object"** (cosmetic) : Le json-validator rapporte toujours "Expected a JSON array, got object" car il recoit le args wrapper `{"summary":"[...]"}`, pas le summary directement. Non-bloquant car store-plan utilise `_nodeResult_plan`.
+3. ~~json-validator always "got object"~~ → Fixed: validate-plan input changed to `{{_nodeResult_plan.summary}}` to extract the raw array.
+
+### Corrections post-refactoring (Fix 38 → blocks)
+
+| # | Fix | Fichier | Description |
+|---|-----|---------|-------------|
+| 39 | json-validator input wrapper | `autonomous-development.workflow.block.json` | `{{_nodeResult_plan}}` → `{{_nodeResult_plan.summary}}` pour extraire le JSON array du wrapper `{"summary":"[...]"}` |
+| 40 | While loop checkpoint cleanup | `EntryPointExecutor.cs` | Clear child node IDs from `_workflowCheckpoint` before each while iteration (same pattern as for-each fix). Sans ce fix, iterations 2+ sautaient tous les child nodes. |
+
+### Dogfooding post-refactoring (while + validator blocks)
+
+| # | Tache | Session | Iterations while | Resultat | Notes |
+|---|-------|---------|-----------------|----------|-------|
+| 27 | Tooltip component | 2587e6f8 | 1 (plan valide) | **SUCCES** | Pipeline complet: plan → validate → implement → test → review (0.68, pas de commit) |
+| 28 | Shortcut manager | ad8430ed | 2 (retry) | **SUCCES** | Iteration 1: prose → isValid:false → error stored. Iteration 2: JSON array 4 steps → valid → pipeline continue |
+
+**Cas nominal (session 27)** : Plan JSON valide du premier coup → json-validator passe → `_planFormatValid = true` → while loop sort en 1 iteration → pipeline complet.
+
+**Cas degrade (session 28)** : task-planner retourne prose → json-validator dit `isValid:false` → conditional gate stocke l'erreur dans `_planValidationError` → iteration 2: planner recoit l'erreur, produit un JSON array valide de 4 steps → validator passe → loop sort. **Le retry fonctionne end-to-end.**
 
 ### Ameliorations cout
 - project-preparer : **$0.088 → $0.004** par session (Opus → Sonnet + loop detection)

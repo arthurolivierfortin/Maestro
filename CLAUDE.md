@@ -635,18 +635,27 @@ Entry points map to block IDs. The `EntryPointExecutor` dispatches based on bloc
 ### Hardcoding format validation or retry messages in executor code
 **Cause**: Adding content-specific logic in executor C# code, such as checking if an agent's output is a "JSON array" or embedding retry messages like "your response must be a JSON array of steps". This violates "executor = mechanical plumbing".
 **Example**: `if (summary.Length > 50 && !summary.StartsWith("[")) { /* hardcoded retry */ }` in `AgentBlockExecutor.cs`.
-**Fix**: Use `config.outputValidation` in the block's JSON definition:
+**Fix**: Use a **while loop + json-validator block + conditional gate** in the workflow JSON. The executor never inspects output content — all validation and retry is expressed declaratively:
 ```json
-"config": {
-  "outputValidation": {
-    "format": "json-array",
-    "retryMessage": "Your step-complete summary must be a raw JSON array..."
-  }
+{
+  "type": "while",
+  "condition": "{{_planFormatValid}} != true",
+  "maxIterations": 3,
+  "nodes": [
+    { "blockRef": "task-planner", "inputs": { "validationError": "{{_planValidationError}}" } },
+    { "blockRef": "json-validator", "inputs": { "data": "{{_nodeResult_plan}}" } },
+    {
+      "type": "conditional",
+      "condition": "{{_nodeResult_validate-plan.isValid}} == false",
+      "then": { "nodes": [{ "type": "set-variable", "variable": "_planValidationError", "value": "..." }] },
+      "else": { "nodes": [{ "type": "set-variable", "variable": "_planFormatValid", "value": "true" }] }
+    }
+  ]
 }
 ```
-The executor reads `config.outputValidation` and applies generic format checking. The expected format and retry message are **content** that lives in the block definition, not in C#. Supported formats: `json-array`, `json-object`, `json`.
+The json-validator returns `{isValid: false, errors: [...]}` on failure or the parsed JSON on success. The conditional gate stores the error for retry or marks the plan valid to exit the loop.
 **Litmus test**: Can you change the expected output format of a block without modifying C#? If yes, correct.
-**Incident**: Phase 35-E Fix 38 initially hardcoded prose detection in `AgentBlockExecutor.cs`. Refactored to config-driven approach during same session.
+**Incident**: Phase 35-E Fix 38 initially used `config.outputValidation` in executor code. Refactored to while+validator blocks — executor is now pure plumbing with zero format awareness.
 
 ### Creating blocks outside the workspace/foundry workflow
 **Cause**: Writing block JSON files directly into `content/system/blocks/` without a workspace or foundry session, because it's faster

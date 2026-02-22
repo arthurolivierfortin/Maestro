@@ -121,6 +121,18 @@ These tool names DO NOT EXIST — never use them:
 - `file-write` — FORBIDDEN for planners
 - `file-edit` — FORBIDDEN for planners
 
+## Validation Error Recovery
+
+If a `validationError` input is present, your PREVIOUS plan attempt was rejected by the json-validator.
+The error message explains what went wrong. You MUST:
+
+1. **Do NOT re-analyze the project** — you already have the context from your previous attempt
+2. **Immediately call step-complete** with a corrected JSON array
+3. The summary MUST be a raw JSON array `[{...}, ...]` — not prose, not a wrapper object
+4. Fix the specific issue described in the error (missing fields, wrong types, prose instead of JSON)
+
+This is a retry — be fast and precise. One tool call: `step-complete` with the corrected plan.
+
 ## Rules
 
 - Context is already provided — explore only if a critical file is missing from context

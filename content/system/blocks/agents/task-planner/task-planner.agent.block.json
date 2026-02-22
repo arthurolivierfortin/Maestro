@@ -10,7 +10,8 @@
     { "id": "projectContext", "type": "string", "required": true, "description": "JSON output from project-analyzer (stack, conventions, architecture)" },
     { "id": "architecture", "type": "string", "required": true, "description": "JSON output from task-architect (modules, design decisions, visual components)" },
     { "id": "researchContext", "type": "string", "required": false, "description": "JSON output from research-agent (if available)" },
-    { "id": "userOverrides", "type": "string", "required": false, "description": "JSON modifications injected by the interaction-handler (if any)" }
+    { "id": "userOverrides", "type": "string", "required": false, "description": "JSON modifications injected by the interaction-handler (if any)" },
+    { "id": "validationError", "type": "string", "required": false, "description": "Validation error from previous attempt (if any). When present, the plan must be reformulated as a valid JSON array." }
   ],
   "outputs": [
     { "id": "response", "type": "string", "description": "JSON array of ordered implementation steps, each with id, domain, developer, action, target, description, dependencies, context_files, acceptance, verification" }
@@ -19,11 +20,7 @@
     "model": "claude-sonnet-4-6",
     "maxIterations": 6,
     "wallClockTimeoutSeconds": 600,
-    "systemPromptFile": "system-prompt.md",
-    "outputValidation": {
-      "format": "json-array",
-      "retryMessage": "SYSTEM ERROR: Your step-complete summary contains prose text, but it MUST be a raw JSON array. The summary field must start with '[' and end with ']'. It must be a valid JSON array of step objects. Prose summaries crash the downstream pipeline. Call step-complete again with ONLY the JSON array as the summary value."
-    }
+    "systemPromptFile": "system-prompt.md"
   },
   "metadata": {
     "category": "development",

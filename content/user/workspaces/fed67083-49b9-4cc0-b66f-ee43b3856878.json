@@ -5,7 +5,10 @@
   "type": "Custom",
   "status": "Active",
   "path": null,
-  "sessionIds": [],
+  "sessionIds": [
+    "96161d66-b4e4-4924-bfb5-5dbccd7e3880",
+    "724b6681-cfd2-4325-9acb-a5e5c9b4ea4a"
+  ],
   "projectIds": [],
   "catalogRef": null,
   "settings": {
@@ -50,7 +53,7 @@
   "sessionTemplates": {},
   "entryPoints": {},
   "createdAt": "2026-02-21T00:17:52.2996381+00:00",
-  "updatedAt": "2026-02-21T00:17:52.2996383+00:00",
+  "updatedAt": "2026-02-22T01:53:50.5579099+00:00",
   "createdBy": null,
   "repositoryPath": null
 }

@@ -3,9 +3,9 @@
   "id": "autonomous-development",
   "name": "Autonomous Development Workflow",
   "blockType": "workflow",
-  "version": "3.1.0",
+  "version": "3.2.0",
   "isAtomic": false,
-  "description": "Complete autonomous development workflow v3.1: analyze → plan → validate → for-each step (implement + verify) → test → review → conditional commit (only if review approved). Uses json-validator and step-validator blocks for anti-hallucination.",
+  "description": "Complete autonomous development workflow v3.2: analyze → plan-retry-loop (while: plan + validate + conditional gate) → for-each step (implement + verify) → test → review → conditional commit. Plan validation uses while loop + json-validator — no executor-level output validation.",
 
   "inputs": [
     {
@@ -41,25 +41,65 @@
         "description": "Analyze the project structure, stack, and conventions"
       },
       {
-        "id": "plan",
-        "name": "Plan Implementation",
-        "blockRef": "task-planner",
-        "inputs": {
-          "repoPath": "{{inputs.repoPath}}",
-          "task": "{{inputs.task}}",
-          "context": "{{_nodeResult_prepare}}"
-        },
-        "description": "Decompose the task into ordered implementation steps"
-      },
-      {
-        "id": "validate-plan",
-        "name": "Validate Plan",
-        "blockRef": "json-validator",
-        "inputs": {
-          "data": "{{previousOutput}}",
-          "schema": "{\"type\":\"array\",\"minItems\":1,\"items\":{\"requiredFields\":[\"id\",\"action\",\"target\",\"description\"],\"fieldTypes\":{\"id\":\"number\",\"action\":\"string\",\"target\":\"string\",\"description\":\"string\"},\"allowedValues\":{\"action\":[\"create\",\"modify\",\"delete\",\"add-dependency\",\"run-command\"]}}}"
-        },
-        "description": "Validate the plan JSON: array of steps with id, action, target, description"
+        "id": "plan-retry-loop",
+        "name": "Plan with Retry",
+        "type": "while",
+        "condition": "{{_planFormatValid}} != true",
+        "maxIterations": 3,
+        "nodes": [
+          {
+            "id": "plan",
+            "name": "Plan Implementation",
+            "blockRef": "task-planner",
+            "inputs": {
+              "repoPath": "{{inputs.repoPath}}",
+              "task": "{{inputs.task}}",
+              "context": "{{_nodeResult_prepare}}",
+              "validationError": "{{_planValidationError}}"
+            },
+            "description": "Decompose the task into ordered implementation steps"
+          },
+          {
+            "id": "validate-plan",
+            "name": "Validate Plan",
+            "blockRef": "json-validator",
+            "inputs": {
+              "data": "{{_nodeResult_plan.summary}}",
+              "schema": "{\"type\":\"array\",\"minItems\":1,\"items\":{\"requiredFields\":[\"id\",\"action\",\"target\",\"description\"],\"fieldTypes\":{\"id\":\"number\",\"action\":\"string\",\"target\":\"string\",\"description\":\"string\"},\"allowedValues\":{\"action\":[\"create\",\"modify\",\"delete\",\"add-dependency\",\"run-command\"]}}}"
+            },
+            "description": "Validate the plan JSON: array of steps with id, action, target, description"
+          },
+          {
+            "id": "plan-format-gate",
+            "name": "Plan Format Gate",
+            "type": "conditional",
+            "condition": "{{_nodeResult_validate-plan.isValid}} == false",
+            "then": {
+              "nodes": [
+                {
+                  "id": "store-validation-error",
+                  "type": "set-variable",
+                  "variable": "_planValidationError",
+                  "value": "Your plan output failed JSON validation. Errors: {{_nodeResult_validate-plan.errors}}. Your step-complete summary MUST be a raw JSON array of step objects starting with '[' and ending with ']'. No prose, no wrapper objects.",
+                  "description": "Store validation error for next planner iteration"
+                }
+              ]
+            },
+            "else": {
+              "nodes": [
+                {
+                  "id": "mark-plan-valid",
+                  "type": "set-variable",
+                  "variable": "_planFormatValid",
+                  "value": "true",
+                  "description": "Mark plan as valid to exit while loop"
+                }
+              ]
+            },
+            "description": "If validation failed, store error for retry; if passed, mark valid to exit loop"
+          }
+        ],
+        "description": "Retry planning up to 3 times until json-validator passes"
       },
       {
         "id": "store-plan",

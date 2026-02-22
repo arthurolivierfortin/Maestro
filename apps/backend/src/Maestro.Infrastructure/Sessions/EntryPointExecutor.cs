@@ -755,6 +755,28 @@ public class EntryPointExecutor
             // Execute child nodes
             if (whileNode.TryGetProperty("nodes", out var children) && children.ValueKind == JsonValueKind.Array)
             {
+                // CRITICAL: Clear child node IDs from _workflowCheckpoint before each iteration.
+                // Without this, after iteration 1 completes "plan"/"validate-plan"/"plan-format-gate",
+                // the checkpoint marks them as completed. At iteration 2, ExecuteConfigNodesAsync
+                // sees them in the checkpoint and SKIPS them — even though they must re-execute.
+                // Same fix as for-each (see line ~1694).
+                var childNodeIds = new HashSet<string>();
+                foreach (var child in children.EnumerateArray())
+                {
+                    if (child.TryGetProperty("id", out var cid))
+                        childNodeIds.Add(cid.GetString() ?? "");
+                }
+
+                var currentCheckpoint = session.GetVariable("_workflowCheckpoint") as List<object>;
+                if (currentCheckpoint != null && childNodeIds.Count > 0)
+                {
+                    currentCheckpoint.RemoveAll(entry =>
+                        entry is Dictionary<string, object> dict
+                        && dict.TryGetValue("nodeId", out var nid)
+                        && childNodeIds.Contains(nid?.ToString() ?? ""));
+                    session.SetVariable("_workflowCheckpoint", currentCheckpoint);
+                }
+
                 lastOutput = await ExecuteConfigNodesAsync(session, children, workflowConfig, workingDir, workflowId, activePhaseId, displayTree, lastOutput);
             }
 
