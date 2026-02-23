@@ -6,7 +6,7 @@
 
 import { createElement as h, useState, useEffect } from 'react';
 const { Box, Text } = require('ink');
-import { theme } from '../theme.ts';
+import { theme, T, primary, success, warning, error, muted } from '../theme.ts';
 import { Panel } from '@maestro/tui/components';
 import { useApiData } from '@maestro/tui/hooks';
 
@@ -35,7 +35,7 @@ export function LLMMonitorScreen({ apiClient, onExit, onQuit }: LLMMonitorScreen
   return h(Box, { flexDirection: 'column', padding: 1 },
     // Title
     h(Box, { marginBottom: 1 },
-      h(Text, { bold: true, color: theme.colors.brand },
+      h(Text, { bold: true, color: theme.ui.highlight },
         ' LLM Monitor'),
       h(Text, { color: 'gray' }, '  (r=refresh, q=quit)')
     ),
@@ -47,16 +47,16 @@ export function LLMMonitorScreen({ apiClient, onExit, onQuit }: LLMMonitorScreen
         h(Panel, { title: 'GPU Information', borderColor: 'cyan' },
           health?.cudaAvailable
             ? h(Box, { flexDirection: 'column' },
-                h(Text, null, `  Device:    ${theme.primary(health.device || 'unknown')}`),
-                h(Text, null, `  GPU:       ${theme.primary(health.cudaDeviceName || 'N/A')}`),
-                h(Text, null, `  CUDA:      ${theme.success('available')}`),
+                h(Text, null, `  Device:    ${primary(health.device || 'unknown')}`),
+                h(Text, null, `  GPU:       ${primary(health.cudaDeviceName || 'N/A')}`),
+                h(Text, null, `  CUDA:      ${success('available')}`),
                 capabilities?.gpuVram
                   ? h(Text, null, `  VRAM:      ${capabilities.gpuVram}`)
                   : null
               )
             : h(Box, { flexDirection: 'column' },
-                h(Text, null, `  Device:    ${theme.warning(health?.device || 'cpu')}`),
-                h(Text, null, `  CUDA:      ${theme.muted('not available')}`),
+                h(Text, null, `  Device:    ${warning(health?.device || 'cpu')}`),
+                h(Text, null, `  CUDA:      ${muted('not available')}`),
                 h(Text, { color: 'gray' }, '  Running on CPU — inference will be slower')
               )
         ),
@@ -65,8 +65,8 @@ export function LLMMonitorScreen({ apiClient, onExit, onQuit }: LLMMonitorScreen
         h(Panel, { title: 'Active Model', borderColor: 'green' },
           health?.activeModel
             ? h(Box, { flexDirection: 'column' },
-                h(Text, null, `  Model:     ${theme.primary(health.activeModel)}`),
-                h(Text, null, `  Status:    ${theme.success(health.status || 'loaded')}`),
+                h(Text, null, `  Model:     ${primary(health.activeModel)}`),
+                h(Text, null, `  Status:    ${success(health.status || 'loaded')}`),
                 h(Text, null, `  Loaded:    ${health.modelsLoaded || 1} model(s)`)
               )
             : h(Box, { flexDirection: 'column' },
@@ -82,13 +82,13 @@ export function LLMMonitorScreen({ apiClient, onExit, onQuit }: LLMMonitorScreen
         h(Panel, { title: 'Provider', borderColor: 'magenta' },
           h(Box, { flexDirection: 'column' },
             h(Text, null, `  Type:      ${activeProvider?.provider === 'azure'
-              ? theme.T({ color: 'cyan' }, 'Azure OpenAI')
-              : theme.success('Local')}`),
+              ? T({ color: 'cyan' }, 'Azure OpenAI')
+              : success('Local')}`),
             h(Text, null, `  Status:    ${health?.status === 'online' || health?.status === 'ok'
-              ? theme.success('online')
+              ? success('online')
               : healthError
-                ? theme.error('offline')
-                : theme.warning(health?.status || 'unknown')}`),
+                ? error('offline')
+                : warning(health?.status || 'unknown')}`),
             capabilities?.pythonVersion
               ? h(Text, null, `  Python:    ${capabilities.pythonVersion}`)
               : null,
@@ -107,8 +107,8 @@ export function LLMMonitorScreen({ apiClient, onExit, onQuit }: LLMMonitorScreen
                   h(Text, { color: 'gray' }, '  Check: powershell -File dev-scripts/dev-start.ps1')
                 )
               : h(Box, { flexDirection: 'column' },
-                  h(Text, null, `  Backend:   ${theme.success('connected')}`),
-                  h(Text, null, `  LLM API:   ${health ? theme.success('responding') : theme.warning('checking...')}`)
+                  h(Text, null, `  Backend:   ${success('connected')}`),
+                  h(Text, null, `  LLM API:   ${health ? success('responding') : warning('checking...')}`)
                 )
           )
         )

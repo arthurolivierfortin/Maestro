@@ -1,6 +1,6 @@
 # Maestro — Roadmap
 
-**Derniere mise a jour** : 2026-02-22
+**Derniere mise a jour** : 2026-02-24
 **Version actuelle** : v0.1.0-alpha (tag sur main)
 
 ---
@@ -45,6 +45,22 @@
 ---
 
 ## Phases actives et a venir
+
+---
+
+### Phase 40-PRE : Maestro Code — L'App Unifiee
+
+**But** : Transformer `maestro code` d'un task runner mono-ecran en L'application Maestro. Architecture agent-first (Flipper Zero), composants shared dans @maestro/tui, identite visuelle Command Center.
+
+| Sous-phase | Objectif | Effort |
+|------------|----------|--------|
+| 40-PRE-C | Bug fixing & verification (138+ tests, CLI audit) | 2-3 jours |
+| 40-PRE-A | Shared components @maestro/tui + architecture agent-first | 5-7 jours |
+| 40-PRE-B | Identite visuelle Command Center (palette, borders, splash, mascotte) | 2-3 jours |
+| 40-PRE-D | First-run experience (WelcomeScreen, help overlay) | 1-2 jours |
+| 40-PRE-E | Test E2E & polish final | 1-2 jours |
+
+**Docs** : `docs/phases/PHASE-40-PRE/README.md`
 
 ---
 
@@ -125,8 +141,8 @@
 
 - 42 : Catalogue communautaire (publier/importer blocks + docs + sandboxes)
 - 43 : Auth et subscriptions
-- 44 : Evaluateur cloud
-- 45 : Agent Creator (meta-programmation)
+- 44 : Fitness Engine + Agent Evaluateur Autonome (description + reference → tests auto, cascade heuristique/LLM-local/cloud)
+- 45 : Agent Creator (meta-programmation — utilise l'agent evaluateur de 44 pour valider ses creations)
 - 46+ : Multi-domaine
 
 ---
@@ -139,9 +155,13 @@
      └→ 37 Runtime & SDK (embarquer Maestro dans des apps + vocal)
          └→ 38 Sandbox Foundry (tests reproductibles)
              └→ 39 adapt + optimize (utilise les sandboxes pour la fitness)
-                 └→ 40 Distribution (empaquetter tout)
+                 └→ 40-PRE Polish & Agent-First UX (maestro code = L'app)
+                     └→ 40 Distribution (empaquetter tout)
                      └→ 41 Cantante v1 (premiere app Maestro publique)
-                         └→ 42+ Communaute, cloud, meta-programmation
+                         └→ 42 Catalogue communautaire
+                         └→ 43 Auth + subscriptions
+                             └→ 44 Fitness Engine + Agent Evaluateur (description + reference → tests auto)
+                                 └→ 45 Agent Creator (utilise 44 pour valider)
 ```
 
 ## Features planifiees (TODOS)
@@ -153,6 +173,7 @@
 | Maestro Runtime & SDK | 37 | `docs/phases/PHASE-37/README.md` |
 | Mode vocal (toggle) | 37-D | `docs/phases/PHASE-37/README.md` |
 | Agent Jarvis | 37-E + 41-B | Generique en 37, specialise Cantante en 41 |
+| Fitness Engine + Agent Evaluateur | 44 | `docs/TODOS/FEATURE-fitness-engine-evaluator.md` |
 
 ## Principes
 

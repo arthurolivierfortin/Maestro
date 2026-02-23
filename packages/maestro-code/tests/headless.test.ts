@@ -59,7 +59,7 @@ describe('Headless Mode', () => {
     expect(mockClient._fetch).toHaveBeenCalledWith(
       'POST',
       '/api/sessions/sess-aaaa-bbbb-cccc-ddddeeee0000/invoke/dev',
-      expect.objectContaining({ body: { inputs: { repoPath: '/test/project', task: 'Add login page' } } })
+      expect.objectContaining({ body: { inputs: { repoPath: '/test/project', task: 'Add login page', workingDir: '/test/project' } } })
     );
 
     // Verify structured output

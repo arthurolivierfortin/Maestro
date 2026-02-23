@@ -445,24 +445,44 @@ const InputPrompt = ({ onSubmit, disabled, placeholder }: {
   placeholder?: string;
 }) => {
   const [value, setValue] = useState('');
+  const [cursor, setCursor] = useState(0);
+  const valueRef = useRef('');
+  const cursorRef = useRef(0);
 
   useInput((input, key) => {
     if (disabled) return;
 
+    let v = valueRef.current;
+    let c = cursorRef.current;
+
     if (key.return) {
-      if (value.trim()) {
-        onSubmit(value.trim());
-        setValue('');
+      if (v.trim()) {
+        onSubmit(v.trim());
+        v = '';
+        c = 0;
       }
-      return;
+    } else if (key.backspace || key.delete) {
+      if (c > 0) {
+        v = v.slice(0, c - 1) + v.slice(c);
+        c = c - 1;
+      }
+    } else if (key.leftArrow) {
+      c = Math.max(0, c - 1);
+    } else if (key.rightArrow) {
+      c = Math.min(v.length, c + 1);
+    } else if (input === 'a' && key.ctrl) {
+      c = 0;
+    } else if (input === 'e' && key.ctrl) {
+      c = v.length;
+    } else if (input && !key.ctrl && !key.meta) {
+      v = v.slice(0, c) + input + v.slice(c);
+      c = c + input.length;
     }
-    if (key.backspace || key.delete) {
-      setValue(v => v.slice(0, -1));
-      return;
-    }
-    if (input && !key.ctrl && !key.meta) {
-      setValue(v => v + input);
-    }
+
+    valueRef.current = v;
+    cursorRef.current = c;
+    setValue(v);
+    setCursor(c);
   });
 
   const prompt = disabled ? '...' : '>';
@@ -523,8 +543,12 @@ const InteractiveApp = ({ sessionManager }: { sessionManager: SessionManager | n
     }
   });
 
+  const MAX_LINES = 500;
   const addLine = useCallback((line: LogLine) => {
-    setLines(prev => [...prev, line]);
+    setLines(prev => {
+      const next = [...prev, line];
+      return next.length > MAX_LINES ? next.slice(next.length - MAX_LINES) : next;
+    });
   }, []);
 
   const handleSubmit = useCallback((input: string) => {

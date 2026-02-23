@@ -9,6 +9,7 @@ Chaque feature a une phase cible assignee (voir l'analyse dans `docs/phases/PHAS
 |---------|-------------|--------|-------------|
 | [Documentation attachee](./FEATURE-attached-docs.md) | 36-D | Planifie | Systeme de documentation attachee aux blocks, sessions et index global |
 | [Sandbox foundry](./FEATURE-sandbox-foundry.md) | 38 | Planifie | Conteneurs sandbox avec checkpoints pour le test reproductible d'agents en foundry |
+| [Fitness Engine + Agent Evaluateur](./FEATURE-fitness-engine-evaluator.md) | 44 | Vision | Agent autonome qui construit les tests d'evaluation a partir de la description du bloc + output reference. Cascade heuristique/LLM-local/cloud. Local ou cloud, meme workflow. |
 
 ## Analyses
 

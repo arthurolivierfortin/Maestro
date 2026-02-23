@@ -29,6 +29,22 @@
 - **Co-location strategy** for variants: written next to original block file so companion files (system-prompt.md) are found
 - **No backend changes** — all logic in CLI TypeScript
 
+## Dette architecturale (honnete — ajoute 2026-02-23)
+
+### Strategies ne sont PAS des blocs
+Le README planifiait : "Les strategies sont des BLOCS" et "Ajouter une strategie = creer un .block.json".
+La realite : `STRATEGIES` est un objet TypeScript dans `adapt-optimize.ts:899-902` mappant des noms vers des fonctions.
+Ajouter une strategie = modifier du TypeScript, pas creer un JSON.
+**Raison** : transformer en blocs necessite un nouveau type d'executor cote backend — hors scope Phase 39.
+**Cible** : Phase 42+ (catalogue communautaire, ou les strategies doivent etre partageables).
+
+### Evaluateur heuristique (Niveau 1) non implemente
+Le README planifiait : "L'evaluateur heuristique (Niveau 1) fonctionne sans LLM".
+La realite : `detectModels()` requiert le service LLM-Provider actif. Pas de fallback heuristique.
+La mesure de fitness utilise `batchTestBlock()` (Phase 38) qui execute reellement le bloc — plus fiable qu'une heuristique, mais requiert un LLM.
+**Raison** : le batch testing via sandbox est superieur a une heuristique naive. L'heuristique serait utile comme fallback offline.
+**Cible** : Phase 40-D (beta testing revelera si des utilisateurs sans LLM local en ont besoin).
+
 ## Files
 | File | Status | Lines |
 |------|--------|-------|

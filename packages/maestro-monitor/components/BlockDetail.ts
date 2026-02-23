@@ -199,27 +199,18 @@ const SessionRow = ({ session, isSelected }) => {
 
 const ActionsContent = () => {
   const actions = [
-    { key: 'v', label: 'View source JSON', available: true },
-    { key: 'd', label: 'Download block package', available: false },
-    { key: 'p', label: 'Publish to catalog', available: false },
-    { key: 'i', label: 'Import to workspace', available: false },
+    { key: 'v', label: 'View source JSON' },
   ];
 
   return h(Box, { flexDirection: 'column', paddingLeft: 1 },
     ...actions.map(a =>
       h(Box, { key: `act-${a.key}`, flexDirection: 'row' },
-        a.available
-          ? h(Text, null,
-              h(Text, { color: theme.shortcut.bracket }, '['),
-              h(Text, { color: theme.shortcut.key }, a.key),
-              h(Text, { color: theme.shortcut.bracket }, '] '),
-              primary(a.label),
-            )
-          : h(Text, null,
-              h(Text, { dimColor: true }, `[${a.key}] `),
-              dim(a.label),
-              dim(' (coming soon)'),
-            ),
+        h(Text, null,
+          h(Text, { color: theme.shortcut.bracket }, '['),
+          h(Text, { color: theme.shortcut.key }, a.key),
+          h(Text, { color: theme.shortcut.bracket }, '] '),
+          primary(a.label),
+        ),
       )
     ),
   );
