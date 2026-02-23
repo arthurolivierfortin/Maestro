@@ -38,6 +38,8 @@ docs/
 │   ├── PHASE-28/             Current — V3: Agent autonome + tiers
 │   └── PHASE-29/             Next — Adaptation + optimisation auto
 │
+├── concepts/                ML/AI theory and foundational knowledge
+│
 ├── operations/              Deployment, Docker, security
 │
 └── archive/                 Completed/outdated documents

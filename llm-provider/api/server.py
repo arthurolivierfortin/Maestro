@@ -16,6 +16,8 @@ import torch
 from transformers import TextIteratorStreamer
 
 from src.model_manager import get_default_manager, ModelManager
+from src.image_manager import get_default_image_manager, ImageManager
+from src.pixel_quantizer import PixelQuantizer
 from api.hardware import (
     get_system_capabilities,
     get_gpu_info,
@@ -165,6 +167,55 @@ class LoadModelRequest(BaseModel):
     model_id: str = Field(..., description="Hugging Face model ID to load")
     use_8bit: bool = Field(False, description="Whether to load in 8-bit quantization")
     set_active: bool = Field(True, description="Whether to set as active model after loading")
+
+
+# =============================================================================
+# Image Generation Request/Response Models
+# =============================================================================
+
+class PostProcessConfig(BaseModel):
+    """Post-processing configuration for pixel art output."""
+    target_width: int = Field(32, ge=8, le=256, description="Target bitmap width in pixels")
+    target_height: int = Field(32, ge=8, le=256, description="Target bitmap height in pixels")
+    palette_size: int = Field(2, ge=2, le=4, description="Number of colors (2 or 3)")
+    cleanup: bool = Field(True, description="Remove isolated noise pixels")
+    output_format: str = Field("both", description="Output format: bitmap, png, or both")
+
+
+class ImageGenerateRequest(BaseModel):
+    """Request for image generation via Stable Diffusion."""
+    prompt: str = Field(..., description="Image generation prompt")
+    negative_prompt: str = Field(
+        "smooth, blurry, gradient, 3D, realistic, antialiased",
+        description="Negative prompt (things to avoid)"
+    )
+    width: int = Field(512, ge=256, le=1024, description="Generation width (before post-processing)")
+    height: int = Field(512, ge=256, le=1024, description="Generation height (before post-processing)")
+    steps: int = Field(30, ge=1, le=100, description="Number of inference steps")
+    cfg_scale: float = Field(12.0, ge=1.0, le=30.0, description="Classifier-free guidance scale")
+    seed: int = Field(-1, description="Random seed (-1 = random)")
+    lora: Optional[str] = Field(None, description="LoRA style name to apply (e.g., 'maestro-v1')")
+    lora_weight: float = Field(0.8, ge=0.0, le=1.5, description="LoRA weight")
+    post_process: Optional[PostProcessConfig] = Field(None, description="Post-processing to pixel art bitmap")
+
+
+class ImageGenerateResponse(BaseModel):
+    """Response from image generation."""
+    image_base64: Optional[str] = Field(None, description="PNG image as base64 string")
+    bitmap: Optional[List[str]] = Field(None, description="Bitmap string array ('#'/'+'/'.'')")
+    seed: int = Field(..., description="Seed used for generation (for reproducibility)")
+    width: int = Field(..., description="Output width")
+    height: int = Field(..., description="Output height")
+    metadata: Dict[str, Any] = Field(default_factory=dict, description="Generation metadata")
+
+
+class ImageStatusResponse(BaseModel):
+    """Status of the image generation service."""
+    loaded: bool = Field(..., description="Whether a model is loaded")
+    model_id: Optional[str] = Field(None, description="Currently loaded model ID")
+    device: str = Field(..., description="Device (cuda/cpu)")
+    loras: List[str] = Field(default_factory=list, description="Loaded LoRA names")
+    diffusers_available: bool = Field(..., description="Whether diffusers library is installed")
 
 
 # =============================================================================
@@ -1001,6 +1052,111 @@ def list_registry_models(category: Optional[str] = None, include_local_status: b
 def get_model_cache_stats():
     """Get statistics about the local model cache."""
     return get_cache_stats()
+
+
+# =============================================================================
+# Image Generation Endpoints
+# =============================================================================
+
+@app.post("/v1/image/generate", response_model=ImageGenerateResponse, tags=["Image Generation"])
+def generate_image(req: ImageGenerateRequest):
+    """
+    Generate an image using Stable Diffusion.
+    Optionally post-process to pixel art bitmap format.
+
+    The model loads lazily on first call (~30-60s). Subsequent calls are fast (~5-15s).
+    If VRAM is tight, text models will be unloaded automatically.
+    """
+    import base64
+    from io import BytesIO
+
+    try:
+        img_manager = get_default_image_manager()
+
+        # Load LoRA if specified
+        if req.lora:
+            img_manager.load_lora(req.lora, weight=req.lora_weight)
+
+        # Generate image
+        result = img_manager.generate(
+            prompt=req.prompt,
+            negative_prompt=req.negative_prompt,
+            width=req.width,
+            height=req.height,
+            steps=req.steps,
+            cfg_scale=req.cfg_scale,
+            seed=req.seed,
+        )
+
+        image = result["image"]  # PIL.Image
+        seed = result["seed"]
+        metadata = result.get("metadata", {})
+
+        response_data: Dict[str, Any] = {
+            "seed": seed,
+            "width": req.width,
+            "height": req.height,
+            "metadata": metadata,
+        }
+
+        # Post-process to pixel art bitmap if requested
+        if req.post_process:
+            pp = req.post_process
+            quantized = PixelQuantizer.process(
+                image,
+                target_width=pp.target_width,
+                target_height=pp.target_height,
+                palette_size=pp.palette_size,
+                cleanup=pp.cleanup,
+            )
+            response_data["bitmap"] = quantized["bitmap"]
+            response_data["width"] = pp.target_width
+            response_data["height"] = pp.target_height
+
+            if pp.output_format in ("png", "both"):
+                buf = BytesIO()
+                image.save(buf, format="PNG")
+                response_data["image_base64"] = base64.b64encode(buf.getvalue()).decode()
+        else:
+            # Return full PNG image
+            buf = BytesIO()
+            image.save(buf, format="PNG")
+            response_data["image_base64"] = base64.b64encode(buf.getvalue()).decode()
+
+        return ImageGenerateResponse(**response_data)
+
+    except RuntimeError as e:
+        if "diffusers" in str(e).lower() or "not installed" in str(e).lower():
+            raise HTTPException(
+                status_code=503,
+                detail=str(e)
+            )
+        raise HTTPException(status_code=500, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/v1/image/status", response_model=ImageStatusResponse, tags=["Image Generation"])
+def image_status():
+    """Get status of the image generation service."""
+    img_manager = get_default_image_manager()
+    status = img_manager.status()
+    return ImageStatusResponse(
+        loaded=status["loaded"],
+        model_id=status.get("model_id"),
+        device=status.get("device", "cpu"),
+        loras=status.get("loras", []),
+        diffusers_available=status.get("diffusers_available", False),
+    )
+
+
+@app.post("/v1/image/unload", tags=["Image Generation"])
+def unload_image_model():
+    """Unload the image generation model to free VRAM."""
+    img_manager = get_default_image_manager()
+    was_loaded = img_manager.is_loaded()
+    img_manager.unload()
+    return {"status": "unloaded" if was_loaded else "not_loaded"}
 
 
 if __name__ == "__main__":

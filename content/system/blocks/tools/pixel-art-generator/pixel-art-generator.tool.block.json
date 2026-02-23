@@ -1,0 +1,35 @@
+{
+  "id": "pixel-art-generator",
+  "name": "Pixel Art Generator",
+  "blockType": "tool",
+  "version": "1.0.0",
+  "isAtomic": true,
+  "description": "Generates pixel art bitmaps using Stable Diffusion via LLM-Provider. Returns bitmap string arrays compatible with renderBitmap(). Supports LoRA styles for consistent visual identity.",
+  "inputs": [
+    { "id": "prompt", "type": "string", "required": true, "description": "Description of what to generate (e.g., 'conductor face with round glasses, bald, mustache')" },
+    { "id": "width", "type": "number", "required": false, "description": "Target bitmap width in pixels (default: 24)" },
+    { "id": "height", "type": "number", "required": false, "description": "Target bitmap height in pixels (default: 22)" },
+    { "id": "palette", "type": "number", "required": false, "description": "Number of colors: 2 or 3 (default: 2)" },
+    { "id": "style", "type": "string", "required": false, "description": "LoRA style name (default: maestro-v1)" },
+    { "id": "seed", "type": "number", "required": false, "description": "Random seed for reproducibility (-1 = random)" },
+    { "id": "steps", "type": "number", "required": false, "description": "Inference steps (default: 30, higher = better quality but slower)" }
+  ],
+  "outputs": [
+    { "id": "bitmap", "type": "array", "description": "Array of strings using '#' (primary), '+' (secondary), '.' (background)" },
+    { "id": "seed", "type": "number", "description": "Seed used (save for reproducibility)" },
+    { "id": "width", "type": "number", "description": "Actual bitmap width" },
+    { "id": "height", "type": "number", "description": "Actual bitmap height" },
+    { "id": "success", "type": "boolean", "description": "Whether generation succeeded" }
+  ],
+  "config": {
+    "runtime": "node",
+    "scriptFile": "generate.js",
+    "parseOutput": "json",
+    "timeout": 120000
+  },
+  "metadata": {
+    "category": "creative",
+    "designation": "tool",
+    "tags": ["pixel-art", "image", "sprite", "generation", "stable-diffusion"]
+  }
+}

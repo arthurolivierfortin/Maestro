@@ -106,6 +106,15 @@ builder.Services.AddAzureInferenceProvider(builder.Configuration);
 builder.Services.AddLocalProvider(builder.Configuration);
 builder.Services.AddClaudeCodeProvider(builder.Configuration);
 
+// Add named HttpClient for image generation proxy (same Python server)
+builder.Services.AddHttpClient("LocalPython", (sp, client) =>
+{
+    var localSection = builder.Configuration.GetSection("Providers:Local");
+    var baseUrl = localSection["BaseUrl"] ?? "http://localhost:8000";
+    client.BaseAddress = new Uri(baseUrl);
+    client.Timeout = TimeSpan.FromSeconds(300); // SD can be slow on first load
+});
+
 // Add TUI Monitor auto-launch
 builder.Services.AddHostedService<MonitorHostedService>();
 
@@ -141,6 +150,7 @@ app.MapConversationsEndpoints();
 app.MapLLMEndpoints();
 app.MapHealthEndpoints();
 app.MapStatisticsEndpoints();
+app.MapImageEndpoints();
 
 // Root redirect to Swagger
 app.MapGet("/", () => Results.Redirect("/swagger"))
