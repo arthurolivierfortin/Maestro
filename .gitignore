@@ -5,6 +5,11 @@ Thumbs.db
 *.swo
 *~
 
+test-repos/auth-claude
+test-repos/crud-claude
+
+
+
 # Maestro Runtime
 .maestro/logs/
 .maestro/cache/
@@ -180,3 +185,4 @@ llm-provider/dotnet/**/bin/
 llm-provider/dotnet/**/obj/
 llm-provider/api/__pycache__/
 llm-provider/api/.venv/
+test-repos/auth-claude
