@@ -1,26 +1,4 @@
-// @ts-nocheck
 /**
- * useAnimationTick — Provides a tick counter for TUI animations.
- *
- * Returns a tick number that increments at the given interval (default 120ms).
- * Use with spinnerFrame(), breathingDot(), activityFrame() from theme.
- *
- * Example:
- *   const tick = useAnimationTick(120);
- *   const spinner = spinnerFrame(tick);
+ * useAnimationTick — Re-exported from @maestro/tui shared hooks.
  */
-
-import { useState, useEffect } from 'react';
-
-export function useAnimationTick(intervalMs: number = 120): number {
-  const [tick, setTick] = useState(0);
-
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setTick(t => t + 1);
-    }, intervalMs);
-    return () => clearInterval(timer);
-  }, [intervalMs]);
-
-  return tick;
-}
+export { useAnimationTick } from '@maestro/tui/hooks';

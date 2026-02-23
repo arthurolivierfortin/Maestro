@@ -8,3 +8,6 @@ export type { TabDef } from './TabBar.ts';
 export { Shortcut } from './Shortcut.ts';
 export type { ShortcutProps } from './Shortcut.ts';
 export { StatusBar } from './StatusBar.ts';
+export { Header } from './Header.ts';
+export { NavBar, NavTab } from './NavBar.ts';
+export type { NavPage } from './NavBar.ts';

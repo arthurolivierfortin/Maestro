@@ -38,3 +38,97 @@
 | `packages/maestro-code/App.ts` | FIFO cap OutputPanel, curseur InputPrompt avec refs |
 | `packages/maestro-monitor/components/BlockDetail.ts` | Retirer actions "coming soon" |
 | `packages/maestro-code/tests/headless.test.ts` | Ajouter `workingDir` dans expected inputs |
+
+---
+
+## 40-PRE-A : Shared Components + Architecture Agent-First
+**Statut** : DONE
+**Date** : 2026-02-24
+
+### Etape 1 : Promouvoir composants dans @maestro/tui
+
+Composants extraits du monitor vers le design system shared :
+
+| Fichier cree/modifie | Description |
+|----------------------|-------------|
+| `packages/tui/theme/ink.ts` | inkTheme compose + 11 text helpers (T, primary, muted, bold...) + Badge/TypeBadge |
+| `packages/tui/theme/animations.ts` | SPINNER_FRAMES, BREATHING_DOTS, ACTIVITY_FRAMES + frame selectors |
+| `packages/tui/hooks/useAnimationTick.ts` | Tick counter hook (useState + setInterval) |
+| `packages/tui/hooks/useActionKeyboard.ts` | Wraps createActionKeyboardHandler with Ink's useInput |
+| `packages/tui/app/hooks/useSessionData.ts` | Session polling (single or list) with connection status |
+| `packages/tui/components/Header.ts` | Session info header (status, name, duration, fitness, phases) |
+| `packages/tui/components/NavBar.ts` | Data-driven navigation bar (accepts pages prop) |
+| `packages/tui/components/StatusBar.ts` | Enhanced with animations and context-aware shortcuts |
+| `packages/tui/theme/index.ts` | Updated barrel exports |
+| `packages/tui/hooks/index.ts` | Updated barrel exports |
+| `packages/tui/components/index.ts` | Updated barrel exports |
+
+Monitor mis a jour avec thin re-exports :
+
+| Fichier | Changement |
+|---------|------------|
+| `packages/maestro-monitor/theme.ts` | Re-export depuis @maestro/tui, garde page nav localement |
+| `packages/maestro-monitor/components/Panel.ts` | Re-export |
+| `packages/maestro-monitor/components/Header.ts` | Re-export |
+| `packages/maestro-monitor/components/StatusBar.ts` | Re-export |
+| `packages/maestro-monitor/components/NavBar.ts` | Wrapper avec MONITOR_PAGES |
+| `packages/maestro-monitor/hooks/useAnimationTick.ts` | Re-export |
+| `packages/maestro-monitor/hooks/useSessionData.ts` | Re-export |
+| `packages/maestro-monitor/hooks/useKeyboard.ts` | Re-export useActionKeyboard + garde legacy |
+
+### Etape 2 : Architecture Agent-First dans maestro-code
+
+Nouveaux fichiers :
+
+| Fichier | Description |
+|---------|-------------|
+| `packages/maestro-code/types.ts` | Screen union type (8 variants), AgentState, CODE_PAGES, helpers |
+| `packages/maestro-code/hooks/useNavigation.ts` | Agent-in-the-Cockpit: 2 positions independantes, join/detach |
+| `packages/maestro-code/hooks/useInputHistory.ts` | 50 derniers inputs, Up/Down navigation |
+| `packages/maestro-code/panels/AgentActivity.ts` | Mini-panel overlay agent state + animations |
+| `packages/maestro-code/screens/AgentScreen.ts` | HOME: conversation + activity overlay |
+| `packages/maestro-code/screens/CatalogBrowser.ts` | Browse blocks avec fitness bars |
+| `packages/maestro-code/screens/SessionBrowser.ts` | Browse sessions avec status icons |
+| `packages/maestro-code/screens/ModelsBrowser.ts` | Browse modeles, indicateur actif |
+| `packages/maestro-code/screens/HelpOverlay.ts` | Raccourcis clavier par section |
+| `packages/maestro-code/screens/WelcomeScreen.ts` | First-run: logo + init/skip/help |
+| `packages/maestro-code/screens/index.ts` | Barrel export |
+| `packages/maestro-code/hooks/index.ts` | Barrel export |
+| `packages/maestro-code/panels/index.ts` | Barrel export |
+
+### Etape 3 : Rearchitecture App.ts
+
+App.ts rearchitecture en navigateur multi-ecran :
+
+- **NavBar** en haut : MAESTRO [A]gent [C]atalog [S]essions [M]odels
+- **Screen router** : switch basee sur `nav.userScreen.type`
+- **Agent screen** (HOME) : OutputPanel + WidgetRenderer + InputPrompt (meme layout qu'avant)
+- **Browser screens** : CatalogBrowser, SessionBrowser, ModelsBrowser
+- **Help/Welcome** : HelpOverlay, WelcomeScreen
+- **StatusBar** en bas : session ID, busy state, voice mode
+
+Navigation :
+- **Agent screen** : slash commands (`/catalog`, `/sessions`, `/models`, `/help`, `/back`, `/join`, `/quit`)
+- **Browser screens** : letter shortcuts (A/C/S/M/?), Esc=back (via useActionKeyboard)
+- **Global** : Tab=cycle screens, Ctrl+C=quit, Ctrl+V=voice
+
+Input history : Up/Down arrows dans InputPrompt (optional callbacks, backward compatible)
+
+**Backward compatibility** : Tous les exports preserves (OutputPanel, StatusBar, InputPrompt, SessionManager, WidgetRenderer, InteractiveApp). 25 tests App.test.ts passent sans modification.
+
+### Etape 4-5 : Input history + Tests
+
+- useInputHistory deja cable dans App.ts (history.prev/next passes a InputPrompt)
+- 7 nouveaux tests navigation (screenEquals, screenToPageKey, CODE_PAGES, input history logic, slash commands)
+- Barrel exports crees pour screens/, hooks/, panels/
+
+### Tests finaux
+
+| Package | Tests | Resultat |
+|---------|-------|----------|
+| @maestro/tui | 40 | 40/40 pass |
+| maestro-monitor | 4 | 4/4 pass |
+| maestro-code | 39 | 39/39 pass (+7 nouveaux) |
+| @maestro/client | 19 | 19/19 pass |
+| @maestro/sidecar | 5 | 5/5 pass |
+| **Total** | **107** | **107 pass, 0 fail** |

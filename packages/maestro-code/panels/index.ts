@@ -1,0 +1,5 @@
+/**
+ * Maestro Code — Panel components barrel export.
+ */
+
+export { AgentActivity } from './AgentActivity.ts';

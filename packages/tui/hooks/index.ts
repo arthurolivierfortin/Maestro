@@ -10,6 +10,7 @@
 
 export { createActionKeyboardHandler } from './useKeyboard.ts';
 export type { ActionHandlers, KeyboardContext } from './useKeyboard.ts';
+export { useActionKeyboard } from './useActionKeyboard.ts';
 export { usePanelFocus } from './usePanelFocus.ts';
 export type { UsePanelFocusReturn } from './usePanelFocus.ts';
 export { useScroll } from './useScroll.ts';
@@ -23,3 +24,4 @@ export type { UseMouseOptions, ScrollDirection } from './useMouse.ts';
 export { useSelectableList } from './useSelectableList.ts';
 export type { UseSelectableListOptions, UseSelectableListReturn } from './useSelectableList.ts';
 export { useSinglePanelScroll } from './useSinglePanelScroll.ts';
+export { useAnimationTick } from './useAnimationTick.ts';

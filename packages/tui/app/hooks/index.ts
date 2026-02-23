@@ -9,3 +9,6 @@ export type { SessionListState } from './useSessionList.ts';
 
 export { useModelList } from './useModelList.ts';
 export type { ModelListState, NormalizedModel } from './useModelList.ts';
+
+export { useSessionData } from './useSessionData.ts';
+export type { UseSessionDataReturn } from './useSessionData.ts';

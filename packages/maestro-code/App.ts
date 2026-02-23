@@ -1,15 +1,29 @@
 // @ts-nocheck
 /**
- * Maestro Interactive Mode — Ink App (Phase 33-B)
+ * Maestro Interactive Mode — Agent-First TUI (Phase 40-PRE-A)
  *
- * Split layout: OutputPanel (scrollable log) on top, InputPrompt at bottom.
- * Wired to Maestro session lifecycle: create → template → start → invoke → poll.
+ * Multi-screen navigator with the Agent as home screen.
+ * Screens: Agent (home), Catalog, Sessions, Models, Help, Welcome.
  *
- * Entry: call startInteractive() via dynamic import (same pattern as monitor).
+ * Navigation:
+ * - Agent screen: slash commands (/catalog, /sessions, /models, /help)
+ * - Browser screens: letter shortcuts (A/C/S/M/?), Esc=back
+ * - Global: Ctrl+C=quit, Ctrl+V=voice, Tab=cycle screens
  */
 
 import { createElement as h, useState, useCallback, useEffect, useRef } from 'react';
 import { render, useApp, useStdout, Box, Text, useInput } from 'ink';
+import { NavBar } from '@maestro/tui/components';
+import { AgentActivity } from './panels/AgentActivity.ts';
+import { CatalogBrowser } from './screens/CatalogBrowser.ts';
+import { SessionBrowser } from './screens/SessionBrowser.ts';
+import { ModelsBrowser } from './screens/ModelsBrowser.ts';
+import { HelpOverlay } from './screens/HelpOverlay.ts';
+import { WelcomeScreen } from './screens/WelcomeScreen.ts';
+import { useNavigation } from './hooks/useNavigation.ts';
+import { useInputHistory } from './hooks/useInputHistory.ts';
+import { CODE_PAGES, screenToPageKey } from './types.ts';
+import type { Screen } from './types.ts';
 
 // ── Types ──────────────────────────────────────────────────────
 
@@ -439,10 +453,12 @@ const WidgetRenderer = ({ widget, onResponse }: { widget: Widget | null; onRespo
 
 // ── InputPrompt ────────────────────────────────────────────────
 
-const InputPrompt = ({ onSubmit, disabled, placeholder }: {
+const InputPrompt = ({ onSubmit, disabled, placeholder, onUpArrow, onDownArrow }: {
   onSubmit: (value: string) => void;
   disabled?: boolean;
   placeholder?: string;
+  onUpArrow?: () => string | null;
+  onDownArrow?: () => string | null;
 }) => {
   const [value, setValue] = useState('');
   const [cursor, setCursor] = useState(0);
@@ -461,6 +477,12 @@ const InputPrompt = ({ onSubmit, disabled, placeholder }: {
         v = '';
         c = 0;
       }
+    } else if (key.upArrow && onUpArrow) {
+      const hist = onUpArrow();
+      if (hist != null) { v = hist; c = hist.length; }
+    } else if (key.downArrow && onDownArrow) {
+      const hist = onDownArrow();
+      if (hist != null) { v = hist; c = hist.length; }
     } else if (key.backspace || key.delete) {
       if (c > 0) {
         v = v.slice(0, c - 1) + v.slice(c);
@@ -474,7 +496,7 @@ const InputPrompt = ({ onSubmit, disabled, placeholder }: {
       c = 0;
     } else if (input === 'e' && key.ctrl) {
       c = v.length;
-    } else if (input && !key.ctrl && !key.meta) {
+    } else if (input && !key.ctrl && !key.meta && !key.tab && !key.escape) {
       v = v.slice(0, c) + input + v.slice(c);
       c = c + input.length;
     }
@@ -501,12 +523,46 @@ const InputPrompt = ({ onSubmit, disabled, placeholder }: {
   );
 };
 
+// ── Slash commands → navigation targets ───────────────────────
+
+const SLASH_COMMANDS: Record<string, Screen> = {
+  '/catalog': { type: 'catalog' },
+  '/c': { type: 'catalog' },
+  '/sessions': { type: 'sessions' },
+  '/s': { type: 'sessions' },
+  '/models': { type: 'models' },
+  '/m': { type: 'models' },
+  '/help': { type: 'help' },
+  '/?': { type: 'help' },
+  '/agent': { type: 'agent' },
+  '/a': { type: 'agent' },
+  '/home': { type: 'agent' },
+};
+
+// ── Tab cycle order ───────────────────────────────────────────
+
+const SCREEN_CYCLE: Screen[] = [
+  { type: 'agent' },
+  { type: 'catalog' },
+  { type: 'sessions' },
+  { type: 'models' },
+];
+
 // ── Root App ───────────────────────────────────────────────────
 
-const InteractiveApp = ({ sessionManager }: { sessionManager: SessionManager | null }) => {
+const InteractiveApp = ({ sessionManager, apiClient }: {
+  sessionManager: SessionManager | null;
+  apiClient?: any;
+}) => {
   const { exit } = useApp();
   const { stdout } = useStdout();
   const [rows, setRows] = useState(stdout.rows || 24);
+
+  // ── Navigation ──
+  const nav = useNavigation();
+  const history = useInputHistory();
+
+  // ── Agent conversation state ──
   const [lines, setLines] = useState<LogLine[]>([
     { text: 'Maestro Interactive Mode', color: 'cyan', bold: true },
     { text: 'Type a task and press Enter. Ctrl+C to quit. Ctrl+V to toggle voice mode.', color: 'gray', dim: true },
@@ -518,6 +574,7 @@ const InteractiveApp = ({ sessionManager }: { sessionManager: SessionManager | n
   const [pendingInteractive, setPendingInteractive] = useState<Widget | null>(null);
   const [voiceMode, setVoiceMode] = useState(false);
 
+  // ── Resize + cleanup ──
   useEffect(() => {
     const onResize = () => {
       if (stdout.rows) setRows(stdout.rows);
@@ -525,7 +582,6 @@ const InteractiveApp = ({ sessionManager }: { sessionManager: SessionManager | n
     stdout.on('resize', onResize);
     return () => {
       stdout.off('resize', onResize);
-      // Cleanup polling on unmount
       if (sessionManager) {
         sessionManager.stopPolling();
         sessionManager.stopWidgetPolling();
@@ -533,6 +589,7 @@ const InteractiveApp = ({ sessionManager }: { sessionManager: SessionManager | n
     };
   }, [stdout, sessionManager]);
 
+  // ── Global keyboard ──
   useInput((input, key) => {
     if (input === 'c' && key.ctrl) {
       if (sessionManager) sessionManager.stopPolling();
@@ -541,8 +598,25 @@ const InteractiveApp = ({ sessionManager }: { sessionManager: SessionManager | n
     if (input === 'v' && key.ctrl) {
       setVoiceMode(v => !v);
     }
+    // Tab: cycle screens
+    if (key.tab) {
+      const currentType = nav.userScreen.type;
+      const currentIdx = SCREEN_CYCLE.findIndex(s => s.type === currentType);
+      const nextIdx = currentIdx >= 0 ? (currentIdx + 1) % SCREEN_CYCLE.length : 0;
+      nav.navigate(SCREEN_CYCLE[nextIdx]);
+    }
+    // Non-agent screens: letter shortcuts for navigation
+    if (nav.userScreen.type !== 'agent') {
+      const lower = (input || '').toLowerCase();
+      if (lower === 'a') nav.navigate({ type: 'agent' });
+      else if (lower === 'c' && !key.ctrl) nav.navigate({ type: 'catalog' });
+      else if (lower === 's') nav.navigate({ type: 'sessions' });
+      else if (lower === 'm') nav.navigate({ type: 'models' });
+      else if (input === '?') nav.navigate({ type: 'help' });
+    }
   });
 
+  // ── Add line (FIFO 500) ──
   const MAX_LINES = 500;
   const addLine = useCallback((line: LogLine) => {
     setLines(prev => {
@@ -551,7 +625,27 @@ const InteractiveApp = ({ sessionManager }: { sessionManager: SessionManager | n
     });
   }, []);
 
+  // ── Handle submit ──
   const handleSubmit = useCallback((input: string) => {
+    const trimmed = input.trim().toLowerCase();
+
+    // Slash commands → navigation
+    const slashTarget = SLASH_COMMANDS[trimmed];
+    if (slashTarget) {
+      nav.navigate(slashTarget);
+      return;
+    }
+    if (trimmed === '/back') { nav.goBack(); return; }
+    if (trimmed === '/join' || trimmed === '/j') { nav.joinAgent(); return; }
+    if (trimmed === '/quit' || trimmed === '/q') {
+      if (sessionManager) sessionManager.stopPolling();
+      exit();
+      return;
+    }
+
+    // Push to input history
+    history.push(input);
+
     // Branch 1: User responding to an interactive widget
     if (pendingInteractive) {
       addLine({ text: `> ${input}`, color: 'green' });
@@ -578,41 +672,109 @@ const InteractiveApp = ({ sessionManager }: { sessionManager: SessionManager | n
         if (!b) {
           setCurrentSessionId(null);
           sessionManager.stopWidgetPolling();
+          nav.setAgentState('idle');
         } else {
           setCurrentSessionId(sessionManager.getSessionId());
           sessionManager.startWidgetPolling(addLine, setCurrentWidget, setPendingInteractive);
+          nav.setAgentState('working');
         }
       });
     } else {
       // Demo mode (no API client)
       setBusy(true);
+      nav.setAgentState('working');
       addLine({ text: 'Processing... (demo mode — no API)', color: 'gray', dim: true, timestamp: ts() });
       setTimeout(() => {
         addLine({ text: 'Done (no real execution in demo mode)', color: 'yellow', timestamp: ts() });
         addLine({ text: '' });
         setBusy(false);
+        nav.setAgentState('idle');
       }, 1000);
     }
-  }, [addLine, sessionManager, busy, pendingInteractive]);
+  }, [addLine, sessionManager, busy, pendingInteractive, nav, history, exit]);
 
-  const outputHeight = Math.max(rows - 7, 5);
+  // ── Layout ──
+  const currentPage = screenToPageKey(nav.userScreen);
+  const contentHeight = Math.max(rows - 4, 5);
 
   return h(Box, { flexDirection: 'column', width: '100%', height: rows },
-    h(OutputPanel, { lines, height: outputHeight - (currentWidget ? 8 : 0) }),
-    currentWidget ? h(WidgetRenderer, { widget: currentWidget, onResponse: () => {} }) : null,
+    // NavBar
+    h(NavBar, {
+      pages: CODE_PAGES,
+      currentPage,
+      title: 'MAESTRO',
+    }),
+
+    // Screen content (varies by current screen)
+    nav.userScreen.type === 'agent'
+      ? renderAgentContent()
+      : nav.userScreen.type === 'catalog'
+        ? h(CatalogBrowser, {
+            apiClient, onNavigate: nav.navigate,
+            onBack: nav.goBack, onQuit: () => exit(),
+            height: contentHeight,
+          })
+        : nav.userScreen.type === 'sessions'
+          ? h(SessionBrowser, {
+              apiClient, onNavigate: nav.navigate,
+              onBack: nav.goBack, onQuit: () => exit(),
+              height: contentHeight,
+            })
+          : nav.userScreen.type === 'models'
+            ? h(ModelsBrowser, {
+                apiClient,
+                onBack: nav.goBack, onQuit: () => exit(),
+                height: contentHeight,
+              })
+            : nav.userScreen.type === 'help'
+              ? h(HelpOverlay, { onClose: nav.goBack })
+              : nav.userScreen.type === 'welcome'
+                ? h(WelcomeScreen, {
+                    onInit: () => nav.navigate({ type: 'agent' }),
+                    onSkip: () => nav.navigate({ type: 'agent' }),
+                    onHelp: () => nav.navigate({ type: 'help' }),
+                  })
+                : renderAgentContent(),
+
+    // StatusBar (always visible)
     h(StatusBar, { sessionId: currentSessionId, busy, voiceActive: voiceMode }),
-    h(InputPrompt, {
-      onSubmit: handleSubmit,
-      disabled: false,
-      placeholder: pendingInteractive
-        ? 'Respond to the widget above...'
-        : voiceMode
-          ? 'Listening...'
-          : busy
-            ? 'Send a message to the agent...'
-            : 'Describe your task...',
-    })
   );
+
+  function renderAgentContent() {
+    const outputHeight = Math.max(contentHeight - 5 - (currentWidget ? 8 : 0), 3);
+
+    return h(Box, { flexDirection: 'column', flexGrow: 1 },
+      // Agent activity overlay (when agent is here and active)
+      nav.agentIsHere && nav.agentState !== 'idle'
+        ? h(AgentActivity, {
+            agentState: nav.agentState,
+            taskSummary: busy ? 'Working...' : undefined,
+            sessionId: currentSessionId,
+          })
+        : null,
+
+      // Output
+      h(OutputPanel, { lines, height: outputHeight }),
+
+      // Widget
+      currentWidget ? h(WidgetRenderer, { widget: currentWidget, onResponse: () => {} }) : null,
+
+      // Input
+      h(InputPrompt, {
+        onSubmit: handleSubmit,
+        disabled: false,
+        placeholder: pendingInteractive
+          ? 'Respond to the widget above...'
+          : voiceMode
+            ? 'Listening...'
+            : busy
+              ? 'Send a message to the agent...'
+              : 'Describe your task...',
+        onUpArrow: history.prev,
+        onDownArrow: history.next,
+      }),
+    );
+  }
 };
 
 // ── Public entry point ─────────────────────────────────────────
@@ -627,7 +789,7 @@ async function startInteractive(options: InteractiveOptions = {}): Promise<void>
   const sessionManager = options.apiClient ? new SessionManager(options) : null;
 
   const instance = render(
-    h(InteractiveApp, { sessionManager }),
+    h(InteractiveApp, { sessionManager, apiClient: options.apiClient }),
     { exitOnCtrlC: true }
   );
 
