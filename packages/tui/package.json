@@ -19,7 +19,10 @@
     "./sprites/*": "./sprites/*"
   },
   "peerDependencies": {
-    "react": "^19.0.0",
-    "ink": "^6.0.0"
+    "ink": "^6.0.0",
+    "react": "^19.0.0"
+  },
+  "devDependencies": {
+    "jimp": "^1.6.0"
   }
 }

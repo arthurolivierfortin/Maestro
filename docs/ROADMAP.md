@@ -58,6 +58,7 @@
 | 40-PRE-A | Shared components @maestro/tui + architecture agent-first | 5-7 jours |
 | 40-PRE-B | Identite visuelle Command Center (palette, borders, splash, mascotte) | 2-3 jours |
 | 40-PRE-D | First-run experience (WelcomeScreen, help overlay) | 1-2 jours |
+| 40-PRE-F | Pipeline pixel art (SD + LoRA + tool block + mascotte) | 10-16 jours |
 | 40-PRE-E | Test E2E & polish final | 1-2 jours |
 
 **Docs** : `docs/phases/PHASE-40-PRE/README.md`
@@ -173,6 +174,7 @@
 | Maestro Runtime & SDK | 37 | `docs/phases/PHASE-37/README.md` |
 | Mode vocal (toggle) | 37-D | `docs/phases/PHASE-37/README.md` |
 | Agent Jarvis | 37-E + 41-B | Generique en 37, specialise Cantante en 41 |
+| Pixel Art Pipeline (SD + LoRA) | 40-PRE-F | `docs/phases/PHASE-40-PRE/PIXEL-ART-PIPELINE.md` |
 | Fitness Engine + Agent Evaluateur | 44 | `docs/TODOS/FEATURE-fitness-engine-evaluator.md` |
 
 ## Principes

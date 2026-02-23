@@ -6,15 +6,17 @@ import { renderBitmap, bitmapSize } from '../utils/bitmap.ts';
 import {
   IDLE_1, IDLE_2, WORKING_1, WORKING_2,
   NAVIGATING_1, NAVIGATING_2, WAITING_1, WAITING_2,
-  ERROR_1, SPLASH,
+  ERROR_1, ERROR_2, SPLASH,
   getMascotteFrame,
 } from '../sprites/mascotte.ts';
 
-const ALL_SPRITES = {
+const CHAR_SPRITES = {
   IDLE_1, IDLE_2, WORKING_1, WORKING_2,
   NAVIGATING_1, NAVIGATING_2, WAITING_1, WAITING_2,
-  ERROR_1, SPLASH,
+  ERROR_1, ERROR_2,
 };
+
+const ALL_SPRITES = { ...CHAR_SPRITES, SPLASH };
 
 describe('mascotte sprites', () => {
   it('all sprites have consistent row widths', () => {
@@ -27,42 +29,40 @@ describe('mascotte sprites', () => {
     }
   });
 
-  it('character sprites are 14x12', () => {
-    const charSprites = [IDLE_1, IDLE_2, WORKING_1, WORKING_2, NAVIGATING_1, NAVIGATING_2, WAITING_1, WAITING_2, ERROR_1];
-    for (const sprite of charSprites) {
+  it('character sprites are 24x22', () => {
+    for (const [name, sprite] of Object.entries(CHAR_SPRITES)) {
       const size = bitmapSize(sprite);
-      expect(size.height).toBe(12);
-      expect(size.width).toBe(14);
+      expect(size.height, `${name} height`).toBe(22);
+      expect(size.width, `${name} width`).toBe(24);
     }
   });
 
-  it('splash sprite is 20x14', () => {
+  it('splash sprite is 32x28', () => {
     const size = bitmapSize(SPLASH);
-    expect(size.height).toBe(14);
-    expect(size.width).toBe(20);
+    expect(size.height).toBe(28);
+    expect(size.width).toBe(32);
   });
 
   it('all sprites render to terminal lines', () => {
     for (const [name, sprite] of Object.entries(ALL_SPRITES)) {
       const lines = renderBitmap(sprite);
       expect(lines.length, `${name} should produce terminal lines`).toBeGreaterThan(0);
-      // Each line should be non-empty
       for (const line of lines) {
         expect(line.length, `${name} lines should have content`).toBeGreaterThan(0);
       }
     }
   });
 
-  it('character sprites render to 6 terminal lines', () => {
-    // 12 pixel rows / 2 = 6 terminal lines
+  it('character sprites render to 11 terminal lines', () => {
+    // 22 pixel rows / 2 = 11 terminal lines
     const lines = renderBitmap(IDLE_1);
-    expect(lines).toHaveLength(6);
+    expect(lines).toHaveLength(11);
   });
 
-  it('splash renders to 7 terminal lines', () => {
-    // 14 pixel rows / 2 = 7 terminal lines
+  it('splash renders to 14 terminal lines', () => {
+    // 28 pixel rows / 2 = 14 terminal lines
     const lines = renderBitmap(SPLASH);
-    expect(lines).toHaveLength(7);
+    expect(lines).toHaveLength(14);
   });
 
   it('getMascotteFrame alternates frames', () => {
@@ -81,6 +81,15 @@ describe('mascotte sprites', () => {
       const frame = getMascotteFrame(state, 0);
       expect(frame, `${state} should return a frame`).toBeDefined();
       expect(frame.length, `${state} should have rows`).toBeGreaterThan(0);
+    }
+  });
+
+  it('all character sprites share the same visor face (rows 1-9)', () => {
+    // The head/visor is constant across all states — identity is preserved
+    const reference = IDLE_1.slice(1, 10);
+    for (const [name, sprite] of Object.entries(CHAR_SPRITES)) {
+      const head = sprite.slice(1, 10);
+      expect(head, `${name} head should match IDLE_1`).toEqual(reference);
     }
   });
 });

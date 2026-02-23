@@ -62,7 +62,7 @@ const AgentActivity = ({ agentState, taskSummary, sessionId }: AgentActivityProp
     paddingX: 1,
     width: '100%',
     flexDirection: 'row',
-    height: 8,
+    height: 13, // 11 sprite lines + 2 border
   },
     // Pixel art mascotte
     h(Box, { flexDirection: 'column', marginRight: 1 },

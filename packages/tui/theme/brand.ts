@@ -5,7 +5,7 @@
 export const brand = {
   name: 'MAESTRO',
   tagline: 'Orchestration Framework for AI Agents',
-  version: '0.17.0',
+  version: '0.1.0-alpha',
 
   /** ASCII art logo lines (without border). */
   logoLines: [

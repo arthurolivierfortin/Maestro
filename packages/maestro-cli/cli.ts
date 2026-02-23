@@ -4734,6 +4734,13 @@ async function rejectBlock(id, reason, options = {}) {
 }
 
 async function main() {
+  // --version / -v: handle before minimist (version is a string flag for other commands)
+  if (process.argv[2] === '--version' || process.argv[2] === '-v') {
+    const { brand } = require('@maestro/tui/theme/brand.ts');
+    console.log(`maestro ${brand.version}`);
+    return;
+  }
+
   // Check if first argument is a JSON object (agent input mode)
   const firstArg = process.argv[2];
   let argv;
@@ -6224,13 +6231,17 @@ ${c.bold('Examples:')}
       // Interactive TUI mode (requires TTY)
       const { startInteractiveMode } = require('@maestro/code/launcher.ts');
 
+      const codeRepoPath = argv.repo || process.cwd();
+      const isFirstRun = !fs.existsSync(path.join(codeRepoPath, '.maestro'));
+
       return startInteractiveMode({
         apiClient: client,
-        repoPath: argv.repo || process.cwd(),
+        repoPath: codeRepoPath,
         template: argv.template || 'project-autonomous',
         entryPoint: argv.entry || 'dev',
         importSessionTemplate,
         noSplash: argv['no-splash'] || argv.noSplash || false,
+        isFirstRun,
       });
     }
 

@@ -392,6 +392,37 @@ packages/maestro-code/
 
 ---
 
+### 40-PRE-F : Pipeline de Generation Pixel Art (10-16 jours)
+**Effort** : 10-16 jours
+
+Ajouter Stable Diffusion dans LLM-Provider (Python API) et creer un tool block capable de generer du pixel art 2-3 couleurs style Flipper Zero avec coherence de style via LoRA fine-tune. Utiliser ce pipeline pour generer la mascotte Maestro definitive.
+
+| Etape | Objectif | Effort |
+|-------|----------|--------|
+| F1 | Setup Stable Diffusion dans LLM-Provider Python API | 3-5 jours |
+| F2 | LoRA fine-tune pour style Maestro pixel art | 2-3 jours |
+| F3 | Post-processing pipeline (quantize, resize, bitmap export) | 1-2 jours |
+| F4 | Endpoint .NET proxy + block tool `pixel-art-generator` | 2-3 jours |
+| F5 | Integration agent + generation mascotte Maestro definitive | 2-3 jours |
+
+**Plan detaille** : `docs/phases/PHASE-40-PRE/PIXEL-ART-PIPELINE.md`
+
+**Flux** :
+```
+Agent appelle block "pixel-art-generator"
+  → POST llm-provider:5010/api/v1/image/generate
+    → .NET proxy vers Python FastAPI
+      → Stable Diffusion + LoRA → image 512x512
+      → resize nearest-neighbor → 32x32
+      → quantize 2-3 couleurs
+      → export bitmap text ('#'/'+'/'.')
+  ← bitmap retourne a l'agent
+```
+
+**Style consistency** : LoRA fine-tune sur ~20-30 exemples du style vise (sprites Flipper Zero + references). Le LoRA force le modele a generer dans le style Maestro a chaque generation.
+
+---
+
 ## Ordre d'execution
 
 ```
@@ -399,10 +430,11 @@ PRE-C (bugs/verification)
   → PRE-A (shared components + architecture agent-first)
     → PRE-B (identite visuelle)
       → PRE-D (first-run)
-        → PRE-E (E2E + polish)
+        → PRE-F (pixel art pipeline + mascotte definitive)
+          → PRE-E (E2E + polish)
 ```
 
-**Effort total** : 11-17 jours
+**Effort total** : 21-33 jours
 
 ---
 

@@ -43,6 +43,7 @@ interface InteractiveOptions {
   template?: string;
   entryPoint?: string;
   importSessionTemplate?: (sessionId: string, templateName: string) => Promise<void>;
+  isFirstRun?: boolean;
 }
 
 interface Widget {
@@ -552,16 +553,18 @@ const SCREEN_CYCLE: Screen[] = [
 
 // ── Root App ───────────────────────────────────────────────────
 
-const InteractiveApp = ({ sessionManager, apiClient }: {
+const InteractiveApp = ({ sessionManager, apiClient, isFirstRun, repoPath }: {
   sessionManager: SessionManager | null;
   apiClient?: any;
+  isFirstRun?: boolean;
+  repoPath?: string;
 }) => {
   const { exit } = useApp();
   const { stdout } = useStdout();
   const [rows, setRows] = useState(stdout.rows || 24);
 
   // ── Navigation ──
-  const nav = useNavigation();
+  const nav = useNavigation(isFirstRun ? 'welcome' : 'agent');
   const history = useInputHistory();
 
   // ── Agent conversation state ──
@@ -590,6 +593,21 @@ const InteractiveApp = ({ sessionManager, apiClient }: {
       }
     };
   }, [stdout, sessionManager]);
+
+  // ── Startup health check ──
+  useEffect(() => {
+    if (!apiClient) return;
+    (async () => {
+      try {
+        await apiClient._fetch('GET', '/api/health');
+      } catch {
+        setLines(prev => [...prev, {
+          text: 'Warning: Backend not reachable. Run: powershell -File dev-scripts/dev-start.ps1',
+          color: 'yellow', bold: true,
+        }]);
+      }
+    })();
+  }, [apiClient]);
 
   // ── Global keyboard ──
   useInput((input, key) => {
@@ -626,6 +644,26 @@ const InteractiveApp = ({ sessionManager, apiClient }: {
       return next.length > MAX_LINES ? next.slice(next.length - MAX_LINES) : next;
     });
   }, []);
+
+  // ── Init project (.maestro/) from WelcomeScreen ──
+  const handleInit = useCallback(() => {
+    const initPath = repoPath || process.cwd();
+    const maestroDir = require('path').join(initPath, '.maestro');
+    const fs = require('fs');
+    try {
+      const dirs = ['blocks', 'docs', 'logs', 'artifacts', 'metrics', 'sandboxes'];
+      fs.mkdirSync(maestroDir, { recursive: true });
+      dirs.forEach((d: string) => fs.mkdirSync(require('path').join(maestroDir, d), { recursive: true }));
+      const config = { template: 'project-autonomous', model: 'auto', stack: 'unknown' };
+      fs.writeFileSync(require('path').join(maestroDir, 'config.json'), JSON.stringify(config, null, 2));
+      fs.writeFileSync(require('path').join(maestroDir, 'aliases.json'), JSON.stringify({}, null, 2));
+      fs.writeFileSync(require('path').join(maestroDir, 'README.md'), '# Maestro Project\n\nInitialized by `maestro code`.\n');
+      addLine({ text: `Initialized .maestro/ in ${initPath}`, color: 'green', bold: true });
+    } catch (err: any) {
+      addLine({ text: `Failed to initialize: ${err.message}`, color: 'red' });
+    }
+    nav.navigate({ type: 'agent' });
+  }, [repoPath, nav, addLine]);
 
   // ── Handle submit ──
   const handleSubmit = useCallback((input: string) => {
@@ -733,7 +771,7 @@ const InteractiveApp = ({ sessionManager, apiClient }: {
               ? h(HelpOverlay, { onClose: nav.goBack })
               : nav.userScreen.type === 'welcome'
                 ? h(WelcomeScreen, {
-                    onInit: () => nav.navigate({ type: 'agent' }),
+                    onInit: handleInit,
                     onSkip: () => nav.navigate({ type: 'agent' }),
                     onHelp: () => nav.navigate({ type: 'help' }),
                   })
@@ -782,17 +820,19 @@ const InteractiveApp = ({ sessionManager, apiClient }: {
 
 // ── Root wrapper (splash → main app transition) ──────────────
 
-const RootApp = ({ sessionManager, apiClient, noSplash }: {
+const RootApp = ({ sessionManager, apiClient, noSplash, isFirstRun, repoPath }: {
   sessionManager: SessionManager | null;
   apiClient?: any;
   noSplash?: boolean;
+  isFirstRun?: boolean;
+  repoPath?: string;
 }) => {
   const [showSplash, setShowSplash] = useState(!noSplash);
 
   if (showSplash) {
     return h(SplashScreen, { onDone: () => setShowSplash(false) });
   }
-  return h(InteractiveApp, { sessionManager, apiClient });
+  return h(InteractiveApp, { sessionManager, apiClient, isFirstRun, repoPath });
 };
 
 // ── Public entry point ─────────────────────────────────────────
@@ -806,9 +846,10 @@ async function startInteractive(options: InteractiveOptions = {}): Promise<void>
   // Create session manager if API client is provided
   const sessionManager = options.apiClient ? new SessionManager(options) : null;
   const noSplash = (options as any).noSplash || false;
+  const isFirstRun = (options as any).isFirstRun || false;
 
   const instance = render(
-    h(RootApp, { sessionManager, apiClient: options.apiClient, noSplash }),
+    h(RootApp, { sessionManager, apiClient: options.apiClient, noSplash, isFirstRun, repoPath: options.repoPath }),
     { exitOnCtrlC: true }
   );
 

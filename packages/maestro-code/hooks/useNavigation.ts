@@ -36,8 +36,8 @@ interface UseNavigationReturn {
   setAgentState: (state: AgentState) => void;
 }
 
-export function useNavigation(): UseNavigationReturn {
-  const [userScreen, setUserScreen] = useState<Screen>({ type: 'agent' });
+export function useNavigation(initialScreen: Screen['type'] = 'agent'): UseNavigationReturn {
+  const [userScreen, setUserScreen] = useState<Screen>({ type: initialScreen });
   const [agentScreen, setAgentScreen] = useState<Screen>({ type: 'agent' });
   const [followingAgent, setFollowingAgent] = useState<boolean>(true);
   const [agentState, setAgentState] = useState<AgentState>('idle');
