@@ -10,6 +10,7 @@ export const palette = {
   fg: '#ffffff',
   brand: '#00d8ff',
   accent: '#f5a623',
+  agentAccent: '#a78bfa',
   success: '#4caf50',
   error: '#f44336',
   warning: '#ff9800',
@@ -43,6 +44,13 @@ export const semantic = {
     borderFocused: 'cyan',
     title: 'gray',
     titleFocused: 'cyan',
+  },
+  agent: {
+    idle: 'green',
+    working: 'cyan',
+    navigating: 'yellow',
+    waiting: 'magenta',
+    accent: '#a78bfa',
   },
   ui: {
     border: 'gray',

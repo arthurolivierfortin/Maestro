@@ -11,3 +11,5 @@ export { StatusBar } from './StatusBar.ts';
 export { Header } from './Header.ts';
 export { NavBar, NavTab } from './NavBar.ts';
 export type { NavPage } from './NavBar.ts';
+export { PixelArt } from './PixelArt.ts';
+export type { PixelArtProps } from './PixelArt.ts';

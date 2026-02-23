@@ -6197,6 +6197,7 @@ ${c.bold('Options:')}
   --repo <path>         Repository path (default: current directory)
   --headless            Run without TUI (structured text output, no TTY needed)
   --task <text>         Task to execute (headless mode, avoids stdin prompt)
+  --no-splash           Skip the startup splash screen
 
 ${c.bold('Examples:')}
   maestro code                                   Interactive TUI mode
@@ -6229,6 +6230,7 @@ ${c.bold('Examples:')}
         template: argv.template || 'project-autonomous',
         entryPoint: argv.entry || 'dev',
         importSessionTemplate,
+        noSplash: argv['no-splash'] || argv.noSplash || false,
       });
     }
 

@@ -3,3 +3,4 @@
  */
 
 export { AgentActivity } from './AgentActivity.ts';
+export { AgentBadge } from './AgentBadge.ts';

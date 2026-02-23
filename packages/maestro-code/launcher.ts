@@ -10,6 +10,7 @@ interface InteractiveOptions {
   repoPath?: string;
   template?: string;
   entryPoint?: string;
+  noSplash?: boolean;
 }
 
 async function startInteractiveMode(options: InteractiveOptions = {}) {

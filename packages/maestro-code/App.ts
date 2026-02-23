@@ -15,11 +15,13 @@ import { createElement as h, useState, useCallback, useEffect, useRef } from 're
 import { render, useApp, useStdout, Box, Text, useInput } from 'ink';
 import { NavBar } from '@maestro/tui/components';
 import { AgentActivity } from './panels/AgentActivity.ts';
+import { AgentBadge } from './panels/AgentBadge.ts';
 import { CatalogBrowser } from './screens/CatalogBrowser.ts';
 import { SessionBrowser } from './screens/SessionBrowser.ts';
 import { ModelsBrowser } from './screens/ModelsBrowser.ts';
 import { HelpOverlay } from './screens/HelpOverlay.ts';
 import { WelcomeScreen } from './screens/WelcomeScreen.ts';
+import { SplashScreen } from './screens/SplashScreen.ts';
 import { useNavigation } from './hooks/useNavigation.ts';
 import { useInputHistory } from './hooks/useInputHistory.ts';
 import { CODE_PAGES, screenToPageKey } from './types.ts';
@@ -703,6 +705,7 @@ const InteractiveApp = ({ sessionManager, apiClient }: {
       pages: CODE_PAGES,
       currentPage,
       title: 'MAESTRO',
+      badge: h(AgentBadge, { agentState: nav.agentState, busy }),
     }),
 
     // Screen content (varies by current screen)
@@ -777,6 +780,21 @@ const InteractiveApp = ({ sessionManager, apiClient }: {
   }
 };
 
+// ── Root wrapper (splash → main app transition) ──────────────
+
+const RootApp = ({ sessionManager, apiClient, noSplash }: {
+  sessionManager: SessionManager | null;
+  apiClient?: any;
+  noSplash?: boolean;
+}) => {
+  const [showSplash, setShowSplash] = useState(!noSplash);
+
+  if (showSplash) {
+    return h(SplashScreen, { onDone: () => setShowSplash(false) });
+  }
+  return h(InteractiveApp, { sessionManager, apiClient });
+};
+
 // ── Public entry point ─────────────────────────────────────────
 
 async function startInteractive(options: InteractiveOptions = {}): Promise<void> {
@@ -787,9 +805,10 @@ async function startInteractive(options: InteractiveOptions = {}): Promise<void>
 
   // Create session manager if API client is provided
   const sessionManager = options.apiClient ? new SessionManager(options) : null;
+  const noSplash = (options as any).noSplash || false;
 
   const instance = render(
-    h(InteractiveApp, { sessionManager, apiClient: options.apiClient }),
+    h(RootApp, { sessionManager, apiClient: options.apiClient, noSplash }),
     { exitOnCtrlC: true }
   );
 

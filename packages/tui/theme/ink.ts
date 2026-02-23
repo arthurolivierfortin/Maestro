@@ -31,6 +31,7 @@ export const inkTheme = {
     bgFocused: null as string | null,
     scrollIndicator: 'gray',
   },
+  agent: semantic.agent,
   ui: semantic.ui,
   layout,
   tree: {

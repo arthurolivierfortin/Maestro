@@ -132,3 +132,100 @@ Input history : Up/Down arrows dans InputPrompt (optional callbacks, backward co
 | @maestro/client | 19 | 19/19 pass |
 | @maestro/sidecar | 5 | 5/5 pass |
 | **Total** | **107** | **107 pass, 0 fail** |
+
+---
+
+## 40-PRE-B : Identite Visuelle Command Center
+**Statut** : DONE
+**Date** : 2026-02-24
+
+### B.1 : Palette expansion
+
+| Fichier | Changement |
+|---------|------------|
+| `packages/tui/theme/colors.ts` | Ajout `agentAccent: '#a78bfa'` (violet) dans palette, `semantic.agent` (idle/working/navigating/waiting/accent) |
+| `packages/tui/theme/ink.ts` | Expose `inkTheme.agent` depuis semantic |
+| `packages/maestro-code/panels/AgentActivity.ts` | Utilise `theme.agent.*` au lieu de couleurs hardcodees |
+
+### B.2 : Double borders focus
+
+| Fichier | Changement |
+|---------|------------|
+| `packages/tui/components/Panel.ts` | `borderStyle: focused ? 'double' : 'single'` |
+
+### B.3 : Splash screen
+
+| Fichier | Changement |
+|---------|------------|
+| `packages/maestro-code/screens/SplashScreen.ts` | **NOUVEAU** — ASCII logo + version + tagline + breathing dot animation, auto-dismiss apres 1.5s |
+| `packages/maestro-code/App.ts` | RootApp wrapper: splash → main app transition, import SplashScreen |
+| `packages/maestro-code/launcher.ts` | Passe `noSplash` option |
+| `packages/maestro-cli/cli.ts` | Ajout `--no-splash` option, passe au launcher |
+
+### B.4 : Agent mascotte + NavBar badge
+
+| Fichier | Changement |
+|---------|------------|
+| `packages/maestro-code/panels/AgentActivity.ts` | **ENHANCED** — ASCII art mascotte (3 lignes) qui change par etat, activity frame animation |
+| `packages/maestro-code/panels/AgentBadge.ts` | **NOUVEAU** — Badge compact pour NavBar (spinner+working/dot+ready) |
+| `packages/maestro-code/App.ts` | NavBar recoit `badge: AgentBadge` |
+| `packages/maestro-code/screens/index.ts` | +SplashScreen |
+| `packages/maestro-code/panels/index.ts` | +AgentBadge |
+
+### Tests
+
+| Package | Tests | Resultat |
+|---------|-------|----------|
+| @maestro/tui | 40 | 40/40 pass |
+| maestro-monitor | 4 | 4/4 pass |
+| maestro-code | 39 | 39/39 pass |
+| @maestro/client | 19 | 19/19 pass |
+| @maestro/sidecar | 5 | 5/5 pass |
+| **Total** | **107** | **107 pass, 0 fail** |
+
+---
+
+## Pixel Art System : Bitmap Renderer + Mascotte Sprites
+**Statut** : DONE
+**Date** : 2026-02-24
+
+### Systeme bitmap
+
+Renderer 2-color pixel art utilisant Unicode half-blocks (▀▄█ ) pour 2x resolution verticale.
+Chaque cellule terminal = 2 pixels verticaux. Permet de creer des sprites et animations.
+
+| Fichier | Description |
+|---------|-------------|
+| `packages/tui/utils/bitmap.ts` | **NOUVEAU** — parseBitmap, renderBitmap, renderBitmapDetailed, flipH, overlay, shift |
+| `packages/tui/components/PixelArt.ts` | **NOUVEAU** — Composant Ink qui rend un bitmap avec couleur |
+| `packages/tui/sprites/mascotte.ts` | **NOUVEAU** — Sprite sheet mascotte: 5 etats x 1-2 frames (idle, working, navigating, waiting, error) + SPLASH |
+| `packages/tui/sprites/index.ts` | **NOUVEAU** — Barrel export sprites |
+| `packages/tui/tests/bitmap.test.ts` | **NOUVEAU** — 18 tests renderer (parseBitmap, bitmapSize, renderBitmap, flipH, overlay, shift) |
+| `packages/tui/tests/mascotte.test.ts` | **NOUVEAU** — 8 tests sprites (dimensions, rendu, animation frames) |
+| `packages/tui/utils/index.ts` | Ajout exports bitmap |
+| `packages/tui/components/index.ts` | Ajout export PixelArt |
+| `packages/tui/package.json` | Ajout `./sprites` dans exports map |
+
+### Integration mascotte
+
+| Fichier | Changement |
+|---------|------------|
+| `packages/maestro-code/panels/AgentActivity.ts` | Remplace ASCII art par pixel art via renderBitmap + getMascotteFrame |
+| `packages/maestro-code/screens/SplashScreen.ts` | Ajoute sprite SPLASH pixel art au-dessus du logo texte |
+
+### Mascotte specs
+
+- Corps principal : 14x12 pixels → 14 chars x 6 lignes terminal
+- Splash : 20x14 pixels → 20 chars x 7 lignes terminal
+- 5 etats : idle, working, navigating, waiting-input, error
+- 2 frames par etat (animation alternee pour breathing effect)
+- getMascotteFrame(state, tick) → retourne le bon frame
+
+### Tests
+
+| Package | Tests | Resultat |
+|---------|-------|----------|
+| @maestro/tui | 66 | 66/66 pass (+18 bitmap +8 mascotte) |
+| maestro-monitor | 4 | 4/4 pass |
+| maestro-code | 39 | 39/39 pass |
+| **Total** | **109** | **109 pass, 0 fail** |

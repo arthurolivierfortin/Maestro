@@ -104,7 +104,7 @@ const Panel = ({
   }
 
   return h(Box, {
-    borderStyle: 'single',
+    borderStyle: focused ? 'double' : 'single',
     borderColor,
     flexDirection: 'column',
     overflow: 'hidden',

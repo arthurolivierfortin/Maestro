@@ -14,7 +14,9 @@
     "./utils": "./utils/index.ts",
     "./utils/*": "./utils/*",
     "./app": "./app/index.ts",
-    "./app/*": "./app/*"
+    "./app/*": "./app/*",
+    "./sprites": "./sprites/index.ts",
+    "./sprites/*": "./sprites/*"
   },
   "peerDependencies": {
     "react": "^19.0.0",

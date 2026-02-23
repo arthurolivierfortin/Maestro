@@ -16,3 +16,8 @@ export {
   flattenPhaseWorkflow,
 } from './tree.ts';
 export type { FlatNode } from './tree.ts';
+export {
+  renderBitmap, renderBitmapDetailed, parseBitmap, bitmapSize,
+  flipH, overlay, shift,
+} from './bitmap.ts';
+export type { Bitmap, BitmapString, BitmapNumeric, PixelChar } from './bitmap.ts';
