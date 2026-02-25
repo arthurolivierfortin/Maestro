@@ -33,6 +33,8 @@ import { useNavigation } from './hooks/useNavigation.ts';
 import { useInputHistory } from './hooks/useInputHistory.ts';
 import { CODE_PAGES, screenToPageKey } from './types.ts';
 import type { Screen } from './types.ts';
+import * as nodePath from 'path';
+import * as nodeFs from 'fs';
 
 // ── Types ──────────────────────────────────────────────────────
 
@@ -69,6 +71,92 @@ function ts(): string {
   return new Date().toISOString().slice(11, 19);
 }
 
+
+// ── Demo Client ──────────────────────────────────────────────
+// Returns a fake API client for --demo mode with staged mock data
+// that populates the cockpit panels (WorkflowTree, ExecutionLog, LLMActivity).
+
+function createDemoClient() {
+  const DEMO_SESSION_ID = 'demo-0000-1111-2222-333344445555';
+  let startTime = 0;
+
+  // Mock execution tree that evolves over time
+  const getTree = (elapsed: number) => {
+    const nodes = [
+      { id: 'prepare', name: 'Prepare', status: elapsed > 500 ? 'completed' : 'running', children: [] },
+      { id: 'plan', name: 'Plan', status: elapsed > 2000 ? 'completed' : elapsed > 500 ? 'running' : 'pending', children: [
+        { id: 'analyze', name: 'Analyze Codebase', status: elapsed > 1200 ? 'completed' : elapsed > 600 ? 'running' : 'pending', children: [] },
+        { id: 'design', name: 'Design Solution', status: elapsed > 2000 ? 'completed' : elapsed > 1200 ? 'running' : 'pending', children: [] },
+      ] },
+      { id: 'implement', name: 'Implement', status: elapsed > 4000 ? 'completed' : elapsed > 2000 ? 'running' : 'pending', children: [
+        { id: 'code', name: 'Write Code', status: elapsed > 3000 ? 'completed' : elapsed > 2200 ? 'running' : 'pending', children: [] },
+        { id: 'test', name: 'Run Tests', status: elapsed > 4000 ? 'completed' : elapsed > 3000 ? 'running' : 'pending', children: [] },
+      ] },
+      { id: 'review', name: 'Review', status: elapsed > 5000 ? 'completed' : elapsed > 4000 ? 'running' : 'pending', children: [] },
+      { id: 'commit', name: 'Commit', status: elapsed > 6000 ? 'completed' : elapsed > 5000 ? 'running' : 'pending', children: [] },
+    ];
+    return nodes;
+  };
+
+  // Mock execution log entries
+  const getLog = (elapsed: number) => {
+    const entries: any[] = [];
+    if (elapsed > 200) entries.push({ msg: 'Session initialized', level: 'info', time: ts() });
+    if (elapsed > 600) entries.push({ msg: 'Analyzing repository structure...', level: 'info', time: ts() });
+    if (elapsed > 1200) entries.push({ msg: 'Found 12 source files, 3 test files', level: 'info', time: ts() });
+    if (elapsed > 1800) entries.push({ msg: 'Design: 3 steps identified', level: 'info', time: ts() });
+    if (elapsed > 2200) entries.push({ msg: 'Writing implementation...', level: 'info', time: ts() });
+    if (elapsed > 3000) entries.push({ msg: 'Code generation complete', level: 'info', time: ts() });
+    if (elapsed > 3200) entries.push({ msg: 'Running test suite...', level: 'info', time: ts() });
+    if (elapsed > 4000) entries.push({ msg: 'All 8 tests passed', level: 'info', time: ts() });
+    if (elapsed > 4500) entries.push({ msg: 'Reviewing changes...', level: 'info', time: ts() });
+    if (elapsed > 5200) entries.push({ msg: 'Review: no issues found', level: 'info', time: ts() });
+    if (elapsed > 5500) entries.push({ msg: 'Creating commit...', level: 'info', time: ts() });
+    if (elapsed > 6000) entries.push({ msg: 'Committed: feat: add login page', level: 'info', time: ts() });
+    return entries;
+  };
+
+  // Mock LLM activity
+  const getLLM = (elapsed: number) => {
+    const entries: any[] = [];
+    if (elapsed > 600) entries.push({ nodeId: 'analyze', time: ts(), duration: 580, promptPreview: 'Analyze this repository...', responsePreview: 'Repository contains a TypeScript project with...' });
+    if (elapsed > 1800) entries.push({ nodeId: 'design', time: ts(), duration: 920, promptPreview: 'Design a solution for...', responsePreview: 'Step 1: Create auth module. Step 2: Add routes...' });
+    if (elapsed > 2800) entries.push({ nodeId: 'code', time: ts(), duration: 1450, promptPreview: 'Implement the following plan...', responsePreview: 'Created src/auth.ts with login(), logout()...' });
+    if (elapsed > 4500) entries.push({ nodeId: 'review', time: ts(), duration: 340, promptPreview: 'Review these changes...', responsePreview: 'Changes look correct. No security issues.' });
+    return entries;
+  };
+
+  return {
+    _fetch: async (method: string, path: string) => {
+      if (path === '/api/health') return { status: 'ok' };
+      return {};
+    },
+    getSession: async (id: string) => {
+      const elapsed = Date.now() - startTime;
+      const tree = getTree(elapsed);
+      const allDone = tree.every(n => n.status === 'completed');
+      return {
+        id,
+        status: allDone ? 'idle' : 'running',
+        variables: {
+          _executionTree: tree,
+          _executionLog: getLog(elapsed),
+          _llmActivity: getLLM(elapsed),
+          _scoreHistory: elapsed > 3000 ? [0.3, 0.5, 0.7, 0.85] : [0.3],
+          currentFitness: elapsed > 4000 ? 0.85 : elapsed > 2000 ? 0.5 : 0.3,
+        },
+      };
+    },
+    createSession: async (opts: any) => {
+      startTime = Date.now();
+      return { id: DEMO_SESSION_ID };
+    },
+    startSession: async () => {},
+    DEMO_SESSION_ID,
+    _startTime: () => { startTime = Date.now(); },
+  };
+}
+
 // ── Session Manager ───────────────────────────────────────────
 // Manages the Maestro session lifecycle outside of React state.
 
@@ -101,7 +189,7 @@ class SessionManager {
     try {
       // 1. Create session
       addLine({ text: 'Creating session...', color: 'gray', dim: true, timestamp: ts() });
-      const path = require('path');
+      const path = nodePath;
       const session = await this.client.createSession({
         repositoryPath: this.repoPath,
         authority: 'human',
@@ -669,7 +757,7 @@ const NoBackendScreen = () => {
 
 // ── Root App ───────────────────────────────────────────────────
 
-const InteractiveApp = ({ sessionManager, apiClient, isFirstRun, repoPath, demoMode }: {
+const InteractiveApp = ({ sessionManager: smProp, apiClient: clientProp, isFirstRun, repoPath, demoMode }: {
   sessionManager: SessionManager | null;
   apiClient?: any;
   isFirstRun?: boolean;
@@ -679,6 +767,21 @@ const InteractiveApp = ({ sessionManager, apiClient, isFirstRun, repoPath, demoM
   const { exit } = useApp();
   const { stdout } = useStdout();
   const [rows, setRows] = useState(stdout.rows || 24);
+
+  // ── Demo mode: create internal mock client + session manager ──
+  // When --demo, ALWAYS use the mock client — ignore any real apiClient/SM.
+  // This ensures demo mode works regardless of whether the backend is running.
+  // Previous bug: condition was `demoMode && !smProp` — but the CLI always
+  // passes a real apiClient, so smProp was always truthy and demo was skipped.
+  const [demoSetup] = useState(() => {
+    if (demoMode) {
+      const client = createDemoClient();
+      return { client, sm: new SessionManager({ apiClient: client }) };
+    }
+    return null;
+  });
+  const sessionManager = demoMode ? (demoSetup?.sm || null) : (smProp || null);
+  const apiClient = demoMode ? (demoSetup?.client || null) : (clientProp || null);
 
   // ── Navigation ──
   const nav = useNavigation(isFirstRun ? 'welcome' : 'agent');
@@ -779,16 +882,16 @@ const InteractiveApp = ({ sessionManager, apiClient, isFirstRun, repoPath, demoM
   // ── Init project (.maestro/) from WelcomeScreen ──
   const handleInit = useCallback(() => {
     const initPath = repoPath || process.cwd();
-    const maestroDir = require('path').join(initPath, '.maestro');
-    const fs = require('fs');
+    const maestroDir = nodePath.join(initPath, '.maestro');
+    const fs = nodeFs;
     try {
       const dirs = ['blocks', 'docs', 'logs', 'artifacts', 'metrics', 'sandboxes'];
       fs.mkdirSync(maestroDir, { recursive: true });
-      dirs.forEach((d: string) => fs.mkdirSync(require('path').join(maestroDir, d), { recursive: true }));
+      dirs.forEach((d: string) => fs.mkdirSync(nodePath.join(maestroDir, d), { recursive: true }));
       const config = { template: 'project-autonomous', model: 'auto', stack: 'unknown' };
-      fs.writeFileSync(require('path').join(maestroDir, 'config.json'), JSON.stringify(config, null, 2));
-      fs.writeFileSync(require('path').join(maestroDir, 'aliases.json'), JSON.stringify({}, null, 2));
-      fs.writeFileSync(require('path').join(maestroDir, 'README.md'), '# Maestro Project\n\nInitialized by `maestro code`.\n');
+      fs.writeFileSync(nodePath.join(maestroDir, 'config.json'), JSON.stringify(config, null, 2));
+      fs.writeFileSync(nodePath.join(maestroDir, 'aliases.json'), JSON.stringify({}, null, 2));
+      fs.writeFileSync(nodePath.join(maestroDir, 'README.md'), '# Maestro Project\n\nInitialized by `maestro code`.\n');
       addLine({ text: `Initialized .maestro/ in ${initPath}`, color: 'green', bold: true });
     } catch (err: any) {
       addLine({ text: `Failed to initialize: ${err.message}`, color: 'red' });
@@ -849,29 +952,35 @@ const InteractiveApp = ({ sessionManager, apiClient, isFirstRun, repoPath, demoM
       sessionManager.submitTask(input, addLine, (b) => {
         setBusy(b);
         if (!b) {
-          setCurrentSessionId(null);
+          // Task completed — in demo mode, keep sessionId so cockpit stays visible
+          if (!demoMode) setCurrentSessionId(null);
           sessionManager.stopWidgetPolling();
           nav.setAgentState('idle');
         } else {
-          setCurrentSessionId(sessionManager.getSessionId());
-          sessionManager.startWidgetPolling(addLine, setCurrentWidget, setPendingInteractive);
+          // setBusy(true) fires before session is created — nav only
           nav.setAgentState('working');
         }
+      }).then(() => {
+        // Session created and started — NOW we can read the session ID
+        const id = sessionManager.getSessionId();
+        if (id) {
+          setCurrentSessionId(id);
+          sessionManager.startWidgetPolling(addLine, setCurrentWidget, setPendingInteractive);
+        }
       });
-    } else if (demoMode) {
-      // Demo mode (--demo flag) — mock execution for UI preview
-      setBusy(true);
-      nav.setAgentState('working');
-      addLine({ text: '[DEMO] Processing...', color: 'gray', dim: true, timestamp: ts() });
-      setTimeout(() => {
-        addLine({ text: '[DEMO] Done (no real execution)', color: 'yellow', timestamp: ts() });
-        addLine({ text: '' });
-        setBusy(false);
-        nav.setAgentState('idle');
-      }, 1000);
     }
-  }, [addLine, sessionManager, busy, pendingInteractive, nav, history, exit]);
+  }, [addLine, sessionManager, busy, pendingInteractive, nav, history, exit, demoMode]);
 
+  // ── Auto-start demo session (show cockpit immediately) ──
+  const autoStarted = useRef(false);
+  useEffect(() => {
+    if (demoMode && sessionManager && !autoStarted.current) {
+      autoStarted.current = true;
+      handleSubmit('Add login page');
+    }
+  }, [demoMode, sessionManager, handleSubmit]);
+
+  // ── Demo diagnostic (writes state to file so we can SEE what the app is doing) ──
   // ── Layout ──
   const currentPage = screenToPageKey(nav.userScreen);
   const contentHeight = Math.max(rows - 4, 5);

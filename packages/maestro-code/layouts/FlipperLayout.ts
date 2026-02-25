@@ -36,7 +36,6 @@ import { createElement as h, useState, useCallback, useEffect, useRef } from 're
 import { Box, Text, useInput, useStdout } from 'ink';
 import { Panel, WorkflowTree, ExecutionLog, LLMActivity, MetricsPanel } from '@maestro/tui/components';
 import { useApiData, useTreeNav, useMouse } from '@maestro/tui/hooks';
-import { flattenExecutionTree, autoExpandRunningPath } from '@maestro/tui/utils';
 import { AgentActivity } from '../panels/AgentActivity.ts';
 import type { AgentState, LogLine, Widget } from '../types.ts';
 
@@ -206,31 +205,26 @@ const FlipperLayout = ({
   const executionTree = vars._executionTree || [];
   const executionLog = vars._executionLog || [];
   const llmActivity = vars._llmActivity || [];
-  const fitness = vars._currentFitness || vars.currentFitness;
+
+  // ── Context & session objects for @maestro/tui components ──
+  // These components expect { session, context } props — not individual data props.
+  const context = {
+    executionTree,
+    executionLog,
+    llmActivity,
+    activeWorkflow: vars._activeWorkflow || null,
+  };
+
+  const sessionObj = sessionData ? {
+    variables: vars,
+    activeWorkflow: vars._activeWorkflow,
+    executionTree,
+  } : null;
 
   // ── Tree navigation ────────────────────────────────────────
+  // Created here for keyboard handler; passed to WorkflowTree which
+  // handles auto-expand, flatten, and cursor rendering internally.
   const treeNav = useTreeNav();
-
-  // Auto-expand running nodes
-  useEffect(() => {
-    if (executionTree.length > 0) {
-      const autoExpanded = autoExpandRunningPath(executionTree);
-      if (autoExpanded.size > 0) {
-        for (const id of autoExpanded) {
-          treeNav.expand(id);
-        }
-      }
-    }
-  }, [executionTree]);
-
-  // Flatten tree with current expansion state
-  const flatNodes = flattenExecutionTree(executionTree, treeNav.expanded);
-
-  // Keep tree nav in sync (use JSON hash to avoid infinite loop)
-  const flatNodesHash = flatNodes.map(n => n.id).join(',');
-  useEffect(() => {
-    treeNav.setFlatNodes(flatNodes);
-  }, [flatNodesHash]);
 
   // ── Keyboard handler ───────────────────────────────────────
   useInput((input, key) => {
@@ -318,14 +312,6 @@ const FlipperLayout = ({
       setZoomed(null);
     }
   }, [hasSession]);
-
-  // ── Computed metrics ───────────────────────────────────────
-  const allFlatNodes = flattenExecutionTree(executionTree, new Set(
-    executionTree.map(n => n.id || n.name)
-  ));
-  const completedNodes = allFlatNodes.filter(n =>
-    n.status === 'completed' || n.status === 'done'
-  );
 
   // ── Placeholder for input prompt ──────────────────────────
   const inputPlaceholder = pendingInteractive
@@ -446,25 +432,12 @@ const FlipperLayout = ({
           focused: focusedPanel === 'tree',
           flexGrow: 1,
         },
-          executionTree.length > 0
-            ? h(WorkflowTree, {
-                flatNodes,
-                cursorIndex: treeNav.cursor,
-                focused: focusedPanel === 'tree',
-              })
-            : h(Text, { color: 'gray', dimColor: true }, '  (no execution data)'),
+          h(WorkflowTree, { session: sessionObj, context, treeNav }),
         ),
 
         // Metrics (bottom ~30% of right column)
         h(Panel, { title: 'METRICS' },
-          h(MetricsPanel, {
-            fitness: fitness != null ? fitness : null,
-            iteration: null,
-            maxIterations: null,
-            scoreHistory: vars._scoreHistory || [],
-            nodesCompleted: completedNodes.length,
-            nodesTotal: allFlatNodes.length,
-          }),
+          h(MetricsPanel, { session: sessionObj, context }),
         ),
       ),
     ),
@@ -477,10 +450,7 @@ const FlipperLayout = ({
         anchor: 'bottom',
         width: '50%',
       },
-        h(ExecutionLog, {
-          entries: executionLog,
-          maxLines: bottomRowHeight - 2,
-        }),
+        h(ExecutionLog, { session: sessionObj, context }),
       ),
       h(Panel, {
         title: 'LLM',
@@ -488,10 +458,7 @@ const FlipperLayout = ({
         anchor: 'bottom',
         flexGrow: 1,
       },
-        h(LLMActivity, {
-          entries: llmActivity,
-          maxLines: bottomRowHeight - 2,
-        }),
+        h(LLMActivity, { session: sessionObj, context }),
       ),
     ),
 
@@ -510,11 +477,7 @@ const FlipperLayout = ({
             focused: true,
             flexGrow: 1,
           },
-            h(WorkflowTree, {
-              flatNodes,
-              cursorIndex: treeNav.cursor,
-              focused: true,
-            }),
+            h(WorkflowTree, { session: sessionObj, context, treeNav }),
           ),
           h(Box, { paddingX: 1, height: 1 },
             h(Text, { color: 'gray', dimColor: true }, '[Esc]exit zoom  [z]exit zoom'),
@@ -529,10 +492,7 @@ const FlipperLayout = ({
             anchor: 'bottom',
             flexGrow: 1,
           },
-            h(ExecutionLog, {
-              entries: executionLog,
-              maxLines: zoomHeight,
-            }),
+            h(ExecutionLog, { session: sessionObj, context }),
           ),
           h(Box, { paddingX: 1, height: 1 },
             h(Text, { color: 'gray', dimColor: true }, '[Esc]exit zoom  [z]exit zoom'),
@@ -547,10 +507,7 @@ const FlipperLayout = ({
             anchor: 'bottom',
             flexGrow: 1,
           },
-            h(LLMActivity, {
-              entries: llmActivity,
-              maxLines: zoomHeight,
-            }),
+            h(LLMActivity, { session: sessionObj, context }),
           ),
           h(Box, { paddingX: 1, height: 1 },
             h(Text, { color: 'gray', dimColor: true }, '[Esc]exit zoom  [z]exit zoom'),

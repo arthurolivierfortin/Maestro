@@ -272,24 +272,21 @@ describe('InteractiveApp', () => {
     expect(frame).toContain('> Add login page');
   });
 
-  it('in demo mode, shows processing then done', async () => {
+  it('in demo mode, auto-starts and shows cockpit layout', async () => {
     const { InteractiveApp } = await import('../App.ts');
-    const { lastFrame, stdin } = render(h(InteractiveApp, { sessionManager: null, demoMode: true }));
+    const { lastFrame } = render(h(InteractiveApp, { sessionManager: null, demoMode: true }));
 
-    await delay();
-    typeText(stdin, 'test task');
-    await delay(); // Let React flush state updates from typing
-    stdin.write(ENTER);
-    await delay();
+    // Demo mode auto-starts a mock session — wait for cockpit to render
+    await delay(1000);
 
-    let frame = stripAnsi(lastFrame() || '');
-    expect(frame).toContain('[DEMO] Processing');
-
-    // Wait for the 1s setTimeout in demo mode
-    await delay(1200);
-
-    frame = stripAnsi(lastFrame() || '');
-    expect(frame).toContain('[DEMO] Done');
+    const frame = stripAnsi(lastFrame() || '');
+    // NavBar shows DEMO marker
+    expect(frame).toContain('DEMO');
+    // StatusBar shows active session
+    expect(frame).toContain('session:demo-');
+    // Cockpit panels should be visible (FlipperLayout active mode)
+    expect(frame).toContain('LOG');
+    expect(frame).toContain('LLM');
   });
 });
 

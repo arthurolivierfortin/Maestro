@@ -349,5 +349,67 @@ Phase 41-PRE transformed `maestro-code` from a minimal chat app into a full-feat
 ```
 
 ### Test coverage
-- **158/158 tests pass** across all 5 packages
+- **134/134 tests pass** across TUI (67) + Monitor (4) + Maestro-code (63)
 - All sub-phases verified independently
+
+---
+
+## Sub-Phase F: Demo Mode Fix (Critical) — COMPLETE
+
+### Problem
+
+After completing Sub-Phases A–E, the demo mode (`maestro code --demo`) showed the same flat idle layout as before the refactor. The cockpit (WorkflowTree, ExecutionLog, LLMActivity, MetricsPanel panels) was never visible because:
+
+1. **`currentSessionId` was never set.** The old demo branch used a `setTimeout` mock that never created a session. FlipperLayout checks `hasSession = sessionId != null` — always false in demo.
+2. **Pre-existing bug in `handleSubmit`.** The `setBusy(true)` callback was called at the top of `submitTask()` before the session was created, so `sessionManager.getSessionId()` returned null.
+3. **No auto-start.** Demo mode required the user to type and submit a task before anything happened. A user opening `--demo` for the first time saw the identical flat layout and concluded nothing had changed.
+
+### What was done
+
+1. **`createDemoClient()`** — mock API client (already existed) returns staged data:
+   - Execution tree with 5 nodes (Prepare → Plan → Implement → Review → Commit) that evolve over ~6s
+   - Execution log entries at staged intervals
+   - LLM activity entries with prompt/response previews
+   - Health endpoint that always returns OK
+   - Session create/start that resolve immediately
+
+2. **Internal demo setup in `InteractiveApp`** (`App.ts`)
+   - When `demoMode=true` and no real `SessionManager` is provided, creates an internal demo client + SessionManager via `useState` initializer
+   - Uses effective `sessionManager` and `apiClient` (shadowing props) so all existing code paths work without changes
+   - The demo client is used for health checks (→ "connected" status), session polling (→ cockpit data), and entry point invocation
+
+3. **Fixed `setCurrentSessionId` timing** (`App.ts`)
+   - Moved `setCurrentSessionId(sessionManager.getSessionId())` from the `setBusy(true)` callback to a `.then()` after `submitTask()` resolves
+   - This ensures the session ID is set AFTER the async session creation completes (not before)
+   - This was a pre-existing bug that became visible with FlipperLayout
+
+4. **Auto-start demo session** (`App.ts`)
+   - Added `useEffect` that calls `handleSubmit('Add login page')` on mount when `demoMode=true`
+   - Uses `autoStarted` ref to fire only once
+   - Demo launches and immediately shows the cockpit building up — no user interaction needed
+
+5. **Removed old fake demo branch** (`App.ts`)
+   - Deleted the `else if (demoMode) { setTimeout(...) }` branch from `handleSubmit`
+   - Demo mode now goes through the real SessionManager flow with the mock client
+
+6. **Keep cockpit visible after completion** (`App.ts`)
+   - When `demoMode=true` and task completes (`setBusy(false)`), `currentSessionId` is NOT cleared
+   - The cockpit stays visible with the final state (all nodes completed, logs filled)
+
+7. **NavBar overflow fix** (`packages/tui/components/NavBar.ts`)
+   - Added `overflow: 'hidden'` to prevent text cutoff at narrow terminal widths
+   - Left side (title + tabs) uses `flexShrink: 1`, right side (badge + hint) uses `flexShrink: 0`
+
+### Test results
+- TUI: 67/67 pass
+- Monitor: 4/4 pass
+- Maestro-code: 63/63 pass (demo test verifies cockpit panels render)
+- **Total: 134/134 pass**
+
+### Files modified
+
+| File | Change |
+|------|--------|
+| `packages/maestro-code/App.ts` | Internal demo setup (demoSetup useState), fixed setCurrentSessionId timing (.then), auto-start effect, removed old demo branch, keep session visible |
+| `packages/tui/components/NavBar.ts` | overflow: hidden, flexShrink for responsive layout |
+| `packages/maestro-code/tests/App.test.ts` | Updated demo test to verify cockpit panels render (EXECUTION, LOG, LLM) |

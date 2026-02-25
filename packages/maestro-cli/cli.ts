@@ -6233,7 +6233,8 @@ ${c.bold('Examples:')}
       const { startInteractiveMode } = require('@maestro/code/launcher.ts');
 
       const codeRepoPath = argv.repo || process.cwd();
-      const isFirstRun = !fs.existsSync(path.join(codeRepoPath, '.maestro'));
+      const isDemoMode = argv.demo || false;
+      const isFirstRun = isDemoMode ? false : !fs.existsSync(path.join(codeRepoPath, '.maestro'));
 
       return startInteractiveMode({
         apiClient: client,
@@ -6241,9 +6242,9 @@ ${c.bold('Examples:')}
         template: argv.template || 'project-autonomous',
         entryPoint: argv.entry || 'dev',
         importSessionTemplate,
-        noSplash: argv['no-splash'] || argv.noSplash || false,
+        noSplash: argv['no-splash'] || argv.noSplash || argv.splash === false || isDemoMode,
         isFirstRun,
-        demo: argv.demo || false,
+        demo: isDemoMode,
       });
     }
 
