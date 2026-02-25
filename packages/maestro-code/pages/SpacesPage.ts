@@ -139,9 +139,11 @@ const SpacesPage = ({ apiClient, height, onQuit, demoMode }: SpacesPageProps) =>
   }
 
   // List view: SpacesScreen from monitor
+  // onNavigate is a noop — spatial navigation is handled by App.ts via Ctrl+Arrow
   return h(Box, { flexDirection: 'column', flexGrow: 1, height },
     h(SpacesScreen, {
       apiClient,
+      onNavigate: () => {},
       onSessionSelect: handleSessionSelect,
       onWorkspaceSelect: handleWorkspaceSelect,
       onRepoSelect: handleRepoSelect,

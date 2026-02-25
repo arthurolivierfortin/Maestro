@@ -85,9 +85,11 @@ const CatalogPage = ({ apiClient, height, onQuit, demoMode }: CatalogPageProps) 
   }
 
   // List view: CatalogScreen from monitor
+  // onNavigate is a noop — spatial navigation is handled by App.ts via Ctrl+Arrow
   return h(Box, { flexDirection: 'column', flexGrow: 1, height },
     h(CatalogScreen, {
       apiClient,
+      onNavigate: () => {},
       onBlockSelect: handleBlockSelect,
       onQuit,
     }),

@@ -88,9 +88,11 @@ const ModelsPage = ({ apiClient, height, onQuit, demoMode }: ModelsPageProps) =>
   }
 
   // List view: ModelsScreen from monitor
+  // onNavigate is a noop — spatial navigation is handled by App.ts via Ctrl+Arrow
   return h(Box, { flexDirection: 'column', flexGrow: 1, height },
     h(ModelsScreen, {
       apiClient,
+      onNavigate: () => {},
       onModelSelect: handleModelSelect,
       onQuit,
     }),
