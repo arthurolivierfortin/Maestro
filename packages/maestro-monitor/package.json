@@ -4,7 +4,10 @@
   "main": "./tui-monitor.ts",
   "exports": {
     ".": "./tui-monitor.ts",
-    "./tui-monitor.ts": "./tui-monitor.ts"
+    "./tui-monitor.ts": "./tui-monitor.ts",
+    "./components/*": "./components/*",
+    "./hooks/*": "./hooks/*",
+    "./theme": "./theme.ts"
   },
   "dependencies": {
     "@maestro/tui": "*",

@@ -413,3 +413,64 @@ After completing Sub-Phases A–E, the demo mode (`maestro code --demo`) showed 
 | `packages/maestro-code/App.ts` | Internal demo setup (demoSetup useState), fixed setCurrentSessionId timing (.then), auto-start effect, removed old demo branch, keep session visible |
 | `packages/tui/components/NavBar.ts` | overflow: hidden, flexShrink for responsive layout |
 | `packages/maestro-code/tests/App.test.ts` | Updated demo test to verify cockpit panels render (EXECUTION, LOG, LLM) |
+
+---
+
+# Spatial TUI Sub-Phases (41-A through 41-H)
+
+These sub-phases implement the spatial full-screen page navigation system designed in `DESIGN-SPATIAL-TUI.md`.
+
+---
+
+## Sub-Phase 41-A: Foundation — Page Registry + Monitor Exports — COMPLETE
+
+### What was done
+
+1. **Monitor granular exports** (`packages/maestro-monitor/package.json`)
+   - Added `"./components/*"`, `"./hooks/*"`, `"./theme"` wildcard exports
+   - Main entry point unchanged — standalone monitor still works
+
+2. **maestro-code dependency + tsconfig** (`packages/maestro-code/`)
+   - Added `"@maestro/monitor": "*"` to package.json dependencies
+   - Added `@maestro/monitor` and `@maestro/monitor/*` path aliases in tsconfig.json
+
+3. **Page Registry types** (`registry/types.ts`)
+   - `Direction`, `Position`, `PageDefinition`, `PageProps`, `DetailScreenDef`, `DirectionHint`
+   - `PageProps` includes: apiClient, sessionId, onNavigate, onBack, height, width
+
+4. **PageRegistry class** (`registry/PageRegistry.ts`)
+   - Two internal Maps: `pages` (by id) and `grid` (by "x,y" key)
+   - Methods: `register()`, `getById()`, `getAt()`, `getAll()`, `getRing()`, `getDirectionHints()`
+   - `createDefaultRegistry()` factory function
+   - Throws on duplicate id or position
+
+5. **Built-in pages** (`registry/built-in-pages.ts`)
+   - 5 placeholder pages: agent(0,0), execution(0,-1), catalog(-1,0), spaces(1,0), models(0,1)
+   - `registerBuiltInPages(registry)` helper function
+
+6. **Barrel export** (`registry/index.ts`)
+   - Exports: PageRegistry, createDefaultRegistry, types, BUILT_IN_PAGES, registerBuiltInPages
+
+7. **Tests**
+   - `tests/page-registry.test.ts` — 13 tests: register, getById, getAt, getAll, getRing angle sort, getDirectionHints (3 cases), duplicate id/position throws, BUILT_IN_PAGES structure, agent center position
+   - `tests/monitor-imports.test.ts` — 6 tests: SessionMonitor, CatalogScreen, SpacesScreen, ModelsScreen, WorkflowTree importable as functions + theme importable
+
+### Test results
+- maestro-code: 83/83 pass (was 63 — +20 new tests)
+- maestro-monitor: 4/4 pass (no regression)
+- TUI: 67/67 pass (no regression)
+- **Total: 154/154 pass**
+
+### Files modified
+
+| File | Change |
+|------|--------|
+| `packages/maestro-monitor/package.json` | Added granular exports (components/*, hooks/*, theme) |
+| `packages/maestro-code/package.json` | Added @maestro/monitor dependency |
+| `packages/maestro-code/tsconfig.json` | Added @maestro/monitor path aliases |
+| `packages/maestro-code/registry/types.ts` | NEW — PageDefinition, PageProps, Direction, Position, etc. |
+| `packages/maestro-code/registry/PageRegistry.ts` | NEW — PageRegistry class + createDefaultRegistry |
+| `packages/maestro-code/registry/built-in-pages.ts` | NEW — 5 built-in page defs + registerBuiltInPages |
+| `packages/maestro-code/registry/index.ts` | NEW — barrel export |
+| `packages/maestro-code/tests/page-registry.test.ts` | NEW — 13 tests |
+| `packages/maestro-code/tests/monitor-imports.test.ts` | NEW — 6 tests |
