@@ -11,16 +11,19 @@ import { Box, Text } from 'ink';
 import { Panel } from '@maestro/tui/components';
 import { useApiData, useSelectableList } from '@maestro/tui/hooks';
 import { useActionKeyboard } from '@maestro/tui/hooks';
-import { muted, bold, primary, success } from '@maestro/tui/theme/ink';
+import { muted, bold, primary, success } from '@maestro/tui/theme';
+
+import type { Screen } from '../types.ts';
 
 interface ModelsBrowserProps {
   apiClient: any;
+  onNavigate?: (screen: Screen) => void;
   onBack: () => void;
   onQuit: () => void;
   height: number;
 }
 
-const ModelsBrowser = ({ apiClient, onBack, onQuit, height }: ModelsBrowserProps) => {
+const ModelsBrowser = ({ apiClient, onNavigate, onBack, onQuit, height }: ModelsBrowserProps) => {
   const { data: models } = useApiData(
     useCallback(() =>
       apiClient?._fetch?.('GET', '/api/provider/models').catch(() => []) || Promise.resolve([]),
@@ -54,6 +57,13 @@ const ModelsBrowser = ({ apiClient, onBack, onQuit, height }: ModelsBrowserProps
     'cursor.down': moveDown,
     'cursor.upAlt': moveUp,
     'cursor.downAlt': moveDown,
+    'tree.toggle': () => {
+      const model = modelList[selectedIndex];
+      if (model && onNavigate) {
+        const modelId = model.model_id || model.id || 'unknown';
+        onNavigate({ type: 'model-detail', id: modelId });
+      }
+    },
     'back': onBack,
     'quit': onQuit,
   }, 'detail');

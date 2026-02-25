@@ -11,9 +11,8 @@ import { Box, Text } from 'ink';
 import { Panel } from '@maestro/tui/components';
 import { useApiData, useSelectableList } from '@maestro/tui/hooks';
 import { useActionKeyboard } from '@maestro/tui/hooks';
-import { muted, bold } from '@maestro/tui/theme/ink';
-import { statusColor, statusIcon } from '@maestro/tui/utils/status';
-import { formatDuration } from '@maestro/tui/utils/format';
+import { muted, bold } from '@maestro/tui/theme';
+import { statusColor, statusIcon, formatDuration } from '@maestro/tui/utils';
 import type { Screen } from '../types.ts';
 
 interface SessionBrowserProps {

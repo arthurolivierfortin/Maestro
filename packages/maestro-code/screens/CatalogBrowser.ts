@@ -14,8 +14,8 @@ import { useActionKeyboard } from '@maestro/tui/hooks';
 import {
   inkTheme as theme, T, muted, bold, primary,
   TypeBadge,
-} from '@maestro/tui/theme/ink';
-import { progressBar, progressColor } from '@maestro/tui/utils/progress';
+} from '@maestro/tui/theme';
+import { progressBar, progressColor } from '@maestro/tui/utils';
 import type { Screen } from '../types.ts';
 
 interface CatalogBrowserProps {

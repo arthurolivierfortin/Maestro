@@ -106,8 +106,7 @@ describe('HelpOverlay', () => {
     const { lastFrame } = render(h(HelpOverlay, { onClose: vi.fn() }));
     const frame = stripAnsi(lastFrame() || '');
     expect(frame).toContain('HELP');
-    expect(frame).toContain('Navigation');
-    expect(frame).toContain('Ctrl+C');
+    expect(frame).toContain('Agent');
   });
 });
 
@@ -285,7 +284,7 @@ describe('InteractiveApp navigation', () => {
 
     const frame = stripAnsi(lastFrame() || '');
     expect(frame).toContain('HELP');
-    expect(frame).toContain('Navigation');
+    expect(frame).toContain('Agent');
   });
 
   it('navigates to catalog via /c shortcut', async () => {

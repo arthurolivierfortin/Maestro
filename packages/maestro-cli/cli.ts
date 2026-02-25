@@ -6205,6 +6205,7 @@ ${c.bold('Options:')}
   --headless            Run without TUI (structured text output, no TTY needed)
   --task <text>         Task to execute (headless mode, avoids stdin prompt)
   --no-splash           Skip the startup splash screen
+  --demo                Run in demo mode (mock execution without backend)
 
 ${c.bold('Examples:')}
   maestro code                                   Interactive TUI mode
@@ -6242,6 +6243,7 @@ ${c.bold('Examples:')}
         importSessionTemplate,
         noSplash: argv['no-splash'] || argv.noSplash || false,
         isFirstRun,
+        demo: argv.demo || false,
       });
     }
 

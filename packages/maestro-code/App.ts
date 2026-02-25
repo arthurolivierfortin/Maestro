@@ -13,12 +13,19 @@
 
 import { createElement as h, useState, useCallback, useEffect, useRef } from 'react';
 import { render, useApp, useStdout, Box, Text, useInput } from 'ink';
-import { NavBar } from '@maestro/tui/components';
-import { AgentActivity } from './panels/AgentActivity.ts';
+import { NavBar, Shortcut } from '@maestro/tui/components';
+import { setTerminalBg, resetTerminalBg, palette, inkTheme } from '@maestro/tui/theme';
+import { useAnimationTick } from '@maestro/tui/hooks';
+import { spinnerFrame, breathingDot } from '@maestro/tui/theme';
+import type { PanelId } from './layouts/FlipperLayout.ts';
 import { AgentBadge } from './panels/AgentBadge.ts';
+import { FlipperLayout } from './layouts/FlipperLayout.ts';
 import { CatalogBrowser } from './screens/CatalogBrowser.ts';
 import { SessionBrowser } from './screens/SessionBrowser.ts';
 import { ModelsBrowser } from './screens/ModelsBrowser.ts';
+import { BlockDetailScreen } from './screens/BlockDetailScreen.ts';
+import { SessionDetailScreen } from './screens/SessionDetailScreen.ts';
+import { ModelDetailScreen } from './screens/ModelDetailScreen.ts';
 import { HelpOverlay } from './screens/HelpOverlay.ts';
 import { WelcomeScreen } from './screens/WelcomeScreen.ts';
 import { SplashScreen } from './screens/SplashScreen.ts';
@@ -44,6 +51,7 @@ interface InteractiveOptions {
   entryPoint?: string;
   importSessionTemplate?: (sessionId: string, templateName: string) => Promise<void>;
   isFirstRun?: boolean;
+  demo?: boolean;
 }
 
 interface Widget {
@@ -302,19 +310,116 @@ const OutputPanel = ({ lines, height }: { lines: LogLine[]; height: number }) =>
   );
 };
 
-// ── StatusBar ─────────────────────────────────────────────────
+// ── RichStatusBar ─────────────────────────────────────────────
+// Connection status, latency, session, focused panel, context-aware shortcuts.
 
-const StatusBar = ({ sessionId, busy, voiceActive }: { sessionId: string | null; busy: boolean; voiceActive?: boolean }) => {
-  const sessionLabel = sessionId ? `Session: ${sessionId.slice(0, 8)}` : 'No session';
-  const statusLabel = busy ? 'Running...' : 'Ready';
-  const statusColor = busy ? 'yellow' : 'green';
+const RichStatusBar = ({
+  sessionId,
+  busy,
+  voiceActive,
+  connected,
+  latency,
+  focusedPanel,
+  zoomedPanel,
+  screenType,
+}: {
+  sessionId: string | null;
+  busy: boolean;
+  voiceActive?: boolean;
+  connected: boolean | null;
+  latency: number;
+  focusedPanel: PanelId | null;
+  zoomedPanel: PanelId | null;
+  screenType: string;
+}) => {
+  const tick = useAnimationTick(120);
 
-  return h(Box, { paddingX: 1, justifyContent: 'space-between' },
-    h(Box, null,
-      h(Text, { color: 'gray', dimColor: true }, sessionLabel),
-      voiceActive ? h(Text, { color: 'magenta', bold: true }, ' VOICE') : null
+  // Connection indicator
+  const connStatus = connected === null ? 'connecting' : connected ? 'connected' : 'error';
+  const connColor = connStatus === 'connected' ? 'green' : connStatus === 'error' ? 'red' : 'yellow';
+  const connIcon = connStatus === 'connecting'
+    ? spinnerFrame(tick)
+    : connStatus === 'connected'
+      ? breathingDot(tick)
+      : '✗';
+
+  const sessionLabel = sessionId ? `session:${sessionId.slice(0, 8)}` : '';
+  const latencyLabel = latency > 0 ? `${latency}ms` : '';
+
+  // Context-aware shortcuts
+  const shortcuts = [];
+
+  if (zoomedPanel) {
+    // Zoomed mode
+    shortcuts.push(h(Shortcut, { key: 'sc-esc', k: 'Esc', label: 'unzoom' }));
+    shortcuts.push(h(Shortcut, { key: 'sc-arrows', k: '↑↓', label: 'scroll' }));
+    if (zoomedPanel === 'tree') {
+      shortcuts.push(h(Shortcut, { key: 'sc-lr', k: '←→', label: 'expand' }));
+    }
+    shortcuts.push(h(Shortcut, { key: 'sc-q', k: 'Ctrl+C', label: 'quit' }));
+  } else if (screenType === 'agent' && focusedPanel && focusedPanel !== 'hero') {
+    // Agent screen, context panel focused
+    shortcuts.push(h(Shortcut, { key: 'sc-tab', k: 'Tab', label: 'next' }));
+    shortcuts.push(h(Shortcut, { key: 'sc-esc', k: 'Esc', label: 'input' }));
+    shortcuts.push(h(Shortcut, { key: 'sc-z', k: 'z', label: 'zoom' }));
+    if (focusedPanel === 'tree') {
+      shortcuts.push(h(Shortcut, { key: 'sc-arrows', k: '↑↓←→', label: 'tree' }));
+    } else {
+      shortcuts.push(h(Shortcut, { key: 'sc-arrows', k: '↑↓', label: 'scroll' }));
+    }
+    shortcuts.push(h(Shortcut, { key: 'sc-?', k: '?', label: 'help' }));
+  } else if (screenType === 'agent') {
+    // Agent screen, hero focused (or idle)
+    if (sessionId) {
+      shortcuts.push(h(Shortcut, { key: 'sc-tab', k: 'Tab', label: 'panels' }));
+      shortcuts.push(h(Shortcut, { key: 'sc-d', k: 'Ctrl+D', label: 'session' }));
+    }
+    shortcuts.push(h(Shortcut, { key: 'sc-?', k: '?', label: 'help' }));
+    shortcuts.push(h(Shortcut, { key: 'sc-q', k: 'Ctrl+C', label: 'quit' }));
+  } else {
+    // Browser screens
+    shortcuts.push(h(Shortcut, { key: 'sc-tab', k: 'Tab', label: 'screen' }));
+    shortcuts.push(h(Shortcut, { key: 'sc-arrows', k: '↑↓', label: 'nav' }));
+    shortcuts.push(h(Shortcut, { key: 'sc-enter', k: 'Enter', label: 'open' }));
+    shortcuts.push(h(Shortcut, { key: 'sc-esc', k: 'Esc', label: 'back' }));
+    shortcuts.push(h(Shortcut, { key: 'sc-?', k: '?', label: 'help' }));
+  }
+
+  // Focus/zoom indicator
+  const focusInfo = zoomedPanel
+    ? h(Text, { color: 'yellow', bold: true }, `▣ ${zoomedPanel.toUpperCase()}`)
+    : focusedPanel && focusedPanel !== 'hero'
+      ? h(Text, { color: 'cyan' }, `◈ ${focusedPanel.toUpperCase()}`)
+      : null;
+
+  return h(Box, {
+    paddingX: 1,
+    height: 1,
+    width: '100%',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+    // Left: connection + latency + session + voice
+    h(Box, { flexDirection: 'row' },
+      h(Text, { color: connColor }, connIcon),
+      h(Text, null, ' '),
+      h(Text, { color: 'gray', dimColor: true }, connStatus),
+      latencyLabel ? h(Text, { color: 'gray', dimColor: true }, `  ${latencyLabel}`) : null,
+      sessionLabel ? h(Text, { color: 'gray', dimColor: true }, `  ${sessionLabel}`) : null,
+      voiceActive ? h(Text, { color: 'magenta', bold: true }, '  VOICE') : null,
     ),
-    h(Text, { color: statusColor, dimColor: !busy }, statusLabel)
+
+    // Center: focus/zoom info
+    focusInfo,
+
+    // Right: shortcuts
+    h(Box, { flexDirection: 'row' },
+      ...shortcuts.map((sc, i) =>
+        i < shortcuts.length - 1
+          ? h(Box, { key: `sc-wrap-${i}`, flexDirection: 'row' }, sc, h(Text, null, ' '))
+          : sc
+      ),
+    ),
   );
 };
 
@@ -528,7 +633,7 @@ const InputPrompt = ({ onSubmit, disabled, placeholder, onUpArrow, onDownArrow }
 
 // ── Slash commands → navigation targets ───────────────────────
 
-const SLASH_COMMANDS: Record<string, Screen> = {
+const SLASH_COMMANDS: Record<string, Screen | 'session-current'> = {
   '/catalog': { type: 'catalog' },
   '/c': { type: 'catalog' },
   '/sessions': { type: 'sessions' },
@@ -540,6 +645,7 @@ const SLASH_COMMANDS: Record<string, Screen> = {
   '/agent': { type: 'agent' },
   '/a': { type: 'agent' },
   '/home': { type: 'agent' },
+  '/session': 'session-current',
 };
 
 // ── Tab cycle order ───────────────────────────────────────────
@@ -551,13 +657,53 @@ const SCREEN_CYCLE: Screen[] = [
   { type: 'models' },
 ];
 
+// ── NoBackendScreen ─────────────────────────────────────────────
+// Shown when backend is not available and --demo was NOT passed.
+
+const NoBackendScreen = () => {
+  const { exit } = useApp();
+  useInput((input, key) => {
+    if ((input === 'c' && key.ctrl) || input === 'q') exit();
+  });
+
+  return h(Box, {
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexGrow: 1,
+    padding: 2,
+  },
+    h(Box, {
+      flexDirection: 'column',
+      borderStyle: 'single',
+      borderColor: 'red',
+      padding: 1,
+      width: 60,
+    },
+      h(Text, { color: 'red', bold: true }, 'Backend Not Available'),
+      h(Box, { height: 1 }),
+      h(Text, null, 'Maestro backend is not running. The interactive mode'),
+      h(Text, null, 'requires the backend to create sessions and execute tasks.'),
+      h(Box, { height: 1 }),
+      h(Text, { color: 'cyan', bold: true }, 'To start the backend:'),
+      h(Text, { color: 'gray' }, '  powershell -File dev-scripts/dev-start.ps1'),
+      h(Box, { height: 1 }),
+      h(Text, { color: 'cyan', bold: true }, 'To run in demo mode (UI preview):'),
+      h(Text, { color: 'gray' }, '  maestro code --demo'),
+      h(Box, { height: 1 }),
+      h(Text, { color: 'gray', dimColor: true }, 'Press q or Ctrl+C to quit.'),
+    ),
+  );
+};
+
 // ── Root App ───────────────────────────────────────────────────
 
-const InteractiveApp = ({ sessionManager, apiClient, isFirstRun, repoPath }: {
+const InteractiveApp = ({ sessionManager, apiClient, isFirstRun, repoPath, demoMode }: {
   sessionManager: SessionManager | null;
   apiClient?: any;
   isFirstRun?: boolean;
   repoPath?: string;
+  demoMode?: boolean;
 }) => {
   const { exit } = useApp();
   const { stdout } = useStdout();
@@ -569,8 +715,9 @@ const InteractiveApp = ({ sessionManager, apiClient, isFirstRun, repoPath }: {
 
   // ── Agent conversation state ──
   const [lines, setLines] = useState<LogLine[]>([
-    { text: 'Maestro Interactive Mode', color: 'cyan', bold: true },
+    { text: demoMode ? 'Maestro Interactive Mode [DEMO]' : 'Maestro Interactive Mode', color: 'cyan', bold: true },
     { text: 'Type a task and press Enter. Ctrl+C to quit. Ctrl+V to toggle voice mode.', color: 'gray', dim: true },
+    ...(demoMode ? [{ text: 'Demo mode — no real execution. Use for UI preview only.', color: 'yellow', dim: true }] : []),
     { text: '' },
   ]);
   const [busy, setBusy] = useState(false);
@@ -578,6 +725,10 @@ const InteractiveApp = ({ sessionManager, apiClient, isFirstRun, repoPath }: {
   const [currentWidget, setCurrentWidget] = useState<Widget | null>(null);
   const [pendingInteractive, setPendingInteractive] = useState<Widget | null>(null);
   const [voiceMode, setVoiceMode] = useState(false);
+  const [connected, setConnected] = useState<boolean | null>(null);
+  const [latency, setLatency] = useState(0);
+  const [activePanelFocus, setActivePanelFocus] = useState<PanelId | null>(null);
+  const [activeZoom, setActiveZoom] = useState<PanelId | null>(null);
 
   // ── Resize + cleanup ──
   useEffect(() => {
@@ -594,19 +745,23 @@ const InteractiveApp = ({ sessionManager, apiClient, isFirstRun, repoPath }: {
     };
   }, [stdout, sessionManager]);
 
-  // ── Startup health check ──
+  // ── Health check (startup + periodic) ──
   useEffect(() => {
-    if (!apiClient) return;
-    (async () => {
+    if (!apiClient) { setConnected(false); return; }
+    const check = async () => {
+      const t0 = Date.now();
       try {
         await apiClient._fetch('GET', '/api/health');
+        setLatency(Date.now() - t0);
+        setConnected(true);
       } catch {
-        setLines(prev => [...prev, {
-          text: 'Warning: Backend not reachable. Run: powershell -File dev-scripts/dev-start.ps1',
-          color: 'yellow', bold: true,
-        }]);
+        setConnected(false);
+        setLatency(0);
       }
-    })();
+    };
+    check();
+    const timer = setInterval(check, 15000);
+    return () => clearInterval(timer);
   }, [apiClient]);
 
   // ── Global keyboard ──
@@ -618,8 +773,13 @@ const InteractiveApp = ({ sessionManager, apiClient, isFirstRun, repoPath }: {
     if (input === 'v' && key.ctrl) {
       setVoiceMode(v => !v);
     }
-    // Tab: cycle screens
-    if (key.tab) {
+    // Ctrl+D: jump to session detail
+    if (input === 'd' && key.ctrl && currentSessionId) {
+      nav.navigate({ type: 'session-detail', id: currentSessionId });
+      return;
+    }
+    // Tab: cycle screens (only when NOT on agent screen — FlipperLayout handles Tab there)
+    if (key.tab && nav.userScreen.type !== 'agent') {
       const currentType = nav.userScreen.type;
       const currentIdx = SCREEN_CYCLE.findIndex(s => s.type === currentType);
       const nextIdx = currentIdx >= 0 ? (currentIdx + 1) % SCREEN_CYCLE.length : 0;
@@ -671,8 +831,16 @@ const InteractiveApp = ({ sessionManager, apiClient, isFirstRun, repoPath }: {
 
     // Slash commands → navigation
     const slashTarget = SLASH_COMMANDS[trimmed];
+    if (slashTarget === 'session-current') {
+      if (currentSessionId) {
+        nav.navigate({ type: 'session-detail', id: currentSessionId });
+      } else {
+        addLine({ text: 'No active session. Start a task first.', color: 'yellow' });
+      }
+      return;
+    }
     if (slashTarget) {
-      nav.navigate(slashTarget);
+      nav.navigate(slashTarget as Screen);
       return;
     }
     if (trimmed === '/back') { nav.goBack(); return; }
@@ -719,13 +887,13 @@ const InteractiveApp = ({ sessionManager, apiClient, isFirstRun, repoPath }: {
           nav.setAgentState('working');
         }
       });
-    } else {
-      // Demo mode (no API client)
+    } else if (demoMode) {
+      // Demo mode (--demo flag) — mock execution for UI preview
       setBusy(true);
       nav.setAgentState('working');
-      addLine({ text: 'Processing... (demo mode — no API)', color: 'gray', dim: true, timestamp: ts() });
+      addLine({ text: '[DEMO] Processing...', color: 'gray', dim: true, timestamp: ts() });
       setTimeout(() => {
-        addLine({ text: 'Done (no real execution in demo mode)', color: 'yellow', timestamp: ts() });
+        addLine({ text: '[DEMO] Done (no real execution)', color: 'yellow', timestamp: ts() });
         addLine({ text: '' });
         setBusy(false);
         nav.setAgentState('idle');
@@ -742,97 +910,127 @@ const InteractiveApp = ({ sessionManager, apiClient, isFirstRun, repoPath }: {
     h(NavBar, {
       pages: CODE_PAGES,
       currentPage,
-      title: 'MAESTRO',
+      title: demoMode ? 'MAESTRO [DEMO]' : 'MAESTRO',
       badge: h(AgentBadge, { agentState: nav.agentState, busy }),
     }),
 
     // Screen content (varies by current screen)
-    nav.userScreen.type === 'agent'
-      ? renderAgentContent()
-      : nav.userScreen.type === 'catalog'
-        ? h(CatalogBrowser, {
-            apiClient, onNavigate: nav.navigate,
-            onBack: nav.goBack, onQuit: () => exit(),
-            height: contentHeight,
-          })
-        : nav.userScreen.type === 'sessions'
-          ? h(SessionBrowser, {
-              apiClient, onNavigate: nav.navigate,
-              onBack: nav.goBack, onQuit: () => exit(),
-              height: contentHeight,
-            })
-          : nav.userScreen.type === 'models'
-            ? h(ModelsBrowser, {
-                apiClient,
-                onBack: nav.goBack, onQuit: () => exit(),
-                height: contentHeight,
-              })
-            : nav.userScreen.type === 'help'
-              ? h(HelpOverlay, { onClose: nav.goBack })
-              : nav.userScreen.type === 'welcome'
-                ? h(WelcomeScreen, {
-                    onInit: handleInit,
-                    onSkip: () => nav.navigate({ type: 'agent' }),
-                    onHelp: () => nav.navigate({ type: 'help' }),
-                  })
-                : renderAgentContent(),
+    renderScreen(nav.userScreen, contentHeight),
 
     // StatusBar (always visible)
-    h(StatusBar, { sessionId: currentSessionId, busy, voiceActive: voiceMode }),
+    h(RichStatusBar, {
+      sessionId: currentSessionId,
+      busy,
+      voiceActive: voiceMode,
+      connected,
+      latency,
+      focusedPanel: activePanelFocus,
+      zoomedPanel: activeZoom,
+      screenType: nav.userScreen.type,
+    }),
   );
 
+  function renderScreen(screen: Screen, contentHeight: number) {
+    switch (screen.type) {
+      case 'agent':
+        return renderAgentContent();
+      case 'catalog':
+        return h(CatalogBrowser, {
+          apiClient, onNavigate: nav.navigate,
+          onBack: nav.goBack, onQuit: () => exit(),
+          height: contentHeight,
+        });
+      case 'sessions':
+        return h(SessionBrowser, {
+          apiClient, onNavigate: nav.navigate,
+          onBack: nav.goBack, onQuit: () => exit(),
+          height: contentHeight,
+        });
+      case 'models':
+        return h(ModelsBrowser, {
+          apiClient, onNavigate: nav.navigate,
+          onBack: nav.goBack, onQuit: () => exit(),
+          height: contentHeight,
+        });
+      case 'block-detail':
+        return h(BlockDetailScreen, {
+          blockId: screen.id,
+          apiClient, onNavigate: nav.navigate,
+          onBack: nav.goBack, onQuit: () => exit(),
+          height: contentHeight,
+        });
+      case 'session-detail':
+        return h(SessionDetailScreen, {
+          sessionId: screen.id,
+          apiClient, onNavigate: nav.navigate,
+          onBack: nav.goBack, onQuit: () => exit(),
+          height: contentHeight,
+        });
+      case 'model-detail':
+        return h(ModelDetailScreen, {
+          modelId: screen.id,
+          apiClient,
+          onBack: nav.goBack, onQuit: () => exit(),
+          height: contentHeight,
+        });
+      case 'help':
+        return h(HelpOverlay, { onClose: nav.goBack });
+      case 'welcome':
+        return h(WelcomeScreen, {
+          onInit: handleInit,
+          onSkip: () => nav.navigate({ type: 'agent' }),
+          onHelp: () => nav.navigate({ type: 'help' }),
+        });
+      default:
+        return renderAgentContent();
+    }
+  }
+
   function renderAgentContent() {
-    const outputHeight = Math.max(contentHeight - 5 - (currentWidget ? 8 : 0), 3);
-
-    return h(Box, { flexDirection: 'column', flexGrow: 1 },
-      // Agent activity overlay (when agent is here and active)
-      nav.agentIsHere && nav.agentState !== 'idle'
-        ? h(AgentActivity, {
-            agentState: nav.agentState,
-            taskSummary: busy ? 'Working...' : undefined,
-            sessionId: currentSessionId,
-          })
-        : null,
-
-      // Output
-      h(OutputPanel, { lines, height: outputHeight }),
-
-      // Widget
-      currentWidget ? h(WidgetRenderer, { widget: currentWidget, onResponse: () => {} }) : null,
-
-      // Input
-      h(InputPrompt, {
-        onSubmit: handleSubmit,
-        disabled: false,
-        placeholder: pendingInteractive
-          ? 'Respond to the widget above...'
-          : voiceMode
-            ? 'Listening...'
-            : busy
-              ? 'Send a message to the agent...'
-              : 'Describe your task...',
-        onUpArrow: history.prev,
-        onDownArrow: history.next,
-      }),
-    );
+    return h(FlipperLayout, {
+      sessionId: currentSessionId,
+      apiClient,
+      lines,
+      busy,
+      agentState: nav.agentState,
+      agentIsHere: nav.agentIsHere,
+      taskSummary: busy ? 'Working...' : undefined,
+      currentWidget,
+      pendingInteractive,
+      voiceMode,
+      onSubmit: handleSubmit,
+      onUpArrow: history.prev,
+      onDownArrow: history.next,
+      widgetRenderer: WidgetRenderer,
+      height: contentHeight,
+      onPanelFocus: setActivePanelFocus,
+      onZoom: setActiveZoom,
+    });
   }
 };
 
 // ── Root wrapper (splash → main app transition) ──────────────
 
-const RootApp = ({ sessionManager, apiClient, noSplash, isFirstRun, repoPath }: {
+const RootApp = ({ sessionManager, apiClient, noSplash, isFirstRun, repoPath, demoMode }: {
   sessionManager: SessionManager | null;
   apiClient?: any;
   noSplash?: boolean;
   isFirstRun?: boolean;
   repoPath?: string;
+  demoMode?: boolean;
 }) => {
   const [showSplash, setShowSplash] = useState(!noSplash);
 
   if (showSplash) {
     return h(SplashScreen, { onDone: () => setShowSplash(false) });
   }
-  return h(InteractiveApp, { sessionManager, apiClient, isFirstRun, repoPath });
+
+  // No API client and no --demo flag → show error screen
+  if (!apiClient && !demoMode) {
+    return h(NoBackendScreen);
+  }
+
+  return h(InteractiveApp, { sessionManager, apiClient, isFirstRun, repoPath, demoMode });
 };
 
 // ── Public entry point ─────────────────────────────────────────
@@ -843,18 +1041,25 @@ async function startInteractive(options: InteractiveOptions = {}): Promise<void>
     process.exit(1);
   }
 
+  // Apply terminal background color
+  setTerminalBg(palette.bg);
+
   // Create session manager if API client is provided
   const sessionManager = options.apiClient ? new SessionManager(options) : null;
   const noSplash = (options as any).noSplash || false;
   const isFirstRun = (options as any).isFirstRun || false;
+  const demoMode = (options as any).demo || false;
 
   const instance = render(
-    h(RootApp, { sessionManager, apiClient: options.apiClient, noSplash, isFirstRun, repoPath: options.repoPath }),
+    h(RootApp, { sessionManager, apiClient: options.apiClient, noSplash, isFirstRun, repoPath: options.repoPath, demoMode }),
     { exitOnCtrlC: true }
   );
 
   await instance.waitUntilExit();
+
+  // Reset terminal background on exit
+  resetTerminalBg();
 }
 
-export { startInteractive, InteractiveApp, OutputPanel, InputPrompt, StatusBar, SessionManager, WidgetRenderer };
+export { startInteractive, InteractiveApp, OutputPanel, InputPrompt, RichStatusBar, SessionManager, WidgetRenderer };
 export type { LogLine as InteractiveLogLine, InteractiveOptions, Widget };

@@ -12,7 +12,7 @@ import { Panel } from '@maestro/tui/components';
 import {
   inkTheme as theme,
   primary, muted, bold,
-} from '@maestro/tui/theme/ink';
+} from '@maestro/tui/theme';
 
 const SECTIONS = [
   {
@@ -22,17 +22,33 @@ const SECTIONS = [
       { key: 'C', desc: 'Go to Catalog' },
       { key: 'S', desc: 'Go to Sessions' },
       { key: 'M', desc: 'Go to Models' },
+      { key: 'Tab', desc: 'Cycle screens (from browser)' },
       { key: 'Esc', desc: 'Go back' },
     ],
   },
   {
-    title: 'Agent',
+    title: 'Agent — Input',
     shortcuts: [
-      { key: 'J', desc: 'Join agent (go to where agent is)' },
       { key: 'Enter', desc: 'Submit task / message' },
       { key: '↑/↓', desc: 'Input history' },
       { key: 'Ctrl+A', desc: 'Cursor to start' },
       { key: 'Ctrl+E', desc: 'Cursor to end' },
+      { key: 'Ctrl+D', desc: 'Open session detail (during session)' },
+      { key: '/session', desc: 'Open session detail (slash command)' },
+      { key: 'J', desc: 'Join agent (go to where agent is)' },
+    ],
+  },
+  {
+    title: 'Cockpit — Panels',
+    shortcuts: [
+      { key: 'Tab', desc: 'Cycle panel focus (hero→tree→log→llm)' },
+      { key: 'Esc', desc: 'Return to input / exit zoom' },
+      { key: 'z', desc: 'Zoom focused panel full-screen' },
+      { key: '↑/↓', desc: 'Navigate tree / scroll log' },
+      { key: '←/→', desc: 'Collapse / expand tree nodes' },
+      { key: 'Enter', desc: 'Toggle tree node expand' },
+      { key: 'Click', desc: 'Focus clicked panel' },
+      { key: 'Scroll', desc: 'Scroll in focused panel' },
     ],
   },
   {

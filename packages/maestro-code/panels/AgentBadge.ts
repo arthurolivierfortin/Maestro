@@ -9,8 +9,7 @@
 import { createElement as h } from 'react';
 import { Text } from 'ink';
 import { useAnimationTick } from '@maestro/tui/hooks';
-import { spinnerFrame, breathingDot } from '@maestro/tui/theme/animations';
-import { inkTheme as theme } from '@maestro/tui/theme/ink';
+import { spinnerFrame, breathingDot, inkTheme as theme } from '@maestro/tui/theme';
 import type { AgentState } from '../types.ts';
 
 interface AgentBadgeProps {

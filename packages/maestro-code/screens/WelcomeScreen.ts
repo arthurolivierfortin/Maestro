@@ -12,7 +12,7 @@ import { brand } from '@maestro/tui/theme';
 import {
   inkTheme as theme,
   primary, muted, bold, success,
-} from '@maestro/tui/theme/ink';
+} from '@maestro/tui/theme';
 
 interface WelcomeScreenProps {
   onInit: () => void;

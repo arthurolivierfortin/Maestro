@@ -15,9 +15,8 @@
 import { createElement as h } from 'react';
 import { Box, Text } from 'ink';
 import { useAnimationTick } from '@maestro/tui/hooks';
-import { spinnerFrame, breathingDot, activityFrame } from '@maestro/tui/theme/animations';
-import { inkTheme as theme } from '@maestro/tui/theme/ink';
-import { renderBitmap } from '@maestro/tui/utils/bitmap';
+import { spinnerFrame, breathingDot, activityFrame, inkTheme as theme } from '@maestro/tui/theme';
+import { renderBitmap } from '@maestro/tui/utils';
 import { getMascotteFrame } from '@maestro/tui/sprites';
 import type { AgentState } from '../types.ts';
 
@@ -25,6 +24,7 @@ interface AgentActivityProps {
   agentState: AgentState;
   taskSummary?: string;
   sessionId?: string | null;
+  compact?: boolean;
 }
 
 const STATE_CONFIG: Record<AgentState, { icon: string; color: string; label: string }> = {
@@ -34,17 +34,12 @@ const STATE_CONFIG: Record<AgentState, { icon: string; color: string; label: str
   'waiting-input': { icon: '?', color: theme.agent.waiting, label: 'Agent waiting for input' },
 };
 
-const AgentActivity = ({ agentState, taskSummary, sessionId }: AgentActivityProps) => {
+const AgentActivity = ({ agentState, taskSummary, sessionId, compact }: AgentActivityProps) => {
   // Slow tick for mascotte animation (swap frame every ~600ms)
   const tick = useAnimationTick(150);
   const mascotteTick = Math.floor(tick / 4);
 
   const config = STATE_CONFIG[agentState] || STATE_CONFIG.idle;
-
-  // Map AgentState to MascotteState
-  const mascotteState = agentState === 'waiting-input' ? 'waiting-input' : agentState;
-  const bitmap = getMascotteFrame(mascotteState as any, mascotteTick);
-  const mascotteLines = renderBitmap(bitmap);
 
   // Animated indicator
   let indicator: string;
@@ -55,6 +50,28 @@ const AgentActivity = ({ agentState, taskSummary, sessionId }: AgentActivityProp
   } else {
     indicator = config.icon;
   }
+
+  // Compact mode: single line, no mascotte, no border
+  if (compact) {
+    return h(Box, {
+      paddingX: 1,
+      width: '100%',
+      flexDirection: 'row',
+      height: 1,
+    },
+      h(Text, { color: config.color }, indicator),
+      h(Text, null, ' '),
+      h(Text, { color: config.color, bold: agentState === 'working' }, config.label),
+      taskSummary
+        ? h(Text, { color: 'gray' }, ` — ${taskSummary.length > 40 ? taskSummary.slice(0, 40) + '...' : taskSummary}`)
+        : null,
+    );
+  }
+
+  // Full mode: mascotte + state info
+  const mascotteState = agentState === 'waiting-input' ? 'waiting-input' : agentState;
+  const bitmap = getMascotteFrame(mascotteState as any, mascotteTick);
+  const mascotteLines = renderBitmap(bitmap);
 
   return h(Box, {
     borderStyle: 'single',

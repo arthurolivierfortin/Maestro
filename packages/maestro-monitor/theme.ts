@@ -23,13 +23,9 @@ export {
   T, primary, secondary, muted, dim,
   success, running, error, warning, label, bold, highlight,
   Badge, TypeBadge,
-} from '@maestro/tui/theme/ink';
-
-// Re-export animation helpers
-export {
   SPINNER_FRAMES, BREATHING_DOTS, ACTIVITY_FRAMES,
   spinnerFrame, breathingDot, activityFrame,
-} from '@maestro/tui/theme/animations';
+} from '@maestro/tui/theme';
 
 // ── Monitor-specific: Page navigation ─────────────────────────────
 

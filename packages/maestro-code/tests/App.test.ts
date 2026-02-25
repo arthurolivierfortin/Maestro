@@ -75,34 +75,50 @@ describe('OutputPanel', () => {
   });
 });
 
-// ── StatusBar Tests ───────────────────────────────────────────
+// ── RichStatusBar Tests ───────────────────────────────────────
 
-describe('StatusBar', () => {
+describe('RichStatusBar', () => {
   afterEach(() => cleanup());
 
-  it('shows "No session" and "Ready" when idle', async () => {
-    const { StatusBar } = await import('../App.ts');
-    const { lastFrame } = render(h(StatusBar, { sessionId: null, busy: false }));
+  it('shows connection status and help shortcut when idle', async () => {
+    const { RichStatusBar } = await import('../App.ts');
+    const { lastFrame } = render(h(RichStatusBar, {
+      sessionId: null, busy: false,
+      connected: true, latency: 0,
+      focusedPanel: null, zoomedPanel: null,
+      screenType: 'agent',
+    }));
     const frame = stripAnsi(lastFrame() || '');
-    expect(frame).toContain('No session');
-    expect(frame).toContain('Ready');
+    expect(frame).toContain('connected');
+    expect(frame).toContain('?');
   });
 
   it('shows short session ID when present', async () => {
-    const { StatusBar } = await import('../App.ts');
-    const { lastFrame } = render(h(StatusBar, {
+    const { RichStatusBar } = await import('../App.ts');
+    const { lastFrame } = render(h(RichStatusBar, {
       sessionId: 'abcdef12-3456-7890-abcd-ef1234567890',
       busy: false,
+      connected: true, latency: 42,
+      focusedPanel: null, zoomedPanel: null,
+      screenType: 'agent',
     }));
     const frame = stripAnsi(lastFrame() || '');
-    expect(frame).toContain('Session: abcdef12');
+    expect(frame).toContain('abcdef12');
+    expect(frame).toContain('42ms');
   });
 
-  it('shows "Running..." when busy', async () => {
-    const { StatusBar } = await import('../App.ts');
-    const { lastFrame } = render(h(StatusBar, { sessionId: null, busy: true }));
+  it('shows panel focus indicator when a panel is focused', async () => {
+    const { RichStatusBar } = await import('../App.ts');
+    const { lastFrame } = render(h(RichStatusBar, {
+      sessionId: 'abcdef12-3456-7890-abcd-ef1234567890',
+      busy: true,
+      connected: true, latency: 10,
+      focusedPanel: 'tree', zoomedPanel: null,
+      screenType: 'agent',
+    }));
     const frame = stripAnsi(lastFrame() || '');
-    expect(frame).toContain('Running...');
+    expect(frame).toContain('TREE');
+    expect(frame).toContain('zoom');
   });
 });
 
@@ -234,12 +250,13 @@ describe('InteractiveApp', () => {
     expect(frame).toContain('Describe your task...');
   });
 
-  it('shows status bar with "No session" and "Ready"', async () => {
+  it('shows rich status bar with connection status and shortcuts', async () => {
     const { InteractiveApp } = await import('../App.ts');
     const { lastFrame } = render(h(InteractiveApp, { sessionManager: null }));
     const frame = stripAnsi(lastFrame() || '');
-    expect(frame).toContain('No session');
-    expect(frame).toContain('Ready');
+    // StatusBar shows connection status + help shortcut
+    expect(frame).toContain('connecting');
+    expect(frame).toContain('?');
   });
 
   it('echoes submitted task in output', async () => {
@@ -257,7 +274,7 @@ describe('InteractiveApp', () => {
 
   it('in demo mode, shows processing then done', async () => {
     const { InteractiveApp } = await import('../App.ts');
-    const { lastFrame, stdin } = render(h(InteractiveApp, { sessionManager: null }));
+    const { lastFrame, stdin } = render(h(InteractiveApp, { sessionManager: null, demoMode: true }));
 
     await delay();
     typeText(stdin, 'test task');
@@ -266,13 +283,13 @@ describe('InteractiveApp', () => {
     await delay();
 
     let frame = stripAnsi(lastFrame() || '');
-    expect(frame).toContain('Processing... (demo mode');
+    expect(frame).toContain('[DEMO] Processing');
 
     // Wait for the 1s setTimeout in demo mode
     await delay(1200);
 
     frame = stripAnsi(lastFrame() || '');
-    expect(frame).toContain('Done (no real execution');
+    expect(frame).toContain('[DEMO] Done');
   });
 });
 

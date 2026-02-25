@@ -1,0 +1,261 @@
+# Phase 41-PRE Checkpoint
+
+## Sub-Phase A: Foundation — COMPLETE
+
+### What was done
+
+1. **Extracted 10 data panel components from `@maestro/monitor` to `@maestro/tui`**
+   - WorkflowTree, ExecutionLog, LLMActivity, MetricsPanel, Variables, Filesystem, Artifacts, CommandLog, WidgetsPanel, PhaseWorkflow
+   - All components updated to use direct relative imports (`../theme/index.ts`, `../utils/index.ts`) instead of the monitor's `../theme.ts`
+   - Updated `packages/tui/components/index.ts` barrel export to include all 10 components
+
+2. **Updated monitor to re-export from `@maestro/tui`**
+   - All 10 component files in `packages/maestro-monitor/components/` replaced with thin re-exports
+   - SessionMonitor.ts (the sole consumer) unchanged — imports still work via the same relative paths
+   - Backward-compatible: `flattenExecutionTree`, `autoExpandRunningPath`, `flattenPhaseWorkflow`, `buildDirectoryTree`, `flattenFilesystem` still exported
+
+3. **Fixed demo mode (no silent failures)**
+   - Added `--demo` CLI flag (`maestro code --demo`)
+   - Without `--demo` and without backend: shows `NoBackendScreen` (red error with instructions)
+   - With `--demo`: shows `[DEMO]` in NavBar title and log output
+   - Updated `launcher.ts` to forward `demo` flag
+   - Updated `cli.ts` help text and flag passing
+
+4. **Applied terminal background color**
+   - `setTerminalBg(palette.bg)` called at startup in `startInteractive()`
+   - `resetTerminalBg()` called after `instance.waitUntilExit()`
+   - Imported from `@maestro/tui/theme`
+
+### Test results
+- TUI: 67/67 pass
+- Monitor: 4/4 pass
+- Maestro-code: 63/63 pass
+- Client: 19/19 pass
+- Sidecar: 5/5 pass
+- **Total: 158/158 pass**
+
+### Files modified
+
+| File | Change |
+|------|--------|
+| `packages/tui/components/WorkflowTree.ts` | NEW — extracted from monitor |
+| `packages/tui/components/ExecutionLog.ts` | NEW — extracted from monitor |
+| `packages/tui/components/LLMActivity.ts` | NEW — extracted from monitor |
+| `packages/tui/components/MetricsPanel.ts` | NEW — extracted from monitor |
+| `packages/tui/components/Variables.ts` | NEW — extracted from monitor |
+| `packages/tui/components/Filesystem.ts` | NEW — extracted from monitor |
+| `packages/tui/components/Artifacts.ts` | NEW — extracted from monitor |
+| `packages/tui/components/CommandLog.ts` | NEW — extracted from monitor |
+| `packages/tui/components/WidgetsPanel.ts` | NEW — extracted from monitor |
+| `packages/tui/components/PhaseWorkflow.ts` | NEW — extracted from monitor |
+| `packages/tui/components/index.ts` | Added 10 component exports |
+| `packages/maestro-monitor/components/*.ts` | 10 files → thin re-exports |
+| `packages/maestro-code/App.ts` | Demo mode, terminal bg, NoBackendScreen |
+| `packages/maestro-code/launcher.ts` | Forward `demo` flag |
+| `packages/maestro-cli/cli.ts` | `--demo` flag |
+| `packages/maestro-code/tests/App.test.ts` | Updated demo mode test |
+
+---
+
+## Sub-Phase B: Detail Screens & Routing — COMPLETE
+
+### What was done
+
+1. **Extended Screen types** (`types.ts`)
+   - Added `model-detail`, `workspace-detail`, `repo-detail` screen types
+   - Updated `screenEquals()` for new id-bearing screen types
+   - Updated `screenToPageKey()` — workspace/repo-detail → sessions tab, model-detail → models tab
+
+2. **Created 3 new detail screens** in `packages/maestro-code/screens/`
+   - **BlockDetailScreen.ts** — 4 panels: INFO (id, type, atomic, version, children tree), FITNESS (block + task fitness with progress bars and dimensions), SESSIONS (selectable list of linked sessions → navigate to session-detail), ACTIONS (view source JSON). Adapted from monitor's BlockDetail but without StatusBar or monitor page navigation.
+   - **SessionDetailScreen.ts** — Full session monitoring cockpit using shared @maestro/tui data panels: EXECUTION tree (with auto-expand running nodes, cursor navigation), METRICS (fitness, nodes completed/total, score history), LOG (execution log tail), LLM (LLM activity). Uses `usePanelFocus` for Tab cycling between 4 panels.
+   - **ModelDetailScreen.ts** — 3 panels: HEALTH (status, backend, device, GPU, uptime, load), USAGE (requests, latency, errors, tokens, throughput), PERFORMANCE (fitness bar, task breakdown, sparkline history). Adapted from monitor's ModelDetail.
+
+3. **Updated App.ts routing**
+   - Replaced nested ternary chain with clean `renderScreen()` switch/case function
+   - Added routes for `block-detail`, `session-detail`, `model-detail`
+   - Added `workspace-detail` and `repo-detail` to Screen type (routing ready for future)
+
+4. **Added navigation to ModelsBrowser**
+   - Added `onNavigate` prop and `tree.toggle` keyboard handler
+   - Enter on a model → navigates to `model-detail` screen
+   - Passed `onNavigate: nav.navigate` from App.ts
+
+5. **Updated barrel export** (`screens/index.ts`)
+   - Added BlockDetailScreen, SessionDetailScreen, ModelDetailScreen
+
+### Architecture decisions
+
+- **Detail screens live in maestro-code, NOT in @maestro/tui.** They're app-level screens with API fetching, navigation, and layout. The shared data panel components (WorkflowTree, ExecutionLog, etc.) are in @maestro/tui — the detail screens compose them.
+- **No StatusBar in detail screens.** App.ts provides the global StatusBar at the bottom. Detail screens render only their content area.
+- **No monitor page navigation.** Monitor's `page.home/spaces/foundry/catalog/models` keyboard actions not included. Maestro-code handles A/C/S/M navigation at the top level.
+- **SessionDetailScreen uses the full set of @maestro/tui data panels** (WorkflowTree, ExecutionLog, LLMActivity, MetricsPanel) — the same components the monitor uses, imported from the shared package.
+
+### Test results
+- TUI: 67/67 pass
+- Monitor: 4/4 pass
+- Maestro-code: 63/63 pass
+- Client: 19/19 pass
+- Sidecar: 5/5 pass
+- **Total: 158/158 pass**
+
+### Files modified
+
+| File | Change |
+|------|--------|
+| `packages/maestro-code/types.ts` | Added model-detail, workspace-detail, repo-detail screen types + helpers |
+| `packages/maestro-code/screens/BlockDetailScreen.ts` | NEW — block detail with 4 panels |
+| `packages/maestro-code/screens/SessionDetailScreen.ts` | NEW — session cockpit with shared data panels |
+| `packages/maestro-code/screens/ModelDetailScreen.ts` | NEW — model detail with 3 panels |
+| `packages/maestro-code/screens/ModelsBrowser.ts` | Added onNavigate + Enter → model-detail |
+| `packages/maestro-code/screens/index.ts` | Added 3 detail screen exports |
+| `packages/maestro-code/App.ts` | Refactored routing to switch/case, added detail screen routes |
+
+---
+
+## Sub-Phase C: FlipperLayout (Cockpit) — COMPLETE
+
+### What was done
+
+1. **Created FlipperLayout component** (`layouts/FlipperLayout.ts`, ~370 lines)
+   The main visual change of Phase 41-PRE. Transforms the agent screen from a flat log into a multi-panel cockpit.
+
+   **Idle mode** (no session):
+   - Full-screen hero panel with conversation output and input
+   - Compact agent activity bar (1 line) when agent is active (working/navigating)
+   - Identical behavior to the old flat layout but with cleaner structure
+
+   **Active mode** (session running):
+   ```
+   ┌────────────────────────────┬──────────────────────────┐
+   │  HERO (65%)                │  EXECUTION TREE (35%)    │
+   │  [compact activity bar]   │  ✓ Prepare               │
+   │  > Add login page         │  ▶ Plan ←                │
+   │    ✓ Plan done            │──────────────────────────│
+   │  > [input prompt]         │  METRICS                  │
+   ├────────────────────────────┴──────────────────────────┤
+   │  LOG (50%)                 │  LLM ACTIVITY (50%)      │
+   └────────────────────────────┴──────────────────────────┘
+   ```
+   - Hero (65%): conversation + compact AgentActivity + InputPrompt
+   - Right column (35%): WorkflowTree (top, with auto-expand) + MetricsPanel (bottom)
+   - Bottom bar: ExecutionLog (left) + LLMActivity (right)
+   - Session data polled independently via `useApiData` every 2s
+
+2. **Keyboard context switching**
+   - Tab: cycles focus between panels (hero → tree → log → llm → hero)
+   - When hero focused: InputPrompt active, full typing mode
+   - When panel focused: InputPrompt disabled (shows `[Tab] to type`), arrow keys navigate tree
+   - Esc: returns focus to hero (from panel) or exits zoom
+   - z: zooms focused context panel to full screen
+   - Tree panel: up/down/left/right for tree navigation, Enter/Space to toggle expand
+
+3. **Zoom mode**
+   - z key on any context panel → full-screen view of that panel
+   - Shows `[Esc]exit zoom` hint
+   - Supports zooming EXECUTION, LOG, or LLM panels
+
+4. **AgentActivity compact mode**
+   - Added `compact?: boolean` prop
+   - Compact: 1-line inline bar — `◉ Agent working — Creating files...`
+   - Full: 13-line mascotte + state info (used on idle agent screen)
+   - Compact used in both FlipperLayout idle (active agent) and active (session running)
+
+5. **Integrated into App.ts**
+   - `renderAgentContent()` replaced with single `FlipperLayout` component call
+   - Tab screen cycling disabled when on agent screen (FlipperLayout handles Tab)
+   - Old `OutputPanel`, `AgentActivity` import removed from App.ts
+   - `WidgetRenderer` passed as prop for widget rendering
+
+6. **Fixed infinite render loop**
+   - `useTreeNav.setFlatNodes()` called in `useEffect` caused infinite loop (flatNodes reference changed each render)
+   - Fixed by using string hash of node IDs as dependency
+
+### Architecture decisions
+
+- **FlipperLayout is self-contained**: it manages panel focus, zoom, tree nav, and session polling internally. App.ts passes minimal props (session ID, conversation state, handlers).
+- **Compact vs Full AgentActivity**: the full mascotte (13 lines) is too large for the active cockpit. Compact mode gives the agent status in 1 line, leaving maximum space for content.
+- **Independent session polling**: FlipperLayout polls session data via `useApiData` when a sessionId is set. This is independent of SessionManager's polling — SessionManager handles lifecycle (create, invoke, detect completion), FlipperLayout handles monitoring display.
+- **InputPrompt disabled state**: when a context panel is focused, InputPrompt shows `[Tab] to type` and ignores keystrokes. This prevents accidental typing while navigating the tree.
+
+### Test results
+- TUI: 67/67 pass
+- Monitor: 4/4 pass
+- Maestro-code: 63/63 pass
+- Client: 19/19 pass
+- Sidecar: 5/5 pass
+- **Total: 158/158 pass**
+
+### Files modified
+
+| File | Change |
+|------|--------|
+| `packages/maestro-code/layouts/FlipperLayout.ts` | NEW — cockpit layout (idle + active modes, panel focus, zoom, tree nav) |
+| `packages/maestro-code/panels/AgentActivity.ts` | Added `compact` prop — 1-line mode without mascotte |
+| `packages/maestro-code/App.ts` | FlipperLayout integration, Tab scope fix, removed old AgentActivity import |
+
+---
+
+## Sub-Phase D: Polish & Unification — COMPLETE
+
+### What was done
+
+1. **Rich StatusBar** (`App.ts`)
+   - Replaced simple StatusBar ("No session" / "Ready") with `RichStatusBar`
+   - Shows animated connection status (breathing dot connected, spinner connecting, ✗ error)
+   - Shows latency (periodic health check every 15s)
+   - Shows session ID when active
+   - Shows voice mode indicator
+   - Shows focused panel indicator (◈ TREE) and zoomed panel indicator (▣ TREE)
+   - Context-aware keyboard shortcuts that change based on screen type, focus state, and zoom
+   - Uses `Shortcut` component from @maestro/tui for consistent styling
+
+2. **Panel state propagation** (`FlipperLayout.ts`)
+   - Added `onPanelFocus` and `onZoom` callback props to FlipperLayout
+   - Reports panel focus and zoom changes to parent (App.ts) via useEffect
+   - App.ts stores `activePanelFocus` and `activeZoom` state, passes to RichStatusBar
+
+3. **Mouse support** (`FlipperLayout.ts`)
+   - Added `useMouse` hook from @maestro/tui/hooks
+   - Click-to-focus: maps click coordinates to panel regions (hero/tree/log/llm)
+   - Scroll wheel: navigates tree up/down when tree panel is focused
+   - Uses stdout columns for accurate region mapping
+
+4. **Extended HelpOverlay** (`HelpOverlay.ts`)
+   - 5 sections (was 4): Navigation, Agent — Input, Cockpit — Panels, Lists, General
+   - Added Tab screen cycling, Ctrl+D session shortcut, /session command
+   - Added full Cockpit panel shortcuts: Tab focus cycling, z zoom, tree nav, mouse hints
+   - Added click/scroll mouse hints
+
+5. **Session shortcut** (`App.ts`)
+   - `/session` slash command: navigates to SessionDetailScreen for current active session
+   - Shows "No active session" warning if no session is running
+   - `Ctrl+D` keyboard shortcut: same behavior (global handler)
+
+### Architecture decisions
+
+- **RichStatusBar lives in App.ts, not @maestro/tui.** It's app-specific (maestro-code shortcuts, screen types, session handling). The @maestro/tui StatusBar remains for the monitor which has different context needs.
+- **Panel state lifted via callbacks.** FlipperLayout reports focus/zoom changes via `onPanelFocus`/`onZoom` callbacks. App.ts stores the state and passes it to RichStatusBar. This avoids complex state sharing or context providers.
+- **Health check is periodic (15s).** Keeps connection status updated without excessive polling. The initial check runs immediately on mount.
+- **Mouse regions are approximate.** Click regions are calculated from terminal columns and height proportions. This matches the CSS-like layout percentages used in FlipperLayout (65%/35% width, 60%/40% height).
+
+### Test results
+- TUI: 67/67 pass
+- Monitor: 4/4 pass
+- Maestro-code: 63/63 pass
+- Client: 19/19 pass
+- Sidecar: 5/5 pass
+- **Total: 158/158 pass**
+
+### Files modified
+
+| File | Change |
+|------|--------|
+| `packages/maestro-code/App.ts` | RichStatusBar (connection, latency, focus, shortcuts), /session command, Ctrl+D handler, health check periodic |
+| `packages/maestro-code/layouts/FlipperLayout.ts` | onPanelFocus/onZoom callbacks, useMouse (click + scroll), useStdout for dimensions |
+| `packages/maestro-code/screens/HelpOverlay.ts` | 5 sections with cockpit panel shortcuts, mouse hints |
+| `packages/maestro-code/tests/App.test.ts` | Updated StatusBar tests for RichStatusBar interface |
+| `packages/maestro-code/tests/screens.test.ts` | Updated HelpOverlay assertions for expanded content |
+
+### Next: Sub-Phase E
+Cleanup — simplify SessionManager (remove duplicate polling), remove flat log rendering (WorkflowTree replaces it), documentation updates.

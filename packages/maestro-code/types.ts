@@ -11,6 +11,9 @@ export type Screen =
   | { type: 'models' }
   | { type: 'block-detail'; id: string }
   | { type: 'session-detail'; id: string }
+  | { type: 'model-detail'; id: string }
+  | { type: 'workspace-detail'; id: string }
+  | { type: 'repo-detail'; id: string }
   | { type: 'welcome' }
   | { type: 'help' };
 
@@ -54,6 +57,9 @@ export function screenEquals(a: Screen, b: Screen): boolean {
   if (a.type !== b.type) return false;
   if (a.type === 'block-detail' && b.type === 'block-detail') return a.id === b.id;
   if (a.type === 'session-detail' && b.type === 'session-detail') return a.id === b.id;
+  if (a.type === 'model-detail' && b.type === 'model-detail') return a.id === b.id;
+  if (a.type === 'workspace-detail' && b.type === 'workspace-detail') return a.id === b.id;
+  if (a.type === 'repo-detail' && b.type === 'repo-detail') return a.id === b.id;
   return true;
 }
 
@@ -65,8 +71,11 @@ export function screenToPageKey(screen: Screen): string {
     case 'catalog':
     case 'block-detail': return 'catalog';
     case 'sessions':
-    case 'session-detail': return 'sessions';
-    case 'models': return 'models';
+    case 'session-detail':
+    case 'workspace-detail':
+    case 'repo-detail': return 'sessions';
+    case 'models':
+    case 'model-detail': return 'models';
     default: return 'agent';
   }
 }

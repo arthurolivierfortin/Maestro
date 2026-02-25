@@ -9,10 +9,9 @@
 import { createElement as h, useState, useEffect } from 'react';
 import { Box, Text } from 'ink';
 import { brand } from '@maestro/tui/theme';
-import { inkTheme as theme } from '@maestro/tui/theme/ink';
+import { inkTheme as theme, breathingDot } from '@maestro/tui/theme';
 import { useAnimationTick } from '@maestro/tui/hooks';
-import { breathingDot } from '@maestro/tui/theme/animations';
-import { renderBitmap } from '@maestro/tui/utils/bitmap';
+import { renderBitmap } from '@maestro/tui/utils';
 import { SPLASH } from '@maestro/tui/sprites';
 
 interface SplashScreenProps {
