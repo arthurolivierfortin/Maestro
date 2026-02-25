@@ -1,9 +1,12 @@
 // @ts-nocheck
 /**
- * Maestro Interactive Mode — Spatial TUI (Phase 41-B)
+ * Maestro Interactive Mode — Spatial TUI (Phase 41-C)
  *
  * Spatial full-screen page navigation on a 2D grid.
  * Pages: Agent (0,0), Execution (0,-1), Catalog (-1,0), Spaces (1,0), Models (0,1).
+ *
+ * Agent page has 3 visual states: idle (mascotte centered), working (compact + ConversationLog),
+ * completed (celebrating + summary). SessionManager extracted to services/.
  *
  * Navigation:
  * - Ctrl+Arrow: navigate to adjacent page (computed from Page Registry)
@@ -16,7 +19,6 @@ import { createElement as h, useState, useCallback, useEffect, useRef } from 're
 import { render, useApp, useStdout, Box, Text, useInput } from 'ink';
 import { setTerminalBg, resetTerminalBg, palette } from '@maestro/tui/theme';
 import type { PanelId } from './layouts/FlipperLayout.ts';
-import { FlipperLayout } from './layouts/FlipperLayout.ts';
 import { CatalogBrowser } from './screens/CatalogBrowser.ts';
 import { SessionBrowser } from './screens/SessionBrowser.ts';
 import { ModelsBrowser } from './screens/ModelsBrowser.ts';
@@ -31,44 +33,12 @@ import { useSpatialNav } from './hooks/useSpatialNav.ts';
 import { createDefaultRegistry } from './registry/index.ts';
 import { SpatialStatusBar } from './components/SpatialStatusBar.ts';
 import { TransitionWipe } from './components/TransitionWipe.ts';
+import { AgentPage } from './pages/AgentPage.ts';
 import type { AgentState } from './types.ts';
+import { SessionManager, ts } from './services/SessionManager.ts';
+import type { LogLine, InteractiveOptions, Widget } from './services/SessionManager.ts';
 import * as nodePath from 'path';
 import * as nodeFs from 'fs';
-
-// ── Types ──────────────────────────────────────────────────────
-
-export interface LogLine {
-  text: string;
-  color?: string;
-  bold?: boolean;
-  dim?: boolean;
-  timestamp?: string;
-}
-
-interface InteractiveOptions {
-  apiClient?: any;
-  repoPath?: string;
-  template?: string;
-  entryPoint?: string;
-  importSessionTemplate?: (sessionId: string, templateName: string) => Promise<void>;
-  isFirstRun?: boolean;
-  demo?: boolean;
-}
-
-interface Widget {
-  type: string;
-  content: string;
-  params: Record<string, any>;
-  id: string;
-  interactive?: boolean;
-  timestamp?: string;
-}
-
-// ── Timestamp helper ──────────────────────────────────────────
-
-function ts(): string {
-  return new Date().toISOString().slice(11, 19);
-}
 
 
 // ── Demo Client ──────────────────────────────────────────────
@@ -156,217 +126,9 @@ function createDemoClient() {
   };
 }
 
-// ── Session Manager ───────────────────────────────────────────
-// Manages the Maestro session lifecycle outside of React state.
+// ── ConversationLog re-export (replaces old OutputPanel) ──
 
-class SessionManager {
-  private client: any;
-  private repoPath: string;
-  private template: string;
-  private entryPoint: string;
-  private importTemplate: (sessionId: string, templateName: string) => Promise<void>;
-  private sessionId: string | null = null;
-  private pollTimer: ReturnType<typeof setInterval> | null = null;
-  private widgetPollTimer: ReturnType<typeof setInterval> | null = null;
-  private lastWidgetId: string | null = null;
-
-  constructor(options: InteractiveOptions) {
-    this.client = options.apiClient;
-    this.repoPath = options.repoPath || process.cwd();
-    this.template = options.template || 'project-autonomous';
-    this.entryPoint = options.entryPoint || 'dev';
-    this.importTemplate = options.importSessionTemplate || (async () => {});
-  }
-
-  async submitTask(
-    task: string,
-    addLine: (line: LogLine) => void,
-    setBusy: (b: boolean) => void
-  ): Promise<void> {
-    setBusy(true);
-
-    try {
-      // 1. Create session
-      addLine({ text: 'Creating session...', color: 'gray', dim: true, timestamp: ts() });
-      const path = nodePath;
-      const session = await this.client.createSession({
-        repositoryPath: this.repoPath,
-        authority: 'human',
-        name: `${path.basename(this.repoPath)} - ${task.slice(0, 60)}`,
-      });
-      this.sessionId = session.id;
-      addLine({ text: `Session: ${session.id.slice(0, 8)}`, color: 'gray', timestamp: ts() });
-
-      // 2. Import template
-      addLine({ text: `Importing template: ${this.template}`, color: 'gray', dim: true, timestamp: ts() });
-      await this.importTemplate(this.sessionId, this.template);
-
-      // 3. Start session
-      await this.client.startSession(this.sessionId);
-      addLine({ text: 'Session started', color: 'gray', timestamp: ts() });
-
-      // 4. Invoke entry point
-      const inputs: Record<string, string> = { repoPath: this.repoPath, task };
-      addLine({ text: `Invoking: ${this.entryPoint}`, color: 'cyan', bold: true, timestamp: ts() });
-      await this.client._fetch('POST', `/api/sessions/${this.sessionId}/invoke/${this.entryPoint}`, {
-        body: { inputs }
-      });
-
-      // 5. Start polling for completion
-      this.startPolling(addLine, setBusy);
-
-    } catch (err: any) {
-      addLine({ text: `Error: ${err.message || err}`, color: 'red', bold: true, timestamp: ts() });
-      addLine({ text: '' });
-      setBusy(false);
-    }
-  }
-
-  private startPolling(addLine: (line: LogLine) => void, setBusy: (b: boolean) => void) {
-    // Completion-only polling. Execution tree, log entries, and LLM activity
-    // are displayed by FlipperLayout's context panels (WorkflowTree, ExecutionLog,
-    // LLMActivity) which poll session data independently via useApiData.
-    this.pollTimer = setInterval(async () => {
-      try {
-        const session = await this.client.getSession(this.sessionId);
-        const vars = session.variables || {};
-        const tree: any[] = vars._executionTree || [];
-
-        // Check if workflow is done
-        const status = session.status || session.containerStatus;
-        const allDone = tree.length > 0 && tree.every(n => n.status === 'completed' || n.status === 'done' || n.status === 'error' || n.status === 'skipped');
-        if (allDone || status === 'completed' || status === 'idle') {
-          this.stopPolling();
-          const hasErrors = tree.some(n => n.status === 'error');
-          if (hasErrors) {
-            addLine({ text: 'Task completed with errors', color: 'red', bold: true, timestamp: ts() });
-          } else if (tree.length > 0) {
-            addLine({ text: 'Task completed', color: 'green', bold: true, timestamp: ts() });
-          }
-          addLine({ text: '' });
-          setBusy(false);
-        }
-      } catch (err: any) {
-        // Poll errors are non-fatal — session may still be running
-      }
-    }, 2000);
-  }
-
-  stopPolling() {
-    if (this.pollTimer) {
-      clearInterval(this.pollTimer);
-      this.pollTimer = null;
-    }
-    this.stopWidgetPolling();
-  }
-
-  async sendMessage(message: string, addLine: (line: LogLine) => void): Promise<void> {
-    if (!this.sessionId) return;
-
-    try {
-      await this.client._fetch('PUT',
-        `/api/sessions/${this.sessionId}/variables/_userMessage`,
-        { body: { value: { text: message, time: new Date().toISOString() } } }
-      );
-      addLine({ text: `> ${message}`, color: 'green', bold: true, timestamp: ts() });
-    } catch (err: any) {
-      addLine({ text: `Error sending message: ${err.message}`, color: 'red', timestamp: ts() });
-    }
-  }
-
-  startWidgetPolling(
-    addLine: (line: LogLine) => void,
-    setWidget: (w: Widget | null) => void,
-    setPendingInteractive: (w: Widget | null) => void
-  ): void {
-    this.widgetPollTimer = setInterval(async () => {
-      try {
-        const session = await this.client.getSession(this.sessionId);
-        const vars = session.variables || {};
-        const widgetReq = vars._widgetRequest;
-
-        if (widgetReq && widgetReq.widget && widgetReq.widget.id !== this.lastWidgetId) {
-          this.lastWidgetId = widgetReq.widget.id;
-          const widget = widgetReq.widget as Widget;
-          setWidget(widget);
-
-          if (!widget.interactive) {
-            addLine({
-              text: `[${widget.type}] ${widget.content}`,
-              color: 'blue',
-              timestamp: widget.timestamp || ts(),
-            });
-          } else {
-            setPendingInteractive(widget);
-          }
-        }
-      } catch {
-        // Non-fatal
-      }
-    }, 500);
-  }
-
-  async sendWidgetResponse(
-    response: string,
-    widgetId: string,
-    addLine: (line: LogLine) => void
-  ): Promise<void> {
-    if (!this.sessionId) return;
-
-    try {
-      await this.client._fetch('PUT',
-        `/api/sessions/${this.sessionId}/variables/_widgetResponse`,
-        { body: { value: { response, widgetId } } }
-      );
-      addLine({ text: `  Response: ${response}`, color: 'cyan', timestamp: ts() });
-    } catch (err: any) {
-      addLine({ text: `Error sending response: ${err.message}`, color: 'red', timestamp: ts() });
-    }
-  }
-
-  stopWidgetPolling(): void {
-    if (this.widgetPollTimer) {
-      clearInterval(this.widgetPollTimer);
-      this.widgetPollTimer = null;
-    }
-  }
-
-  getSessionId(): string | null {
-    return this.sessionId;
-  }
-}
-
-// ── OutputPanel (exported for tests — FlipperLayout uses its own copy) ──
-
-const OutputPanel = ({ lines, height }: { lines: LogLine[]; height: number }) => {
-  const maxLines = Math.max(height - 2, 1);
-  const visible = lines.slice(-maxLines);
-
-  return h(Box, {
-    flexDirection: 'column',
-    borderStyle: 'round',
-    borderColor: 'gray',
-    paddingX: 1,
-    height,
-    overflow: 'hidden',
-  },
-    ...visible.map((line, i) =>
-      h(Box, { key: i },
-        line.timestamp
-          ? h(Text, { color: 'gray', dimColor: true }, `${line.timestamp} `)
-          : null,
-        h(Text, {
-          color: (line.color || 'white') as any,
-          bold: line.bold,
-          dimColor: line.dim,
-        }, line.text)
-      )
-    ),
-    visible.length === 0
-      ? h(Text, { color: 'gray', dimColor: true }, 'Waiting for input...')
-      : null
-  );
-};
+import { ConversationLog } from './components/ConversationLog.ts';
 
 
 // ── WidgetRenderer ──────────────────────────────────────────────
@@ -1018,25 +780,34 @@ const InteractiveApp = ({ sessionManager: smProp, apiClient: clientProp, isFirst
   }
 
   function renderAgentContent() {
-    return h(FlipperLayout, {
-      sessionId: currentSessionId,
-      apiClient,
-      lines,
-      busy,
-      agentState,
-      agentIsHere: true, // always true until 41-F Agent-in-the-Cockpit
-      taskSummary: busy ? 'Working...' : undefined,
-      currentWidget,
-      pendingInteractive,
-      voiceMode,
-      onSubmit: handleSubmit,
-      onUpArrow: history.prev,
-      onDownArrow: history.next,
-      widgetRenderer: WidgetRenderer,
-      height: contentHeight,
-      onPanelFocus: setActivePanelFocus,
-      onZoom: setActiveZoom,
-    });
+    return h(Box, { flexDirection: 'column', flexGrow: 1, height: contentHeight },
+      // AgentPage: idle/working/celebrating
+      h(AgentPage, {
+        agentState,
+        lines,
+        busy,
+        connected,
+        latency,
+        sessionId: currentSessionId,
+        height: contentHeight - 3, // reserve 3 for InputPrompt
+        onSubmit: handleSubmit,
+        onUpArrow: history.prev,
+        onDownArrow: history.next,
+        currentWidget,
+        pendingInteractive,
+        voiceMode,
+        widgetRenderer: WidgetRenderer,
+        demoMode,
+      }),
+      // InputPrompt (always at bottom)
+      h(InputPrompt, {
+        onSubmit: handleSubmit,
+        disabled: false,
+        placeholder: busy ? 'Send a message to the agent...' : 'Describe your task...',
+        onUpArrow: history.prev,
+        onDownArrow: history.next,
+      }),
+    );
   }
 };
 
@@ -1092,5 +863,5 @@ async function startInteractive(options: InteractiveOptions = {}): Promise<void>
   resetTerminalBg();
 }
 
-export { startInteractive, InteractiveApp, OutputPanel, InputPrompt, SessionManager, WidgetRenderer };
-export type { LogLine as InteractiveLogLine, InteractiveOptions, Widget };
+export { startInteractive, InteractiveApp, ConversationLog, InputPrompt, SessionManager, WidgetRenderer };
+export type { LogLine, LogLine as InteractiveLogLine, InteractiveOptions, Widget };

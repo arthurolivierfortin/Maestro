@@ -26,46 +26,46 @@ function typeText(stdin: any, text: string) {
 const ENTER = '\r';
 const BACKSPACE = '\x7F';
 
-// ── OutputPanel Tests ─────────────────────────────────────────
+// ── ConversationLog Tests ─────────────────────────────────────
 
-describe('OutputPanel', () => {
+describe('ConversationLog', () => {
   afterEach(() => cleanup());
 
   it('shows "Waiting for input..." when no lines', async () => {
-    const { OutputPanel } = await import('../App.ts');
-    const { lastFrame } = render(h(OutputPanel, { lines: [], height: 10 }));
+    const { ConversationLog } = await import('../App.ts');
+    const { lastFrame } = render(h(ConversationLog, { lines: [], height: 10 }));
     const frame = stripAnsi(lastFrame() || '');
     expect(frame).toContain('Waiting for input...');
   });
 
   it('renders log lines', async () => {
-    const { OutputPanel } = await import('../App.ts');
+    const { ConversationLog } = await import('../App.ts');
     const lines = [
       { text: 'Hello world' },
       { text: 'Second line', color: 'green' },
     ];
-    const { lastFrame } = render(h(OutputPanel, { lines, height: 10 }));
+    const { lastFrame } = render(h(ConversationLog, { lines, height: 10 }));
     const frame = stripAnsi(lastFrame() || '');
     expect(frame).toContain('Hello world');
     expect(frame).toContain('Second line');
   });
 
   it('renders timestamps when present', async () => {
-    const { OutputPanel } = await import('../App.ts');
+    const { ConversationLog } = await import('../App.ts');
     const lines = [
       { text: 'Log entry', timestamp: '12:34:56' },
     ];
-    const { lastFrame } = render(h(OutputPanel, { lines, height: 10 }));
+    const { lastFrame } = render(h(ConversationLog, { lines, height: 10 }));
     const frame = stripAnsi(lastFrame() || '');
     expect(frame).toContain('12:34:56');
     expect(frame).toContain('Log entry');
   });
 
   it('scrolls — only shows last N lines that fit', async () => {
-    const { OutputPanel } = await import('../App.ts');
+    const { ConversationLog } = await import('../App.ts');
     // height=5, border takes 2 lines → maxLines = 3
     const lines = Array.from({ length: 10 }, (_, i) => ({ text: `Line ${i}` }));
-    const { lastFrame } = render(h(OutputPanel, { lines, height: 5 }));
+    const { lastFrame } = render(h(ConversationLog, { lines, height: 5 }));
     const frame = stripAnsi(lastFrame() || '');
     // Should show last 3 lines (maxLines = height - 2 = 3)
     expect(frame).toContain('Line 9');
@@ -256,12 +256,14 @@ describe('InputPrompt', () => {
 describe('InteractiveApp', () => {
   afterEach(() => cleanup());
 
-  it('renders welcome message', async () => {
+  it('renders idle agent page with mascotte', async () => {
     const { InteractiveApp } = await import('../App.ts');
     const { lastFrame } = render(h(InteractiveApp, { sessionManager: null }));
     const frame = stripAnsi(lastFrame() || '');
-    expect(frame).toContain('Maestro Interactive Mode');
-    expect(frame).toContain('Type a task and press Enter');
+    // Idle state shows MascotteFull with status text
+    expect(frame).toContain('Agent ready');
+    // System status
+    expect(frame).toContain('Backend');
   });
 
   it('shows input prompt', async () => {
@@ -281,7 +283,7 @@ describe('InteractiveApp', () => {
     expect(frame).toContain('Cat');
   });
 
-  it('echoes submitted task in output', async () => {
+  it('stays on idle page when submitting without sessionManager', async () => {
     const { InteractiveApp } = await import('../App.ts');
     const { lastFrame, stdin } = render(h(InteractiveApp, { sessionManager: null }));
 
@@ -291,14 +293,16 @@ describe('InteractiveApp', () => {
     await delay();
 
     const frame = stripAnsi(lastFrame() || '');
-    expect(frame).toContain('> Add login page');
+    // Without a sessionManager, task cannot start — stays idle
+    // AgentPage idle shows mascotte, not conversation log
+    expect(frame).toContain('Agent ready');
   });
 
-  it('in demo mode, auto-starts and shows cockpit layout', async () => {
+  it('in demo mode, auto-starts and shows agent working state', async () => {
     const { InteractiveApp } = await import('../App.ts');
     const { lastFrame } = render(h(InteractiveApp, { sessionManager: null, demoMode: true }));
 
-    // Demo mode auto-starts a mock session — wait for cockpit to render
+    // Demo mode auto-starts a mock session — wait for working state
     await delay(1000);
 
     const frame = stripAnsi(lastFrame() || '');
@@ -306,9 +310,8 @@ describe('InteractiveApp', () => {
     expect(frame).toContain('DEMO');
     // StatusBar shows active session
     expect(frame).toContain('session:demo-');
-    // Cockpit panels should be visible (FlipperLayout active mode)
-    expect(frame).toContain('LOG');
-    expect(frame).toContain('LLM');
+    // AgentPage working state shows compact mascotte with working label
+    expect(frame).toContain('Agent working');
   });
 });
 

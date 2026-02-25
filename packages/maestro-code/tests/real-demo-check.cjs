@@ -1,6 +1,6 @@
 /**
  * REAL demo check — goes through RootApp, exactly like startInteractive().
- * Tests the FULL path: RootApp → SplashScreen → InteractiveApp → FlipperLayout
+ * Tests the FULL path: RootApp → SplashScreen → InteractiveApp → AgentPage
  */
 require('tsx/cjs');
 
@@ -16,13 +16,6 @@ async function main() {
     return str.replace(/\x1B\[[0-9;]*[a-zA-Z]/g, '');
   }
 
-  // Simulate the EXACT CLI path:
-  // cli.ts passes { apiClient: realClient, demo: true } to startInteractiveMode
-  // startInteractive creates: sessionManager = new SessionManager(options)
-  // Then renders: h(RootApp, { sessionManager, apiClient, noSplash, isFirstRun, repoPath, demoMode })
-  // But RootApp just forwards to InteractiveApp after splash.
-  // We skip splash (noSplash:true) and test InteractiveApp directly WITH a real SM.
-
   const realApiClient = {
     _fetch: async (method, path) => {
       if (path === '/api/health') throw new Error('Backend not running');
@@ -33,7 +26,6 @@ async function main() {
     startSession: async () => { throw new Error('Backend not running'); },
   };
 
-  // This is what startInteractive does:
   const realSessionManager = new SessionManager({
     apiClient: realApiClient,
     repoPath: 'C:/tmp/demo-project',
@@ -42,7 +34,7 @@ async function main() {
     importSessionTemplate: async () => {},
   });
 
-  // Render InteractiveApp with REAL SM + REAL client + demoMode (same as RootApp forwards)
+  // Render InteractiveApp with REAL SM + REAL client + demoMode
   const { lastFrame } = render(h(InteractiveApp, {
     sessionManager: realSessionManager,
     apiClient: realApiClient,
@@ -79,10 +71,10 @@ async function main() {
     }
 
     // Key state indicators
-    const hasCockpit = frame.includes('EXECUTION') && frame.includes('LOG') && frame.includes('LLM');
-    const hasData = frame.includes('Prepare') || frame.includes('[info]');
-    const isIdle = frame.includes('Waiting for input...') || frame.includes('Describe your task');
-    console.log(`[${wait}ms] ${label}: cockpit=${hasCockpit} data=${hasData} idle=${isIdle}`);
+    const hasAgent = frame.includes('Agent');
+    const hasWorking = frame.includes('Agent working') || frame.includes('working');
+    const isIdle = frame.includes('Agent ready') || frame.includes('Describe your task');
+    console.log(`[${wait}ms] ${label}: agent=${hasAgent} working=${hasWorking} idle=${isIdle}`);
   }
 
   fs.writeFileSync('C:/tmp/demo-frames-all.txt', output);
@@ -90,9 +82,7 @@ async function main() {
   // Final assertions
   const final = stripAnsi(lastFrame() || '');
   const checks = [
-    ['Cockpit visible', final.includes('EXECUTION')],
-    ['Tree has nodes', final.includes('Prepare')],
-    ['Log has entries', final.includes('[info]')],
+    ['Agent page visible', final.includes('Agent')],
     ['Session in statusbar', final.includes('session:demo-')],
     ['SpatialStatusBar shows page', final.includes('Agent')],
     ['SpatialStatusBar shows DEMO', final.includes('DEMO')],

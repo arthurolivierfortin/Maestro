@@ -1,7 +1,7 @@
 // @ts-nocheck
 /**
- * Demo mode cockpit test: verifies that the FlipperLayout panels render
- * with actual data from the mock demo client.
+ * Demo mode test: verifies that the AgentPage renders correctly
+ * with the mock demo client in working state.
  * Run with: npx vitest run tests/demo-visual-debug.test.ts
  */
 import { describe, it, expect, vi, afterEach } from 'vitest';
@@ -14,33 +14,29 @@ function stripAnsi(str: string): string {
 
 const delay = (ms = 50) => new Promise(r => setTimeout(r, ms));
 
-describe('Demo mode cockpit', () => {
+describe('Demo mode AgentPage', () => {
   afterEach(() => cleanup());
 
-  it('renders populated panels after mock data arrives', async () => {
+  it('renders working state with conversation log after auto-start', async () => {
     const { InteractiveApp } = await import('../App.ts');
     const { lastFrame } = render(h(InteractiveApp, { sessionManager: null, demoMode: true }));
 
-    // Wait for auto-start + session creation + first data poll (2s interval)
+    // Wait for auto-start + session creation + first data poll
     await delay(3000);
     const frame = stripAnsi(lastFrame() || '');
 
-    // Execution tree should have real nodes (not "no active workflow")
-    expect(frame).toContain('Prepare');
-    expect(frame).not.toContain('(no active workflow)');
+    // AgentPage working state: MascotteCompact header visible
+    expect(frame).toContain('Agent working');
 
-    // Log panel should have entries (not "no log entries yet")
-    expect(frame).toContain('[info]');
-    expect(frame).not.toContain('(no log entries yet)');
-
-    // LLM panel should have entries (not "no LLM calls yet")
-    expect(frame).toContain('Analyze');
-    expect(frame).not.toContain('(no LLM calls yet)');
-
-    // Metrics panel should show fitness
-    expect(frame).toMatch(/\d+%/);
+    // ConversationLog shows session activity
+    expect(frame).toContain('Creating session');
+    expect(frame).toContain('Session started');
+    expect(frame).toContain('Invoking');
 
     // StatusBar should show session id
     expect(frame).toContain('session:demo-');
+
+    // DEMO marker visible
+    expect(frame).toContain('DEMO');
   }, 15000);
 });

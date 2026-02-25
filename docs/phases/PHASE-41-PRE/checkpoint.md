@@ -566,3 +566,94 @@ These sub-phases implement the spatial full-screen page navigation system design
 | `packages/maestro-code/tests/screens.test.ts` | Updated NavBar → SpatialStatusBar |
 | `packages/maestro-code/tests/navigation.test.ts` | Removed deleted function tests |
 | `packages/maestro-code/tests/real-demo-check.cjs` | Added SpatialStatusBar assertions |
+
+---
+
+## Sub-Phase 41-C: Agent Page Redesign — COMPLETE
+
+### What was done
+
+1. **Extracted SessionManager** to `services/SessionManager.ts`
+   - Moved: `SessionManager` class, `LogLine`/`InteractiveOptions`/`Widget` types, `ts()` helper
+   - Created `services/index.ts` barrel export
+   - App.ts imports from `./services/SessionManager.ts` — zero behavior change
+
+2. **Created MascotteFull component** (`components/MascotteFull.ts`)
+   - Large centered mascotte using existing sprites from `@maestro/tui/sprites/mascotte`
+   - 3 visual states: idle (breathing, cyan), working (pulse, green), celebrating (magenta, star core)
+   - Uses `useAnimationTick` for frame animation (600ms idle, 300ms working)
+   - Rendered with `renderBitmap()` for Unicode half-block display
+   - Double-border box with state-colored border
+
+3. **Created MascotteCompact component** (`components/MascotteCompact.ts`)
+   - 1-line mascotte header: `◉ ┃┃ ◉ [◆]  ⠹ Agent working — status...`
+   - 3 states: idle, working (with spinner), celebrating
+   - Shows session ID and fitness when provided
+
+4. **Created ConversationLog component** (`components/ConversationLog.ts`)
+   - Replaces OutputPanel (per anti-pattern: no dual existence)
+   - Auto-scrolls to bottom (shows last N lines)
+   - Detects user messages (prefixed with `❯`), timestamps, step details
+   - Shows "Waiting for input..." when empty
+
+5. **Created AgentPage** (`pages/AgentPage.ts`)
+   - 3 visual states derived from `agentState + busy + lines`:
+     - **idle**: `IdleView` — system status (Backend/LLM health), centered MascotteFull, "Agent ready"
+     - **working**: `WorkingView` — MascotteCompact header, ConversationLog, inline widgets
+     - **celebrating**: `CompletedView` — MascotteCompact celebrating, ConversationLog, summary card
+   - `deriveVisualState()` exported for testability
+
+6. **Integrated into App.ts**
+   - `renderAgentContent()` replaced: FlipperLayout → AgentPage + InputPrompt
+   - AgentPage gets: agentState, lines, busy, connected, latency, sessionId, height, widgets, etc.
+   - InputPrompt always at bottom (idle: "Describe your task...", working: "Send a message...")
+   - Removed OutputPanel (replaced by ConversationLog export)
+   - Removed FlipperLayout import from App.ts (kept in layouts/ for 41-D Execution page)
+
+7. **Updated tests**
+   - `tests/agent-page.test.ts` — NEW — 21 tests: MascotteFull (4), MascotteCompact (5), ConversationLog (4), AgentPage states (4), deriveVisualState (4)
+   - `tests/App.test.ts` — OutputPanel → ConversationLog tests, updated InteractiveApp tests for AgentPage structure
+   - `tests/screens.test.ts` — Updated "starts on agent screen" to check for "Agent ready"
+   - `tests/demo-visual-debug.test.ts` — Updated for AgentPage working state (no more FlipperLayout cockpit)
+   - `tests/real-demo-check.cjs` — Updated assertions for AgentPage (no cockpit panels)
+
+### Architecture decisions
+
+- **AgentPage replaces FlipperLayout on the Agent page.** FlipperLayout (cockpit with execution tree, log, LLM panels) moves to the Execution page in 41-D. The agent page is now conversational (like Claude Code).
+- **OutputPanel deleted from App.ts, replaced by ConversationLog.** ConversationLog is the new public export. FlipperLayout keeps its own internal OutputPanel (for the Execution page cockpit).
+- **SessionManager in services/ is a pure extraction.** Same class, same behavior, just in its own file. App.ts imports it. No breaking changes.
+- **3 visual states are simple.** `deriveVisualState(agentState, busy, lines)` returns idle/working/celebrating. No complex state machine — just derived from existing state.
+
+### Test results
+- maestro-code: 120/120 pass (was 99 — +21 new tests)
+- maestro-monitor: 4/4 pass (no regression)
+- TUI: 67/67 pass (no regression)
+- real-demo-check.cjs: 5/5 checks pass
+- **Total: 191/191 pass**
+
+### Checkpoint data
+- **AgentPage tests**: 21/21 pass
+- **SessionManager extracted**: yes — App.ts imports from services/
+- **Mascotte idle**: visible centered in demo
+- **Mascotte working**: compact with spinner
+- **Real demo check**: 5/5 PASS
+- **Tests total**: 120/120 pass
+
+### Files modified
+
+| File | Change |
+|------|--------|
+| `packages/maestro-code/services/SessionManager.ts` | NEW — extracted from App.ts |
+| `packages/maestro-code/services/index.ts` | NEW — barrel export |
+| `packages/maestro-code/components/MascotteFull.ts` | NEW — large centered mascotte |
+| `packages/maestro-code/components/MascotteCompact.ts` | NEW — 1-line mascotte header |
+| `packages/maestro-code/components/ConversationLog.ts` | NEW — scrollable conversation log |
+| `packages/maestro-code/components/index.ts` | Added MascotteFull, MascotteCompact, ConversationLog exports |
+| `packages/maestro-code/pages/AgentPage.ts` | NEW — 3-state agent page |
+| `packages/maestro-code/pages/index.ts` | NEW — barrel export |
+| `packages/maestro-code/App.ts` | AgentPage integration, removed OutputPanel+FlipperLayout, import SessionManager from services/ |
+| `packages/maestro-code/tests/agent-page.test.ts` | NEW — 21 tests |
+| `packages/maestro-code/tests/App.test.ts` | OutputPanel→ConversationLog, updated InteractiveApp tests |
+| `packages/maestro-code/tests/screens.test.ts` | Updated agent screen test |
+| `packages/maestro-code/tests/demo-visual-debug.test.ts` | Updated for AgentPage working state |
+| `packages/maestro-code/tests/real-demo-check.cjs` | Updated for AgentPage |

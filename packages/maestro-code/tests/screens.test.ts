@@ -258,8 +258,8 @@ describe('InteractiveApp navigation', () => {
     const { InteractiveApp } = await import('../App.ts');
     const { lastFrame } = render(h(InteractiveApp, { sessionManager: null }));
     const frame = stripAnsi(lastFrame() || '');
-    // Agent screen shows the output panel and input
-    expect(frame).toContain('Maestro Interactive Mode');
+    // Agent page idle state shows mascotte and input prompt
+    expect(frame).toContain('Agent ready');
     expect(frame).toContain('Describe your task...');
   });
 
