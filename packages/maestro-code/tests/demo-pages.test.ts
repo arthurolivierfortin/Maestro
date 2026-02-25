@@ -174,7 +174,7 @@ describe('ModelsPage — demo mode', () => {
     await delay();
     const frame = stripAnsi(lastFrame() || '');
     expect(frame).toContain('[DEMO]');
-    expect(frame).toContain('6 models');
+    expect(frame).toContain('6 providers');
     expect(frame).toContain('Claude Sonnet');
     expect(frame).toContain('Qwen 2.5 Coder');
   });

@@ -2,16 +2,15 @@
 /**
  * ExecutionPage — Full-screen page wrapping SessionMonitor from @maestro/monitor.
  *
- * - If sessionId is null → "No active session" message with navigation hint
+ * - If sessionId is null → centered empty state with navigation hint
  * - If sessionId exists → renders SessionMonitor with apiClient + sessionId
  *
  * SessionMonitor handles its own:
  * - 3 modes (descriptor/execution/idle) auto-detected from session data
  * - Panel focus (Tab/Shift-Tab), zoom (z), toggles (t/f/w/v/l)
  * - Data polling via useSessionData
- * - NavBar + StatusBar (internal chrome — visual overlap with SpatialStatusBar accepted)
  *
- * Phase 41-D.
+ * Phase 41-D/H.
  */
 
 import { createElement as h } from 'react';
@@ -40,18 +39,19 @@ const NoSessionView = ({ height }: { height: number }) => {
   },
     h(Box, {
       flexDirection: 'column',
-      borderStyle: 'single',
+      borderStyle: 'round',
       borderColor: 'gray',
       paddingX: 3,
       paddingY: 1,
       width: 50,
     },
-      h(Text, { color: 'yellow', bold: true }, 'No active session'),
+      h(Text, { color: 'cyan', bold: true }, '▲ Execution'),
       h(Box, { height: 1 }),
-      h(Text, { color: 'gray' }, 'Start a task on the Agent page to create a session.'),
-      h(Text, { color: 'gray' }, 'The execution tree, logs, and metrics will appear here.'),
+      h(Text, { color: 'gray' }, 'No active session.'),
+      h(Text, { color: 'gray' }, 'Start a task on the Agent page to see'),
+      h(Text, { color: 'gray' }, 'the execution tree, logs, and metrics.'),
       h(Box, { height: 1 }),
-      h(Text, { color: 'cyan', dimColor: true }, 'Ctrl+Down  Back to Agent'),
+      h(Text, { color: 'gray', dimColor: true }, 'Ctrl+Down → Agent'),
     ),
   );
 };
