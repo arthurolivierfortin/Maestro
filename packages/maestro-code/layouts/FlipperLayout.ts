@@ -37,7 +37,6 @@ import { Box, Text, useInput, useStdout } from 'ink';
 import { Panel, WorkflowTree, ExecutionLog, LLMActivity, MetricsPanel } from '@maestro/tui/components';
 import { useApiData, useTreeNav, useMouse } from '@maestro/tui/hooks';
 import { flattenExecutionTree, autoExpandRunningPath } from '@maestro/tui/utils';
-import { inkTheme as theme } from '@maestro/tui/theme';
 import { AgentActivity } from '../panels/AgentActivity.ts';
 import type { AgentState, LogLine, Widget } from '../types.ts';
 
@@ -496,14 +495,7 @@ const FlipperLayout = ({
       ),
     ),
 
-    // Focus hint
-    h(Box, { paddingX: 1, height: 1 },
-      h(Text, { color: 'gray', dimColor: true },
-        focusedPanel === 'hero'
-          ? '[Tab]panels  [?]help'
-          : `[Tab]next  [Esc]input  [z]zoom  focused: ${focusedPanel}`
-      ),
-    ),
+    // (Focus hints moved to RichStatusBar in App.ts)
   );
 
   // ── Zoomed panel renderer ─────────────────────────────────

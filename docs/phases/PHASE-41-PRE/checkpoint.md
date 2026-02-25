@@ -257,5 +257,97 @@
 | `packages/maestro-code/tests/App.test.ts` | Updated StatusBar tests for RichStatusBar interface |
 | `packages/maestro-code/tests/screens.test.ts` | Updated HelpOverlay assertions for expanded content |
 
-### Next: Sub-Phase E
-Cleanup — simplify SessionManager (remove duplicate polling), remove flat log rendering (WorkflowTree replaces it), documentation updates.
+---
+
+## Sub-Phase E: Cleanup — COMPLETE
+
+### What was done
+
+1. **Simplified SessionManager polling** (`App.ts`)
+   - Removed execution log entry rendering from `startPolling()` — ExecutionLog panel in FlipperLayout handles this
+   - Removed execution tree flat text rendering (▶/✓/✗ lines) from `startPolling()` — WorkflowTree in FlipperLayout handles this
+   - `startPolling()` now only detects session completion (checks tree all-done + session status)
+   - Removed unused `lastLogCount` and `lastTreeHash` fields
+   - Reduced polling callback from ~50 lines to ~20 lines
+
+2. **Removed focus hint from FlipperLayout** (`FlipperLayout.ts`)
+   - The inline `[Tab]panels [?]help` / `[Tab]next [Esc]input [z]zoom` hint at the bottom of FlipperLayout was redundant with the RichStatusBar which shows the same information context-aware
+   - Freed up 1 line of vertical space for content
+
+3. **Cleaned up unused imports**
+   - Removed `inkTheme` from App.ts (was imported but unused after Sub-Phase D)
+   - Removed `inkTheme as theme` from FlipperLayout.ts (was only used by the removed focus hint)
+
+4. **Documented dual OutputPanel/InputPrompt**
+   - App.ts has `OutputPanel` and `InputPrompt` (exported, tested) — these are the public API for tests
+   - FlipperLayout.ts has its own internal copies adapted for the cockpit layout
+   - Added comments clarifying both exist: App.ts versions are "exported for tests", FlipperLayout uses its own
+
+### Architecture decisions
+
+- **SessionManager is now lifecycle-only.** It creates sessions, imports templates, starts sessions, invokes entry points, polls for completion, and manages widgets. It does NOT render execution data — FlipperLayout's context panels (WorkflowTree, ExecutionLog, LLMActivity) handle all visual monitoring via their own independent `useApiData` polling.
+- **Double polling accepted.** SessionManager and FlipperLayout both poll `getSession()` every 2s. This is intentional: SessionManager needs completion detection (to set `busy=false`), FlipperLayout needs live data for rendering. Merging them would require complex state sharing. Two lightweight polls is the simpler design.
+- **OutputPanel/InputPrompt kept in both files.** The App.ts versions serve as the tested public API. The FlipperLayout versions are slightly different (borderless, different upArrow behavior). Extracting to a shared module would be over-engineering for two small components with minor differences.
+
+### Test results
+- TUI: 67/67 pass
+- Monitor: 4/4 pass
+- Maestro-code: 63/63 pass
+- Client: 19/19 pass
+- Sidecar: 5/5 pass
+- **Total: 158/158 pass**
+
+### Files modified
+
+| File | Change |
+|------|--------|
+| `packages/maestro-code/App.ts` | SessionManager simplified (completion-only polling), removed unused inkTheme import, documented dual components |
+| `packages/maestro-code/layouts/FlipperLayout.ts` | Removed focus hint (RichStatusBar handles it), removed unused theme import |
+| `packages/maestro-code/tests/App.test.ts` | Updated SessionManager completion test (no longer expects tree/log text) |
+
+---
+
+## Phase 41-PRE Summary — COMPLETE
+
+### Overview
+
+Phase 41-PRE transformed `maestro-code` from a minimal chat app into a full-featured **Flipper Zero-inspired cockpit**. The agent screen now features a multi-panel layout with live monitoring panels, while maintaining the clean, focused design of the original chat interface.
+
+### Key deliverables
+
+1. **10 data panel components** extracted from `@maestro/monitor` to `@maestro/tui` (shared design system)
+2. **3 detail screens** (BlockDetail, SessionDetail, ModelDetail) with full monitoring panels
+3. **FlipperLayout** — hero panel (65%) + execution tree + metrics + log + LLM activity
+4. **Panel focus cycling** (Tab), **zoom** (z), **tree navigation** (arrows), **mouse support** (click/scroll)
+5. **Rich StatusBar** with connection status, latency, focus indicator, context-aware shortcuts
+6. **Extended HelpOverlay** with 5 sections covering all cockpit interactions
+7. **Session shortcut** (`/session`, `Ctrl+D`) for quick access to session detail
+8. **Simplified SessionManager** — lifecycle-only (no duplicate rendering)
+9. **Demo mode** with `--demo` flag and backend error screen without silent failures
+10. **Terminal background** applied at startup and reset on exit
+
+### Architecture
+
+```
+@maestro/tui (shared design system)
+├── Panel, WorkflowTree, ExecutionLog, LLMActivity, MetricsPanel
+├── Variables, Filesystem, Artifacts, CommandLog, PhaseWorkflow
+├── Shortcut, StatusBar, NavBar, PixelArt
+├── hooks: useApiData, useTreeNav, useMouse, usePanelFocus, ...
+└── theme, utils, sprites
+
+@maestro/code (app — imports from @maestro/tui)
+├── FlipperLayout (cockpit: hero + context panels)
+├── 3 detail screens (compose @maestro/tui panels)
+├── 3 browser screens (catalog, sessions, models)
+├── RichStatusBar, AgentActivity, AgentBadge
+├── SessionManager (lifecycle-only)
+└── App.ts (routing, navigation, global keyboard)
+
+@maestro/monitor (standalone monitor — also imports from @maestro/tui)
+└── Components now thin re-exports from @maestro/tui
+```
+
+### Test coverage
+- **158/158 tests pass** across all 5 packages
+- All sub-phases verified independently

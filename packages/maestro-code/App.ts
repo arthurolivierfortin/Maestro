@@ -14,7 +14,7 @@
 import { createElement as h, useState, useCallback, useEffect, useRef } from 'react';
 import { render, useApp, useStdout, Box, Text, useInput } from 'ink';
 import { NavBar, Shortcut } from '@maestro/tui/components';
-import { setTerminalBg, resetTerminalBg, palette, inkTheme } from '@maestro/tui/theme';
+import { setTerminalBg, resetTerminalBg, palette } from '@maestro/tui/theme';
 import { useAnimationTick } from '@maestro/tui/hooks';
 import { spinnerFrame, breathingDot } from '@maestro/tui/theme';
 import type { PanelId } from './layouts/FlipperLayout.ts';
@@ -80,8 +80,6 @@ class SessionManager {
   private importTemplate: (sessionId: string, templateName: string) => Promise<void>;
   private sessionId: string | null = null;
   private pollTimer: ReturnType<typeof setInterval> | null = null;
-  private lastLogCount = 0;
-  private lastTreeHash = '';
   private widgetPollTimer: ReturnType<typeof setInterval> | null = null;
   private lastWidgetId: string | null = null;
 
@@ -127,9 +125,7 @@ class SessionManager {
         body: { inputs }
       });
 
-      // 5. Start polling for updates
-      this.lastLogCount = 0;
-      this.lastTreeHash = '';
+      // 5. Start polling for completion
       this.startPolling(addLine, setBusy);
 
     } catch (err: any) {
@@ -140,39 +136,14 @@ class SessionManager {
   }
 
   private startPolling(addLine: (line: LogLine) => void, setBusy: (b: boolean) => void) {
+    // Completion-only polling. Execution tree, log entries, and LLM activity
+    // are displayed by FlipperLayout's context panels (WorkflowTree, ExecutionLog,
+    // LLMActivity) which poll session data independently via useApiData.
     this.pollTimer = setInterval(async () => {
       try {
         const session = await this.client.getSession(this.sessionId);
         const vars = session.variables || {};
-
-        // Check execution log for new entries
-        const log: any[] = vars._executionLog || [];
-        if (log.length > this.lastLogCount) {
-          const newEntries = log.slice(this.lastLogCount);
-          for (const entry of newEntries) {
-            const level = entry.level || 'info';
-            const color = level === 'error' ? 'red' : level === 'warn' ? 'yellow' : 'white';
-            addLine({ text: entry.msg || entry.message || JSON.stringify(entry), color, timestamp: entry.time || ts() });
-          }
-          this.lastLogCount = log.length;
-        }
-
-        // Check execution tree for status changes
         const tree: any[] = vars._executionTree || [];
-        const treeHash = JSON.stringify(tree.map(n => `${n.name}:${n.status}`));
-        if (treeHash !== this.lastTreeHash) {
-          this.lastTreeHash = treeHash;
-          // Show node status updates
-          for (const node of tree) {
-            if (node.status === 'running') {
-              addLine({ text: `  ▶ ${node.name}`, color: 'cyan', timestamp: ts() });
-            } else if (node.status === 'completed' || node.status === 'done') {
-              addLine({ text: `  ✓ ${node.name}`, color: 'green', timestamp: ts() });
-            } else if (node.status === 'error') {
-              addLine({ text: `  ✗ ${node.name}: ${node.error || 'failed'}`, color: 'red', timestamp: ts() });
-            }
-          }
-        }
 
         // Check if workflow is done
         const status = session.status || session.containerStatus;
@@ -278,7 +249,7 @@ class SessionManager {
   }
 }
 
-// ── OutputPanel ────────────────────────────────────────────────
+// ── OutputPanel (exported for tests — FlipperLayout uses its own copy) ──
 
 const OutputPanel = ({ lines, height }: { lines: LogLine[]; height: number }) => {
   const maxLines = Math.max(height - 2, 1);
@@ -559,7 +530,7 @@ const WidgetRenderer = ({ widget, onResponse }: { widget: Widget | null; onRespo
   }
 };
 
-// ── InputPrompt ────────────────────────────────────────────────
+// ── InputPrompt (exported for tests — FlipperLayout uses its own copy) ──
 
 const InputPrompt = ({ onSubmit, disabled, placeholder, onUpArrow, onDownArrow }: {
   onSubmit: (value: string) => void;

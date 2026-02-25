@@ -391,8 +391,8 @@ describe('SessionManager', () => {
     vi.useFakeTimers();
     const { SessionManager } = await import('../App.ts');
 
-    // First poll: running
-    // Second poll: completed
+    // First poll: running (no addLine — FlipperLayout handles display)
+    // Second poll: completed → completion detected
     let pollCount = 0;
     mockClient.getSession.mockImplementation(async () => {
       pollCount++;
@@ -428,12 +428,8 @@ describe('SessionManager', () => {
 
     await sm.submitTask('plan task', addLine, setBusy);
 
-    // First poll (2s)
+    // First poll (2s) — running, no completion yet
     await vi.advanceTimersByTimeAsync(2100);
-
-    expect(addLine).toHaveBeenCalledWith(
-      expect.objectContaining({ text: expect.stringContaining('Plan') })
-    );
 
     // Second poll — should detect completion
     await vi.advanceTimersByTimeAsync(2100);
