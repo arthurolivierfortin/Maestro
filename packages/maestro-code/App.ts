@@ -1,6 +1,6 @@
 // @ts-nocheck
 /**
- * Maestro Interactive Mode — Spatial TUI (Phase 41-E)
+ * Maestro Interactive Mode — Spatial TUI (Phase 41-F)
  *
  * Spatial full-screen page navigation on a 2D grid.
  * Pages: Agent (0,0), Execution (0,-1), Catalog (-1,0), Spaces (1,0), Models (0,1).
@@ -27,6 +27,10 @@ import { useSpatialNav } from './hooks/useSpatialNav.ts';
 import { createDefaultRegistry } from './registry/index.ts';
 import { SpatialStatusBar } from './components/SpatialStatusBar.ts';
 import { TransitionWipe } from './components/TransitionWipe.ts';
+import { MascotteOverlay } from './components/MascotteOverlay.ts';
+import { NotificationToast } from './components/NotificationToast.ts';
+import type { ToastEvent } from './components/NotificationToast.ts';
+import { useNavigation } from './hooks/useNavigation.ts';
 import { AgentPage } from './pages/AgentPage.ts';
 import { ExecutionPage } from './pages/ExecutionPage.ts';
 import { CatalogPage } from './pages/CatalogPage.ts';
@@ -427,8 +431,11 @@ const InteractiveApp = ({ sessionManager: smProp, apiClient: clientProp, isFirst
   const [showHelp, setShowHelp] = useState(false);
   const history = useInputHistory();
 
-  // ── Agent state (simple — full Agent-in-the-Cockpit is 41-F) ──
-  const [agentState, setAgentState] = useState<AgentState>('idle');
+  // ── Agent-in-the-Cockpit (41-F) ──
+  const nav = useNavigation();
+  const agentState = nav.agentState;
+  const setAgentState = nav.setAgentState;
+  const [toast, setToast] = useState<ToastEvent | null>(null);
 
   // ── Agent conversation state ──
   const [lines, setLines] = useState<LogLine[]>([
@@ -492,22 +499,30 @@ const InteractiveApp = ({ sessionManager: smProp, apiClient: clientProp, isFirst
     if (input === 'v' && key.ctrl) {
       setVoiceMode(v => !v);
     }
+    // Dismiss toast on any keypress
+    if (toast) { setToast(null); }
+
+    // J: join agent (teleport to agent's page, only from non-agent pages)
+    if (input === 'j' && !key.ctrl && !key.meta && spatialNav.currentPageId !== 'agent') {
+      nav.joinAgent();
+      spatialNav.goHome(); // Agent is always on the agent page for now
+      return;
+    }
+
     // Ctrl+D: jump to execution page (current session)
     if (input === 'd' && key.ctrl) {
       spatialNav.goTo('execution');
       return;
     }
 
-    // Ctrl+Arrow: spatial navigation (only when NOT on agent with active zoom/panel)
+    // Ctrl+Arrow: spatial navigation (auto-detach from agent following)
     if (key.ctrl && !key.meta) {
-      if (key.upArrow) { spatialNav.navigate('up'); return; }
-      if (key.downArrow) { spatialNav.navigate('down'); return; }
-      // Ctrl+Left/Right for spatial nav (only when NOT in agent hero mode typing)
-      if (key.leftArrow && spatialNav.currentPageId !== 'agent') { spatialNav.navigate('left'); return; }
-      if (key.rightArrow && spatialNav.currentPageId !== 'agent') { spatialNav.navigate('right'); return; }
-      // From non-agent pages, Ctrl+Left/Right always navigates
-      if (key.leftArrow) { spatialNav.navigate('left'); return; }
-      if (key.rightArrow) { spatialNav.navigate('right'); return; }
+      if (key.upArrow) { nav.detach(); spatialNav.navigate('up'); return; }
+      if (key.downArrow) { nav.detach(); spatialNav.navigate('down'); return; }
+      if (key.leftArrow && spatialNav.currentPageId !== 'agent') { nav.detach(); spatialNav.navigate('left'); return; }
+      if (key.rightArrow && spatialNav.currentPageId !== 'agent') { nav.detach(); spatialNav.navigate('right'); return; }
+      if (key.leftArrow) { nav.detach(); spatialNav.navigate('left'); return; }
+      if (key.rightArrow) { nav.detach(); spatialNav.navigate('right'); return; }
     }
 
     // Ctrl+Tab: quick-switch between last 2 pages
@@ -633,6 +648,22 @@ const InteractiveApp = ({ sessionManager: smProp, apiClient: clientProp, isFirst
     }
   }, [demoMode, sessionManager, handleSubmit]);
 
+  // ── Agent toast: notify when agent finishes and user is on another page ──
+  const prevAgentState = useRef(agentState);
+  useEffect(() => {
+    const prev = prevAgentState.current;
+    prevAgentState.current = agentState;
+    if (prev === agentState) return;
+    if (spatialNav.currentPageId === 'agent') return; // No toast when already watching
+
+    if (prev === 'working' && agentState === 'idle') {
+      setToast({ type: 'complete', message: 'Task completed', timestamp: Date.now() });
+    }
+    if (agentState === 'waiting-input') {
+      setToast({ type: 'needs-input', message: 'Agent needs input', timestamp: Date.now() });
+    }
+  }, [agentState, spatialNav.currentPageId]);
+
   // ── Layout ──
   // No NavBar — SpatialStatusBar at bottom replaces both NavBar and RichStatusBar.
   // Gains ~3 lines of content height compared to the old NavBar+StatusBar.
@@ -676,13 +707,30 @@ const InteractiveApp = ({ sessionManager: smProp, apiClient: clientProp, isFirst
         focusedPanel: activePanelFocus,
         zoomedPanel: activeZoom,
         demoMode,
+        agentPageId: 'agent',
+        agentIsHere: spatialNav.currentPageId === 'agent',
       }),
     );
   }
 
+  // Agent-in-the-Cockpit: overlay visible when agent active and on same page
+  const agentIsOnAgentPage = true; // Agent always works on agent page for now
+  const agentIsHere = agentIsOnAgentPage && spatialNav.currentPageId === 'agent';
+  const showOverlay = agentIsHere && (agentState === 'working' || agentState === 'navigating' || agentState === 'waiting-input');
+
   return h(Box, { flexDirection: 'column', width: '100%', height: rows },
-    // Page content (or detail screen)
-    renderPage(spatialNav.currentPageId, contentHeight),
+    // NotificationToast (top, ephemeral)
+    h(NotificationToast, { toast, onDismiss: () => setToast(null) }),
+
+    // Page content with optional overlay
+    h(Box, { flexDirection: 'column', flexGrow: 1, position: 'relative' },
+      renderPage(spatialNav.currentPageId, contentHeight),
+      showOverlay ? h(MascotteOverlay, {
+        agentState,
+        taskSummary: lines.length > 0 ? lines[lines.length - 1]?.text : undefined,
+        visible: showOverlay,
+      }) : null,
+    ),
 
     // SpatialStatusBar (always visible)
     h(SpatialStatusBar, {
@@ -697,6 +745,8 @@ const InteractiveApp = ({ sessionManager: smProp, apiClient: clientProp, isFirst
       focusedPanel: activePanelFocus,
       zoomedPanel: activeZoom,
       demoMode,
+      agentPageId: agentIsOnAgentPage ? 'agent' : null,
+      agentIsHere,
     }),
   );
 

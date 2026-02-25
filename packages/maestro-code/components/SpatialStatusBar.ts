@@ -49,6 +49,9 @@ export interface SpatialStatusBarProps {
   focusedPanel: PanelId | null;
   zoomedPanel: PanelId | null;
   demoMode?: boolean;
+  // Agent-in-the-Cockpit (41-F)
+  agentPageId?: string | null;
+  agentIsHere?: boolean;
 }
 
 // ── Component ────────────────────────────────────────────────
@@ -65,6 +68,8 @@ export const SpatialStatusBar = ({
   focusedPanel,
   zoomedPanel,
   demoMode,
+  agentPageId,
+  agentIsHere,
 }: SpatialStatusBarProps) => {
   const tick = useAnimationTick(120);
 
@@ -84,18 +89,36 @@ export const SpatialStatusBar = ({
   // Session label
   const sessionLabel = sessionId ? `session:${sessionId.slice(0, 8)}` : '';
 
+  // ── Agent location hint (41-F) ──────────────────────────
+  const agentActive = agentState === 'working' || agentState === 'navigating' || agentState === 'waiting-input';
+  const agentSpinner = agentActive ? spinnerFrame(tick) : '●';
+  const agentHint = agentActive
+    ? agentIsHere
+      ? h(Text, { color: 'green' }, `${agentSpinner} Agent here `)
+      : agentPageId
+        ? h(Text, { color: 'green' }, `${agentSpinner} Agent in ${agentPageId} `)
+        : null
+    : null;
+
   // ── Direction hints ──────────────────────────────────────
   const sortedHints = DIR_ORDER
     .map(dir => directionHints.find(h => h.direction === dir))
     .filter(Boolean) as DirectionHint[];
 
-  const hintElements = sortedHints.map((hint, i) =>
-    h(Box, { key: `hint-${i}`, flexDirection: 'row' },
-      h(Text, { color: 'gray' }, `${DIR_ARROW[hint.direction]}`),
-      h(Text, { color: 'gray', dimColor: true }, hint.page.shortLabel),
+  const hintElements = sortedHints.map((hint, i) => {
+    // Pulse the arrow if agent is on that page
+    const isAgentPage = agentActive && agentPageId === hint.page.id;
+    const arrow = isAgentPage
+      ? (tick % 4 < 2 ? '★' : DIR_ARROW[hint.direction])
+      : DIR_ARROW[hint.direction];
+    const hintColor = isAgentPage ? 'green' : 'gray';
+
+    return h(Box, { key: `hint-${i}`, flexDirection: 'row' },
+      h(Text, { color: hintColor }, arrow),
+      h(Text, { color: hintColor, dimColor: !isAgentPage }, hint.page.shortLabel),
       h(Text, null, ' '),
-    )
-  );
+    );
+  });
 
   // ── Focus/zoom indicator ─────────────────────────────────
   const focusInfo = zoomedPanel
@@ -122,6 +145,9 @@ export const SpatialStatusBar = ({
     shortcuts.push(h(Shortcut, { key: 'sc-?', k: '?', label: 'help' }));
   } else {
     // Non-agent pages
+    if (agentActive && !agentIsHere) {
+      shortcuts.push(h(Shortcut, { key: 'sc-j', k: 'J', label: 'join' }));
+    }
     shortcuts.push(h(Shortcut, { key: 'sc-esc', k: 'Esc', label: 'home' }));
     shortcuts.push(h(Shortcut, { key: 'sc-?', k: '?', label: 'help' }));
   }
@@ -144,8 +170,9 @@ export const SpatialStatusBar = ({
       demoMode ? h(Text, { color: 'yellow', dimColor: true }, '[DEMO] ') : null,
     ),
 
-    // Center: direction hints + focus info
+    // Center: agent hint + direction hints + focus info
     h(Box, { flexDirection: 'row', flexGrow: 1, justifyContent: 'center' },
+      agentHint,
       ...hintElements,
       focusInfo,
     ),

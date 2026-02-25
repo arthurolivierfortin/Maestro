@@ -13,3 +13,7 @@ export { MascotteCompact } from './MascotteCompact.ts';
 export type { MascotteCompactProps, CompactState } from './MascotteCompact.ts';
 export { ConversationLog } from './ConversationLog.ts';
 export type { ConversationLogProps } from './ConversationLog.ts';
+export { MascotteOverlay } from './MascotteOverlay.ts';
+export type { MascotteOverlayProps } from './MascotteOverlay.ts';
+export { NotificationToast } from './NotificationToast.ts';
+export type { NotificationToastProps, ToastEvent, ToastType } from './NotificationToast.ts';

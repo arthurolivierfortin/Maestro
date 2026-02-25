@@ -776,3 +776,71 @@ These sub-phases implement the spatial full-screen page navigation system design
 | `screens/ModelDetailScreen.ts` | DELETED |
 | `tests/list-pages.test.ts` | NEW — 10 tests |
 | `tests/screens.test.ts` | Removed 4 tests, updated 1 |
+
+---
+
+## Sub-Phase 41-F: Agent-in-the-Cockpit (JOIN/CALL/DETACH) — COMPLETE
+
+**Date**: 2026-02-25
+**Agent cockpit tests**: 14/14 pass
+**All maestro-code tests**: 145/145 pass (13 test files)
+**Monitor standalone**: 4/4 pass
+**Real demo check**: 5/5 PASS
+
+### What was done
+
+1. **Created `MascotteOverlay` component** (`components/MascotteOverlay.ts`)
+   - Floating mini-panel with position:absolute, round border
+   - Shows agent state (working/navigating/waiting-input/idle) with spinner + label
+   - Truncates long task summaries and node names to 30 chars
+   - Control hints: Esc=detach, Enter=focus
+   - Visible only when `visible=true` (agent active AND on same page as user)
+
+2. **Created `NotificationToast` component** (`components/NotificationToast.ts`)
+   - Ephemeral notification at top of screen for cross-page agent events
+   - 4 toast types: complete (★ green), error (✗ red), needs-input (? yellow), connection-lost (⚡ red)
+   - Auto-dismisses after 5 seconds via useEffect timer
+   - Shows [J] join hint for complete/needs-input types
+   - Props: `{ toast: ToastEvent | null, onDismiss }`
+
+3. **Updated `SpatialStatusBar`** with agent location features (41-F)
+   - New props: `agentPageId?: string | null`, `agentIsHere?: boolean`
+   - Agent location hint (center section): "⠹ Agent here" or "⠹ Agent in [pageId]"
+   - Direction arrows pulse with ★ when agent is on that page (tick % 4 < 2)
+   - J shortcut shown on non-agent pages when agent is active elsewhere
+
+4. **Integrated `useNavigation` into App.ts**
+   - `nav = useNavigation()` — manages agentState, agentScreen, followingAgent
+   - `agentState = nav.agentState` replaces old simple useState
+   - J key: `nav.joinAgent(spatialNav)` — navigates user to agent's page
+   - Ctrl+Arrow: auto-detaches via `nav.detach()` before spatial navigation
+   - Toast state: fires on agent state changes (complete, needs-input) when on different page
+   - Toast dismissed on any keypress
+   - MascotteOverlay rendered as absolute overlay in content area
+   - NotificationToast rendered at top of app
+   - agentPageId/agentIsHere passed to SpatialStatusBar
+
+5. **Updated `components/index.ts`** barrel with MascotteOverlay, NotificationToast exports
+
+6. **Created `tests/agent-cockpit.test.ts`** — 14 tests:
+   - MascotteOverlay: visible/invisible states, idle hidden
+   - NotificationToast: null/complete/error/needs-input rendering, auto-dismiss timer
+   - SpatialStatusBar: agent here/elsewhere hints, idle no hints, J shortcut visibility, direction hints
+
+### Architecture decisions
+
+- **MascotteOverlay uses position:absolute** — ink-testing-library can't render absolute content, so tests verify visible/invisible toggling rather than rendered content
+- **Toast auto-dismiss uses useEffect timer** — 5s timeout, cleaned up on unmount
+- **useNavigation is additive** — doesn't replace useSpatialNav. useNavigation manages agent dual-position state; useSpatialNav manages user's page navigation
+- **J key navigates to agent page** — `nav.joinAgent(spatialNav)` calls `spatialNav.goTo('agent')` and sets following=true
+
+### Files modified
+
+| File | Change |
+|------|--------|
+| `components/MascotteOverlay.ts` | NEW — floating agent overlay |
+| `components/NotificationToast.ts` | NEW — ephemeral notification |
+| `components/SpatialStatusBar.ts` | Added agentPageId, agentIsHere, pulsing arrows, J shortcut |
+| `components/index.ts` | Added MascotteOverlay, NotificationToast exports |
+| `App.ts` | useNavigation integration, toast, overlay, J key, detach on nav |
+| `tests/agent-cockpit.test.ts` | NEW — 14 tests |
