@@ -21,15 +21,6 @@ export type Screen =
 
 export type AgentState = 'idle' | 'working' | 'navigating' | 'waiting-input';
 
-// ── Navigation pages for NavBar ─────────────────────────────────
-
-export const CODE_PAGES = [
-  { key: 'agent',    hotkey: 'A', label: 'gent' },
-  { key: 'catalog',  hotkey: 'C', label: 'atalog' },
-  { key: 'sessions', hotkey: 'S', label: 'essions' },
-  { key: 'models',   hotkey: 'M', label: 'odels' },
-];
-
 // ── Log line (used by OutputPanel and AgentScreen) ──────────────
 
 export interface LogLine {
@@ -63,19 +54,3 @@ export function screenEquals(a: Screen, b: Screen): boolean {
   return true;
 }
 
-// ── Screen → page key mapping (for NavBar active state) ─────────
-
-export function screenToPageKey(screen: Screen): string {
-  switch (screen.type) {
-    case 'agent': return 'agent';
-    case 'catalog':
-    case 'block-detail': return 'catalog';
-    case 'sessions':
-    case 'session-detail':
-    case 'workspace-detail':
-    case 'repo-detail': return 'sessions';
-    case 'models':
-    case 'model-detail': return 'models';
-    default: return 'agent';
-  }
-}

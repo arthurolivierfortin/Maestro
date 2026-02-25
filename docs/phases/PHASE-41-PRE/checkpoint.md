@@ -474,3 +474,95 @@ These sub-phases implement the spatial full-screen page navigation system design
 | `packages/maestro-code/registry/index.ts` | NEW — barrel export |
 | `packages/maestro-code/tests/page-registry.test.ts` | NEW — 13 tests |
 | `packages/maestro-code/tests/monitor-imports.test.ts` | NEW — 6 tests |
+
+---
+
+## Sub-Phase 41-B: Spatial Navigation + SpatialStatusBar — COMPLETE
+
+### What was done
+
+1. **`useSpatialNav` hook** (`hooks/useSpatialNav.ts`)
+   - Core spatial navigation hook built on PageRegistry
+   - State: `currentPageId`, `previousPageId`, `detailScreen`, `transitionDir`, `transitionTarget`
+   - Methods: `navigate(direction)`, `goHome()`, `goTo(pageId)`, `rotateRing(clockwise)`, `quickSwitch()`, `openDetail(detail)`, `closeDetail()`
+   - `navigate()` computes target position from direction deltas, looks up PageRegistry
+   - `goTo()` navigates directly by page ID (used by slash commands)
+   - `quickSwitch()` toggles between current and previous page (Ctrl+Tab)
+   - `rotateRing()` cycles through non-center pages sorted by angle
+   - Transition auto-clears after 150ms via useEffect
+   - Exported `DetailScreen` and `UseSpatialNavReturn` types
+
+2. **`SpatialStatusBar` component** (`components/SpatialStatusBar.ts`)
+   - Replaces BOTH NavBar (top) and RichStatusBar (bottom) — single bottom bar
+   - Layout: `[icon PAGE_NAME] [conn] [session] [direction hints] [shortcuts]`
+   - Direction hints auto-generated from `directionHints` prop (from registry)
+   - Direction arrows: up→↑, down→↓, left→←, right→→
+   - Direction display order: left, up, down, right (consistent visual ordering)
+   - Context-aware shortcuts: zoomed mode, agent+panel focus, agent hero, non-agent pages
+   - Shows DEMO marker, voice indicator, panel focus/zoom indicators
+   - Uses `Shortcut` from @maestro/tui, `useAnimationTick`, `spinnerFrame`, `breathingDot`
+
+3. **`TransitionWipe` component** (`components/TransitionWipe.ts`)
+   - Brief (~150ms) directional overlay during page transitions
+   - Shows direction arrow (▲▼◄►) + target page label, centered
+
+4. **Components barrel export** (`components/index.ts`)
+   - Exports: SpatialStatusBar, TransitionWipe, VoiceIndicator
+
+5. **App.ts major rewrite** — replaced navigation system
+   - **Removed**: NavBar import, useNavigation, CODE_PAGES, screenToPageKey, SCREEN_CYCLE, RichStatusBar component (~110 lines deleted)
+   - **Added**: useSpatialNav, createDefaultRegistry, SpatialStatusBar, TransitionWipe imports
+   - **Layout**: No NavBar at top → gains ~3 lines of content height. SpatialStatusBar at bottom.
+   - **Keyboard**: Ctrl+Arrow → `spatialNav.navigate(direction)`, Ctrl+Tab → `spatialNav.quickSwitch()`, Esc → cascade (help→detail→goHome)
+   - **Routing**: `renderScreen(Screen)` replaced with `renderPage(pageId)` + `renderDetail(detail)`
+   - **Slash commands**: Map to page IDs (strings) instead of Screen objects. Added `/execution`, `/e`, `/spaces`.
+   - **Detail screens**: entered via `spatialNav.openDetail()`, exited via `spatialNav.closeDetail()`
+   - **agentIsHere**: hardcoded to `true` (full Agent-in-the-Cockpit is 41-F)
+   - **contentHeight**: `rows - 1` (just 1 line for SpatialStatusBar vs old ~4 for NavBar+StatusBar)
+
+6. **types.ts cleanup**
+   - Removed `CODE_PAGES` array (replaced by Page Registry)
+   - Removed `screenToPageKey()` function (replaced by Page Registry)
+   - Kept: `Screen` type, `AgentState`, `screenEquals()`, `LogLine`, `Widget`
+
+7. **hooks/index.ts updated**
+   - Added useSpatialNav and type exports (DetailScreen, UseSpatialNavReturn)
+   - Kept useSpatialNav alongside useNavigation (still needed for 41-F)
+
+8. **Tests — 17 new, existing updated**
+   - `tests/spatial-nav.test.ts` — 17 tests: 5 registry direction hints + 12 hook tests via NavTestHarness (stdin-driven state transitions)
+   - `tests/App.test.ts` — RichStatusBar → SpatialStatusBar tests (page name, session ID, panel focus)
+   - `tests/screens.test.ts` — NavBar → SpatialStatusBar assertion
+   - `tests/navigation.test.ts` — Removed CODE_PAGES/screenToPageKey tests, added Screen type and slash command page registry tests
+   - `tests/real-demo-check.cjs` — Added SpatialStatusBar page name and DEMO assertions
+
+### Architecture decisions
+
+- **SpatialStatusBar replaces both NavBar and RichStatusBar.** Single bottom bar gains 3 lines of content. Direction hints are auto-computed from registry.
+- **Page IDs are strings, not Screen objects.** Slash commands map to `'catalog'`, `'spaces'`, etc. Detail screens are `{type, id}` objects within a page.
+- **useSpatialNav is separate from useNavigation.** useNavigation (old hook) kept for 41-F Agent-in-the-Cockpit phase. useSpatialNav manages page grid + detail screens + transitions.
+- **No NavBar at top.** All navigation info moved to bottom SpatialStatusBar. This is the Flipper Zero / spatial TUI philosophy — content first, chrome minimal.
+
+### Test results
+- maestro-code: 99/99 pass (was 83 — +16 new/updated)
+- maestro-monitor: 4/4 pass (no regression)
+- TUI: 67/67 pass (no regression)
+- real-demo-check.cjs: 7/7 checks pass
+- **Total: 170/170 pass**
+
+### Files modified
+
+| File | Change |
+|------|--------|
+| `packages/maestro-code/hooks/useSpatialNav.ts` | NEW — spatial navigation hook |
+| `packages/maestro-code/hooks/index.ts` | Added useSpatialNav + type exports |
+| `packages/maestro-code/components/SpatialStatusBar.ts` | NEW — direction-hint status bar |
+| `packages/maestro-code/components/TransitionWipe.ts` | NEW — directional wipe overlay |
+| `packages/maestro-code/components/index.ts` | NEW — barrel export |
+| `packages/maestro-code/App.ts` | Major rewrite — spatial nav, SpatialStatusBar, new keyboard bindings |
+| `packages/maestro-code/types.ts` | Removed CODE_PAGES, screenToPageKey |
+| `packages/maestro-code/tests/spatial-nav.test.ts` | NEW — 17 tests |
+| `packages/maestro-code/tests/App.test.ts` | Updated for SpatialStatusBar |
+| `packages/maestro-code/tests/screens.test.ts` | Updated NavBar → SpatialStatusBar |
+| `packages/maestro-code/tests/navigation.test.ts` | Removed deleted function tests |
+| `packages/maestro-code/tests/real-demo-check.cjs` | Added SpatialStatusBar assertions |

@@ -1,24 +1,21 @@
 // @ts-nocheck
 /**
- * Maestro Interactive Mode — Agent-First TUI (Phase 40-PRE-A)
+ * Maestro Interactive Mode — Spatial TUI (Phase 41-B)
  *
- * Multi-screen navigator with the Agent as home screen.
- * Screens: Agent (home), Catalog, Sessions, Models, Help, Welcome.
+ * Spatial full-screen page navigation on a 2D grid.
+ * Pages: Agent (0,0), Execution (0,-1), Catalog (-1,0), Spaces (1,0), Models (0,1).
  *
  * Navigation:
- * - Agent screen: slash commands (/catalog, /sessions, /models, /help)
- * - Browser screens: letter shortcuts (A/C/S/M/?), Esc=back
- * - Global: Ctrl+C=quit, Ctrl+V=voice, Tab=cycle screens
+ * - Ctrl+Arrow: navigate to adjacent page (computed from Page Registry)
+ * - Esc: return to Agent (home) / close detail / unzoom
+ * - Ctrl+Tab: quick-switch between last 2 pages
+ * - Slash commands: /catalog, /spaces, /models, /help, /agent
  */
 
 import { createElement as h, useState, useCallback, useEffect, useRef } from 'react';
 import { render, useApp, useStdout, Box, Text, useInput } from 'ink';
-import { NavBar, Shortcut } from '@maestro/tui/components';
 import { setTerminalBg, resetTerminalBg, palette } from '@maestro/tui/theme';
-import { useAnimationTick } from '@maestro/tui/hooks';
-import { spinnerFrame, breathingDot } from '@maestro/tui/theme';
 import type { PanelId } from './layouts/FlipperLayout.ts';
-import { AgentBadge } from './panels/AgentBadge.ts';
 import { FlipperLayout } from './layouts/FlipperLayout.ts';
 import { CatalogBrowser } from './screens/CatalogBrowser.ts';
 import { SessionBrowser } from './screens/SessionBrowser.ts';
@@ -29,10 +26,12 @@ import { ModelDetailScreen } from './screens/ModelDetailScreen.ts';
 import { HelpOverlay } from './screens/HelpOverlay.ts';
 import { WelcomeScreen } from './screens/WelcomeScreen.ts';
 import { SplashScreen } from './screens/SplashScreen.ts';
-import { useNavigation } from './hooks/useNavigation.ts';
 import { useInputHistory } from './hooks/useInputHistory.ts';
-import { CODE_PAGES, screenToPageKey } from './types.ts';
-import type { Screen } from './types.ts';
+import { useSpatialNav } from './hooks/useSpatialNav.ts';
+import { createDefaultRegistry } from './registry/index.ts';
+import { SpatialStatusBar } from './components/SpatialStatusBar.ts';
+import { TransitionWipe } from './components/TransitionWipe.ts';
+import type { AgentState } from './types.ts';
 import * as nodePath from 'path';
 import * as nodeFs from 'fs';
 
@@ -369,118 +368,6 @@ const OutputPanel = ({ lines, height }: { lines: LogLine[]; height: number }) =>
   );
 };
 
-// ── RichStatusBar ─────────────────────────────────────────────
-// Connection status, latency, session, focused panel, context-aware shortcuts.
-
-const RichStatusBar = ({
-  sessionId,
-  busy,
-  voiceActive,
-  connected,
-  latency,
-  focusedPanel,
-  zoomedPanel,
-  screenType,
-}: {
-  sessionId: string | null;
-  busy: boolean;
-  voiceActive?: boolean;
-  connected: boolean | null;
-  latency: number;
-  focusedPanel: PanelId | null;
-  zoomedPanel: PanelId | null;
-  screenType: string;
-}) => {
-  const tick = useAnimationTick(120);
-
-  // Connection indicator
-  const connStatus = connected === null ? 'connecting' : connected ? 'connected' : 'error';
-  const connColor = connStatus === 'connected' ? 'green' : connStatus === 'error' ? 'red' : 'yellow';
-  const connIcon = connStatus === 'connecting'
-    ? spinnerFrame(tick)
-    : connStatus === 'connected'
-      ? breathingDot(tick)
-      : '✗';
-
-  const sessionLabel = sessionId ? `session:${sessionId.slice(0, 8)}` : '';
-  const latencyLabel = latency > 0 ? `${latency}ms` : '';
-
-  // Context-aware shortcuts
-  const shortcuts = [];
-
-  if (zoomedPanel) {
-    // Zoomed mode
-    shortcuts.push(h(Shortcut, { key: 'sc-esc', k: 'Esc', label: 'unzoom' }));
-    shortcuts.push(h(Shortcut, { key: 'sc-arrows', k: '↑↓', label: 'scroll' }));
-    if (zoomedPanel === 'tree') {
-      shortcuts.push(h(Shortcut, { key: 'sc-lr', k: '←→', label: 'expand' }));
-    }
-    shortcuts.push(h(Shortcut, { key: 'sc-q', k: 'Ctrl+C', label: 'quit' }));
-  } else if (screenType === 'agent' && focusedPanel && focusedPanel !== 'hero') {
-    // Agent screen, context panel focused
-    shortcuts.push(h(Shortcut, { key: 'sc-tab', k: 'Tab', label: 'next' }));
-    shortcuts.push(h(Shortcut, { key: 'sc-esc', k: 'Esc', label: 'input' }));
-    shortcuts.push(h(Shortcut, { key: 'sc-z', k: 'z', label: 'zoom' }));
-    if (focusedPanel === 'tree') {
-      shortcuts.push(h(Shortcut, { key: 'sc-arrows', k: '↑↓←→', label: 'tree' }));
-    } else {
-      shortcuts.push(h(Shortcut, { key: 'sc-arrows', k: '↑↓', label: 'scroll' }));
-    }
-    shortcuts.push(h(Shortcut, { key: 'sc-?', k: '?', label: 'help' }));
-  } else if (screenType === 'agent') {
-    // Agent screen, hero focused (or idle)
-    if (sessionId) {
-      shortcuts.push(h(Shortcut, { key: 'sc-tab', k: 'Tab', label: 'panels' }));
-      shortcuts.push(h(Shortcut, { key: 'sc-d', k: 'Ctrl+D', label: 'session' }));
-    }
-    shortcuts.push(h(Shortcut, { key: 'sc-?', k: '?', label: 'help' }));
-    shortcuts.push(h(Shortcut, { key: 'sc-q', k: 'Ctrl+C', label: 'quit' }));
-  } else {
-    // Browser screens
-    shortcuts.push(h(Shortcut, { key: 'sc-tab', k: 'Tab', label: 'screen' }));
-    shortcuts.push(h(Shortcut, { key: 'sc-arrows', k: '↑↓', label: 'nav' }));
-    shortcuts.push(h(Shortcut, { key: 'sc-enter', k: 'Enter', label: 'open' }));
-    shortcuts.push(h(Shortcut, { key: 'sc-esc', k: 'Esc', label: 'back' }));
-    shortcuts.push(h(Shortcut, { key: 'sc-?', k: '?', label: 'help' }));
-  }
-
-  // Focus/zoom indicator
-  const focusInfo = zoomedPanel
-    ? h(Text, { color: 'yellow', bold: true }, `▣ ${zoomedPanel.toUpperCase()}`)
-    : focusedPanel && focusedPanel !== 'hero'
-      ? h(Text, { color: 'cyan' }, `◈ ${focusedPanel.toUpperCase()}`)
-      : null;
-
-  return h(Box, {
-    paddingX: 1,
-    height: 1,
-    width: '100%',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-    // Left: connection + latency + session + voice
-    h(Box, { flexDirection: 'row' },
-      h(Text, { color: connColor }, connIcon),
-      h(Text, null, ' '),
-      h(Text, { color: 'gray', dimColor: true }, connStatus),
-      latencyLabel ? h(Text, { color: 'gray', dimColor: true }, `  ${latencyLabel}`) : null,
-      sessionLabel ? h(Text, { color: 'gray', dimColor: true }, `  ${sessionLabel}`) : null,
-      voiceActive ? h(Text, { color: 'magenta', bold: true }, '  VOICE') : null,
-    ),
-
-    // Center: focus/zoom info
-    focusInfo,
-
-    // Right: shortcuts
-    h(Box, { flexDirection: 'row' },
-      ...shortcuts.map((sc, i) =>
-        i < shortcuts.length - 1
-          ? h(Box, { key: `sc-wrap-${i}`, flexDirection: 'row' }, sc, h(Text, null, ' '))
-          : sc
-      ),
-    ),
-  );
-};
 
 // ── WidgetRenderer ──────────────────────────────────────────────
 
@@ -690,31 +577,25 @@ const InputPrompt = ({ onSubmit, disabled, placeholder, onUpArrow, onDownArrow }
   );
 };
 
-// ── Slash commands → navigation targets ───────────────────────
+// ── Slash commands → page IDs ─────────────────────────────────
 
-const SLASH_COMMANDS: Record<string, Screen | 'session-current'> = {
-  '/catalog': { type: 'catalog' },
-  '/c': { type: 'catalog' },
-  '/sessions': { type: 'sessions' },
-  '/s': { type: 'sessions' },
-  '/models': { type: 'models' },
-  '/m': { type: 'models' },
-  '/help': { type: 'help' },
-  '/?': { type: 'help' },
-  '/agent': { type: 'agent' },
-  '/a': { type: 'agent' },
-  '/home': { type: 'agent' },
+const SLASH_COMMANDS: Record<string, string | 'session-current' | 'help'> = {
+  '/catalog': 'catalog',
+  '/c': 'catalog',
+  '/sessions': 'spaces',
+  '/spaces': 'spaces',
+  '/s': 'spaces',
+  '/models': 'models',
+  '/m': 'models',
+  '/help': 'help',
+  '/?': 'help',
+  '/agent': 'agent',
+  '/a': 'agent',
+  '/home': 'agent',
+  '/execution': 'execution',
+  '/e': 'execution',
   '/session': 'session-current',
 };
-
-// ── Tab cycle order ───────────────────────────────────────────
-
-const SCREEN_CYCLE: Screen[] = [
-  { type: 'agent' },
-  { type: 'catalog' },
-  { type: 'sessions' },
-  { type: 'models' },
-];
 
 // ── NoBackendScreen ─────────────────────────────────────────────
 // Shown when backend is not available and --demo was NOT passed.
@@ -769,10 +650,6 @@ const InteractiveApp = ({ sessionManager: smProp, apiClient: clientProp, isFirst
   const [rows, setRows] = useState(stdout.rows || 24);
 
   // ── Demo mode: create internal mock client + session manager ──
-  // When --demo, ALWAYS use the mock client — ignore any real apiClient/SM.
-  // This ensures demo mode works regardless of whether the backend is running.
-  // Previous bug: condition was `demoMode && !smProp` — but the CLI always
-  // passes a real apiClient, so smProp was always truthy and demo was skipped.
   const [demoSetup] = useState(() => {
     if (demoMode) {
       const client = createDemoClient();
@@ -783,9 +660,15 @@ const InteractiveApp = ({ sessionManager: smProp, apiClient: clientProp, isFirst
   const sessionManager = demoMode ? (demoSetup?.sm || null) : (smProp || null);
   const apiClient = demoMode ? (demoSetup?.client || null) : (clientProp || null);
 
-  // ── Navigation ──
-  const nav = useNavigation(isFirstRun ? 'welcome' : 'agent');
+  // ── Spatial navigation ──
+  const [registry] = useState(() => createDefaultRegistry());
+  const spatialNav = useSpatialNav(registry, isFirstRun ? 'agent' : 'agent');
+  const [showWelcome, setShowWelcome] = useState(!!isFirstRun);
+  const [showHelp, setShowHelp] = useState(false);
   const history = useInputHistory();
+
+  // ── Agent state (simple — full Agent-in-the-Cockpit is 41-F) ──
+  const [agentState, setAgentState] = useState<AgentState>('idle');
 
   // ── Agent conversation state ──
   const [lines, setLines] = useState<LogLine[]>([
@@ -840,33 +723,49 @@ const InteractiveApp = ({ sessionManager: smProp, apiClient: clientProp, isFirst
 
   // ── Global keyboard ──
   useInput((input, key) => {
+    // Ctrl+C: quit
     if (input === 'c' && key.ctrl) {
       if (sessionManager) sessionManager.stopPolling();
       exit();
     }
+    // Ctrl+V: toggle voice
     if (input === 'v' && key.ctrl) {
       setVoiceMode(v => !v);
     }
     // Ctrl+D: jump to session detail
     if (input === 'd' && key.ctrl && currentSessionId) {
-      nav.navigate({ type: 'session-detail', id: currentSessionId });
+      spatialNav.openDetail({ type: 'session-detail', id: currentSessionId });
       return;
     }
-    // Tab: cycle screens (only when NOT on agent screen — FlipperLayout handles Tab there)
-    if (key.tab && nav.userScreen.type !== 'agent') {
-      const currentType = nav.userScreen.type;
-      const currentIdx = SCREEN_CYCLE.findIndex(s => s.type === currentType);
-      const nextIdx = currentIdx >= 0 ? (currentIdx + 1) % SCREEN_CYCLE.length : 0;
-      nav.navigate(SCREEN_CYCLE[nextIdx]);
+
+    // Ctrl+Arrow: spatial navigation (only when NOT on agent with active zoom/panel)
+    if (key.ctrl && !key.meta) {
+      if (key.upArrow) { spatialNav.navigate('up'); return; }
+      if (key.downArrow) { spatialNav.navigate('down'); return; }
+      // Ctrl+Left/Right for spatial nav (only when NOT in agent hero mode typing)
+      if (key.leftArrow && spatialNav.currentPageId !== 'agent') { spatialNav.navigate('left'); return; }
+      if (key.rightArrow && spatialNav.currentPageId !== 'agent') { spatialNav.navigate('right'); return; }
+      // From non-agent pages, Ctrl+Left/Right always navigates
+      if (key.leftArrow) { spatialNav.navigate('left'); return; }
+      if (key.rightArrow) { spatialNav.navigate('right'); return; }
     }
-    // Non-agent screens: letter shortcuts for navigation
-    if (nav.userScreen.type !== 'agent') {
-      const lower = (input || '').toLowerCase();
-      if (lower === 'a') nav.navigate({ type: 'agent' });
-      else if (lower === 'c' && !key.ctrl) nav.navigate({ type: 'catalog' });
-      else if (lower === 's') nav.navigate({ type: 'sessions' });
-      else if (lower === 'm') nav.navigate({ type: 'models' });
-      else if (input === '?') nav.navigate({ type: 'help' });
+
+    // Ctrl+Tab: quick-switch between last 2 pages
+    if (key.tab && key.ctrl) {
+      spatialNav.quickSwitch();
+      return;
+    }
+
+    // Esc: close help → close detail → go home (FlipperLayout handles internal Esc)
+    if (key.escape) {
+      if (showHelp) { setShowHelp(false); return; }
+      if (spatialNav.detailScreen) { spatialNav.closeDetail(); return; }
+      if (spatialNav.currentPageId !== 'agent') { spatialNav.goHome(); return; }
+    }
+
+    // ?: toggle help (only when not typing on agent page)
+    if (input === '?' && spatialNav.currentPageId !== 'agent') {
+      setShowHelp(v => !v);
     }
   });
 
@@ -896,29 +795,42 @@ const InteractiveApp = ({ sessionManager: smProp, apiClient: clientProp, isFirst
     } catch (err: any) {
       addLine({ text: `Failed to initialize: ${err.message}`, color: 'red' });
     }
-    nav.navigate({ type: 'agent' });
-  }, [repoPath, nav, addLine]);
+    setShowWelcome(false);
+  }, [repoPath, addLine]);
+
+  // ── onNavigate callback for child screens (detail drill-downs) ──
+  const handleNavigate = useCallback((target: any) => {
+    if (target && target.type && target.id) {
+      spatialNav.openDetail({ type: target.type, id: target.id });
+    } else if (target && target.type) {
+      // Page-level navigation (e.g., from a detail screen link)
+      spatialNav.goTo(target.type);
+    }
+  }, [spatialNav]);
 
   // ── Handle submit ──
   const handleSubmit = useCallback((input: string) => {
     const trimmed = input.trim().toLowerCase();
 
-    // Slash commands → navigation
+    // Slash commands → spatial navigation
     const slashTarget = SLASH_COMMANDS[trimmed];
     if (slashTarget === 'session-current') {
       if (currentSessionId) {
-        nav.navigate({ type: 'session-detail', id: currentSessionId });
+        spatialNav.openDetail({ type: 'session-detail', id: currentSessionId });
       } else {
         addLine({ text: 'No active session. Start a task first.', color: 'yellow' });
       }
       return;
     }
-    if (slashTarget) {
-      nav.navigate(slashTarget as Screen);
+    if (slashTarget === 'help') {
+      setShowHelp(true);
       return;
     }
-    if (trimmed === '/back') { nav.goBack(); return; }
-    if (trimmed === '/join' || trimmed === '/j') { nav.joinAgent(); return; }
+    if (slashTarget) {
+      spatialNav.goTo(slashTarget);
+      return;
+    }
+    if (trimmed === '/back') { spatialNav.closeDetail(); return; }
     if (trimmed === '/quit' || trimmed === '/q') {
       if (sessionManager) sessionManager.stopPolling();
       exit();
@@ -945,23 +857,20 @@ const InteractiveApp = ({ sessionManager: smProp, apiClient: clientProp, isFirst
       return;
     }
 
-    // Branch 3: First message — create session (existing behavior)
+    // Branch 3: First message — create session
     addLine({ text: `> ${input}`, color: 'green', bold: true });
 
     if (sessionManager) {
       sessionManager.submitTask(input, addLine, (b) => {
         setBusy(b);
         if (!b) {
-          // Task completed — in demo mode, keep sessionId so cockpit stays visible
           if (!demoMode) setCurrentSessionId(null);
           sessionManager.stopWidgetPolling();
-          nav.setAgentState('idle');
+          setAgentState('idle');
         } else {
-          // setBusy(true) fires before session is created — nav only
-          nav.setAgentState('working');
+          setAgentState('working');
         }
       }).then(() => {
-        // Session created and started — NOW we can read the session ID
         const id = sessionManager.getSessionId();
         if (id) {
           setCurrentSessionId(id);
@@ -969,9 +878,9 @@ const InteractiveApp = ({ sessionManager: smProp, apiClient: clientProp, isFirst
         }
       });
     }
-  }, [addLine, sessionManager, busy, pendingInteractive, nav, history, exit, demoMode]);
+  }, [addLine, sessionManager, busy, pendingInteractive, spatialNav, history, exit, demoMode]);
 
-  // ── Auto-start demo session (show cockpit immediately) ──
+  // ── Auto-start demo session ──
   const autoStarted = useRef(false);
   useEffect(() => {
     if (demoMode && sessionManager && !autoStarted.current) {
@@ -980,89 +889,131 @@ const InteractiveApp = ({ sessionManager: smProp, apiClient: clientProp, isFirst
     }
   }, [demoMode, sessionManager, handleSubmit]);
 
-  // ── Demo diagnostic (writes state to file so we can SEE what the app is doing) ──
   // ── Layout ──
-  const currentPage = screenToPageKey(nav.userScreen);
-  const contentHeight = Math.max(rows - 4, 5);
+  // No NavBar — SpatialStatusBar at bottom replaces both NavBar and RichStatusBar.
+  // Gains ~3 lines of content height compared to the old NavBar+StatusBar.
+  const contentHeight = Math.max(rows - 1, 5); // 1 line for SpatialStatusBar
+
+  // Welcome screen overlay
+  if (showWelcome) {
+    return h(Box, { flexDirection: 'column', width: '100%', height: rows },
+      h(WelcomeScreen, {
+        onInit: handleInit,
+        onSkip: () => setShowWelcome(false),
+        onHelp: () => setShowHelp(true),
+      }),
+    );
+  }
+
+  // Help overlay
+  if (showHelp) {
+    return h(Box, { flexDirection: 'column', width: '100%', height: rows },
+      h(HelpOverlay, { onClose: () => setShowHelp(false) }),
+    );
+  }
+
+  // Transition wipe (brief directional indicator)
+  if (spatialNav.transitionDir && spatialNav.transitionTarget) {
+    return h(Box, { flexDirection: 'column', width: '100%', height: rows },
+      h(TransitionWipe, {
+        direction: spatialNav.transitionDir,
+        targetPage: spatialNav.transitionTarget,
+        height: contentHeight,
+      }),
+      h(SpatialStatusBar, {
+        currentPage: spatialNav.currentPage,
+        directionHints: spatialNav.directionHints,
+        agentState,
+        sessionId: currentSessionId,
+        busy,
+        connected,
+        latency,
+        voiceActive: voiceMode,
+        focusedPanel: activePanelFocus,
+        zoomedPanel: activeZoom,
+        demoMode,
+      }),
+    );
+  }
 
   return h(Box, { flexDirection: 'column', width: '100%', height: rows },
-    // NavBar
-    h(NavBar, {
-      pages: CODE_PAGES,
-      currentPage,
-      title: demoMode ? 'MAESTRO [DEMO]' : 'MAESTRO',
-      badge: h(AgentBadge, { agentState: nav.agentState, busy }),
-    }),
+    // Page content (or detail screen)
+    spatialNav.detailScreen
+      ? renderDetail(spatialNav.detailScreen, contentHeight)
+      : renderPage(spatialNav.currentPageId, contentHeight),
 
-    // Screen content (varies by current screen)
-    renderScreen(nav.userScreen, contentHeight),
-
-    // StatusBar (always visible)
-    h(RichStatusBar, {
+    // SpatialStatusBar (always visible)
+    h(SpatialStatusBar, {
+      currentPage: spatialNav.currentPage,
+      directionHints: spatialNav.directionHints,
+      agentState,
       sessionId: currentSessionId,
       busy,
-      voiceActive: voiceMode,
       connected,
       latency,
+      voiceActive: voiceMode,
       focusedPanel: activePanelFocus,
       zoomedPanel: activeZoom,
-      screenType: nav.userScreen.type,
+      demoMode,
     }),
   );
 
-  function renderScreen(screen: Screen, contentHeight: number) {
-    switch (screen.type) {
+  function renderPage(pageId: string, height: number) {
+    switch (pageId) {
       case 'agent':
         return renderAgentContent();
+      case 'execution':
+        return h(Box, { flexGrow: 1, alignItems: 'center', justifyContent: 'center' },
+          h(Text, { color: 'gray', dimColor: true }, 'Execution page — coming in 41-D')
+        );
       case 'catalog':
         return h(CatalogBrowser, {
-          apiClient, onNavigate: nav.navigate,
-          onBack: nav.goBack, onQuit: () => exit(),
-          height: contentHeight,
+          apiClient, onNavigate: handleNavigate,
+          onBack: () => spatialNav.goHome(), onQuit: () => exit(),
+          height,
         });
-      case 'sessions':
+      case 'spaces':
         return h(SessionBrowser, {
-          apiClient, onNavigate: nav.navigate,
-          onBack: nav.goBack, onQuit: () => exit(),
-          height: contentHeight,
+          apiClient, onNavigate: handleNavigate,
+          onBack: () => spatialNav.goHome(), onQuit: () => exit(),
+          height,
         });
       case 'models':
         return h(ModelsBrowser, {
-          apiClient, onNavigate: nav.navigate,
-          onBack: nav.goBack, onQuit: () => exit(),
-          height: contentHeight,
-        });
-      case 'block-detail':
-        return h(BlockDetailScreen, {
-          blockId: screen.id,
-          apiClient, onNavigate: nav.navigate,
-          onBack: nav.goBack, onQuit: () => exit(),
-          height: contentHeight,
-        });
-      case 'session-detail':
-        return h(SessionDetailScreen, {
-          sessionId: screen.id,
-          apiClient, onNavigate: nav.navigate,
-          onBack: nav.goBack, onQuit: () => exit(),
-          height: contentHeight,
-        });
-      case 'model-detail':
-        return h(ModelDetailScreen, {
-          modelId: screen.id,
-          apiClient,
-          onBack: nav.goBack, onQuit: () => exit(),
-          height: contentHeight,
-        });
-      case 'help':
-        return h(HelpOverlay, { onClose: nav.goBack });
-      case 'welcome':
-        return h(WelcomeScreen, {
-          onInit: handleInit,
-          onSkip: () => nav.navigate({ type: 'agent' }),
-          onHelp: () => nav.navigate({ type: 'help' }),
+          apiClient, onNavigate: handleNavigate,
+          onBack: () => spatialNav.goHome(), onQuit: () => exit(),
+          height,
         });
       default:
         return renderAgentContent();
+    }
+  }
+
+  function renderDetail(detail: { type: string; id: string }, height: number) {
+    switch (detail.type) {
+      case 'block-detail':
+        return h(BlockDetailScreen, {
+          blockId: detail.id,
+          apiClient, onNavigate: handleNavigate,
+          onBack: () => spatialNav.closeDetail(), onQuit: () => exit(),
+          height,
+        });
+      case 'session-detail':
+        return h(SessionDetailScreen, {
+          sessionId: detail.id,
+          apiClient, onNavigate: handleNavigate,
+          onBack: () => spatialNav.closeDetail(), onQuit: () => exit(),
+          height,
+        });
+      case 'model-detail':
+        return h(ModelDetailScreen, {
+          modelId: detail.id,
+          apiClient,
+          onBack: () => spatialNav.closeDetail(), onQuit: () => exit(),
+          height,
+        });
+      default:
+        return renderPage(spatialNav.currentPageId, height);
     }
   }
 
@@ -1072,8 +1023,8 @@ const InteractiveApp = ({ sessionManager: smProp, apiClient: clientProp, isFirst
       apiClient,
       lines,
       busy,
-      agentState: nav.agentState,
-      agentIsHere: nav.agentIsHere,
+      agentState,
+      agentIsHere: true, // always true until 41-F Agent-in-the-Cockpit
       taskSummary: busy ? 'Working...' : undefined,
       currentWidget,
       pendingInteractive,
@@ -1141,5 +1092,5 @@ async function startInteractive(options: InteractiveOptions = {}): Promise<void>
   resetTerminalBg();
 }
 
-export { startInteractive, InteractiveApp, OutputPanel, InputPrompt, RichStatusBar, SessionManager, WidgetRenderer };
+export { startInteractive, InteractiveApp, OutputPanel, InputPrompt, SessionManager, WidgetRenderer };
 export type { LogLine as InteractiveLogLine, InteractiveOptions, Widget };

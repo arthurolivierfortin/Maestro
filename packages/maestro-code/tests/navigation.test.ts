@@ -36,25 +36,18 @@ describe('useNavigation', () => {
     )).toBe(false);
   });
 
-  it('screenToPageKey maps screens to page keys', async () => {
-    const { screenToPageKey } = await import('../types.ts');
+  it('Screen type still includes detail screens', async () => {
+    const { screenEquals } = await import('../types.ts');
 
-    expect(screenToPageKey({ type: 'agent' })).toBe('agent');
-    expect(screenToPageKey({ type: 'catalog' })).toBe('catalog');
-    expect(screenToPageKey({ type: 'block-detail', id: 'abc' })).toBe('catalog');
-    expect(screenToPageKey({ type: 'sessions' })).toBe('sessions');
-    expect(screenToPageKey({ type: 'session-detail', id: '123' })).toBe('sessions');
-    expect(screenToPageKey({ type: 'models' })).toBe('models');
-    expect(screenToPageKey({ type: 'help' })).toBe('agent'); // help defaults to agent
-    expect(screenToPageKey({ type: 'welcome' })).toBe('agent');
-  });
-
-  it('CODE_PAGES has 4 navigation pages', async () => {
-    const { CODE_PAGES } = await import('../types.ts');
-
-    expect(CODE_PAGES).toHaveLength(4);
-    expect(CODE_PAGES.map(p => p.key)).toEqual(['agent', 'catalog', 'sessions', 'models']);
-    expect(CODE_PAGES.every(p => p.hotkey && p.label)).toBe(true);
+    // Verify detail screen comparison works (used by detail drill-downs)
+    expect(screenEquals(
+      { type: 'workspace-detail', id: 'w1' },
+      { type: 'workspace-detail', id: 'w1' }
+    )).toBe(true);
+    expect(screenEquals(
+      { type: 'repo-detail', id: 'r1' },
+      { type: 'repo-detail', id: 'r2' }
+    )).toBe(false);
   });
 });
 
@@ -171,26 +164,17 @@ describe('useInputHistory', () => {
 // ── Slash commands Tests ────────────────────────────────────────
 
 describe('Slash commands', () => {
-  it('SLASH_COMMANDS maps to correct screens', async () => {
-    // Import the App module to get SLASH_COMMANDS
-    // Since SLASH_COMMANDS is not exported, we test indirectly
-    // by verifying the handleSubmit behavior through InteractiveApp
+  it('slash commands navigate to correct pages', async () => {
+    // Slash commands now map to page IDs (strings), not Screen objects.
+    // Verify the page registry contains all expected pages.
+    const { createDefaultRegistry } = await import('../registry/index.ts');
+    const reg = createDefaultRegistry();
 
-    // For now, verify the navigation types are valid
-    const { screenToPageKey } = await import('../types.ts');
-
-    // Test that all expected screen types map correctly
-    const slashTargets = [
-      { type: 'catalog' },
-      { type: 'sessions' },
-      { type: 'models' },
-      { type: 'help' },
-      { type: 'agent' },
-    ];
-
-    for (const target of slashTargets) {
-      const key = screenToPageKey(target as any);
-      expect(typeof key).toBe('string');
+    const expectedPages = ['agent', 'catalog', 'spaces', 'models', 'execution'];
+    for (const pageId of expectedPages) {
+      const page = reg.getById(pageId);
+      expect(page).toBeDefined();
+      expect(page.id).toBe(pageId);
     }
   });
 });

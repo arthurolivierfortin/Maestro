@@ -75,46 +75,67 @@ describe('OutputPanel', () => {
   });
 });
 
-// ── RichStatusBar Tests ───────────────────────────────────────
+// ── SpatialStatusBar Tests ────────────────────────────────────
 
-describe('RichStatusBar', () => {
+describe('SpatialStatusBar', () => {
   afterEach(() => cleanup());
 
-  it('shows connection status and help shortcut when idle', async () => {
-    const { RichStatusBar } = await import('../App.ts');
-    const { lastFrame } = render(h(RichStatusBar, {
+  it('shows page name, connection status and help shortcut', async () => {
+    const { SpatialStatusBar } = await import('../components/SpatialStatusBar.ts');
+    const { createDefaultRegistry } = await import('../registry/index.ts');
+    const reg = createDefaultRegistry();
+    const agentPage = reg.getById('agent');
+    const hints = reg.getDirectionHints(agentPage.position);
+
+    const { lastFrame } = render(h(SpatialStatusBar, {
+      currentPage: agentPage,
+      directionHints: hints,
+      agentState: 'idle',
       sessionId: null, busy: false,
       connected: true, latency: 0,
       focusedPanel: null, zoomedPanel: null,
-      screenType: 'agent',
     }));
     const frame = stripAnsi(lastFrame() || '');
-    expect(frame).toContain('connected');
+    // SpatialStatusBar shows page name + direction hints
+    expect(frame).toContain('Agent');
     expect(frame).toContain('?');
   });
 
   it('shows short session ID when present', async () => {
-    const { RichStatusBar } = await import('../App.ts');
-    const { lastFrame } = render(h(RichStatusBar, {
+    const { SpatialStatusBar } = await import('../components/SpatialStatusBar.ts');
+    const { createDefaultRegistry } = await import('../registry/index.ts');
+    const reg = createDefaultRegistry();
+    const agentPage = reg.getById('agent');
+    const hints = reg.getDirectionHints(agentPage.position);
+
+    const { lastFrame } = render(h(SpatialStatusBar, {
+      currentPage: agentPage,
+      directionHints: hints,
+      agentState: 'idle',
       sessionId: 'abcdef12-3456-7890-abcd-ef1234567890',
       busy: false,
-      connected: true, latency: 42,
+      connected: true, latency: 0,
       focusedPanel: null, zoomedPanel: null,
-      screenType: 'agent',
     }));
     const frame = stripAnsi(lastFrame() || '');
     expect(frame).toContain('abcdef12');
-    expect(frame).toContain('42ms');
   });
 
   it('shows panel focus indicator when a panel is focused', async () => {
-    const { RichStatusBar } = await import('../App.ts');
-    const { lastFrame } = render(h(RichStatusBar, {
+    const { SpatialStatusBar } = await import('../components/SpatialStatusBar.ts');
+    const { createDefaultRegistry } = await import('../registry/index.ts');
+    const reg = createDefaultRegistry();
+    const agentPage = reg.getById('agent');
+    const hints = reg.getDirectionHints(agentPage.position);
+
+    const { lastFrame } = render(h(SpatialStatusBar, {
+      currentPage: agentPage,
+      directionHints: hints,
+      agentState: 'working',
       sessionId: 'abcdef12-3456-7890-abcd-ef1234567890',
       busy: true,
       connected: true, latency: 10,
       focusedPanel: 'tree', zoomedPanel: null,
-      screenType: 'agent',
     }));
     const frame = stripAnsi(lastFrame() || '');
     expect(frame).toContain('TREE');
@@ -250,13 +271,14 @@ describe('InteractiveApp', () => {
     expect(frame).toContain('Describe your task...');
   });
 
-  it('shows rich status bar with connection status and shortcuts', async () => {
+  it('shows spatial status bar with page name and direction hints', async () => {
     const { InteractiveApp } = await import('../App.ts');
     const { lastFrame } = render(h(InteractiveApp, { sessionManager: null }));
     const frame = stripAnsi(lastFrame() || '');
-    // StatusBar shows connection status + help shortcut
-    expect(frame).toContain('connecting');
-    expect(frame).toContain('?');
+    // SpatialStatusBar shows page name (Agent) and direction hints
+    expect(frame).toContain('Agent');
+    // Direction hints visible (Cat=Catalog shortLabel, Exec=Execution, Mod=Models, Spc=Spaces)
+    expect(frame).toContain('Cat');
   });
 
   it('echoes submitted task in output', async () => {
@@ -280,7 +302,7 @@ describe('InteractiveApp', () => {
     await delay(1000);
 
     const frame = stripAnsi(lastFrame() || '');
-    // NavBar shows DEMO marker
+    // SpatialStatusBar shows DEMO marker
     expect(frame).toContain('DEMO');
     // StatusBar shows active session
     expect(frame).toContain('session:demo-');

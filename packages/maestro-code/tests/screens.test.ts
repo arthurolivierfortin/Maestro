@@ -301,11 +301,12 @@ describe('InteractiveApp navigation', () => {
     expect(frame).toContain('CATALOG');
   });
 
-  it('shows NavBar with MAESTRO title', async () => {
+  it('shows SpatialStatusBar with page name', async () => {
     const { InteractiveApp } = await import('../App.ts');
     const { lastFrame } = render(h(InteractiveApp, { sessionManager: null }));
     const frame = stripAnsi(lastFrame() || '');
-    expect(frame).toContain('MAESTRO');
+    // SpatialStatusBar shows the current page name
+    expect(frame).toContain('Agent');
   });
 });
 

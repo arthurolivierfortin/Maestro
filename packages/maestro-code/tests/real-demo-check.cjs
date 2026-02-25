@@ -94,6 +94,8 @@ async function main() {
     ['Tree has nodes', final.includes('Prepare')],
     ['Log has entries', final.includes('[info]')],
     ['Session in statusbar', final.includes('session:demo-')],
+    ['SpatialStatusBar shows page', final.includes('Agent')],
+    ['SpatialStatusBar shows DEMO', final.includes('DEMO')],
     ['No uncaught Error', !final.includes('Error:')],
   ];
 
