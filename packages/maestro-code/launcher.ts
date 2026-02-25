@@ -13,6 +13,7 @@ interface InteractiveOptions {
   noSplash?: boolean;
   isFirstRun?: boolean;
   demo?: boolean;
+  noBell?: boolean;
 }
 
 async function startInteractiveMode(options: InteractiveOptions = {}) {

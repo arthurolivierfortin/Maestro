@@ -19,7 +19,7 @@ export type Screen =
 
 // ── Agent state ─────────────────────────────────────────────────
 
-export type AgentState = 'idle' | 'working' | 'navigating' | 'waiting-input';
+export type AgentState = 'idle' | 'working' | 'navigating' | 'waiting-input' | 'error' | 'thinking';
 
 // ── Log line (used by OutputPanel and AgentScreen) ──────────────
 

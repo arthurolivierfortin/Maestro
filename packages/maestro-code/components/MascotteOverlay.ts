@@ -25,6 +25,8 @@ const STATE_CONFIG: Record<string, { color: string; icon: string; label: string 
   working: { color: 'green', icon: '◉', label: 'Agent working' },
   navigating: { color: 'blue', icon: '→', label: 'Agent navigating' },
   'waiting-input': { color: 'yellow', icon: '?', label: 'Waiting for input' },
+  error: { color: 'red', icon: '✗', label: 'Error encountered' },
+  thinking: { color: 'yellow', icon: '◉', label: 'Thinking' },
 };
 
 // ── Props ─────────────────────────────────────────────────────

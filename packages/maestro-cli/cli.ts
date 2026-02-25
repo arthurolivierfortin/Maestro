@@ -6206,6 +6206,7 @@ ${c.bold('Options:')}
   --task <text>         Task to execute (headless mode, avoids stdin prompt)
   --no-splash           Skip the startup splash screen
   --demo                Run in demo mode (mock execution without backend)
+  --no-bell             Disable terminal bell notifications
 
 ${c.bold('Examples:')}
   maestro code                                   Interactive TUI mode
@@ -6245,6 +6246,7 @@ ${c.bold('Examples:')}
         noSplash: argv['no-splash'] || argv.noSplash || argv.splash === false || isDemoMode,
         isFirstRun,
         demo: isDemoMode,
+        noBell: argv['no-bell'] || argv.noBell || false,
       });
     }
 

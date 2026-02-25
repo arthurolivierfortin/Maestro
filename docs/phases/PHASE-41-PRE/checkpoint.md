@@ -926,3 +926,64 @@ These sub-phases implement the spatial full-screen page navigation system design
 | `tests/command-palette.test.ts` | NEW — 6 tests |
 | `tests/demo-pages.test.ts` | NEW — 9 tests |
 | `tests/screens.test.ts` | Updated HelpOverlay import path |
+
+---
+
+## Sub-Phase 41-H: Polish, Responsive, Tests, Cleanup — COMPLETE
+
+**Date**: 2026-02-25
+**Files deleted**: FlipperLayout.ts, AgentScreen.ts, AgentActivity.ts, AgentBadge.ts, screens/HelpOverlay.ts
+**Mascotte states**: 7/7 (idle, working, celebrating, error, thinking, navigating, waiting-input)
+**Terminal bell**: single (complete), double (error), triple (needs-input) — --no-bell flag supported
+**Tests maestro-code**: 156/156 pass (15 test files)
+**Tests TUI**: 67/67 pass
+**Tests monitor**: 4/4 pass
+**Real demo check**: 5/5 PASS
+**Total tests**: 227 (156 + 67 + 4)
+
+### What was done
+
+1. **Cleaned up dead code** (Task #57)
+   - Deleted `layouts/FlipperLayout.ts` — replaced by full-screen pages
+   - Deleted `screens/AgentScreen.ts` — replaced by `pages/AgentPage.ts`
+   - Deleted `panels/AgentActivity.ts` — replaced by `MascotteOverlay`
+   - Deleted `panels/AgentBadge.ts` — replaced by `SpatialStatusBar` agent hints
+   - Inlined `PanelId` type in `App.ts` (was imported from FlipperLayout)
+   - Updated `screens/index.ts` — removed AgentScreen export
+   - Updated `panels/index.ts` — emptied (both exports deleted)
+   - Removed 4 tests from `screens.test.ts` for deleted AgentActivity/AgentBadge
+
+2. **Added mascotte error/thinking states** (Task #58)
+   - Added `THINKING_1` and `THINKING_2` bitmap frames to `@maestro/tui/sprites/mascotte.ts` (hand-on-chin pose)
+   - Extended `MascotteState` type: added `'thinking'` to the union
+   - Extended `FRAMES` map: added `thinking: [THINKING_1, THINKING_2]`
+   - `MascotteFull.ts`: added `error` (red, ✗ core, error sprite) and `thinking` (yellow, ? core, thinking sprite) states
+   - `MascotteCompact.ts`: added `error` (red, ✗) and `thinking` (yellow, ?, with spinner) states
+   - `MascotteOverlay.ts`: added `error` (red, ✗) and `thinking` (yellow) to STATE_CONFIG
+   - `AgentState` type in `types.ts`: added `'error' | 'thinking'` to the union
+
+3. **Terminal bell notifications** (Task #58)
+   - Added `bell(count)` helper in `InteractiveApp` — writes `\x07` N times to stdout
+   - Bell fires on agent state transitions: 1x complete, 2x error, 3x needs-input
+   - Added `noBell` prop chain: CLI `--no-bell` → launcher → RootApp → InteractiveApp
+   - Updated CLI help text with `--no-bell` option
+
+### Files modified
+
+| File | Change |
+|------|--------|
+| `packages/tui/sprites/mascotte.ts` | Added THINKING_1/THINKING_2 frames, 'thinking' to MascotteState + FRAMES |
+| `packages/maestro-code/components/MascotteFull.ts` | Added error/thinking visual states |
+| `packages/maestro-code/components/MascotteCompact.ts` | Added error/thinking states with spinner |
+| `packages/maestro-code/components/MascotteOverlay.ts` | Added error/thinking to STATE_CONFIG |
+| `packages/maestro-code/types.ts` | Added error/thinking to AgentState union |
+| `packages/maestro-code/App.ts` | Bell helper, noBell prop, agent state bell triggers, noBell prop chain |
+| `packages/maestro-code/launcher.ts` | Added noBell option |
+| `packages/maestro-cli/cli.ts` | Added --no-bell flag |
+| `packages/maestro-code/layouts/FlipperLayout.ts` | DELETED |
+| `packages/maestro-code/screens/AgentScreen.ts` | DELETED |
+| `packages/maestro-code/panels/AgentActivity.ts` | DELETED |
+| `packages/maestro-code/panels/AgentBadge.ts` | DELETED |
+| `packages/maestro-code/screens/index.ts` | Removed AgentScreen export |
+| `packages/maestro-code/panels/index.ts` | Emptied (both exports removed) |
+| `packages/maestro-code/tests/screens.test.ts` | Removed 4 tests for deleted components |

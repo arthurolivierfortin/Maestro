@@ -16,7 +16,7 @@ import { renderBitmap } from '@maestro/tui/utils';
 import { getMascotteFrame } from '@maestro/tui/sprites';
 import type { MascotteState } from '@maestro/tui/sprites/mascotte.ts';
 
-export type MascotteVisualState = 'idle' | 'working' | 'celebrating';
+export type MascotteVisualState = 'idle' | 'working' | 'celebrating' | 'error' | 'thinking';
 
 export interface MascotteFullProps {
   state: MascotteVisualState;
@@ -24,9 +24,11 @@ export interface MascotteFullProps {
 }
 
 const STATE_MAP: Record<MascotteVisualState, { mascotteState: MascotteState; color: string; core: string }> = {
-  idle:        { mascotteState: 'idle',    color: 'cyan',    core: '◆' },
-  working:     { mascotteState: 'working', color: 'green',   core: '◆' },
-  celebrating: { mascotteState: 'idle',    color: 'magenta', core: '★' },
+  idle:        { mascotteState: 'idle',      color: 'cyan',    core: '◆' },
+  working:     { mascotteState: 'working',   color: 'green',   core: '◆' },
+  celebrating: { mascotteState: 'idle',      color: 'magenta', core: '★' },
+  error:       { mascotteState: 'error',     color: 'red',     core: '✗' },
+  thinking:    { mascotteState: 'thinking',  color: 'yellow',  core: '?' },
 };
 
 const MascotteFull = ({ state, statusText }: MascotteFullProps) => {
@@ -39,6 +41,8 @@ const MascotteFull = ({ state, statusText }: MascotteFullProps) => {
 
   const defaultStatus = state === 'idle' ? 'Agent ready — Waiting for task'
     : state === 'working' ? 'Agent working...'
+    : state === 'error' ? 'Error encountered'
+    : state === 'thinking' ? 'Thinking...'
     : 'Task completed!';
 
   return h(Box, {

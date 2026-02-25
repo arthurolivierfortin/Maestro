@@ -11,7 +11,7 @@ import { Box, Text } from 'ink';
 import { useAnimationTick } from '@maestro/tui/hooks';
 import { spinnerFrame } from '@maestro/tui/theme';
 
-export type CompactState = 'idle' | 'working' | 'celebrating';
+export type CompactState = 'idle' | 'working' | 'celebrating' | 'error' | 'thinking';
 
 export interface MascotteCompactProps {
   state: CompactState;
@@ -24,13 +24,15 @@ const STATE_CONFIG: Record<CompactState, { core: string; color: string; label: s
   idle:        { core: '◆', color: 'cyan',    label: 'Agent idle' },
   working:     { core: '◆', color: 'green',   label: 'Agent working' },
   celebrating: { core: '★', color: 'magenta', label: 'Task completed' },
+  error:       { core: '✗', color: 'red',     label: 'Error' },
+  thinking:    { core: '?', color: 'yellow',   label: 'Thinking' },
 };
 
 const MascotteCompact = ({ state, statusText, sessionId, fitness }: MascotteCompactProps) => {
   const tick = useAnimationTick(150);
   const config = STATE_CONFIG[state] || STATE_CONFIG.idle;
 
-  const spinner = state === 'working' ? spinnerFrame(tick) + ' ' : '';
+  const spinner = (state === 'working' || state === 'thinking') ? spinnerFrame(tick) + ' ' : '';
 
   return h(Box, {
     flexDirection: 'row',
@@ -45,7 +47,7 @@ const MascotteCompact = ({ state, statusText, sessionId, fitness }: MascotteComp
     h(Text, { color: config.color, bold: true }, `[${config.core}]`),
     h(Text, null, '  '),
     // Spinner + status
-    state === 'working'
+    (state === 'working' || state === 'thinking')
       ? h(Text, { color: config.color }, spinner)
       : null,
     h(Text, { color: config.color, bold: state === 'working' }, config.label),

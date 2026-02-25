@@ -235,48 +235,5 @@ describe('InteractiveApp navigation', () => {
   });
 });
 
-// ── AgentActivity panel ─────────────────────────────────────
-
-describe('AgentActivity', () => {
-  afterEach(() => cleanup());
-
-  it('renders working state', async () => {
-    const { AgentActivity } = await import('../panels/AgentActivity.ts');
-    const { lastFrame } = render(h(AgentActivity, {
-      agentState: 'working',
-      taskSummary: 'Creating files...',
-      sessionId: 'test-session-id',
-    }));
-    const frame = stripAnsi(lastFrame() || '');
-    expect(frame.length).toBeGreaterThan(0);
-  });
-
-  it('renders idle state', async () => {
-    const { AgentActivity } = await import('../panels/AgentActivity.ts');
-    const { lastFrame } = render(h(AgentActivity, {
-      agentState: 'idle',
-    }));
-    const frame = stripAnsi(lastFrame() || '');
-    expect(frame.length).toBeGreaterThan(0);
-  });
-});
-
-// ── AgentBadge ──────────────────────────────────────────────
-
-describe('AgentBadge', () => {
-  afterEach(() => cleanup());
-
-  it('renders in working state', async () => {
-    const { AgentBadge } = await import('../panels/AgentBadge.ts');
-    const { lastFrame } = render(h(AgentBadge, { agentState: 'working', busy: true }));
-    const frame = stripAnsi(lastFrame() || '');
-    expect(frame.length).toBeGreaterThan(0);
-  });
-
-  it('renders in idle state', async () => {
-    const { AgentBadge } = await import('../panels/AgentBadge.ts');
-    const { lastFrame } = render(h(AgentBadge, { agentState: 'idle', busy: false }));
-    const frame = stripAnsi(lastFrame() || '');
-    expect(frame.length).toBeGreaterThan(0);
-  });
-});
+// AgentActivity and AgentBadge tests removed in 41-H
+// (components deleted — replaced by MascotteOverlay and SpatialStatusBar)

@@ -18,7 +18,8 @@
 import { createElement as h, useState, useCallback, useEffect, useRef } from 'react';
 import { render, useApp, useStdout, Box, Text, useInput } from 'ink';
 import { setTerminalBg, resetTerminalBg, palette } from '@maestro/tui/theme';
-import type { PanelId } from './layouts/FlipperLayout.ts';
+// PanelId type (was in FlipperLayout, now inline since FlipperLayout is deleted)
+type PanelId = 'hero' | 'tree' | 'log' | 'llm';
 import { HelpOverlay } from './components/HelpOverlay.ts';
 import { CommandPalette } from './components/CommandPalette.ts';
 import { WelcomeScreen } from './screens/WelcomeScreen.ts';
@@ -270,7 +271,7 @@ const WidgetRenderer = ({ widget, onResponse }: { widget: Widget | null; onRespo
   }
 };
 
-// ── InputPrompt (exported for tests — FlipperLayout uses its own copy) ──
+// ── InputPrompt (exported for tests) ──
 
 const InputPrompt = ({ onSubmit, disabled, placeholder, onUpArrow, onDownArrow }: {
   onSubmit: (value: string) => void;
@@ -403,12 +404,13 @@ const NoBackendScreen = () => {
 
 // ── Root App ───────────────────────────────────────────────────
 
-const InteractiveApp = ({ sessionManager: smProp, apiClient: clientProp, isFirstRun, repoPath, demoMode }: {
+const InteractiveApp = ({ sessionManager: smProp, apiClient: clientProp, isFirstRun, repoPath, demoMode, noBell }: {
   sessionManager: SessionManager | null;
   apiClient?: any;
   isFirstRun?: boolean;
   repoPath?: string;
   demoMode?: boolean;
+  noBell?: boolean;
 }) => {
   const { exit } = useApp();
   const { stdout } = useStdout();
@@ -658,21 +660,39 @@ const InteractiveApp = ({ sessionManager: smProp, apiClient: clientProp, isFirst
     }
   }, [demoMode, sessionManager, handleSubmit]);
 
-  // ── Agent toast: notify when agent finishes and user is on another page ──
+  // ── Terminal bell helper ──
+  const bell = useCallback((count: number) => {
+    if (noBell) return;
+    for (let i = 0; i < count; i++) stdout.write('\x07');
+  }, [noBell, stdout]);
+
+  // ── Agent toast + bell: notify on state transitions ──
   const prevAgentState = useRef(agentState);
   useEffect(() => {
     const prev = prevAgentState.current;
     prevAgentState.current = agentState;
     if (prev === agentState) return;
-    if (spatialNav.currentPageId === 'agent') return; // No toast when already watching
 
+    // Bell fires regardless of current page
+    if (prev === 'working' && agentState === 'idle') {
+      bell(1); // single bell on task complete
+    }
+    if (agentState === 'error') {
+      bell(2); // double bell on error
+    }
+    if (agentState === 'waiting-input') {
+      bell(3); // triple bell on needs-input
+    }
+
+    // Toast only when NOT on agent page
+    if (spatialNav.currentPageId === 'agent') return;
     if (prev === 'working' && agentState === 'idle') {
       setToast({ type: 'complete', message: 'Task completed', timestamp: Date.now() });
     }
     if (agentState === 'waiting-input') {
       setToast({ type: 'needs-input', message: 'Agent needs input', timestamp: Date.now() });
     }
-  }, [agentState, spatialNav.currentPageId]);
+  }, [agentState, spatialNav.currentPageId, bell]);
 
   // ── Layout ──
   // No NavBar — SpatialStatusBar at bottom replaces both NavBar and RichStatusBar.
@@ -861,13 +881,14 @@ const InteractiveApp = ({ sessionManager: smProp, apiClient: clientProp, isFirst
 
 // ── Root wrapper (splash → main app transition) ──────────────
 
-const RootApp = ({ sessionManager, apiClient, noSplash, isFirstRun, repoPath, demoMode }: {
+const RootApp = ({ sessionManager, apiClient, noSplash, isFirstRun, repoPath, demoMode, noBell }: {
   sessionManager: SessionManager | null;
   apiClient?: any;
   noSplash?: boolean;
   isFirstRun?: boolean;
   repoPath?: string;
   demoMode?: boolean;
+  noBell?: boolean;
 }) => {
   const [showSplash, setShowSplash] = useState(!noSplash);
 
@@ -880,7 +901,7 @@ const RootApp = ({ sessionManager, apiClient, noSplash, isFirstRun, repoPath, de
     return h(NoBackendScreen);
   }
 
-  return h(InteractiveApp, { sessionManager, apiClient, isFirstRun, repoPath, demoMode });
+  return h(InteractiveApp, { sessionManager, apiClient, isFirstRun, repoPath, demoMode, noBell });
 };
 
 // ── Public entry point ─────────────────────────────────────────
@@ -899,9 +920,10 @@ async function startInteractive(options: InteractiveOptions = {}): Promise<void>
   const noSplash = (options as any).noSplash || false;
   const isFirstRun = (options as any).isFirstRun || false;
   const demoMode = (options as any).demo || false;
+  const noBell = (options as any).noBell || false;
 
   const instance = render(
-    h(RootApp, { sessionManager, apiClient: options.apiClient, noSplash, isFirstRun, repoPath: options.repoPath, demoMode }),
+    h(RootApp, { sessionManager, apiClient: options.apiClient, noSplash, isFirstRun, repoPath: options.repoPath, demoMode, noBell }),
     { exitOnCtrlC: true }
   );
 
