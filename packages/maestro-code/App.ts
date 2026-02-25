@@ -1,6 +1,6 @@
 // @ts-nocheck
 /**
- * Maestro Interactive Mode — Spatial TUI (Phase 41-F)
+ * Maestro Interactive Mode — Spatial TUI (Phase 41-G)
  *
  * Spatial full-screen page navigation on a 2D grid.
  * Pages: Agent (0,0), Execution (0,-1), Catalog (-1,0), Spaces (1,0), Models (0,1).
@@ -19,7 +19,8 @@ import { createElement as h, useState, useCallback, useEffect, useRef } from 're
 import { render, useApp, useStdout, Box, Text, useInput } from 'ink';
 import { setTerminalBg, resetTerminalBg, palette } from '@maestro/tui/theme';
 import type { PanelId } from './layouts/FlipperLayout.ts';
-import { HelpOverlay } from './screens/HelpOverlay.ts';
+import { HelpOverlay } from './components/HelpOverlay.ts';
+import { CommandPalette } from './components/CommandPalette.ts';
 import { WelcomeScreen } from './screens/WelcomeScreen.ts';
 import { SplashScreen } from './screens/SplashScreen.ts';
 import { useInputHistory } from './hooks/useInputHistory.ts';
@@ -429,6 +430,7 @@ const InteractiveApp = ({ sessionManager: smProp, apiClient: clientProp, isFirst
   const spatialNav = useSpatialNav(registry, isFirstRun ? 'agent' : 'agent');
   const [showWelcome, setShowWelcome] = useState(!!isFirstRun);
   const [showHelp, setShowHelp] = useState(false);
+  const [showPalette, setShowPalette] = useState(false);
   const history = useInputHistory();
 
   // ── Agent-in-the-Cockpit (41-F) ──
@@ -499,6 +501,12 @@ const InteractiveApp = ({ sessionManager: smProp, apiClient: clientProp, isFirst
     if (input === 'v' && key.ctrl) {
       setVoiceMode(v => !v);
     }
+    // Ctrl+K: toggle command palette (mutually exclusive with help)
+    if (input === 'k' && key.ctrl) {
+      setShowPalette(v => !v);
+      setShowHelp(false);
+      return;
+    }
     // Dismiss toast on any keypress
     if (toast) { setToast(null); }
 
@@ -531,15 +539,17 @@ const InteractiveApp = ({ sessionManager: smProp, apiClient: clientProp, isFirst
       return;
     }
 
-    // Esc: close help → go home (pages handle their own detail Esc internally)
+    // Esc: close palette → close help → go home
     if (key.escape) {
+      if (showPalette) { setShowPalette(false); return; }
       if (showHelp) { setShowHelp(false); return; }
       if (spatialNav.currentPageId !== 'agent') { spatialNav.goHome(); return; }
     }
 
-    // ?: toggle help (only when not typing on agent page)
-    if (input === '?' && spatialNav.currentPageId !== 'agent') {
+    // ?: toggle help (only when not typing on agent page, not in palette)
+    if (input === '?' && spatialNav.currentPageId !== 'agent' && !showPalette) {
       setShowHelp(v => !v);
+      setShowPalette(false);
     }
   });
 
@@ -680,10 +690,39 @@ const InteractiveApp = ({ sessionManager: smProp, apiClient: clientProp, isFirst
     );
   }
 
+  // Command palette handler
+  const handlePaletteAction = useCallback((action: string) => {
+    if (action.startsWith('goto:')) {
+      const pageId = action.slice(5);
+      if (pageId === 'agent') spatialNav.goHome();
+      else spatialNav.goTo(pageId);
+    } else if (action === 'help') {
+      setShowHelp(true);
+    } else if (action === 'voice') {
+      setVoiceMode(v => !v);
+    } else if (action === 'quit') {
+      if (sessionManager) sessionManager.stopPolling();
+      exit();
+    } else if (action === 'quickswitch') {
+      spatialNav.quickSwitch();
+    }
+  }, [spatialNav, sessionManager, exit]);
+
+  // Command palette overlay
+  if (showPalette) {
+    return h(Box, { flexDirection: 'column', width: '100%', height: rows },
+      h(CommandPalette, {
+        registry,
+        onExecute: handlePaletteAction,
+        onClose: () => setShowPalette(false),
+      }),
+    );
+  }
+
   // Help overlay
   if (showHelp) {
     return h(Box, { flexDirection: 'column', width: '100%', height: rows },
-      h(HelpOverlay, { onClose: () => setShowHelp(false) }),
+      h(HelpOverlay, { onClose: () => setShowHelp(false), registry }),
     );
   }
 
@@ -767,18 +806,21 @@ const InteractiveApp = ({ sessionManager: smProp, apiClient: clientProp, isFirst
           apiClient,
           height,
           onQuit: () => exit(),
+          demoMode,
         });
       case 'spaces':
         return h(SpacesPage, {
           apiClient,
           height,
           onQuit: () => exit(),
+          demoMode,
         });
       case 'models':
         return h(ModelsPage, {
           apiClient,
           height,
           onQuit: () => exit(),
+          demoMode,
         });
       default:
         return renderAgentContent();

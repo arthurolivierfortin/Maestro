@@ -844,3 +844,85 @@ These sub-phases implement the spatial full-screen page navigation system design
 | `components/index.ts` | Added MascotteOverlay, NotificationToast exports |
 | `App.ts` | useNavigation integration, toast, overlay, J key, detach on nav |
 | `tests/agent-cockpit.test.ts` | NEW — 14 tests |
+
+---
+
+## Sub-Phase 41-G: Command Palette + Help + Demo Mode — COMPLETE
+
+**Date**: 2026-02-25
+**CommandPalette**: Ctrl+K opens, fuzzy search works, categories auto-populated from registry
+**HelpOverlay**: Auto-generated spatial nav section from registry
+**Demo mode pages**: Catalog shows 12 blocks, Spaces shows 3 repos/2 ws/5 sessions, Models shows 6 models
+**NoBackendScreen**: Already exists in App.ts (pre-existing from 41-PRE-F)
+**CommandPalette tests**: 6/6 pass
+**Demo pages tests**: 9/9 pass
+**All maestro-code tests**: 160/160 pass (15 test files)
+**Monitor standalone**: 4/4 pass
+**Real demo check**: 5/5 PASS
+
+### What was done
+
+1. **Created `mocks/demo-data.ts`** — Centralized mock data:
+   - 12 blocks (varied types: agent, tool, validator, inference, workflow)
+   - 3 repos, 2 workspaces, 5 sessions
+   - 6 models with latency/status info
+   - `createDemoApiClient()` factory for full mock API
+
+2. **Created `components/CommandPalette.ts`** — Modal Ctrl+K command palette:
+   - Text input with fuzzy search (substring + character-order matching)
+   - Categories: Navigation (auto from `registry.getAll()`), Actions, Slash Commands
+   - Uses `useSelectableList` from @maestro/tui for keyboard navigation
+   - Enter executes action, Esc closes
+   - Direction-based shortcuts auto-computed from page positions
+
+3. **Rewrote `components/HelpOverlay.ts`** — Spatial navigation section auto-generated:
+   - Builds shortcuts from `registry.getAll()` + position-to-key mapping
+   - Static sections: Agent Page, Execution Page, List Pages, General
+   - Added Ctrl+K (command palette) to General section
+   - Deleted old `screens/HelpOverlay.ts`
+
+4. **Updated App.ts**:
+   - Ctrl+K handler: toggles CommandPalette (mutually exclusive with HelpOverlay)
+   - `showPalette` state, Esc cascade: palette → help → goHome
+   - CommandPalette `onExecute` handler: goto:pageId, help, voice, quit, quickswitch
+   - HelpOverlay now receives `registry` prop for auto-generated section
+   - Passes `demoMode` to CatalogPage, SpacesPage, ModelsPage
+   - Import changed: screens/HelpOverlay → components/HelpOverlay
+
+5. **Updated list pages with demo mode**:
+   - CatalogPage: `DemoCatalogView` shows 12 blocks with type, name, fitness %, version
+   - SpacesPage: `DemoSpacesView` shows repos, workspaces, sessions with status colors
+   - ModelsPage: `DemoModelsView` shows models with status, latency, tokens/sec
+
+6. **Updated `screens/index.ts`** — removed HelpOverlay export (moved to components/)
+
+7. **Created tests**:
+   - `tests/command-palette.test.ts` — 6 tests: title, nav items, actions, slash, count, categories
+   - `tests/demo-pages.test.ts` — 9 tests: catalog/spaces/models in demo mode + fallback
+
+### Architecture decisions
+
+- **CommandPalette reads from registry** — navigation items auto-populated, no hardcoding
+- **Mutually exclusive modals** — CommandPalette XOR HelpOverlay, never both
+- **Demo data centralized in mocks/demo-data.ts** — not in page components
+- **Pages accept demoMode prop** — show demo views only when demoMode=true AND apiClient=null
+- **NoBackendScreen already exists** — no new work needed (created in 41-PRE-F)
+
+### Files modified
+
+| File | Change |
+|------|--------|
+| `mocks/demo-data.ts` | NEW — 12 blocks, 3 repos, 2 ws, 5 sessions, 6 models |
+| `mocks/index.ts` | NEW — barrel export |
+| `components/CommandPalette.ts` | NEW — Ctrl+K modal with fuzzy search |
+| `components/HelpOverlay.ts` | NEW — auto-generated spatial nav section |
+| `components/index.ts` | Added CommandPalette, HelpOverlay exports |
+| `screens/HelpOverlay.ts` | DELETED — replaced by components/HelpOverlay.ts |
+| `screens/index.ts` | Removed HelpOverlay export |
+| `pages/CatalogPage.ts` | Added demoMode prop + DemoCatalogView |
+| `pages/SpacesPage.ts` | Added demoMode prop + DemoSpacesView |
+| `pages/ModelsPage.ts` | Added demoMode prop + DemoModelsView |
+| `App.ts` | Ctrl+K, showPalette, palette handler, registry to HelpOverlay, demoMode to pages |
+| `tests/command-palette.test.ts` | NEW — 6 tests |
+| `tests/demo-pages.test.ts` | NEW — 9 tests |
+| `tests/screens.test.ts` | Updated HelpOverlay import path |

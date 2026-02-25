@@ -17,3 +17,7 @@ export { MascotteOverlay } from './MascotteOverlay.ts';
 export type { MascotteOverlayProps } from './MascotteOverlay.ts';
 export { NotificationToast } from './NotificationToast.ts';
 export type { NotificationToastProps, ToastEvent, ToastType } from './NotificationToast.ts';
+export { CommandPalette } from './CommandPalette.ts';
+export type { CommandPaletteProps, CommandItem } from './CommandPalette.ts';
+export { HelpOverlay } from './HelpOverlay.ts';
+export type { HelpOverlayProps } from './HelpOverlay.ts';

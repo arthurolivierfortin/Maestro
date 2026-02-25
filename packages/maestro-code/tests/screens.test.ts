@@ -27,7 +27,7 @@ describe('HelpOverlay', () => {
   afterEach(() => cleanup());
 
   it('renders keyboard shortcuts', async () => {
-    const { HelpOverlay } = await import('../screens/HelpOverlay.ts');
+    const { HelpOverlay } = await import('../components/HelpOverlay.ts');
     const { lastFrame } = render(h(HelpOverlay, { onClose: vi.fn() }));
     const frame = stripAnsi(lastFrame() || '');
     expect(frame).toContain('HELP');
