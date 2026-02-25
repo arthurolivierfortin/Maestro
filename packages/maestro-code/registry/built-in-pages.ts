@@ -2,23 +2,18 @@
 /**
  * Built-in pages — the 5 default pages registered at init.
  *
- * Agent (41-C) and Execution (41-D) have real components.
- * Catalog, Spaces, Models are placeholders until 41-E.
+ * All pages have real components (41-C through 41-E).
  *
  * NOTE: The `component` field is informational — App.ts renderPage()
  * handles actual rendering via switch/case with proper props.
  */
 
-import { createElement as h } from 'react';
-import { Text } from 'ink';
 import type { PageDefinition } from './types.ts';
 import { AgentPage } from '../pages/AgentPage.ts';
 import { ExecutionPage } from '../pages/ExecutionPage.ts';
-
-// Placeholder components — replaced in 41-E
-const PlaceholderCatalog = () => h(Text, null, 'Catalog');
-const PlaceholderSpaces = () => h(Text, null, 'Spaces');
-const PlaceholderModels = () => h(Text, null, 'Models');
+import { CatalogPage } from '../pages/CatalogPage.ts';
+import { SpacesPage } from '../pages/SpacesPage.ts';
+import { ModelsPage } from '../pages/ModelsPage.ts';
 
 export const BUILT_IN_PAGES: PageDefinition[] = [
   {
@@ -43,7 +38,7 @@ export const BUILT_IN_PAGES: PageDefinition[] = [
     shortLabel: 'Cat',
     icon: '←',
     position: { x: -1, y: 0 },
-    component: PlaceholderCatalog,
+    component: CatalogPage,
   },
   {
     id: 'spaces',
@@ -51,7 +46,7 @@ export const BUILT_IN_PAGES: PageDefinition[] = [
     shortLabel: 'Spc',
     icon: '→',
     position: { x: 1, y: 0 },
-    component: PlaceholderSpaces,
+    component: SpacesPage,
   },
   {
     id: 'models',
@@ -59,7 +54,7 @@ export const BUILT_IN_PAGES: PageDefinition[] = [
     shortLabel: 'Mod',
     icon: '↓',
     position: { x: 0, y: 1 },
-    component: PlaceholderModels,
+    component: ModelsPage,
   },
 ];
 

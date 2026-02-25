@@ -23,81 +23,6 @@ const TAB = '\t';
 
 // ── Screen rendering ────────────────────────────────────────
 
-describe('CatalogBrowser', () => {
-  afterEach(() => cleanup());
-
-  it('renders with no API client (shows loading/error)', async () => {
-    const { CatalogBrowser } = await import('../screens/CatalogBrowser.ts');
-    const { lastFrame } = render(h(CatalogBrowser, {
-      apiClient: null,
-      onNavigate: vi.fn(),
-      onBack: vi.fn(),
-      onQuit: vi.fn(),
-      height: 20,
-    }));
-    const frame = stripAnsi(lastFrame() || '');
-    // Should render without crashing
-    expect(frame.length).toBeGreaterThan(0);
-  });
-
-  it('renders with mock API returning blocks', async () => {
-    const mockClient = {
-      _fetch: vi.fn().mockResolvedValue({
-        blocks: [
-          { id: 'test-block', name: 'Test Block', blockType: 'tool', version: '1.0.0' },
-          { id: 'agent-block', name: 'Agent Block', blockType: 'agent', version: '2.0.0' },
-        ],
-      }),
-    };
-    const { CatalogBrowser } = await import('../screens/CatalogBrowser.ts');
-    const { lastFrame } = render(h(CatalogBrowser, {
-      apiClient: mockClient,
-      onNavigate: vi.fn(),
-      onBack: vi.fn(),
-      onQuit: vi.fn(),
-      height: 20,
-    }));
-
-    await delay(200); // Wait for async data fetch
-
-    const frame = stripAnsi(lastFrame() || '');
-    expect(frame.length).toBeGreaterThan(0);
-  });
-});
-
-describe('SessionBrowser', () => {
-  afterEach(() => cleanup());
-
-  it('renders with no API client', async () => {
-    const { SessionBrowser } = await import('../screens/SessionBrowser.ts');
-    const { lastFrame } = render(h(SessionBrowser, {
-      apiClient: null,
-      onNavigate: vi.fn(),
-      onBack: vi.fn(),
-      onQuit: vi.fn(),
-      height: 20,
-    }));
-    const frame = stripAnsi(lastFrame() || '');
-    expect(frame.length).toBeGreaterThan(0);
-  });
-});
-
-describe('ModelsBrowser', () => {
-  afterEach(() => cleanup());
-
-  it('renders with no API client', async () => {
-    const { ModelsBrowser } = await import('../screens/ModelsBrowser.ts');
-    const { lastFrame } = render(h(ModelsBrowser, {
-      apiClient: null,
-      onBack: vi.fn(),
-      onQuit: vi.fn(),
-      height: 20,
-    }));
-    const frame = stripAnsi(lastFrame() || '');
-    expect(frame.length).toBeGreaterThan(0);
-  });
-});
-
 describe('HelpOverlay', () => {
   afterEach(() => cleanup());
 
@@ -297,8 +222,8 @@ describe('InteractiveApp navigation', () => {
     await delay(100);
 
     const frame = stripAnsi(lastFrame() || '');
-    // Should be on catalog screen (CATALOG in panel title)
-    expect(frame).toContain('CATALOG');
+    // Should be on catalog page (NoCatalogView shows "Catalog" when no apiClient)
+    expect(frame).toContain('Catalog');
   });
 
   it('shows SpatialStatusBar with page name', async () => {

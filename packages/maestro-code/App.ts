@@ -1,6 +1,6 @@
 // @ts-nocheck
 /**
- * Maestro Interactive Mode — Spatial TUI (Phase 41-D)
+ * Maestro Interactive Mode — Spatial TUI (Phase 41-E)
  *
  * Spatial full-screen page navigation on a 2D grid.
  * Pages: Agent (0,0), Execution (0,-1), Catalog (-1,0), Spaces (1,0), Models (0,1).
@@ -19,12 +19,6 @@ import { createElement as h, useState, useCallback, useEffect, useRef } from 're
 import { render, useApp, useStdout, Box, Text, useInput } from 'ink';
 import { setTerminalBg, resetTerminalBg, palette } from '@maestro/tui/theme';
 import type { PanelId } from './layouts/FlipperLayout.ts';
-import { CatalogBrowser } from './screens/CatalogBrowser.ts';
-import { SessionBrowser } from './screens/SessionBrowser.ts';
-import { ModelsBrowser } from './screens/ModelsBrowser.ts';
-import { BlockDetailScreen } from './screens/BlockDetailScreen.ts';
-import { SessionDetailScreen } from './screens/SessionDetailScreen.ts';
-import { ModelDetailScreen } from './screens/ModelDetailScreen.ts';
 import { HelpOverlay } from './screens/HelpOverlay.ts';
 import { WelcomeScreen } from './screens/WelcomeScreen.ts';
 import { SplashScreen } from './screens/SplashScreen.ts';
@@ -35,6 +29,9 @@ import { SpatialStatusBar } from './components/SpatialStatusBar.ts';
 import { TransitionWipe } from './components/TransitionWipe.ts';
 import { AgentPage } from './pages/AgentPage.ts';
 import { ExecutionPage } from './pages/ExecutionPage.ts';
+import { CatalogPage } from './pages/CatalogPage.ts';
+import { SpacesPage } from './pages/SpacesPage.ts';
+import { ModelsPage } from './pages/ModelsPage.ts';
 import type { AgentState } from './types.ts';
 import { SessionManager, ts } from './services/SessionManager.ts';
 import type { LogLine, InteractiveOptions, Widget } from './services/SessionManager.ts';
@@ -495,9 +492,9 @@ const InteractiveApp = ({ sessionManager: smProp, apiClient: clientProp, isFirst
     if (input === 'v' && key.ctrl) {
       setVoiceMode(v => !v);
     }
-    // Ctrl+D: jump to session detail
-    if (input === 'd' && key.ctrl && currentSessionId) {
-      spatialNav.openDetail({ type: 'session-detail', id: currentSessionId });
+    // Ctrl+D: jump to execution page (current session)
+    if (input === 'd' && key.ctrl) {
+      spatialNav.goTo('execution');
       return;
     }
 
@@ -519,10 +516,9 @@ const InteractiveApp = ({ sessionManager: smProp, apiClient: clientProp, isFirst
       return;
     }
 
-    // Esc: close help → close detail → go home (FlipperLayout handles internal Esc)
+    // Esc: close help → go home (pages handle their own detail Esc internally)
     if (key.escape) {
       if (showHelp) { setShowHelp(false); return; }
-      if (spatialNav.detailScreen) { spatialNav.closeDetail(); return; }
       if (spatialNav.currentPageId !== 'agent') { spatialNav.goHome(); return; }
     }
 
@@ -561,16 +557,6 @@ const InteractiveApp = ({ sessionManager: smProp, apiClient: clientProp, isFirst
     setShowWelcome(false);
   }, [repoPath, addLine]);
 
-  // ── onNavigate callback for child screens (detail drill-downs) ──
-  const handleNavigate = useCallback((target: any) => {
-    if (target && target.type && target.id) {
-      spatialNav.openDetail({ type: target.type, id: target.id });
-    } else if (target && target.type) {
-      // Page-level navigation (e.g., from a detail screen link)
-      spatialNav.goTo(target.type);
-    }
-  }, [spatialNav]);
-
   // ── Handle submit ──
   const handleSubmit = useCallback((input: string) => {
     const trimmed = input.trim().toLowerCase();
@@ -578,11 +564,7 @@ const InteractiveApp = ({ sessionManager: smProp, apiClient: clientProp, isFirst
     // Slash commands → spatial navigation
     const slashTarget = SLASH_COMMANDS[trimmed];
     if (slashTarget === 'session-current') {
-      if (currentSessionId) {
-        spatialNav.openDetail({ type: 'session-detail', id: currentSessionId });
-      } else {
-        addLine({ text: 'No active session. Start a task first.', color: 'yellow' });
-      }
+      spatialNav.goTo('execution');
       return;
     }
     if (slashTarget === 'help') {
@@ -593,7 +575,6 @@ const InteractiveApp = ({ sessionManager: smProp, apiClient: clientProp, isFirst
       spatialNav.goTo(slashTarget);
       return;
     }
-    if (trimmed === '/back') { spatialNav.closeDetail(); return; }
     if (trimmed === '/quit' || trimmed === '/q') {
       if (sessionManager) sessionManager.stopPolling();
       exit();
@@ -701,9 +682,7 @@ const InteractiveApp = ({ sessionManager: smProp, apiClient: clientProp, isFirst
 
   return h(Box, { flexDirection: 'column', width: '100%', height: rows },
     // Page content (or detail screen)
-    spatialNav.detailScreen
-      ? renderDetail(spatialNav.detailScreen, contentHeight)
-      : renderPage(spatialNav.currentPageId, contentHeight),
+    renderPage(spatialNav.currentPageId, contentHeight),
 
     // SpatialStatusBar (always visible)
     h(SpatialStatusBar, {
@@ -734,53 +713,25 @@ const InteractiveApp = ({ sessionManager: smProp, apiClient: clientProp, isFirst
           onQuit: () => exit(),
         });
       case 'catalog':
-        return h(CatalogBrowser, {
-          apiClient, onNavigate: handleNavigate,
-          onBack: () => spatialNav.goHome(), onQuit: () => exit(),
+        return h(CatalogPage, {
+          apiClient,
           height,
+          onQuit: () => exit(),
         });
       case 'spaces':
-        return h(SessionBrowser, {
-          apiClient, onNavigate: handleNavigate,
-          onBack: () => spatialNav.goHome(), onQuit: () => exit(),
+        return h(SpacesPage, {
+          apiClient,
           height,
+          onQuit: () => exit(),
         });
       case 'models':
-        return h(ModelsBrowser, {
-          apiClient, onNavigate: handleNavigate,
-          onBack: () => spatialNav.goHome(), onQuit: () => exit(),
+        return h(ModelsPage, {
+          apiClient,
           height,
+          onQuit: () => exit(),
         });
       default:
         return renderAgentContent();
-    }
-  }
-
-  function renderDetail(detail: { type: string; id: string }, height: number) {
-    switch (detail.type) {
-      case 'block-detail':
-        return h(BlockDetailScreen, {
-          blockId: detail.id,
-          apiClient, onNavigate: handleNavigate,
-          onBack: () => spatialNav.closeDetail(), onQuit: () => exit(),
-          height,
-        });
-      case 'session-detail':
-        return h(SessionDetailScreen, {
-          sessionId: detail.id,
-          apiClient, onNavigate: handleNavigate,
-          onBack: () => spatialNav.closeDetail(), onQuit: () => exit(),
-          height,
-        });
-      case 'model-detail':
-        return h(ModelDetailScreen, {
-          modelId: detail.id,
-          apiClient,
-          onBack: () => spatialNav.closeDetail(), onQuit: () => exit(),
-          height,
-        });
-      default:
-        return renderPage(spatialNav.currentPageId, height);
     }
   }
 

@@ -699,3 +699,80 @@ These sub-phases implement the spatial full-screen page navigation system design
 | `packages/maestro-code/registry/built-in-pages.ts` | AgentPage + ExecutionPage references, updated comments |
 | `packages/maestro-code/App.ts` | ExecutionPage in renderPage(), header update |
 | `packages/maestro-code/tests/execution-page.test.ts` | NEW — 5 tests |
+
+## Sub-Phase E: List Pages (Catalog + Spaces + Models + Details) — COMPLETE
+
+**Date**: 2025-02-25
+**Pages created**: CatalogPage, SpacesPage, ModelsPage — yes
+**Detail pages**: 5/5 created — BlockDetailPage, SessionDetailPage, WorkspaceDetailPage, RepoDetailPage, ModelDetailPage
+**Stubs deleted**: 6 files from screens/ (CatalogBrowser, SessionBrowser, ModelsBrowser, BlockDetailScreen, SessionDetailScreen, ModelDetailScreen)
+**List pages tests**: 10/10 pass
+**Screens tests adapted**: 19/19 pass (4 removed for deleted stubs)
+**All maestro-code tests**: 131/131 pass (12 test files)
+**Monitor standalone**: 4/4 pass
+**Real demo check**: 5/5 PASS
+
+### What was done
+
+1. **Created 5 detail page wrappers** in `pages/details/`:
+   - `BlockDetailPage` wraps `@maestro/monitor/components/BlockDetail`
+   - `SessionDetailPage` wraps `@maestro/monitor/components/SessionMonitor`
+   - `WorkspaceDetailPage` wraps `@maestro/monitor/components/WorkspaceDetail`
+   - `RepoDetailPage` wraps `@maestro/monitor/components/RepoDetail`
+   - `ModelDetailPage` wraps `@maestro/monitor/components/ModelDetail`
+   - All thin wrappers with consistent props (entityId, apiClient, onBack, onQuit)
+   - Barrel export at `pages/details/index.ts`
+
+2. **Created 3 list pages** with internal detail navigation:
+   - `CatalogPage`: wraps CatalogScreen, manages detail state (block → BlockDetailPage)
+   - `SpacesPage`: wraps SpacesScreen, manages detail state (session/workspace/repo → detail pages)
+   - `ModelsPage`: wraps ModelsScreen, manages detail state (model → ModelDetailPage)
+   - Each page shows "No API client" fallback when apiClient is null
+   - Detail navigation happens WITHIN the page (useState), NOT at App.ts level (anti-pattern compliance)
+
+3. **Updated App.ts**:
+   - Removed old screen imports (CatalogBrowser, SessionBrowser, ModelsBrowser, BlockDetailScreen, SessionDetailScreen, ModelDetailScreen)
+   - Added new page imports (CatalogPage, SpacesPage, ModelsPage)
+   - Updated renderPage() to use new pages
+   - Removed `renderDetail()` function (detail is now page-internal)
+   - Removed `handleNavigate` callback (no longer needed)
+   - Changed Ctrl+D to navigate to execution page (was: openDetail)
+   - Changed /session to navigate to execution page
+   - Removed /back command (detail state handled by pages)
+   - Simplified Esc handling (no more detailScreen check)
+
+4. **Updated built-in-pages.ts**: All 5 pages now reference real components
+
+5. **Deleted 6 old screen stubs**: CatalogBrowser, SessionBrowser, ModelsBrowser, BlockDetailScreen, SessionDetailScreen, ModelDetailScreen
+
+6. **Updated screens/index.ts**: Removed deleted exports
+
+7. **Updated tests**:
+   - screens.test.ts: Removed 4 tests for deleted stubs, updated catalog nav test
+   - Created list-pages.test.ts: 10 tests covering no-api, rendering, detail navigation
+
+### Files modified
+
+| File | Change |
+|------|--------|
+| `pages/details/BlockDetailPage.ts` | NEW |
+| `pages/details/SessionDetailPage.ts` | NEW |
+| `pages/details/WorkspaceDetailPage.ts` | NEW |
+| `pages/details/RepoDetailPage.ts` | NEW |
+| `pages/details/ModelDetailPage.ts` | NEW |
+| `pages/details/index.ts` | NEW — barrel |
+| `pages/CatalogPage.ts` | NEW — wraps CatalogScreen |
+| `pages/SpacesPage.ts` | NEW — wraps SpacesScreen |
+| `pages/ModelsPage.ts` | NEW — wraps ModelsScreen |
+| `pages/index.ts` | Added all page exports |
+| `registry/built-in-pages.ts` | All real components |
+| `App.ts` | New pages, removed renderDetail/handleNavigate |
+| `screens/index.ts` | Removed deleted exports |
+| `screens/CatalogBrowser.ts` | DELETED |
+| `screens/SessionBrowser.ts` | DELETED |
+| `screens/ModelsBrowser.ts` | DELETED |
+| `screens/BlockDetailScreen.ts` | DELETED |
+| `screens/SessionDetailScreen.ts` | DELETED |
+| `screens/ModelDetailScreen.ts` | DELETED |
+| `tests/list-pages.test.ts` | NEW — 10 tests |
+| `tests/screens.test.ts` | Removed 4 tests, updated 1 |
