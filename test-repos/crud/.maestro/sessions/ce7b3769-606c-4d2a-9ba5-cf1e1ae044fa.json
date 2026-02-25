@@ -1,0 +1,418 @@
+{
+  "id": "ce7b3769-606c-4d2a-9ba5-cf1e1ae044fa",
+  "name": "crud - Create a hello world file",
+  "status": "idle",
+  "terminalReason": "none",
+  "authority": "human",
+  "workingDirectory": ".",
+  "repositoryPath": "C:\\Meastro\\test-repos\\crud",
+  "parentWorkspaceId": null,
+  "parentSessionId": null,
+  "config": {
+    "projectId": null,
+    "workflowId": null,
+    "task": null,
+    "context": null,
+    "access": {
+      "level": "controlled",
+      "allowedPaths": [],
+      "deniedPaths": [
+        ".env",
+        "*.env",
+        "secrets/**"
+      ],
+      "requireApprovalPaths": []
+    },
+    "validation": {
+      "runTests": false,
+      "testCommand": null,
+      "runLinter": false,
+      "linterCommand": null,
+      "requireCleanDiff": false,
+      "maxSteps": 50,
+      "timeoutMs": 600000
+    },
+    "inputs": {}
+  },
+  "createdAt": "2026-02-25T12:38:38.1614891+00:00",
+  "startedAt": "2026-02-25T12:38:38.7202439+00:00",
+  "completedAt": null,
+  "updatedAt": "2026-02-25T12:39:39.2309272+00:00",
+  "commandCount": 0,
+  "modifiedFiles": [],
+  "errorMessage": null,
+  "testResult": null,
+  "linterResult": null,
+  "commitInfo": null,
+  "variables": {
+    "sessionMode": "autonomous-dev",
+    "currentTask": "",
+    "currentStep": "idle",
+    "filesModified": [],
+    "testsPassed": false,
+    "reviewScore": 0,
+    "_phases": [
+      {
+        "id": "prepare",
+        "name": "1. Prepare",
+        "status": "error",
+        "description": "Analyze project structure and conventions"
+      },
+      {
+        "id": "plan",
+        "name": "2. Plan",
+        "status": "pending",
+        "description": "Decompose task into atomic steps"
+      },
+      {
+        "id": "validate-plan",
+        "name": "3. Validate",
+        "status": "pending",
+        "description": "Validate the plan structure"
+      },
+      {
+        "id": "implement-steps",
+        "name": "4. Implement",
+        "status": "pending",
+        "description": "Code each step with focused context"
+      },
+      {
+        "id": "test",
+        "name": "5. Test",
+        "status": "pending",
+        "description": "Run tests and detect failures"
+      },
+      {
+        "id": "review",
+        "name": "6. Review",
+        "status": "pending",
+        "description": "Evaluate quality of all changes"
+      },
+      {
+        "id": "commit",
+        "name": "7. Commit",
+        "status": "pending",
+        "description": "Stage and commit with semantic message"
+      }
+    ],
+    "_blockOutputs": {},
+    "_llmActivity": [],
+    "_executionLog": [
+      {
+        "time": "12:38:38",
+        "level": "info",
+        "msg": "Starting workflow: autonomous-development"
+      },
+      {
+        "time": "12:38:38",
+        "level": "info",
+        "msg": "prepare: Starting blockRef \u0027project-preparer\u0027..."
+      },
+      {
+        "time": "12:38:38",
+        "level": "info",
+        "msg": "Executing blockRef \u0027project-preparer\u0027 (type: agent) with 3 inputs"
+      },
+      {
+        "time": "12:39:39",
+        "level": "info",
+        "msg": "[project-preparer] Agent config: legacy (no config.nodes \u2014 using own config)"
+      },
+      {
+        "time": "12:39:39",
+        "level": "info",
+        "msg": "[project-preparer] Using model: claude-sonnet-4-6, temperature: 0, maxTokens: 1024"
+      },
+      {
+        "time": "12:39:39",
+        "level": "info",
+        "msg": "[project-preparer] Context strategy: sliding-window, maxTokens: 4096"
+      },
+      {
+        "time": "12:39:39",
+        "level": "info",
+        "msg": "[project-preparer] Wall-clock timeout: 600s, max iterations: 6"
+      },
+      {
+        "time": "12:39:39",
+        "level": "info",
+        "msg": "[project-preparer] Agent iteration 1/6"
+      },
+      {
+        "time": "12:39:39",
+        "level": "info",
+        "msg": "[project-preparer] LLM request failed (iteration 1): No connection could be made because the target machine actively refused it. (localhost:5010)"
+      },
+      {
+        "time": "12:39:39",
+        "level": "info",
+        "msg": "[project-preparer] Reducing context window from 10 to 7 messages, maxTokens 4096 to 3072, and retrying..."
+      },
+      {
+        "time": "12:39:39",
+        "level": "info",
+        "msg": "[project-preparer] Agent iteration 2/6"
+      },
+      {
+        "time": "12:39:39",
+        "level": "info",
+        "msg": "[project-preparer] LLM request failed (iteration 2): No connection could be made because the target machine actively refused it. (localhost:5010)"
+      },
+      {
+        "time": "12:39:39",
+        "level": "info",
+        "msg": "[project-preparer] Reducing context window from 7 to 5 messages, maxTokens 3072 to 2304, and retrying..."
+      },
+      {
+        "time": "12:39:39",
+        "level": "info",
+        "msg": "[project-preparer] Agent iteration 3/6"
+      },
+      {
+        "time": "12:39:39",
+        "level": "info",
+        "msg": "[project-preparer] LLM request failed (iteration 3): No connection could be made because the target machine actively refused it. (localhost:5010)"
+      },
+      {
+        "time": "12:39:39",
+        "level": "info",
+        "msg": "[project-preparer] Reducing context window from 5 to 4 messages, maxTokens 2304 to 2048, and retrying..."
+      },
+      {
+        "time": "12:39:39",
+        "level": "info",
+        "msg": "[project-preparer] Agent iteration 4/6"
+      },
+      {
+        "time": "12:39:39",
+        "level": "info",
+        "msg": "[project-preparer] LLM request failed (iteration 4): No connection could be made because the target machine actively refused it. (localhost:5010)"
+      },
+      {
+        "time": "12:39:39",
+        "level": "error",
+        "msg": "blockRef \u0027project-preparer\u0027 failed: LLM request failed: No connection could be made because the target machine actively refused it. (localhost:5010)"
+      },
+      {
+        "time": "12:39:39",
+        "level": "error",
+        "msg": "blockRef \u0027project-preparer\u0027 error: Block \u0027project-preparer\u0027 failed: LLM request failed: No connection could be made because the target machine actively refused it. (localhost:5010)"
+      },
+      {
+        "time": "12:39:39",
+        "level": "error",
+        "msg": "prepare: Block \u0027project-preparer\u0027 failed: LLM request failed: No connection could be made because the target machine actively refused it. (localhost:5010)"
+      },
+      {
+        "time": "12:39:39",
+        "level": "error",
+        "msg": "prepare: Block \u0027project-preparer\u0027 failed: LLM request failed: No connection could be made because the target machine actively refused it. (localhost:5010)"
+      },
+      {
+        "time": "12:39:39",
+        "level": "warning",
+        "msg": "Stopping sequence: node \u0027prepare\u0027 failed"
+      }
+    ],
+    "_executionTree": [
+      {
+        "id": "prepare",
+        "name": "Prepare",
+        "status": "error",
+        "children": [],
+        "output": "(error: Block \u0027project-preparer\u0027 failed: LLM request failed: No connection could be made because the target machine actively refused it. (localhost:5010))"
+      },
+      {
+        "id": "cache-context",
+        "name": "Cache Context",
+        "status": "pending",
+        "children": []
+      },
+      {
+        "id": "plan-retry-loop",
+        "name": "Plan Retry Loop",
+        "status": "pending",
+        "children": [
+          {
+            "id": "plan",
+            "name": "Plan",
+            "status": "pending",
+            "children": []
+          },
+          {
+            "id": "validate-plan",
+            "name": "Validate Plan",
+            "status": "pending",
+            "children": []
+          },
+          {
+            "id": "plan-format-gate",
+            "name": "Plan Format Gate",
+            "status": "pending",
+            "children": []
+          }
+        ]
+      },
+      {
+        "id": "store-plan",
+        "name": "Store Plan",
+        "status": "pending",
+        "children": []
+      },
+      {
+        "id": "implement-steps",
+        "name": "Implement Steps",
+        "status": "pending",
+        "children": [
+          {
+            "id": "implement-step",
+            "name": "Implement Step",
+            "status": "pending",
+            "children": []
+          },
+          {
+            "id": "validate-step",
+            "name": "Validate Step",
+            "status": "pending",
+            "children": []
+          }
+        ]
+      },
+      {
+        "id": "test",
+        "name": "Test",
+        "status": "pending",
+        "children": []
+      },
+      {
+        "id": "review",
+        "name": "Review",
+        "status": "pending",
+        "children": []
+      },
+      {
+        "id": "review-gate",
+        "name": "Review Gate",
+        "status": "pending",
+        "children": []
+      }
+    ],
+    "_monitorDescriptor": {
+      "layout": {
+        "mode": "phased-v2",
+        "zones": {
+          "header-left": {
+            "width": "60%",
+            "height": 7,
+            "components": [
+              "header"
+            ]
+          },
+          "header-right": {
+            "width": "40%",
+            "height": 7,
+            "components": [
+              "session-metrics"
+            ]
+          },
+          "left": {
+            "width": "55%",
+            "height": "75%",
+            "components": [
+              "phase-workflow"
+            ]
+          },
+          "right": {
+            "width": "45%",
+            "height": "75%",
+            "components": [
+              "llm-activity"
+            ]
+          },
+          "bottom": {
+            "width": "100%",
+            "height": "25%",
+            "components": [
+              "execution-log"
+            ]
+          }
+        }
+      },
+      "components": [
+        {
+          "id": "phase-workflow",
+          "type": "phase-workflow",
+          "data": [
+            "$.variables._phases",
+            "$.variables._executionTree"
+          ]
+        },
+        {
+          "id": "llm-activity",
+          "type": "llm-activity",
+          "data": "$.variables._llmActivity"
+        },
+        {
+          "id": "execution-log",
+          "type": "execution-log",
+          "data": "$.variables._executionLog"
+        },
+        {
+          "id": "session-metrics",
+          "type": "widgets",
+          "data": "$.monitorWidgets"
+        }
+      ]
+    },
+    "_artifacts": [],
+    "_phaseMetrics": {},
+    "_activeWorkflow": "",
+    "repoPath": "C:/Meastro/test-repos/crud",
+    "task": "Create a hello world file",
+    "workingDir": "C:/Meastro/test-repos/crud",
+    "projectStructure": "server/\n  index.ts\nsrc/\n  App.tsx\n  index.css\n  main.tsx\n  vite-env.d.ts\n.gitignore\ndev-output.log\nindex.html\npackage-lock.json\npackage.json\npostcss.config.js\nserver.log\ntailwind.config.js\ntsconfig.json\nvite.config.ts\n",
+    "_activeBlock": null,
+    "_nodeResult_prepare": "(error executing blockRef \u0027project-preparer\u0027: Block \u0027project-preparer\u0027 failed: LLM request failed: No connection could be made because the target machine actively refused it. (localhost:5010))",
+    "_workflowCheckpoint": null,
+    "_workflowCheckpoint_whileState": null,
+    "_workflowCheckpoint_foreachIndex": null
+  },
+  "entryPoints": {
+    "dev": "autonomous-development",
+    "plan": "task-planner",
+    "review": "code-reviewer"
+  },
+  "monitorWidgets": [
+    {
+      "id": "current-step",
+      "type": "counter",
+      "config": {
+        "label": "Current Step",
+        "value": "$.variables.currentStep"
+      }
+    },
+    {
+      "id": "review-score",
+      "type": "counter",
+      "config": {
+        "label": "Review Score",
+        "value": "$.variables.reviewScore"
+      }
+    },
+    {
+      "id": "tests-passed",
+      "type": "counter",
+      "config": {
+        "label": "Tests",
+        "value": "$.variables.testsPassed"
+      }
+    }
+  ],
+  "blockSearchPaths": [
+    "C:\\Meastro\\test-repos\\crud\\.maestro\\blocks"
+  ],
+  "defaultModel": null,
+  "modelOverrides": null,
+  "fileAccessRulesConfig": null,
+  "blockPermissionsConfig": null
+}

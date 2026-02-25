@@ -3436,7 +3436,14 @@ public class EntryPointExecutor
 
             if (jsonStr != null)
             {
-                using var doc = JsonDocument.Parse(jsonStr);
+                // Strip markdown code fences if present (e.g., ```json ... ```)
+                var stripped = jsonStr.Trim();
+                var fenceMatch = System.Text.RegularExpressions.Regex.Match(
+                    stripped, @"```(?:json)?\s*(\{.*\})\s*```", System.Text.RegularExpressions.RegexOptions.Singleline);
+                if (fenceMatch.Success)
+                    stripped = fenceMatch.Groups[1].Value;
+
+                using var doc = JsonDocument.Parse(stripped);
                 if (doc.RootElement.TryGetProperty(subPath, out var prop))
                 {
                     return prop.ValueKind switch

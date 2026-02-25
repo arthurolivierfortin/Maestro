@@ -185,7 +185,7 @@ async function runHeadless(options: HeadlessOptions): Promise<void> {
             nodeStatuses.set(node.name, node.status);
             if (node.status === 'running') {
               log('NODE', `\u25B6 ${node.name}`);
-            } else if (node.status === 'completed') {
+            } else if (node.status === 'completed' || node.status === 'done') {
               log('NODE', `\u2713 ${node.name}`);
             } else if (node.status === 'error') {
               log('NODE', `\u2717 ${node.name}: ${node.error || 'failed'}`);
@@ -201,9 +201,11 @@ async function runHeadless(options: HeadlessOptions): Promise<void> {
         }
 
         // Check completion
+        // Backend uses "done" for completed nodes, normalize both
         const status = sess.status || sess.containerStatus;
+        const isDoneStatus = (s: string) => s === 'completed' || s === 'done';
         const allDone = tree.length > 0 && tree.every(
-          (n: any) => n.status === 'completed' || n.status === 'error' || n.status === 'skipped'
+          (n: any) => isDoneStatus(n.status) || n.status === 'error' || n.status === 'skipped'
         );
 
         if (allDone || status === 'completed' || status === 'idle') {
@@ -221,7 +223,7 @@ async function runHeadless(options: HeadlessOptions): Promise<void> {
 
           // Final summary
           const duration = Date.now() - startTime;
-          const completedCount = tree.filter((n: any) => n.status === 'completed').length;
+          const completedCount = tree.filter((n: any) => isDoneStatus(n.status)).length;
           const errorCount = tree.filter((n: any) => n.status === 'error').length;
           const skippedCount = tree.filter((n: any) => n.status === 'skipped').length;
 

@@ -1,0 +1,110 @@
+{
+  "totalRequests": 28,
+  "latency": {
+    "p50": 8869,
+    "p95": 31948.79999999999,
+    "p99": 45779.359999999986,
+    "average": 12657.555555555555
+  },
+  "totalTokens": {
+    "promptTokens": 98,
+    "completionTokens": 12916,
+    "totalTokens": 13014
+  },
+  "modelStats": [
+    {
+      "modelId": {
+        "value": "haiku"
+      },
+      "requestCount": 2,
+      "latency": {
+        "p50": 18484,
+        "p95": 18653.199999999997,
+        "p99": 18668.239999999998,
+        "average": 18484
+      },
+      "totalTokens": {
+        "promptTokens": 20,
+        "completionTokens": 3509,
+        "totalTokens": 3529
+      },
+      "requestsPerMinute": 0.16512641291964994,
+      "errorRate": 0
+    },
+    {
+      "modelId": {
+        "value": "sonnet"
+      },
+      "requestCount": 26,
+      "latency": {
+        "p50": 8027,
+        "p95": 32747.5,
+        "p99": 45901.5,
+        "average": 12043.115384615385
+      },
+      "totalTokens": {
+        "promptTokens": 78,
+        "completionTokens": 9407,
+        "totalTokens": 9485
+      },
+      "requestsPerMinute": 1.7284276491005932,
+      "errorRate": 0
+    }
+  ],
+  "queue": {
+    "currentDepth": 0,
+    "depthByModel": {},
+    "currentModel": null,
+    "avgWaitTimeMs": 0,
+    "totalEnqueued": 0,
+    "totalProcessed": 0
+  },
+  "switching": {
+    "totalSwitches": 0,
+    "switchesAvoided": 0,
+    "avgSwitchDuration": "00:00:00",
+    "recentDecisions": []
+  },
+  "timeWindows": [
+    {
+      "windowName": "1m",
+      "windowSeconds": 60,
+      "requestCount": 4,
+      "requestsPerMinute": 4,
+      "latency": {
+        "p50": 8130,
+        "p95": 32599.049999999992,
+        "p99": 35912.60999999999,
+        "average": 14820.5
+      },
+      "tokensTotal": 13014
+    },
+    {
+      "windowName": "5m",
+      "windowSeconds": 300,
+      "requestCount": 14,
+      "requestsPerMinute": 2.8,
+      "latency": {
+        "p50": 9391.5,
+        "p95": 25944.499999999993,
+        "p99": 34581.69999999999,
+        "average": 12620.5
+      },
+      "tokensTotal": 13014
+    },
+    {
+      "windowName": "15m",
+      "windowSeconds": 900,
+      "requestCount": 27,
+      "requestsPerMinute": 1.8,
+      "latency": {
+        "p50": 8869,
+        "p95": 31948.79999999999,
+        "p99": 45779.359999999986,
+        "average": 12657.555555555555
+      },
+      "tokensTotal": 13014
+    }
+  ],
+  "generatedAt": "2026-02-25T13:00:01.7618947+00:00"
+}

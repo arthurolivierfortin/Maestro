@@ -132,6 +132,37 @@ describe('Headless Mode', () => {
     mockExit.mockRestore();
   });
 
+  it('recognizes backend "done" status as completed', async () => {
+    // Backend uses "done" not "completed" for finished nodes
+    mockClient.getSession.mockResolvedValue({
+      status: 'idle',
+      variables: {
+        _executionTree: [
+          { name: 'Prepare', status: 'done' },
+          { name: 'Plan', status: 'done' },
+          { name: 'Implement', status: 'done' },
+        ],
+        _executionLog: [],
+      },
+    });
+
+    const { runHeadless } = await import('../headless.ts');
+
+    await runHeadless({
+      apiClient: mockClient,
+      repoPath: '/test/project',
+      task: 'test done status',
+      importSessionTemplate: mockImportTemplate,
+    });
+
+    const output = consoleOutput.join('\n');
+    expect(output).toContain('✓ Prepare');
+    expect(output).toContain('✓ Plan');
+    expect(output).toContain('✓ Implement');
+    expect(output).toContain('Task completed successfully');
+    expect(output).toContain('Nodes: 3 completed');
+  });
+
   it('output lines are parseable with timestamp format', async () => {
     const { runHeadless } = await import('../headless.ts');
 

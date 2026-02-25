@@ -158,7 +158,7 @@ class SessionManager {
           for (const node of tree) {
             if (node.status === 'running') {
               addLine({ text: `  ▶ ${node.name}`, color: 'cyan', timestamp: ts() });
-            } else if (node.status === 'completed') {
+            } else if (node.status === 'completed' || node.status === 'done') {
               addLine({ text: `  ✓ ${node.name}`, color: 'green', timestamp: ts() });
             } else if (node.status === 'error') {
               addLine({ text: `  ✗ ${node.name}: ${node.error || 'failed'}`, color: 'red', timestamp: ts() });
@@ -168,7 +168,7 @@ class SessionManager {
 
         // Check if workflow is done
         const status = session.status || session.containerStatus;
-        const allDone = tree.length > 0 && tree.every(n => n.status === 'completed' || n.status === 'error' || n.status === 'skipped');
+        const allDone = tree.length > 0 && tree.every(n => n.status === 'completed' || n.status === 'done' || n.status === 'error' || n.status === 'skipped');
         if (allDone || status === 'completed' || status === 'idle') {
           this.stopPolling();
           const hasErrors = tree.some(n => n.status === 'error');
