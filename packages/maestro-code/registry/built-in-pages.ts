@@ -2,17 +2,20 @@
 /**
  * Built-in pages — the 5 default pages registered at init.
  *
- * Components are placeholders for now — real components will be
- * created in sub-phases 41-C (Agent), 41-D (Execution), 41-E (list pages).
+ * Agent (41-C) and Execution (41-D) have real components.
+ * Catalog, Spaces, Models are placeholders until 41-E.
+ *
+ * NOTE: The `component` field is informational — App.ts renderPage()
+ * handles actual rendering via switch/case with proper props.
  */
 
 import { createElement as h } from 'react';
 import { Text } from 'ink';
 import type { PageDefinition } from './types.ts';
+import { AgentPage } from '../pages/AgentPage.ts';
+import { ExecutionPage } from '../pages/ExecutionPage.ts';
 
-// Placeholder components — replaced in later sub-phases
-const PlaceholderAgent = () => h(Text, null, 'Agent');
-const PlaceholderExecution = () => h(Text, null, 'Execution');
+// Placeholder components — replaced in 41-E
 const PlaceholderCatalog = () => h(Text, null, 'Catalog');
 const PlaceholderSpaces = () => h(Text, null, 'Spaces');
 const PlaceholderModels = () => h(Text, null, 'Models');
@@ -24,7 +27,7 @@ export const BUILT_IN_PAGES: PageDefinition[] = [
     shortLabel: 'Agent',
     icon: '●',
     position: { x: 0, y: 0 },
-    component: PlaceholderAgent,
+    component: AgentPage,
   },
   {
     id: 'execution',
@@ -32,7 +35,7 @@ export const BUILT_IN_PAGES: PageDefinition[] = [
     shortLabel: 'Exec',
     icon: '↑',
     position: { x: 0, y: -1 },
-    component: PlaceholderExecution,
+    component: ExecutionPage,
   },
   {
     id: 'catalog',

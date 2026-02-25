@@ -1,6 +1,6 @@
 // @ts-nocheck
 /**
- * Maestro Interactive Mode — Spatial TUI (Phase 41-C)
+ * Maestro Interactive Mode — Spatial TUI (Phase 41-D)
  *
  * Spatial full-screen page navigation on a 2D grid.
  * Pages: Agent (0,0), Execution (0,-1), Catalog (-1,0), Spaces (1,0), Models (0,1).
@@ -34,6 +34,7 @@ import { createDefaultRegistry } from './registry/index.ts';
 import { SpatialStatusBar } from './components/SpatialStatusBar.ts';
 import { TransitionWipe } from './components/TransitionWipe.ts';
 import { AgentPage } from './pages/AgentPage.ts';
+import { ExecutionPage } from './pages/ExecutionPage.ts';
 import type { AgentState } from './types.ts';
 import { SessionManager, ts } from './services/SessionManager.ts';
 import type { LogLine, InteractiveOptions, Widget } from './services/SessionManager.ts';
@@ -725,9 +726,13 @@ const InteractiveApp = ({ sessionManager: smProp, apiClient: clientProp, isFirst
       case 'agent':
         return renderAgentContent();
       case 'execution':
-        return h(Box, { flexGrow: 1, alignItems: 'center', justifyContent: 'center' },
-          h(Text, { color: 'gray', dimColor: true }, 'Execution page — coming in 41-D')
-        );
+        return h(ExecutionPage, {
+          sessionId: currentSessionId,
+          apiClient,
+          height,
+          onExit: () => spatialNav.goHome(),
+          onQuit: () => exit(),
+        });
       case 'catalog':
         return h(CatalogBrowser, {
           apiClient, onNavigate: handleNavigate,

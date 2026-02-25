@@ -657,3 +657,45 @@ These sub-phases implement the spatial full-screen page navigation system design
 | `packages/maestro-code/tests/screens.test.ts` | Updated agent screen test |
 | `packages/maestro-code/tests/demo-visual-debug.test.ts` | Updated for AgentPage working state |
 | `packages/maestro-code/tests/real-demo-check.cjs` | Updated for AgentPage |
+
+## Sub-Phase D: Execution Page (SessionMonitor complet) — COMPLETE
+
+**Date**: 2025-02-25
+**ExecutionPage tests**: 5/5 pass
+**No-session state**: "No active session" message displayed correctly with navigation hint (Ctrl+Down)
+**SessionMonitor rendering**: Mocked SessionMonitor renders with correct sessionId + callback props
+**Monitor standalone**: 4/4 pass
+**Real demo check**: 5/5 PASS
+**All maestro-code tests**: 125/125 pass (11 test files)
+**TUI toolkit tests**: 67/67 pass
+
+### What was done
+
+1. **Created `pages/ExecutionPage.ts`** — thin wrapper around `@maestro/monitor/components/SessionMonitor.ts`
+   - `NoSessionView`: centered box with "No active session" message + navigation hint (Ctrl+Down to Agent)
+   - When sessionId + apiClient present → renders SessionMonitor with all props
+   - Does NOT modify SessionMonitor (anti-pattern compliance)
+   - SessionMonitor's internal NavBar + StatusBar coexist with SpatialStatusBar (accepted overlap)
+
+2. **Updated `pages/index.ts`** — added ExecutionPage + ExecutionPageProps exports
+
+3. **Updated `registry/built-in-pages.ts`** — replaced PlaceholderAgent/PlaceholderExecution with real component references (AgentPage, ExecutionPage). Remaining placeholders: Catalog, Spaces, Models (41-E).
+
+4. **Updated `App.ts`** — replaced execution placeholder in `renderPage()` with ExecutionPage receiving `sessionId`, `apiClient`, `height`, `onExit`, `onQuit`. Updated header to "Phase 41-D".
+
+5. **Created `tests/execution-page.test.ts`** — 5 tests:
+   - No-session (null sessionId) → shows message
+   - No-session (null apiClient) → shows message
+   - With session → renders SessionMonitor with sessionId
+   - Passes onExit + onQuit callbacks
+   - No SessionMonitor rendered in no-session state
+
+### Files modified
+
+| File | Change |
+|------|--------|
+| `packages/maestro-code/pages/ExecutionPage.ts` | NEW — SessionMonitor wrapper |
+| `packages/maestro-code/pages/index.ts` | Added ExecutionPage export |
+| `packages/maestro-code/registry/built-in-pages.ts` | AgentPage + ExecutionPage references, updated comments |
+| `packages/maestro-code/App.ts` | ExecutionPage in renderPage(), header update |
+| `packages/maestro-code/tests/execution-page.test.ts` | NEW — 5 tests |
