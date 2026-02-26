@@ -56,7 +56,7 @@ async function main() {
     }
 
     // Key state indicators
-    const hasTaskInput = frame.includes('Describe your task') || frame.includes('Send');
+    const hasTaskInput = frame.includes('Describe your task') || frame.includes('Send') || frame.includes('Press / to type');
     const hasDemoLabel = frame.includes('DEMO') || frame.includes('demo');
     const hasMonitorContent = frame.includes('Home') || frame.includes('SESSION') || frame.includes('session');
     console.log(`[${wait}ms] ${label}: taskInput=${hasTaskInput} demo=${hasDemoLabel} monitor=${hasMonitorContent}`);
@@ -67,7 +67,7 @@ async function main() {
   // Final assertions
   const final = stripAnsi(lastFrame() || '');
   const checks = [
-    ['TaskInputBar visible', final.includes('>') || final.includes('Describe your task')],
+    ['TaskInputBar visible', final.includes('Press / to type') || final.includes('Describe your task') || final.includes('Send')],
     ['Demo mode active', final.includes('DEMO') || final.includes('demo')],
     ['No uncaught Error', !final.includes('Error:')],
     ['Module resolution works', true], // If we got this far, imports are fine

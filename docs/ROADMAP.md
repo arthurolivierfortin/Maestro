@@ -1,6 +1,6 @@
 # Maestro — Roadmap
 
-**Derniere mise a jour** : 2026-02-24
+**Derniere mise a jour** : 2026-02-26
 **Version actuelle** : v0.1.0-alpha (tag sur main)
 
 ---
@@ -41,6 +41,8 @@
 | 37 | Maestro Runtime & SDK (@maestro/client, @maestro/sidecar, Jarvis, voice, CLI migration) | COMPLETE |
 | 38 | Sandbox Foundry — git worktrees + Docker, session integration, batch testing (22 tests) | COMPLETE |
 | 39 | `maestro adapt` + `maestro optimize` — manifest extraction, model substitution, temperature tuning (16 tests) | COMPLETE |
+| 40-PRE | Maestro Code — L'App Unifiee (agent-first architecture, shared @maestro/tui, identity) | COMPLETE |
+| 41-PRE | Spatial TUI (Page Registry, 2D grid, mascotte, command palette) | COMPLETE (remplace par Phase 42) |
 
 ---
 
@@ -48,134 +50,118 @@
 
 ---
 
-### Phase 40-PRE : Maestro Code — L'App Unifiee
+### Phase 42 : Restructuration maestro-code = Monitor + AgentPanel
 
-**But** : Transformer `maestro code` d'un task runner mono-ecran en L'application Maestro. Architecture agent-first (Flipper Zero), composants shared dans @maestro/tui, identite visuelle Command Center.
-
-| Sous-phase | Objectif | Effort |
-|------------|----------|--------|
-| 40-PRE-C | Bug fixing & verification (138+ tests, CLI audit) | 2-3 jours |
-| 40-PRE-A | Shared components @maestro/tui + architecture agent-first | 5-7 jours |
-| 40-PRE-B | Identite visuelle Command Center (palette, borders, splash, mascotte) | 2-3 jours |
-| 40-PRE-D | First-run experience (WelcomeScreen, help overlay) | 1-2 jours |
-| 40-PRE-F | Pipeline pixel art (SD + LoRA + tool block + mascotte) | 10-16 jours |
-| 40-PRE-E | Test E2E & polish final | 1-2 jours |
-
-**Docs** : `docs/phases/PHASE-40-PRE/README.md`
-
----
-
-### Phase 37 : Maestro Runtime & SDK
-
-**But** : Permettre aux applications tierces d'embarquer Maestro comme runtime. Ajouter le mode vocal a maestro code et creer l'agent Jarvis generique.
+**Statut** : EN COURS (code quasi-fini, verification en attente du Visual Gate)
+**But** : Remplacer l'architecture spatiale over-engineered de 41-PRE par une copie du monitor solide + AgentPanel interactif.
 
 | Sous-phase | Objectif | Effort |
 |------------|----------|--------|
-| 37-A | SDK client npm (@maestro/client) | 1 semaine |
-| 37-B | Mode sidecar (@maestro/sidecar) | 1 semaine |
-| 37-C | Blocks audio (STT + TTS) | 3-5 jours |
-| 37-D | Mode vocal dans maestro code (toggle a chaud, Ctrl+V) | 3-5 jours |
-| 37-E | Agent Jarvis — template generique de router d'intentions | 3-5 jours |
+| 1 | Copier les fichiers du monitor (~25 composants, 3 hooks, theme) | fait |
+| 2 | Creer AgentPanel + TaskInputBar | fait |
+| 3 | Reecrire App.ts (pattern monitor + SessionManager + demo) | fait |
+| 4 | Modifier SessionMonitor (ajouter AgentPanel dans layout) | fait |
+| 5 | Supprimer le spatial (registry/, pages/, mascotte, etc.) | fait |
+| 6 | Tests et verification | en attente Phase 43 |
 
-**Docs** : `docs/phases/PHASE-37/README.md`
+**Docs** : `docs/phases/PHASE-42/README.md`
 
 ---
 
-### Phase 38 : Sandbox Foundry — Tests reproductibles
+### Phase 43 : Visual Gate — PTY Capture + Golden Files + Structural Assertions
 
-**But** : Tester des agents dans des environnements reproductibles avec checkpoints nommes. Automatiser le batch testing pour mesurer la fitness.
+**Statut** : A FAIRE (priorite haute — bloque la verification de Phase 42)
+**But** : Pipeline de verification visuelle automatise. Spawne le TUI dans un vrai PTY (node-pty + @xterm/headless), capture le buffer terminal, valide contre des golden files et assertions structurelles.
 
 | Sous-phase | Objectif | Effort |
 |------------|----------|--------|
-| 38-A | Sandbox images — entites, ISandboxManager, git worktrees (V1) | 1 semaine |
-| 38-B | Integration foundry sessions — lancer avec sandbox + checkpoint | 1 semaine |
-| 38-C | Batch testing — tous les checkpoints, rapport fitness | 1 semaine |
-| 38-D | Docker sandbox (V2) — isolation complete, types non-git | 1-2 semaines |
+| 43-A | Frame capture infrastructure (node-pty + @xterm/headless + smoke test) | 1-1.5 jours |
+| 43-B | Golden files + structural assertions + integration test:visual | 1-1.5 jours |
 
-**Docs** : `docs/phases/PHASE-38/README.md`
+**Docs** : `docs/phases/PHASE-43/README.md`
 
 ---
 
-### Phase 39 : `maestro adapt` + `maestro optimize`
+### Phase 44 : TUI Sentinel — Agent autonome de validation TUI
 
-**But** : Automatiser l'adaptation des workflows aux modeles de l'utilisateur et l'optimisation des tiers.
+**Statut** : PLANIFIE (depend de Phase 43)
+**But** : Agent Maestro (workflow block) qui decouvre, teste, et corrige le TUI automatiquement. Premiere utilisation reelle de Maestro sur son propre code.
 
 | Sous-phase | Objectif | Effort |
 |------------|----------|--------|
-| 39-A | `maestro adapt` — adaptation automatique | 1-2 semaines |
-| 39-B | `maestro optimize` — strategies pluggables d'optimisation | 1-2 semaines |
+| 44-A | Block infrastructure (workflow + agent blocks + session template) | 3-5 jours |
+| 44-B | Discovery + Analysis agents | 3-5 jours |
+| 44-C | Atomic + Integration testing | 3-5 jours |
+| 44-D | Visual capture + Fix loop (SWE-Agent style) | 5-7 jours |
+| 44-E | Report + Self-improvement | 3-5 jours |
 
-**Docs** : `docs/phases/PHASE-39/README.md`
+**Docs** : `docs/phases/PHASE-44/README.md`
 
 ---
 
-### Phase 40 : Premiere version distribuable
+### Phase 45 : Premiere version distribuable
 
-**But** : Maestro installable et utilisable par quelqu'un d'autre, incluant le SDK pour apps.
+**But** : Maestro installable et utilisable par quelqu'un d'autre.
 
 | Sous-phase | Objectif | Effort |
 |------------|----------|--------|
-| 40-A | Packaging et installation (npm global + SDK) | 1 semaine |
-| 40-B | Onboarding premier lancement | 3-5 jours |
-| 40-C | Documentation utilisateur (+ guide "Building Maestro Apps") | 3-5 jours |
-| 40-D | Beta testing (3-5 testeurs) | 2 semaines |
-
-**Docs** : `docs/phases/PHASE-40/README.md`
+| 45-A | Packaging et installation (npm global + SDK) | 1 semaine |
+| 45-B | Onboarding premier lancement | 3-5 jours |
+| 45-C | Documentation utilisateur | 3-5 jours |
+| 45-D | Beta testing (3-5 testeurs) | 2 semaines |
 
 ---
 
-### Phase 41 : Cantante v1 — Premiere app propulsee par Maestro
+### Phase 46 : Cantante v1 — Premiere app propulsee par Maestro
 
-**But** : Faire de Cantante la premiere application publique qui tourne SUR Maestro, avec navigation vocale et assistance IA embarquee.
+**But** : Faire de Cantante la premiere application publique qui tourne SUR Maestro.
 
 | Sous-phase | Objectif | Effort |
 |------------|----------|--------|
-| 41-A | Integration @maestro/client + @maestro/sidecar dans Cantante | 1 semaine |
-| 41-B | Agent Jarvis specialise Cantante (7+ intents vocaux) | 1-2 semaines |
-| 41-C | Case study public (metriques, tutorial, template) | 3-5 jours |
-
-**Docs** : `docs/phases/PHASE-41/README.md`
+| 46-A | Integration @maestro/client + @maestro/sidecar dans Cantante | 1 semaine |
+| 46-B | Agent Jarvis specialise Cantante | 1-2 semaines |
+| 46-C | Case study public (metriques, tutorial) | 3-5 jours |
 
 ---
 
-### Phase 42+ : Futur
+### Phase 47+ : Futur
 
-- 42 : Catalogue communautaire (publier/importer blocks + docs + sandboxes)
-- 43 : Auth et subscriptions
-- 44 : Fitness Engine + Agent Evaluateur Autonome (description + reference → tests auto, cascade heuristique/LLM-local/cloud)
-- 45 : Agent Creator (meta-programmation — utilise l'agent evaluateur de 44 pour valider ses creations)
-- 46+ : Multi-domaine
+- 47 : Catalogue communautaire (publier/importer blocks + docs + sandboxes)
+- 48 : Auth et subscriptions
+- 49 : Fitness Engine + Agent Evaluateur Autonome
+- 50 : Agent Creator (meta-programmation — utilise l'evaluateur de 49)
+- 51+ : Multi-domaine
 
 ---
 
 ## Chaine de dependances
 
 ```
-35 Dogfooding (DONE — 34 sessions, 41 fixes, 100% post-fix)
- └→ 36 Context/Memory/Docs (fondations pour Jarvis + encyclopedie)
-     └→ 37 Runtime & SDK (embarquer Maestro dans des apps + vocal)
-         └→ 38 Sandbox Foundry (tests reproductibles)
-             └→ 39 adapt + optimize (utilise les sandboxes pour la fitness)
-                 └→ 40-PRE Polish & Agent-First UX (maestro code = L'app)
-                     └→ 40 Distribution (empaquetter tout)
-                     └→ 41 Cantante v1 (premiere app Maestro publique)
-                         └→ 42 Catalogue communautaire
-                         └→ 43 Auth + subscriptions
-                             └→ 44 Fitness Engine + Agent Evaluateur (description + reference → tests auto)
-                                 └→ 45 Agent Creator (utilise 44 pour valider)
+35 Dogfooding (DONE)
+ └→ 36 Context/Memory/Docs (DONE)
+     └→ 37 Runtime & SDK (DONE)
+         └→ 38 Sandbox Foundry (DONE)
+             └→ 39 adapt + optimize (DONE)
+                 └→ 40-PRE Polish & Agent-First UX (DONE)
+                     └→ 41-PRE Spatial TUI (DONE — remplace par 42)
+                         └→ 42 Restructuration maestro-code (EN COURS)
+                             └→ 43 Visual Gate (A FAIRE — debloque la verification de 42)
+                                 └→ 44 TUI Sentinel (utilise le visual gate)
+                                     └→ 45 Distribution (empaquetter tout)
+                                         └→ 46 Cantante v1 (premiere app Maestro publique)
+                                             └→ 47+ Catalogue, Auth, Fitness Engine...
 ```
 
 ## Features planifiees (TODOS)
 
 | Feature | Phase cible | Document |
 |---------|-------------|----------|
-| Documentation attachee | 36-D | `docs/TODOS/FEATURE-attached-docs.md` |
-| Sandbox foundry | 38 | `docs/TODOS/FEATURE-sandbox-foundry.md` |
-| Maestro Runtime & SDK | 37 | `docs/phases/PHASE-37/README.md` |
-| Mode vocal (toggle) | 37-D | `docs/phases/PHASE-37/README.md` |
-| Agent Jarvis | 37-E + 41-B | Generique en 37, specialise Cantante en 41 |
-| Pixel Art Pipeline (SD + LoRA) | 40-PRE-F | `docs/phases/PHASE-40-PRE/PIXEL-ART-PIPELINE.md` |
-| Fitness Engine + Agent Evaluateur | 44 | `docs/TODOS/FEATURE-fitness-engine-evaluator.md` |
+| Visual Gate (PTY capture) | 43 | `docs/phases/PHASE-43/README.md` |
+| TUI Sentinel (agent QA) | 44 | `docs/phases/PHASE-44/README.md` |
+| Distribution / packaging | 45 | A creer |
+| Cantante v1 | 46 | A creer |
+| Catalogue communautaire | 47 | Futur |
+| Fitness Engine + Agent Evaluateur | 49 | `docs/TODOS/FEATURE-fitness-engine-evaluator.md` |
 
 ## Principes
 
@@ -184,3 +170,4 @@
 3. **Pas de phase "complete" sans test** — Un commit sur main ne suffit pas
 4. **Committer directement sur main** — Pas de PRs pour un dev solo, tags pour les milestones
 5. **Chaque phase construit sur la precedente** — Pas de trou dans les dependances
+6. **Verifier avant de declarer** — vitest passing ≠ feature works (incident Phase 41-PRE)

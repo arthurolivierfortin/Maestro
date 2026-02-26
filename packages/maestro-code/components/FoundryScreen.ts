@@ -25,7 +25,6 @@ import { useApiData } from '@maestro/tui/hooks';
 import { useKeyboard } from '../hooks/useKeyboard.ts';
 import { NavBar } from './NavBar.ts';
 import { Panel } from './Panel.ts';
-import { StatusBar } from './StatusBar.ts';
 
 // ── Block Row ────────────────────────────────────────────────
 
@@ -67,22 +66,17 @@ const BlockRow = ({ block, isSelected, isExpanded }) => {
 
 // ── FoundryScreen component ──────────────────────────────────
 
-const FoundryScreen = ({ apiClient, onNavigate, onBlockSelect, onQuit }) => {
+const FoundryScreen = ({ apiClient, onNavigate, onBlockSelect, onQuit, keyboardActive }) => {
   const { stdout } = useStdout();
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [expandedIndex, setExpandedIndex] = useState(-1);
 
-  // Terminal rows for scroll: NavBar(3) + PanelBorder(2) + header(1) + StatusBar(3) = 9
+  // Terminal rows for scroll: NavBar(3) + PanelBorder(2) + header(1) = 6
   const termRows = stdout.rows || 40;
   const visibleItems = Math.max(3, termRows - 9);
 
   // Fetch blocks
-  const {
-    data: blocks,
-    connectionStatus,
-    latency,
-    lastRefresh,
-  } = useApiData(
+  const { data: blocks } = useApiData(
     useCallback(() => apiClient.listBlocks().catch(() => []), [apiClient]),
     10000
   );
@@ -140,6 +134,7 @@ const FoundryScreen = ({ apiClient, onNavigate, onBlockSelect, onQuit }) => {
       setExpandedIndex(prev => prev === selectedIndex ? -1 : selectedIndex);
     },
     h: () => onNavigate('home'),
+    a: () => onNavigate('agent'),
     s: () => onNavigate('spaces'),
     f: () => {},
     c: () => onNavigate('catalog'),
@@ -152,7 +147,7 @@ const FoundryScreen = ({ apiClient, onNavigate, onBlockSelect, onQuit }) => {
       }
     },
     q: onQuit,
-  });
+  }, { isActive: keyboardActive !== false });
 
   // Count by type
   const typeCounts = {};
@@ -208,12 +203,6 @@ const FoundryScreen = ({ apiClient, onNavigate, onBlockSelect, onQuit }) => {
       ),
     ),
 
-    h(StatusBar, {
-      connectionStatus,
-      latency,
-      lastRefresh,
-      currentPage: 'foundry',
-    }),
   );
 };
 

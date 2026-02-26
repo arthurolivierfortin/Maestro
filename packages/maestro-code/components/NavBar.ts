@@ -13,6 +13,7 @@ import { theme, icons } from '../theme.ts';
 
 const MONITOR_PAGES = [
   { key: 'home',    hotkey: 'H', label: 'ome' },
+  { key: 'agent',   hotkey: 'A', label: 'gent' },
   { key: 'spaces',  hotkey: 'S', label: 'paces' },
   { key: 'foundry', hotkey: 'F', label: 'oundry' },
   { key: 'catalog', hotkey: 'C', label: 'atalog' },

@@ -24,7 +24,6 @@ import { useKeyboard } from '../hooks/useKeyboard.ts';
 import { useAnimationTick } from '../hooks/useAnimationTick.ts';
 import { NavBar } from './NavBar.ts';
 import { Panel } from './Panel.ts';
-import { StatusBar } from './StatusBar.ts';
 
 // ── Model Status Panel ───────────────────────────────────────
 
@@ -96,18 +95,13 @@ const ModelCard = ({ model, isSelected, isActive }) => {
 
 // ── ModelsScreen component ───────────────────────────────────
 
-const ModelsScreen = ({ apiClient, onNavigate, onModelSelect, onQuit, initialState, chrome }) => {
+const ModelsScreen = ({ apiClient, onNavigate, onModelSelect, onQuit, initialState, chrome, keyboardActive }) => {
   const showChrome = chrome !== false;
   const [selectedIndex, setSelectedIndex] = useState(initialState?.selectedIndex ?? 0);
   const tick = useAnimationTick(150);
 
   // Fetch LLM health
-  const {
-    data: llmHealth,
-    connectionStatus,
-    latency,
-    lastRefresh,
-  } = useApiData(
+  const { data: llmHealth } = useApiData(
     useCallback(() => apiClient.getLLMHealth().catch(() => ({ error: true })), [apiClient]),
     5000
   );
@@ -164,6 +158,7 @@ const ModelsScreen = ({ apiClient, onNavigate, onModelSelect, onQuit, initialSta
     },
     ...(showChrome ? {
       h: () => onNavigate('home'),
+      a: () => onNavigate('agent'),
       s: () => onNavigate('spaces'),
       f: () => onNavigate('foundry'),
       c: () => onNavigate('catalog'),
@@ -171,7 +166,7 @@ const ModelsScreen = ({ apiClient, onNavigate, onModelSelect, onQuit, initialSta
     } : {}),
     escape: showChrome ? () => onNavigate('home') : undefined,
     q: onQuit,
-  });
+  }, { isActive: keyboardActive !== false });
 
   return h(Box, { flexDirection: 'column', width: '100%', flexGrow: 1 },
     showChrome ? h(NavBar, { currentPage: 'models', sessionCount: sessionList.length, runningCount }) : null,
@@ -211,12 +206,6 @@ const ModelsScreen = ({ apiClient, onNavigate, onModelSelect, onQuit, initialSta
       ),
     ),
 
-    showChrome ? h(StatusBar, {
-      connectionStatus,
-      latency,
-      lastRefresh,
-      currentPage: 'models',
-    }) : null,
   );
 };
 

@@ -27,7 +27,6 @@ import { useApiData } from '@maestro/tui/hooks';
 import { useKeyboard } from '../hooks/useKeyboard.ts';
 import { NavBar } from './NavBar.ts';
 import { Panel } from './Panel.ts';
-import { StatusBar } from './StatusBar.ts';
 
 // ── Tab Header ───────────────────────────────────────────────
 
@@ -219,7 +218,7 @@ const WorkspaceRow = ({ workspace, isSelected }) => {
 
 // ── SpacesScreen component ───────────────────────────────────
 
-const SpacesScreen = ({ apiClient, onNavigate, onSessionSelect, onWorkspaceSelect, onRepoSelect, onQuit, initialState, chrome }) => {
+const SpacesScreen = ({ apiClient, onNavigate, onSessionSelect, onWorkspaceSelect, onRepoSelect, onQuit, initialState, chrome, keyboardActive }) => {
   const showChrome = chrome !== false;
   const { stdout } = useStdout();
   const [activeTab, setActiveTab] = useState(initialState?.activeTab ?? 'sessions');
@@ -227,17 +226,12 @@ const SpacesScreen = ({ apiClient, onNavigate, onSessionSelect, onWorkspaceSelec
   const [statusFilter, setStatusFilter] = useState(initialState?.statusFilter ?? 'all');
 
   // Terminal rows for scroll calculation
-  // NavBar(3) + TabHeader(3) + PanelBorder(2) + title(1) + spacer(1) + headerLines(2) + StatusBar(3) = 15 fixed
+  // NavBar(3) + TabHeader(3) + PanelBorder(2) + title(1) + spacer(1) + headerLines(2) = 12 fixed
   const termRows = stdout.rows || 40;
   const visibleItems = Math.max(3, termRows - 15);
 
   // Fetch sessions
-  const {
-    data: sessions,
-    connectionStatus,
-    latency,
-    lastRefresh,
-  } = useApiData(
+  const { data: sessions } = useApiData(
     useCallback(() => apiClient.listSessions(), [apiClient]),
     3000
   );
@@ -328,6 +322,7 @@ const SpacesScreen = ({ apiClient, onNavigate, onSessionSelect, onWorkspaceSelec
     r: () => setStatusFilter('running'),
     ...(showChrome ? {
       h: () => onNavigate('home'),
+      a: () => onNavigate('agent'),
       s: () => {},
       f: () => onNavigate('foundry'),
       c: () => onNavigate('catalog'),
@@ -335,7 +330,7 @@ const SpacesScreen = ({ apiClient, onNavigate, onSessionSelect, onWorkspaceSelec
     } : {}),
     escape: showChrome ? () => onNavigate('home') : undefined,
     q: onQuit,
-  });
+  }, { isActive: keyboardActive !== false });
 
   // Build rows for current tab
   const rows = visibleSlice.map((item, vi) => {
@@ -402,12 +397,6 @@ const SpacesScreen = ({ apiClient, onNavigate, onSessionSelect, onWorkspaceSelec
       ),
     ),
 
-    showChrome ? h(StatusBar, {
-      connectionStatus,
-      latency,
-      lastRefresh,
-      currentPage: 'spaces',
-    }) : null,
   );
 };
 

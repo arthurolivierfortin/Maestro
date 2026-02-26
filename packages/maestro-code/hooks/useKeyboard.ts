@@ -45,7 +45,7 @@ interface KeyboardHandlers {
   number?: (n: number) => void;
 }
 
-const useKeyboard = (handlers: KeyboardHandlers = {}): void => {
+const useKeyboard = (handlers: KeyboardHandlers = {}, options?: { isActive?: boolean }): void => {
   useInput((input: string, key) => {
     if (key.upArrow && key.ctrl && handlers.ctrlUp) { handlers.ctrlUp(); return; }
     if (key.downArrow && key.ctrl && handlers.ctrlDown) { handlers.ctrlDown(); return; }
@@ -79,7 +79,7 @@ const useKeyboard = (handlers: KeyboardHandlers = {}): void => {
     if (input === 'a' && handlers.a) handlers.a();
     const num = parseInt(input, 10);
     if (num >= 1 && num <= 9 && handlers.number) handlers.number(num);
-  });
+  }, { isActive: options?.isActive !== false });
 };
 
 export { useKeyboard };

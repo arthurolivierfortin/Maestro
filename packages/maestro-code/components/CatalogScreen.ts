@@ -26,7 +26,6 @@ import { useApiData } from '@maestro/tui/hooks';
 import { useKeyboard } from '../hooks/useKeyboard.ts';
 import { NavBar } from './NavBar.ts';
 import { Panel } from './Panel.ts';
-import { StatusBar } from './StatusBar.ts';
 
 // ── Type filter tabs ─────────────────────────────────────────
 
@@ -122,24 +121,19 @@ const CatalogBlockRow = ({ block, isSelected, isExpanded }) => {
 
 // ── CatalogScreen component ──────────────────────────────────
 
-const CatalogScreen = ({ apiClient, onNavigate, onBlockSelect, onQuit, initialState, chrome }) => {
+const CatalogScreen = ({ apiClient, onNavigate, onBlockSelect, onQuit, initialState, chrome, keyboardActive }) => {
   const showChrome = chrome !== false;
   const { stdout } = useStdout();
   const [selectedIndex, setSelectedIndex] = useState(initialState?.selectedIndex ?? 0);
   const [expandedIndex, setExpandedIndex] = useState(initialState?.expandedIndex ?? -1);
   const [typeFilter, setTypeFilter] = useState(initialState?.typeFilter ?? 'all');
 
-  // Terminal rows for scroll: NavBar(3) + PanelBorder(2) + header(2) + StatusBar(3) = 10
+  // Terminal rows for scroll: NavBar(3) + PanelBorder(2) + header(2) = 7
   const termRows = stdout.rows || 40;
   const visibleItems = Math.max(3, termRows - 10);
 
   // Fetch blocks
-  const {
-    data: blocks,
-    connectionStatus,
-    latency,
-    lastRefresh,
-  } = useApiData(
+  const { data: blocks } = useApiData(
     useCallback(() => apiClient.listBlocks().catch(() => []), [apiClient]),
     10000
   );
@@ -216,6 +210,7 @@ const CatalogScreen = ({ apiClient, onNavigate, onBlockSelect, onQuit, initialSt
       ctrlLeft: () => onNavigate(prevPage('catalog')),
       ctrlRight: () => onNavigate(nextPage('catalog')),
       h: () => onNavigate('home'),
+      a: () => onNavigate('agent'),
       s: () => onNavigate('spaces'),
       f: () => onNavigate('foundry'),
       c: () => {},
@@ -229,7 +224,7 @@ const CatalogScreen = ({ apiClient, onNavigate, onBlockSelect, onQuit, initialSt
       }
     },
     q: onQuit,
-  });
+  }, { isActive: keyboardActive !== false });
 
   return h(Box, { flexDirection: 'column', width: '100%', flexGrow: 1 },
     showChrome ? h(NavBar, { currentPage: 'catalog', sessionCount: sessionList.length, runningCount }) : null,
@@ -275,12 +270,6 @@ const CatalogScreen = ({ apiClient, onNavigate, onBlockSelect, onQuit, initialSt
       ),
     ),
 
-    showChrome ? h(StatusBar, {
-      connectionStatus,
-      latency,
-      lastRefresh,
-      currentPage: 'catalog',
-    }) : null,
   );
 };
 

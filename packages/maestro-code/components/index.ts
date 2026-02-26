@@ -30,6 +30,7 @@ export { RepoDetail } from './RepoDetail.ts';
 export { ModelDetail } from './ModelDetail.ts';
 
 // maestro-code specific
+export { AgentScreen } from './AgentScreen.ts';
 export { AgentPanel } from './AgentPanel.ts';
 export type { AgentPanelProps } from './AgentPanel.ts';
 export { TaskInputBar } from './TaskInputBar.ts';

@@ -7,9 +7,18 @@
     "./headless.ts": "./headless.ts",
     "./ink-table-launcher.ts": "./ink-table-launcher.ts"
   },
+  "scripts": {
+    "test": "npx vitest run tests/",
+    "test:fast": "npx vitest run tests/App.test.ts tests/DemoApiClient.test.ts tests/AgentPanel.test.ts tests/TaskInputBar.test.ts",
+    "test:visual": "npx vitest run tests/smoke-capture.test.ts tests/visual-gate.test.ts"
+  },
   "dependencies": {
     "@maestro/tui": "*",
     "ink": "^6.7.0",
     "react": "^19.2.4"
+  },
+  "devDependencies": {
+    "node-pty": "^1.0.0",
+    "@xterm/headless": "^5.5.0"
   }
 }

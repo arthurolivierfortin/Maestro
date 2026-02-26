@@ -17,9 +17,10 @@ export interface TaskInputBarProps {
   placeholder?: string;
   onUpArrow?: () => string | null;
   onDownArrow?: () => string | null;
+  captureInput?: boolean;
 }
 
-const TaskInputBar = ({ onSubmit, disabled, placeholder, onUpArrow, onDownArrow }: TaskInputBarProps) => {
+const TaskInputBar = ({ onSubmit, disabled, placeholder, onUpArrow, onDownArrow, captureInput }: TaskInputBarProps) => {
   const [value, setValue] = useState('');
   const [cursor, setCursor] = useState(0);
   const valueRef = useRef('');
@@ -65,20 +66,23 @@ const TaskInputBar = ({ onSubmit, disabled, placeholder, onUpArrow, onDownArrow 
     cursorRef.current = c;
     setValue(v);
     setCursor(c);
-  });
+  }, { isActive: !!captureInput });
 
-  const prompt = disabled ? '...' : '>';
-  const promptColor = disabled ? 'gray' : 'green';
+  const prompt = disabled ? '...' : captureInput ? '>' : '/';
+  const promptColor = disabled ? 'gray' : captureInput ? 'green' : 'gray';
+  const borderColor = disabled ? 'gray' : captureInput ? 'cyan' : 'gray';
 
   return h(Box, {
     borderStyle: 'round',
-    borderColor: disabled ? 'gray' : 'cyan',
+    borderColor,
     paddingX: 1,
     flexShrink: 0,
   },
     h(Text, { color: promptColor, bold: true }, `${prompt} `),
     h(Text, null,
-      value || h(Text, { color: 'gray', dimColor: true }, placeholder || 'Describe your task...')
+      value || h(Text, { color: 'gray', dimColor: true },
+        captureInput ? (placeholder || 'Describe your task...') : 'Press / to type...'
+      )
     )
   );
 };

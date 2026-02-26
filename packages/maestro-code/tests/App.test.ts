@@ -80,26 +80,34 @@ describe('ConversationLog', () => {
 describe('TaskInputBar', () => {
   afterEach(() => cleanup());
 
-  it('shows placeholder when empty', async () => {
+  it('shows "Press / to type..." when unfocused', async () => {
     const { TaskInputBar } = await import('../App.ts');
     const onSubmit = vi.fn();
     const { lastFrame } = render(h(TaskInputBar, { onSubmit }));
+    const frame = stripAnsi(lastFrame() || '');
+    expect(frame).toContain('Press / to type...');
+  });
+
+  it('shows placeholder when focused', async () => {
+    const { TaskInputBar } = await import('../App.ts');
+    const onSubmit = vi.fn();
+    const { lastFrame } = render(h(TaskInputBar, { onSubmit, captureInput: true }));
     const frame = stripAnsi(lastFrame() || '');
     expect(frame).toContain('Describe your task...');
   });
 
-  it('shows custom placeholder', async () => {
+  it('shows custom placeholder when focused', async () => {
     const { TaskInputBar } = await import('../App.ts');
     const onSubmit = vi.fn();
-    const { lastFrame } = render(h(TaskInputBar, { onSubmit, placeholder: 'Custom...' }));
+    const { lastFrame } = render(h(TaskInputBar, { onSubmit, placeholder: 'Custom...', captureInput: true }));
     const frame = stripAnsi(lastFrame() || '');
     expect(frame).toContain('Custom...');
   });
 
-  it('shows ">" prompt when not disabled', async () => {
+  it('shows ">" prompt when focused', async () => {
     const { TaskInputBar } = await import('../App.ts');
     const onSubmit = vi.fn();
-    const { lastFrame } = render(h(TaskInputBar, { onSubmit }));
+    const { lastFrame } = render(h(TaskInputBar, { onSubmit, captureInput: true }));
     const frame = stripAnsi(lastFrame() || '');
     expect(frame).toContain('>');
   });
@@ -112,10 +120,10 @@ describe('TaskInputBar', () => {
     expect(frame).toContain('...');
   });
 
-  it('accepts typed characters', async () => {
+  it('accepts typed characters when focused', async () => {
     const { TaskInputBar } = await import('../App.ts');
     const onSubmit = vi.fn();
-    const { lastFrame, stdin } = render(h(TaskInputBar, { onSubmit }));
+    const { lastFrame, stdin } = render(h(TaskInputBar, { onSubmit, captureInput: true }));
 
     await delay();
     typeText(stdin, 'hello');
@@ -128,7 +136,7 @@ describe('TaskInputBar', () => {
   it('calls onSubmit on Enter and clears input', async () => {
     const { TaskInputBar } = await import('../App.ts');
     const onSubmit = vi.fn();
-    const { lastFrame, stdin } = render(h(TaskInputBar, { onSubmit }));
+    const { lastFrame, stdin } = render(h(TaskInputBar, { onSubmit, captureInput: true }));
 
     await delay();
     typeText(stdin, 'my task');
@@ -146,7 +154,7 @@ describe('TaskInputBar', () => {
   it('does not submit empty input on Enter', async () => {
     const { TaskInputBar } = await import('../App.ts');
     const onSubmit = vi.fn();
-    const { stdin } = render(h(TaskInputBar, { onSubmit }));
+    const { stdin } = render(h(TaskInputBar, { onSubmit, captureInput: true }));
 
     await delay();
     stdin.write(ENTER);
@@ -156,7 +164,7 @@ describe('TaskInputBar', () => {
   it('ignores input when disabled', async () => {
     const { TaskInputBar } = await import('../App.ts');
     const onSubmit = vi.fn();
-    const { lastFrame, stdin } = render(h(TaskInputBar, { onSubmit, disabled: true }));
+    const { lastFrame, stdin } = render(h(TaskInputBar, { onSubmit, disabled: true, captureInput: true }));
 
     await delay();
     typeText(stdin, 'hello');
@@ -170,7 +178,7 @@ describe('TaskInputBar', () => {
   it('handles backspace', async () => {
     const { TaskInputBar } = await import('../App.ts');
     const onSubmit = vi.fn();
-    const { lastFrame, stdin } = render(h(TaskInputBar, { onSubmit }));
+    const { lastFrame, stdin } = render(h(TaskInputBar, { onSubmit, captureInput: true }));
 
     await delay();
     typeText(stdin, 'hello');
@@ -188,7 +196,7 @@ describe('TaskInputBar', () => {
 describe('App', () => {
   afterEach(() => cleanup());
 
-  it('renders home page with TaskInputBar', async () => {
+  it('renders agent page with TaskInputBar', async () => {
     const { App } = await import('../App.ts');
     const { lastFrame } = render(h(App, {
       apiClient: null, sessionManager: null, demoMode: true,
@@ -196,11 +204,11 @@ describe('App', () => {
 
     await delay(500);
     const frame = stripAnsi(lastFrame() || '');
-    // TaskInputBar visible — in demo mode auto-start sets busy, so placeholder is "Send..."
-    expect(frame).toContain('>');
+    // TaskInputBar visible (unfocused shows / prompt and "Press / to type...")
+    expect(frame).toContain('Press / to type...');
   });
 
-  it('shows TaskInputBar placeholder', async () => {
+  it('shows TaskInputBar with / prompt (unfocused)', async () => {
     const { App } = await import('../App.ts');
     const { lastFrame } = render(h(App, {
       apiClient: null, sessionManager: null, demoMode: true,
@@ -208,25 +216,25 @@ describe('App', () => {
 
     await delay(200);
     const frame = stripAnsi(lastFrame() || '');
-    expect(frame).toContain('>');
+    expect(frame).toContain('/');
   });
 
-  it('in demo mode, auto-starts and navigates to session detail', async () => {
+  it('in demo mode, auto-starts task and stays on agent page', async () => {
     const { App } = await import('../App.ts');
     const { lastFrame } = render(h(App, {
       apiClient: null, sessionManager: null, demoMode: true,
     }));
 
-    // Demo mode auto-submits "Add login page" → creates session → navigates to SessionMonitor
+    // Demo mode auto-submits "Add login page" — stays on Agent page (no auto-navigate)
     await delay(1000);
 
     const frame = stripAnsi(lastFrame() || '');
-    // Should show SessionMonitor with demo session data
-    expect(frame).toContain('Demo Session');
-    // Should show WORKFLOW TREE panel (execution mode)
-    expect(frame).toContain('WORKFLOW TREE');
-    // TaskInputBar visible at bottom
-    expect(frame).toContain('Send a message to the agent...');
+    // Agent page with CONVERSATION panel
+    expect(frame).toContain('CONVERSATION');
+    // Agent status shows working state
+    expect(frame).toContain('AGENT STATUS');
+    // TaskInputBar visible at bottom (unfocused after auto-submit)
+    expect(frame).toContain('Press / to type...');
   });
 });
 

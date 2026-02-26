@@ -31,6 +31,8 @@ import { ModelDetail } from './components/ModelDetail.ts';
 import { BlockDetail } from './components/BlockDetail.ts';
 import { TaskInputBar } from './components/TaskInputBar.ts';
 import { ConversationLog } from './components/ConversationLog.ts';
+import { AgentScreen } from './components/AgentScreen.ts';
+import { StatusBar } from './components/StatusBar.ts';
 
 import type { IApiClient } from '@maestro/tui/types';
 
@@ -201,7 +203,7 @@ const App = ({ apiClient: clientProp, sessionManager: smProp, demoMode, repoPath
   // ── Monitor-style navigation (from monitor App.ts) ──
   const [navStack, setNavStack] = useState<(NavStackEntry | PageNavEntry)[]>([]);
   const [detailView, setDetailView] = useState<DetailView | null>(null);
-  const [currentPage, setCurrentPage] = useState<PageName>('home');
+  const [currentPage, setCurrentPage] = useState<PageName>('agent');
   const [restoredState, setRestoredState] = useState<any>(null);
 
   const detailViewRef = useRef(detailView);
@@ -213,9 +215,8 @@ const App = ({ apiClient: clientProp, sessionManager: smProp, demoMode, repoPath
 
   // ── Agent state ──
   const [lines, setLines] = useState<LogLine[]>([
-    { text: demoMode ? 'Maestro Code [DEMO]' : 'Maestro Code', color: 'cyan', bold: true },
+    { text: 'Maestro Code', color: 'cyan', bold: true },
     { text: 'Type a task and press Enter.', color: 'gray', dim: true },
-    ...(demoMode ? [{ text: 'Demo mode — no real execution.', color: 'yellow', dim: true }] : []),
     { text: '' },
   ]);
   const [busy, setBusy] = useState(false);
@@ -224,6 +225,21 @@ const App = ({ apiClient: clientProp, sessionManager: smProp, demoMode, repoPath
   const [pendingInteractive, setPendingInteractive] = useState<Widget | null>(null);
   const [currentWidget, setCurrentWidget] = useState<Widget | null>(null);
   const history = useInputHistory();
+  const [inputFocused, setInputFocused] = useState(false);
+
+  // ── Input focus management ──
+  // Slash-to-focus model: '/' activates input bar, Escape returns to navigation.
+  // This runs alongside page hooks; it only toggles the isActive flags.
+  useInput((input, key) => {
+    if (!inputFocused && input === '/') {
+      setInputFocused(true);
+      return;
+    }
+    if (inputFocused && key.escape) {
+      setInputFocused(false);
+      return;
+    }
+  }, { isActive: true });
 
   // ── Add line (FIFO 500) ──
   const MAX_LINES = 500;
@@ -331,6 +347,9 @@ const App = ({ apiClient: clientProp, sessionManager: smProp, demoMode, repoPath
   const handleSubmit = useCallback((input: string) => {
     const trimmed = input.trim().toLowerCase();
 
+    // Return to navigation mode after submitting
+    setInputFocused(false);
+
     // Slash commands
     if (trimmed === '/quit' || trimmed === '/q') { handleQuit(); return; }
 
@@ -361,7 +380,6 @@ const App = ({ apiClient: clientProp, sessionManager: smProp, demoMode, repoPath
       sessionManager.submitTask(input, addLine, (b) => {
         setBusy(b);
         if (!b) {
-          if (!demoMode) setCurrentSessionId(null);
           sessionManager.stopWidgetPolling();
           setAgentState('idle');
         } else {
@@ -371,14 +389,11 @@ const App = ({ apiClient: clientProp, sessionManager: smProp, demoMode, repoPath
         const id = sessionManager.getSessionId();
         if (id) {
           setCurrentSessionId(id);
-          // Auto-navigate to session detail
-          setDetailView({ type: 'session', id });
-          setNavStack([{ type: 'page' as const, page: currentPageRef.current, state: null }]);
           sessionManager.startWidgetPolling(addLine, setCurrentWidget, setPendingInteractive);
         }
       });
     }
-  }, [addLine, sessionManager, busy, pendingInteractive, history, handleQuit, demoMode]);
+  }, [addLine, sessionManager, busy, pendingInteractive, history, handleQuit]);
 
   // ── Auto-start demo session ──
   const autoStarted = useRef(false);
@@ -431,14 +446,16 @@ const App = ({ apiClient: clientProp, sessionManager: smProp, demoMode, repoPath
 
     return h(FullscreenBox, null,
       detailComponent,
-      // TaskInputBar above the bottom edge
+      // TaskInputBar above StatusBar
       h(TaskInputBar, {
         onSubmit: handleSubmit,
         disabled: false,
         placeholder: busy ? 'Send a message to the agent...' : 'Describe your task...',
         onUpArrow: history.prev,
         onDownArrow: history.next,
+        captureInput: inputFocused,
       }),
+      h(StatusBar, { currentPage: 'session', isDetailView: true }),
     );
   }
 
@@ -451,10 +468,21 @@ const App = ({ apiClient: clientProp, sessionManager: smProp, demoMode, repoPath
     onRepoSelect: handleRepoSelect,
     onQuit: handleQuit,
     initialState: restoredState,
+    keyboardActive: !inputFocused,
   };
 
   let pageComponent;
   switch (currentPage) {
+    case 'agent':
+      pageComponent = h(AgentScreen, {
+        ...pageProps,
+        lines,
+        agentState,
+        sessionId: currentSessionId,
+        busy,
+        keyboardActive: !inputFocused,
+      });
+      break;
     case 'spaces':
       pageComponent = h(SpacesScreen, pageProps);
       break;
@@ -482,7 +510,9 @@ const App = ({ apiClient: clientProp, sessionManager: smProp, demoMode, repoPath
       placeholder: busy ? 'Send a message to the agent...' : 'Describe your task...',
       onUpArrow: history.prev,
       onDownArrow: history.next,
+      captureInput: inputFocused,
     }),
+    h(StatusBar, { currentPage }),
   );
 };
 

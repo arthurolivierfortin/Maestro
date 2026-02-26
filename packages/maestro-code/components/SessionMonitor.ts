@@ -677,6 +677,7 @@ const SessionMonitor = ({ sessionId, apiClient, onExit, onQuit, onNavigate, agen
 
     // Page navigation (letter shortcuts always available from any view)
     'page.home': () => { if (onNavigate) onNavigate('home'); },
+    'page.agent': () => { if (onNavigate) onNavigate('agent'); },
     'page.spaces': () => { if (onNavigate) onNavigate('spaces'); },
     'page.foundry': () => { if (onNavigate) onNavigate('foundry'); },
     'page.catalog': () => { if (onNavigate) onNavigate('catalog'); },

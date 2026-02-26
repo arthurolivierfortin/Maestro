@@ -29,9 +29,9 @@ export {
 
 // ── Monitor-specific: Page navigation ─────────────────────────────
 
-export type PageName = 'home' | 'spaces' | 'foundry' | 'catalog' | 'models';
+export type PageName = 'home' | 'agent' | 'spaces' | 'foundry' | 'catalog' | 'models';
 
-export const PAGE_ORDER: PageName[] = ['home', 'spaces', 'foundry', 'catalog', 'models'];
+export const PAGE_ORDER: PageName[] = ['home', 'agent', 'spaces', 'foundry', 'catalog', 'models'];
 
 /** Get previous page (wrap-around). */
 export const prevPage = (current: PageName): PageName => {

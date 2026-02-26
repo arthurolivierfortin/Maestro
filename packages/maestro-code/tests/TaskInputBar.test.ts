@@ -24,25 +24,39 @@ const BACKSPACE = '\x7F';
 describe('TaskInputBar', () => {
   afterEach(() => cleanup());
 
-  it('shows default placeholder', async () => {
+  it('shows "Press / to type..." when unfocused (captureInput=false)', async () => {
     const { TaskInputBar } = await import('../components/TaskInputBar.ts');
     const { lastFrame } = render(h(TaskInputBar, { onSubmit: vi.fn() }));
+    const frame = stripAnsi(lastFrame() || '');
+    expect(frame).toContain('Press / to type...');
+  });
+
+  it('shows default placeholder when focused (captureInput=true)', async () => {
+    const { TaskInputBar } = await import('../components/TaskInputBar.ts');
+    const { lastFrame } = render(h(TaskInputBar, { onSubmit: vi.fn(), captureInput: true }));
     const frame = stripAnsi(lastFrame() || '');
     expect(frame).toContain('Describe your task...');
   });
 
-  it('shows custom placeholder', async () => {
+  it('shows custom placeholder when focused', async () => {
     const { TaskInputBar } = await import('../components/TaskInputBar.ts');
-    const { lastFrame } = render(h(TaskInputBar, { onSubmit: vi.fn(), placeholder: 'Send...' }));
+    const { lastFrame } = render(h(TaskInputBar, { onSubmit: vi.fn(), placeholder: 'Send...', captureInput: true }));
     const frame = stripAnsi(lastFrame() || '');
     expect(frame).toContain('Send...');
   });
 
-  it('shows > prompt when enabled', async () => {
+  it('shows > prompt when focused', async () => {
+    const { TaskInputBar } = await import('../components/TaskInputBar.ts');
+    const { lastFrame } = render(h(TaskInputBar, { onSubmit: vi.fn(), captureInput: true }));
+    const frame = stripAnsi(lastFrame() || '');
+    expect(frame).toContain('>');
+  });
+
+  it('shows / prompt when unfocused', async () => {
     const { TaskInputBar } = await import('../components/TaskInputBar.ts');
     const { lastFrame } = render(h(TaskInputBar, { onSubmit: vi.fn() }));
     const frame = stripAnsi(lastFrame() || '');
-    expect(frame).toContain('>');
+    expect(frame).toContain('/');
   });
 
   it('shows ... prompt when disabled', async () => {
@@ -52,9 +66,9 @@ describe('TaskInputBar', () => {
     expect(frame).toContain('...');
   });
 
-  it('renders typed text', async () => {
+  it('renders typed text when focused', async () => {
     const { TaskInputBar } = await import('../components/TaskInputBar.ts');
-    const { lastFrame, stdin } = render(h(TaskInputBar, { onSubmit: vi.fn() }));
+    const { lastFrame, stdin } = render(h(TaskInputBar, { onSubmit: vi.fn(), captureInput: true }));
     await delay();
     typeText(stdin, 'hello');
     await delay();
@@ -62,10 +76,20 @@ describe('TaskInputBar', () => {
     expect(frame).toContain('hello');
   });
 
-  it('submits on Enter and clears', async () => {
+  it('does NOT capture text when unfocused', async () => {
+    const { TaskInputBar } = await import('../components/TaskInputBar.ts');
+    const { lastFrame, stdin } = render(h(TaskInputBar, { onSubmit: vi.fn() }));
+    await delay();
+    typeText(stdin, 'hello');
+    await delay();
+    const frame = stripAnsi(lastFrame() || '');
+    expect(frame).not.toContain('hello');
+  });
+
+  it('submits on Enter and clears when focused', async () => {
     const { TaskInputBar } = await import('../components/TaskInputBar.ts');
     const onSubmit = vi.fn();
-    const { lastFrame, stdin } = render(h(TaskInputBar, { onSubmit }));
+    const { lastFrame, stdin } = render(h(TaskInputBar, { onSubmit, captureInput: true }));
     await delay();
     typeText(stdin, 'my task');
     await delay();
@@ -79,7 +103,7 @@ describe('TaskInputBar', () => {
   it('does not submit empty input', async () => {
     const { TaskInputBar } = await import('../components/TaskInputBar.ts');
     const onSubmit = vi.fn();
-    const { stdin } = render(h(TaskInputBar, { onSubmit }));
+    const { stdin } = render(h(TaskInputBar, { onSubmit, captureInput: true }));
     await delay();
     stdin.write(ENTER);
     expect(onSubmit).not.toHaveBeenCalled();
@@ -88,7 +112,7 @@ describe('TaskInputBar', () => {
   it('ignores input when disabled', async () => {
     const { TaskInputBar } = await import('../components/TaskInputBar.ts');
     const onSubmit = vi.fn();
-    const { lastFrame, stdin } = render(h(TaskInputBar, { onSubmit, disabled: true }));
+    const { lastFrame, stdin } = render(h(TaskInputBar, { onSubmit, disabled: true, captureInput: true }));
     await delay();
     typeText(stdin, 'test');
     stdin.write(ENTER);
@@ -97,9 +121,9 @@ describe('TaskInputBar', () => {
     expect(frame).not.toContain('test');
   });
 
-  it('handles backspace', async () => {
+  it('handles backspace when focused', async () => {
     const { TaskInputBar } = await import('../components/TaskInputBar.ts');
-    const { lastFrame, stdin } = render(h(TaskInputBar, { onSubmit: vi.fn() }));
+    const { lastFrame, stdin } = render(h(TaskInputBar, { onSubmit: vi.fn(), captureInput: true }));
     await delay();
     typeText(stdin, 'hello');
     stdin.write(BACKSPACE);
@@ -109,12 +133,13 @@ describe('TaskInputBar', () => {
     expect(frame).not.toContain('hello');
   });
 
-  it('calls onUpArrow for history navigation', async () => {
+  it('calls onUpArrow for history navigation when focused', async () => {
     const { TaskInputBar } = await import('../components/TaskInputBar.ts');
     const onUp = vi.fn().mockReturnValue('previous command');
     const { lastFrame, stdin } = render(h(TaskInputBar, {
       onSubmit: vi.fn(),
       onUpArrow: onUp,
+      captureInput: true,
     }));
     await delay();
     stdin.write('\x1B[A'); // Up arrow

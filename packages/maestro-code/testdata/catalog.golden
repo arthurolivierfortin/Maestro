@@ -1,0 +1,40 @@
+┌──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│ MAESTRO  [H]ome  [A]gent  [S]paces  [F]oundry  [C]atalog  [M]odels                 • 5 sessions (1 running)  Ctrl+←→ │
+└──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│ BLOCK CATALOG                                                                                                        │
+│ Type: All | Workflows | Agents | Tools                                                                               │
+│  12 block(s)                                                                                                         │
+│ → ▶ [workflow] Autonomous Dev                 autonomous-d  80% Autonomous Dev block                                 │
+│     [agent] Code Analyzer                  code-analyze  87% Code Analyzer block                                     │
+│     [agent] Code Reviewer                  code-reviewe  84% Code Reviewer block                                     │
+│     [tool] Commit Helper                  commit-helpe  88% Commit Helper block                                      │
+│     [agent] Dev Orchestrator               dev-orchestr  82% Dev Orchestrator block                                  │
+│     [inference] Doc Generator                  doc-generato  85% Doc Generator block                                 │
+│     [tool] File Read                      file-read  95% File Read block                                             │
+│     [tool] File Write                     file-write  93% File Write block                                           │
+│     [validator] JSON Validator                 json-validat  98% JSON Validator block                                │
+│     [agent] Refactor Agent                 refactor-age  76% Refactor Agent block                                    │
+│     [inference] Task Planner                   task-planner  79% Task Planner block                                  │
+│     [tool] Test Runner                    test-runner  91% Test Runner block                                         │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+└──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ / Press / to type...                                                                                                 │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+┌──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│ * connecting  •  -  •  -                                       [Ctrl+←→]page [↑↓]select [Enter]open [Esc]back [q]uit │
+└──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘

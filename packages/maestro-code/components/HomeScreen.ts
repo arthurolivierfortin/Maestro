@@ -26,7 +26,6 @@ import { useKeyboard } from '../hooks/useKeyboard.ts';
 import { useAnimationTick } from '../hooks/useAnimationTick.ts';
 import { NavBar } from './NavBar.ts';
 import { Panel } from './Panel.ts';
-import { StatusBar } from './StatusBar.ts';
 
 // ── System Status Panel ──────────────────────────────────────
 
@@ -218,7 +217,7 @@ const QuitConfirmation = ({ onConfirm, onCancel }) => {
 
 // ── HomeScreen component ─────────────────────────────────────
 
-const HomeScreen = ({ apiClient, onNavigate, onSessionSelect, onQuit }) => {
+const HomeScreen = ({ apiClient, onNavigate, onSessionSelect, onQuit, keyboardActive }) => {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [page, setPage] = useState(0);
   const [showQuitConfirm, setShowQuitConfirm] = useState(false);
@@ -233,12 +232,7 @@ const HomeScreen = ({ apiClient, onNavigate, onSessionSelect, onQuit }) => {
     useCallback(() => apiClient.getLLMHealth().catch(() => null), [apiClient]),
     10000
   );
-  const {
-    data: sessions,
-    connectionStatus,
-    latency,
-    lastRefresh,
-  } = useApiData(
+  const { data: sessions } = useApiData(
     useCallback(() => apiClient.listSessions(), [apiClient]),
     5000
   );
@@ -291,7 +285,7 @@ const HomeScreen = ({ apiClient, onNavigate, onSessionSelect, onQuit }) => {
     });
   };
 
-  // Keyboard — disabled when quit confirmation is showing
+  // Keyboard — disabled when quit confirmation is showing or input bar is focused
   useKeyboard(showQuitConfirm ? {} : {
     up: navigateUp,
     down: navigateDown,
@@ -309,13 +303,14 @@ const HomeScreen = ({ apiClient, onNavigate, onSessionSelect, onQuit }) => {
       }
     },
     h: () => {}, // Already on home, no-op
+    a: () => onNavigate('agent'),
     s: () => onNavigate('spaces'),
     f: () => onNavigate('foundry'),
     c: () => onNavigate('catalog'),
     m: () => onNavigate('models'),
     q: askQuit,
     escape: askQuit,
-  });
+  }, { isActive: keyboardActive !== false });
 
   // Quit confirmation overlay
   if (showQuitConfirm) {
@@ -327,12 +322,6 @@ const HomeScreen = ({ apiClient, onNavigate, onSessionSelect, onQuit }) => {
           onCancel: () => setShowQuitConfirm(false),
         }),
       ),
-      h(StatusBar, {
-        connectionStatus,
-        latency,
-        lastRefresh,
-        currentPage: 'home',
-      }),
     );
   }
 
@@ -357,14 +346,6 @@ const HomeScreen = ({ apiClient, onNavigate, onSessionSelect, onQuit }) => {
         h(QuickActions),
       ),
     ),
-
-    // StatusBar
-    h(StatusBar, {
-      connectionStatus,
-      latency,
-      lastRefresh,
-      currentPage: 'home',
-    }),
   );
 };
 

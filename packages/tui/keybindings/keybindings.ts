@@ -26,6 +26,7 @@ export const DEFAULT_KEYBINDINGS: KeybindingMap = {
     'page.prev': 'Ctrl+Left',
     'page.next': 'Ctrl+Right',
     'page.home': 'h',
+    'page.agent': 'a',
     'page.spaces': 's',
     'page.foundry': 'f',
     'page.catalog': 'c',
