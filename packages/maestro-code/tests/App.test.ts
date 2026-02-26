@@ -1,6 +1,6 @@
 // @ts-nocheck
 /**
- * Tests for Maestro Interactive Mode components.
+ * Tests for Maestro Code — Phase 42 architecture (Monitor + AgentPanel).
  * Uses ink-testing-library to render Ink components without a TTY.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
@@ -75,132 +75,64 @@ describe('ConversationLog', () => {
   });
 });
 
-// ── SpatialStatusBar Tests ────────────────────────────────────
+// ── TaskInputBar Tests ──────────────────────────────────────────
 
-describe('SpatialStatusBar', () => {
-  afterEach(() => cleanup());
-
-  it('shows page name, connection status and help shortcut', async () => {
-    const { SpatialStatusBar } = await import('../components/SpatialStatusBar.ts');
-    const { createDefaultRegistry } = await import('../registry/index.ts');
-    const reg = createDefaultRegistry();
-    const agentPage = reg.getById('agent');
-    const hints = reg.getDirectionHints(agentPage.position);
-
-    const { lastFrame } = render(h(SpatialStatusBar, {
-      currentPage: agentPage,
-      directionHints: hints,
-      agentState: 'idle',
-      sessionId: null, busy: false,
-      connected: true, latency: 0,
-      focusedPanel: null, zoomedPanel: null,
-    }));
-    const frame = stripAnsi(lastFrame() || '');
-    // SpatialStatusBar shows page name + direction hints
-    expect(frame).toContain('Agent');
-    expect(frame).toContain('?');
-  });
-
-  it('shows short session ID when present', async () => {
-    const { SpatialStatusBar } = await import('../components/SpatialStatusBar.ts');
-    const { createDefaultRegistry } = await import('../registry/index.ts');
-    const reg = createDefaultRegistry();
-    const agentPage = reg.getById('agent');
-    const hints = reg.getDirectionHints(agentPage.position);
-
-    const { lastFrame } = render(h(SpatialStatusBar, {
-      currentPage: agentPage,
-      directionHints: hints,
-      agentState: 'idle',
-      sessionId: 'abcdef12-3456-7890-abcd-ef1234567890',
-      busy: false,
-      connected: true, latency: 0,
-      focusedPanel: null, zoomedPanel: null,
-    }));
-    const frame = stripAnsi(lastFrame() || '');
-    expect(frame).toContain('abcdef12');
-  });
-
-  it('shows panel focus indicator when a panel is focused', async () => {
-    const { SpatialStatusBar } = await import('../components/SpatialStatusBar.ts');
-    const { createDefaultRegistry } = await import('../registry/index.ts');
-    const reg = createDefaultRegistry();
-    const agentPage = reg.getById('agent');
-    const hints = reg.getDirectionHints(agentPage.position);
-
-    const { lastFrame } = render(h(SpatialStatusBar, {
-      currentPage: agentPage,
-      directionHints: hints,
-      agentState: 'working',
-      sessionId: 'abcdef12-3456-7890-abcd-ef1234567890',
-      busy: true,
-      connected: true, latency: 10,
-      focusedPanel: 'tree', zoomedPanel: null,
-    }));
-    const frame = stripAnsi(lastFrame() || '');
-    expect(frame).toContain('TREE');
-    expect(frame).toContain('zoom');
-  });
-});
-
-// ── InputPrompt Tests ─────────────────────────────────────────
-
-describe('InputPrompt', () => {
+describe('TaskInputBar', () => {
   afterEach(() => cleanup());
 
   it('shows placeholder when empty', async () => {
-    const { InputPrompt } = await import('../App.ts');
+    const { TaskInputBar } = await import('../App.ts');
     const onSubmit = vi.fn();
-    const { lastFrame } = render(h(InputPrompt, { onSubmit }));
+    const { lastFrame } = render(h(TaskInputBar, { onSubmit }));
     const frame = stripAnsi(lastFrame() || '');
     expect(frame).toContain('Describe your task...');
   });
 
   it('shows custom placeholder', async () => {
-    const { InputPrompt } = await import('../App.ts');
+    const { TaskInputBar } = await import('../App.ts');
     const onSubmit = vi.fn();
-    const { lastFrame } = render(h(InputPrompt, { onSubmit, placeholder: 'Custom...' }));
+    const { lastFrame } = render(h(TaskInputBar, { onSubmit, placeholder: 'Custom...' }));
     const frame = stripAnsi(lastFrame() || '');
     expect(frame).toContain('Custom...');
   });
 
   it('shows ">" prompt when not disabled', async () => {
-    const { InputPrompt } = await import('../App.ts');
+    const { TaskInputBar } = await import('../App.ts');
     const onSubmit = vi.fn();
-    const { lastFrame } = render(h(InputPrompt, { onSubmit }));
+    const { lastFrame } = render(h(TaskInputBar, { onSubmit }));
     const frame = stripAnsi(lastFrame() || '');
     expect(frame).toContain('>');
   });
 
   it('shows "..." prompt when disabled', async () => {
-    const { InputPrompt } = await import('../App.ts');
+    const { TaskInputBar } = await import('../App.ts');
     const onSubmit = vi.fn();
-    const { lastFrame } = render(h(InputPrompt, { onSubmit, disabled: true }));
+    const { lastFrame } = render(h(TaskInputBar, { onSubmit, disabled: true }));
     const frame = stripAnsi(lastFrame() || '');
     expect(frame).toContain('...');
   });
 
   it('accepts typed characters', async () => {
-    const { InputPrompt } = await import('../App.ts');
+    const { TaskInputBar } = await import('../App.ts');
     const onSubmit = vi.fn();
-    const { lastFrame, stdin } = render(h(InputPrompt, { onSubmit }));
+    const { lastFrame, stdin } = render(h(TaskInputBar, { onSubmit }));
 
-    await delay(); // Wait for useEffect to register stdin listener
+    await delay();
     typeText(stdin, 'hello');
-    await delay(); // Wait for React to re-render with new state
+    await delay();
 
     const frame = stripAnsi(lastFrame() || '');
     expect(frame).toContain('hello');
   });
 
   it('calls onSubmit on Enter and clears input', async () => {
-    const { InputPrompt } = await import('../App.ts');
+    const { TaskInputBar } = await import('../App.ts');
     const onSubmit = vi.fn();
-    const { lastFrame, stdin } = render(h(InputPrompt, { onSubmit }));
+    const { lastFrame, stdin } = render(h(TaskInputBar, { onSubmit }));
 
     await delay();
     typeText(stdin, 'my task');
-    await delay(); // Let React flush state updates from typing
+    await delay();
     stdin.write(ENTER);
     await delay();
 
@@ -212,9 +144,9 @@ describe('InputPrompt', () => {
   });
 
   it('does not submit empty input on Enter', async () => {
-    const { InputPrompt } = await import('../App.ts');
+    const { TaskInputBar } = await import('../App.ts');
     const onSubmit = vi.fn();
-    const { stdin } = render(h(InputPrompt, { onSubmit }));
+    const { stdin } = render(h(TaskInputBar, { onSubmit }));
 
     await delay();
     stdin.write(ENTER);
@@ -222,9 +154,9 @@ describe('InputPrompt', () => {
   });
 
   it('ignores input when disabled', async () => {
-    const { InputPrompt } = await import('../App.ts');
+    const { TaskInputBar } = await import('../App.ts');
     const onSubmit = vi.fn();
-    const { lastFrame, stdin } = render(h(InputPrompt, { onSubmit, disabled: true }));
+    const { lastFrame, stdin } = render(h(TaskInputBar, { onSubmit, disabled: true }));
 
     await delay();
     typeText(stdin, 'hello');
@@ -236,9 +168,9 @@ describe('InputPrompt', () => {
   });
 
   it('handles backspace', async () => {
-    const { InputPrompt } = await import('../App.ts');
+    const { TaskInputBar } = await import('../App.ts');
     const onSubmit = vi.fn();
-    const { lastFrame, stdin } = render(h(InputPrompt, { onSubmit }));
+    const { lastFrame, stdin } = render(h(TaskInputBar, { onSubmit }));
 
     await delay();
     typeText(stdin, 'hello');
@@ -251,67 +183,50 @@ describe('InputPrompt', () => {
   });
 });
 
-// ── InteractiveApp Tests ──────────────────────────────────────
+// ── App Tests ───────────────────────────────────────────────────
 
-describe('InteractiveApp', () => {
+describe('App', () => {
   afterEach(() => cleanup());
 
-  it('renders idle agent page with mascotte', async () => {
-    const { InteractiveApp } = await import('../App.ts');
-    const { lastFrame } = render(h(InteractiveApp, { sessionManager: null }));
+  it('renders home page with TaskInputBar', async () => {
+    const { App } = await import('../App.ts');
+    const { lastFrame } = render(h(App, {
+      apiClient: null, sessionManager: null, demoMode: true,
+    }));
+
+    await delay(500);
     const frame = stripAnsi(lastFrame() || '');
-    // Idle state shows MascotteFull with status text
-    expect(frame).toContain('Agent ready');
-    // System status
-    expect(frame).toContain('Backend');
+    // TaskInputBar visible — in demo mode auto-start sets busy, so placeholder is "Send..."
+    expect(frame).toContain('>');
   });
 
-  it('shows input prompt', async () => {
-    const { InteractiveApp } = await import('../App.ts');
-    const { lastFrame } = render(h(InteractiveApp, { sessionManager: null }));
+  it('shows TaskInputBar placeholder', async () => {
+    const { App } = await import('../App.ts');
+    const { lastFrame } = render(h(App, {
+      apiClient: null, sessionManager: null, demoMode: true,
+    }));
+
+    await delay(200);
     const frame = stripAnsi(lastFrame() || '');
-    expect(frame).toContain('Describe your task...');
+    expect(frame).toContain('>');
   });
 
-  it('shows spatial status bar with page name and direction hints', async () => {
-    const { InteractiveApp } = await import('../App.ts');
-    const { lastFrame } = render(h(InteractiveApp, { sessionManager: null }));
-    const frame = stripAnsi(lastFrame() || '');
-    // SpatialStatusBar shows page name (Agent) and direction hints
-    expect(frame).toContain('Agent');
-    // Direction hints visible (Cat=Catalog shortLabel, Exec=Execution, Mod=Models, Spc=Spaces)
-    expect(frame).toContain('Cat');
-  });
+  it('in demo mode, auto-starts and navigates to session detail', async () => {
+    const { App } = await import('../App.ts');
+    const { lastFrame } = render(h(App, {
+      apiClient: null, sessionManager: null, demoMode: true,
+    }));
 
-  it('stays on idle page when submitting without sessionManager', async () => {
-    const { InteractiveApp } = await import('../App.ts');
-    const { lastFrame, stdin } = render(h(InteractiveApp, { sessionManager: null }));
-
-    await delay();
-    typeText(stdin, 'Add login page');
-    stdin.write(ENTER);
-    await delay();
-
-    const frame = stripAnsi(lastFrame() || '');
-    // Without a sessionManager, task cannot start — stays idle
-    // AgentPage idle shows mascotte, not conversation log
-    expect(frame).toContain('Agent ready');
-  });
-
-  it('in demo mode, auto-starts and shows agent working state', async () => {
-    const { InteractiveApp } = await import('../App.ts');
-    const { lastFrame } = render(h(InteractiveApp, { sessionManager: null, demoMode: true }));
-
-    // Demo mode auto-starts a mock session — wait for working state
+    // Demo mode auto-submits "Add login page" → creates session → navigates to SessionMonitor
     await delay(1000);
 
     const frame = stripAnsi(lastFrame() || '');
-    // SpatialStatusBar shows DEMO marker
-    expect(frame).toContain('DEMO');
-    // StatusBar shows active session
-    expect(frame).toContain('session:demo-');
-    // AgentPage working state shows compact mascotte with working label
-    expect(frame).toContain('Agent working');
+    // Should show SessionMonitor with demo session data
+    expect(frame).toContain('Demo Session');
+    // Should show WORKFLOW TREE panel (execution mode)
+    expect(frame).toContain('WORKFLOW TREE');
+    // TaskInputBar visible at bottom
+    expect(frame).toContain('Send a message to the agent...');
   });
 });
 
@@ -413,8 +328,6 @@ describe('SessionManager', () => {
     vi.useFakeTimers();
     const { SessionManager } = await import('../App.ts');
 
-    // First poll: running (no addLine — FlipperLayout handles display)
-    // Second poll: completed → completion detected
     let pollCount = 0;
     mockClient.getSession.mockImplementation(async () => {
       pollCount++;

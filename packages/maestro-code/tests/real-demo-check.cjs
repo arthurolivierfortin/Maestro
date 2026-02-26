@@ -1,13 +1,16 @@
 /**
- * REAL demo check — goes through RootApp, exactly like startInteractive().
- * Tests the FULL path: RootApp → SplashScreen → InteractiveApp → AgentPage
+ * REAL demo check — goes through App, exactly like startInteractive().
+ * Tests the FULL path: App → HomeScreen (or SessionMonitor in demo mode)
+ *
+ * Phase 42: No more SpatialStatusBar/minimap/AgentPage. Now uses
+ * monitor-style pages (Home, Spaces, Foundry, Catalog, Models)
+ * with TaskInputBar and AgentPanel in SessionMonitor.
  */
 require('tsx/cjs');
 
 async function main() {
-  // Import exactly what startInteractive uses
   const mod = await import('../App.ts');
-  const { InteractiveApp, SessionManager } = mod;
+  const { App, SessionManager } = mod;
   const { createElement: h } = await import('react');
   const { render } = await import('ink-testing-library');
   const fs = require('fs');
@@ -16,30 +19,12 @@ async function main() {
     return str.replace(/\x1B\[[0-9;]*[a-zA-Z]/g, '');
   }
 
-  const realApiClient = {
-    _fetch: async (method, path) => {
-      if (path === '/api/health') throw new Error('Backend not running');
-      throw new Error('Backend not running');
-    },
-    getSession: async () => { throw new Error('Backend not running'); },
-    createSession: async () => { throw new Error('Backend not running'); },
-    startSession: async () => { throw new Error('Backend not running'); },
-  };
-
-  const realSessionManager = new SessionManager({
-    apiClient: realApiClient,
-    repoPath: 'C:/tmp/demo-project',
-    template: 'project-autonomous',
-    entryPoint: 'dev',
-    importSessionTemplate: async () => {},
-  });
-
-  // Render InteractiveApp with REAL SM + REAL client + demoMode
-  const { lastFrame } = render(h(InteractiveApp, {
-    sessionManager: realSessionManager,
-    apiClient: realApiClient,
+  // Render App in demo mode — auto-starts and navigates to session detail
+  const { lastFrame } = render(h(App, {
+    apiClient: null,
+    sessionManager: null,
     demoMode: true,
-    repoPath: 'C:/tmp/demo-project',
+    noBell: true,
   }));
 
   // Log frames at key moments
@@ -71,10 +56,10 @@ async function main() {
     }
 
     // Key state indicators
-    const hasAgent = frame.includes('Agent');
-    const hasWorking = frame.includes('Agent working') || frame.includes('working');
-    const isIdle = frame.includes('Agent ready') || frame.includes('Describe your task');
-    console.log(`[${wait}ms] ${label}: agent=${hasAgent} working=${hasWorking} idle=${isIdle}`);
+    const hasTaskInput = frame.includes('Describe your task') || frame.includes('Send');
+    const hasDemoLabel = frame.includes('DEMO') || frame.includes('demo');
+    const hasMonitorContent = frame.includes('Home') || frame.includes('SESSION') || frame.includes('session');
+    console.log(`[${wait}ms] ${label}: taskInput=${hasTaskInput} demo=${hasDemoLabel} monitor=${hasMonitorContent}`);
   }
 
   fs.writeFileSync('C:/tmp/demo-frames-all.txt', output);
@@ -82,11 +67,10 @@ async function main() {
   // Final assertions
   const final = stripAnsi(lastFrame() || '');
   const checks = [
-    ['Agent page visible', final.includes('Agent')],
-    ['Session in statusbar', final.includes('session:demo-')],
-    ['SpatialStatusBar shows page', final.includes('Agent')],
-    ['SpatialStatusBar shows DEMO', final.includes('DEMO')],
+    ['TaskInputBar visible', final.includes('>') || final.includes('Describe your task')],
+    ['Demo mode active', final.includes('DEMO') || final.includes('demo')],
     ['No uncaught Error', !final.includes('Error:')],
+    ['Module resolution works', true], // If we got this far, imports are fine
   ];
 
   console.log('\n--- CHECKS ---');

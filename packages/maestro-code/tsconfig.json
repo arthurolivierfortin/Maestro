@@ -12,9 +12,7 @@
     "allowImportingTsExtensions": true,
     "paths": {
       "@maestro/tui": ["../tui/index.ts"],
-      "@maestro/tui/*": ["../tui/*"],
-      "@maestro/monitor": ["../maestro-monitor/tui-monitor.ts"],
-      "@maestro/monitor/*": ["../maestro-monitor/*"]
+      "@maestro/tui/*": ["../tui/*"]
     }
   },
   "include": ["./**/*.ts"],

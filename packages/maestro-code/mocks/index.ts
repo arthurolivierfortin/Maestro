@@ -1,5 +1,5 @@
 /**
- * Mocks barrel export — demo data for pages.
+ * Mocks barrel export — demo data and DemoApiClient.
  */
 
 export {
@@ -10,3 +10,5 @@ export {
   DEMO_MODELS,
   createDemoApiClient,
 } from './demo-data.ts';
+
+export { DemoApiClient, DEMO_SESSION_ID } from './DemoApiClient.ts';

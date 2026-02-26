@@ -1,8 +1,5 @@
-/**
- * Maestro Code — Hooks barrel export.
- */
-
-export { useNavigation } from './useNavigation.ts';
+// Hooks barrel — maestro-code (Phase 42)
 export { useInputHistory } from './useInputHistory.ts';
-export { useSpatialNav } from './useSpatialNav.ts';
-export type { DetailScreen, UseSpatialNavReturn } from './useSpatialNav.ts';
+export { useSessionData } from './useSessionData.ts';
+export { useKeyboard, useActionKeyboard } from './useKeyboard.ts';
+export { useAnimationTick } from './useAnimationTick.ts';

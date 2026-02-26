@@ -1,139 +1,60 @@
 // @ts-nocheck
 /**
- * Maestro Interactive Mode — Spatial TUI (Phase 41-G)
+ * Maestro Code — Interactive TUI (Phase 42)
  *
- * Spatial full-screen page navigation on a 2D grid.
- * Pages: Agent (0,0), Execution (0,-1), Catalog (-1,0), Spaces (1,0), Models (0,1).
+ * Architecture: Monitor + AgentPanel.
+ * Uses the same page/detail routing as maestro-monitor (Home, Spaces, Foundry,
+ * Catalog, Models + SessionMonitor detail view), but adds:
+ * - TaskInputBar for task submission
+ * - AgentPanel inside SessionMonitor (conversation log, agent state)
+ * - SessionManager for automatic session lifecycle
+ * - Demo mode (--demo flag)
  *
- * Agent page has 3 visual states: idle (mascotte centered), working (compact + ConversationLog),
- * completed (celebrating + summary). SessionManager extracted to services/.
- *
- * Navigation:
- * - Ctrl+Arrow: navigate to adjacent page (computed from Page Registry)
- * - Esc: return to Agent (home) / close detail / unzoom
- * - Ctrl+Tab: quick-switch between last 2 pages
- * - Slash commands: /catalog, /spaces, /models, /help, /agent
+ * Navigation: same as monitor — h/s/f/c/m page hotkeys, Tab for panels,
+ * Esc to go back, q to quit.
  */
 
 import { createElement as h, useState, useCallback, useEffect, useRef } from 'react';
 import { render, useApp, useStdout, Box, Text, useInput } from 'ink';
 import { setTerminalBg, resetTerminalBg, palette } from '@maestro/tui/theme';
-// PanelId type (was in FlipperLayout, now inline since FlipperLayout is deleted)
-type PanelId = 'hero' | 'tree' | 'log' | 'llm';
-import { HelpOverlay } from './components/HelpOverlay.ts';
-import { CommandPalette } from './components/CommandPalette.ts';
-import { WelcomeScreen } from './screens/WelcomeScreen.ts';
-import { SplashScreen } from './screens/SplashScreen.ts';
-import { useInputHistory } from './hooks/useInputHistory.ts';
-import { useSpatialNav } from './hooks/useSpatialNav.ts';
-import { createDefaultRegistry } from './registry/index.ts';
-import { SpatialStatusBar } from './components/SpatialStatusBar.ts';
-import { TransitionWipe } from './components/TransitionWipe.ts';
-import { MascotteOverlay } from './components/MascotteOverlay.ts';
-import { NotificationToast } from './components/NotificationToast.ts';
-import type { ToastEvent } from './components/NotificationToast.ts';
-import { useNavigation } from './hooks/useNavigation.ts';
-import { AgentPage } from './pages/AgentPage.ts';
-import { ExecutionPage } from './pages/ExecutionPage.ts';
-import { CatalogPage } from './pages/CatalogPage.ts';
-import { SpacesPage } from './pages/SpacesPage.ts';
-import { ModelsPage } from './pages/ModelsPage.ts';
-import type { AgentState } from './types.ts';
-import { SessionManager, ts } from './services/SessionManager.ts';
-import type { LogLine, InteractiveOptions, Widget } from './services/SessionManager.ts';
-import * as nodePath from 'path';
-import * as nodeFs from 'fs';
+import type { PageName } from './theme.ts';
 
-
-// ── Demo Client ──────────────────────────────────────────────
-// Returns a fake API client for --demo mode with staged mock data
-// that populates the cockpit panels (WorkflowTree, ExecutionLog, LLMActivity).
-
-function createDemoClient() {
-  const DEMO_SESSION_ID = 'demo-0000-1111-2222-333344445555';
-  let startTime = 0;
-
-  // Mock execution tree that evolves over time
-  const getTree = (elapsed: number) => {
-    const nodes = [
-      { id: 'prepare', name: 'Prepare', status: elapsed > 500 ? 'completed' : 'running', children: [] },
-      { id: 'plan', name: 'Plan', status: elapsed > 2000 ? 'completed' : elapsed > 500 ? 'running' : 'pending', children: [
-        { id: 'analyze', name: 'Analyze Codebase', status: elapsed > 1200 ? 'completed' : elapsed > 600 ? 'running' : 'pending', children: [] },
-        { id: 'design', name: 'Design Solution', status: elapsed > 2000 ? 'completed' : elapsed > 1200 ? 'running' : 'pending', children: [] },
-      ] },
-      { id: 'implement', name: 'Implement', status: elapsed > 4000 ? 'completed' : elapsed > 2000 ? 'running' : 'pending', children: [
-        { id: 'code', name: 'Write Code', status: elapsed > 3000 ? 'completed' : elapsed > 2200 ? 'running' : 'pending', children: [] },
-        { id: 'test', name: 'Run Tests', status: elapsed > 4000 ? 'completed' : elapsed > 3000 ? 'running' : 'pending', children: [] },
-      ] },
-      { id: 'review', name: 'Review', status: elapsed > 5000 ? 'completed' : elapsed > 4000 ? 'running' : 'pending', children: [] },
-      { id: 'commit', name: 'Commit', status: elapsed > 6000 ? 'completed' : elapsed > 5000 ? 'running' : 'pending', children: [] },
-    ];
-    return nodes;
-  };
-
-  // Mock execution log entries
-  const getLog = (elapsed: number) => {
-    const entries: any[] = [];
-    if (elapsed > 200) entries.push({ msg: 'Session initialized', level: 'info', time: ts() });
-    if (elapsed > 600) entries.push({ msg: 'Analyzing repository structure...', level: 'info', time: ts() });
-    if (elapsed > 1200) entries.push({ msg: 'Found 12 source files, 3 test files', level: 'info', time: ts() });
-    if (elapsed > 1800) entries.push({ msg: 'Design: 3 steps identified', level: 'info', time: ts() });
-    if (elapsed > 2200) entries.push({ msg: 'Writing implementation...', level: 'info', time: ts() });
-    if (elapsed > 3000) entries.push({ msg: 'Code generation complete', level: 'info', time: ts() });
-    if (elapsed > 3200) entries.push({ msg: 'Running test suite...', level: 'info', time: ts() });
-    if (elapsed > 4000) entries.push({ msg: 'All 8 tests passed', level: 'info', time: ts() });
-    if (elapsed > 4500) entries.push({ msg: 'Reviewing changes...', level: 'info', time: ts() });
-    if (elapsed > 5200) entries.push({ msg: 'Review: no issues found', level: 'info', time: ts() });
-    if (elapsed > 5500) entries.push({ msg: 'Creating commit...', level: 'info', time: ts() });
-    if (elapsed > 6000) entries.push({ msg: 'Committed: feat: add login page', level: 'info', time: ts() });
-    return entries;
-  };
-
-  // Mock LLM activity
-  const getLLM = (elapsed: number) => {
-    const entries: any[] = [];
-    if (elapsed > 600) entries.push({ nodeId: 'analyze', time: ts(), duration: 580, promptPreview: 'Analyze this repository...', responsePreview: 'Repository contains a TypeScript project with...' });
-    if (elapsed > 1800) entries.push({ nodeId: 'design', time: ts(), duration: 920, promptPreview: 'Design a solution for...', responsePreview: 'Step 1: Create auth module. Step 2: Add routes...' });
-    if (elapsed > 2800) entries.push({ nodeId: 'code', time: ts(), duration: 1450, promptPreview: 'Implement the following plan...', responsePreview: 'Created src/auth.ts with login(), logout()...' });
-    if (elapsed > 4500) entries.push({ nodeId: 'review', time: ts(), duration: 340, promptPreview: 'Review these changes...', responsePreview: 'Changes look correct. No security issues.' });
-    return entries;
-  };
-
-  return {
-    _fetch: async (method: string, path: string) => {
-      if (path === '/api/health') return { status: 'ok' };
-      return {};
-    },
-    getSession: async (id: string) => {
-      const elapsed = Date.now() - startTime;
-      const tree = getTree(elapsed);
-      const allDone = tree.every(n => n.status === 'completed');
-      return {
-        id,
-        status: allDone ? 'idle' : 'running',
-        variables: {
-          _executionTree: tree,
-          _executionLog: getLog(elapsed),
-          _llmActivity: getLLM(elapsed),
-          _scoreHistory: elapsed > 3000 ? [0.3, 0.5, 0.7, 0.85] : [0.3],
-          currentFitness: elapsed > 4000 ? 0.85 : elapsed > 2000 ? 0.5 : 0.3,
-        },
-      };
-    },
-    createSession: async (opts: any) => {
-      startTime = Date.now();
-      return { id: DEMO_SESSION_ID };
-    },
-    startSession: async () => {},
-    DEMO_SESSION_ID,
-    _startTime: () => { startTime = Date.now(); },
-  };
-}
-
-// ── ConversationLog re-export (replaces old OutputPanel) ──
-
+import { SessionMonitor } from './components/SessionMonitor.ts';
+import { HomeScreen } from './components/HomeScreen.ts';
+import { SpacesScreen } from './components/SpacesScreen.ts';
+import { FoundryScreen } from './components/FoundryScreen.ts';
+import { CatalogScreen } from './components/CatalogScreen.ts';
+import { ModelsScreen } from './components/ModelsScreen.ts';
+import { WorkspaceDetail } from './components/WorkspaceDetail.ts';
+import { RepoDetail } from './components/RepoDetail.ts';
+import { ModelDetail } from './components/ModelDetail.ts';
+import { BlockDetail } from './components/BlockDetail.ts';
+import { TaskInputBar } from './components/TaskInputBar.ts';
 import { ConversationLog } from './components/ConversationLog.ts';
 
+import type { IApiClient } from '@maestro/tui/types';
+
+import { DemoApiClient } from './mocks/DemoApiClient.ts';
+import { SessionManager, ts } from './services/SessionManager.ts';
+import type { LogLine, InteractiveOptions, Widget } from './services/SessionManager.ts';
+import { useInputHistory } from './hooks/useInputHistory.ts';
+
+// ── FullscreenBox ──────────────────────────────────────────────
+
+const FullscreenBox = ({ children }: { children: any }) => {
+  const { stdout } = useStdout();
+  const [rows, setRows] = useState(stdout.rows || 24);
+
+  useEffect(() => {
+    const onResize = () => {
+      if (stdout.rows) setRows(stdout.rows);
+    };
+    stdout.on('resize', onResize);
+    return () => stdout.off('resize', onResize);
+  }, [stdout]);
+
+  return h(Box, { flexDirection: 'column', width: '100%', height: rows }, children);
+};
 
 // ── WidgetRenderer ──────────────────────────────────────────────
 
@@ -146,124 +67,64 @@ const WidgetRenderer = ({ widget, onResponse }: { widget: Widget | null; onRespo
         h(Text, { color: 'blue', bold: true }, 'Agent: '),
         h(Text, null, widget.content)
       );
-
     case 'progress':
-      return h(Box, {
-        flexDirection: 'column',
-        borderStyle: 'round',
-        borderColor: 'cyan',
-        paddingX: 1,
-        marginY: 1,
-      },
+      return h(Box, { flexDirection: 'column', borderStyle: 'round', borderColor: 'cyan', paddingX: 1, marginY: 1 },
         h(Text, { color: 'cyan', bold: true }, 'Progress'),
         h(Text, null, widget.content),
         ...(widget.params.phases || []).map((phase: any, i: number) =>
           h(Box, { key: i },
-            h(Text, {
-              color: phase.status === 'completed' ? 'green'
-                : phase.status === 'in_progress' ? 'yellow'
-                : 'gray',
-            },
-              phase.status === 'completed' ? '  [done] '
-                : phase.status === 'in_progress' ? '  [>>]   '
-                : '  [  ]   '
+            h(Text, { color: phase.status === 'completed' ? 'green' : phase.status === 'in_progress' ? 'yellow' : 'gray' },
+              phase.status === 'completed' ? '  [done] ' : phase.status === 'in_progress' ? '  [>>]   ' : '  [  ]   '
             ),
             h(Text, null, `${phase.name}${phase.detail ? ` — ${phase.detail}` : ''}`)
           )
         )
       );
-
     case 'confirmation':
-      return h(Box, {
-        flexDirection: 'column',
-        borderStyle: 'round',
-        borderColor: 'yellow',
-        paddingX: 1,
-        marginY: 1,
-      },
+      return h(Box, { flexDirection: 'column', borderStyle: 'round', borderColor: 'yellow', paddingX: 1, marginY: 1 },
         h(Text, { color: 'yellow', bold: true }, 'Confirmation required'),
         h(Text, null, widget.content),
-        h(Text, { color: 'gray', dimColor: true },
-          `Action: ${widget.params.action || 'N/A'}`
-        ),
-        h(Text, { color: 'gray', dimColor: true },
-          `Consequence: ${widget.params.consequence || 'N/A'}`
-        ),
+        h(Text, { color: 'gray', dimColor: true }, `Action: ${widget.params.action || 'N/A'}`),
+        h(Text, { color: 'gray', dimColor: true }, `Consequence: ${widget.params.consequence || 'N/A'}`),
         h(Text, { color: 'cyan' }, 'Type "yes" or "no" to respond.')
       );
-
     case 'option-select':
-      return h(Box, {
-        flexDirection: 'column',
-        borderStyle: 'round',
-        borderColor: 'magenta',
-        paddingX: 1,
-        marginY: 1,
-      },
+      return h(Box, { flexDirection: 'column', borderStyle: 'round', borderColor: 'magenta', paddingX: 1, marginY: 1 },
         h(Text, { color: 'magenta', bold: true }, widget.params.prompt || 'Choose:'),
         h(Text, null, widget.content),
         ...(widget.params.options || []).map((opt: any, i: number) =>
           h(Box, { key: i },
             h(Text, { color: 'cyan' }, `  [${opt.id}] `),
             h(Text, null, opt.label),
-            opt.description
-              ? h(Text, { color: 'gray', dimColor: true }, ` — ${opt.description}`)
-              : null
+            opt.description ? h(Text, { color: 'gray', dimColor: true }, ` — ${opt.description}`) : null
           )
         ),
         h(Text, { color: 'cyan' }, 'Type the option ID to select.')
       );
-
     case 'plan-view':
-      return h(Box, {
-        flexDirection: 'column',
-        borderStyle: 'round',
-        borderColor: 'green',
-        paddingX: 1,
-        marginY: 1,
-      },
+      return h(Box, { flexDirection: 'column', borderStyle: 'round', borderColor: 'green', paddingX: 1, marginY: 1 },
         h(Text, { color: 'green', bold: true }, 'Implementation Plan'),
         ...(widget.params.steps || []).map((step: any, i: number) =>
           h(Box, { key: i },
-            h(Text, {
-              color: step.status === 'done' ? 'green'
-                : step.status === 'in_progress' ? 'yellow'
-                : 'gray',
-            },
-              step.status === 'done' ? '  [done] '
-                : step.status === 'in_progress' ? '  [>>]   '
-                : '  [  ]   '
+            h(Text, { color: step.status === 'done' ? 'green' : step.status === 'in_progress' ? 'yellow' : 'gray' },
+              step.status === 'done' ? '  [done] ' : step.status === 'in_progress' ? '  [>>]   ' : '  [  ]   '
             ),
             h(Text, null, step.description),
-            step.domain
-              ? h(Text, { color: 'gray', dimColor: true }, ` (${step.domain})`)
-              : null
+            step.domain ? h(Text, { color: 'gray', dimColor: true }, ` (${step.domain})`) : null
           )
         )
       );
-
     case 'test-results':
-      return h(Box, {
-        flexDirection: 'column',
-        borderStyle: 'round',
-        borderColor: 'green',
-        paddingX: 1,
-        marginY: 1,
-      },
+      return h(Box, { flexDirection: 'column', borderStyle: 'round', borderColor: 'green', paddingX: 1, marginY: 1 },
         h(Text, { color: 'green', bold: true }, 'Test Results'),
         ...(widget.params.suites || []).map((suite: any, i: number) =>
           h(Box, { key: i },
-            h(Text, {
-              color: suite.failed > 0 ? 'red' : 'green',
-            }, `  ${suite.name}: `),
+            h(Text, { color: suite.failed > 0 ? 'red' : 'green' }, `  ${suite.name}: `),
             h(Text, { color: 'green' }, `${suite.passed} passed`),
-            suite.failed > 0
-              ? h(Text, { color: 'red' }, ` / ${suite.failed} failed`)
-              : null
+            suite.failed > 0 ? h(Text, { color: 'red' }, ` / ${suite.failed} failed`) : null
           )
         )
       );
-
     default:
       return h(Box, { borderStyle: 'round', borderColor: 'gray', paddingX: 1, marginY: 1 },
         h(Text, { color: 'gray' }, `[${widget.type}] ${widget.content}`)
@@ -271,100 +132,7 @@ const WidgetRenderer = ({ widget, onResponse }: { widget: Widget | null; onRespo
   }
 };
 
-// ── InputPrompt (exported for tests) ──
-
-const InputPrompt = ({ onSubmit, disabled, placeholder, onUpArrow, onDownArrow }: {
-  onSubmit: (value: string) => void;
-  disabled?: boolean;
-  placeholder?: string;
-  onUpArrow?: () => string | null;
-  onDownArrow?: () => string | null;
-}) => {
-  const [value, setValue] = useState('');
-  const [cursor, setCursor] = useState(0);
-  const valueRef = useRef('');
-  const cursorRef = useRef(0);
-
-  useInput((input, key) => {
-    if (disabled) return;
-
-    let v = valueRef.current;
-    let c = cursorRef.current;
-
-    if (key.return) {
-      if (v.trim()) {
-        onSubmit(v.trim());
-        v = '';
-        c = 0;
-      }
-    } else if (key.upArrow && onUpArrow) {
-      const hist = onUpArrow();
-      if (hist != null) { v = hist; c = hist.length; }
-    } else if (key.downArrow && onDownArrow) {
-      const hist = onDownArrow();
-      if (hist != null) { v = hist; c = hist.length; }
-    } else if (key.backspace || key.delete) {
-      if (c > 0) {
-        v = v.slice(0, c - 1) + v.slice(c);
-        c = c - 1;
-      }
-    } else if (key.leftArrow) {
-      c = Math.max(0, c - 1);
-    } else if (key.rightArrow) {
-      c = Math.min(v.length, c + 1);
-    } else if (input === 'a' && key.ctrl) {
-      c = 0;
-    } else if (input === 'e' && key.ctrl) {
-      c = v.length;
-    } else if (input && !key.ctrl && !key.meta && !key.tab && !key.escape) {
-      v = v.slice(0, c) + input + v.slice(c);
-      c = c + input.length;
-    }
-
-    valueRef.current = v;
-    cursorRef.current = c;
-    setValue(v);
-    setCursor(c);
-  });
-
-  const prompt = disabled ? '...' : '>';
-  const promptColor = disabled ? 'gray' : 'green';
-
-  return h(Box, {
-    borderStyle: 'round',
-    borderColor: disabled ? 'gray' : 'cyan',
-    paddingX: 1,
-    flexShrink: 0,
-  },
-    h(Text, { color: promptColor, bold: true }, `${prompt} `),
-    h(Text, null,
-      value || h(Text, { color: 'gray', dimColor: true }, placeholder || 'Describe your task...')
-    )
-  );
-};
-
-// ── Slash commands → page IDs ─────────────────────────────────
-
-const SLASH_COMMANDS: Record<string, string | 'session-current' | 'help'> = {
-  '/catalog': 'catalog',
-  '/c': 'catalog',
-  '/sessions': 'spaces',
-  '/spaces': 'spaces',
-  '/s': 'spaces',
-  '/models': 'models',
-  '/m': 'models',
-  '/help': 'help',
-  '/?': 'help',
-  '/agent': 'agent',
-  '/a': 'agent',
-  '/home': 'agent',
-  '/execution': 'execution',
-  '/e': 'execution',
-  '/session': 'session-current',
-};
-
 // ── NoBackendScreen ─────────────────────────────────────────────
-// Shown when backend is not available and --demo was NOT passed.
 
 const NoBackendScreen = () => {
   const { exit } = useApp();
@@ -372,20 +140,8 @@ const NoBackendScreen = () => {
     if ((input === 'c' && key.ctrl) || input === 'q') exit();
   });
 
-  return h(Box, {
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexGrow: 1,
-    padding: 2,
-  },
-    h(Box, {
-      flexDirection: 'column',
-      borderStyle: 'single',
-      borderColor: 'red',
-      padding: 1,
-      width: 60,
-    },
+  return h(Box, { flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flexGrow: 1, padding: 2 },
+    h(Box, { flexDirection: 'column', borderStyle: 'single', borderColor: 'red', padding: 1, width: 60 },
       h(Text, { color: 'red', bold: true }, 'Backend Not Available'),
       h(Box, { height: 1 }),
       h(Text, null, 'Maestro backend is not running. The interactive mode'),
@@ -402,158 +158,72 @@ const NoBackendScreen = () => {
   );
 };
 
-// ── Root App ───────────────────────────────────────────────────
+// ── Types ──────────────────────────────────────────────────────
 
-const InteractiveApp = ({ sessionManager: smProp, apiClient: clientProp, isFirstRun, repoPath, demoMode, noBell }: {
+interface DetailView {
+  type: 'session' | 'workspace' | 'repo' | 'model' | 'block';
+  id: string;
+}
+
+interface NavStackEntry extends DetailView {
+  state?: any;
+}
+
+interface PageNavEntry {
+  type: 'page';
+  page: PageName;
+  state?: any;
+}
+
+// ── Root App Component ─────────────────────────────────────────
+
+const App = ({ apiClient: clientProp, sessionManager: smProp, demoMode, repoPath, noBell }: {
+  apiClient: IApiClient | null;
   sessionManager: SessionManager | null;
-  apiClient?: any;
-  isFirstRun?: boolean;
-  repoPath?: string;
   demoMode?: boolean;
+  repoPath?: string;
   noBell?: boolean;
 }) => {
   const { exit } = useApp();
   const { stdout } = useStdout();
-  const [rows, setRows] = useState(stdout.rows || 24);
 
-  // ── Demo mode: create internal mock client + session manager ──
+  // ── Demo mode setup ──
   const [demoSetup] = useState(() => {
     if (demoMode) {
-      const client = createDemoClient();
+      const client = new DemoApiClient();
       return { client, sm: new SessionManager({ apiClient: client }) };
     }
     return null;
   });
   const sessionManager = demoMode ? (demoSetup?.sm || null) : (smProp || null);
-  const apiClient = demoMode ? (demoSetup?.client || null) : (clientProp || null);
+  const apiClient = demoMode ? (demoSetup?.client || null) : clientProp;
 
-  // ── Spatial navigation ──
-  const [registry] = useState(() => createDefaultRegistry());
-  const spatialNav = useSpatialNav(registry, isFirstRun ? 'agent' : 'agent');
-  const [showWelcome, setShowWelcome] = useState(!!isFirstRun);
-  const [showHelp, setShowHelp] = useState(false);
-  const [showPalette, setShowPalette] = useState(false);
-  const history = useInputHistory();
+  // ── Monitor-style navigation (from monitor App.ts) ──
+  const [navStack, setNavStack] = useState<(NavStackEntry | PageNavEntry)[]>([]);
+  const [detailView, setDetailView] = useState<DetailView | null>(null);
+  const [currentPage, setCurrentPage] = useState<PageName>('home');
+  const [restoredState, setRestoredState] = useState<any>(null);
 
-  // ── Agent-in-the-Cockpit (41-F) ──
-  const nav = useNavigation();
-  const agentState = nav.agentState;
-  const setAgentState = nav.setAgentState;
-  const [toast, setToast] = useState<ToastEvent | null>(null);
+  const detailViewRef = useRef(detailView);
+  const currentPageRef = useRef(currentPage);
+  const navStackRef = useRef(navStack);
+  detailViewRef.current = detailView;
+  currentPageRef.current = currentPage;
+  navStackRef.current = navStack;
 
-  // ── Agent conversation state ──
+  // ── Agent state ──
   const [lines, setLines] = useState<LogLine[]>([
-    { text: demoMode ? 'Maestro Interactive Mode [DEMO]' : 'Maestro Interactive Mode', color: 'cyan', bold: true },
-    { text: 'Type a task and press Enter. Ctrl+C to quit. Ctrl+V to toggle voice mode.', color: 'gray', dim: true },
-    ...(demoMode ? [{ text: 'Demo mode — no real execution. Use for UI preview only.', color: 'yellow', dim: true }] : []),
+    { text: demoMode ? 'Maestro Code [DEMO]' : 'Maestro Code', color: 'cyan', bold: true },
+    { text: 'Type a task and press Enter.', color: 'gray', dim: true },
+    ...(demoMode ? [{ text: 'Demo mode — no real execution.', color: 'yellow', dim: true }] : []),
     { text: '' },
   ]);
   const [busy, setBusy] = useState(false);
+  const [agentState, setAgentState] = useState<'idle' | 'working' | 'completed' | 'error'>('idle');
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
-  const [currentWidget, setCurrentWidget] = useState<Widget | null>(null);
   const [pendingInteractive, setPendingInteractive] = useState<Widget | null>(null);
-  const [voiceMode, setVoiceMode] = useState(false);
-  const [connected, setConnected] = useState<boolean | null>(null);
-  const [latency, setLatency] = useState(0);
-  const [activePanelFocus, setActivePanelFocus] = useState<PanelId | null>(null);
-  const [activeZoom, setActiveZoom] = useState<PanelId | null>(null);
-
-  // ── Resize + cleanup ──
-  useEffect(() => {
-    const onResize = () => {
-      if (stdout.rows) setRows(stdout.rows);
-    };
-    stdout.on('resize', onResize);
-    return () => {
-      stdout.off('resize', onResize);
-      if (sessionManager) {
-        sessionManager.stopPolling();
-        sessionManager.stopWidgetPolling();
-      }
-    };
-  }, [stdout, sessionManager]);
-
-  // ── Health check (startup + periodic) ──
-  useEffect(() => {
-    if (!apiClient) { setConnected(false); return; }
-    const check = async () => {
-      const t0 = Date.now();
-      try {
-        await apiClient._fetch('GET', '/api/health');
-        setLatency(Date.now() - t0);
-        setConnected(true);
-      } catch {
-        setConnected(false);
-        setLatency(0);
-      }
-    };
-    check();
-    const timer = setInterval(check, 15000);
-    return () => clearInterval(timer);
-  }, [apiClient]);
-
-  // ── Global keyboard ──
-  useInput((input, key) => {
-    // Ctrl+C: quit
-    if (input === 'c' && key.ctrl) {
-      if (sessionManager) sessionManager.stopPolling();
-      exit();
-    }
-    // Ctrl+V: toggle voice
-    if (input === 'v' && key.ctrl) {
-      setVoiceMode(v => !v);
-    }
-    // Ctrl+K: toggle command palette (mutually exclusive with help)
-    if (input === 'k' && key.ctrl) {
-      setShowPalette(v => !v);
-      setShowHelp(false);
-      return;
-    }
-    // Dismiss toast on any keypress
-    if (toast) { setToast(null); }
-
-    // J: join agent (teleport to agent's page, only from non-agent pages)
-    if (input === 'j' && !key.ctrl && !key.meta && spatialNav.currentPageId !== 'agent') {
-      nav.joinAgent();
-      spatialNav.goHome(); // Agent is always on the agent page for now
-      return;
-    }
-
-    // Ctrl+D: jump to execution page (current session)
-    if (input === 'd' && key.ctrl) {
-      spatialNav.goTo('execution');
-      return;
-    }
-
-    // Ctrl+Arrow: spatial navigation (auto-detach from agent following)
-    if (key.ctrl && !key.meta) {
-      if (key.upArrow) { nav.detach(); spatialNav.navigate('up'); return; }
-      if (key.downArrow) { nav.detach(); spatialNav.navigate('down'); return; }
-      if (key.leftArrow && spatialNav.currentPageId !== 'agent') { nav.detach(); spatialNav.navigate('left'); return; }
-      if (key.rightArrow && spatialNav.currentPageId !== 'agent') { nav.detach(); spatialNav.navigate('right'); return; }
-      if (key.leftArrow) { nav.detach(); spatialNav.navigate('left'); return; }
-      if (key.rightArrow) { nav.detach(); spatialNav.navigate('right'); return; }
-    }
-
-    // Ctrl+Tab: quick-switch between last 2 pages
-    if (key.tab && key.ctrl) {
-      spatialNav.quickSwitch();
-      return;
-    }
-
-    // Esc: close palette → close help → go home
-    if (key.escape) {
-      if (showPalette) { setShowPalette(false); return; }
-      if (showHelp) { setShowHelp(false); return; }
-      if (spatialNav.currentPageId !== 'agent') { spatialNav.goHome(); return; }
-    }
-
-    // ?: toggle help (only when not typing on agent page, not in palette)
-    if (input === '?' && spatialNav.currentPageId !== 'agent' && !showPalette) {
-      setShowHelp(v => !v);
-      setShowPalette(false);
-    }
-  });
+  const [currentWidget, setCurrentWidget] = useState<Widget | null>(null);
+  const history = useInputHistory();
 
   // ── Add line (FIFO 500) ──
   const MAX_LINES = 500;
@@ -564,54 +234,110 @@ const InteractiveApp = ({ sessionManager: smProp, apiClient: clientProp, isFirst
     });
   }, []);
 
-  // ── Init project (.maestro/) from WelcomeScreen ──
-  const handleInit = useCallback(() => {
-    const initPath = repoPath || process.cwd();
-    const maestroDir = nodePath.join(initPath, '.maestro');
-    const fs = nodeFs;
-    try {
-      const dirs = ['blocks', 'docs', 'logs', 'artifacts', 'metrics', 'sandboxes'];
-      fs.mkdirSync(maestroDir, { recursive: true });
-      dirs.forEach((d: string) => fs.mkdirSync(nodePath.join(maestroDir, d), { recursive: true }));
-      const config = { template: 'project-autonomous', model: 'auto', stack: 'unknown' };
-      fs.writeFileSync(nodePath.join(maestroDir, 'config.json'), JSON.stringify(config, null, 2));
-      fs.writeFileSync(nodePath.join(maestroDir, 'aliases.json'), JSON.stringify({}, null, 2));
-      fs.writeFileSync(nodePath.join(maestroDir, 'README.md'), '# Maestro Project\n\nInitialized by `maestro code`.\n');
-      addLine({ text: `Initialized .maestro/ in ${initPath}`, color: 'green', bold: true });
-    } catch (err: any) {
-      addLine({ text: `Failed to initialize: ${err.message}`, color: 'red' });
-    }
-    setShowWelcome(false);
-  }, [repoPath, addLine]);
+  // ── Cleanup ──
+  useEffect(() => {
+    return () => {
+      if (sessionManager) {
+        sessionManager.stopPolling();
+        sessionManager.stopWidgetPolling();
+      }
+    };
+  }, [sessionManager]);
 
-  // ── Handle submit ──
+  // ── Terminal bell ──
+  const bell = useCallback((count: number) => {
+    if (noBell) return;
+    for (let i = 0; i < count; i++) stdout.write('\x07');
+  }, [noBell, stdout]);
+
+  // ── Bell on state transitions ──
+  const prevAgentState = useRef(agentState);
+  useEffect(() => {
+    const prev = prevAgentState.current;
+    prevAgentState.current = agentState;
+    if (prev === agentState) return;
+    if (prev === 'working' && agentState === 'idle') bell(1);
+    if (agentState === 'error') bell(2);
+  }, [agentState, bell]);
+
+  // ── Navigation callbacks (monitor pattern) ──
+  const navigateTo = useCallback((targetView: DetailView, sourceState?: any) => {
+    const dv = detailViewRef.current;
+    const cp = currentPageRef.current;
+    const entry = dv
+      ? { ...dv, state: sourceState || null }
+      : { type: 'page' as const, page: cp, state: sourceState || null };
+    setNavStack(stack => {
+      const next = [...stack, entry];
+      return next.length > 20 ? next.slice(-20) : next;
+    });
+    setDetailView(targetView);
+    setRestoredState(null);
+  }, []);
+
+  const handleSessionSelect = useCallback((sessionId: string, sourceState?: any) => {
+    navigateTo({ type: 'session', id: sessionId }, sourceState);
+  }, [navigateTo]);
+
+  const handleWorkspaceSelect = useCallback((workspaceId: string, sourceState?: any) => {
+    navigateTo({ type: 'workspace', id: workspaceId }, sourceState);
+  }, [navigateTo]);
+
+  const handleRepoSelect = useCallback((repoId: string, sourceState?: any) => {
+    navigateTo({ type: 'repo', id: repoId }, sourceState);
+  }, [navigateTo]);
+
+  const handleModelSelect = useCallback((modelId: string, sourceState?: any) => {
+    navigateTo({ type: 'model', id: modelId }, sourceState);
+  }, [navigateTo]);
+
+  const handleBlockSelect = useCallback((blockId: string, sourceState?: any) => {
+    navigateTo({ type: 'block', id: blockId }, sourceState);
+  }, [navigateTo]);
+
+  const handleBack = useCallback(() => {
+    const stack = navStackRef.current;
+    if (stack.length > 0) {
+      const prev = stack[stack.length - 1];
+      setNavStack(stack.slice(0, -1));
+      if (prev.type === 'page') {
+        setDetailView(null);
+        setCurrentPage((prev as PageNavEntry).page);
+      } else {
+        setDetailView({ type: prev.type as any, id: (prev as NavStackEntry).id });
+      }
+      setRestoredState(prev.state || null);
+    } else if (detailViewRef.current) {
+      setDetailView(null);
+      setRestoredState(null);
+    } else {
+      exit();
+    }
+  }, [exit]);
+
+  const handleQuit = useCallback(() => {
+    if (sessionManager) sessionManager.stopPolling();
+    exit();
+  }, [exit, sessionManager]);
+
+  const handleNavigate = useCallback((page: PageName) => {
+    setCurrentPage(page);
+    setNavStack([]);
+    setDetailView(null);
+    setRestoredState(null);
+  }, []);
+
+  // ── Handle task submit ──
   const handleSubmit = useCallback((input: string) => {
     const trimmed = input.trim().toLowerCase();
 
-    // Slash commands → spatial navigation
-    const slashTarget = SLASH_COMMANDS[trimmed];
-    if (slashTarget === 'session-current') {
-      spatialNav.goTo('execution');
-      return;
-    }
-    if (slashTarget === 'help') {
-      setShowHelp(true);
-      return;
-    }
-    if (slashTarget) {
-      spatialNav.goTo(slashTarget);
-      return;
-    }
-    if (trimmed === '/quit' || trimmed === '/q') {
-      if (sessionManager) sessionManager.stopPolling();
-      exit();
-      return;
-    }
+    // Slash commands
+    if (trimmed === '/quit' || trimmed === '/q') { handleQuit(); return; }
 
     // Push to input history
     history.push(input);
 
-    // Branch 1: User responding to an interactive widget
+    // Branch 1: responding to interactive widget
     if (pendingInteractive) {
       addLine({ text: `> ${input}`, color: 'green' });
       if (sessionManager) {
@@ -622,13 +348,13 @@ const InteractiveApp = ({ sessionManager: smProp, apiClient: clientProp, isFirst
       return;
     }
 
-    // Branch 2: Session running — send as user message
+    // Branch 2: session running — send as user message
     if (busy && sessionManager?.getSessionId()) {
       sessionManager.sendMessage(input, addLine);
       return;
     }
 
-    // Branch 3: First message — create session
+    // Branch 3: create new session
     addLine({ text: `> ${input}`, color: 'green', bold: true });
 
     if (sessionManager) {
@@ -645,11 +371,14 @@ const InteractiveApp = ({ sessionManager: smProp, apiClient: clientProp, isFirst
         const id = sessionManager.getSessionId();
         if (id) {
           setCurrentSessionId(id);
+          // Auto-navigate to session detail
+          setDetailView({ type: 'session', id });
+          setNavStack([{ type: 'page' as const, page: currentPageRef.current, state: null }]);
           sessionManager.startWidgetPolling(addLine, setCurrentWidget, setPendingInteractive);
         }
       });
     }
-  }, [addLine, sessionManager, busy, pendingInteractive, spatialNav, history, exit, demoMode]);
+  }, [addLine, sessionManager, busy, pendingInteractive, history, handleQuit, demoMode]);
 
   // ── Auto-start demo session ──
   const autoStarted = useRef(false);
@@ -660,215 +389,50 @@ const InteractiveApp = ({ sessionManager: smProp, apiClient: clientProp, isFirst
     }
   }, [demoMode, sessionManager, handleSubmit]);
 
-  // ── Terminal bell helper ──
-  const bell = useCallback((count: number) => {
-    if (noBell) return;
-    for (let i = 0; i < count; i++) stdout.write('\x07');
-  }, [noBell, stdout]);
+  // ── Render detail views ──
+  if (detailView) {
+    const detailProps = {
+      apiClient,
+      onExit: handleBack,
+      onQuit: handleQuit,
+      onNavigate: handleNavigate,
+      onSessionSelect: handleSessionSelect,
+      initialState: restoredState,
+    };
 
-  // ── Agent toast + bell: notify on state transitions ──
-  const prevAgentState = useRef(agentState);
-  useEffect(() => {
-    const prev = prevAgentState.current;
-    prevAgentState.current = agentState;
-    if (prev === agentState) return;
-
-    // Bell fires regardless of current page
-    if (prev === 'working' && agentState === 'idle') {
-      bell(1); // single bell on task complete
-    }
-    if (agentState === 'error') {
-      bell(2); // double bell on error
-    }
-    if (agentState === 'waiting-input') {
-      bell(3); // triple bell on needs-input
-    }
-
-    // Toast only when NOT on agent page
-    if (spatialNav.currentPageId === 'agent') return;
-    if (prev === 'working' && agentState === 'idle') {
-      setToast({ type: 'complete', message: 'Task completed', timestamp: Date.now() });
-    }
-    if (agentState === 'waiting-input') {
-      setToast({ type: 'needs-input', message: 'Agent needs input', timestamp: Date.now() });
-    }
-  }, [agentState, spatialNav.currentPageId, bell]);
-
-  // ── Layout ──
-  // No NavBar — SpatialStatusBar at bottom replaces both NavBar and RichStatusBar.
-  // Gains ~3 lines of content height compared to the old NavBar+StatusBar.
-  const contentHeight = Math.max(rows - 1, 5); // 1 line for SpatialStatusBar
-
-  // Welcome screen overlay
-  if (showWelcome) {
-    return h(Box, { flexDirection: 'column', width: '100%', height: rows },
-      h(WelcomeScreen, {
-        onInit: handleInit,
-        onSkip: () => setShowWelcome(false),
-        onHelp: () => setShowHelp(true),
-      }),
-    );
-  }
-
-  // Command palette handler
-  const handlePaletteAction = useCallback((action: string) => {
-    if (action.startsWith('goto:')) {
-      const pageId = action.slice(5);
-      if (pageId === 'agent') spatialNav.goHome();
-      else spatialNav.goTo(pageId);
-    } else if (action === 'help') {
-      setShowHelp(true);
-    } else if (action === 'voice') {
-      setVoiceMode(v => !v);
-    } else if (action === 'quit') {
-      if (sessionManager) sessionManager.stopPolling();
-      exit();
-    } else if (action === 'quickswitch') {
-      spatialNav.quickSwitch();
-    }
-  }, [spatialNav, sessionManager, exit]);
-
-  // Command palette overlay
-  if (showPalette) {
-    return h(Box, { flexDirection: 'column', width: '100%', height: rows },
-      h(CommandPalette, {
-        registry,
-        onExecute: handlePaletteAction,
-        onClose: () => setShowPalette(false),
-      }),
-    );
-  }
-
-  // Help overlay
-  if (showHelp) {
-    return h(Box, { flexDirection: 'column', width: '100%', height: rows },
-      h(HelpOverlay, { onClose: () => setShowHelp(false), registry }),
-    );
-  }
-
-  // Transition wipe (brief directional indicator)
-  if (spatialNav.transitionDir && spatialNav.transitionTarget) {
-    return h(Box, { flexDirection: 'column', width: '100%', height: rows },
-      h(TransitionWipe, {
-        direction: spatialNav.transitionDir,
-        targetPage: spatialNav.transitionTarget,
-        height: contentHeight,
-      }),
-      h(SpatialStatusBar, {
-        currentPage: spatialNav.currentPage,
-        directionHints: spatialNav.directionHints,
-        agentState,
-        sessionId: currentSessionId,
-        busy,
-        connected,
-        latency,
-        voiceActive: voiceMode,
-        focusedPanel: activePanelFocus,
-        zoomedPanel: activeZoom,
-        demoMode,
-        agentPageId: 'agent',
-        agentIsHere: spatialNav.currentPageId === 'agent',
-      }),
-    );
-  }
-
-  // Agent-in-the-Cockpit: overlay visible when agent active and on same page
-  const agentIsOnAgentPage = true; // Agent always works on agent page for now
-  const agentIsHere = agentIsOnAgentPage && spatialNav.currentPageId === 'agent';
-  const showOverlay = agentIsHere && (agentState === 'working' || agentState === 'navigating' || agentState === 'waiting-input');
-
-  return h(Box, { flexDirection: 'column', width: '100%', height: rows },
-    // NotificationToast (top, ephemeral)
-    h(NotificationToast, { toast, onDismiss: () => setToast(null) }),
-
-    // Page content with optional overlay
-    h(Box, { flexDirection: 'column', flexGrow: 1, position: 'relative' },
-      renderPage(spatialNav.currentPageId, contentHeight),
-      showOverlay ? h(MascotteOverlay, {
-        agentState,
-        taskSummary: lines.length > 0 ? lines[lines.length - 1]?.text : undefined,
-        visible: showOverlay,
-      }) : null,
-    ),
-
-    // SpatialStatusBar (always visible)
-    h(SpatialStatusBar, {
-      currentPage: spatialNav.currentPage,
-      directionHints: spatialNav.directionHints,
-      agentState,
-      sessionId: currentSessionId,
-      busy,
-      connected,
-      latency,
-      voiceActive: voiceMode,
-      focusedPanel: activePanelFocus,
-      zoomedPanel: activeZoom,
-      demoMode,
-      agentPageId: agentIsOnAgentPage ? 'agent' : null,
-      agentIsHere,
-    }),
-  );
-
-  function renderPage(pageId: string, height: number) {
-    switch (pageId) {
-      case 'agent':
-        return renderAgentContent();
-      case 'execution':
-        return h(ExecutionPage, {
-          sessionId: currentSessionId,
+    let detailComponent;
+    switch (detailView.type) {
+      case 'session':
+        detailComponent = h(SessionMonitor, {
+          sessionId: detailView.id,
           apiClient,
-          height,
-          onExit: () => spatialNav.goHome(),
-          onQuit: () => exit(),
+          onExit: handleBack,
+          onQuit: handleQuit,
+          onNavigate: handleNavigate,
+          agentLines: lines,
+          agentState,
         });
-      case 'catalog':
-        return h(CatalogPage, {
-          apiClient,
-          height,
-          onQuit: () => exit(),
-          demoMode,
-        });
-      case 'spaces':
-        return h(SpacesPage, {
-          apiClient,
-          height,
-          onQuit: () => exit(),
-          demoMode,
-        });
-      case 'models':
-        return h(ModelsPage, {
-          apiClient,
-          height,
-          onQuit: () => exit(),
-          demoMode,
-        });
+        break;
+      case 'workspace':
+        detailComponent = h(WorkspaceDetail, { workspaceId: detailView.id, ...detailProps });
+        break;
+      case 'repo':
+        detailComponent = h(RepoDetail, { repoId: detailView.id, ...detailProps });
+        break;
+      case 'model':
+        detailComponent = h(ModelDetail, { modelId: detailView.id, apiClient, onExit: handleBack, onQuit: handleQuit, onNavigate: handleNavigate });
+        break;
+      case 'block':
+        detailComponent = h(BlockDetail, { blockId: detailView.id, ...detailProps });
+        break;
       default:
-        return renderAgentContent();
+        detailComponent = h(SessionMonitor, { sessionId: detailView.id, apiClient, onExit: handleBack, onQuit: handleQuit, onNavigate: handleNavigate });
     }
-  }
 
-  function renderAgentContent() {
-    return h(Box, { flexDirection: 'column', flexGrow: 1, height: contentHeight },
-      // AgentPage: idle/working/celebrating
-      h(AgentPage, {
-        agentState,
-        lines,
-        busy,
-        connected,
-        latency,
-        sessionId: currentSessionId,
-        height: contentHeight - 3, // reserve 3 for InputPrompt
-        onSubmit: handleSubmit,
-        onUpArrow: history.prev,
-        onDownArrow: history.next,
-        currentWidget,
-        pendingInteractive,
-        voiceMode,
-        widgetRenderer: WidgetRenderer,
-        demoMode,
-      }),
-      // InputPrompt (always at bottom)
-      h(InputPrompt, {
+    return h(FullscreenBox, null,
+      detailComponent,
+      // TaskInputBar above the bottom edge
+      h(TaskInputBar, {
         onSubmit: handleSubmit,
         disabled: false,
         placeholder: busy ? 'Send a message to the agent...' : 'Describe your task...',
@@ -877,34 +441,52 @@ const InteractiveApp = ({ sessionManager: smProp, apiClient: clientProp, isFirst
       }),
     );
   }
-};
 
-// ── Root wrapper (splash → main app transition) ──────────────
+  // ── Render page views ──
+  const pageProps = {
+    apiClient,
+    onNavigate: handleNavigate,
+    onSessionSelect: handleSessionSelect,
+    onWorkspaceSelect: handleWorkspaceSelect,
+    onRepoSelect: handleRepoSelect,
+    onQuit: handleQuit,
+    initialState: restoredState,
+  };
 
-const RootApp = ({ sessionManager, apiClient, noSplash, isFirstRun, repoPath, demoMode, noBell }: {
-  sessionManager: SessionManager | null;
-  apiClient?: any;
-  noSplash?: boolean;
-  isFirstRun?: boolean;
-  repoPath?: string;
-  demoMode?: boolean;
-  noBell?: boolean;
-}) => {
-  const [showSplash, setShowSplash] = useState(!noSplash);
-
-  if (showSplash) {
-    return h(SplashScreen, { onDone: () => setShowSplash(false) });
+  let pageComponent;
+  switch (currentPage) {
+    case 'spaces':
+      pageComponent = h(SpacesScreen, pageProps);
+      break;
+    case 'foundry':
+      pageComponent = h(FoundryScreen, { ...pageProps, onBlockSelect: handleBlockSelect });
+      break;
+    case 'catalog':
+      pageComponent = h(CatalogScreen, { ...pageProps, onBlockSelect: handleBlockSelect });
+      break;
+    case 'models':
+      pageComponent = h(ModelsScreen, { ...pageProps, onModelSelect: handleModelSelect });
+      break;
+    case 'home':
+    default:
+      pageComponent = h(HomeScreen, pageProps);
+      break;
   }
 
-  // No API client and no --demo flag → show error screen
-  if (!apiClient && !demoMode) {
-    return h(NoBackendScreen);
-  }
-
-  return h(InteractiveApp, { sessionManager, apiClient, isFirstRun, repoPath, demoMode, noBell });
+  return h(FullscreenBox, null,
+    pageComponent,
+    // TaskInputBar (always visible on pages)
+    h(TaskInputBar, {
+      onSubmit: handleSubmit,
+      disabled: false,
+      placeholder: busy ? 'Send a message to the agent...' : 'Describe your task...',
+      onUpArrow: history.prev,
+      onDownArrow: history.next,
+    }),
+  );
 };
 
-// ── Public entry point ─────────────────────────────────────────
+// ── Public entry point ──────────────────────────────────────────
 
 async function startInteractive(options: InteractiveOptions = {}): Promise<void> {
   if (!process.stdin.isTTY) {
@@ -912,26 +494,26 @@ async function startInteractive(options: InteractiveOptions = {}): Promise<void>
     process.exit(1);
   }
 
-  // Apply terminal background color
   setTerminalBg(palette.bg);
 
-  // Create session manager if API client is provided
   const sessionManager = options.apiClient ? new SessionManager(options) : null;
-  const noSplash = (options as any).noSplash || false;
-  const isFirstRun = (options as any).isFirstRun || false;
   const demoMode = (options as any).demo || false;
   const noBell = (options as any).noBell || false;
 
-  const instance = render(
-    h(RootApp, { sessionManager, apiClient: options.apiClient, noSplash, isFirstRun, repoPath: options.repoPath, demoMode, noBell }),
-    { exitOnCtrlC: true }
-  );
+  // No API client and no demo mode → show error
+  const apiClient = options.apiClient || null;
+  const rootComponent = (!apiClient && !demoMode)
+    ? h(NoBackendScreen)
+    : h(App, { apiClient, sessionManager, demoMode, repoPath: options.repoPath, noBell });
 
-  await instance.waitUntilExit();
+  const instance = render(rootComponent, { exitOnCtrlC: true });
 
-  // Reset terminal background on exit
-  resetTerminalBg();
+  try {
+    await instance.waitUntilExit();
+  } finally {
+    resetTerminalBg();
+  }
 }
 
-export { startInteractive, InteractiveApp, ConversationLog, InputPrompt, SessionManager, WidgetRenderer };
+export { startInteractive, App, ConversationLog, TaskInputBar, SessionManager, WidgetRenderer };
 export type { LogLine, LogLine as InteractiveLogLine, InteractiveOptions, Widget };
