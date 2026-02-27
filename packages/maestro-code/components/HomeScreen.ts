@@ -223,9 +223,9 @@ const HomeScreen = ({ apiClient, onNavigate, onSessionSelect, onQuit, keyboardAc
   const [showQuitConfirm, setShowQuitConfirm] = useState(false);
   const tick = useAnimationTick(120);
 
-  // Fetch data
+  // Fetch data (all with .catch to prevent unhandled rejections on first render)
   const { data: health } = useApiData(
-    useCallback(() => apiClient.getHealth(), [apiClient]),
+    useCallback(() => apiClient.getHealth().catch(() => ({ error: true })), [apiClient]),
     5000
   );
   const { data: llmHealth } = useApiData(
@@ -233,7 +233,7 @@ const HomeScreen = ({ apiClient, onNavigate, onSessionSelect, onQuit, keyboardAc
     10000
   );
   const { data: sessions } = useApiData(
-    useCallback(() => apiClient.listSessions(), [apiClient]),
+    useCallback(() => apiClient.listSessions().catch(() => []), [apiClient]),
     5000
   );
 

@@ -204,11 +204,16 @@ const App = ({ apiClient: clientProp, sessionManager: smProp, demoMode, repoPath
   const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'error'>(
     demoMode ? 'connected' : 'connecting'
   );
+  const [connLatency, setConnLatency] = useState(demoMode ? 12 : 0);
+  const [lastRefresh, setLastRefresh] = useState<Date | null>(demoMode ? new Date() : null);
   useEffect(() => {
     if (demoMode || !apiClient) return;
     const check = async () => {
+      const start = Date.now();
       try {
         await apiClient.getHealth();
+        setConnLatency(Date.now() - start);
+        setLastRefresh(new Date());
         setConnectionStatus('connected');
       } catch {
         setConnectionStatus('error');
@@ -489,7 +494,7 @@ const App = ({ apiClient: clientProp, sessionManager: smProp, demoMode, repoPath
         onDownArrow: history.next,
         captureInput: inputFocused,
       }),
-      h(StatusBar, { currentPage: 'session', isDetailView: true, connectionStatus }),
+      h(StatusBar, { currentPage: 'session', isDetailView: true, connectionStatus, latency: connLatency, lastRefresh }),
     );
   }
 
@@ -547,7 +552,7 @@ const App = ({ apiClient: clientProp, sessionManager: smProp, demoMode, repoPath
       onDownArrow: history.next,
       captureInput: inputFocused,
     }),
-    h(StatusBar, { currentPage, connectionStatus }),
+    h(StatusBar, { currentPage, connectionStatus, latency: connLatency, lastRefresh }),
   );
 };
 

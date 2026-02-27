@@ -156,7 +156,11 @@ public class EntryPointExecutor
         else if (workflowBlock != null && _executorRegistry?.Get(workflowBlock.BlockType) != null)
         {
             // Entry point maps directly to an executable block (agent, tool, etc.)
-            // Dispatch via BlockExecutorRegistry instead of passthrough
+            // Dispatch via BlockExecutorRegistry instead of passthrough.
+            // Override the tree: agent/tool config.nodes are LLM params, not execution steps.
+            // BuildExecutionTree may have created nodes from config.nodes (e.g. "reasoning"),
+            // but this code path uses "execute" as the node ID — so create a matching tree.
+            tree = new List<object> { CreateNode("execute", workflowBlock.Name ?? workflowId, "pending") };
             AppendExecutionLog(session, "info", $"Executing block '{workflowId}' directly (type: {workflowBlock.BlockType})");
             UpdateNodeById(tree, "execute", "running", $"Running {workflowBlock.BlockType}...");
             session.SetVariable("_executionTree", tree);
