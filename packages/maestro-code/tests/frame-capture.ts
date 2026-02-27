@@ -106,7 +106,15 @@ export async function captureFrame(options: CaptureOptions = {}): Promise<Frame>
         // Wait a bit more for final rendering
         await new Promise(r => setTimeout(r, 1000));
         elapsed += 1000;
-        const finalLines = readBuffer(term, rows);
+        let finalLines = readBuffer(term, rows);
+        // Retry if buffer is empty (ConPTY race on Windows)
+        let retries = 3;
+        while (!hasContent(finalLines) && retries > 0) {
+          await new Promise(r => setTimeout(r, POLL_INTERVAL));
+          elapsed += POLL_INTERVAL;
+          finalLines = readBuffer(term, rows);
+          retries--;
+        }
         return {
           lines: finalLines,
           text: finalLines.join('\n'),

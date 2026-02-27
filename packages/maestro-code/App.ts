@@ -14,7 +14,7 @@
  * Esc to go back, q to quit.
  */
 
-import { createElement as h, useState, useCallback, useEffect, useRef } from 'react';
+import { createElement as h, useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { render, useApp, useStdout, Box, Text, useInput } from 'ink';
 import { setTerminalBg, resetTerminalBg, palette } from '@maestro/tui/theme';
 import type { PageName } from './theme.ts';
@@ -199,6 +199,25 @@ const App = ({ apiClient: clientProp, sessionManager: smProp, demoMode, repoPath
   });
   const sessionManager = demoMode ? (demoSetup?.sm || null) : (smProp || null);
   const apiClient = demoMode ? (demoSetup?.client || null) : clientProp;
+
+  // ── Connection status polling ──
+  const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'error'>(
+    demoMode ? 'connected' : 'connecting'
+  );
+  useEffect(() => {
+    if (demoMode || !apiClient) return;
+    const check = async () => {
+      try {
+        await apiClient.getHealth();
+        setConnectionStatus('connected');
+      } catch {
+        setConnectionStatus('error');
+      }
+    };
+    check();
+    const timer = setInterval(check, 5000);
+    return () => clearInterval(timer);
+  }, [demoMode, apiClient]);
 
   // ── Monitor-style navigation (from monitor App.ts) ──
   const [navStack, setNavStack] = useState<(NavStackEntry | PageNavEntry)[]>([]);
@@ -455,7 +474,7 @@ const App = ({ apiClient: clientProp, sessionManager: smProp, demoMode, repoPath
         onDownArrow: history.next,
         captureInput: inputFocused,
       }),
-      h(StatusBar, { currentPage: 'session', isDetailView: true }),
+      h(StatusBar, { currentPage: 'session', isDetailView: true, connectionStatus }),
     );
   }
 
@@ -512,7 +531,7 @@ const App = ({ apiClient: clientProp, sessionManager: smProp, demoMode, repoPath
       onDownArrow: history.next,
       captureInput: inputFocused,
     }),
-    h(StatusBar, { currentPage }),
+    h(StatusBar, { currentPage, connectionStatus }),
   );
 };
 

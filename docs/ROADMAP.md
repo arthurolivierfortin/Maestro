@@ -43,59 +43,13 @@
 | 39 | `maestro adapt` + `maestro optimize` — manifest extraction, model substitution, temperature tuning (16 tests) | COMPLETE |
 | 40-PRE | Maestro Code — L'App Unifiee (agent-first architecture, shared @maestro/tui, identity) | COMPLETE |
 | 41-PRE | Spatial TUI (Page Registry, 2D grid, mascotte, command palette) | COMPLETE (remplace par Phase 42) |
+| 42 | Restructuration maestro-code = Monitor + AgentPanel + keyboard fix | COMPLETE |
+| 43 | Visual Gate — PTY Capture + Golden Files + Structural Assertions | COMPLETE |
+| 44 | Dogfooding Pragmatique — Cantante + Jarvis (4/4 taches, 8 sessions, 100% succes) | COMPLETE |
 
 ---
 
 ## Phases actives et a venir
-
----
-
-### Phase 42 : Restructuration maestro-code = Monitor + AgentPanel
-
-**Statut** : EN COURS (code quasi-fini, verification en attente du Visual Gate)
-**But** : Remplacer l'architecture spatiale over-engineered de 41-PRE par une copie du monitor solide + AgentPanel interactif.
-
-| Sous-phase | Objectif | Effort |
-|------------|----------|--------|
-| 1 | Copier les fichiers du monitor (~25 composants, 3 hooks, theme) | fait |
-| 2 | Creer AgentPanel + TaskInputBar | fait |
-| 3 | Reecrire App.ts (pattern monitor + SessionManager + demo) | fait |
-| 4 | Modifier SessionMonitor (ajouter AgentPanel dans layout) | fait |
-| 5 | Supprimer le spatial (registry/, pages/, mascotte, etc.) | fait |
-| 6 | Tests et verification | en attente Phase 43 |
-
-**Docs** : `docs/phases/PHASE-42/README.md`
-
----
-
-### Phase 43 : Visual Gate — PTY Capture + Golden Files + Structural Assertions
-
-**Statut** : A FAIRE (priorite haute — bloque la verification de Phase 42)
-**But** : Pipeline de verification visuelle automatise. Spawne le TUI dans un vrai PTY (node-pty + @xterm/headless), capture le buffer terminal, valide contre des golden files et assertions structurelles.
-
-| Sous-phase | Objectif | Effort |
-|------------|----------|--------|
-| 43-A | Frame capture infrastructure (node-pty + @xterm/headless + smoke test) | 1-1.5 jours |
-| 43-B | Golden files + structural assertions + integration test:visual | 1-1.5 jours |
-
-**Docs** : `docs/phases/PHASE-43/README.md`
-
----
-
-### Phase 44 : TUI Sentinel — Agent autonome de validation TUI
-
-**Statut** : PLANIFIE (depend de Phase 43)
-**But** : Agent Maestro (workflow block) qui decouvre, teste, et corrige le TUI automatiquement. Premiere utilisation reelle de Maestro sur son propre code.
-
-| Sous-phase | Objectif | Effort |
-|------------|----------|--------|
-| 44-A | Block infrastructure (workflow + agent blocks + session template) | 3-5 jours |
-| 44-B | Discovery + Analysis agents | 3-5 jours |
-| 44-C | Atomic + Integration testing | 3-5 jours |
-| 44-D | Visual capture + Fix loop (SWE-Agent style) | 5-7 jours |
-| 44-E | Report + Self-improvement | 3-5 jours |
-
-**Docs** : `docs/phases/PHASE-44/README.md`
 
 ---
 
@@ -144,10 +98,10 @@
              └→ 39 adapt + optimize (DONE)
                  └→ 40-PRE Polish & Agent-First UX (DONE)
                      └→ 41-PRE Spatial TUI (DONE — remplace par 42)
-                         └→ 42 Restructuration maestro-code (EN COURS)
-                             └→ 43 Visual Gate (A FAIRE — debloque la verification de 42)
-                                 └→ 44 TUI Sentinel (utilise le visual gate)
-                                     └→ 45 Distribution (empaquetter tout)
+                         └→ 42 Restructuration maestro-code (DONE)
+                             └→ 43 Visual Gate (DONE)
+                                 └→ 44 Dogfooding Cantante + Jarvis (DONE)
+                                     └→ 45 Distribution (A FAIRE)
                                          └→ 46 Cantante v1 (premiere app Maestro publique)
                                              └→ 47+ Catalogue, Auth, Fitness Engine...
 ```
@@ -156,8 +110,8 @@
 
 | Feature | Phase cible | Document |
 |---------|-------------|----------|
-| Visual Gate (PTY capture) | 43 | `docs/phases/PHASE-43/README.md` |
-| TUI Sentinel (agent QA) | 44 | `docs/phases/PHASE-44/README.md` |
+| Visual Gate (PTY capture) | 43 | `docs/phases/PHASE-43/README.md` (DONE) |
+| Dogfooding Cantante + Jarvis | 44 | `docs/phases/PHASE-44/README.md` |
 | Distribution / packaging | 45 | A creer |
 | Cantante v1 | 46 | A creer |
 | Catalogue communautaire | 47 | Futur |

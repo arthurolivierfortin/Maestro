@@ -166,6 +166,7 @@ const StatusBar = ({
     width: '100%',
     flexDirection: 'row',
     justifyContent: 'space-between',
+    flexShrink: 0,
   },
     // Left: connection status + latency + time
     h(Box, { flexDirection: 'row' },

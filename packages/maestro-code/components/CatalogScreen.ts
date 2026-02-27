@@ -75,7 +75,7 @@ const CatalogBlockRow = ({ block, isSelected, isExpanded }) => {
     : '-';
 
   return h(Box, { flexDirection: 'column' },
-    h(Box, { flexDirection: 'row', paddingLeft: 1 },
+    h(Box, { flexDirection: 'row', paddingLeft: 1, overflow: 'hidden' },
       h(Text, { color: isSelected ? theme.panel.borderFocused : undefined }, selector),
       h(Text, null, ' '),
       h(Text, { color: 'gray' }, expandIcon),

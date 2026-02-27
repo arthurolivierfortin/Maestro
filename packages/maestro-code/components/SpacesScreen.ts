@@ -110,7 +110,7 @@ const SessionRow = ({ session, isSelected, isExpanded }) => {
   const duration = formatDuration(session.startedAt, session.completedAt);
 
   return h(Box, { flexDirection: 'column' },
-    h(Box, { flexDirection: 'row', paddingLeft: 1 },
+    h(Box, { flexDirection: 'row', paddingLeft: 1, overflow: 'hidden' },
       h(Text, { color: isSelected ? theme.panel.borderFocused : undefined }, selector),
       h(Text, null, ' '),
       h(Text, { color: 'gray' }, expandIcon),
@@ -183,7 +183,7 @@ const RepoRow = ({ project, isSelected }) => {
   const sColor = statusColor(status);
   const selector = isSelected ? icons.arrow : ' ';
 
-  return h(Box, { flexDirection: 'row', paddingLeft: 2 },
+  return h(Box, { flexDirection: 'row', paddingLeft: 2, overflow: 'hidden' },
     h(Text, { color: isSelected ? theme.panel.borderFocused : undefined }, selector),
     h(Text, null, ' '),
     T(sColor, statusIcon(status)),
@@ -203,7 +203,7 @@ const WorkspaceRow = ({ workspace, isSelected }) => {
   const type = workspace.type || '';
   const selector = isSelected ? icons.arrow : ' ';
 
-  return h(Box, { flexDirection: 'row', paddingLeft: 2 },
+  return h(Box, { flexDirection: 'row', paddingLeft: 2, overflow: 'hidden' },
     h(Text, { color: isSelected ? theme.panel.borderFocused : undefined }, selector),
     h(Text, null, ' '),
     h(Text, { color: theme.status.running }, icons.running),

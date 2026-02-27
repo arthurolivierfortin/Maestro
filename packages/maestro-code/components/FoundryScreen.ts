@@ -36,7 +36,7 @@ const BlockRow = ({ block, isSelected, isExpanded }) => {
   const expandIcon = isExpanded ? icons.expanded : (isSelected ? icons.collapsed : ' ');
 
   return h(Box, { flexDirection: 'column' },
-    h(Box, { flexDirection: 'row', paddingLeft: 1 },
+    h(Box, { flexDirection: 'row', paddingLeft: 1, overflow: 'hidden' },
       h(Text, { color: isSelected ? theme.panel.borderFocused : undefined }, selector),
       h(Text, null, ' '),
       h(Text, { color: 'gray' }, expandIcon),

@@ -12,10 +12,10 @@
 │ → ▼ ✓ Cantante - File Tree Module    sess-001  completed  fit:   -  12m 0s                                           │
 │      id: sess-001                                                                                                    │
 │                                                                                                                      │
-│     * Cantante - TTS Accessibility   sess-002  running    fit:   -  34h 8m                                           │
+│     * Cantante - TTS Accessibility   sess-002  running    fit:   -  37h 40m                                          │
 │     ✓ Maestro - Agent Loop Fix       sess-003  completed  fit:   -  12m 0s                                           │
 │     ✓ Task Planner v2                sess-004  completed  fit:   -  12m 0s                                           │
-│     ✗ WebApp - Login Page            sess-005  error      fit:   -  34h 8m                                           │
+│     ✗ WebApp - Login Page            sess-005  error      fit:   -  37h 40m                                          │
 │                                                                                                                      │
 │                                                                                                                      │
 │                                                                                                                      │
@@ -36,5 +36,5 @@
 │ / Press / to type...                                                                                                 │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 ┌──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
-│ * connecting  •  -  •  -                                       [Ctrl+←→]page [↑↓]select [Enter]open [Esc]back [q]uit │
+│ * connected  •  -  •  -                                        [Ctrl+←→]page [↑↓]select [Enter]open [Esc]back [q]uit │
 └──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘

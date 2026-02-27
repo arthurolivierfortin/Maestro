@@ -77,7 +77,7 @@ const ActiveSessionCard = ({ session, index, isSelected, onSelect, tick = 0 }) =
 
   const selector = isSelected ? icons.arrow : ' ';
 
-  return h(Box, { flexDirection: 'row', paddingLeft: 1 },
+  return h(Box, { flexDirection: 'row', paddingLeft: 1, overflow: 'hidden' },
     h(Text, { color: isSelected ? theme.panel.borderFocused : undefined }, selector),
     h(Text, null, ' '),
     T(sColor, sIcon),

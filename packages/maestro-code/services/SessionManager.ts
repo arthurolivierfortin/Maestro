@@ -109,18 +109,74 @@ class SessionManager {
     }
   }
 
+  private lastReportedNodes = new Set<string>();
+
   private startPolling(addLine: (line: LogLine) => void, setBusy: (b: boolean) => void) {
+    this.lastReportedNodes.clear();
+
     this.pollTimer = setInterval(async () => {
       try {
         const session = await this.client.getSession(this.sessionId);
         const vars = session.variables || {};
         const tree: any[] = vars._executionTree || [];
 
+        // Show intermediate actions (new tool calls as they appear)
+        for (const node of tree) {
+          const children: any[] = node.children || [];
+          for (const child of children) {
+            const key = `${node.id}:${child.id || child.name}`;
+            if (!this.lastReportedNodes.has(key) && child.status && child.status !== 'pending') {
+              this.lastReportedNodes.add(key);
+              const icon = child.status === 'completed' ? '✓' : child.status === 'error' ? '✗' : '…';
+              const color = child.status === 'completed' ? 'green' : child.status === 'error' ? 'red' : 'yellow';
+              addLine({ text: `  ${icon} ${child.name || child.id || 'step'}`, color, timestamp: ts() });
+            }
+          }
+        }
+
         const status = session.status || session.containerStatus;
         const allDone = tree.length > 0 && tree.every(n => n.status === 'completed' || n.status === 'done' || n.status === 'error' || n.status === 'skipped');
         if (allDone || status === 'completed' || status === 'idle') {
           this.stopPolling();
           const hasErrors = tree.some(n => n.status === 'error');
+
+          // Extract the agent's response from execution tree output
+          const lastNode = tree[tree.length - 1];
+          const agentOutput = lastNode?.output?.summary
+            || lastNode?.output?.result
+            || lastNode?.output?.response;
+
+          if (agentOutput) {
+            addLine({ text: '' });
+            addLine({ text: 'Agent:', color: 'cyan', bold: true, timestamp: ts() });
+            // Split long output into lines for readability
+            const outputLines = String(agentOutput).split('\n');
+            for (const line of outputLines) {
+              addLine({ text: `  ${line}`, color: 'white' });
+            }
+          }
+
+          // Also check _conversationState variables for the response
+          if (!agentOutput) {
+            const convKeys = Object.keys(vars).filter(k => k.startsWith('_conversationState_'));
+            for (const key of convKeys) {
+              const conv = vars[key];
+              if (conv && Array.isArray(conv.messages)) {
+                const lastMsg = conv.messages[conv.messages.length - 1];
+                if (lastMsg && lastMsg.role === 'assistant' && lastMsg.content) {
+                  addLine({ text: '' });
+                  addLine({ text: 'Agent:', color: 'cyan', bold: true, timestamp: ts() });
+                  const msgLines = String(lastMsg.content).split('\n').slice(0, 10);
+                  for (const line of msgLines) {
+                    addLine({ text: `  ${line}`, color: 'white' });
+                  }
+                  break;
+                }
+              }
+            }
+          }
+
+          addLine({ text: '' });
           if (hasErrors) {
             addLine({ text: 'Task completed with errors', color: 'red', bold: true, timestamp: ts() });
           } else if (tree.length > 0) {
