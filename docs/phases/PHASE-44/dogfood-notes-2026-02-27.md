@@ -132,8 +132,8 @@
 
 | ID | Description | Severity | Root Cause | Frame |
 |----|-------------|----------|------------|-------|
-| BUG-1 | Models page is completely BLANK (0 lines) | Major | Unknown — all other pages render | Discovery F6 |
-| BUG-2 | Press J (scroll down) causes entire screen to go blank | Major | Unknown — K works fine, J blanks | Discovery F11 |
+| BUG-1 | Models page is completely BLANK (0 lines) | Major | **FIXED** — empty state Box missing `flexDirection: 'column'` + timing issue in demo mode | Discovery F6 |
+| BUG-2 | Press J (scroll down) causes entire screen to go blank | Major | **FIXED** — ConversationLog ignored scrollOffset; Panel's marginBottom pushed content off-screen. Now ConversationLog handles line windowing directly. | Discovery F11 |
 | BUG-3 | Home page blank in demo mode (may be timing on Windows) | Minor | Possibly slow initial render | Discovery F2 |
 | BUG-4 | Agent response in work-log format ("Read and summarized...") | Major | **FIXED** — 3-layer fix: prompt examples, trailing text capture in AgentBlockExecutor, response key preference in EntryPointExecutor | Live FINAL |
 | BUG-5 | _executionTree node stays "pending" after completion | Minor | EntryPointExecutor doesn't update tree for agent blocks | API check |
@@ -177,9 +177,27 @@ Agent response was in "action log" format ("Read and summarized the Cantante pro
 
 **Verification**: `_dogfood-verify-bug4.ts` confirms response no longer starts with action verbs. Test suite: 70/70 passed.
 
+### BUG-1 — FIXED (layout + timing)
+Models page was blank in demo mode during dogfooding discovery.
+
+**Root cause**: Empty state Box in ModelsScreen was missing `flexDirection: 'column'`, causing children to render horizontally and collapse. Combined with `useApiData` async timing on first render.
+
+**File changed**: `packages/maestro-code/components/ModelsScreen.ts` — Added `flexDirection: 'column'` to empty state Box.
+
+**Verification**: PTY capture shows MODEL STATUS + AVAILABLE MODELS panels with model names. Test suite: 70/70 passed.
+
+### BUG-2 — FIXED (scroll mechanism rewrite)
+Pressing K (scroll up) caused the entire screen to go blank. J (scroll down) brought it back.
+
+**Root cause**: ConversationLog always rendered `lines.slice(-maxVisible)` (last N lines), ignoring the `scrollOffset`. Panel tried to scroll via `marginBottom`, which just pushed the same fixed content off-screen.
+
+**Files changed**:
+1. `packages/maestro-code/components/ConversationLog.ts` — Added `scrollOffset` prop; computes visible window as `lines.slice(startIndex, endIndex)` based on offset
+2. `packages/maestro-code/components/AgentScreen.ts` — Removed `scrollOffset` from Panel props, passes it to ConversationLog instead
+
+**Verification**: PTY test — 5x K, 5x J, 20x K all produce 40 non-empty lines. No blank screen. Test suite: 70/70 passed.
+
 ## Remaining Bugs (Priority Order)
-1. **BUG-1 (Major)**: Fix Models page rendering — blank (0 lines)
-2. **BUG-2 (Major)**: Fix J-scroll blanking the screen
-3. **BUG-5 (Minor)**: Update execution tree node status when agent completes
-4. **BUG-6 (Minor)**: Remove or populate StatusBar placeholder values
-5. **BUG-3 (Minor)**: Investigate Home page blank (may be timing)
+1. **BUG-5 (Minor)**: Update execution tree node status when agent completes
+2. **BUG-6 (Minor)**: Remove or populate StatusBar placeholder values
+3. **BUG-3 (Minor)**: Investigate Home page blank (may be timing)

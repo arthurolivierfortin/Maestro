@@ -14,13 +14,18 @@ import type { LogLine } from '../services/SessionManager.ts';
 export interface ConversationLogProps {
   lines: LogLine[];
   height: number;
+  scrollOffset?: number;
 }
 
-const ConversationLog = ({ lines, height }: ConversationLogProps) => {
+const ConversationLog = ({ lines, height, scrollOffset = 0 }: ConversationLogProps) => {
   const maxVisible = Math.max(height - 2, 1);
 
-  // Auto-scroll: always show the latest lines
-  const visible = lines.slice(-maxVisible);
+  // Compute visible window based on scroll offset
+  // scrollOffset = 0 → show latest lines (bottom)
+  // scrollOffset > 0 → show lines further back in history
+  const endIndex = lines.length - scrollOffset;
+  const startIndex = Math.max(0, endIndex - maxVisible);
+  const visible = endIndex > 0 ? lines.slice(startIndex, endIndex) : [];
 
   return h(Box, {
     flexDirection: 'column',

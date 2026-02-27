@@ -277,12 +277,11 @@ const AgentScreen = ({
         title: 'CONVERSATION',
         flexGrow: 1,
         anchor: 'bottom',
-        scrollOffset,
         showScroll: lines.length > 5,
         canScrollUp: scrollOffset < lines.length - 5,
         canScrollDown: scrollOffset > 0,
       },
-        h(ConversationLog, { lines, height: 999 }),
+        h(ConversationLog, { lines, height: 999, scrollOffset }),
       ),
 
       // Actions (right, fixed width)

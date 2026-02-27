@@ -185,7 +185,7 @@ const ModelsScreen = ({ apiClient, onNavigate, onModelSelect, onQuit, initialSta
             muted(`${modelList.length} model(s) available`),
           ),
           modelList.length === 0
-            ? h(Box, { paddingLeft: 2 },
+            ? h(Box, { flexDirection: 'column', paddingLeft: 2 },
                 muted('No models found'),
                 h(Text, null, ''),
                 muted('Is the LLM provider running?'),
