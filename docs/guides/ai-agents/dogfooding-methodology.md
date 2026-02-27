@@ -225,6 +225,58 @@ Back mechanism: [Esc? Backspace? Breadcrumb?]
 
 For EACH page discovered, repeat Step 2 (Visual Inventory).
 
+#### Step 3b: Depth Navigation — Detail Views and Sub-Views
+
+> **This step exists because of a real incident (2026-02-27): a dogfooding session
+> tested all 6 top-level pages but NEVER entered a detail view. Three major bugs
+> in detail views (double footer, scroll overflow, dead keyboard) shipped undetected.**
+
+Pages are not the only views. Many pages contain **lists** where pressing Enter/Space
+opens a **detail view** (block detail, session detail, workspace detail, model detail).
+These detail views are **composed differently** from pages — the application wrapper
+may add footers, input bars, or status bars that the detail component doesn't know about.
+
+**You MUST test detail views separately from list pages.**
+
+Protocol:
+```
+For EACH page that contains a selectable list:
+  1. Select an item
+  2. Press Enter (or the documented activation key)
+  3. Capture the detail view frame
+  4. Inventory: What is shown? What is the layout?
+  5. CHECK FOR DUPLICATED ELEMENTS:
+     - Are there two status bars? Two footers? Two input areas?
+     - Are global elements (TaskInputBar, StatusBar) still present?
+     - Do they make sense in this context?
+  6. CHECK THAT CONTENT FITS:
+     - Count the actual usable rows (terminal height minus ALL chrome)
+     - Does the content overflow below the visible area?
+  7. Navigate back (Esc or documented back key)
+  8. Verify: Is the list restored? Is the selection preserved?
+```
+
+Detail view inventory template:
+```
+=== DETAIL VIEW — [name] (reached from [parent page]) ===
+
+Entry: Pressed [key] on [item description] from [page]
+Back: [key to return]
+
+Layout:
+├─ [Zone 1] (lines X-Y): [description]
+├─ ...
+├─ [Global wrapper: TaskInputBar?] (lines X-Y): [should it be here?]
+└─ [Global wrapper: StatusBar?] (lines X-Y): [duplicated from inner component?]
+
+Duplicated Elements: [YES/NO — list any]
+Overflow Issues: [YES/NO — does content extend beyond terminal]
+Keyboard Working: [test all documented shortcuts in this context]
+```
+
+**Completeness rule**: If a page has N selectable items of different types,
+test at least one detail view per type (e.g., one workflow block, one agent block, one tool block).
+
 #### Step 4: State Discovery
 
 Identify all possible states the application can be in:
@@ -254,11 +306,16 @@ After discovery, verify:
 ```
 □ Every visible zone is documented
 □ Every keyboard shortcut has been tried
-□ Every page/view has been visited and inventoried
+□ Every TOP-LEVEL page has been visited and inventoried
+□ Every DETAIL VIEW has been entered and inventoried (Step 3b)
 □ All input fields have been identified
 □ All status indicators have been noted
 □ All states have been observed (or at least identified)
-□ The navigation graph is complete (every page reachable)
+□ The navigation graph is complete (every page AND detail view reachable)
+□ COMPOSITION CHECK: global elements (input bars, status bars, footers)
+  documented — are they present on all views? Should they be?
+□ SCROLL CHECK: every scrollable list tested with more items than visible rows
+□ KEYBOARD CHECK: every shortcut tested in the FULL app context, not in isolation
 ```
 
 If any of these are incomplete, continue discovering before moving to testing.
@@ -321,6 +378,54 @@ Verdict: PASS / FAIL / PARTIAL
 Notes: [anything unexpected, even if it passed]
 ```
 
+##### Keyboard Conflict Testing (MANDATORY)
+
+> **This test exists because of a real incident (2026-02-27): J/K scroll was tested
+> via PTY in isolation but didn't work in the real app because a global `useInput`
+> handler in the wrapper component intercepted keystrokes before the page handler.**
+
+When an application has **multiple layers of keyboard handlers** (e.g., a global
+input manager in the app wrapper AND page-specific handlers), you MUST test keyboard
+behavior **in the full application context**, not in isolation.
+
+For EACH page that has keyboard shortcuts:
+```
+1. Launch the FULL application (not a component in isolation)
+2. Navigate to the page
+3. Press each documented shortcut key
+4. Verify the expected action occurs
+5. If the key does NOTHING: this is a FAIL, not "works fine"
+```
+
+Pay special attention to:
+- **Keys shared between layers**: If the app wrapper uses J/K/Enter and the page
+  also uses J/K/Enter, which one wins? Test both states (focused/unfocused).
+- **Input focus stealing**: If there is a text input field (TaskInputBar, search box),
+  does it steal keyboard events even when not focused?
+- **Modal/overlay conflicts**: If a confirmation dialog is showing, do page shortcuts
+  still fire underneath it?
+
+##### Scroll Boundary Testing (MANDATORY)
+
+> **This test exists because of a real incident (2026-02-27): Foundry page scroll
+> worked in isolation but content was pushed off-screen in the real app because
+> the scroll calculation didn't account for footer elements added by the app wrapper.**
+
+When a page has a scrollable list:
+```
+1. Count visible rows in the FULL application (not calculated, OBSERVED)
+2. Ensure the list has MORE items than visible rows
+3. Scroll to the LAST item
+4. Verify the last item is FULLY visible (not cut off or hidden behind footers)
+5. Scroll back to the first item
+6. Verify the first item is fully visible
+7. If items at boundaries are cut off or hidden: FAIL
+```
+
+The key question: **Does the scroll calculation account for ALL elements on screen?**
+This includes NavBars, status bars, input bars, and any chrome added by wrapper components
+that the scrolling component doesn't know about.
+
 #### 4.3 — User Journey Tests (flows)
 
 Test complete workflows, not just individual interactions:
@@ -342,6 +447,12 @@ Test complete workflows, not just individual interactions:
 - Submit with backend down → error visible? recovery possible?
 - Submit empty input → no-op or clear error?
 - Interrupt during execution (Ctrl+C, Esc) → graceful handling?
+
+**Composition Flows** (wrapper + inner component interactions):
+- Open a detail view from a list → are global elements (input bar, status bar) duplicated?
+- Scroll a list on a page that has global footers → do items disappear behind the footers?
+- Press keyboard shortcuts on a page while a global input bar exists → do shortcuts work?
+- Navigate from page → detail view → back to page → is the layout intact?
 
 **Edge Cases**:
 - Very long input text (100+ characters)
@@ -855,6 +966,54 @@ GOOD: Show the captured frame for EACH page. If you didn't capture it,
       you didn't test it.
 ```
 
+#### NEVER: Test Only Top-Level Pages and Ignore Detail Views
+
+```
+BAD:  "All 6 pages render correctly. 0 bugs found."
+      → Never pressed Enter on any list item
+      → Never saw a block detail, session detail, or model detail
+      → 3 major bugs shipped in detail views (double footer, scroll overflow,
+        dead keyboard)
+
+GOOD: "6 pages + 4 detail views tested. Found: double StatusBar on
+       BlockDetail, scroll overflow on Foundry, J/K dead on Agent."
+```
+
+Detail views are **where composition bugs live**. The top-level page may render
+perfectly because it owns its entire layout. The detail view is rendered INSIDE
+a wrapper (App.ts) that adds global elements the component doesn't know about.
+If you only test pages, you only test the simple case.
+
+#### NEVER: Test Keyboard Shortcuts via PTY Isolation If the App Has a Wrapper
+
+```
+BAD:  PTY test sends J/K to AgentScreen → ConversationLog scrolls →
+      "40 non-empty lines" → "PASS: scroll works"
+      → In the real app, App.ts useInput() intercepts J/K first
+      → User presses J/K → nothing happens
+
+GOOD: Launch the FULL app via PTY → navigate to Agent page →
+      press J/K → capture frame → verify scroll actually occurred
+      → The full input handler chain is exercised
+```
+
+Component isolation testing catches rendering bugs. Only full-app testing
+catches keyboard handler conflicts, focus stealing, and composition issues.
+
+#### NEVER: Trust Scroll Calculations Without Visual Verification
+
+```
+BAD:  "Foundry renders 12 blocks. visibleItems = termRows - 9 = 31.
+       12 < 31, so all items fit. PASS."
+      → Didn't account for TaskInputBar (3 lines) and StatusBar (1 line)
+        added by App.ts wrapper
+      → With a smaller terminal or more blocks, items are pushed off-screen
+
+GOOD: "Foundry renders 12 blocks. I scrolled to item 12. Captured frame.
+       Item 12 is visible above the TaskInputBar and StatusBar. PASS."
+      → Visual proof that the last item is actually visible
+```
+
 ---
 
 ## Appendix: Maestro-Specific Reference
@@ -923,6 +1082,42 @@ curl -s http://localhost:5000/api/blocks                           # List all
 curl -s "http://localhost:5000/api/blocks?type=agent"              # Filter
 ```
 
+### Maestro TUI Architecture: Wrapper + Components
+
+> **Understanding this is critical for dogfooding.** The most common bugs come
+> from the interaction between App.ts (the wrapper) and page/detail components.
+
+```
+App.ts (wrapper)
+├─ FullscreenBox
+│   ├─ [PageComponent OR DetailComponent]  ← rendered by routing logic
+│   ├─ TaskInputBar                        ← ALWAYS present (global)
+│   └─ StatusBar                           ← ALWAYS present (global)
+└─ useInput() for slash-to-focus           ← ALWAYS active (global)
+```
+
+**Key implications for dogfooding:**
+1. TaskInputBar appears on ALL views (pages AND detail views)
+2. StatusBar appears on ALL views — if a detail component renders its own StatusBar,
+   there will be TWO
+3. The global `useInput()` for slash-to-focus is always active — it can intercept
+   keystrokes before page-specific handlers
+4. Page components calculate scroll height based on their own overhead, but they
+   don't know about TaskInputBar (3 lines) and StatusBar (1 line) added by App.ts.
+   **Scroll calculations must account for +4 lines of global chrome.**
+5. `keyboardActive: !inputFocused` is passed to page components — when the input
+   bar is focused, page keyboard handlers are disabled
+
+**Detail views (reached by pressing Enter on list items):**
+
+| Source Page | Enter On | Detail Component | Known Issue |
+|-------------|----------|------------------|-------------|
+| Home | Session | SessionMonitor | — |
+| Spaces | Session | SessionMonitor | — |
+| Foundry | Block | BlockDetail | Has its own StatusBar → double footer |
+| Catalog | Block | BlockDetail | Has its own StatusBar → double footer |
+| Models | Model | ModelDetail | — |
+
 ### Maestro TUI Pages (6)
 
 | Page | Key | What It Shows |
@@ -973,16 +1168,44 @@ If time is limited, this is the absolute minimum for a valid dogfooding session:
    - List what you see
    - Try every visible shortcut
 
-3. Core flow test (5 min)
+3. Core flow test (3 min)
    - Type a task, submit, watch execution
    - Verify output visible and correct
    - Check API for session data
 
-4. Notes (1 min)
+4. Detail view test (2 min)
+   - Navigate to Foundry or Catalog
+   - Press Enter on an item → capture detail view
+   - Check: duplicated footers? Input bar present?
+   - Press Esc → back to list
+
+5. Scroll & keyboard test (2 min)
+   - On a page with a list (Foundry, Home), scroll to the last item
+   - Verify it's visible above global footers (TaskInputBar, StatusBar)
+   - On Agent page (not in input mode), press J/K
+   - Verify conversation actually scrolls
+
+6. Notes (1 min)
    - Record results in session file
    - Score top 3 UX criteria
 
-Total: ~8 minutes for a valid (minimal) dogfooding session.
+Total: ~10 minutes for a valid (minimal) dogfooding session.
 ```
 
-For a comprehensive session, plan 30-60 minutes to test all pages, flows, and edge cases.
+For a comprehensive session, plan 30-60 minutes to test all pages, detail views,
+flows, and edge cases.
+
+### Post-Incident Mandatory Checks (added 2026-02-27)
+
+These checks were added after a dogfooding session shipped 3 major bugs because
+it only tested top-level pages. They are now MANDATORY for every session:
+
+```
+□ DETAIL VIEWS: Entered at least one detail view from every page that has lists
+□ COMPOSITION: Verified no duplicated StatusBars or TaskInputBars on detail views
+□ SCROLL BOUNDARIES: Scrolled to last item on every scrollable list, verified
+  item is visible above ALL global chrome (not just page chrome)
+□ KEYBOARD IN CONTEXT: Tested page shortcuts in the FULL app (not in isolation)
+  with input bar unfocused — verified shortcuts actually work
+□ WRAPPER AWARENESS: Documented which global elements App.ts adds to each view
+```

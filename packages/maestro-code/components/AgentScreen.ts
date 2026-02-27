@@ -19,7 +19,7 @@
  */
 
 import { createElement as h, useState, useRef, useEffect } from 'react';
-import { Box, Text } from 'ink';
+import { Box, Text, useStdout } from 'ink';
 import {
   theme, icons,
   T, muted, primary, bold,
@@ -200,9 +200,14 @@ const AgentScreen = ({
   keyboardActive,
   lastOutput = null,
 }: AgentScreenProps) => {
+  const { stdout } = useStdout();
   const [showQuitConfirm, setShowQuitConfirm] = useState(false);
   const [scrollOffset, setScrollOffset] = useState(0);
   const tick = useAnimationTick(120);
+
+  // Compute available height for conversation: terminal - NavBar(3) - AgentStatus(6) - PanelBorders(2) - global chrome(6)
+  const termRows = stdout.rows || 40;
+  const conversationHeight = Math.max(5, termRows - 17);
 
   const askQuit = () => setShowQuitConfirm(true);
 
@@ -224,7 +229,7 @@ const AgentScreen = ({
     prevLineCount.current = lines.length;
   }
 
-  const scrollUp = () => setScrollOffset(s => Math.min(s + 3, Math.max(0, lines.length - 5)));
+  const scrollUp = () => setScrollOffset(s => Math.min(s + 3, Math.max(0, lines.length - conversationHeight)));
   const scrollDown = () => setScrollOffset(s => Math.max(0, s - 3));
 
   // Keyboard — disabled when input bar is focused
@@ -277,11 +282,11 @@ const AgentScreen = ({
         title: 'CONVERSATION',
         flexGrow: 1,
         anchor: 'bottom',
-        showScroll: lines.length > 5,
-        canScrollUp: scrollOffset < lines.length - 5,
+        showScroll: lines.length > conversationHeight,
+        canScrollUp: scrollOffset < lines.length - conversationHeight,
         canScrollDown: scrollOffset > 0,
       },
-        h(ConversationLog, { lines, height: 999, scrollOffset }),
+        h(ConversationLog, { lines, height: conversationHeight, scrollOffset }),
       ),
 
       // Actions (right, fixed width)

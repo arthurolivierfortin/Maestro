@@ -71,9 +71,9 @@ const FoundryScreen = ({ apiClient, onNavigate, onBlockSelect, onQuit, keyboardA
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [expandedIndex, setExpandedIndex] = useState(-1);
 
-  // Terminal rows for scroll: NavBar(3) + PanelBorder(2) + header(1) = 6
+  // Terminal rows for scroll: NavBar(3) + PanelBorder(2) + header(2) + global chrome(6: TaskInputBar+StatusBar)
   const termRows = stdout.rows || 40;
-  const visibleItems = Math.max(3, termRows - 9);
+  const visibleItems = Math.max(3, termRows - 15);
 
   // Fetch blocks
   const { data: blocks } = useApiData(

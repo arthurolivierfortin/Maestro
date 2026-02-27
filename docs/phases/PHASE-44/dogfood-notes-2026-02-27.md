@@ -226,3 +226,41 @@ Home page was blank during rapid page navigation in dogfooding discovery.
 
 ## All 6 Bugs Fixed
 All bugs from the dogfooding session have been resolved. 0 remaining.
+
+---
+
+## POST-MORTEM: 3 Major Bugs Missed by This Dogfooding Session
+
+> **Added after user manual testing revealed 3 major bugs that this session missed.**
+> This section documents the failure and the methodology changes made to prevent recurrence.
+
+### Bugs Found by User (not by dogfooding)
+
+| ID | Description | Severity | Why Dogfooding Missed It |
+|----|-------------|----------|--------------------------|
+| BUG-7 | BlockDetail page shows double footer (inner StatusBar + App.ts StatusBar) and TaskInputBar that shouldn't be there | Major | **Never tested detail views** — all 28 tests were on top-level pages only |
+| BUG-8 | Foundry page scroll pushes items behind TaskInputBar/StatusBar | Major | **Scroll tested with items that fit** — 12 blocks fit in visible area at default terminal size, so overflow was invisible |
+| BUG-9 | Agent page J/K doesn't scroll conversation | Major | **Tested via PTY in isolation** — PTY verified ConversationLog rendering but didn't test the full App.ts keyboard handler chain where global `useInput()` intercepts before `useKeyboard()` |
+
+### Root Cause Analysis
+
+The dogfooding session had **3 structural gaps**:
+
+1. **No detail view testing**: The session inventoried 6 pages and tested navigation between them, but NEVER pressed Enter on a list item to enter a detail view. All 6 pages render their own layout correctly — the bugs only appear when App.ts wraps a detail component and adds global elements (TaskInputBar + StatusBar) that duplicate or conflict with the component's own elements.
+
+2. **Scroll tested in favorable conditions**: Foundry had 12 blocks. With `termRows=40` and `visibleItems = 40 - 9 = 31`, all 12 items fit without scrolling. The scroll bug only manifests when items overflow, AND the overflow calculation doesn't account for the 4 lines of global chrome (TaskInputBar + StatusBar) added by App.ts.
+
+3. **Keyboard tested via PTY, not via full app**: The J/K fix for BUG-2 was verified by sending keys via PTY and counting non-empty lines in the captured frame. But the PTY test sent keys to a freshly spawned app — it didn't test the full keyboard handler chain where App.ts's `useInput()` (always active) can intercept before `useKeyboard()` in AgentScreen.
+
+### Methodology Changes Applied
+
+Updated `docs/guides/ai-agents/dogfooding-methodology.md` with:
+
+1. **Step 3b (Discovery)**: Mandatory depth navigation — enter detail views from every page that has lists
+2. **Section 4.2**: Keyboard Conflict Testing (test in full app context) + Scroll Boundary Testing (visual verification with global chrome)
+3. **Section 4.3**: Composition Flows (wrapper + component interactions)
+4. **Discovery Completeness Check**: Added 4 new mandatory checkboxes (detail views, composition, scroll boundaries, keyboard in context)
+5. **Three new anti-patterns**: "NEVER test only top-level pages", "NEVER test keyboard in isolation", "NEVER trust scroll calculations without visual verification"
+6. **Quick Start**: Added detail view test and scroll/keyboard test steps
+7. **Post-Incident Mandatory Checks**: 5-item checklist that must pass for every session
+8. **Appendix**: Documented App.ts wrapper architecture (global TaskInputBar + StatusBar on all views)

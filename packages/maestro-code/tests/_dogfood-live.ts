@@ -1,208 +1,220 @@
 /**
- * Temporary dogfooding live script — Agent test with real backend.
- * NOT a test runner. The agent reads output and makes judgments.
+ * Dogfood Session 2 — Full discovery + detail views + scroll + keyboard
+ *
+ * NOT a test runner. The agent reads captured frames and judges each one.
  * Delete after dogfooding session.
  */
 import { TuiDriver } from './tui-driver.ts';
 
-const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
+const wait = (ms: number) => new Promise(r => setTimeout(r, ms));
 
 async function main() {
-  const d = new TuiDriver(120, 40);
-  console.log('[live] Spawning maestro-code in REAL mode (Cantante repo)...\n');
+const driver = new TuiDriver(120, 40);
+try {
+  // === SPAWN (real mode) ===
+  console.log('=== SPAWNING (real mode) ===');
+  await driver.spawn('real', { repo: 'C:/Cantante' });
+  const frame0 = await driver.waitForRender(15000);
+  TuiDriver.printFrame(frame0, 'INITIAL FRAME — Agent Page');
 
-  await d.spawn('real', { repo: 'C:/Cantante' });
+  // === DISCOVERY: Navigate to each page ===
 
-  // 1. Wait for TUI to render (longer timeout for Windows)
-  console.log('[live] Waiting for initial render...');
-  const initial = await d.waitForRender(25000);
-  TuiDriver.printFrame(initial, 'INITIAL RENDER');
+  // Home
+  console.log('\n=== PRESS H — Home ===');
+  driver.press('h');
+  await wait(2500);
+  TuiDriver.printFrame(driver.captureFrame(), 'HOME PAGE');
 
-  // Check for NoBackendScreen
-  if (initial.text.includes('Backend Not Available')) {
-    console.error('[live] FATAL: Backend not running!');
-    d.kill();
-    return;
+  // Foundry
+  console.log('\n=== PRESS F — Foundry ===');
+  driver.press('f');
+  await wait(2500);
+  TuiDriver.printFrame(driver.captureFrame(), 'FOUNDRY PAGE');
+
+  // Catalog
+  console.log('\n=== PRESS C — Catalog ===');
+  driver.press('c');
+  await wait(2500);
+  TuiDriver.printFrame(driver.captureFrame(), 'CATALOG PAGE');
+
+  // Models
+  console.log('\n=== PRESS M — Models ===');
+  driver.press('m');
+  await wait(2500);
+  TuiDriver.printFrame(driver.captureFrame(), 'MODELS PAGE');
+
+  // Spaces
+  console.log('\n=== PRESS S — Spaces ===');
+  driver.press('s');
+  await wait(2500);
+  TuiDriver.printFrame(driver.captureFrame(), 'SPACES PAGE');
+
+  // Back to Agent
+  console.log('\n=== PRESS A — Agent ===');
+  driver.press('a');
+  await wait(2500);
+  TuiDriver.printFrame(driver.captureFrame(), 'AGENT PAGE');
+
+  // ===================================================================
+  // DETAIL VIEW TESTS (mandatory per updated methodology)
+  // ===================================================================
+
+  // Go to Foundry and press Enter on first block
+  console.log('\n=== DETAIL VIEW: Foundry -> Block Detail ===');
+  driver.press('f');
+  await wait(2500);
+  driver.pressEnter(); // Select first block
+  await wait(2500);
+  const blockDetailFrame = driver.captureFrame();
+  TuiDriver.printFrame(blockDetailFrame, 'BLOCK DETAIL (from Foundry)');
+
+  // Composition check
+  const detailLines = blockDetailFrame.lines;
+  const statusBarCount = detailLines.filter(l =>
+    l.includes('connected') || (l.includes('page') && l.includes('Ctrl'))
+  ).length;
+  const taskInputCount = detailLines.filter(l =>
+    l.includes('Press / to type') || l.includes('Describe your task')
+  ).length;
+  console.log('\n=== COMPOSITION CHECK — BlockDetail ===');
+  console.log('StatusBar instances: ' + statusBarCount + ' (expected: 1)');
+  console.log('TaskInputBar instances: ' + taskInputCount + ' (expected: 0 on detail)');
+
+  // Back to Foundry
+  console.log('\n=== PRESS Esc — Back to Foundry ===');
+  driver.pressEscape();
+  await wait(1500);
+  TuiDriver.printFrame(driver.captureFrame(), 'BACK TO FOUNDRY');
+
+  // ===================================================================
+  // SCROLL BOUNDARY TEST — Foundry
+  // ===================================================================
+  console.log('\n=== SCROLL BOUNDARY TEST — Foundry ===');
+  for (let i = 0; i < 20; i++) {
+    driver.press('j');
+    await wait(80);
   }
+  await wait(500);
+  const scrollFrame = driver.captureFrame();
+  TuiDriver.printFrame(scrollFrame, 'FOUNDRY SCROLLED TO BOTTOM');
 
-  // If initial is empty, wait more
-  if (initial.lines.filter(l => l.trim()).length === 0) {
-    console.log('[live] Initial empty, waiting more...');
-    await sleep(5000);
-    TuiDriver.printFrame(d.captureFrame(), 'DELAYED RENDER');
-  }
-
-  // 2. Verify we're on Agent page (default)
-  const agentPage = d.captureFrame();
-  console.log('\n--- Checking default page ---');
-  console.log('Has MAESTRO:', agentPage.text.includes('MAESTRO'));
-  console.log('Has AGENT STATUS:', agentPage.text.includes('AGENT STATUS'));
-  console.log('Has CONVERSATION:', agentPage.text.includes('CONVERSATION'));
-
-  // 3. Focus input and type task
-  console.log('\n[live] Pressing / to focus input...');
-  d.press('/');
-  await sleep(800);
-
-  const focusedFrame = d.captureFrame();
-  const hasFocus = focusedFrame.text.includes('Describe your task') || focusedFrame.text.includes('>');
-  console.log('Input focused:', hasFocus);
-
-  const task = 'What is the Cantante project about? Give me a brief summary.';
-  console.log(`\n[live] Typing task: "${task}"`);
-  await d.typeText(task, 15);
-  await sleep(500);
-
-  // Verify text appears
-  const typedFrame = d.captureFrame();
-  TuiDriver.printFrame(typedFrame, 'TASK TYPED');
-
-  // 4. Submit task
-  console.log('\n[live] Pressing Enter to submit...');
-  d.pressEnter();
-
-  // 5. Watch session creation
-  console.log('[live] Waiting for session creation (up to 30s)...');
-  const sessionFrame = await d.waitForContent(/Session:|Creating session|Invoking/, 30000);
-  TuiDriver.printFrame(sessionFrame, 'SESSION CREATED');
-
-  // Extract session ID
-  const sessionMatch = sessionFrame.text.match(/Session:\s*([a-f0-9]{8})/);
-  if (sessionMatch) {
-    console.log(`\n[live] Session ID prefix: ${sessionMatch[1]}`);
-  }
-
-  // Check template used
-  console.log('Template maestro-assistant:', sessionFrame.text.includes('maestro-assistant'));
-  console.log('Entry point message:', sessionFrame.text.includes('Invoking: message'));
-
-  // 6. Wait for agent state changes
-  console.log('\n[live] Waiting for agent to work (polling every 5s, up to 120s)...');
-  let lastFrame = d.captureFrame();
-  let elapsed = 0;
-  const maxWait = 120000;
-
-  while (elapsed < maxWait) {
-    await sleep(5000);
-    elapsed += 5000;
-    const frame = d.captureFrame();
-
-    // Check for state changes
-    const hasWorking = /working/i.test(frame.text);
-    const hasCompleted = /Task completed/i.test(frame.text);
-    const hasError = /Error:/i.test(frame.text);
-
-    console.log(`[live] ${Math.round(elapsed/1000)}s — working:${hasWorking} completed:${hasCompleted} error:${hasError}`);
-
-    if (hasCompleted || hasError) {
-      await sleep(2000); // Let final state settle
-      lastFrame = d.captureFrame();
-      break;
-    }
-    lastFrame = frame;
-  }
-
-  // 7. Capture final state
-  console.log('\n=== FINAL STATE ===');
-  TuiDriver.printFrame(lastFrame, 'FINAL');
-
-  // 8. Check agent response
-  const hasAgentLabel = lastFrame.text.includes('Agent:');
-  console.log('\n--- Agent Response Analysis ---');
-  console.log('Has "Agent:" label:', hasAgentLabel);
-  console.log('Has "Task completed":', /Task completed/i.test(lastFrame.text));
-
-  // Extract the agent's response text
-  const lines = lastFrame.lines;
-  let agentResponseLines: string[] = [];
-  let inResponse = false;
-  for (const line of lines) {
-    if (line.includes('Agent:')) {
-      inResponse = true;
-      continue;
-    }
-    if (inResponse) {
-      if (line.includes('Task completed') || (line.replace(/│/g, '').trim() === '' && agentResponseLines.length > 0)) {
-        break;
-      }
-      const cleaned = line.replace(/│/g, '').trim();
-      if (cleaned) agentResponseLines.push(cleaned);
+  // Analyze rows
+  const sLines = scrollFrame.lines;
+  let lastContentRow = -1;
+  let taskBarRow = -1;
+  let statusRow = -1;
+  for (let i = 0; i < sLines.length; i++) {
+    const line = sLines[i];
+    if (line.includes('Press / to type') || line.includes('Describe your task')) taskBarRow = i;
+    if (line.includes('connected') || (line.includes('Ctrl+') && line.includes('page'))) statusRow = i;
+    if (line.match(/workflow|agent|tool|inference|validator/i) && line.trim().length > 10) {
+      lastContentRow = i;
     }
   }
-
-  console.log('\nAgent response text:');
-  for (const l of agentResponseLines) {
-    console.log(`  > ${l}`);
-  }
-  console.log(`  (${agentResponseLines.length} lines)`);
-
-  // 9. Test session persistence — send a SECOND message
-  console.log('\n\n=== SESSION PERSISTENCE TEST ===');
-  console.log('[live] Pressing / to focus input for second message...');
-  d.press('/');
-  await sleep(800);
-
-  const task2 = 'What framework does it use?';
-  console.log(`[live] Typing: "${task2}"`);
-  await d.typeText(task2, 15);
-  await sleep(500);
-
-  console.log('[live] Submitting second message...');
-  d.pressEnter();
-
-  // Wait — should NOT see "Creating session..." again
-  console.log('[live] Waiting for second invocation...');
-  const msg2Frame = await d.waitForContent(/Invoking:|Creating session/, 30000);
-
-  const hasNewSession = msg2Frame.text.includes('Creating session');
-  const hasInvoking = msg2Frame.text.includes('Invoking:');
-  console.log('Re-created session (BAD):', hasNewSession);
-  console.log('Invoked directly (GOOD):', hasInvoking && !hasNewSession);
-  TuiDriver.printFrame(msg2Frame, 'SECOND MESSAGE SUBMITTED');
-
-  // Wait for second completion
-  console.log('\n[live] Waiting for second task completion (up to 120s)...');
-  elapsed = 0;
-  while (elapsed < maxWait) {
-    await sleep(5000);
-    elapsed += 5000;
-    const frame = d.captureFrame();
-    // Count "Task completed" occurrences — need to see 2
-    const completionCount = (frame.text.match(/Task completed/gi) || []).length;
-    console.log(`[live] ${Math.round(elapsed/1000)}s — completions:${completionCount}`);
-
-    if (completionCount >= 2) {
-      await sleep(2000);
-      const final2 = d.captureFrame();
-      TuiDriver.printFrame(final2, 'SECOND TASK COMPLETED');
-
-      // Extract second response
-      let secondResponse: string[] = [];
-      let count = 0;
-      for (const line of final2.lines) {
-        if (line.includes('Agent:')) {
-          count++;
-          if (count === 2) {
-            const idx = final2.lines.indexOf(line);
-            for (let i = idx + 1; i < final2.lines.length; i++) {
-              const cl = final2.lines[i].replace(/│/g, '').trim();
-              if (cl.includes('Task completed') || (!cl && secondResponse.length > 0)) break;
-              if (cl) secondResponse.push(cl);
-            }
-          }
-        }
-      }
-      console.log('\nSecond response:');
-      for (const l of secondResponse) console.log(`  > ${l}`);
-      break;
-    }
+  console.log('\nScroll analysis:');
+  console.log('  Last content row: ' + lastContentRow);
+  console.log('  TaskInputBar row: ' + taskBarRow);
+  console.log('  StatusBar row: ' + statusRow);
+  if (lastContentRow >= taskBarRow && taskBarRow >= 0) {
+    console.log('  BUG: Content overlaps with or is behind TaskInputBar');
+  } else if (taskBarRow < 0) {
+    console.log('  NOTE: TaskInputBar not found in frame');
+  } else {
+    console.log('  OK: Content is above TaskInputBar');
   }
 
-  d.kill();
-  console.log('\n[live] Done.');
+  // ===================================================================
+  // KEYBOARD IN CONTEXT — Agent J/K scroll
+  // ===================================================================
+  console.log('\n=== KEYBOARD TEST — Agent J/K scroll ===');
+  driver.press('a');
+  await wait(2000);
+  const beforeFrame = driver.captureFrame();
+  const beforeText = beforeFrame.text.replace(/[●◉◌○◍⊙⊚⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏*]/g, '');
+
+  // Press K 5 times
+  for (let i = 0; i < 5; i++) {
+    driver.press('k');
+    await wait(200);
+  }
+  await wait(500);
+  const afterKFrame = driver.captureFrame();
+  TuiDriver.printFrame(afterKFrame, 'AGENT AFTER 5x K');
+  const afterKText = afterKFrame.text.replace(/[●◉◌○◍⊙⊚⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏*]/g, '');
+
+  if (beforeText === afterKText) {
+    console.log('RESULT: K key has NO effect (keyboard dead)');
+  } else {
+    console.log('RESULT: K key works — frame changed');
+  }
+
+  // Press J 5 times
+  for (let i = 0; i < 5; i++) {
+    driver.press('j');
+    await wait(200);
+  }
+  await wait(500);
+  const afterJFrame = driver.captureFrame();
+  const afterJText = afterJFrame.text.replace(/[●◉◌○◍⊙⊚⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏*]/g, '');
+
+  if (afterKText === afterJText) {
+    console.log('RESULT: J key has NO effect');
+  } else {
+    console.log('RESULT: J key works — frame changed');
+  }
+
+  // Scroll indicators
+  console.log('Scroll up indicator: ' + afterKFrame.text.includes('\u25B2'));
+  console.log('Scroll down indicator: ' + afterKFrame.text.includes('\u25BC'));
+
+  // ===================================================================
+  // DETAIL VIEW: Home -> Session (if sessions exist)
+  // ===================================================================
+  console.log('\n=== DETAIL VIEW: Home -> Session Detail ===');
+  driver.press('h');
+  await wait(2500);
+  const homeFrame = driver.captureFrame();
+  const hasSessions = homeFrame.text.includes('running') || homeFrame.text.includes('completed');
+  console.log('Sessions on Home: ' + hasSessions);
+
+  if (hasSessions) {
+    driver.pressEnter();
+    await wait(2500);
+    const sessionFrame = driver.captureFrame();
+    TuiDriver.printFrame(sessionFrame, 'SESSION DETAIL (from Home)');
+    const sdStatus = sessionFrame.lines.filter(l => l.includes('connected')).length;
+    const sdInput = sessionFrame.lines.filter(l => l.includes('Press / to type') || l.includes('Describe your task')).length;
+    console.log('Composition: StatusBars=' + sdStatus + ' TaskInputBars=' + sdInput);
+    driver.pressEscape();
+    await wait(1000);
+  } else {
+    console.log('No sessions — skipping');
+  }
+
+  // ===================================================================
+  // DETAIL VIEW: Catalog -> Block Detail
+  // ===================================================================
+  console.log('\n=== DETAIL VIEW: Catalog -> Block Detail ===');
+  driver.press('c');
+  await wait(2500);
+  driver.pressEnter();
+  await wait(2500);
+  const catFrame = driver.captureFrame();
+  TuiDriver.printFrame(catFrame, 'BLOCK DETAIL (from Catalog)');
+  const catStatus = catFrame.lines.filter(l => l.includes('connected') || (l.includes('page') && l.includes('Ctrl'))).length;
+  const catInput = catFrame.lines.filter(l => l.includes('Press / to type') || l.includes('Describe your task')).length;
+  console.log('Composition: StatusBars=' + catStatus + ' TaskInputBars=' + catInput);
+
+  driver.pressEscape();
+  await wait(1000);
+
+  console.log('\n=== ALL TESTS COMPLETE ===');
+
+} catch (err) {
+  console.error('ERROR:', err);
+} finally {
+  driver.kill();
+}
 }
 
-main().catch(err => {
-  console.error('FATAL:', err);
-  process.exit(1);
-});
+main().catch(err => { console.error('FATAL:', err); process.exit(1); });

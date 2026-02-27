@@ -485,15 +485,6 @@ const App = ({ apiClient: clientProp, sessionManager: smProp, demoMode, repoPath
 
     return h(FullscreenBox, null,
       detailComponent,
-      // TaskInputBar above StatusBar
-      h(TaskInputBar, {
-        onSubmit: handleSubmit,
-        disabled: false,
-        placeholder: busy ? 'Send a message to the agent...' : 'Describe your task...',
-        onUpArrow: history.prev,
-        onDownArrow: history.next,
-        captureInput: inputFocused,
-      }),
       h(StatusBar, { currentPage: 'session', isDetailView: true, connectionStatus, latency: connLatency, lastRefresh }),
     );
   }
