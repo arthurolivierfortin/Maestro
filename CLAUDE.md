@@ -737,3 +737,4 @@ These should be fixed but are not blocking.
 1. Run all tests before committing
 2. Note any intentional test changes in commit message
 3. Do not commit if new tests are failing (unless they're pre-existing failures)
+4. **NEVER add `Co-Authored-By` lines or any AI attribution in commit messages** — commits are authored by the user, not the AI
