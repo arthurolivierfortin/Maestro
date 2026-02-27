@@ -1,0 +1,53 @@
+{
+  "id": "maestro-assistant",
+  "name": "Maestro Assistant",
+  "description": "Persistent session for the maestro-code TUI assistant. One session per TUI instance, reused for all messages.",
+  "type": "project",
+  "authority": {
+    "type": "human",
+    "identifier": "user",
+    "displayName": "User"
+  },
+  "permissions": {
+    "allowedCommands": ["*"],
+    "allowedTools": ["*"],
+    "canAccessFilesystem": true,
+    "canExecuteCode": true,
+    "canAccessNetwork": false
+  },
+  "entryPoints": {
+    "message": "system:maestro-assistant"
+  },
+  "variables": {
+    "sessionMode": "assistant",
+    "_blockOutputs": {},
+    "_llmActivity": [],
+    "_executionLog": [],
+    "_executionTree": [],
+    "_monitorDescriptor": {
+      "layout": {
+        "mode": "split-horizontal",
+        "zones": {
+          "top": { "height": "60%" },
+          "bottom": { "height": "40%" }
+        }
+      },
+      "components": [
+        { "id": "exec-tree", "type": "execution-tree", "zone": "top", "data": "$.variables._executionTree" },
+        { "id": "exec-log", "type": "log-panel", "zone": "bottom", "data": "$.variables._executionLog" }
+      ]
+    }
+  },
+  "config": {
+    "maxIterations": 30,
+    "timeout": 600000,
+    "autoSave": true,
+    "saveInterval": 30000
+  },
+  "metadata": {
+    "category": "core",
+    "priority": 1,
+    "version": "1.0.0",
+    "author": "maestro"
+  }
+}

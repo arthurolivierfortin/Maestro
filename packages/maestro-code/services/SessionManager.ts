@@ -3,8 +3,12 @@
  * SessionManager — Manages the Maestro session lifecycle.
  *
  * Extracted from App.ts to reduce file size and improve modularity.
- * Handles: session creation, template import, entry point invocation,
+ * Handles: persistent session (one per TUI instance), entry point invocation,
  * polling for completion, widget polling, and user messages.
+ *
+ * Architecture: The TUI creates ONE session at first message. All subsequent
+ * messages invoke the same entry point on the same session. The agent (a system
+ * block) decides how to handle each message — no routing in the TUI.
  */
 
 import * as nodePath from 'path';
@@ -53,53 +57,71 @@ class SessionManager {
   private entryPoint: string;
   private importTemplate: (sessionId: string, templateName: string) => Promise<void>;
   private sessionId: string | null = null;
+  private sessionReady: boolean = false;
   private pollTimer: ReturnType<typeof setInterval> | null = null;
   private widgetPollTimer: ReturnType<typeof setInterval> | null = null;
   private lastWidgetId: string | null = null;
+  private _lastOutput: string | null = null;
+
+  getLastOutput(): string | null { return this._lastOutput; }
 
   constructor(options: InteractiveOptions) {
     this.client = options.apiClient;
     this.repoPath = options.repoPath || process.cwd();
-    this.template = options.template || 'project-autonomous';
-    this.entryPoint = options.entryPoint || 'dev';
+    this.template = options.template || 'maestro-assistant';
+    this.entryPoint = options.entryPoint || 'message';
     this.importTemplate = options.importSessionTemplate || (async () => {});
+  }
+
+  /**
+   * Ensure the persistent session exists. Called once on the first message.
+   * Subsequent calls are no-ops.
+   */
+  private async ensureSession(addLine: (line: LogLine) => void): Promise<void> {
+    if (this.sessionReady) return;
+
+    addLine({ text: 'Creating session...', color: 'gray', dim: true, timestamp: ts() });
+    const path = nodePath;
+    const session = await this.client.createSession({
+      repositoryPath: this.repoPath,
+      authority: 'human',
+      name: `${path.basename(this.repoPath)} — Assistant`,
+    });
+    this.sessionId = session.id;
+    addLine({ text: `Session: ${session.id.slice(0, 8)}`, color: 'gray', timestamp: ts() });
+
+    addLine({ text: `Importing template: ${this.template}`, color: 'gray', dim: true, timestamp: ts() });
+    await this.importTemplate(this.sessionId, this.template);
+
+    await this.client.startSession(this.sessionId);
+    addLine({ text: 'Session started', color: 'gray', timestamp: ts() });
+
+    this.sessionReady = true;
   }
 
   async submitTask(
     task: string,
     addLine: (line: LogLine) => void,
-    setBusy: (b: boolean) => void
+    setBusy: (b: boolean) => void,
   ): Promise<void> {
     setBusy(true);
+    this._lastOutput = null;
 
     try {
-      // 1. Create session
-      addLine({ text: 'Creating session...', color: 'gray', dim: true, timestamp: ts() });
-      const path = nodePath;
-      const session = await this.client.createSession({
-        repositoryPath: this.repoPath,
-        authority: 'human',
-        name: `${path.basename(this.repoPath)} - ${task.slice(0, 60)}`,
-      });
-      this.sessionId = session.id;
-      addLine({ text: `Session: ${session.id.slice(0, 8)}`, color: 'gray', timestamp: ts() });
+      // Ensure persistent session exists (no-op after first call)
+      await this.ensureSession(addLine);
 
-      // 2. Import template
-      addLine({ text: `Importing template: ${this.template}`, color: 'gray', dim: true, timestamp: ts() });
-      await this.importTemplate(this.sessionId, this.template);
-
-      // 3. Start session
-      await this.client.startSession(this.sessionId);
-      addLine({ text: 'Session started', color: 'gray', timestamp: ts() });
-
-      // 4. Invoke entry point
-      const inputs: Record<string, string> = { repoPath: this.repoPath, task };
+      // Invoke the entry point with the user's message
+      const inputs: Record<string, string> = {
+        message: task,
+        repoPath: this.repoPath,
+      };
       addLine({ text: `Invoking: ${this.entryPoint}`, color: 'cyan', bold: true, timestamp: ts() });
       await this.client._fetch('POST', `/api/sessions/${this.sessionId}/invoke/${this.entryPoint}`, {
         body: { inputs }
       });
 
-      // 5. Start polling for completion
+      // Start polling for completion
       this.startPolling(addLine, setBusy);
 
     } catch (err: any) {
@@ -231,6 +253,7 @@ class SessionManager {
           }
 
           if (agentOutput) {
+            this._lastOutput = agentOutput;
             addLine({ text: '' });
             addLine({ text: 'Agent:', color: 'cyan', bold: true, timestamp: ts() });
             // Split long output into lines, cap at 20 lines for readability

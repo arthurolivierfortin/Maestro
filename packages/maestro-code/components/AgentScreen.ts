@@ -18,7 +18,7 @@
  *   └────────────────────────────────────────────┘└──────────────┘
  */
 
-import { createElement as h, useState, useRef } from 'react';
+import { createElement as h, useState, useRef, useEffect } from 'react';
 import { Box, Text } from 'ink';
 import {
   theme, icons,
@@ -45,29 +45,42 @@ const STATE_DISPLAY = {
 
 // ── Agent Status Panel ────────────────────────────────────────
 
-const AgentStatus = ({ agentState, sessionId, busy, tick = 0 }) => {
+const AgentStatus = ({ agentState, sessionId, busy, tick = 0, lastOutput = null }) => {
   const state = STATE_DISPLAY[agentState] || STATE_DISPLAY.idle;
   const shortId = sessionId ? sessionId.substring(0, 8) : null;
 
   const stateIcon = agentState === 'working' ? breathingDot(tick) : state.icon;
 
-  return h(Box, { flexDirection: 'row', paddingLeft: 1, gap: 3 },
-    h(Text, null,
-      h(Text, { color: state.color }, stateIcon),
-      h(Text, null, ' '),
-      muted('Agent: '),
-      T(state.color, state.label),
+  // Truncate lastOutput to fit in status bar
+  const outputPreview = lastOutput && agentState === 'completed'
+    ? String(lastOutput).replace(/\n/g, ' ').slice(0, 60) + (String(lastOutput).length > 60 ? '...' : '')
+    : null;
+
+  return h(Box, { flexDirection: 'column', paddingLeft: 1 },
+    h(Box, { flexDirection: 'row', gap: 3 },
+      h(Text, null,
+        h(Text, { color: state.color }, stateIcon),
+        h(Text, null, ' '),
+        muted('Agent: '),
+        T(state.color, state.label),
+      ),
+      shortId
+        ? h(Text, null,
+            muted('Session: '),
+            primary(shortId),
+          )
+        : muted('No active session'),
+      busy
+        ? h(Text, null,
+            muted('  '),
+            T('cyan', icons.running + ' Processing...'),
+          )
+        : null,
     ),
-    shortId
-      ? h(Text, null,
-          muted('Session: '),
-          primary(shortId),
-        )
-      : muted('No active session'),
-    busy
-      ? h(Text, null,
-          muted('  '),
-          T('cyan', icons.running + ' Processing...'),
+    outputPreview
+      ? h(Text, { wrap: 'truncate' },
+          T('green', '  '),
+          muted(outputPreview),
         )
       : null,
   );
@@ -172,6 +185,7 @@ interface AgentScreenProps {
   sessionId: string | null;
   busy: boolean;
   keyboardActive?: boolean;
+  lastOutput?: string | null;
 }
 
 const AgentScreen = ({
@@ -184,12 +198,22 @@ const AgentScreen = ({
   sessionId,
   busy,
   keyboardActive,
+  lastOutput = null,
 }: AgentScreenProps) => {
   const [showQuitConfirm, setShowQuitConfirm] = useState(false);
   const [scrollOffset, setScrollOffset] = useState(0);
   const tick = useAnimationTick(120);
 
   const askQuit = () => setShowQuitConfirm(true);
+
+  // Auto-scroll to bottom when agent completes — ensures completion message is visible
+  const prevAgentState = useRef(agentState);
+  useEffect(() => {
+    if (prevAgentState.current === 'working' && agentState === 'completed') {
+      setScrollOffset(0);
+    }
+    prevAgentState.current = agentState;
+  }, [agentState]);
 
   // Auto-snap to bottom when new lines arrive and user is at bottom
   const prevLineCount = useRef(lines.length);
@@ -241,9 +265,9 @@ const AgentScreen = ({
     // NavBar
     h(NavBar, { currentPage: 'agent' }),
 
-    // Agent Status (title + 1 content line + borders = 5)
-    h(Panel, { title: 'AGENT STATUS', height: 5, width: '100%' },
-      h(AgentStatus, { agentState, sessionId, busy, tick }),
+    // Agent Status (title + 2 content lines + borders = 6)
+    h(Panel, { title: 'AGENT STATUS', height: 6, width: '100%' },
+      h(AgentStatus, { agentState, sessionId, busy, tick, lastOutput }),
     ),
 
     // Main content: Conversation | Actions

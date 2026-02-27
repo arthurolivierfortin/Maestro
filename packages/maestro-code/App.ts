@@ -396,7 +396,7 @@ const App = ({ apiClient: clientProp, sessionManager: smProp, demoMode, repoPath
       return;
     }
 
-    // Branch 3: create new session
+    // Branch 3: send message to agent (persistent session)
     addLine({ text: `> ${input}`, color: 'green', bold: true });
 
     if (sessionManager) {
@@ -515,6 +515,7 @@ const App = ({ apiClient: clientProp, sessionManager: smProp, demoMode, repoPath
         sessionId: currentSessionId,
         busy,
         keyboardActive: !inputFocused,
+        lastOutput: sessionManager?.getLastOutput() || null,
       });
       break;
     case 'spaces':

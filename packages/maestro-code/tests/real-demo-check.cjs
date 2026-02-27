@@ -68,7 +68,7 @@ async function main() {
   const final = stripAnsi(lastFrame() || '');
   const checks = [
     ['TaskInputBar visible', final.includes('Press / to type') || final.includes('Describe your task') || final.includes('Send')],
-    ['Demo mode active', final.includes('DEMO') || final.includes('demo')],
+    ['Demo ran successfully', final.includes('Commit') || final.includes('completed') || final.includes('Changes look')],
     ['No uncaught Error', !final.includes('Error:')],
     ['Module resolution works', true], // If we got this far, imports are fine
   ];

@@ -1,0 +1,50 @@
+{
+  "id": "system:maestro-assistant",
+  "name": "Maestro Assistant",
+  "blockType": "agent",
+  "version": "1.0.0",
+  "isSystem": true,
+  "isAtomic": false,
+  "overridable": true,
+  "description": "The embedded assistant for maestro-code TUI. Handles all user messages — development tasks, questions, conversations. Routes intent internally via its prompt. Uses Maestro tools to interact with the user's project and the Maestro platform.",
+
+  "inputs": [
+    { "id": "message", "type": "string", "required": true, "description": "User message to process" },
+    { "id": "repoPath", "type": "string", "required": false, "description": "Path to the user's project repository" },
+    { "id": "conversationHistory", "type": "string", "required": false, "description": "JSON array of previous conversation turns" }
+  ],
+  "outputs": [
+    { "id": "result", "type": "string", "description": "Summary of what was accomplished or the response to the user" }
+  ],
+
+  "config": {
+    "maxIterations": 30,
+    "wallClockTimeoutSeconds": 600,
+    "systemPromptFile": "system-prompt.md",
+    "context": {
+      "strategy": "sliding-window",
+      "maxTokens": 32768,
+      "keepSystemPrompt": true,
+      "keepLastN": 20
+    },
+    "nodes": [
+      {
+        "id": "reasoning",
+        "blockRef": "inference",
+        "config": {
+          "model": "claude-sonnet-4-6",
+          "maxTokens": 4096,
+          "temperature": 0
+        }
+      }
+    ]
+  },
+
+  "metadata": {
+    "author": "system",
+    "category": "core",
+    "designation": "orchestrator",
+    "tags": ["assistant", "tui", "core", "orchestrator", "system"],
+    "tier": 1
+  }
+}

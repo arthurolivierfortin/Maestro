@@ -262,8 +262,6 @@ describe('SessionManager', () => {
     const sm = new SessionManager({
       apiClient: mockClient,
       repoPath: '/test/project',
-      template: 'project-autonomous',
-      entryPoint: 'dev',
       importSessionTemplate: mockImportTemplate,
     });
 
@@ -280,18 +278,18 @@ describe('SessionManager', () => {
       })
     );
 
-    // Should have imported template
-    expect(mockImportTemplate).toHaveBeenCalledWith('sess-1234-5678-abcd-ef0123456789', 'project-autonomous');
+    // Should have imported template (maestro-assistant by default)
+    expect(mockImportTemplate).toHaveBeenCalledWith('sess-1234-5678-abcd-ef0123456789', 'maestro-assistant');
 
     // Should have started session
     expect(mockClient.startSession).toHaveBeenCalledWith('sess-1234-5678-abcd-ef0123456789');
 
-    // Should have invoked entry point
+    // Should have invoked entry point with message input
     expect(mockClient._fetch).toHaveBeenCalledWith(
       'POST',
-      '/api/sessions/sess-1234-5678-abcd-ef0123456789/invoke/dev',
+      '/api/sessions/sess-1234-5678-abcd-ef0123456789/invoke/message',
       expect.objectContaining({
-        body: { inputs: { repoPath: '/test/project', task: 'Add README' } },
+        body: { inputs: { message: 'Add README', repoPath: '/test/project' } },
       })
     );
 
@@ -302,7 +300,7 @@ describe('SessionManager', () => {
     expect(addLine).toHaveBeenCalledWith(expect.objectContaining({ text: 'Creating session...' }));
     expect(addLine).toHaveBeenCalledWith(expect.objectContaining({ text: expect.stringContaining('Session:') }));
     expect(addLine).toHaveBeenCalledWith(expect.objectContaining({ text: 'Session started' }));
-    expect(addLine).toHaveBeenCalledWith(expect.objectContaining({ text: 'Invoking: dev' }));
+    expect(addLine).toHaveBeenCalledWith(expect.objectContaining({ text: 'Invoking: message' }));
 
     // Cleanup polling
     sm.stopPolling();
