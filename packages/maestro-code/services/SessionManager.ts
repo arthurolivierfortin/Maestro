@@ -252,6 +252,17 @@ class SessionManager {
             }
           }
 
+          // Try to unwrap JSON summary from step-complete output
+          // The agent's step-complete tool returns {"summary":"..."} — extract the summary text
+          if (agentOutput) {
+            try {
+              const parsed = JSON.parse(agentOutput);
+              if (parsed && typeof parsed === 'object' && typeof parsed.summary === 'string') {
+                agentOutput = parsed.summary;
+              }
+            } catch { /* not JSON, use as-is */ }
+          }
+
           if (agentOutput) {
             this._lastOutput = agentOutput;
             addLine({ text: '' });

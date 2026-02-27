@@ -6199,8 +6199,8 @@ ${c.bold('Description:')}
   creates a session, runs the autonomous workflow, and shows progress.
 
 ${c.bold('Options:')}
-  --template <name>     Session template (default: project-autonomous)
-  --entry <name>        Entry point to invoke (default: dev)
+  --template <name>     Session template (default: maestro-assistant)
+  --entry <name>        Entry point to invoke (default: message)
   --repo <path>         Repository path (default: current directory)
   --headless            Run without TUI (structured text output, no TTY needed)
   --task <text>         Task to execute (headless mode, avoids stdin prompt)
@@ -6240,8 +6240,8 @@ ${c.bold('Examples:')}
       return startInteractiveMode({
         apiClient: client,
         repoPath: codeRepoPath,
-        template: argv.template || 'project-autonomous',
-        entryPoint: argv.entry || 'dev',
+        template: argv.template || 'maestro-assistant',
+        entryPoint: argv.entry || 'message',
         importSessionTemplate,
         noSplash: argv['no-splash'] || argv.noSplash || argv.splash === false || isDemoMode,
         isFirstRun,

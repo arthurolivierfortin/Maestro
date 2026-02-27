@@ -333,6 +333,7 @@ docs/
 | `docs/guides/users/full-pipeline.md` | **Before creating ANY block** — the mandatory workflow |
 | `docs/guides/users/foundry-sessions.md` | Before working with foundry sessions |
 | `docs/guides/ai-agents/creating-blocks.md` | Before writing block JSON |
+| `docs/guides/ai-agents/dogfooding-methodology.md` | **Before ANY dogfooding session** — System Validator protocol |
 | `docs/system/architecture/sessions.md` | Before ANY session/infrastructure work |
 | `docs/system/architecture/blocks.md` | Before block/workflow work |
 | `docs/system/architecture/execution.md` | Before execution engine work |
@@ -444,6 +445,19 @@ node index.js monitor <id>        # TUI monitor for a session
    - Start the monitor, check that phases show names and correct statuses
    - Invoke an entry point and verify the execution tree updates
    - If you can't see the TUI, verify the API responses the monitor depends on
+
+### Dogfooding (MANDATORY for interactive features)
+
+**Read and follow `docs/guides/ai-agents/dogfooding-methodology.md`** for any dogfooding session.
+
+Key rules:
+- **You are a System Validator** — see the interface, test everything, take notes, judge quality
+- **Verify observation tools exist** before starting (TuiDriver, health endpoints, filesystem access)
+- **Discover the interface** — inventory every visible element before testing
+- **Test systematically** — visual, interaction, flow, API state, UX quality
+- **Take notes in real-time** — create `dogfood-notes-YYYY-MM-DD.md` with structured results
+- **NEVER write test scripts** — do the verification yourself directly via Bash/TuiDriver inline
+- **NEVER trust script PASS/FAIL** — read the frames with your eyes, decide yourself
 
 ## Architecture Guidelines
 

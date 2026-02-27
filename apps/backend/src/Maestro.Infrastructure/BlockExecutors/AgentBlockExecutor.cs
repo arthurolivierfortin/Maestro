@@ -354,21 +354,41 @@ public class AgentBlockExecutor : IBlockExecutor
                                 ? sumProp.GetString() ?? "Task completed"
                                 : "Task completed";
 
-                            // Capture trailing text after JSON — LLMs often put details after the JSON object
+                            // Capture trailing text after JSON — LLMs often put the real answer after the JSON object.
+                            // If the summary looks like an action log ("Read X", "Explained Y") and there's
+                            // substantial trailing text, replace the summary with the trailing content.
                             var jsonEndPos = response.Content.IndexOf(jsonContent, StringComparison.Ordinal);
                             if (jsonEndPos >= 0)
                             {
                                 var trailing = response.Content.Substring(jsonEndPos + jsonContent.Length).Trim();
-                                if (!string.IsNullOrEmpty(trailing) && trailing.Length > 10)
+                                // Strip leading markdown formatting (**, ##, -, etc.)
+                                trailing = trailing.TrimStart('\n', '\r', '-', '#', ' ');
+                                // Remove markdown bold wrapper from first word: "**Cantante** is..." → "Cantante is..."
+                                if (trailing.StartsWith("**"))
                                 {
-                                    // Clean up common prefixes
-                                    trailing = trailing.TrimStart('\n', '\r', '-', '*', ' ');
-                                    if (trailing.StartsWith("Here ") || trailing.StartsWith("The ") || trailing.StartsWith("Below "))
-                                    {
-                                        summary = summary + ". " + trailing;
-                                    }
+                                    var closingBold = trailing.IndexOf("**", 2);
+                                    if (closingBold > 2)
+                                        trailing = trailing.Substring(2, closingBold - 2) + trailing.Substring(closingBold + 2);
+                                    else
+                                        trailing = trailing.TrimStart('*');
+                                }
+                                trailing = trailing.Trim();
+
+                                if (!string.IsNullOrEmpty(trailing) && trailing.Length > 20)
+                                {
+                                    // The trailing text is the real answer — use it as the summary
+                                    summary = trailing;
+                                }
+                                else if (!string.IsNullOrEmpty(trailing) && trailing.Length > 5)
+                                {
+                                    // Short trailing text — append to existing summary
+                                    summary = summary + ". " + trailing;
                                 }
                             }
+
+                            // Write the final summary (with trailing text captured) back to outputs
+                            result.Outputs["result"] = System.Text.Json.JsonSerializer.Serialize(new { summary });
+                            result.Outputs["response"] = summary;
 
                             result.Logs.Add($"Agent completed ({actualToolCallCount} tool calls): {summary}");
                             break;

@@ -1,0 +1,988 @@
+# Dogfooding Methodology — System Validator Agent
+
+> **This document is MANDATORY reading before any dogfooding session.**
+> It defines the philosophy, protocol, and standards for how an AI agent
+> validates an interactive system through direct observation and interaction.
+
+---
+
+## Table of Contents
+
+1. [Philosophy: The Agent is a System Validator](#1-philosophy-the-agent-is-a-system-validator)
+2. [Pre-Flight: Verify Observation Tools](#2-pre-flight-verify-observation-tools)
+3. [Discovery: "What Do I See?"](#3-discovery-what-do-i-see)
+4. [Systematic Testing: "What Should It Do?"](#4-systematic-testing-what-should-it-do)
+   - 4.1–4.5: Visual, Interaction, Flow, State, UX
+   - [4.6: Content and Output Evaluation](#46--content-and-output-evaluation-does-this-make-sense)
+5. [Memory Management: Notes and Context](#5-memory-management-notes-and-context)
+6. [Critical Evaluation: Beyond Functional](#6-critical-evaluation-beyond-functional)
+7. [Anti-Patterns: What the Agent Must NEVER Do](#7-anti-patterns-what-the-agent-must-never-do)
+8. [Appendix: Maestro-Specific Reference](#appendix-maestro-specific-reference)
+
+---
+
+## 1. Philosophy: The Agent is a System Validator
+
+### You Are Not a Test Runner
+
+You are not executing a test script. You are not running a CI pipeline. You are not delegating verification to a program that outputs PASS/FAIL.
+
+**You are a System Validator.** You arrive in front of an interface — possibly one you have never seen before — and your job is to:
+
+1. **See** what the user sees
+2. **Understand** what every element does
+3. **Interact** like a real user would
+4. **Judge** whether the experience is correct, clear, and good
+5. **Document** everything you observe
+
+### The Fundamental Rule
+
+> **"If I cannot see what the user sees, I cannot dogfood."**
+
+Before testing anything, you must prove to yourself that you can observe the application's output directly. If you cannot capture a frame, read a screen, or see the result of your actions — **stop and tell the user what's missing.**
+
+### What Dogfooding IS
+
+- You spawn the application
+- You look at the screen (capture frames, read the text)
+- You press keys, type text, navigate
+- After each action, you look again: "What changed?"
+- You compare what you see to what you expect
+- You write down your observations in real-time
+- You evaluate the experience critically — not just "does it work?" but "is it good?"
+
+### What Dogfooding is NOT
+
+- Writing a `.ts` or `.js` file that automates everything
+- Running `npx tsx tests/dogfood-real.ts` and reading "8/8 checks passed"
+- Trusting a script's verdict without reading the actual output
+- Running `vitest` and concluding the feature works
+- Checking only one layer (only the UI, or only the API)
+
+### The Validator's Mindset
+
+Approach every interface as if you are a new user who has never seen it before:
+
+- **No assumptions** — don't assume a button works because the code looks correct
+- **No trust** — don't trust previous test results; verify now
+- **No shortcuts** — test the full path, not just the happy case
+- **Critical eye** — if something feels off, it IS off. Document it.
+- **User empathy** — would a real person understand this? Be frustrated by this? Be confused by this?
+
+---
+
+## 2. Pre-Flight: Verify Observation Tools
+
+### The Three Levels of Observability
+
+Before any dogfooding session, verify you have tools at three levels:
+
+#### Level 1 — Direct Observation (REQUIRED)
+
+Can you SEE the application's output?
+
+| Application Type | Required Tool | How to Verify |
+|---|---|---|
+| **Terminal UI (TUI)** | PTY driver (e.g., `TuiDriver`) | File exists: `tests/tui-driver.ts` + `node-pty` installed |
+| **Web Application** | Headless browser or screenshot tool | Playwright/Puppeteer available, or MCP screenshot tool |
+| **CLI output** | Bash command capture | Can run the command and read stdout/stderr |
+| **Desktop App** | Screenshot/accessibility tool | Platform-specific screen reader or capture |
+
+**If Level 1 is not satisfied** → STOP. Tell the user:
+> "I cannot see the application's interface. I need [specific tool] to dogfood this.
+> Without direct observation, any testing I do would be blind guessing."
+
+#### Level 2 — Interaction (REQUIRED for interactive apps)
+
+Can you INTERACT with the application?
+
+| Capability | How to Verify |
+|---|---|
+| Send keystrokes | PTY driver has `press()`, `typeText()`, `sendKey()` |
+| Click/select | Browser driver has click/focus methods |
+| Capture state after action | Can call `captureFrame()` or take screenshot after each action |
+| Wait for async results | Has `waitForContent()` or polling mechanism |
+
+**If Level 2 is not satisfied** → Tell the user:
+> "I can see the interface but cannot interact with it. I need [input method] to test behavior."
+
+#### Level 3 — State Verification (RECOMMENDED)
+
+Can you verify the application's internal state independently?
+
+| Source | How to Verify |
+|---|---|
+| REST API | `curl http://localhost:PORT/api/health` returns 200 |
+| Database / filesystem | Can read files or query data created by the application |
+| Logs | Can access stderr, log files, or structured logs |
+| Process state | Can check if processes are running, ports are bound |
+
+**If Level 3 is not satisfied** → Proceed with Level 1+2, but note in your report that internal state was not independently verified.
+
+### Pre-Flight Checklist Template
+
+Copy and execute this checklist before every session:
+
+```
+=== PRE-FLIGHT CHECKLIST ===
+
+Level 1 — Observation:
+□ Observation tool exists?        [verify file/tool presence]
+□ Can spawn application?          [try spawn, check for errors]
+□ Can capture initial frame?      [capture and read first screen]
+
+Level 2 — Interaction:
+□ Can send input?                 [send a keystroke, verify effect]
+□ Can capture after action?       [press key → capture → check change]
+□ Can wait for async?             [verify timeout/polling works]
+
+Level 3 — State Verification:
+□ Backend/API reachable?          [health check endpoint]
+□ Filesystem accessible?          [ls target directory]
+□ Logs accessible?                [check log location]
+
+=== PRE-FLIGHT RESULT ===
+Level 1: [PASS/FAIL]
+Level 2: [PASS/FAIL]
+Level 3: [PASS/FAIL/SKIP]
+Proceed: [YES/NO — requires Level 1 PASS minimum]
+```
+
+### If Something is Missing
+
+Do NOT work around missing tools. Do NOT invent a substitute. Ask the user:
+
+> "Pre-flight failed at Level [N]. Missing: [specific tool/capability].
+> Options:
+> 1. Install/create [tool] (estimated effort: [time])
+> 2. Dogfood at a reduced scope (what I can verify: [list])
+> 3. Skip dogfooding until tools are available"
+
+---
+
+## 3. Discovery: "What Do I See?"
+
+### You Are an Explorer, Not a Script
+
+When you arrive at an interface, you do NOT know what it contains. Even if you've read the source code, the rendered output may differ from what the code suggests. Your job is to **observe and document what actually appears**.
+
+### The Discovery Protocol
+
+#### Step 1: First Contact
+
+Spawn the application and capture the initial state.
+
+```
+Action: Launch the application
+Observation: [capture frame, print every non-empty line]
+```
+
+Read the entire captured frame. Do not scan for keywords. Read it like a user would — top to bottom, left to right.
+
+#### Step 2: Visual Inventory
+
+For the initial screen, enumerate EVERYTHING visible:
+
+```
+=== INTERFACE INVENTORY — [Page Name] ===
+
+Layout:
+├─ [Zone 1] (lines X-Y): [what it contains]
+│   ├─ [Sub-element]: [description]
+│   └─ [Sub-element]: [description]
+├─ [Zone 2] (lines X-Y): [what it contains]
+│   └─ ...
+├─ [Input Area] (lines X-Y): [description, placeholder text]
+└─ [Footer] (lines X-Y): [description, shortcuts listed]
+
+Interactive Elements Found:
+- Keyboard hints: [list all visible shortcuts like [H]ome, [S]paces, etc.]
+- Input fields: [describe each]
+- Selection indicators: [arrows, highlights, focus rings]
+- Status indicators: [connection dots, spinners, icons]
+
+Visual Properties:
+- Borders: [box-drawing characters present? aligned?]
+- Colors mentioned: [any color indicators visible in text]
+- Animations: [breathing dots? spinners? blinking?]
+- Empty space: [any unexplained blank areas?]
+```
+
+#### Step 3: Navigation Map
+
+Discover all navigable areas by trying every visible shortcut:
+
+```
+Navigation Map:
+- [Key] → [Page/Action] → [What appears]
+- [Key] → [Page/Action] → [What appears]
+- ...
+
+Page Count: [N total pages/views discovered]
+Transition: [How pages connect — tabs? stack? modal?]
+Back mechanism: [Esc? Backspace? Breadcrumb?]
+```
+
+For EACH page discovered, repeat Step 2 (Visual Inventory).
+
+#### Step 4: State Discovery
+
+Identify all possible states the application can be in:
+
+```
+States Discovered:
+- [State 1]: [when it occurs, what it looks like]
+- [State 2]: [when it occurs, what it looks like]
+- ...
+
+Transitions:
+- [State A] → [trigger] → [State B]
+- [State B] → [trigger] → [State C]
+- ...
+```
+
+#### Step 5: Document Everything
+
+Write the complete inventory to your session notes file (see Chapter 5).
+This inventory is the **foundation for all subsequent testing** — every element
+in the inventory must be tested.
+
+### Discovery Completeness Check
+
+After discovery, verify:
+
+```
+□ Every visible zone is documented
+□ Every keyboard shortcut has been tried
+□ Every page/view has been visited and inventoried
+□ All input fields have been identified
+□ All status indicators have been noted
+□ All states have been observed (or at least identified)
+□ The navigation graph is complete (every page reachable)
+```
+
+If any of these are incomplete, continue discovering before moving to testing.
+
+---
+
+## 4. Systematic Testing: "What Should It Do?"
+
+### The Two-Question Protocol
+
+For EVERY element in your inventory, ask:
+
+1. **"What do I see?"** — Describe the current state factually
+2. **"What should it do?"** — Describe the expected behavior
+
+Then perform the test and record the result.
+
+### Test Categories
+
+#### 4.1 — Visual Tests (every page)
+
+Test what the user sees without any interaction:
+
+| What to Test | How | Expected |
+|---|---|---|
+| Title/header visible | Read line 1-3 | Application name + navigation present |
+| All tabs/sections present | Count elements | All expected tabs visible, not truncated |
+| Content area populated | Read content lines | Not empty, meaningful content |
+| Borders aligned | Check box-drawing chars | ┌┐└┘ form closed rectangles |
+| No text overflow | Check each line length | No text beyond terminal width |
+| Status indicators correct | Read status zone | Shows current state accurately |
+| Footer/shortcuts visible | Read bottom lines | Key hints present and readable |
+
+**For each page**, run all visual tests. Log results individually.
+
+#### 4.2 — Interaction Tests
+
+Test every interactive element:
+
+| What to Test | How | Expected |
+|---|---|---|
+| Each keyboard shortcut | Press key, capture frame | Correct action occurs |
+| Input field activation | Press activation key | Field becomes focused/editable |
+| Text input | Type characters | Characters appear in field |
+| Submission | Press Enter/Submit | Action triggered, input cleared |
+| Cancel/back | Press Esc/back key | Returns to previous state |
+| Navigation keys | Press each nav key | Correct page/view appears |
+| Scroll | Press scroll keys | Content scrolls, indicators update |
+| Selection | Press up/down | Selection indicator moves |
+| Expand/collapse | Press expand key | Detail appears/disappears |
+
+**Protocol for each interaction test**:
+```
+Test: [name]
+Action: Press [key]
+Before: [describe what's on screen]
+After:  [capture frame, describe what changed]
+Expected: [what should have changed]
+Verdict: PASS / FAIL / PARTIAL
+Notes: [anything unexpected, even if it passed]
+```
+
+#### 4.3 — User Journey Tests (flows)
+
+Test complete workflows, not just individual interactions:
+
+**Primary Flow** (most important path):
+```
+1. Open application → initial state
+2. Activate input → type task → submit
+3. Observe progress → wait for completion
+4. Read result → verify correctness
+```
+
+**Secondary Flows**:
+- Navigate to different page during execution → return → context preserved?
+- Submit multiple tasks in sequence → session reused? history maintained?
+- Open detail view from list → back to list → selection preserved?
+
+**Error Flows**:
+- Submit with backend down → error visible? recovery possible?
+- Submit empty input → no-op or clear error?
+- Interrupt during execution (Ctrl+C, Esc) → graceful handling?
+
+**Edge Cases**:
+- Very long input text (100+ characters)
+- Special characters (unicode, emoji, quotes, newlines)
+- Rapid repeated key presses
+- Terminal resize during operation
+- Session after extended idle time
+
+#### 4.4 — State Verification Tests (via API/filesystem)
+
+After each major action, verify the backend state independently:
+
+```bash
+# After session creation
+curl -s http://localhost:5000/api/sessions/{id} | python -m json.tool
+
+# After task submission
+curl -s http://localhost:5000/api/sessions/{id}/variables/_executionTree | python -m json.tool
+
+# After completion
+curl -s http://localhost:5000/api/sessions/{id}/variables/_blockOutputs | python -m json.tool
+curl -s http://localhost:5000/api/sessions/{id}/variables/_nodeResult_execute | python -m json.tool
+
+# Check for data corruption
+# Expected: proper JSON objects. NOT nested empty arrays [[[],[],...]]
+```
+
+**Cross-reference**: The UI shows X → the API confirms X → the filesystem confirms X.
+If any layer disagrees, there's a bug.
+
+#### 4.5 — UX Quality Tests
+
+These are NOT functional tests. These test whether the experience is GOOD:
+
+| Test | Question | How to Evaluate |
+|---|---|---|
+| **First impression** | Does the initial screen make sense immediately? | Read it cold. Can you tell what the app does? |
+| **Action clarity** | Do you know what to do next? | Are calls-to-action visible? Hints present? |
+| **Progress feedback** | During a long operation, do you know it's working? | Check for spinners, status text, progress indicators |
+| **Completion clarity** | When something finishes, is it obvious? | Clear "done" message? Visual change? |
+| **Error communication** | When something fails, do you understand why? | Error message in plain language? Actionable? |
+| **Information hierarchy** | Is the most important info most prominent? | Check visual weight, positioning, size |
+| **Consistency** | Do similar things look and behave the same? | Compare equivalent elements across pages |
+| **Discoverability** | Can you find features without documentation? | Try to accomplish tasks using only visible hints |
+| **Response time** | Is the wait acceptable? | < 1s for feedback, < 5s for results, progress for longer |
+| **Recovery** | After an error, can you get back to a good state? | Try to recover without restarting |
+
+#### 4.6 — Content and Output Evaluation: "Does This Make Sense?"
+
+Section 4.1–4.5 test whether the interface **works**. This section tests whether
+what the interface **produces** is actually correct, useful, and appropriate.
+
+This applies to ANY output the system generates — not just one type. You must
+evaluate output quality **based on what you discovered the interface does** during
+the Discovery phase (Chapter 3).
+
+##### The Core Principle: Think Like a First-Time User
+
+You don't know in advance what this interface is supposed to do. You DISCOVERED
+it in Chapter 3. Now, based on your understanding of what this system is, evaluate
+whether its outputs match what a reasonable user would expect.
+
+The question is always: **"Given what this interface claims to be, does this output
+make sense?"**
+
+##### Step 1: Identify What the Interface Claims to Be
+
+During Discovery, you built an inventory. From that inventory, form a hypothesis:
+
+```
+"Based on what I see, this interface is: [description]"
+
+Examples:
+- "...a chatbot that helps developers work on code projects"
+- "...a dashboard showing real-time session metrics"
+- "...a block catalog with fitness scores"
+- "...a file explorer with editing capabilities"
+- "...a model comparison tool with availability status"
+```
+
+This hypothesis drives ALL your output expectations. You don't need to be told
+"this is a chatbot" or "this is a dashboard" — you observe and conclude.
+
+##### Step 2: Test Outputs Against Your Understanding
+
+For every output the system produces, apply the **Coherence Test**:
+
+```
+I did: [action]
+System produced: [output]
+My understanding says: [what I expected based on my hypothesis]
+Coherence: [MATCHES / PARTIALLY MATCHES / CONTRADICTS]
+```
+
+**Examples across different interface types:**
+
+| Interface Type | Action | Output | Coherence |
+|---|---|---|---|
+| Chat interface | Typed "Hello" | "I've analyzed your codebase" | CONTRADICTS — I said hello, not "analyze my code" |
+| Chat interface | Typed "What is this?" | "Read files to understand project." | CONTRADICTS — describes internal process, not an answer |
+| Dashboard | Opened sessions page | 5 sessions listed, all "completed" | Check: are there really 5? Are they really completed? (verify via API) |
+| Chart/graph | Opened metrics page | Graph shows 98% fitness | Check: does the underlying data support 98%? Or is it hardcoded? |
+| File browser | Clicked a file | Content shown | Check: does the displayed content match `cat` on the actual file? |
+| Form | Submitted data | "Success" message | Check: did it actually save? (verify via API/filesystem) |
+| Model list | Opened models page | Shows "claude-sonnet: available" | Check: is it really available? (curl the health endpoint) |
+
+##### Step 3: Judge Output Quality
+
+For every significant output, score on these dimensions:
+
+| Dimension | Question |
+|---|---|
+| **Accuracy** | Is the information factually correct? Does it match reality? |
+| **Relevance** | Does the output relate to what triggered it? |
+| **Completeness** | Is anything important missing from the output? |
+| **Clarity** | Would a user understand this immediately, without context? |
+| **Format** | Is the output presented appropriately? (not raw JSON, not truncated, not garbled) |
+
+A user doesn't care about HTTP status codes. They care: "I asked a question —
+did I get a useful answer? I clicked a button — did the right thing happen?
+I opened a page — does the data look correct?"
+
+##### Step 4: When Something Feels Wrong
+
+If an output doesn't match your understanding of what the interface should do:
+
+1. **Name the problem precisely.**
+   Don't write: "The output seems off."
+   Write: "I asked 'What is this project?' and got 'Read project files to
+   understand Cantante.' This describes internal behavior, not an answer.
+   The interface presents itself as a conversational assistant, so it should
+   respond to the question, not narrate its process."
+
+2. **Investigate before escalating.**
+   - Is the output consistently wrong, or only sometimes?
+   - Does the same input produce different results?
+   - Is the problem in the output generation, or in how the output is displayed?
+   - Check the backend/API — is the real data correct but the presentation broken?
+
+3. **Form a hypothesis about the root cause.**
+   - Presentation issue: correct data, wrong display (raw JSON, truncation, wrong field)
+   - Logic issue: the system did the wrong thing entirely
+   - Configuration issue: the system could do the right thing but isn't set up correctly
+   - Design issue: the system does what it was told, but what it was told is wrong
+
+4. **Escalate with a specific, structured observation.**
+   When something is unclear or seems intentionally broken, ask the user:
+
+   > "Observation: [what you did and what happened]
+   >
+   > The interface presents itself as [your hypothesis from Step 1].
+   > Given that, I expected [what you expected].
+   > Instead, I got [what actually happened].
+   >
+   > My hypothesis: [presentation/logic/configuration/design issue].
+   > Question: Is this the intended behavior, or should I investigate further?"
+
+##### Step 5: Record Everything
+
+For every output you evaluate, add to your notes:
+
+```
+Output Evaluation:
+  Trigger: [what action produced this output]
+  Output: [verbatim what was shown]
+  Expected: [what you thought should appear, based on your understanding]
+  Accuracy: [1-5]
+  Relevance: [1-5]
+  Clarity: [1-5]
+  Format: [1-5]
+  Verdict: CORRECT / ACCEPTABLE / QUESTIONABLE / WRONG
+  Notes: [specific observations, hypotheses, or escalation needed]
+```
+
+##### Red Flags That Require Escalation
+
+If you observe ANY of these patterns, **stop and ask the user** — don't assume
+it's a bug or a feature. It could be either:
+
+- Output has no visible relationship to the input/action that triggered it
+- The same action produces wildly different outputs each time
+- Raw internal data is shown where human-readable content is expected
+  (JSON objects, stack traces, internal IDs, debug logs)
+- Output is empty or placeholder text where real content should be
+- The system claims to have done something but verification shows it didn't
+- Numbers/data shown in the UI don't match what the API returns
+- The system takes disproportionately long for what should be simple
+  (30+ seconds for displaying static data, minutes for a simple interaction)
+- Output contradicts other parts of the same interface
+  (status says "completed" but content says "processing")
+
+When escalating, always provide:
+1. What you did (the trigger)
+2. What the system produced (verbatim)
+3. What you expected (based on your understanding of the interface)
+4. Your hypothesis about why it's wrong
+5. A clear question: "Is this expected? Should I investigate?"
+
+---
+
+## 5. Memory Management: Notes and Context
+
+### You MUST Take Notes
+
+Dogfooding without notes is not dogfooding. It's just clicking around. Notes are the **proof** that testing happened, the **record** of what was found, and the **context** for anyone who reads your results later.
+
+### Session Notes File
+
+At the START of every dogfooding session, create:
+
+**File**: `docs/phases/PHASE-XX/dogfood-notes-YYYY-MM-DD.md`
+
+(If no phase context, use a temporary location and move later.)
+
+### Notes Template
+
+```markdown
+# Dogfooding Session Notes — [YYYY-MM-DD HH:MM]
+
+## Session Context
+- **Branch**: [git branch name]
+- **Commit**: [short hash]
+- **Application**: [what is being tested]
+- **Mode**: [demo / real / headless]
+- **Services**: Backend [running/down], LLM-Provider [running/down]
+- **Target repo**: [path if applicable]
+- **Terminal size**: [cols x rows]
+- **Previous issues**: [known bugs being re-verified]
+
+## Pre-Flight Results
+- Level 1 (Observation): [PASS/FAIL]
+- Level 2 (Interaction): [PASS/FAIL]
+- Level 3 (State): [PASS/FAIL/SKIP]
+
+## Interface Inventory
+[Complete inventory from Chapter 3]
+
+## Test Log
+
+### Visual Tests
+| # | Page | Element | Observation | Expected | Verdict |
+|---|------|---------|-------------|----------|---------|
+| V1 | Agent | NavBar | "MAESTRO [H]ome..." visible line 1 | All tabs present | PASS |
+| V2 | Agent | Borders | ┌┐└┘ aligned | No glitches | PASS |
+| ... | | | | | |
+
+### Interaction Tests
+| # | Action | Before | After | Expected | Verdict | Notes |
+|---|--------|--------|-------|----------|---------|-------|
+| I1 | Press / | Inactive input | ">" prompt, cursor | Input focused | PASS | 100ms |
+| I2 | Type "hello" | Empty input | "hello" visible | Text appears | PASS | |
+| I3 | Press Enter | "hello" in input | Input cleared, task submitted | Submit + clear | PASS | |
+| ... | | | | | | |
+
+### Flow Tests
+| # | Flow | Steps | Result | Notes |
+|---|------|-------|--------|-------|
+| F1 | Primary task flow | type → submit → wait → result | PASS | 28s total |
+| F2 | Navigate during execution | submit → press H → press A | PASS | Context preserved |
+| ... | | | | |
+
+### State Verification
+| # | After Action | API Check | Expected | Verdict |
+|---|-------------|-----------|----------|---------|
+| S1 | Session creation | GET /sessions/{id} | Status: active | PASS |
+| S2 | Task completion | GET /variables/_blockOutputs | Output present | PASS |
+| ... | | | | |
+
+### Output Evaluation (Section 4.6 — Coherence Test)
+| # | Action/Input | Output (verbatim) | Accuracy | Relevance | Completeness | Clarity | Format | Overall |
+|---|-------------|-------------------|----------|-----------|-------------|---------|--------|---------|
+| O1 | [what I did] | "[what appeared]" | 4 | 3 | 4 | 4 | 5 | ACCEPTABLE |
+| O2 | [what I did] | "[what appeared]" | ? | ? | ? | ? | ? | ? |
+| ... | | | | | | | | |
+
+**Red Flags Observed**: [list any from section 4.6]
+**Escalated to User**: [yes/no — what was asked, why]
+
+## Bugs Found
+| ID | Description | Severity | Steps to Reproduce | Frame Captured |
+|----|-------------|----------|-------------------|----------------|
+| BUG-1 | [description] | critical/major/minor | [steps] | [yes/no] |
+
+## UX Evaluation
+
+| Criterion | Score (1-5) | Justification |
+|-----------|-------------|---------------|
+| Feedback | | |
+| Clarity | | |
+| Progression | | |
+| Response quality | | |
+| Stability | | |
+| Navigation | | |
+| Error handling | | |
+| Intuitiveness | | |
+| Performance | | |
+| Consistency | | |
+
+**Overall UX Score**: [average] / 5
+
+## Qualitative Observations
+- [What surprised you (good or bad)]
+- [What frustrated you]
+- [What was delightful]
+- [What a new user would struggle with]
+- [Suggestions for improvement]
+
+## Summary
+- **Tests executed**: [count]
+- **PASS**: [count]
+- **FAIL**: [count]
+- **PARTIAL**: [count]
+- **Bugs found**: [count] ([count] critical, [count] major, [count] minor)
+- **Total session time**: [duration]
+- **Verdict**: [SHIP / FIX AND RE-TEST / BLOCKED]
+```
+
+### Memory Rules
+
+1. **Write notes in real-time** — not after the session. If you test something, record it immediately.
+2. **Capture frames for every FAIL** — print the frame output so the bug is reproducible.
+3. **Don't skip qualitative observations** — "it works but feels slow" is valuable.
+4. **Update as you go** — add tests as you discover new features during testing.
+5. **The notes file IS the deliverable** — without it, the dogfooding didn't happen.
+
+### Context Preservation
+
+If the dogfooding session spans multiple conversation turns or agent invocations:
+- Keep the notes file as the single source of truth
+- Reference test numbers (`V1`, `I3`, `F2`) when discussing specific issues
+- When resuming, read the notes file first to recover context
+- Add a `## Resumed at [time]` section if the session is interrupted
+
+---
+
+## 6. Critical Evaluation: Beyond Functional
+
+### The Agent is a Critic, Not a Cheerleader
+
+Your job is not to confirm the feature works. Your job is to find what's wrong, what's confusing, what could be better. A dogfooding session that finds zero issues is either incomplete or dishonest.
+
+### UX Evaluation Framework
+
+Score each criterion on a 1-5 scale:
+
+| Score | Meaning |
+|-------|---------|
+| 1 | Broken — doesn't work or is incomprehensible |
+| 2 | Poor — technically works but confusing or frustrating |
+| 3 | Adequate — works, understandable, but rough edges |
+| 4 | Good — clear, functional, minor improvements possible |
+| 5 | Excellent — delightful, intuitive, nothing to improve |
+
+#### Criteria Definitions
+
+**Feedback** — Does the user know what's happening at every moment?
+- 5: Every action has immediate visual response. Long operations show progress. State changes are obvious.
+- 1: Actions have no visible effect. No indication that something is processing. User doesn't know if their input was received.
+
+**Clarity** — Are messages and labels understandable without documentation?
+- 5: Plain language everywhere. Technical terms explained. Error messages tell you what to do.
+- 1: Cryptic labels. Raw JSON in user-facing text. Error codes without explanation.
+
+**Progression** — Is the workflow advancement visible?
+- 5: Clear steps (idle → processing → done). Progress indicators. Step-by-step feedback.
+- 1: No indication of progress. Suddenly jumps from "nothing" to "done" (or stays on "processing" forever).
+
+**Response Quality** — Is the application's output visible and useful?
+- 5: Output is prominent, well-formatted, and directly answers the user's request.
+- 1: Output is hidden, truncated, in wrong format, or doesn't address the request.
+
+**Stability** — Does the layout remain stable during the session?
+- 5: No visual glitches. Layout doesn't jump around. Consistent rendering.
+- 1: Elements disappear, shift positions, overlap, or flash during state changes.
+
+**Navigation** — Can you move around without losing context?
+- 5: All pages reachable. Back button works. Context preserved across navigation.
+- 1: Dead ends. Lost state after navigation. Can't find your way back.
+
+**Error Handling** — Are errors clear and actionable?
+- 5: Errors in plain language. Clear instructions for recovery. No crashes.
+- 1: Stack traces shown to user. Silent failures. Application crashes on error.
+
+**Intuitiveness** — Could a new user figure it out?
+- 5: Obvious what to do. Visual hierarchy guides the eye. Help text where needed.
+- 1: Requires documentation to use. Hidden features. Confusing metaphors.
+
+**Performance** — Are response times acceptable?
+- 5: Instant feedback (< 100ms). Results in < 5s. Progress shown for longer operations.
+- 1: UI freezes. No feedback for > 5s. Operations take unreasonably long.
+
+**Consistency** — Does the same pattern mean the same thing everywhere?
+- 5: Icons, colors, layouts, shortcuts all consistent across the application.
+- 1: Different pages use different patterns for the same concept. Shortcuts change meaning.
+
+### The Frustration Test
+
+After completing all tests, ask yourself:
+
+> "If I were a real user paying for this product, would I be satisfied?"
+
+If the answer is anything less than "yes", document WHY. Every frustration is a potential improvement, even if the feature technically works.
+
+### Comparison Benchmarks
+
+When possible, compare against:
+- **Previous version** — Is this better or worse than before?
+- **Competitors** — How does this compare to similar tools?
+- **Expectations** — Does this match what was promised in the feature description?
+
+---
+
+## 7. Anti-Patterns: What the Agent Must NEVER Do
+
+### Absolute Prohibitions
+
+These are not suggestions. They are rules. Breaking them invalidates the entire dogfooding session.
+
+#### NEVER: Write a Test Script
+
+```
+BAD:  "Let me create a dogfood script that tests everything..."
+      → Writes tests/_my-dogfood-test.ts
+      → Runs it
+      → Reads "12/12 PASS"
+      → Reports "All tests pass"
+
+GOOD: "Let me spawn the TUI and test each feature..."
+      → Spawns via Bash inline
+      → Captures frame, reads it
+      → Types input, captures frame
+      → Compares what they see to what they expect
+      → Records in notes file
+```
+
+A script cannot judge UX quality. A script cannot notice that the text is slightly misaligned. A script cannot feel that the workflow is confusing. **You** can.
+
+#### NEVER: Trust a Script's Verdict
+
+```
+BAD:  Run dogfood-real.ts → "8/8 checks passed" → "The feature works!"
+
+GOOD: Run dogfood-real.ts → READ the printed frames → Check the API yourself
+      → Verify the filesystem → THEN decide if it works
+```
+
+Scripts check what they were programmed to check. They miss everything else.
+
+#### NEVER: Skip Pre-Flight
+
+```
+BAD:  "Let me just start testing..." (without checking services)
+      → 30s timeout → "Something seems wrong"
+      → Wastes 5 minutes debugging a down backend
+
+GOOD: curl health → confirm services → THEN start testing
+```
+
+#### NEVER: Test Only the Happy Path
+
+```
+BAD:  Submit one task → it works → "Feature verified!"
+
+GOOD: Submit a task → it works → ALSO test:
+      - Empty input
+      - Very long input
+      - Backend goes down mid-task
+      - Multiple rapid submissions
+      - Navigate away and back
+```
+
+#### NEVER: Dogfood Without Notes
+
+```
+BAD:  Test everything mentally → "It all looks good"
+      → No record of what was tested
+      → No proof of verification
+      → No context for debugging later
+
+GOOD: Create notes file → Record every test → Capture frames for failures
+      → Document UX observations → Produce a complete report
+```
+
+#### NEVER: Declare "It Works" Without Evidence
+
+```
+BAD:  "The build succeeds and tests pass, so the feature works."
+
+GOOD: "I tested the following 15 scenarios. Here are the frames showing
+       the correct behavior. The API returns the expected data. Two minor
+       UX issues documented. Verdict: SHIP with known issues."
+```
+
+#### NEVER: Ignore UX Problems
+
+```
+BAD:  "The agent response shows as raw JSON, but it technically contains
+       the right information, so PASS."
+
+GOOD: "PARTIAL — The agent response is correct but displayed as raw JSON:
+       {"summary":"Read files..."}. A user would expect readable text.
+       Filed as BUG-3 (minor, UX). Recommended fix: unwrap JSON summary."
+```
+
+#### NEVER: Claim You Tested What You Didn't
+
+```
+BAD:  "I verified all 6 pages." (but only captured 3 frames)
+
+GOOD: Show the captured frame for EACH page. If you didn't capture it,
+      you didn't test it.
+```
+
+---
+
+## Appendix: Maestro-Specific Reference
+
+### Observation Tools Available
+
+| Tool | File | Purpose |
+|---|---|---|
+| **TuiDriver** | `packages/maestro-code/tests/tui-driver.ts` | Spawn TUI via PTY, send keys, capture frames |
+| **frame-capture** | `packages/maestro-code/tests/frame-capture.ts` | Low-level PTY capture infrastructure |
+| **golden-utils** | `packages/maestro-code/tests/golden-utils.ts` | Structural assertions + golden file comparison |
+| **real-demo-check** | `packages/maestro-code/tests/real-demo-check.cjs` | Real module resolution verification |
+
+### TuiDriver Quick Reference
+
+```typescript
+import { TuiDriver } from './tui-driver.ts';
+
+const driver = new TuiDriver(120, 40);           // cols, rows
+
+// Spawn
+await driver.spawn('demo');                        // No backend needed
+await driver.spawn('real', { repo: 'C:/path' });  // Requires backend
+
+// Wait
+const frame = await driver.waitForRender(15000);   // Wait for first render
+const frame = await driver.waitForContent(/pattern/, 30000); // Wait for text
+const frame = await driver.waitForStable(2000);    // Wait for screen stability
+
+// Interact
+driver.press('/');                                 // Single key
+driver.pressEnter();                               // Enter
+driver.pressEscape();                              // Escape
+await driver.typeText('hello', 20);                // Type with delay
+
+// Observe
+const frame = driver.captureFrame();               // Current screen
+TuiDriver.printFrame(frame, 'Label');              // Print to console
+const lines = driver.getLines(0, 5);               // Specific lines
+
+// Cleanup
+driver.kill();
+```
+
+### API Endpoints for State Verification
+
+```bash
+# Health
+curl -s http://localhost:5000/api/health
+curl -s http://localhost:5010/api/v1/health/
+
+# Sessions
+curl -s http://localhost:5000/api/sessions                          # List all
+curl -s http://localhost:5000/api/sessions/{id}                     # Get one
+curl -s http://localhost:5000/api/sessions/{id}/variables/{key}     # Get variable
+
+# Key variables to check
+curl -s http://localhost:5000/api/sessions/{id}/variables/_executionTree
+curl -s http://localhost:5000/api/sessions/{id}/variables/_blockOutputs
+curl -s http://localhost:5000/api/sessions/{id}/variables/_nodeResult_execute
+curl -s http://localhost:5000/api/sessions/{id}/variables/_llmActivity
+curl -s http://localhost:5000/api/sessions/{id}/variables/_conversationState_*
+
+# Blocks
+curl -s http://localhost:5000/api/blocks                           # List all
+curl -s "http://localhost:5000/api/blocks?type=agent"              # Filter
+```
+
+### Maestro TUI Pages (6)
+
+| Page | Key | What It Shows |
+|------|-----|---------------|
+| **Home** | H | System status, active sessions list |
+| **Agent** | A | Task input, conversation log, agent state |
+| **Spaces** | S | Repos/Workspaces/Sessions (3 tabs) |
+| **Foundry** | F | User's blocks (expandable list) |
+| **Catalog** | C | All blocks with fitness scores |
+| **Models** | M | LLM models, availability, metrics |
+
+### Pre-Flight Checklist (Maestro-specific)
+
+```bash
+# Level 1: Observation
+ls packages/maestro-code/tests/tui-driver.ts      # TuiDriver exists
+npm ls node-pty 2>/dev/null | head -3              # node-pty installed
+
+# Level 2: Interaction — verified by TuiDriver.spawn() succeeding
+
+# Level 3: State
+curl -s http://localhost:5000/api/health           # Backend
+curl -s http://localhost:5010/api/v1/health/       # LLM-Provider
+ls -la C:/Cantante 2>/dev/null | head -3           # Target repo
+```
+
+### Known Pitfalls
+
+- **`AttachConsole failed`** error from node-pty on Windows — non-fatal, happens during PTY cleanup. Ignore.
+- **vitest passing ≠ feature works** — always verify via TuiDriver or real-demo-check.cjs too.
+- **JsonElement corruption** — API variables can contain nested empty arrays `[[[],...]]` instead of objects. Always check with curl after setting variables.
+- **Session IDs** — API requires full UUIDs. CLI resolves short prefixes. When using curl, use full ID.
+- **Demo mode vs real mode** — demo mode uses mock data (DemoApiClient). Only real mode connects to the backend. Always specify which mode you're testing.
+
+---
+
+## Quick Start: Minimal Dogfooding Session
+
+If time is limited, this is the absolute minimum for a valid dogfooding session:
+
+```
+1. Pre-flight (30s)
+   - curl health endpoints
+   - Verify TuiDriver exists
+
+2. Discovery (2 min)
+   - Spawn app, capture initial frame
+   - List what you see
+   - Try every visible shortcut
+
+3. Core flow test (5 min)
+   - Type a task, submit, watch execution
+   - Verify output visible and correct
+   - Check API for session data
+
+4. Notes (1 min)
+   - Record results in session file
+   - Score top 3 UX criteria
+
+Total: ~8 minutes for a valid (minimal) dogfooding session.
+```
+
+For a comprehensive session, plan 30-60 minutes to test all pages, flows, and edge cases.

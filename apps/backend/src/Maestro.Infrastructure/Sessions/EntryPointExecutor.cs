@@ -170,8 +170,15 @@ public class EntryPointExecutor
             });
             var output = await ExecuteBlockRefAsync(session, workflowId, dummyPhaseNode, workingDir, tree, "execute", null);
 
-            UpdateNodeById(tree, "execute", "done", output?.Length > 200 ? output[..200] + "..." : output);
+            var truncated = output != null && output.Length > 500 ? output[..500] + "..." : output;
+            UpdateNodeById(tree, "execute", "done", truncated);
             session.SetVariable("_executionTree", tree);
+
+            // Store outputs the same way regular workflow nodes do (lines 2105-2110)
+            // so SessionManager polling can find the agent's response
+            StoreBlockOutput(session, "execute", workflowBlock.BlockType, output ?? "");
+            session.SetVariable($"_nodeResult_execute", output ?? "");
+            AppendExecutionLog(session, "success", $"blockRef '{workflowId}' completed ({output?.Length ?? 0} chars)");
             await _repository.SaveAsync(session);
         }
         else
@@ -1994,29 +2001,46 @@ public class EntryPointExecutor
                     AppendExecutionLog(session, "info", $"[{blockRefId}] {log}");
             }
 
-            // Log LLM activity if available
-            if (result.Outputs.TryGetValue("response", out var response))
+            // Log LLM activity if available — agents use "result" key, inference blocks use "response" or "content"
+            var responseText = result.Outputs.TryGetValue("response", out var resp) ? resp?.ToString()
+                             : result.Outputs.TryGetValue("result", out var res) ? res?.ToString()
+                             : result.Outputs.TryGetValue("content", out var cnt) ? cnt?.ToString()
+                             : null;
+            if (responseText != null)
             {
                 AppendToLLMActivity(session, new Dictionary<string, object>
                 {
-                    { "type", "agent" },
+                    { "type", block?.BlockType ?? "block" },
                     { "blockRef", blockRefId },
-                    { "response", response?.ToString()?.Length > 500 ? response.ToString()![..500] + "..." : response?.ToString() ?? "" },
-                    { "timestamp", DateTime.UtcNow.ToString("o") }
+                    { "response", responseText.Length > 500 ? responseText[..500] + "..." : responseText },
+                    { "timestamp", DateTime.UtcNow.ToString("o") },
+                    { "toolCalls", result.Outputs.TryGetValue("warning", out var w) && w?.ToString()?.Contains("tool calls") == true ? w.ToString()! : "" },
+                    { "tokens", result.TotalTokens }
                 });
             }
 
-            // Build output string from result.
-            // Filter out internal metadata keys (starting with '_') so they don't
-            // contaminate downstream JSON parsing (e.g., _conversationState from agents).
+            // Extract internal metadata keys (starting with '_') and save them as session variables
+            // before filtering them out of the output string. This preserves _conversationState
+            // for the TUI to display agent conversation history.
+            foreach (var kv in result.Outputs.Where(kv => kv.Key.StartsWith("_")))
+            {
+                var varName = $"{kv.Key}_{blockRefId}";
+                session.SetVariable(varName, kv.Value);
+            }
+
+            // Build output string from non-internal keys only
             var contentOutputs = result.Outputs
                 .Where(kv => !kv.Key.StartsWith("_"))
                 .ToDictionary(kv => kv.Key, kv => kv.Value);
 
-            // Single output: raw value (no "key: " prefix that would break downstream JSON parsing)
-            // Multiple outputs: keep "key: value" format for disambiguation
+            // Prefer "response" key if available (clean text from agent step-complete),
+            // then "result" (JSON from agent), then single output, then multi-key format.
             string output;
-            if (contentOutputs.Count == 1)
+            if (contentOutputs.TryGetValue("response", out var respOutput) && respOutput != null)
+            {
+                output = respOutput.ToString() ?? "";
+            }
+            else if (contentOutputs.Count == 1)
             {
                 output = contentOutputs.Values.First()?.ToString() ?? "";
             }

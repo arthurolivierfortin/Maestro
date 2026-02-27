@@ -4,6 +4,9 @@
  * Spawns maestro-code in REAL mode, submits tasks, captures frames
  * at each step so Claude can visually inspect the results.
  *
+ * Phase 45-A: Updated for persistent session + maestro-assistant.
+ * No template/entry override — uses defaults (maestro-assistant / message).
+ *
  * Usage: npx tsx tests/_dogfood-live.ts "Your task here"
  *        npx tsx tests/_dogfood-live.ts  (default: simple greeting)
  */
@@ -16,11 +19,12 @@ const REPO = 'C:\\Cantante';
 async function main() {
   console.log(`\n[dogfood] Task: "${task}"`);
   console.log(`[dogfood] Repo: ${REPO}`);
-  console.log('[dogfood] Spawning TUI in REAL mode...\n');
+  console.log('[dogfood] Spawning TUI in REAL mode (maestro-assistant)...\n');
 
   const driver = new TuiDriver(120, 40);
 
   try {
+    // No template/entry overrides — uses CLI defaults (maestro-assistant / message)
     await driver.spawn('real', { repo: REPO });
 
     // Step 1: Wait for initial render
@@ -56,6 +60,12 @@ async function main() {
     console.log('[dogfood] Waiting for session creation...');
     const sessionFrame = await driver.waitForContent(/Session:|Creating session/, 30000);
     printFrame(sessionFrame, 'STEP 6: Session Created');
+
+    // Verify new architecture: template=maestro-assistant, entry=message
+    const usesNewTemplate = sessionFrame.text.includes('maestro-assistant');
+    const usesNewEntry = sessionFrame.text.includes('Invoking: message');
+    console.log(`[dogfood] Template: maestro-assistant ${usesNewTemplate ? '✓' : '✗'}`);
+    console.log(`[dogfood] Entry: message ${usesNewEntry ? '✓' : '✗'}\n`);
 
     // Step 7: Wait for agent to work (up to 180s)
     console.log('[dogfood] Waiting for agent to complete (up to 180s)...');
