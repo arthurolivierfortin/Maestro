@@ -12,10 +12,10 @@
 │ → ▼ ✓ Cantante - File Tree Module    sess-001  completed  fit:   -  12m 0s                                           │
 │      id: sess-001                                                                                                    │
 │                                                                                                                      │
-│     * Cantante - TTS Accessibility   sess-002  running    fit:   -  37h 40m                                          │
+│     * Cantante - TTS Accessibility   sess-002  running    fit:   -  38h 46m                                          │
 │     ✓ Maestro - Agent Loop Fix       sess-003  completed  fit:   -  12m 0s                                           │
 │     ✓ Task Planner v2                sess-004  completed  fit:   -  12m 0s                                           │
-│     ✗ WebApp - Login Page            sess-005  error      fit:   -  37h 40m                                          │
+│     ✗ WebApp - Login Page            sess-005  error      fit:   -  38h 46m                                          │
 │                                                                                                                      │
 │                                                                                                                      │
 │                                                                                                                      │

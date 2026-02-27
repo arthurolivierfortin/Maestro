@@ -1,5 +1,5 @@
 {
-  "totalRequests": 63,
+  "totalRequests": 90,
   "latency": {
     "p50": 0,
     "p95": 0,
@@ -7,28 +7,47 @@
     "average": 0
   },
   "totalTokens": {
-    "promptTokens": 189,
-    "completionTokens": 24629,
-    "totalTokens": 24818
+    "promptTokens": 284,
+    "completionTokens": 39211,
+    "totalTokens": 39495
   },
   "modelStats": [
     {
       "modelId": {
-        "value": "sonnet"
+        "value": "haiku"
       },
-      "requestCount": 63,
+      "requestCount": 2,
       "latency": {
-        "p50": 5624,
-        "p95": 21049.4,
-        "p99": 68752.4800000001,
-        "average": 9061.285714285714
+        "p50": 20699.5,
+        "p95": 21413.649999999998,
+        "p99": 21477.13,
+        "average": 20699.5
       },
       "totalTokens": {
-        "promptTokens": 189,
-        "completionTokens": 24629,
-        "totalTokens": 24818
+        "promptTokens": 20,
+        "completionTokens": 4392,
+        "totalTokens": 4412
       },
-      "requestsPerMinute": 1.9840551889729459,
+      "requestsPerMinute": 0.05631607124670069,
+      "errorRate": 0
+    },
+    {
+      "modelId": {
+        "value": "sonnet"
+      },
+      "requestCount": 88,
+      "latency": {
+        "p50": 5992.5,
+        "p95": 23085.499999999975,
+        "p99": 59762.55999999983,
+        "average": 9754.556818181818
+      },
+      "totalTokens": {
+        "promptTokens": 264,
+        "completionTokens": 34819,
+        "totalTokens": 35083
+      },
+      "requestsPerMinute": 0.36983060648892085,
       "errorRate": 0
     }
   ],
@@ -58,7 +77,7 @@
         "p99": 0,
         "average": 0
       },
-      "tokensTotal": 24818
+      "tokensTotal": 39495
     },
     {
       "windowName": "5m",
@@ -71,7 +90,7 @@
         "p99": 0,
         "average": 0
       },
-      "tokensTotal": 24818
+      "tokensTotal": 39495
     },
     {
       "windowName": "15m",
@@ -84,8 +103,8 @@
         "p99": 0,
         "average": 0
       },
-      "tokensTotal": 24818
+      "tokensTotal": 39495
     }
   ],
-  "generatedAt": "2026-02-27T00:03:21.4013584+00:00"
+  "generatedAt": "2026-02-27T01:16:21.5288472+00:00"
 }

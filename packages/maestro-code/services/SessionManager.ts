@@ -109,10 +109,24 @@ class SessionManager {
     }
   }
 
-  private lastReportedNodes = new Set<string>();
+  private lastReportedStatus = new Map<string, string>();
 
   private startPolling(addLine: (line: LogLine) => void, setBusy: (b: boolean) => void) {
-    this.lastReportedNodes.clear();
+    this.lastReportedStatus.clear();
+
+    const reportNode = (key: string, name: string, status: string) => {
+      const isDone = status === 'completed' || status === 'done';
+      const isError = status === 'error';
+      const icon = isDone ? '✓' : isError ? '✗' : '…';
+      const color = isDone ? 'green' : isError ? 'red' : 'yellow';
+
+      const prevStatus = this.lastReportedStatus.get(key);
+      if (prevStatus === status) return; // already reported this status
+      if (!status || status === 'pending') return;
+
+      this.lastReportedStatus.set(key, status);
+      addLine({ text: `  ${icon} ${name}`, color, timestamp: ts() });
+    };
 
     this.pollTimer = setInterval(async () => {
       try {
@@ -120,17 +134,26 @@ class SessionManager {
         const vars = session.variables || {};
         const tree: any[] = vars._executionTree || [];
 
-        // Show intermediate actions (new tool calls as they appear)
+        // Report child nodes (nested execution trees)
         for (const node of tree) {
           const children: any[] = node.children || [];
           for (const child of children) {
-            const key = `${node.id}:${child.id || child.name}`;
-            if (!this.lastReportedNodes.has(key) && child.status && child.status !== 'pending') {
-              this.lastReportedNodes.add(key);
-              const icon = child.status === 'completed' ? '✓' : child.status === 'error' ? '✗' : '…';
-              const color = child.status === 'completed' ? 'green' : child.status === 'error' ? 'red' : 'yellow';
-              addLine({ text: `  ${icon} ${child.name || child.id || 'step'}`, color, timestamp: ts() });
-            }
+            reportNode(
+              `${node.id}:${child.id || child.name}`,
+              child.name || child.id || 'step',
+              child.status
+            );
+          }
+        }
+
+        // Report top-level nodes with no children (flat execution trees)
+        for (const node of tree) {
+          if (!(node.children || []).length) {
+            reportNode(
+              `root:${node.id || node.name}`,
+              node.name || node.id || 'step',
+              node.status
+            );
           }
         }
 
@@ -140,23 +163,48 @@ class SessionManager {
           this.stopPolling();
           const hasErrors = tree.some(n => n.status === 'error');
 
-          // Extract the agent's response from execution tree output
-          const lastNode = tree[tree.length - 1];
-          const agentOutput = lastNode?.output?.summary
-            || lastNode?.output?.result
-            || lastNode?.output?.response;
+          // Extract the agent's response — try multiple sources
+          let agentOutput: string | null = null;
 
-          if (agentOutput) {
-            addLine({ text: '' });
-            addLine({ text: 'Agent:', color: 'cyan', bold: true, timestamp: ts() });
-            // Split long output into lines for readability
-            const outputLines = String(agentOutput).split('\n');
-            for (const line of outputLines) {
-              addLine({ text: `  ${line}`, color: 'white' });
+          // Source 1: Execution tree node output (backend stores as string directly)
+          const lastNode = tree[tree.length - 1];
+          if (lastNode?.output) {
+            if (typeof lastNode.output === 'string') {
+              agentOutput = lastNode.output;
+            } else if (typeof lastNode.output === 'object') {
+              agentOutput = lastNode.output.summary
+                || lastNode.output.result
+                || lastNode.output.response
+                || JSON.stringify(lastNode.output);
             }
           }
 
-          // Also check _conversationState variables for the response
+          // Source 2: _blockOutputs variable (per-node output with metadata)
+          if (!agentOutput) {
+            const blockOutputs = vars._blockOutputs;
+            if (blockOutputs && typeof blockOutputs === 'object') {
+              const keys = Object.keys(blockOutputs);
+              // Take the last block output
+              const lastKey = keys[keys.length - 1];
+              if (lastKey) {
+                const bo = blockOutputs[lastKey];
+                if (typeof bo === 'string') agentOutput = bo;
+                else if (bo?.output) agentOutput = String(bo.output);
+              }
+            }
+          }
+
+          // Source 3: _nodeResult_* variables (full output per node ID)
+          if (!agentOutput) {
+            const resultKeys = Object.keys(vars).filter(k => k.startsWith('_nodeResult_'));
+            if (resultKeys.length > 0) {
+              const lastResultKey = resultKeys[resultKeys.length - 1];
+              const val = vars[lastResultKey];
+              if (typeof val === 'string') agentOutput = val;
+            }
+          }
+
+          // Source 4: _conversationState_* (agent conversation history)
           if (!agentOutput) {
             const convKeys = Object.keys(vars).filter(k => k.startsWith('_conversationState_'));
             for (const key of convKeys) {
@@ -164,15 +212,34 @@ class SessionManager {
               if (conv && Array.isArray(conv.messages)) {
                 const lastMsg = conv.messages[conv.messages.length - 1];
                 if (lastMsg && lastMsg.role === 'assistant' && lastMsg.content) {
-                  addLine({ text: '' });
-                  addLine({ text: 'Agent:', color: 'cyan', bold: true, timestamp: ts() });
-                  const msgLines = String(lastMsg.content).split('\n').slice(0, 10);
-                  for (const line of msgLines) {
-                    addLine({ text: `  ${line}`, color: 'white' });
-                  }
+                  agentOutput = String(lastMsg.content);
                   break;
                 }
               }
+            }
+          }
+
+          // Source 5: _llmActivity last entry response
+          if (!agentOutput) {
+            const activity: any[] = vars._llmActivity || [];
+            if (activity.length > 0) {
+              const last = activity[activity.length - 1];
+              if (last?.response) agentOutput = String(last.response);
+              else if (last?.responsePreview) agentOutput = String(last.responsePreview);
+              else if (last?.fullResponse) agentOutput = String(last.fullResponse);
+            }
+          }
+
+          if (agentOutput) {
+            addLine({ text: '' });
+            addLine({ text: 'Agent:', color: 'cyan', bold: true, timestamp: ts() });
+            // Split long output into lines, cap at 20 lines for readability
+            const outputLines = String(agentOutput).split('\n').slice(0, 20);
+            for (const line of outputLines) {
+              addLine({ text: `  ${line}`, color: 'white' });
+            }
+            if (String(agentOutput).split('\n').length > 20) {
+              addLine({ text: '  ...', color: 'gray', dim: true });
             }
           }
 

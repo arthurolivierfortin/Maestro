@@ -241,8 +241,8 @@ const AgentScreen = ({
     // NavBar
     h(NavBar, { currentPage: 'agent' }),
 
-    // Agent Status (compact, like SYSTEM STATUS on Home)
-    h(Panel, { title: 'AGENT STATUS', height: 3, width: '100%' },
+    // Agent Status (title + 1 content line + borders = 5)
+    h(Panel, { title: 'AGENT STATUS', height: 5, width: '100%' },
       h(AgentStatus, { agentState, sessionId, busy, tick }),
     ),
 

@@ -245,6 +245,7 @@ const App = ({ apiClient: clientProp, sessionManager: smProp, demoMode, repoPath
   const [currentWidget, setCurrentWidget] = useState<Widget | null>(null);
   const history = useInputHistory();
   const [inputFocused, setInputFocused] = useState(false);
+  const completedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ── Input focus management ──
   // Slash-to-focus model: '/' activates input bar, Escape returns to navigation.
@@ -276,6 +277,9 @@ const App = ({ apiClient: clientProp, sessionManager: smProp, demoMode, repoPath
         sessionManager.stopPolling();
         sessionManager.stopWidgetPolling();
       }
+      if (completedTimerRef.current) {
+        clearTimeout(completedTimerRef.current);
+      }
     };
   }, [sessionManager]);
 
@@ -291,7 +295,7 @@ const App = ({ apiClient: clientProp, sessionManager: smProp, demoMode, repoPath
     const prev = prevAgentState.current;
     prevAgentState.current = agentState;
     if (prev === agentState) return;
-    if (prev === 'working' && agentState === 'idle') bell(1);
+    if (prev === 'working' && (agentState === 'completed' || agentState === 'idle')) bell(1);
     if (agentState === 'error') bell(2);
   }, [agentState, bell]);
 
@@ -396,11 +400,22 @@ const App = ({ apiClient: clientProp, sessionManager: smProp, demoMode, repoPath
     addLine({ text: `> ${input}`, color: 'green', bold: true });
 
     if (sessionManager) {
+      // Clear any pending completed→idle timer when starting a new task
+      if (completedTimerRef.current) {
+        clearTimeout(completedTimerRef.current);
+        completedTimerRef.current = null;
+      }
+
       sessionManager.submitTask(input, addLine, (b) => {
         setBusy(b);
         if (!b) {
           sessionManager.stopWidgetPolling();
-          setAgentState('idle');
+          // Show 'completed' state for 3s before returning to 'idle'
+          setAgentState('completed');
+          completedTimerRef.current = setTimeout(() => {
+            setAgentState('idle');
+            completedTimerRef.current = null;
+          }, 3000);
         } else {
           setAgentState('working');
         }
