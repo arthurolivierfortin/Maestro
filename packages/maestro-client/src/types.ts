@@ -173,9 +173,26 @@ export interface LLMHealthResponse {
 }
 
 export interface LLMModel {
-  id: string;
-  name?: string;
-  [key: string]: unknown;
+  modelId: string;
+  name: string;
+  description?: string;
+  category?: string;
+  size?: string;
+  parametersB?: number;
+  contextLength?: number;
+  vramFp16Gb?: number;
+  vramInt8Gb?: number;
+  vramInt4Gb?: number;
+  capabilities?: string[];
+  license?: string;
+  recommended?: boolean;
+  canRunFp16?: boolean;
+  canRunInt8?: boolean;
+  canRunInt4?: boolean;
+  recommendedPrecision?: string;
+  quantizationRequired?: string;
+  vramRequired?: number;
+  isLocal?: boolean;
 }
 
 export interface LLMCompletionRequest {

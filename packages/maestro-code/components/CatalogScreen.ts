@@ -128,9 +128,9 @@ const CatalogScreen = ({ apiClient, onNavigate, onBlockSelect, onQuit, initialSt
   const [expandedIndex, setExpandedIndex] = useState(initialState?.expandedIndex ?? -1);
   const [typeFilter, setTypeFilter] = useState(initialState?.typeFilter ?? 'all');
 
-  // Terminal rows for scroll: NavBar(3) + PanelBorder(2) + header(2) + global chrome(6: TaskInputBar+StatusBar)
+  // Terminal rows for scroll: NavBar(3) + PanelBorder(2) + header(2) + filter tabs(1) + StatusBar(3)
   const termRows = stdout.rows || 40;
-  const visibleItems = Math.max(3, termRows - 16);
+  const visibleItems = Math.max(3, termRows - 13);
 
   // Fetch blocks
   const { data: blocks } = useApiData(

@@ -87,7 +87,6 @@ const HOME_PAGE_ASSERTIONS: StructuralAssertion[] = [
   { label: 'ACTIVE SESSIONS panel', pattern: 'ACTIVE SESSIONS' },
   { label: 'QUICK ACTIONS panel', pattern: 'QUICK ACTIONS' },
   { label: 'Session data visible', pattern: /Cantante|sess-/ },
-  TASKBAR_ASSERTION,
   STATUSBAR_ASSERTION,
   BORDERS_ASSERTION,
 ];
@@ -99,7 +98,6 @@ const SPACES_PAGE_ASSERTIONS: StructuralAssertion[] = [
   { label: 'SESSIONS panel', pattern: 'SESSIONS' },
   { label: 'Filter controls', pattern: /Filter.*All.*Running|\[a\].*All.*\[r\].*Running/ },
   { label: 'Session count', pattern: /5 session/ },
-  TASKBAR_ASSERTION,
   STATUSBAR_ASSERTION,
   BORDERS_ASSERTION,
 ];
@@ -110,7 +108,6 @@ const FOUNDRY_PAGE_ASSERTIONS: StructuralAssertion[] = [
   { label: 'MY BLOCKS panel', pattern: 'MY BLOCKS' },
   { label: 'Block count', pattern: /12 block/ },
   { label: 'Block type summary', pattern: /workflow.*agent.*tool|agent.*tool.*inference/ },
-  TASKBAR_ASSERTION,
   STATUSBAR_ASSERTION,
   BORDERS_ASSERTION,
 ];
@@ -122,7 +119,6 @@ const CATALOG_PAGE_ASSERTIONS: StructuralAssertion[] = [
   { label: 'Type filter tabs', pattern: /All.*Workflows.*Agents.*Tools/ },
   { label: 'Block count', pattern: /12 block/ },
   { label: 'Fitness percentage', pattern: /\d+%/ },
-  TASKBAR_ASSERTION,
   STATUSBAR_ASSERTION,
   BORDERS_ASSERTION,
 ];
@@ -134,7 +130,6 @@ const MODELS_PAGE_ASSERTIONS: StructuralAssertion[] = [
   { label: 'AVAILABLE MODELS panel', pattern: 'AVAILABLE MODELS' },
   { label: 'Claude model visible', pattern: /claude-sonnet|Claude Sonnet/ },
   { label: 'Model count', pattern: /6 model/ },
-  TASKBAR_ASSERTION,
   STATUSBAR_ASSERTION,
   BORDERS_ASSERTION,
 ];

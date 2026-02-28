@@ -33,7 +33,7 @@ const ModelStatusPanel = ({ health, llmStatus, tick = 0 }) => {
   const healthIcon = isHealthy ? breathingDot(tick) : icons.failed;
 
   // Extract info from health response
-  const activeModel = health?.activeModel || health?.model || health?.model_id || '-';
+  const activeModel = health?.activeModel || '-';
   const backend = health?.backend || health?.framework || '-';
   const device = health?.device || '-';
 
@@ -76,7 +76,8 @@ const ModelStatusPanel = ({ health, llmStatus, tick = 0 }) => {
 // ── Model List ───────────────────────────────────────────────
 
 const ModelCard = ({ model, isSelected, isActive }) => {
-  const name = typeof model === 'string' ? model : (model.name || model.id || model.model_id || 'Unknown');
+  const name = model.name || model.modelId || 'Unknown';
+  const category = model.category || '';
   const selector = isSelected ? icons.arrow : ' ';
   const activeIcon = isActive ? icons.done : ' ';
   const nameColor = isActive ? theme.status.success : (isSelected ? theme.panel.borderFocused : theme.text.primary);
@@ -86,7 +87,10 @@ const ModelCard = ({ model, isSelected, isActive }) => {
     h(Text, null, ' '),
     h(Text, { color: isActive ? theme.status.success : theme.text.muted }, activeIcon),
     h(Text, null, ' '),
-    h(Text, { color: nameColor }, name),
+    h(Text, { color: nameColor }, name.length > 35 ? name.substring(0, 35) : name.padEnd(35)),
+    category
+      ? h(Text, null, ' ', muted(category))
+      : null,
     isActive
       ? h(Text, { color: theme.status.success }, '  (active)')
       : null,
@@ -129,7 +133,7 @@ const ModelsScreen = ({ apiClient, onNavigate, onModelSelect, onQuit, initialSta
   const runningCount = sessionList.filter(s => s.status === 'running').length;
 
   // Active model name
-  const activeModel = llmHealth?.activeModel || llmHealth?.model || llmHealth?.model_id || '';
+  const activeModel = llmHealth?.activeModel || '';
 
   // Clamp selected index
   useEffect(() => {
@@ -152,8 +156,7 @@ const ModelsScreen = ({ apiClient, onNavigate, onModelSelect, onQuit, initialSta
     enter: () => {
       if (onModelSelect && modelList.length > 0) {
         const model = modelList[selectedIndex];
-        const modelName = typeof model === 'string' ? model : (model.id || model.name || model.model_id || '');
-        if (modelName) onModelSelect(modelName, { selectedIndex });
+        if (model?.modelId) onModelSelect(model.modelId, { selectedIndex });
       }
     },
     ...(showChrome ? {
@@ -192,10 +195,9 @@ const ModelsScreen = ({ apiClient, onNavigate, onModelSelect, onQuit, initialSta
               )
             : h(Box, { flexDirection: 'column' },
                 ...modelList.map((model, i) => {
-                  const modelName = typeof model === 'string' ? model : (model.name || model.id || model.model_id || '');
-                  const isActive = modelName === activeModel;
+                  const isActive = model.modelId === activeModel;
                   return h(ModelCard, {
-                    key: modelName || `m-${i}`,
+                    key: model.modelId || `m-${i}`,
                     model,
                     isSelected: i === selectedIndex,
                     isActive,

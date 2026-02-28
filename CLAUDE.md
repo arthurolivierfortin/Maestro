@@ -529,6 +529,20 @@ When adding properties to domain entities:
 3. Update `FromDomain` method to map the property
 4. Update file loaders to read the property from JSON
 
+#### SDK–Backend Contract Verification (MANDATORY)
+
+The SDK (`packages/maestro-client/src/`) is the ONLY bridge between the TUI/CLI and the backend. Its types and API calls MUST match the backend exactly.
+
+**When writing or modifying SDK domain methods:**
+1. `curl` the actual backend endpoint and inspect the JSON response shape
+2. Verify the SDK return type matches (array vs wrapper object, field names)
+3. Verify the TypeScript interface field names match the backend DTO's JSON serialization (C# PascalCase → JSON camelCase: `ModelId` → `modelId`)
+
+**Rules:**
+- **One source of truth for field names**: the backend DTO (`apps/backend/src/Maestro.Application/DTOs/`). SDK mirrors it exactly. TUI uses SDK types. No guessing.
+- **No fallback chains**: `model.id || model.name || model.model_id` is ALWAYS wrong — it means you don't know what the backend returns. Check the DTO, use the correct field name.
+- **No `[key: string]: unknown` as a substitute for typed fields**: If the backend returns specific fields, type them. Catch-all index signatures hide contract mismatches.
+
 ## TUI Monitor Architecture
 
 ### How the Monitor Works
@@ -698,6 +712,17 @@ The json-validator returns `{isValid: false, errors: [...]}` on failure or the p
 **Cause**: Publishing a workflow tier without metadata about which models it needs, what fitness was measured, what substitutes were tested.
 **Fix**: Every published workflow MUST embed a `metadata.manifest` with: required models per block, fitness scores, tested substitutes with their fitness, evaluation criteria. This enables `maestro check` (static compatibility) and `maestro adapt` (dynamic adaptation).
 **Reference**: `docs/phases/PHASE-28/SUGGESTIONS-V2-COMPATIBILITY-AND-EVALUATION.md`
+
+### SDK types don't match backend API response shape (CRITICAL)
+**Cause**: The SDK (`packages/maestro-client/src/`) declares TypeScript types and return types for API calls, but nobody verifies they match the actual JSON the backend returns. Example: SDK declares `http.get<LLMModel[]>('/api/provider/models')` but backend returns `{ count: 17, models: [...] }` — an object wrapper, not an array. The SDK silently returns the wrong type, and `Array.isArray()` checks in the UI return false → 0 items displayed.
+**Fix**: When writing or modifying SDK domain methods, ALWAYS `curl` the actual backend endpoint first and verify the response shape matches the declared TypeScript type. If the backend wraps results in `{ count, models }`, the SDK must unwrap it or the type must reflect the wrapper.
+**Verification**: `curl -s http://localhost:5000/api/<endpoint> | python -m json.tool | head -5` — check if root is array `[` or object `{`.
+**Rule**: NEVER declare a return type without verifying the actual API response. NEVER use fallback chains like `model.id || model.name || model.model_id` to guess field names — this hides contract mismatches.
+
+### SDK field names don't match backend DTO field names
+**Cause**: The SDK type declares `id: string` but the backend DTO serializes as `modelId`. The frontend uses `model.id` which is `undefined`, falls back to `model.name` — it "works" but is wrong. These silent mismatches accumulate and create fragile code full of `||` fallback chains.
+**Fix**: SDK types MUST use the exact field names from the backend DTOs. Check the C# DTO (`apps/backend/src/Maestro.Application/DTOs/`) and verify the JSON property names match the TypeScript interface fields. C# uses PascalCase → JSON camelCase (via serializer settings), so `ModelId` in C# = `modelId` in JSON = `modelId` in TypeScript.
+**Rule**: One source of truth for field names: the backend DTO. The SDK mirrors it exactly. The UI uses the SDK types. No guessing, no fallback chains.
 
 ### Shell commands fail on Windows
 **Cause**: Unix commands like `mkdir -p` don't work on Windows cmd

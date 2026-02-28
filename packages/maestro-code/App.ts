@@ -534,15 +534,16 @@ const App = ({ apiClient: clientProp, sessionManager: smProp, demoMode, repoPath
 
   return h(FullscreenBox, null,
     pageComponent,
-    // TaskInputBar (always visible on pages)
-    h(TaskInputBar, {
-      onSubmit: handleSubmit,
-      disabled: false,
-      placeholder: busy ? 'Send a message to the agent...' : 'Describe your task...',
-      onUpArrow: history.prev,
-      onDownArrow: history.next,
-      captureInput: inputFocused,
-    }),
+    currentPage === 'agent'
+      ? h(TaskInputBar, {
+          onSubmit: handleSubmit,
+          disabled: false,
+          placeholder: busy ? 'Send a message to the agent...' : 'Describe your task...',
+          onUpArrow: history.prev,
+          onDownArrow: history.next,
+          captureInput: inputFocused,
+        })
+      : null,
     h(StatusBar, { currentPage, connectionStatus, latency: connLatency, lastRefresh }),
   );
 };

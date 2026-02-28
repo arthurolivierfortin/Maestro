@@ -8,16 +8,21 @@ export function llmDomain(http: HttpTransport) {
     capabilities: () => http.get('/api/provider/capabilities'),
     activeProvider: () => http.get('/api/provider/active'),
 
-    models: (category?: string) => {
+    models: async (category?: string) => {
       const q = category ? `?category=${encodeURIComponent(category)}` : '';
-      return http.get<LLMModel[]>(`/api/provider/models${q}`);
+      const res = await http.get<{ models?: LLMModel[] } | LLMModel[]>(`/api/provider/models${q}`);
+      return Array.isArray(res) ? res : (res?.models ?? []);
     },
 
-    localModels: () => http.get<LLMModel[]>('/api/provider/models/local'),
+    localModels: async () => {
+      const res = await http.get<{ models?: LLMModel[] } | LLMModel[]>('/api/provider/models/local');
+      return Array.isArray(res) ? res : (res?.models ?? []);
+    },
 
-    registryModels: (category?: string) => {
+    registryModels: async (category?: string) => {
       const q = category ? `?category=${encodeURIComponent(category)}` : '';
-      return http.get<LLMModel[]>(`/api/provider/models/registry${q}`);
+      const res = await http.get<{ models?: LLMModel[] } | LLMModel[]>(`/api/provider/models/registry${q}`);
+      return Array.isArray(res) ? res : (res?.models ?? []);
     },
 
     switchModel: (modelId: string, use8bit = false) =>

@@ -41,7 +41,7 @@ const SystemStatus = ({ health, llmHealth, tick = 0 }) => {
   const llmIcon = llmOk ? breathingDot(tick + 3) : icons.failed; // offset for staggered animation
 
   // Extract model name from LLM health
-  const modelName = llmHealth?.activeModel || llmHealth?.model || llmHealth?.model_id || '-';
+  const modelName = llmHealth?.activeModel || '-';
 
   return h(Box, { flexDirection: 'row', paddingLeft: 1, gap: 3 },
     h(Text, null,

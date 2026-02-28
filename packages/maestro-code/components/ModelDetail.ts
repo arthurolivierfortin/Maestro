@@ -222,13 +222,10 @@ const ModelDetail = ({ modelId, apiClient, onExit, onQuit, onNavigate }) => {
   );
 
   const modelList = Array.isArray(models) ? models : [];
-  const modelInfo = modelList.find(m => {
-    const name = typeof m === 'string' ? m : (m.id || m.name || m.model_id || '');
-    return name === modelId;
-  });
+  const modelInfo = modelList.find(m => m.modelId === modelId);
 
   // Check if this model is the active one
-  const activeModel = llmHealth?.activeModel || llmHealth?.model || llmHealth?.model_id || '';
+  const activeModel = llmHealth?.activeModel || '';
   const isActive = activeModel === modelId;
   const statusLabel = isActive ? 'active' : 'available';
   const statusCol = isActive ? theme.status.success : theme.status.pending;

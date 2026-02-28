@@ -226,7 +226,7 @@ const SpacesScreen = ({ apiClient, onNavigate, onSessionSelect, onWorkspaceSelec
   const [statusFilter, setStatusFilter] = useState(initialState?.statusFilter ?? 'all');
 
   // Terminal rows for scroll calculation
-  // NavBar(3) + TabHeader(3) + PanelBorder(2) + title(1) + spacer(1) + headerLines(2) = 12 fixed
+  // NavBar(3) + TabHeader(3) + PanelBorder(2) + title(1) + spacer(1) + headerLines(2) + StatusBar(3) = 15 fixed
   const termRows = stdout.rows || 40;
   const visibleItems = Math.max(3, termRows - 15);
 

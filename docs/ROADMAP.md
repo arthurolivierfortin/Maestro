@@ -53,6 +53,40 @@
 
 ---
 
+### Phase 44-B : Stabilisation critique
+
+**But** : Corriger les bugs bloquants, les failles de securite, et implementer la conversation persistante.
+
+| Sous-phase | Objectif | Effort |
+|------------|----------|--------|
+| 44-B-A | Securite : path traversal + shell injection | 0.5 jour |
+| 44-B-B | Data integrity : BlocksController.Update + WorkspacesController persist | 0.5 jour |
+| 44-B-C | TUI stability : scroll blank + double StatusBar + input bar | 0.5 jour |
+| 44-B-D | SDK contract : Models page field mapping | 0.5 jour |
+| 44-B-E | Conversation persistante (ADR Option B) | 2-3 jours |
+| 44-B-F | Slash commands de base + task cancellation | 1 jour |
+| 44-B-G | Session reuse + working directory indicator | 0.5 jour |
+| 44-B-H | Dogfooding de validation | 0.5 jour |
+
+---
+
+### Phase 44-C : TUI Feature Completion
+
+**But** : Transformer maestro code d'un outil de monitoring en un outil de productivite.
+
+| Sous-phase | Objectif | Effort |
+|------------|----------|--------|
+| 44-C-A | Differencier Foundry vs Catalog | 1 jour |
+| 44-C-B | Block creation depuis Foundry | 1 jour |
+| 44-C-C | Help overlay sur toutes les pages | 0.5 jour |
+| 44-C-D | Context/token usage display | 0.5 jour |
+| 44-C-E | Error display + retry | 0.5 jour |
+| 44-C-F | Git status integration | 0.5 jour |
+| 44-C-G | Dead code cleanup | 0.5 jour |
+| 44-C-H | Dogfooding final V1-ready | 0.5 jour |
+
+---
+
 ### Phase 45 : Premiere version distribuable
 
 **But** : Maestro installable et utilisable par quelqu'un d'autre.
@@ -101,9 +135,11 @@
                          └→ 42 Restructuration maestro-code (DONE)
                              └→ 43 Visual Gate (DONE)
                                  └→ 44 Dogfooding Cantante + Jarvis (DONE)
-                                     └→ 45 Distribution (A FAIRE)
-                                         └→ 46 Cantante v1 (premiere app Maestro publique)
-                                             └→ 47+ Catalogue, Auth, Fitness Engine...
+                                     └→ 44-B Stabilisation critique (A FAIRE)
+                                         └→ 44-C TUI Feature Completion (A FAIRE)
+                                             └→ 45 Distribution (A FAIRE)
+                                                 └→ 46 Cantante v1 (premiere app Maestro publique)
+                                                     └→ 47+ Catalogue, Auth, Fitness Engine...
 ```
 
 ## Features planifiees (TODOS)
@@ -111,7 +147,9 @@
 | Feature | Phase cible | Document |
 |---------|-------------|----------|
 | Visual Gate (PTY capture) | 43 | `docs/phases/PHASE-43/README.md` (DONE) |
-| Dogfooding Cantante + Jarvis | 44 | `docs/phases/PHASE-44/README.md` |
+| Dogfooding Cantante + Jarvis | 44 | `docs/phases/PHASE-44/README.md` (DONE) |
+| Stabilisation critique (securite, conversation, slash commands) | 44-B | `docs/phases/PHASE-44-B/README.md` |
+| TUI Feature Completion (Foundry CRUD, help, tokens, git, errors) | 44-C | `docs/phases/PHASE-44-C/README.md` |
 | Distribution / packaging | 45 | A creer |
 | Cantante v1 | 46 | A creer |
 | Catalogue communautaire | 47 | Futur |
