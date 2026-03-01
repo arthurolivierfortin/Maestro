@@ -110,10 +110,12 @@ function mapDemoSessions() {
 
 function mapDemoModels() {
   return DEMO_MODELS.map(m => ({
-    id: m.id,
+    modelId: m.id,
     name: m.name,
     size: m.provider === 'Local' ? '7B' : undefined,
-    loaded: m.status === 'available',
+    category: m.provider === 'Local' ? 'local' : 'cloud',
+    isLocal: m.provider === 'Local',
+    recommended: m.status === 'available',
   }));
 }
 
@@ -186,10 +188,12 @@ class DemoApiClient {
   async getLLMHealth() {
     return {
       status: 'healthy',
-      model: 'claude-sonnet-4-6',
+      activeModel: 'claude-sonnet-4-6',
       backend: 'Anthropic API',
       device: 'cloud',
       gpuMemory: 'N/A',
+      modelsLoaded: 1,
+      cudaAvailable: false,
     };
   }
 

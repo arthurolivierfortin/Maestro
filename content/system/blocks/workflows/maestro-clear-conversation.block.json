@@ -1,0 +1,45 @@
+{
+  "id": "maestro-clear-conversation",
+  "name": "Clear Conversation",
+  "blockType": "workflow",
+  "version": "1.0.0",
+  "isAtomic": false,
+  "description": "Cleans up the current conversation and creates a fresh one.",
+  "metadata": {
+    "designation": "internal",
+    "category": "infrastructure",
+    "author": "maestro"
+  },
+  "config": {
+    "nodes": [
+      {
+        "id": "cleanup-old",
+        "type": "conditional",
+        "condition": "{{_activeConversation}} != null",
+        "then": {
+          "nodes": [
+            {
+              "id": "do-cleanup",
+              "blockRef": "conversation",
+              "inputs": {
+                "operation": "cleanup",
+                "conversationId": "{{_activeConversation}}"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "id": "create-conversation",
+        "blockRef": "conversation",
+        "inputs": { "operation": "create" }
+      },
+      {
+        "id": "set-active",
+        "type": "set-variable",
+        "variable": "_activeConversation",
+        "value": "{{_nodeResult_create-conversation}}"
+      }
+    ]
+  }
+}

@@ -1,0 +1,74 @@
+{
+  "id": "maestro-assistant-workflow",
+  "name": "Maestro Assistant Workflow",
+  "blockType": "workflow",
+  "version": "1.0.0",
+  "isAtomic": false,
+  "description": "Wraps maestro-assistant agent with conversation persistence. Ensures a conversation exists, saves user message, loads history, executes agent with context, saves response.",
+  "metadata": {
+    "designation": "internal",
+    "category": "infrastructure",
+    "author": "maestro"
+  },
+  "config": {
+    "nodes": [
+      {
+        "id": "ensure-conversation",
+        "type": "conditional",
+        "condition": "{{_activeConversation}} != null",
+        "else": {
+          "nodes": [
+            {
+              "id": "create-initial-conversation",
+              "blockRef": "conversation",
+              "inputs": { "operation": "create" }
+            },
+            {
+              "id": "set-active-conversation",
+              "type": "set-variable",
+              "variable": "_activeConversation",
+              "value": "{{_nodeResult_create-initial-conversation}}"
+            }
+          ]
+        }
+      },
+      {
+        "id": "save-user-message",
+        "blockRef": "conversation",
+        "inputs": {
+          "operation": "add-message",
+          "conversationId": "{{_activeConversation}}",
+          "role": "user",
+          "content": "{{message}}"
+        }
+      },
+      {
+        "id": "load-history",
+        "blockRef": "conversation",
+        "inputs": {
+          "operation": "get-messages",
+          "conversationId": "{{_activeConversation}}"
+        }
+      },
+      {
+        "id": "execute-agent",
+        "blockRef": "system:maestro-assistant",
+        "inputs": {
+          "message": "{{message}}",
+          "repoPath": "{{repoPath}}",
+          "conversationHistory": "{{_nodeResult_load-history}}"
+        }
+      },
+      {
+        "id": "save-assistant-response",
+        "blockRef": "conversation",
+        "inputs": {
+          "operation": "add-message",
+          "conversationId": "{{_activeConversation}}",
+          "role": "assistant",
+          "content": "{{_nodeResult_execute-agent}}"
+        }
+      }
+    ]
+  }
+}

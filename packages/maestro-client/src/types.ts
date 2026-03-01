@@ -169,6 +169,12 @@ export interface SessionTemplate {
 // ── LLM Provider ─────────────────────────────────────────────
 
 export interface LLMHealthResponse {
+  status?: string;
+  activeModel?: string | null;
+  modelsLoaded?: number;
+  device?: string;
+  cudaAvailable?: boolean;
+  cudaDeviceName?: string | null;
   [key: string]: unknown;
 }
 

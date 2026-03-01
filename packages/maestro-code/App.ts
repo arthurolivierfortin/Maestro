@@ -252,10 +252,24 @@ const App = ({ apiClient: clientProp, sessionManager: smProp, demoMode, repoPath
   const [inputFocused, setInputFocused] = useState(false);
   const completedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // ── Input focus management ──
+  // ── Refs for Ctrl+C handler (assigned after handleCancel is defined below) ──
+  const busyRef = useRef(busy);
+  busyRef.current = busy;
+  const handleCancelRef = useRef<(() => void) | null>(null);
+
+  // ── Input focus management + Ctrl+C interception ──
   // Slash-to-focus model: '/' activates input bar, Escape returns to navigation.
-  // This runs alongside page hooks; it only toggles the isActive flags.
+  // Ctrl+C when busy → cancel task; Ctrl+C when idle → quit.
   useInput((input, key) => {
+    // Ctrl+C: cancel task if busy, otherwise quit
+    if (input === 'c' && key.ctrl) {
+      if (busyRef.current && handleCancelRef.current) {
+        handleCancelRef.current();
+      } else {
+        handleQuit();
+      }
+      return;
+    }
     if (!inputFocused && input === '/') {
       setInputFocused(true);
       return;
@@ -371,6 +385,64 @@ const App = ({ apiClient: clientProp, sessionManager: smProp, demoMode, repoPath
     setRestoredState(null);
   }, []);
 
+  // ── Cancel current task ──
+  const handleCancel = useCallback(() => {
+    if (!busy || !sessionManager) return;
+    sessionManager.cancelTask(addLine, setBusy);
+    if (completedTimerRef.current) {
+      clearTimeout(completedTimerRef.current);
+      completedTimerRef.current = null;
+    }
+    setAgentState('idle');
+  }, [busy, sessionManager, addLine]);
+  handleCancelRef.current = handleCancel;
+
+  // ── Slash command dispatch ──
+  const slashCommands: Record<string, () => void> = useMemo(() => ({
+    '/quit': () => handleQuit(),
+    '/q': () => handleQuit(),
+    '/stop': () => handleCancel(),
+    '/help': () => {
+      addLine({ text: '' });
+      addLine({ text: 'Available commands:', color: 'cyan', bold: true, timestamp: ts() });
+      addLine({ text: '  /help    — Show this help message', color: 'white' });
+      addLine({ text: '  /new     — Start a new conversation (keeps history)', color: 'white' });
+      addLine({ text: '  /clear   — Clear conversation and start fresh', color: 'white' });
+      addLine({ text: '  /stop    — Cancel the current task', color: 'white' });
+      addLine({ text: '  /quit    — Quit Maestro Code', color: 'white' });
+      addLine({ text: '' });
+      addLine({ text: 'Keyboard:', color: 'cyan', bold: true });
+      addLine({ text: '  /        — Focus input bar', color: 'white' });
+      addLine({ text: '  Escape   — Return to navigation', color: 'white' });
+      addLine({ text: '  Ctrl+C   — Cancel task (when busy) or quit', color: 'white' });
+      addLine({ text: '' });
+    },
+    '/new': () => {
+      if (!sessionManager) return;
+      addLine({ text: '' });
+      addLine({ text: 'Starting new conversation...', color: 'cyan', timestamp: ts() });
+      sessionManager.invokeEntryPoint('new-conversation', addLine).then(() => {
+        setLines([
+          { text: 'Maestro Code', color: 'cyan', bold: true },
+          { text: 'New conversation started.', color: 'green' },
+          { text: '' },
+        ]);
+      });
+    },
+    '/clear': () => {
+      if (!sessionManager) return;
+      addLine({ text: '' });
+      addLine({ text: 'Clearing conversation...', color: 'cyan', timestamp: ts() });
+      sessionManager.invokeEntryPoint('clear-conversation', addLine).then(() => {
+        setLines([
+          { text: 'Maestro Code', color: 'cyan', bold: true },
+          { text: 'Conversation cleared.', color: 'green' },
+          { text: '' },
+        ]);
+      });
+    },
+  }), [handleQuit, handleCancel, addLine, sessionManager]);
+
   // ── Handle task submit ──
   const handleSubmit = useCallback((input: string) => {
     const trimmed = input.trim().toLowerCase();
@@ -378,8 +450,9 @@ const App = ({ apiClient: clientProp, sessionManager: smProp, demoMode, repoPath
     // Return to navigation mode after submitting
     setInputFocused(false);
 
-    // Slash commands
-    if (trimmed === '/quit' || trimmed === '/q') { handleQuit(); return; }
+    // Slash commands — dispatch via map
+    const cmd = slashCommands[trimmed];
+    if (cmd) { cmd(); return; }
 
     // Push to input history
     history.push(input);
@@ -432,7 +505,7 @@ const App = ({ apiClient: clientProp, sessionManager: smProp, demoMode, repoPath
         }
       });
     }
-  }, [addLine, sessionManager, busy, pendingInteractive, history, handleQuit]);
+  }, [addLine, sessionManager, busy, pendingInteractive, history, slashCommands]);
 
   // ── Auto-start demo session ──
   const autoStarted = useRef(false);
@@ -483,9 +556,9 @@ const App = ({ apiClient: clientProp, sessionManager: smProp, demoMode, repoPath
         detailComponent = h(SessionMonitor, { sessionId: detailView.id, apiClient, onExit: handleBack, onQuit: handleQuit, onNavigate: handleNavigate });
     }
 
+    // Detail components render their own StatusBar — no global one here
     return h(FullscreenBox, null,
       detailComponent,
-      h(StatusBar, { currentPage: 'session', isDetailView: true, connectionStatus, latency: connLatency, lastRefresh }),
     );
   }
 
@@ -512,6 +585,7 @@ const App = ({ apiClient: clientProp, sessionManager: smProp, demoMode, repoPath
         busy,
         keyboardActive: !inputFocused,
         lastOutput: sessionManager?.getLastOutput() || null,
+        repoPath: sessionManager?.getRepoPath() || repoPath || null,
       });
       break;
     case 'spaces':
@@ -568,7 +642,7 @@ async function startInteractive(options: InteractiveOptions = {}): Promise<void>
     ? h(NoBackendScreen)
     : h(App, { apiClient, sessionManager, demoMode, repoPath: options.repoPath, noBell });
 
-  const instance = render(rootComponent, { exitOnCtrlC: true });
+  const instance = render(rootComponent, { exitOnCtrlC: false });
 
   try {
     await instance.waitUntilExit();

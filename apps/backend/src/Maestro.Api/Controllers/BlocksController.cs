@@ -163,31 +163,35 @@ namespace Maestro.Api.Controllers
             if (existing == null) 
                 return NotFound(new { error = $"Block '{id}' not found" });
 
-            // Update properties
+            // Update name in-place (preserves all existing state)
             if (!string.IsNullOrEmpty(request.Name))
             {
-                existing = Domain.Entities.BlockDefinition.Create(
-                    existing.Id, 
-                    request.Name, 
-                    existing.BlockType);
+                existing.SetName(request.Name);
             }
-            
-            // Update metadata
+
+            // Update metadata (merge, not replace)
             var metadata = existing.Metadata ?? new Dictionary<string, object>();
             if (!string.IsNullOrEmpty(request.Description))
                 metadata["description"] = request.Description;
             if (request.Tags != null)
                 metadata["tags"] = request.Tags;
-            
+
             existing.UpdateMetadata(metadata);
-            
-            // Update config
+
+            // Merge config (only overwrite keys present in request, preserve existing keys)
             if (request.Config != null)
             {
-                var configDict = JsonSerializer.Deserialize<Dictionary<string, object>>(
+                var newConfigDict = JsonSerializer.Deserialize<Dictionary<string, object>>(
                     request.Config.RootElement.GetRawText());
-                if (configDict != null)
-                    existing.UpdateConfig(configDict);
+                if (newConfigDict != null)
+                {
+                    var existingConfig = existing.Config ?? new Dictionary<string, object>();
+                    foreach (var kvp in newConfigDict)
+                    {
+                        existingConfig[kvp.Key] = kvp.Value;
+                    }
+                    existing.UpdateConfig(existingConfig);
+                }
             }
 
             await _repository.SaveAsync(existing);
@@ -399,7 +403,10 @@ namespace Maestro.Api.Controllers
         {
             var blockPath = await _repository.GetBlockPathAsync(id);
             if (blockPath == null) return NotFound();
-            var full = System.IO.Path.Combine(blockPath, filePath);
+            var full = System.IO.Path.GetFullPath(System.IO.Path.Combine(blockPath, filePath));
+            var basePath = System.IO.Path.GetFullPath(blockPath);
+            if (!full.StartsWith(basePath + System.IO.Path.DirectorySeparatorChar) && full != basePath)
+                return BadRequest(new { error = "Path traversal not allowed" });
             if (!System.IO.File.Exists(full)) return NotFound();
             var txt = await System.IO.File.ReadAllTextAsync(full);
             return Ok(txt);
@@ -413,7 +420,10 @@ namespace Maestro.Api.Controllers
         {
             var blockPath = await _repository.GetBlockPathAsync(id);
             if (blockPath == null) return NotFound();
-            var full = System.IO.Path.Combine(blockPath, filePath);
+            var full = System.IO.Path.GetFullPath(System.IO.Path.Combine(blockPath, filePath));
+            var basePath = System.IO.Path.GetFullPath(blockPath);
+            if (!full.StartsWith(basePath + System.IO.Path.DirectorySeparatorChar) && full != basePath)
+                return BadRequest(new { error = "Path traversal not allowed" });
             var dir = System.IO.Path.GetDirectoryName(full);
             if (!System.IO.Directory.Exists(dir)) System.IO.Directory.CreateDirectory(dir!);
             await System.IO.File.WriteAllTextAsync(full, content);

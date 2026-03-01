@@ -45,7 +45,7 @@ const STATE_DISPLAY = {
 
 // ── Agent Status Panel ────────────────────────────────────────
 
-const AgentStatus = ({ agentState, sessionId, busy, tick = 0, lastOutput = null }) => {
+const AgentStatus = ({ agentState, sessionId, busy, tick = 0, lastOutput = null, repoPath = null }) => {
   const state = STATE_DISPLAY[agentState] || STATE_DISPLAY.idle;
   const shortId = sessionId ? sessionId.substring(0, 8) : null;
 
@@ -56,6 +56,13 @@ const AgentStatus = ({ agentState, sessionId, busy, tick = 0, lastOutput = null 
     ? String(lastOutput).replace(/\n/g, ' ').slice(0, 60) + (String(lastOutput).length > 60 ? '...' : '')
     : null;
 
+  // Truncate repo path — keep last 2 segments if too long
+  let displayPath = repoPath;
+  if (displayPath && displayPath.length > 30) {
+    const parts = displayPath.replace(/\\/g, '/').split('/');
+    displayPath = '.../' + parts.slice(-2).join('/');
+  }
+
   return h(Box, { flexDirection: 'column', paddingLeft: 1 },
     h(Box, { flexDirection: 'row', gap: 3 },
       h(Text, null,
@@ -64,6 +71,9 @@ const AgentStatus = ({ agentState, sessionId, busy, tick = 0, lastOutput = null 
         muted('Agent: '),
         T(state.color, state.label),
       ),
+      displayPath
+        ? h(Text, null, muted(displayPath))
+        : null,
       shortId
         ? h(Text, null,
             muted('Session: '),
@@ -186,6 +196,7 @@ interface AgentScreenProps {
   busy: boolean;
   keyboardActive?: boolean;
   lastOutput?: string | null;
+  repoPath?: string | null;
 }
 
 const AgentScreen = ({
@@ -199,6 +210,7 @@ const AgentScreen = ({
   busy,
   keyboardActive,
   lastOutput = null,
+  repoPath = null,
 }: AgentScreenProps) => {
   const { stdout } = useStdout();
   const [showQuitConfirm, setShowQuitConfirm] = useState(false);
@@ -272,7 +284,7 @@ const AgentScreen = ({
 
     // Agent Status (title + 2 content lines + borders = 6)
     h(Panel, { title: 'AGENT STATUS', height: 6, width: '100%' },
-      h(AgentStatus, { agentState, sessionId, busy, tick, lastOutput }),
+      h(AgentStatus, { agentState, sessionId, busy, tick, lastOutput, repoPath }),
     ),
 
     // Main content: Conversation | Actions

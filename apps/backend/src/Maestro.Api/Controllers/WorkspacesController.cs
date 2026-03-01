@@ -404,6 +404,7 @@ public class WorkspacesController : ControllerBase
             }
 
             workspace.UpdatePermissions(request.ToDomain());
+            await _workspaceService.UpdateWorkspaceAsync(id, ct: ct);
             _logger.LogInformation("Updated permissions for workspace {Id}", id);
             return Ok(WorkspaceDto.FromDomain(workspace));
         }
@@ -479,6 +480,7 @@ public class WorkspacesController : ControllerBase
             }
 
             workspace.SetSessionTemplate(templateType, template.ToDomain());
+            await _workspaceService.UpdateWorkspaceAsync(id, ct: ct);
             _logger.LogInformation("Set session template '{Template}' for workspace {Id}", templateType, id);
             return Ok(WorkspaceDto.FromDomain(workspace));
         }
@@ -507,6 +509,7 @@ public class WorkspacesController : ControllerBase
             }
 
             workspace.RemoveSessionTemplate(templateType);
+            await _workspaceService.UpdateWorkspaceAsync(id, ct: ct);
             _logger.LogInformation("Removed session template '{Template}' from workspace {Id}", templateType, id);
             return Ok(WorkspaceDto.FromDomain(workspace));
         }
@@ -555,6 +558,7 @@ public class WorkspacesController : ControllerBase
             }
 
             workspace.SetEntryPoint(name, request.BlockId);
+            await _workspaceService.UpdateWorkspaceAsync(id, ct: ct);
             _logger.LogInformation("Set entry point '{Name}' to block '{BlockId}' for workspace {Id}",
                 name, request.BlockId, id);
             return Ok(WorkspaceDto.FromDomain(workspace));
@@ -584,6 +588,7 @@ public class WorkspacesController : ControllerBase
             }
 
             workspace.RemoveEntryPoint(name);
+            await _workspaceService.UpdateWorkspaceAsync(id, ct: ct);
             _logger.LogInformation("Removed entry point '{Name}' from workspace {Id}", name, id);
             return Ok(WorkspaceDto.FromDomain(workspace));
         }

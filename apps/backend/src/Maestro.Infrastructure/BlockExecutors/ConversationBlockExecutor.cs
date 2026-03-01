@@ -79,6 +79,8 @@ public class ConversationBlockExecutor : IBlockExecutor
         var systemPrompt = GetString(inputs, "systemPrompt", null);
         var conversationId = _conversationManager.CreateConversation(systemPrompt);
 
+        // "response" key is preferred by ExecuteBlockRefAsync, making _nodeResult_ = conversationId
+        result.Outputs["response"] = conversationId;
         result.Outputs["conversationId"] = conversationId;
         result.Outputs["state"] = SerializeState(_conversationManager.GetState(conversationId));
         result.Success = true;
@@ -128,8 +130,11 @@ public class ConversationBlockExecutor : IBlockExecutor
 
         var messages = _conversationManager.GetMessages(conversationId);
 
+        // Serialize messages as JSON for workflow template consumption.
+        // "response" key is preferred by ExecuteBlockRefAsync, so _nodeResult_ = serialized messages.
+        var serialized = JsonSerializer.Serialize(messages, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
+        result.Outputs["response"] = serialized;
         result.Outputs["conversationId"] = conversationId;
-        result.Outputs["messages"] = messages;
         result.Outputs["messageCount"] = messages.Count;
         result.Success = true;
     }

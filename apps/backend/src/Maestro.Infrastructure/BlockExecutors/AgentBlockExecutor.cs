@@ -82,6 +82,34 @@ public class AgentBlockExecutor : IBlockExecutor
 
         // 3. Build conversation via IConversationManager
         var conversationId = _conversationManager.CreateConversation(systemPrompt);
+
+        // Seed conversation with history if provided (from workflow conversation block)
+        if (inputs.TryGetValue("conversationHistory", out var historyObj) && historyObj != null)
+        {
+            var historyJson = historyObj.ToString();
+            if (!string.IsNullOrEmpty(historyJson) && historyJson != "null" && historyJson != "[]")
+            {
+                try
+                {
+                    var historyMessages = JsonSerializer.Deserialize<List<ChatMessage>>(historyJson,
+                        new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                    if (historyMessages != null)
+                    {
+                        // Skip system messages (already set via CreateConversation), add user/assistant history
+                        foreach (var msg in historyMessages.Where(m => m.Role != "system"))
+                        {
+                            _conversationManager.AddMessage(conversationId, msg.Role, msg.Content);
+                        }
+                        result.Logs.Add($"Seeded conversation with {historyMessages.Count(m => m.Role != "system")} history messages");
+                    }
+                }
+                catch (JsonException ex)
+                {
+                    result.Logs.Add($"Could not deserialize conversationHistory: {ex.Message}");
+                }
+            }
+        }
+
         var userContent = BuildUserMessage(inputs, block);
         _conversationManager.AddMessage(conversationId, "user", userContent);
 

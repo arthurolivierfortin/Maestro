@@ -1,0 +1,28 @@
+{
+  "id": "maestro-new-conversation",
+  "name": "New Conversation",
+  "blockType": "workflow",
+  "version": "1.0.0",
+  "isAtomic": false,
+  "description": "Creates a new conversation and sets it as active. Old conversation remains in memory.",
+  "metadata": {
+    "designation": "internal",
+    "category": "infrastructure",
+    "author": "maestro"
+  },
+  "config": {
+    "nodes": [
+      {
+        "id": "create-conversation",
+        "blockRef": "conversation",
+        "inputs": { "operation": "create" }
+      },
+      {
+        "id": "set-active",
+        "type": "set-variable",
+        "variable": "_activeConversation",
+        "value": "{{_nodeResult_create-conversation}}"
+      }
+    ]
+  }
+}

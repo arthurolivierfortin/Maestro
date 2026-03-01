@@ -117,7 +117,30 @@ public class ToolBlockExecutor : IBlockExecutor
         // If a scriptFile is provided, try to resolve it relative to the block's source directory
         if (!string.IsNullOrEmpty(scriptFile) && !string.IsNullOrEmpty(blockSourceDir))
         {
+            // Validate scriptFile: reject path traversal and absolute paths
+            if (scriptFile.Contains("..") || Path.IsPathRooted(scriptFile))
+            {
+                logs.Add($"Rejected script file path (path traversal or absolute): {scriptFile}");
+                return new BlockExecutionResult
+                {
+                    Outputs = new Dictionary<string, object> { ["error"] = "Invalid script file path: must be relative without path traversal" },
+                    Success = false,
+                    DurationMs = sw.ElapsedMilliseconds
+                };
+            }
             var candidate = Path.Combine(blockSourceDir, scriptFile);
+            var candidateFull = Path.GetFullPath(candidate);
+            var baseFull = Path.GetFullPath(blockSourceDir);
+            if (!candidateFull.StartsWith(baseFull + Path.DirectorySeparatorChar) && candidateFull != baseFull)
+            {
+                logs.Add($"Rejected script file path (outside block directory): {scriptFile}");
+                return new BlockExecutionResult
+                {
+                    Outputs = new Dictionary<string, object> { ["error"] = "Script file path escapes block directory" },
+                    Success = false,
+                    DurationMs = sw.ElapsedMilliseconds
+                };
+            }
             if (File.Exists(candidate)) script = candidate;
         }
 
@@ -230,10 +253,23 @@ public class ToolBlockExecutor : IBlockExecutor
                     logs.Add($"Executing shell command: {shellCmd}");
                     logs.Add($"Working directory: {workingDir}");
 
+                    // Sanitize shell command: escape quotes to prevent injection
+                    string sanitizedArgs;
+                    if (OperatingSystem.IsWindows())
+                    {
+                        // On Windows cmd.exe: wrap in quotes, escape inner quotes
+                        sanitizedArgs = $"/c \"{shellCmd.Replace("\"", "\\\"")}\"";
+                    }
+                    else
+                    {
+                        // On Unix bash: use single quotes (strongest quoting), escape embedded single quotes
+                        sanitizedArgs = $"-c '{shellCmd.Replace("'", "'\\''")}'";
+                    }
+
                     var shellPsi = new ProcessStartInfo
                     {
                         FileName = OperatingSystem.IsWindows() ? "cmd.exe" : "/bin/bash",
-                        Arguments = OperatingSystem.IsWindows() ? $"/c {shellCmd}" : $"-c \"{shellCmd}\"",
+                        Arguments = sanitizedArgs,
                         RedirectStandardOutput = true,
                         RedirectStandardError = true,
                         WorkingDirectory = workingDir,
@@ -655,6 +691,22 @@ public class ToolBlockExecutor : IBlockExecutor
             }
 
             filePath = Path.GetFullPath(filePath);
+
+            // Validate that resolved path stays within working directory (prevent path traversal)
+            if (!string.IsNullOrEmpty(workingDir))
+            {
+                var baseDir = Path.GetFullPath(workingDir);
+                if (!filePath.StartsWith(baseDir + Path.DirectorySeparatorChar) && filePath != baseDir)
+                {
+                    logs.Add($"Rejected file path (path traversal outside working directory): {filePath}");
+                    return new BlockExecutionResult
+                    {
+                        Outputs = new Dictionary<string, object> { ["error"] = "File path escapes working directory" },
+                        Success = false,
+                        DurationMs = sw.ElapsedMilliseconds
+                    };
+                }
+            }
 
             switch (operation.ToLowerInvariant())
             {

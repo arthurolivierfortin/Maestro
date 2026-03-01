@@ -8,7 +8,7 @@
  * Extracted from InputPrompt in the original App.ts.
  */
 
-import { createElement as h, useState, useRef } from 'react';
+import { createElement as h, useState, useRef, useEffect } from 'react';
 import { Box, Text, useInput } from 'ink';
 
 export interface TaskInputBarProps {
@@ -25,6 +25,16 @@ const TaskInputBar = ({ onSubmit, disabled, placeholder, onUpArrow, onDownArrow,
   const [cursor, setCursor] = useState(0);
   const valueRef = useRef('');
   const cursorRef = useRef(0);
+
+  // Clear value when input loses focus (Escape)
+  useEffect(() => {
+    if (!captureInput) {
+      setValue('');
+      setCursor(0);
+      valueRef.current = '';
+      cursorRef.current = 0;
+    }
+  }, [captureInput]);
 
   useInput((input, key) => {
     if (disabled) return;

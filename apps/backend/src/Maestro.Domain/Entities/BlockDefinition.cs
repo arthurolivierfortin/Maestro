@@ -107,6 +107,12 @@ namespace Maestro.Domain.Entities
             IsAtomic = isAtomic;
         }
 
+        public void SetName(string name)
+        {
+            if (string.IsNullOrWhiteSpace(name)) throw new ArgumentException("name");
+            Name = name;
+        }
+
         public void SetDescription(string description)
         {
             Description = description ?? string.Empty;

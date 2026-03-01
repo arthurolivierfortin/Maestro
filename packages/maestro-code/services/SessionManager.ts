@@ -12,6 +12,7 @@
  */
 
 import * as nodePath from 'path';
+import * as fs from 'fs/promises';
 
 // ── Types ──────────────────────────────────────────────────────
 
@@ -76,16 +77,40 @@ class SessionManager {
   /**
    * Ensure the persistent session exists. Called once on the first message.
    * Subsequent calls are no-ops.
+   *
+   * Tries to reuse a session from `.maestro/session.json` in the repo path.
+   * If the file exists and the session is valid on the backend, reuses it.
+   * Otherwise creates a new session and writes the file.
    */
   private async ensureSession(addLine: (line: LogLine) => void): Promise<void> {
     if (this.sessionReady) return;
 
+    const sessionFile = nodePath.join(this.repoPath, '.maestro', 'session.json');
+
+    // Try to reuse existing session
+    try {
+      const data = await fs.readFile(sessionFile, 'utf-8');
+      const saved = JSON.parse(data);
+      if (saved.sessionId) {
+        // Verify the session exists on the backend
+        const existing = await this.client.getSession(saved.sessionId);
+        if (existing && existing.id) {
+          this.sessionId = existing.id;
+          this.sessionReady = true;
+          addLine({ text: `Reusing session: ${existing.id.slice(0, 8)}`, color: 'gray', timestamp: ts() });
+          return;
+        }
+      }
+    } catch {
+      // File doesn't exist or session not found — create a new one
+    }
+
+    // Create new session
     addLine({ text: 'Creating session...', color: 'gray', dim: true, timestamp: ts() });
-    const path = nodePath;
     const session = await this.client.createSession({
       repositoryPath: this.repoPath,
       authority: 'human',
-      name: `${path.basename(this.repoPath)} — Assistant`,
+      name: `${nodePath.basename(this.repoPath)} — Assistant`,
     });
     this.sessionId = session.id;
     addLine({ text: `Session: ${session.id.slice(0, 8)}`, color: 'gray', timestamp: ts() });
@@ -96,7 +121,23 @@ class SessionManager {
     await this.client.startSession(this.sessionId);
     addLine({ text: 'Session started', color: 'gray', timestamp: ts() });
 
+    // Persist session ID to .maestro/session.json
+    try {
+      await fs.mkdir(nodePath.join(this.repoPath, '.maestro'), { recursive: true });
+      await fs.writeFile(sessionFile, JSON.stringify({
+        sessionId: this.sessionId,
+        createdAt: new Date().toISOString(),
+        template: this.template,
+      }, null, 2));
+    } catch {
+      // Non-fatal — session still works without persistence
+    }
+
     this.sessionReady = true;
+  }
+
+  getRepoPath(): string {
+    return this.repoPath;
   }
 
   async submitTask(
@@ -369,6 +410,44 @@ class SessionManager {
       clearInterval(this.widgetPollTimer);
       this.widgetPollTimer = null;
     }
+  }
+
+  /**
+   * Invoke a named entry point on the current session (e.g. 'new-conversation', 'clear-conversation').
+   * No-op if no session exists yet.
+   */
+  async invokeEntryPoint(
+    name: string,
+    addLine: (line: LogLine) => void,
+    inputs?: Record<string, string>,
+  ): Promise<void> {
+    if (!this.sessionId || !this.sessionReady) {
+      addLine({ text: 'No active session.', color: 'yellow', timestamp: ts() });
+      return;
+    }
+
+    try {
+      addLine({ text: `Invoking: ${name}`, color: 'cyan', dim: true, timestamp: ts() });
+      await this.client._fetch('POST', `/api/sessions/${this.sessionId}/invoke/${name}`, {
+        body: { inputs: inputs || {} }
+      });
+      addLine({ text: `Done: ${name}`, color: 'green', timestamp: ts() });
+    } catch (err: any) {
+      addLine({ text: `Error: ${err.message || err}`, color: 'red', timestamp: ts() });
+    }
+  }
+
+  /**
+   * Cancel the current task — stop polling and reset local state.
+   */
+  cancelTask(
+    addLine: (line: LogLine) => void,
+    setBusy: (b: boolean) => void,
+  ): void {
+    this.stopPolling();
+    addLine({ text: 'Task cancelled.', color: 'yellow', bold: true, timestamp: ts() });
+    addLine({ text: '' });
+    setBusy(false);
   }
 
   getSessionId(): string | null {

@@ -72,7 +72,7 @@ describe('DemoApiClient', () => {
     const client = new DemoApiClient();
     const health = await client.getLLMHealth();
     expect(health.status).toBe('healthy');
-    expect(health).toHaveProperty('model');
+    expect(health).toHaveProperty('activeModel');
   });
 
   it('listLLMModels returns 6 models', async () => {
@@ -80,9 +80,9 @@ describe('DemoApiClient', () => {
     const models = await client.listLLMModels();
     expect(models).toHaveLength(6);
     for (const m of models) {
-      expect(m).toHaveProperty('id');
+      expect(m).toHaveProperty('modelId');
       expect(m).toHaveProperty('name');
-      expect(m).toHaveProperty('loaded');
+      expect(m).toHaveProperty('category');
     }
   });
 

@@ -25,6 +25,7 @@ import {
 import { useApiData } from '@maestro/tui/hooks';
 import { useActionKeyboard } from '../hooks/useKeyboard.ts';
 import { Panel } from './Panel.ts';
+import { StatusBar } from './StatusBar.ts';
 
 // ── Info panel content ───────────────────────────────────────
 
@@ -346,6 +347,14 @@ const BlockDetail = ({ blockId, apiClient, onExit, onQuit, onNavigate, onSession
       ),
     ),
 
+    // Status bar
+    h(StatusBar, {
+      connectionStatus,
+      latency,
+      lastRefresh,
+      currentPage: 'catalog',
+      isDetailView: true,
+    }),
   );
 };
 

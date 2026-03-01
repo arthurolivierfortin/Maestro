@@ -16,10 +16,14 @@
     "canAccessNetwork": false
   },
   "entryPoints": {
-    "message": "system:maestro-assistant"
+    "message": "maestro-assistant-workflow",
+    "new-conversation": "maestro-new-conversation",
+    "clear-conversation": "maestro-clear-conversation"
   },
   "variables": {
     "sessionMode": "assistant",
+    "_activeConversation": null,
+    "_conversations": [],
     "_blockOutputs": {},
     "_llmActivity": [],
     "_executionLog": [],
