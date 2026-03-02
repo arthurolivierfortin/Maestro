@@ -110,7 +110,8 @@
 **Sub-phases A-E** : ALL DONE
 **Sub-phase F** : DONE (first dogfooding: 3.2/5, 6 bugs fixed)
 **Sub-phase F Retest** : DONE — Round 1: 1.1/5 (BUG-1), Round 2: 1.3/5 (BUG-5), **Round 3: 3.5/5 (PASS)**
-**Gate** : **CONDITIONAL PASS** — Score 3.5/5 = seuil atteint. Bugs non-bloquants (BUG-2/3/4) deferred a Phase 45.
+**Post-gate bug fixes** : DONE — BUG-2/3/4 + truncation fixed and verified (Round 4)
+**Gate** : **PASS** — Score 3.5/5, all bugs fixed, all pages functional, agent responses visible.
 **Files modified** :
 - `apps/backend/src/Maestro.Infrastructure/BlockExecutors/AgentBlockExecutor.cs` — conversation persistence (deterministic ID, skip cleanup)
 - `apps/backend/src/Maestro.Application/Interfaces/IConversationManager.cs` — added CreateOrGetConversation
@@ -129,6 +130,28 @@
 - `content/system/templates/sessions/maestro-assistant.session.json` — null → empty string migration
 - `docs/phases/PHASE-45-PREP/dogfood-notes.md` — COMPLETE dogfooding notes with scoring
 **Tests** : 35 backend (Execution.Tests) + 70 maestro-code = 105 all passing
+
+## Post-Gate Bug Fixes (2026-03-02)
+
+Bugs BUG-2, BUG-3, BUG-4, + Truncation fixes applied immediately after gate pass.
+
+| Bug | Fix | Files |
+|-----|-----|-------|
+| BUG-2: /help blank | HelpOverlay as page replacement (removes position:absolute) | `HelpOverlay.ts`, `App.ts` |
+| BUG-3: Spaces blank | Remove duplicate `a` key, `r` toggle filter | `SpacesScreen.ts` |
+| BUG-4: Pages no content | Resolved by BUG-2 fix (HelpOverlay position) | verified via visual gate |
+| Truncation | Removed `.slice(0,20)` and `.slice(0,10)` limits | `SessionManager.ts` |
+
+**Verification Round 4** : All pages verified via TuiDriver PTY
+- Spaces: 40 lines, 5 sessions with status/fitness/duration
+- Home: SYSTEM STATUS + ACTIVE SESSIONS + QUICK ACTIONS
+- Foundry: MY BLOCKS — 12 blocks by type
+- Catalog: BLOCK CATALOG — 12 blocks with fitness scores
+- Models: MODEL STATUS + 6 available models (cloud/local)
+- /help: 33 lines in real mode (full keyboard shortcuts + commands)
+- BUG-5: Still fixed (Agent: prefix, no metadata, real content)
+
+**Tests** : 70/70 maestro-code (tsc + vitest + visual gate + real-demo-check)
 
 ---
 
@@ -232,8 +255,30 @@ Backend excellent (~4.2/5). UX inutilisable (1.3/5). Corriger BUG-5 puis re-dogf
 
 Le gate est atteint. L'agent est fonctionnel : repond visiblement, confirme avant d'agir, connait Maestro.
 Bugs ouverts non-bloquants : BUG-2 (/help blanc), BUG-3 (Spaces blanc), BUG-4 (pages sans contenu).
-Ces bugs sont deferred au backlog Phase 45.
+Ces bugs ont ete fixes immediatement apres (voir section ci-dessous).
 
 ### Notes
 
 `docs/phases/PHASE-45-PREP/dogfood-notes-retest.md` — rapport complet (700+ lignes, 3 rounds)
+
+---
+
+## Post-Gate Bug Fixes (2026-03-02)
+
+Bugs BUG-2, BUG-3, BUG-4, + Response Truncation fixes applied immediately after gate pass.
+
+| Bug | Root Cause | Fix |
+|-----|-----------|-----|
+| BUG-2: `/help` blank | `HelpOverlay.ts` used `position: 'absolute'` which doesn't overlay in Ink terminal | Rendered HelpOverlay as page replacement (when `showHelp=true`, replaces `pageComponent` in switch); removed `position: 'absolute'` + `height: '100%'`, added `flexGrow: 1` |
+| BUG-3: Spaces blank | `SpacesScreen.ts` duplicate `a` key — navigation spread overrides `a: setStatusFilter('all')` | Removed dead filter `a`, made `r` toggle between all/running, updated StatusFilter UI to single `[r]` toggle |
+| BUG-4: Other pages Agent layout | Symptom of BUG-2 — HelpOverlay absolute positioning consumed layout space on all pages | Resolved by BUG-2 fix (verified by visual gate test: all 6 pages render correctly) |
+| Truncation: 20-line cap | `SessionManager.ts` `.slice(0, 20)` + `.slice(0, 10)` hardcoded limits | Removed both limits; ConversationLog already handles scrolling |
+
+**Files modified** :
+- `packages/maestro-code/components/HelpOverlay.ts` — remove position:absolute, flexGrow:1, update spaces shortcut
+- `packages/maestro-code/App.ts` — HelpOverlay as page replacement; hide TaskInputBar when showHelp
+- `packages/maestro-code/components/SpacesScreen.ts` — remove dead `a` filter, `r` toggle, updated StatusFilter
+- `packages/maestro-code/services/SessionManager.ts` — removed `.slice(0,20)` and `.slice(0,10)` truncation
+- `packages/maestro-code/tests/visual-gate.test.ts` — updated Spaces filter assertion to match new `[r]` display
+
+**Tests** : 70/70 maestro-code passants (tsc + vitest + visual gate + real-demo-check)

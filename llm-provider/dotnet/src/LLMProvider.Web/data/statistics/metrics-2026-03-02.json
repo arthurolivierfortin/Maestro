@@ -1,5 +1,5 @@
 {
-  "totalRequests": 61,
+  "totalRequests": 73,
   "latency": {
     "p50": 0,
     "p95": 0,
@@ -7,28 +7,28 @@
     "average": 0
   },
   "totalTokens": {
-    "promptTokens": 183,
-    "completionTokens": 22771,
-    "totalTokens": 22954
+    "promptTokens": 219,
+    "completionTokens": 38257,
+    "totalTokens": 38476
   },
   "modelStats": [
     {
       "modelId": {
         "value": "sonnet"
       },
-      "requestCount": 61,
+      "requestCount": 73,
       "latency": {
-        "p50": 8611,
-        "p95": 24482,
-        "p99": 59656.59999999995,
-        "average": 11931.737704918032
+        "p50": 8774,
+        "p95": 33607.399999999936,
+        "p99": 88267.00000000003,
+        "average": 13369.328767123288
       },
       "totalTokens": {
-        "promptTokens": 183,
-        "completionTokens": 22771,
-        "totalTokens": 22954
+        "promptTokens": 219,
+        "completionTokens": 38257,
+        "totalTokens": 38476
       },
-      "requestsPerMinute": 0.23724597763450372,
+      "requestsPerMinute": 0.20406403521542038,
       "errorRate": 0
     }
   ],
@@ -58,7 +58,7 @@
         "p99": 0,
         "average": 0
       },
-      "tokensTotal": 22954
+      "tokensTotal": 38476
     },
     {
       "windowName": "5m",
@@ -71,7 +71,7 @@
         "p99": 0,
         "average": 0
       },
-      "tokensTotal": 22954
+      "tokensTotal": 38476
     },
     {
       "windowName": "15m",
@@ -84,8 +84,8 @@
         "p99": 0,
         "average": 0
       },
-      "tokensTotal": 22954
+      "tokensTotal": 38476
     }
   ],
-  "generatedAt": "2026-03-02T21:37:21.0012162+00:00"
+  "generatedAt": "2026-03-02T23:17:21.3245686+00:00"
 }

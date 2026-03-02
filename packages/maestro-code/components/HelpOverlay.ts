@@ -42,7 +42,7 @@ const SHORTCUTS = {
     { key: 'Up/Down',   label: 'Navigate list' },
     { key: 'Enter',     label: 'Open selected' },
     { key: 'd',         label: 'Delete session' },
-    { key: 'a / r',     label: 'Filter: All / Running' },
+    { key: 'r',         label: 'Toggle running filter' },
   ],
   foundry: [
     { key: 'Up/Down', label: 'Navigate blocks' },
@@ -95,12 +95,11 @@ const HelpOverlay = ({ currentPage, onClose }) => {
   const pageName = pageKey.charAt(0).toUpperCase() + pageKey.slice(1);
 
   return h(Box, {
-    position: 'absolute',
     flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
     width: '100%',
-    height: '100%',
+    flexGrow: 1,
   },
     h(Box, {
       flexDirection: 'column',

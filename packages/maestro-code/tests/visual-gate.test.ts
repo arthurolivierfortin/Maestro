@@ -96,7 +96,7 @@ const SPACES_PAGE_ASSERTIONS: StructuralAssertion[] = [
   { label: 'Spaces tab indicator', pattern: /paces/ },
   { label: 'Tab selector', pattern: /Repos.*Workspaces.*Sessions/ },
   { label: 'SESSIONS panel', pattern: 'SESSIONS' },
-  { label: 'Filter controls', pattern: /Filter.*All.*Running|\[a\].*All.*\[r\].*Running/ },
+  { label: 'Filter controls', pattern: /Filter.*\[r\].*(?:All|Running)/ },
   { label: 'Session count', pattern: /5 session/ },
   STATUSBAR_ASSERTION,
   BORDERS_ASSERTION,

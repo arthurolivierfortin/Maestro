@@ -120,6 +120,7 @@ builder.Services.AddSingleton<IMemoryManager>(sp =>
     new FileSystemMemoryManager(
         memoryBasePath,
         sp.GetService<ILogger<FileSystemMemoryManager>>()));
+builder.Services.AddHostedService<Maestro.Api.Configuration.MemoryPreloaderService>();
 builder.Services.AddScoped<Maestro.Application.Interfaces.IBlockExecutor>(sp =>
     new Maestro.Infrastructure.BlockExecutors.MemoryBlockExecutor(
         sp.GetRequiredService<IMemoryManager>()));

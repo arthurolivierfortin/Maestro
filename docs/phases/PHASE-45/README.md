@@ -20,6 +20,7 @@
 
 | Phase | Titre | Effort |
 |-------|-------|--------|
+| 45-0 | Fixes usabilite : context assembly delay, concurrent invocations, response corruption | 0.5 jour |
 | 45-A | Packaging npm + commande globale + sidecar auto-start | 3-4 jours |
 | 45-B | `maestro init` + onboarding premier lancement (provider config) | 2-3 jours |
 | 45-C | Documentation : README, Getting Started, 3 exemples concrets | 2-3 jours |

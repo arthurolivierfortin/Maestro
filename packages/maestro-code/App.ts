@@ -655,50 +655,53 @@ const App = ({ apiClient: clientProp, sessionManager: smProp, demoMode, repoPath
   };
 
   let pageComponent;
-  switch (currentPage) {
-    case 'agent':
-      pageComponent = h(AgentScreen, {
-        ...pageProps,
-        lines,
-        agentState,
-        sessionId: currentSessionId,
-        busy,
-        keyboardActive: !inputFocused,
-        lastOutput: sessionManager?.getLastOutput() || null,
-        repoPath: sessionManager?.getRepoPath() || repoPath || null,
-      });
-      break;
-    case 'spaces':
-      pageComponent = h(SpacesScreen, pageProps);
-      break;
-    case 'foundry':
-      pageComponent = h(FoundryScreen, { ...pageProps, onBlockSelect: handleBlockSelect });
-      break;
-    case 'catalog':
-      pageComponent = h(CatalogScreen, { ...pageProps, onBlockSelect: handleBlockSelect });
-      break;
-    case 'models':
-      pageComponent = h(ModelsScreen, { ...pageProps, onModelSelect: handleModelSelect });
-      break;
-    case 'home':
-    default:
-      pageComponent = h(HomeScreen, pageProps);
-      break;
+  if (showHelp) {
+    pageComponent = h(HelpOverlay, { currentPage, onClose: () => setShowHelp(false) });
+  } else {
+    switch (currentPage) {
+      case 'agent':
+        pageComponent = h(AgentScreen, {
+          ...pageProps,
+          lines,
+          agentState,
+          sessionId: currentSessionId,
+          busy,
+          keyboardActive: !inputFocused,
+          lastOutput: sessionManager?.getLastOutput() || null,
+          repoPath: sessionManager?.getRepoPath() || repoPath || null,
+        });
+        break;
+      case 'spaces':
+        pageComponent = h(SpacesScreen, pageProps);
+        break;
+      case 'foundry':
+        pageComponent = h(FoundryScreen, { ...pageProps, onBlockSelect: handleBlockSelect });
+        break;
+      case 'catalog':
+        pageComponent = h(CatalogScreen, { ...pageProps, onBlockSelect: handleBlockSelect });
+        break;
+      case 'models':
+        pageComponent = h(ModelsScreen, { ...pageProps, onModelSelect: handleModelSelect });
+        break;
+      case 'home':
+      default:
+        pageComponent = h(HomeScreen, pageProps);
+        break;
+    }
   }
 
   return h(FullscreenBox, null,
     pageComponent,
-    currentPage === 'agent'
+    currentPage === 'agent' && !showHelp
       ? h(TaskInputBar, {
           onSubmit: handleSubmit,
-          disabled: false,
+          disabled: busy && !pendingInteractive,
           placeholder: busy ? 'Send a message to the agent...' : 'Describe your task...',
           onUpArrow: history.prev,
           onDownArrow: history.next,
           captureInput: inputFocused,
         })
       : null,
-    showHelp ? h(HelpOverlay, { currentPage, onClose: () => setShowHelp(false) }) : null,
     h(StatusBar, { currentPage, connectionStatus, latency: connLatency, lastRefresh }),
   );
 };

@@ -191,12 +191,9 @@ class SessionManager {
           } catch { /* not JSON */ }
 
           lines.push({ text: 'Agent:', color: 'cyan', bold: true });
-          const outputLines = content.split('\n').slice(0, 10);
+          const outputLines = content.split('\n');
           for (const line of outputLines) {
             lines.push({ text: `  ${line}`, color: 'white' });
-          }
-          if (content.split('\n').length > 10) {
-            lines.push({ text: '  ...', color: 'gray', dim: true });
           }
         }
       }
@@ -435,13 +432,9 @@ class SessionManager {
             this._lastOutput = agentOutput;
             addLine({ text: '' });
             addLine({ text: 'Agent:', color: 'cyan', bold: true, timestamp: ts() });
-            // Split long output into lines, cap at 20 lines for readability
-            const outputLines = String(agentOutput).split('\n').slice(0, 20);
+            const outputLines = String(agentOutput).split('\n');
             for (const line of outputLines) {
               addLine({ text: `  ${line}`, color: 'white' });
-            }
-            if (String(agentOutput).split('\n').length > 20) {
-              addLine({ text: '  ...', color: 'gray', dim: true });
             }
           }
 
@@ -471,6 +464,12 @@ class SessionManager {
 
   async sendMessage(message: string, addLine: (line: LogLine) => void): Promise<void> {
     if (!this.sessionId) return;
+
+    // Guard: reject messages while a task is in progress (poll timer active)
+    if (this.pollTimer) {
+      addLine({ text: 'Agent is busy — wait for completion or press Ctrl+C to cancel.', color: 'yellow', timestamp: ts() });
+      return;
+    }
 
     try {
       await this.client._fetch('PUT',

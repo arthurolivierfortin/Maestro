@@ -62,33 +62,18 @@ const TabHeader = ({ activeTab }) => {
 // ── Status Filter ────────────────────────────────────────────
 
 const StatusFilter = ({ activeFilter }) => {
-  const filters = [
-    { key: 'all', label: 'All', hotkey: 'a' },
-    { key: 'running', label: 'Running', hotkey: 'r' },
-  ];
-
-  const elements = [];
-  for (let i = 0; i < filters.length; i++) {
-    const f = filters[i];
-    const isActive = activeFilter === f.key;
-    elements.push(
-      h(Text, { key: f.key },
-        h(Text, { color: theme.shortcut.bracket, dimColor: true }, '['),
-        h(Text, { color: isActive ? theme.panel.borderFocused : theme.shortcut.key }, f.hotkey),
-        h(Text, { color: theme.shortcut.bracket, dimColor: true }, '] '),
-        isActive
-          ? h(Text, { color: theme.panel.borderFocused, bold: true }, f.label)
-          : h(Text, { color: theme.text.muted }, f.label),
-      )
-    );
-    if (i < filters.length - 1) {
-      elements.push(h(Text, { key: `fsp-${i}` }, '  '));
-    }
-  }
+  const isRunning = activeFilter === 'running';
 
   return h(Box, { flexDirection: 'row', paddingLeft: 1 },
     muted('Filter: '),
-    ...elements,
+    h(Text, null,
+      h(Text, { color: theme.shortcut.bracket, dimColor: true }, '['),
+      h(Text, { color: theme.shortcut.key }, 'r'),
+      h(Text, { color: theme.shortcut.bracket, dimColor: true }, '] '),
+      isRunning
+        ? h(Text, { color: theme.panel.borderFocused, bold: true }, 'Running')
+        : h(Text, { color: theme.text.muted }, 'All'),
+    ),
   );
 };
 
@@ -359,8 +344,7 @@ const SpacesScreen = ({ apiClient, onNavigate, onSessionSelect, onWorkspaceSelec
       else if (num === 2) setActiveTab('workspaces');
       else if (num === 3) setActiveTab('sessions');
     },
-    a: () => setStatusFilter('all'),
-    r: () => setStatusFilter('running'),
+    r: () => setStatusFilter(f => f === 'running' ? 'all' : 'running'),
     d: () => {
       if (activeTab === 'sessions' && filteredSessions.length > 0) {
         const session = filteredSessions[selectedIndex];

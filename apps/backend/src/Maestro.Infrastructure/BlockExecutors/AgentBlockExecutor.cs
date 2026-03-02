@@ -435,15 +435,19 @@ public class AgentBlockExecutor : IBlockExecutor
                                 }
                                 trailing = trailing.Trim();
 
-                                if (!string.IsNullOrEmpty(trailing) && trailing.Length > 20)
+                                if (!string.IsNullOrEmpty(trailing) && trailing.Length > 20 && !IsPromptArtifact(trailing))
                                 {
                                     // The trailing text is the real answer — use it as the summary
                                     summary = trailing;
                                 }
-                                else if (!string.IsNullOrEmpty(trailing) && trailing.Length > 5)
+                                else if (!string.IsNullOrEmpty(trailing) && trailing.Length > 5 && !IsPromptArtifact(trailing))
                                 {
                                     // Short trailing text — append to existing summary
                                     summary = summary + ". " + trailing;
+                                }
+                                else if (!string.IsNullOrEmpty(trailing) && IsPromptArtifact(trailing))
+                                {
+                                    result.Logs.Add($"Rejected trailing text as prompt artifact ({trailing.Length} chars)");
                                 }
                             }
 
@@ -1057,6 +1061,30 @@ public class AgentBlockExecutor : IBlockExecutor
             "Grep" or "grep" or "search" or "Search" => "directory-list", // best approximation
             _ => toolId
         };
+    }
+
+    /// <summary>
+    /// Detects if trailing text after step-complete JSON is a prompt artifact
+    /// (leaked system prompt markers, conversation history fragments, etc.)
+    /// rather than actual agent output.
+    /// </summary>
+    private static bool IsPromptArtifact(string text)
+    {
+        ReadOnlySpan<string> markers = new[]
+        {
+            "[user]", "[assistant]", "[system]",
+            "## Working Directory", "## Message", "## RepoPath",
+            "## ConversationHistory", "## Conversation History",
+            "\"role\":\"user\"", "\"role\":\"assistant\"", "\"role\":\"system\"",
+            "\"role\": \"user\"", "\"role\": \"assistant\"", "\"role\": \"system\"",
+        };
+
+        foreach (var marker in markers)
+        {
+            if (text.Contains(marker, StringComparison.OrdinalIgnoreCase))
+                return true;
+        }
+        return false;
     }
 
     /// <summary>

@@ -248,7 +248,8 @@ public class FileSystemMemoryManager : IMemoryManager
         {
             if (_loaded) return;
 
-            foreach (var file in Directory.GetFiles(_basePath, "*.memory.json"))
+            var files = Directory.GetFiles(_basePath, "*.memory.json");
+            await Task.WhenAll(files.Select(async file =>
             {
                 try
                 {
@@ -263,7 +264,7 @@ public class FileSystemMemoryManager : IMemoryManager
                 {
                     _logger?.LogWarning(ex, "Failed to load memory file: {Path}", file);
                 }
-            }
+            }));
 
             _loaded = true;
             _logger?.LogInformation("Loaded {Count} memory stores from {Path}", _cache.Count, _basePath);
