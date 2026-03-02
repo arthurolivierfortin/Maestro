@@ -82,7 +82,7 @@ class SessionManager {
    * If the file exists and the session is valid on the backend, reuses it.
    * Otherwise creates a new session and writes the file.
    */
-  private async ensureSession(addLine: (line: LogLine) => void): Promise<void> {
+  private async ensureSession(addLine: (line: LogLine) => void, firstTask?: string): Promise<void> {
     if (this.sessionReady) return;
 
     const sessionFile = nodePath.join(this.repoPath, '.maestro', 'session.json');
@@ -110,7 +110,7 @@ class SessionManager {
     const session = await this.client.createSession({
       repositoryPath: this.repoPath,
       authority: 'human',
-      name: `${nodePath.basename(this.repoPath)} — Assistant`,
+      name: `${nodePath.basename(this.repoPath)} — ${firstTask ? firstTask.trim().slice(0, 50) : 'Assistant'}`,
     });
     this.sessionId = session.id;
     addLine({ text: `Session: ${session.id.slice(0, 8)}`, color: 'gray', timestamp: ts() });
@@ -150,7 +150,7 @@ class SessionManager {
 
     try {
       // Ensure persistent session exists (no-op after first call)
-      await this.ensureSession(addLine);
+      await this.ensureSession(addLine, task);
 
       // Invoke the entry point with the user's message
       const inputs: Record<string, string> = {

@@ -28,9 +28,10 @@ import { Panel } from './Panel.ts';
 // ── Model Status Panel ───────────────────────────────────────
 
 const ModelStatusPanel = ({ health, llmStatus, tick = 0 }) => {
+  const isLoading = health === null || health === undefined;
   const isHealthy = health && !health.error;
-  const healthColor = isHealthy ? theme.status.success : theme.status.error;
-  const healthIcon = isHealthy ? breathingDot(tick) : icons.failed;
+  const healthColor = isLoading ? theme.text.muted : (isHealthy ? theme.status.success : theme.status.error);
+  const healthIcon = isLoading ? '...' : (isHealthy ? breathingDot(tick) : icons.failed);
 
   // Extract info from health response
   const activeModel = health?.activeModel || '-';
@@ -46,7 +47,7 @@ const ModelStatusPanel = ({ health, llmStatus, tick = 0 }) => {
       h(Text, { color: healthColor }, healthIcon),
       h(Text, null, ' '),
       muted('Status: '),
-      T(healthColor, isHealthy ? 'Online' : 'Offline'),
+      T(healthColor, isLoading ? 'Loading...' : (isHealthy ? 'Online' : 'Offline')),
     ),
     h(Text, null, ''),
     h(Box, { flexDirection: 'row' },

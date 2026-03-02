@@ -303,6 +303,7 @@ class DemoApiClient {
 
   async _fetch(method: string, path: string) {
     if (path === '/api/health') return { status: 'ok' };
+    if (method === 'DELETE' && path.startsWith('/api/sessions/')) return { success: true };
     return {};
   }
 

@@ -33,6 +33,7 @@ import { TaskInputBar } from './components/TaskInputBar.ts';
 import { ConversationLog } from './components/ConversationLog.ts';
 import { AgentScreen } from './components/AgentScreen.ts';
 import { StatusBar } from './components/StatusBar.ts';
+import { HelpOverlay } from './components/HelpOverlay.ts';
 
 import type { IApiClient } from '@maestro/tui/types';
 
@@ -250,6 +251,7 @@ const App = ({ apiClient: clientProp, sessionManager: smProp, demoMode, repoPath
   const [currentWidget, setCurrentWidget] = useState<Widget | null>(null);
   const history = useInputHistory();
   const [inputFocused, setInputFocused] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
   const completedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ── Refs for Ctrl+C handler (assigned after handleCancel is defined below) ──
@@ -268,6 +270,16 @@ const App = ({ apiClient: clientProp, sessionManager: smProp, demoMode, repoPath
       } else {
         handleQuit();
       }
+      return;
+    }
+    // ? key toggles help overlay (when not typing)
+    if (!inputFocused && input === '?') {
+      setShowHelp(prev => !prev);
+      return;
+    }
+    // Escape closes help overlay first, then unfocuses input
+    if (showHelp && key.escape) {
+      setShowHelp(false);
       return;
     }
     if (!inputFocused && input === '/') {
@@ -409,6 +421,7 @@ const App = ({ apiClient: clientProp, sessionManager: smProp, demoMode, repoPath
       addLine({ text: '  /new     — Start a new conversation (keeps history)', color: 'white' });
       addLine({ text: '  /clear   — Clear conversation and start fresh', color: 'white' });
       addLine({ text: '  /stop    — Cancel the current task', color: 'white' });
+      addLine({ text: '  /purge   — Delete all idle/completed sessions', color: 'white' });
       addLine({ text: '  /quit    — Quit Maestro Code', color: 'white' });
       addLine({ text: '' });
       addLine({ text: 'Keyboard:', color: 'cyan', bold: true });
@@ -441,7 +454,32 @@ const App = ({ apiClient: clientProp, sessionManager: smProp, demoMode, repoPath
         ]);
       });
     },
-  }), [handleQuit, handleCancel, addLine, sessionManager]);
+    '/purge': () => {
+      if (!apiClient) return;
+      addLine({ text: '' });
+      addLine({ text: 'Purging idle sessions...', color: 'cyan', timestamp: ts() });
+      (async () => {
+        try {
+          const sessions = await apiClient.listSessions();
+          const idleStatuses = ['idle', 'created', 'completed'];
+          const toDelete = (sessions || []).filter(
+            s => idleStatuses.includes((s.status || '').toLowerCase())
+          );
+          let deleted = 0;
+          for (const s of toDelete) {
+            try {
+              await apiClient._fetch('DELETE', `/api/sessions/${s.id}`);
+              deleted++;
+            } catch { /* skip */ }
+          }
+          addLine({ text: `Purged ${deleted} session(s).`, color: 'green', bold: true, timestamp: ts() });
+          addLine({ text: '' });
+        } catch (err: any) {
+          addLine({ text: `Error: ${err.message || err}`, color: 'red', timestamp: ts() });
+        }
+      })();
+    },
+  }), [handleQuit, handleCancel, addLine, sessionManager, apiClient]);
 
   // ── Handle task submit ──
   const handleSubmit = useCallback((input: string) => {
@@ -618,6 +656,7 @@ const App = ({ apiClient: clientProp, sessionManager: smProp, demoMode, repoPath
           captureInput: inputFocused,
         })
       : null,
+    showHelp ? h(HelpOverlay, { currentPage, onClose: () => setShowHelp(false) }) : null,
     h(StatusBar, { currentPage, connectionStatus, latency: connLatency, lastRefresh }),
   );
 };

@@ -31,10 +31,10 @@ import { Panel } from './Panel.ts';
 
 const TypeFilter = ({ activeType }) => {
   const types = [
-    { key: 'all', label: 'All' },
-    { key: 'workflow', label: 'Workflows' },
-    { key: 'agent', label: 'Agents' },
-    { key: 'tool', label: 'Tools' },
+    { key: 'all', num: 1, label: 'All' },
+    { key: 'workflow', num: 2, label: 'Workflows' },
+    { key: 'agent', num: 3, label: 'Agents' },
+    { key: 'tool', num: 4, label: 'Tools' },
   ];
 
   const elements = [];
@@ -43,18 +43,20 @@ const TypeFilter = ({ activeType }) => {
     const isActive = activeType === t.key;
     elements.push(
       h(Text, { key: t.key },
+        h(Text, { color: theme.shortcut.bracket, dimColor: true }, '['),
+        h(Text, { color: isActive ? theme.panel.borderFocused : theme.shortcut.key, bold: isActive }, String(t.num)),
+        h(Text, { color: theme.shortcut.bracket, dimColor: true }, '] '),
         isActive
           ? h(Text, { color: theme.panel.borderFocused, bold: true }, t.label)
           : h(Text, { color: theme.text.muted }, t.label),
       )
     );
     if (i < types.length - 1) {
-      elements.push(h(Text, { key: `ts-${i}`, color: theme.text.muted }, ' | '));
+      elements.push(h(Text, { key: `ts-${i}` }, '  '));
     }
   }
 
   return h(Box, { flexDirection: 'row', paddingLeft: 1 },
-    muted('Type: '),
     ...elements,
   );
 };
@@ -62,7 +64,7 @@ const TypeFilter = ({ activeType }) => {
 // ── Catalog Block Row ────────────────────────────────────────
 
 const CatalogBlockRow = ({ block, isSelected, isExpanded }) => {
-  const type = (block.type || block.blockType || 'unknown').toLowerCase();
+  const type = (block.type || 'unknown').toLowerCase();
   const name = block.name || block.id || 'Unknown';
   const id = block.id ? block.id.substring(0, 12) : '--------';
   const selector = isSelected ? icons.arrow : ' ';
@@ -151,7 +153,7 @@ const CatalogScreen = ({ apiClient, onNavigate, onBlockSelect, onQuit, initialSt
   // Apply type filter
   const filteredBlocks = typeFilter === 'all'
     ? blockList
-    : blockList.filter(b => ((b.type || b.blockType || '').toLowerCase()) === typeFilter);
+    : blockList.filter(b => ((b.type || '').toLowerCase()) === typeFilter);
 
   // Sort by name
   const sortedBlocks = [...filteredBlocks].sort((a, b) =>
@@ -205,6 +207,10 @@ const CatalogScreen = ({ apiClient, onNavigate, onBlockSelect, onQuit, initialSt
       setExpandedIndex(prev => prev === selectedIndex ? -1 : selectedIndex);
     },
     tab: cycleTypeFilter,
+    number: (num) => {
+      const types = ['all', 'workflow', 'agent', 'tool'];
+      if (num >= 1 && num <= types.length) setTypeFilter(types[num - 1]);
+    },
     // Chrome-only keys: page navigation (disabled when embedded in maestro-code)
     ...(showChrome ? {
       ctrlLeft: () => onNavigate(prevPage('catalog')),

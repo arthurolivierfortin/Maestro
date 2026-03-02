@@ -216,6 +216,46 @@ const WorkspaceRow = ({ workspace, isSelected }) => {
   );
 };
 
+// ── Delete confirmation overlay ──────────────────────────────
+
+const DeleteConfirmation = ({ sessionName, onConfirm, onCancel }) => {
+  useKeyboard({
+    enter: onConfirm,
+    escape: onCancel,
+    n: onCancel,
+  }, { isActive: true });
+
+  return h(Box, {
+    flexDirection: 'column',
+    borderStyle: 'single',
+    borderColor: theme.status.error,
+    paddingX: 2,
+    paddingY: 1,
+    marginLeft: 2,
+    marginTop: 1,
+    width: 50,
+  },
+    h(Text, { bold: true, color: theme.status.error }, 'Delete Session?'),
+    h(Text, null, ''),
+    h(Text, { color: 'white' }, truncate(sessionName, 44)),
+    h(Text, null, ''),
+    h(Box, { flexDirection: 'row', gap: 2 },
+      h(Text, null,
+        h(Text, { color: theme.shortcut.bracket }, '['),
+        h(Text, { color: theme.shortcut.key }, 'Enter'),
+        h(Text, { color: theme.shortcut.bracket }, '] '),
+        h(Text, { color: theme.status.error }, 'Delete'),
+      ),
+      h(Text, null,
+        h(Text, { color: theme.shortcut.bracket }, '['),
+        h(Text, { color: theme.shortcut.key }, 'Esc/n'),
+        h(Text, { color: theme.shortcut.bracket }, '] '),
+        h(Text, { color: theme.text.muted }, 'Cancel'),
+      ),
+    ),
+  );
+};
+
 // ── SpacesScreen component ───────────────────────────────────
 
 const SpacesScreen = ({ apiClient, onNavigate, onSessionSelect, onWorkspaceSelect, onRepoSelect, onQuit, initialState, chrome, keyboardActive }) => {
@@ -224,6 +264,7 @@ const SpacesScreen = ({ apiClient, onNavigate, onSessionSelect, onWorkspaceSelec
   const [activeTab, setActiveTab] = useState(initialState?.activeTab ?? 'sessions');
   const [selectedIndex, setSelectedIndex] = useState(initialState?.selectedIndex ?? 0);
   const [statusFilter, setStatusFilter] = useState(initialState?.statusFilter ?? 'all');
+  const [deleteConfirm, setDeleteConfirm] = useState(null); // { id, name } | null
 
   // Terminal rows for scroll calculation
   // NavBar(3) + TabHeader(3) + PanelBorder(2) + title(1) + spacer(1) + headerLines(2) + StatusBar(3) = 15 fixed
@@ -320,6 +361,12 @@ const SpacesScreen = ({ apiClient, onNavigate, onSessionSelect, onWorkspaceSelec
     },
     a: () => setStatusFilter('all'),
     r: () => setStatusFilter('running'),
+    d: () => {
+      if (activeTab === 'sessions' && filteredSessions.length > 0) {
+        const session = filteredSessions[selectedIndex];
+        if (session) setDeleteConfirm({ id: session.id, name: session.name || 'Unnamed' });
+      }
+    },
     ...(showChrome ? {
       h: () => onNavigate('home'),
       a: () => onNavigate('agent'),
@@ -330,7 +377,18 @@ const SpacesScreen = ({ apiClient, onNavigate, onSessionSelect, onWorkspaceSelec
     } : {}),
     escape: showChrome ? () => onNavigate('home') : undefined,
     q: onQuit,
-  }, { isActive: keyboardActive !== false });
+  }, { isActive: keyboardActive !== false && !deleteConfirm });
+
+  // Delete session handler
+  const handleDeleteConfirm = useCallback(async () => {
+    if (!deleteConfirm) return;
+    try {
+      await apiClient._fetch('DELETE', `/api/sessions/${deleteConfirm.id}`);
+    } catch {
+      // Non-fatal — session may already be gone
+    }
+    setDeleteConfirm(null);
+  }, [deleteConfirm, apiClient]);
 
   // Build rows for current tab
   const rows = visibleSlice.map((item, vi) => {
@@ -396,6 +454,15 @@ const SpacesScreen = ({ apiClient, onNavigate, onSessionSelect, onWorkspaceSelec
           : h(Box, { flexDirection: 'column' }, ...rows),
       ),
     ),
+
+    // Delete confirmation overlay
+    deleteConfirm
+      ? h(DeleteConfirmation, {
+          sessionName: deleteConfirm.name,
+          onConfirm: handleDeleteConfirm,
+          onCancel: () => setDeleteConfirm(null),
+        })
+      : null,
 
   );
 };
