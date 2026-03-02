@@ -58,6 +58,9 @@ Before testing anything, you must prove to yourself that you can observe the app
 - Trusting a script's verdict without reading the actual output
 - Running `vitest` and concluding the feature works
 - Checking only one layer (only the UI, or only the API)
+- **Calling the backend directly via `curl`** — this tests the execution engine, not the TUI. The entire display layer (SessionManager polling, Ink rendering, keyboard navigation, error state) is invisible from curl.
+- **Invoking a workflow by ID via the API** — equivalent to curl. The user never interacts with the API directly; they interact with the TUI. If the TUI is broken, curl passes anyway.
+- **Saying "equivalent to TUI behavior"** — there is no equivalent. If there were, it would be called the same thing. Any substitute that bypasses the interface under test is invalid, regardless of how similar it seems.
 
 ### The Validator's Mindset
 
@@ -148,7 +151,11 @@ Level 3: [PASS/FAIL/SKIP]
 Proceed: [YES/NO — requires Level 1 PASS minimum]
 ```
 
-### If Something is Missing
+### ⛔ Blocking Rule — Read Before the Checklist
+
+**If Level 1 (direct observation) is not available: STOP. Do not proceed. Do not invent a substitute.**
+
+The temptation is to say "I'll test via the API instead — it's equivalent." It is not equivalent. Proceeding without Level 1 means you are not dogfooding; you are blind-testing a subset of the system while calling it dogfooding. This is worse than not dogfooding at all, because it produces a false confidence score.
 
 Do NOT work around missing tools. Do NOT invent a substitute. Ask the user:
 
@@ -157,6 +164,32 @@ Do NOT work around missing tools. Do NOT invent a substitute. Ask the user:
 > 1. Install/create [tool] (estimated effort: [time])
 > 2. Dogfood at a reduced scope (what I can verify: [list])
 > 3. Skip dogfooding until tools are available"
+
+### Context Isolation — The Agent Must Not Know What It Built
+
+**A dogfooding agent that just built the features cannot dogfood them faithfully.**
+
+When the same agent builds Phase A through E and then runs Phase F (dogfooding), it carries full implementation context: it knows the exact system prompt, the bug that was just fixed, the conditional logic, the edge cases avoided. This creates invisible bias:
+- It tests the happy path of what it just implemented
+- It unconsciously avoids paths that were problematic during development
+- Its mental model matches the implementation, so mismatches feel correct
+
+**The dogfooding agent must have a minimal, user-like context.**
+
+In practice, the agent executing the build phases (A–E) should launch a **separate subagent** for the dogfooding phase (F). The subagent receives only:
+
+```
+You are a developer who has never used this application.
+Your task: test it and score it as a new user would.
+Read ONLY:
+- [the dogfooding sub-phase document]
+- docs/guides/ai-agents/dogfooding-methodology.md
+
+Do NOT read other sub-phase documents, checkpoint.md, or code you didn't write.
+You do not know how the application was built. Treat it as a black box.
+```
+
+This is not optional. If the dogfooding agent has read the build sub-phases, its scores are unreliable regardless of the tools used.
 
 ---
 

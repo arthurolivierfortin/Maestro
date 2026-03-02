@@ -74,6 +74,43 @@
 **Verification** : [quel output copier]
 ```
 
+> **Si cette sous-phase est un dogfooding gate**, utiliser le format de checkpoint etendu ci-dessous a la place.
+
+### Checkpoint etendu — Dogfooding Gate [si applicable]
+
+Utiliser ce format pour toute sous-phase de dogfooding ou gate de validation.
+Tous les champs sont OBLIGATOIRES. Un champ vide = sous-phase invalide.
+
+```markdown
+## XX-F : Dogfooding Gate
+**Statut** : DONE / BLOQUE / INVALIDE
+**Date** : YYYY-MM-DD
+**Heure debut** : HH:MM
+**Heure fin** : HH:MM
+**Duree reelle** : X min  ← calculee, pas estimee. < 120 min = gate invalide, recommencer.
+
+**Pre-flight Level 1** : PASS / FAIL / NON VERIFIE
+  ← FAIL ou NON VERIFIE = resultats invalides. Ne pas continuer.
+  ← Outil utilise : [nom exact du PTY driver, ex: TuiDriver via tests/tui-driver.ts]
+
+**Methode d'interaction** : TuiDriver PTY / curl / API directe / autre
+  ← Toute methode autre que PTY = resultats invalides. curl ≠ dogfooding.
+
+**Frames captures** : OUI ([N] frames) / NON
+  ← NON = scores invalides. Chaque dimension notee doit avoir un frame capture.
+
+**Contexte du sous-agent** : Isole (n'a pas lu les sous-phases de build) / Contamine (a lu A-E)
+  ← Contamine = scores biaises, noter explicitement.
+
+**Score moyen** : X.X / 5
+**Dimension la plus haute** : [nom] = [score]
+**Dimension la plus basse** : [nom] = [score]
+**Comparaison vs alternative** : [agent plus rapide / equivalent / plus lent + details]
+**Bugs trouves** : [nombre] — [liste courte]
+**Decision** : GATE PASSEE / AMELIORATIONS MINEURES / BLOQUE
+**Notes completes** : [chemin vers dogfood-notes.md]
+```
+
 ---
 
 ## Gestion de la memoire [OBLIGATOIRE]
@@ -101,6 +138,7 @@ Avant de publier un plan, verifier :
 - [ ] Aucune phrase vague ("ameliorer", "optimiser", "nettoyer") sans detail concret
 - [ ] Le plan reference AGENT-PROTOCOL.md dans les regles
 - [ ] La section "Gestion de la memoire" existe
+- [ ] Si la phase inclut un dogfooding gate : sous-agent separe prevu (voir Regle 2e de AGENT-PROTOCOL.md), methode PTY nommee explicitement dans le sub-phase doc, checkpoint etendu utilise
 
 ## Niveaux de detail requis
 

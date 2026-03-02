@@ -159,12 +159,12 @@ node index.js workspace add-session <ws-id> <session-id>
 
 | # | Description | Severity | Fixed? |
 |---|-------------|----------|--------|
-| 1 | Template import fails on null values — `_activeConversation: null` causes HTTP 400 on PUT variable | HIGH | No |
-| 2 | Conditional `{{_activeConversation}} != null` evaluates empty string as "not null", skipping conversation creation | HIGH | No |
-| 3 | Agent loses ALL conversation context between invocations — each workflow run creates new IConversationManager conversation | CRITICAL | No |
-| 4 | Security path validation blocks agent from running Maestro CLI — session bound to C:\Cantante but CLI is in C:\Meastro | CRITICAL | No |
-| 5 | Agent re-greets on every turn instead of continuing conversation (symptom of Bug 3) | CRITICAL | No |
-| 6 | `step-complete` summary sometimes in third person ("Informed the user...") instead of direct address | LOW | No |
+| 1 | Template import fails on null values — `_activeConversation: null` causes HTTP 400 on PUT variable | HIGH | Yes — migrated null→"", CLI warns on null |
+| 2 | Conditional `{{_activeConversation}} != null` evaluates empty string as "not null", skipping conversation creation | HIGH | Yes — changed condition to `!= ""` |
+| 3 | Agent loses ALL conversation context between invocations — each workflow run creates new IConversationManager conversation | CRITICAL | Yes — deterministic conversation ID (sessionId:blockId), persistent across invocations |
+| 4 | Security path validation blocks agent from reading files outside session root | CRITICAL | Yes — wired AllowedPaths from session permissions into ToolBlockExecutor for read ops |
+| 5 | Agent re-greets on every turn instead of continuing conversation (symptom of Bug 3) | CRITICAL | Yes — fixed by Bug 3 |
+| 6 | `step-complete` summary sometimes in third person ("Informed the user...") instead of direct address | LOW | Yes — added rule 14 to system prompt |
 
 ---
 
@@ -180,19 +180,19 @@ node index.js workspace add-session <ws-id> <session-id>
 
 ## Verdict
 
-**Decision** : BLOCKED — needs fixes for conversation persistence and security before shipping
+**Decision** : ~~BLOCKED~~ → FIXES APPLIED — all 6 bugs fixed, pending re-dogfooding
 
 **Reasoning** :
 The agent's **knowledge and conversational quality are strong** (4/5 on 7 dimensions). It correctly identifies templates, explains concepts, prevents errors, and communicates naturally. The system prompt rewrite in 45-PREP-E was effective.
 
-However, two **critical infrastructure bugs** make execution impossible:
-1. Conversation context loss breaks the confirm-before-execute flow (the core UX pattern)
-2. Security path validation blocks ALL Maestro CLI commands from session-bound agents
+Two **critical infrastructure bugs** made execution impossible — now fixed:
+1. ~~Conversation context loss~~ → Fixed: deterministic conversation ID (sessionId:blockId), persistent across invocations
+2. ~~Security path validation blocks reads~~ → Fixed: AllowedPaths from session permissions wired into ToolBlockExecutor
 
-These are not prompt/quality issues — they are backend infrastructure bugs. Fixing them requires:
-- Bug 3: Changes to AgentBlockExecutor or ConversationManager to persist conversations across invocations
-- Bug 4: Changes to ToolBlockExecutor security validation to whitelist the Maestro CLI path
-
-**Estimated fix time**: 2-4 hours for both bugs. They should be Phase 45-PREP follow-up tasks, not new phases.
+All 6 bugs fixed (see CHANGELOG.md for details). Also added:
+- `GET/PUT /api/sessions/{id}/permissions` API endpoints
+- `session permissions` CLI command (list, add-path, remove-path)
+- 4 new AllowedPaths security tests
 
 **After fixes, re-score estimate**: Average likely 3.8-4.0 (completeness jumps to 3-4, speed improves significantly, daily use goes to 3-4).
+**Next step**: Re-dogfooding to confirm score >= 3.5 and pass the gate.

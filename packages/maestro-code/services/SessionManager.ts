@@ -312,45 +312,89 @@ class SessionManager {
           // Extract the agent's response — try multiple sources
           let agentOutput: string | null = null;
 
-          // Source 1: Execution tree node output (backend stores as string directly)
-          const lastNode = tree[tree.length - 1];
-          if (lastNode?.output) {
-            if (typeof lastNode.output === 'string') {
-              agentOutput = lastNode.output;
-            } else if (typeof lastNode.output === 'object') {
-              agentOutput = lastNode.output.summary
-                || lastNode.output.result
-                || lastNode.output.response
-                || JSON.stringify(lastNode.output);
+          // Helper: detect conversation-manager metadata output (not actual content)
+          const isMetadataOutput = (s: string): boolean =>
+            typeof s === 'string' && s.includes('conversationId:') && s.includes('state:');
+
+          const extractNodeOutput = (node: any): string | null => {
+            if (!node?.output) return null;
+            if (typeof node.output === 'string') {
+              return isMetadataOutput(node.output) ? null : node.output;
             }
+            if (typeof node.output === 'object') {
+              return node.output.summary
+                || node.output.result
+                || node.output.response
+                || null;
+            }
+            return null;
+          };
+
+          // Source 1: Look for the agent execution node in the tree (e.g. "execute-agent")
+          // The workflow typically has: ensure-conversation, save-user-message, load-history,
+          // execute-agent, save-assistant-response. We want the execute-agent node specifically.
+          const agentNode = tree.find((n: any) => n.id === 'execute-agent' || (n.id && n.id.includes('execute-agent')));
+          if (agentNode) {
+            agentOutput = extractNodeOutput(agentNode);
           }
 
-          // Source 2: _blockOutputs variable (per-node output with metadata)
+          // Source 1b: Fall back to last node with non-metadata output
           if (!agentOutput) {
-            const blockOutputs = vars._blockOutputs;
-            if (blockOutputs && typeof blockOutputs === 'object') {
-              const keys = Object.keys(blockOutputs);
-              // Take the last block output
-              const lastKey = keys[keys.length - 1];
-              if (lastKey) {
-                const bo = blockOutputs[lastKey];
-                if (typeof bo === 'string') agentOutput = bo;
-                else if (bo?.output) agentOutput = String(bo.output);
+            for (let i = tree.length - 1; i >= 0; i--) {
+              const extracted = extractNodeOutput(tree[i]);
+              if (extracted) {
+                agentOutput = extracted;
+                break;
               }
             }
           }
 
-          // Source 3: _nodeResult_* variables (full output per node ID)
+          // Source 2: _nodeResult_execute-agent variable (most reliable source)
           if (!agentOutput) {
-            const resultKeys = Object.keys(vars).filter(k => k.startsWith('_nodeResult_'));
-            if (resultKeys.length > 0) {
-              const lastResultKey = resultKeys[resultKeys.length - 1];
-              const val = vars[lastResultKey];
-              if (typeof val === 'string') agentOutput = val;
+            const agentResult = vars['_nodeResult_execute-agent'];
+            if (typeof agentResult === 'string' && !isMetadataOutput(agentResult)) {
+              agentOutput = agentResult;
             }
           }
 
-          // Source 4: _conversationState_* (agent conversation history)
+          // Source 3: _blockOutputs variable — look for execute-agent key first, then others
+          if (!agentOutput) {
+            const blockOutputs = vars._blockOutputs;
+            if (blockOutputs && typeof blockOutputs === 'object') {
+              // Prefer execute-agent key
+              const agentBo = blockOutputs['execute-agent'];
+              if (agentBo) {
+                const boStr = typeof agentBo === 'string' ? agentBo : agentBo?.output ? String(agentBo.output) : null;
+                if (boStr && !isMetadataOutput(boStr)) agentOutput = boStr;
+              }
+              // Fall back to any non-metadata block output
+              if (!agentOutput) {
+                const keys = Object.keys(blockOutputs);
+                for (let i = keys.length - 1; i >= 0; i--) {
+                  const bo = blockOutputs[keys[i]];
+                  const boStr = typeof bo === 'string' ? bo : bo?.output ? String(bo.output) : null;
+                  if (boStr && !isMetadataOutput(boStr)) {
+                    agentOutput = boStr;
+                    break;
+                  }
+                }
+              }
+            }
+          }
+
+          // Source 4: Any _nodeResult_* that isn't metadata
+          if (!agentOutput) {
+            const resultKeys = Object.keys(vars).filter(k => k.startsWith('_nodeResult_'));
+            for (let i = resultKeys.length - 1; i >= 0; i--) {
+              const val = vars[resultKeys[i]];
+              if (typeof val === 'string' && !isMetadataOutput(val)) {
+                agentOutput = val;
+                break;
+              }
+            }
+          }
+
+          // Source 5: _conversationState_* (agent conversation history)
           if (!agentOutput) {
             const convKeys = Object.keys(vars).filter(k => k.startsWith('_conversationState_'));
             for (const key of convKeys) {
@@ -365,7 +409,7 @@ class SessionManager {
             }
           }
 
-          // Source 5: _llmActivity last entry response
+          // Source 6: _llmActivity last entry response
           if (!agentOutput) {
             const activity: any[] = vars._llmActivity || [];
             if (activity.length > 0) {

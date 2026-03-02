@@ -108,8 +108,9 @@
 
 ## Overall Phase 45-PREP Status
 **Sub-phases A-E** : ALL DONE
-**Sub-phase F** : DONE (dogfooding executed, notes written, scoring complete, all 6 bugs fixed)
-**Gate** : PENDING RE-TEST — bugs fixed, needs re-dogfooding to confirm score >= 3.5
+**Sub-phase F** : DONE (first dogfooding: 3.2/5, 6 bugs fixed)
+**Sub-phase F Retest** : DONE — Round 1: 1.1/5 (BUG-1), Round 2: 1.3/5 (BUG-5), **Round 3: 3.5/5 (PASS)**
+**Gate** : **CONDITIONAL PASS** — Score 3.5/5 = seuil atteint. Bugs non-bloquants (BUG-2/3/4) deferred a Phase 45.
 **Files modified** :
 - `apps/backend/src/Maestro.Infrastructure/BlockExecutors/AgentBlockExecutor.cs` — conversation persistence (deterministic ID, skip cleanup)
 - `apps/backend/src/Maestro.Application/Interfaces/IConversationManager.cs` — added CreateOrGetConversation
@@ -128,3 +129,111 @@
 - `content/system/templates/sessions/maestro-assistant.session.json` — null → empty string migration
 - `docs/phases/PHASE-45-PREP/dogfood-notes.md` — COMPLETE dogfooding notes with scoring
 **Tests** : 35 backend (Execution.Tests) + 70 maestro-code = 105 all passing
+
+---
+
+## 45-PREP-F Retest : Dogfooding Gate (Checkpoint etendu)
+
+### Round 1 (pre-fix) — BLOQUE (1.1/5)
+**Statut** : BUG-1 bloquait toute conversation
+**Cause** : `EvaluateSimpleComparison` dans `EntryPointExecutor.cs` : `idx > 0` au lieu de `idx >= 0`
+**Fix** : 1 ligne changee. Build OK. 93 tests backend passent.
+
+### Round 2 (post-fix) — BLOQUE (UX 1.3/5, backend 4.2/5)
+**Date** : 2026-03-02
+**Testeur** : Agent externe (premier contact, boite noire)
+**Outil** : TuiDriver PTY (mode real)
+**Duree** : ~1h15 (2 rounds)
+**Taches completees** : 5/5 backend OK, 0/5 visibles dans TUI
+
+### Scoring Post-Fix (perspective utilisateur TUI)
+
+| Dimension | Score | Justification |
+|-----------|-------|---------------|
+| Conversation | 1/5 | Reponses invisibles dans TUI — agent muet |
+| Confirmation | 1/5 | "Ca te va ?" invisible — utilisateur ne sait pas qu'on attend sa reponse |
+| Understanding | 1/5 | Aucune preuve visible de comprehension |
+| Maestro knowledge | 1/5 | Connaissance invisible = inexistante pour l'UX |
+| Operation sequencing | 2/5 | Logs ✓/✗ visibles — seule chose fonctionnelle |
+| Completeness | 1/5 | Aucune tache n'aboutit visuellement |
+| Error handling | 2/5 | ✗ visibles, mais explication agent invisible |
+| Speed | 2/5 | 30-105s pour un resultat invisible |
+| Communication | 1/5 | Agent communique parfaitement — mais TUI ne transmet rien |
+| Daily use | 1/5 | Inutilisable |
+| **MOYENNE UX** | **1.3 / 5** | |
+| **MOYENNE BACKEND** | **~4.2 / 5** | (verifie via curl — reponses excellentes) |
+
+**Dimension la plus haute** : Operation sequencing, Error handling, Speed = 2/5
+**Dimension la plus basse** : 7 dimensions a 1/5
+**Ecart UX/backend** : 2.9 points — entierement du a BUG-5 (reponses non affichees)
+
+### Comparaison vs CLI Manuel
+
+| Methode | Temps | Resultat |
+|---------|-------|----------|
+| Agent maestro-code | 105s | Plan correct, attend confirmation |
+| CLI manuel | 30s | Execution directe |
+
+Agent meilleur pour : questions, decouverte, gestion d'erreurs. CLI meilleur pour : execution directe, operations repetitives.
+
+### Bugs (cumules)
+
+| ID | Severite | Description | Statut |
+|----|----------|-------------|--------|
+| BUG-1 | BLOQUANT | `Conversation '' not found.` | **FIXE** (`idx > 0` → `idx >= 0`) |
+| BUG-2 | Mineur | /help ecran blanc | OUVERT |
+| BUG-3 | Majeur | Page Spaces ecran blanc | OUVERT |
+| BUG-4 | Majeur | Pages Home/Foundry/Catalog/Models sans contenu | OUVERT |
+| BUG-5 | MAJEUR | Reponses agent invisibles dans TUI (visible uniquement via curl) | **NOUVEAU** |
+
+### Decision (Round 2)
+
+**Score moyen UX 1.3 < 3.0 → BLOQUE**
+
+BUG-1 corrige (conversation fonctionne). BUG-5 decouverte (reponses invisibles dans TUI).
+Backend excellent (~4.2/5). UX inutilisable (1.3/5). Corriger BUG-5 puis re-dogfood.
+
+### Round 3 (post-BUG-5 fix) — PASS (3.5/5)
+**Date** : 2026-03-02
+**Bug corrige** : BUG-5 — `SessionManager.ts` reecrit pour prioriser le noeud `execute-agent` et filtrer les metadonnees
+**Session** : 6f576083 (fresh)
+**Taches** : 5/5 completees sans erreur. 3/5 reponses clairement visibles dans les frames PTY captures.
+**Reponse visible Task 1** : "Salut ! Toujours la. Qu'est-ce que je peux faire pour toi ?"
+**Reponse visible Task 2** : Plan 5 etapes + "Ca te va ?" (confirmation avant action)
+**Reponse visible Task 3** : Liste categorisee de blocks (backend-developer, frontend-developer, etc.)
+
+### Scoring Round 3
+
+| Dimension | Score |
+|-----------|-------|
+| Conversation | 4/5 |
+| Confirmation | 4/5 |
+| Understanding | 4/5 |
+| Maestro knowledge | 4/5 |
+| Operation sequencing | 3/5 |
+| Completeness | 3/5 |
+| Error handling | 3/5 |
+| Speed | 3/5 |
+| Communication | 4/5 |
+| Daily use | 3/5 |
+| **MOYENNE** | **3.5 / 5** |
+
+### Progression
+
+| Round | Score | Bloqueur |
+|-------|-------|----------|
+| Round 1 | 1.1/5 | BUG-1 (conversation crash) |
+| Round 2 | 1.3/5 | BUG-5 (reponses invisibles) |
+| **Round 3** | **3.5/5** | Aucun bloqueur critique |
+
+### Decision Finale
+
+**Score moyen 3.5 >= 3.5 → CONDITIONAL PASS**
+
+Le gate est atteint. L'agent est fonctionnel : repond visiblement, confirme avant d'agir, connait Maestro.
+Bugs ouverts non-bloquants : BUG-2 (/help blanc), BUG-3 (Spaces blanc), BUG-4 (pages sans contenu).
+Ces bugs sont deferred au backlog Phase 45.
+
+### Notes
+
+`docs/phases/PHASE-45-PREP/dogfood-notes-retest.md` — rapport complet (700+ lignes, 3 rounds)

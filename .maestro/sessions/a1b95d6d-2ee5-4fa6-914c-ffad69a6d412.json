@@ -1,0 +1,344 @@
+{
+  "id": "a1b95d6d-2ee5-4fa6-914c-ffad69a6d412",
+  "name": "Meastro \u2014 Set up un workspace pour Cantante et cree une sess",
+  "status": "idle",
+  "terminalReason": "none",
+  "authority": "human",
+  "workingDirectory": ".",
+  "repositoryPath": "C:\\Meastro",
+  "parentWorkspaceId": null,
+  "parentSessionId": null,
+  "config": {
+    "projectId": null,
+    "workflowId": null,
+    "task": null,
+    "context": null,
+    "access": {
+      "level": "controlled",
+      "allowedPaths": [],
+      "deniedPaths": [
+        ".env",
+        "*.env",
+        "secrets/**"
+      ],
+      "requireApprovalPaths": []
+    },
+    "validation": {
+      "runTests": false,
+      "testCommand": null,
+      "runLinter": false,
+      "linterCommand": null,
+      "requireCleanDiff": false,
+      "maxSteps": 50,
+      "timeoutMs": 600000
+    },
+    "inputs": {}
+  },
+  "createdAt": "2026-03-02T20:14:32.9098664+00:00",
+  "startedAt": "2026-03-02T20:14:33.1773303+00:00",
+  "completedAt": null,
+  "updatedAt": "2026-03-02T20:20:14.8368667+00:00",
+  "commandCount": 0,
+  "modifiedFiles": [],
+  "errorMessage": null,
+  "testResult": null,
+  "linterResult": null,
+  "commitInfo": null,
+  "variables": {
+    "sessionMode": "assistant",
+    "_activeConversation": "873492a436cd4996bd06d114dd85d795",
+    "_conversations": [],
+    "_blockOutputs": {
+      "ensure-conversation": {
+        "type": "conditional",
+        "output": "Node \u0027ensure-conversation\u0027 executed (passthrough)",
+        "timestamp": "20:19:58"
+      },
+      "create-conversation": {
+        "type": "block",
+        "output": "873492a436cd4996bd06d114dd85d795",
+        "timestamp": "20:20:14"
+      }
+    },
+    "_llmActivity": [
+      {
+        "type": "conversation",
+        "blockRef": "conversation",
+        "response": "873492a436cd4996bd06d114dd85d795",
+        "timestamp": "2026-03-02T20:20:14.3275325Z",
+        "toolCalls": "",
+        "tokens": 0
+      }
+    ],
+    "_executionLog": [
+      {
+        "time": "20:14:33",
+        "level": "info",
+        "msg": "Starting workflow: maestro-assistant-workflow"
+      },
+      {
+        "time": "20:14:33",
+        "level": "info",
+        "msg": "Conditional \u0027ensure-conversation\u0027: \u0027{{_activeConversation}} != \u0027 \u2192 \u0027 != \u0027 \u2192 True"
+      },
+      {
+        "time": "20:14:33",
+        "level": "success",
+        "msg": "ensure-conversation: Completed (49 chars)"
+      },
+      {
+        "time": "20:14:33",
+        "level": "info",
+        "msg": "save-user-message: Starting blockRef \u0027conversation\u0027..."
+      },
+      {
+        "time": "20:14:33",
+        "level": "info",
+        "msg": "Executing blockRef \u0027conversation\u0027 (type: conversation) with 5 inputs"
+      },
+      {
+        "time": "20:14:33",
+        "level": "info",
+        "msg": "[conversation] Conversation operation failed: Conversation \u0027\u0027 not found."
+      },
+      {
+        "time": "20:14:33",
+        "level": "error",
+        "msg": "blockRef \u0027conversation\u0027 failed: Conversation \u0027\u0027 not found."
+      },
+      {
+        "time": "20:14:33",
+        "level": "error",
+        "msg": "blockRef \u0027conversation\u0027 error: Block \u0027conversation\u0027 failed: Conversation \u0027\u0027 not found."
+      },
+      {
+        "time": "20:14:33",
+        "level": "error",
+        "msg": "save-user-message: Block \u0027conversation\u0027 failed: Conversation \u0027\u0027 not found."
+      },
+      {
+        "time": "20:14:33",
+        "level": "error",
+        "msg": "save-user-message: Block \u0027conversation\u0027 failed: Conversation \u0027\u0027 not found."
+      },
+      {
+        "time": "20:14:33",
+        "level": "warning",
+        "msg": "Stopping sequence: node \u0027save-user-message\u0027 failed"
+      },
+      {
+        "time": "20:17:38",
+        "level": "info",
+        "msg": "Starting workflow: maestro-assistant-workflow"
+      },
+      {
+        "time": "20:17:38",
+        "level": "info",
+        "msg": "Conditional \u0027ensure-conversation\u0027: \u0027{{_activeConversation}} != \u0027 \u2192 \u0027 != \u0027 \u2192 True"
+      },
+      {
+        "time": "20:17:38",
+        "level": "success",
+        "msg": "ensure-conversation: Completed (49 chars)"
+      },
+      {
+        "time": "20:17:38",
+        "level": "info",
+        "msg": "save-user-message: Starting blockRef \u0027conversation\u0027..."
+      },
+      {
+        "time": "20:17:38",
+        "level": "info",
+        "msg": "Executing blockRef \u0027conversation\u0027 (type: conversation) with 5 inputs"
+      },
+      {
+        "time": "20:17:38",
+        "level": "info",
+        "msg": "[conversation] Conversation operation failed: Conversation \u0027\u0027 not found."
+      },
+      {
+        "time": "20:17:38",
+        "level": "error",
+        "msg": "blockRef \u0027conversation\u0027 failed: Conversation \u0027\u0027 not found."
+      },
+      {
+        "time": "20:17:38",
+        "level": "error",
+        "msg": "blockRef \u0027conversation\u0027 error: Block \u0027conversation\u0027 failed: Conversation \u0027\u0027 not found."
+      },
+      {
+        "time": "20:17:38",
+        "level": "error",
+        "msg": "save-user-message: Block \u0027conversation\u0027 failed: Conversation \u0027\u0027 not found."
+      },
+      {
+        "time": "20:17:38",
+        "level": "error",
+        "msg": "save-user-message: Block \u0027conversation\u0027 failed: Conversation \u0027\u0027 not found."
+      },
+      {
+        "time": "20:17:38",
+        "level": "warning",
+        "msg": "Stopping sequence: node \u0027save-user-message\u0027 failed"
+      },
+      {
+        "time": "20:19:58",
+        "level": "info",
+        "msg": "Starting workflow: maestro-assistant-workflow"
+      },
+      {
+        "time": "20:19:58",
+        "level": "info",
+        "msg": "Conditional \u0027ensure-conversation\u0027: \u0027{{_activeConversation}} != \u0027 \u2192 \u0027 != \u0027 \u2192 True"
+      },
+      {
+        "time": "20:19:58",
+        "level": "success",
+        "msg": "ensure-conversation: Completed (49 chars)"
+      },
+      {
+        "time": "20:19:58",
+        "level": "info",
+        "msg": "save-user-message: Starting blockRef \u0027conversation\u0027..."
+      },
+      {
+        "time": "20:19:58",
+        "level": "info",
+        "msg": "Executing blockRef \u0027conversation\u0027 (type: conversation) with 5 inputs"
+      },
+      {
+        "time": "20:19:58",
+        "level": "info",
+        "msg": "[conversation] Conversation operation failed: Conversation \u0027\u0027 not found."
+      },
+      {
+        "time": "20:19:58",
+        "level": "error",
+        "msg": "blockRef \u0027conversation\u0027 failed: Conversation \u0027\u0027 not found."
+      },
+      {
+        "time": "20:19:58",
+        "level": "error",
+        "msg": "blockRef \u0027conversation\u0027 error: Block \u0027conversation\u0027 failed: Conversation \u0027\u0027 not found."
+      },
+      {
+        "time": "20:19:58",
+        "level": "error",
+        "msg": "save-user-message: Block \u0027conversation\u0027 failed: Conversation \u0027\u0027 not found."
+      },
+      {
+        "time": "20:19:58",
+        "level": "error",
+        "msg": "save-user-message: Block \u0027conversation\u0027 failed: Conversation \u0027\u0027 not found."
+      },
+      {
+        "time": "20:19:58",
+        "level": "warning",
+        "msg": "Stopping sequence: node \u0027save-user-message\u0027 failed"
+      },
+      {
+        "time": "20:20:14",
+        "level": "info",
+        "msg": "Starting workflow: maestro-new-conversation"
+      },
+      {
+        "time": "20:20:14",
+        "level": "info",
+        "msg": "create-conversation: Starting blockRef \u0027conversation\u0027..."
+      },
+      {
+        "time": "20:20:14",
+        "level": "info",
+        "msg": "Executing blockRef \u0027conversation\u0027 (type: conversation) with 2 inputs"
+      },
+      {
+        "time": "20:20:14",
+        "level": "info",
+        "msg": "[conversation] Conversation created: 873492a436cd4996bd06d114dd85d795"
+      },
+      {
+        "time": "20:20:14",
+        "level": "success",
+        "msg": "blockRef \u0027conversation\u0027 completed (32 chars)"
+      },
+      {
+        "time": "20:20:14",
+        "level": "success",
+        "msg": "create-conversation: blockRef \u0027conversation\u0027 completed (32 chars)"
+      },
+      {
+        "time": "20:20:14",
+        "level": "info",
+        "msg": "set-variable \u0027set-active\u0027: stored plain text in \u0027_activeConversation\u0027 (32 chars)"
+      }
+    ],
+    "_executionTree": [
+      {
+        "id": "create-conversation",
+        "name": "Create Conversation",
+        "status": "done",
+        "children": [],
+        "output": "873492a436cd4996bd06d114dd85d795"
+      },
+      {
+        "id": "set-active",
+        "name": "Set Active",
+        "status": "done",
+        "children": [],
+        "output": "Variable set"
+      }
+    ],
+    "_monitorDescriptor": {
+      "layout": {
+        "mode": "split-horizontal",
+        "zones": {
+          "top": {
+            "height": "60%"
+          },
+          "bottom": {
+            "height": "40%"
+          }
+        }
+      },
+      "components": [
+        {
+          "id": "exec-tree",
+          "type": "execution-tree",
+          "zone": "top",
+          "data": "$.variables._executionTree"
+        },
+        {
+          "id": "exec-log",
+          "type": "log-panel",
+          "zone": "bottom",
+          "data": "$.variables._executionLog"
+        }
+      ]
+    },
+    "_artifacts": [],
+    "_phaseMetrics": {},
+    "_activeWorkflow": "",
+    "message": "Salut",
+    "repoPath": "C:\\Meastro",
+    "_activeBlock": null,
+    "_nodeResult_ensure-conversation": "Node \u0027ensure-conversation\u0027 executed (passthrough)",
+    "_workflowCheckpoint": null,
+    "_nodeResult_save-user-message": "(error executing blockRef \u0027conversation\u0027: Block \u0027conversation\u0027 failed: Conversation \u0027\u0027 not found.)",
+    "_workflowCheckpoint_whileState": null,
+    "_workflowCheckpoint_foreachIndex": null,
+    "_nodeResult_create-conversation": "873492a436cd4996bd06d114dd85d795"
+  },
+  "entryPoints": {
+    "message": "maestro-assistant-workflow",
+    "new-conversation": "maestro-new-conversation",
+    "clear-conversation": "maestro-clear-conversation"
+  },
+  "monitorWidgets": null,
+  "blockSearchPaths": [
+    "C:\\Meastro\\.maestro\\blocks"
+  ],
+  "defaultModel": null,
+  "modelOverrides": null,
+  "fileAccessRulesConfig": null,
+  "blockPermissionsConfig": null
+}

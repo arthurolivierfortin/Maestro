@@ -3564,7 +3564,7 @@ public class EntryPointExecutor
         foreach (var op in operators)
         {
             var idx = expr.IndexOf(op, StringComparison.Ordinal);
-            if (idx > 0)
+            if (idx >= 0)
             {
                 var left = expr[..idx].Trim();
                 var right = expr[(idx + op.Length)..].Trim();

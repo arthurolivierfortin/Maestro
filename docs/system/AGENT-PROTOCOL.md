@@ -56,6 +56,28 @@ L'agent execute UNE sous-phase a la fois, dans l'ordre. Pour chaque sous-phase :
 ### 2d. Checkpointer
 - Ecrire/mettre a jour `docs/phases/PHASE-XX/checkpoint.md` (voir Regle 3)
 
+### 2e. Cas particulier : sous-phases de dogfooding
+
+**Une sous-phase de dogfooding ne peut PAS etre executee par le meme agent qui a fait les sous-phases de build.**
+
+Raison : l'agent qui construit les features connait leur implementation, leurs bugs, leurs contournements. Il ne peut pas arriver comme un utilisateur naif. Ses scores sont biaises par definition.
+
+**Regle** : Toute sous-phase dont le titre contient "Dogfooding", "Test utilisateur", "Gate", ou "Validation" doit etre executee via l'outil Agent (sous-agent separe) avec un contexte minimal :
+
+```
+Prompt du sous-agent :
+"Tu es un developpeur qui n'a jamais utilise cette application.
+Ta mission : la tester et la noter comme un nouvel utilisateur.
+Lis UNIQUEMENT :
+- [le fichier de la sous-phase de dogfooding]
+- docs/guides/ai-agents/dogfooding-methodology.md
+
+Ne lis PAS les autres sous-phases. Ne lis PAS checkpoint.md avant de commencer.
+Tu ne sais pas comment l'application a ete construite. Traite-la comme une boite noire."
+```
+
+**Verification** : Si le sous-agent rapporte avoir lu les sous-phases de build (A, B, C...) avant de tester, ses resultats sont invalides. Relancer avec le prompt corrige.
+
 ---
 
 ## Regle 3 : Checkpoints — Format obligatoire
