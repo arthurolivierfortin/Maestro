@@ -184,6 +184,63 @@ powershell.exe -File C:\Meastro\dev-scripts\dev-start.ps1 -Stop
 - **Session-specific logic in infra**: If adding a session type requires C# changes, architecture is violated
 - **Agents are not special**: One entity (`BlockDefinition`), one metrics system. Content in block config, not C#
 
+## V1 Delivery Discipline (MANDATORY — decided 2026-03-02)
+
+> **Reference**: `docs/phases/PHASE-45/STRATEGIC-ANALYSIS.md` — full analysis of why these rules exist.
+
+### The Goal
+
+Phase 45 = first distributable version. `npm install -g @maestro/cli && maestro init && maestro code` that works. **Everything else is post-V1.**
+
+### Refactoring Rules
+
+- **NEVER refactor unless a bug or a blocked feature requires it.** "I don't like how it's structured" is not a valid reason.
+- **Max 20% of a phase's time can be refactoring.** If exceeded, stop and deliver current state.
+- **Cosmetic refactoring is the #1 velocity killer.** Track it. Name it. Refuse it.
+
+### Phase Discipline
+
+- **Every phase must deliver something a user can see or use.** No "infrastructure only" phases.
+- **Max 3 days per phase.** If it takes longer, split it.
+- **Write "Definition of Done" and "NOT in scope" BEFORE coding.** See `docs/phases/PHASE-45-PREP/README.md` as template.
+- **Kill scope creep immediately.** If a task wasn't in the original plan, it goes to next phase.
+
+### "Everything is a Block" — Scope Clarification
+
+The principle applies to the **execution engine only**, not to all code:
+
+| IS a block (execution layer) | Is NOT a block (infrastructure) |
+|------------------------------|--------------------------------|
+| Workflows, agents, tools, validators | TUI components (React/Ink) |
+| Inference blocks, conditions, loops | CLI commands |
+| Anything in `content/system/blocks/` | SessionManager, ConversationManager |
+| Anything executed by `EntryPointExecutor` | SDK client, Sidecar |
+
+**Stop asking "should this be a block?"** If it's not executed by the block engine, it's code. Period.
+
+### maestro-code V1 Architecture
+
+- **The agent is a conversational assistant that orchestrates Maestro.** It talks to the user, answers questions, explains concepts, and when asked to do something — confirms the plan before executing. It creates workspaces, sessions, launches specialized agents (foundry, project), monitors fitness, publishes blocks. It can also discuss topics unrelated to Maestro (general questions, explanations, brainstorming).
+- **Confirm before acting.** The agent NEVER silently executes commands. It says "I'll create a workspace for Cantante and launch a dev session with template X. Sound good?" and waits for confirmation.
+- **Specialized agents do the actual work.** Coding, testing, reviewing, committing — that's done by specialized agents running in project/foundry sessions. The maestro-code agent sets them up and monitors them.
+- **All pages stay and are central.** Spaces (workspaces/sessions), Foundry (training), Catalog (blocks), Models (LLM status) — these show the state of the system and are essential, not secondary.
+- **Slash commands for actions**: `/help`, `/new`, `/clear`, `/stop`, `/quit`
+- **NO navigation paradigm changes.** The current model (slash-to-focus + hotkeys for pages) is final for V1.
+- **The differentiator vs Claude Code**: Claude Code writes code. Maestro orchestrates agents that write code, train themselves, and improve over time. The maestro-code agent is the friendly interface to that system — conversational, knowledgeable, and action-oriented.
+
+### Dogfooding Rules
+
+- **Read `docs/guides/ai-agents/dogfooding-methodology.md` — especially Section 8 (Agent Quality).**
+- **Minimum 2 hours continuous use** per dogfooding session. Not 15 minutes.
+- **Test conversation + orchestration**: "Explain what a foundry session is, then create one for training a commit agent", "What's the best template for a dev session on Cantante? Set it up.", "The last session failed — what happened?"
+- **Test confirmation behavior**: The agent must explain its plan and wait for confirmation before executing commands. If it silently runs operations, that's a bug.
+- **Compare with doing it manually.** After each task, ask: "Was this faster/easier than running the CLI commands myself?" If no, the agent needs improvement.
+- **Judge the full experience.** Does it feel like talking to a knowledgeable colleague? Does it explain, confirm, execute, and report back?
+
+### Self-Hosting Timeline
+
+Maestro building itself = Phase 49-50. NOT a V1 concern. Build maestro-code in normal code (React/Ink/TypeScript). The agent block running INSIDE maestro-code is a block. The TUI is not.
+
 ## Commit Guidelines
 
 1. Run all tests before committing

@@ -1195,6 +1195,206 @@ Total: ~10 minutes for a valid (minimal) dogfooding session.
 For a comprehensive session, plan 30-60 minutes to test all pages, detail views,
 flows, and edge cases.
 
+---
+
+## 8. Agent Quality Dogfooding (CRITICAL — added 2026-03-02)
+
+> **This section is MANDATORY for any dogfooding session on maestro-code.**
+> Previous sections focus on UI validation. This section focuses on the ONLY question that matters:
+> **"Would I use this instead of Claude Code for real work?"**
+
+### 8.1 The Problem This Section Solves
+
+All previous dogfooding sessions (Phase 35: 34 sessions, Phase 44: 8 sessions) tested surface behavior:
+- "Can I submit a task?" YES
+- "Does the execution tree update?" YES
+- "Does the agent produce output?" YES
+
+But none tested depth:
+- "Did the agent correctly create a workspace and session?" NEVER MEASURED
+- "Did it chain Maestro operations in the right order?" NEVER MEASURED
+- "Did it recover when a session failed?" NEVER MEASURED
+- "Was it faster than running CLI commands manually?" NEVER ASKED
+
+**Result**: 100% "success rate" on superficial tasks while the agent may be fundamentally inadequate for real use.
+
+### 8.1.1 Understanding What the Agent IS
+
+**The maestro-code agent is a conversational assistant that orchestrates Maestro.** It does not write code itself.
+
+Its job is to:
+- **Converse naturally** — answer questions, explain concepts, discuss anything (including non-Maestro topics)
+- **Confirm before acting** — explain the plan, wait for user approval, then execute
+- **Orchestrate Maestro** — create workspaces, sessions, launch training, monitor fitness, publish blocks
+- **Report back** — explain what happened, show results, suggest next steps
+
+**The specialized agents inside sessions do the actual work** (coding, testing, reviewing). The maestro-code agent sets them up and monitors them — like a knowledgeable colleague who knows all the CLI commands and explains everything.
+
+**The comparison baseline is NOT Claude Code.** It's doing the operations manually via CLI.
+
+### 8.2 Agent Quality Protocol
+
+Every dogfooding session MUST include agent quality testing. This is not optional.
+
+#### Step 1: Choose REAL orchestration tasks (not demos)
+
+**BANNED tasks** (too simple, prove nothing):
+- "Create a README"
+- "Add ESLint configuration"
+- "Write a function that does X"
+- Any task that a coding assistant would do
+
+**REQUIRED task complexity** (minimum for valid dogfooding):
+- Multi-step Maestro operations (workspace + session + invoke)
+- Requires knowledge of Maestro CLI commands and workflow
+- Has at least one decision point (which template? which model? which entry point?)
+- Takes a human 10-30 minutes to do manually via CLI
+
+**Example GOOD tasks**:
+- "Set up a workspace for Cantante and create a dev session to add a login page"
+- "Create a foundry session to train a better commit message agent using Qwen2.5"
+- "Check what models are available and adapt the autonomous-dev workflow for my setup"
+- "The dev session on Cantante failed — diagnose the error and retry"
+- "Show me the fitness of the task-planner block and optimize it if below 0.8"
+- "Create a new tool block for file-search and test it in a foundry session"
+
+#### Step 2: Time yourself (2 hours minimum)
+
+```
+Session structure:
+├── Task 1 (30-45 min) — Full workspace setup
+│   ├── Ask the agent to set up a workspace + session for a real project
+│   ├── Watch: does it run the right CLI commands in the right order?
+│   ├── Verify: workspace exists, session started, template imported
+│   ├── Note: time taken, mistakes, unnecessary steps
+│   └── Compare: "How long would this take me manually via CLI?"
+│
+├── Task 2 (30-45 min) — Foundry/training workflow
+│   ├── Ask the agent to train or evaluate a block
+│   ├── Watch: does it create foundry session, invoke correctly, check fitness?
+│   └── Compare: "Did it know the foundry workflow without me explaining it?"
+│
+├── Task 3 (20-30 min) — Error recovery + monitoring
+│   ├── Give a task where something will fail (wrong model, missing block)
+│   ├── Watch: does it detect the failure? Read the error? Retry differently?
+│   └── Note: recovery quality, did it check the monitor/execution tree?
+│
+└── Assessment (15 min)
+    ├── Score each dimension (see 8.3)
+    ├── Write honest verdict
+    └── List top 3 improvements needed
+```
+
+#### Step 3: Score every dimension
+
+| Dimension | Question | Score 1-5 |
+|-----------|----------|-----------|
+| **Conversation** | Can I have a natural conversation? Does it answer questions, explain concepts, discuss non-Maestro topics? | |
+| **Confirmation** | Does it explain its plan and wait for my OK before executing commands? (NEVER silently executes) | |
+| **Understanding** | Did it understand what I asked on the first try? | |
+| **Maestro knowledge** | Did it know the right CLI commands, templates, and workflows? | |
+| **Operation sequencing** | Did it chain operations in the correct order (workspace → session → template → start → invoke)? | |
+| **Completeness** | Did it finish the full setup, or leave things half-configured? | |
+| **Error handling** | When something went wrong, did it diagnose and recover? | |
+| **Speed** | Was it faster than doing it manually via CLI? | |
+| **Communication** | Did it explain what it was doing clearly? Report results after execution? | |
+| **Daily use** | Would I use this every day to manage my Maestro workflows? | |
+
+**Scoring guide**:
+- 1 = Broken/useless
+- 2 = Works but frustrating, would not use
+- 3 = Acceptable, but Claude Code is better
+- 4 = Good, competitive with Claude Code
+- 5 = Excellent, better than Claude Code for this task
+
+**V1 SHIPPING THRESHOLD**: Average score >= 3.5 across all dimensions. No dimension below 2.
+
+#### Step 4: The Manual CLI Comparison Test
+
+For at least ONE task per dogfooding session, do the same task both ways:
+
+```
+1. Do the task via maestro-code agent → note time, quality, frustrations
+2. Do the SAME task manually via CLI commands → note time, quality, frustrations
+3. Compare honestly:
+   - Which was faster?
+   - Which required less knowledge of Maestro internals?
+   - Which had fewer errors?
+   - Which felt more productive?
+   - Would a NEW user prefer the agent or the CLI?
+```
+
+**If manual CLI wins on every dimension**: the agent needs fundamental improvement before shipping.
+**If maestro-code agent wins** (faster, fewer errors, less Maestro knowledge required): that's the value proposition working.
+
+### 8.3 Notes Template for Agent Quality
+
+Add this to your dogfooding notes file:
+
+```markdown
+## Agent Quality Assessment — [DATE]
+
+### Task 1: [description]
+- **Time**: X minutes
+- **Files touched**: N
+- **Outcome**: [completed/partial/failed]
+- **Agent mistakes**: [list]
+- **Recovery quality**: [good/ok/poor]
+- **vs Manual CLI**: [faster/slower/same], [easier/harder/same]
+- **Verdict**: [would use / would not use / needs improvement]
+
+### Task 2: [description]
+(same structure)
+
+### Task 3: Error Recovery Test
+- **Setup**: [what should fail]
+- **Agent detected error**: [yes/no]
+- **Recovery approach**: [description]
+- **Result**: [recovered/stuck/gave up]
+
+### Dimension Scores
+| Dimension | Score | Notes |
+|-----------|-------|-------|
+| Understanding | X/5 | |
+| Context awareness | X/5 | |
+| Architecture | X/5 | |
+| Completeness | X/5 | |
+| Error handling | X/5 | |
+| Speed | X/5 | |
+| Tool usage | X/5 | |
+| Communication | X/5 | |
+| Conversation | X/5 | |
+| Confirmation | X/5 | |
+| vs Manual CLI | X/5 | |
+| Daily use | X/5 | |
+| **AVERAGE** | **X/5** | |
+
+### Top 3 Improvements Needed
+1.
+2.
+3.
+
+### Ship Decision
+[ ] Ready to ship (avg >= 3.5, no dimension < 2)
+[ ] NOT ready — needs: [list what]
+```
+
+### 8.4 Anti-Patterns for Agent Quality Dogfooding
+
+| Anti-Pattern | Why It's Wrong | What To Do Instead |
+|-------------|----------------|-------------------|
+| Testing only simple tasks | Proves nothing about real-world usefulness | Use multi-step Maestro orchestration tasks |
+| "It produced output, so it works" | Output ≠ correct operations | Verify: was the workspace created? Session started? Template imported? |
+| Counting sessions instead of depth | 34 shallow sessions < 3 deep sessions | One 2-hour session > ten 10-minute sessions |
+| Not comparing with manual CLI | Can't judge value without a baseline | Always do at least one task both ways (agent vs manual) |
+| Blaming the model, not the prompt | "Claude Sonnet can't do this" is often wrong | Check: does the system prompt include CLI reference? Are Maestro tools available? |
+| Declaring "100% success" | Success on easy tasks = meaningless metric | Report success rate on HARD orchestration tasks only |
+| Testing coding instead of orchestration | The agent is a conversational orchestrator, not a coder | Test workspace/session/foundry operations, not "write a function" |
+| Agent executes without confirming | Silent execution = script, not assistant | If the agent runs commands without explaining and confirming first, that's a bug |
+| Stopping at first success | One good result doesn't prove reliability | Run the same type of task 3+ times for consistency |
+
+---
+
 ### Post-Incident Mandatory Checks (added 2026-02-27)
 
 These checks were added after a dogfooding session shipped 3 major bugs because

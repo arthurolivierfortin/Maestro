@@ -1,6 +1,6 @@
 # Maestro — Roadmap
 
-**Derniere mise a jour** : 2026-02-26
+**Derniere mise a jour** : 2026-03-02
 **Version actuelle** : v0.1.0-alpha (tag sur main)
 
 ---
@@ -51,52 +51,44 @@
 
 ## Phases actives et a venir
 
----
-
-### Phase 44-B : Stabilisation critique
-
-**But** : Corriger les bugs bloquants, les failles de securite, et implementer la conversation persistante.
-
-| Sous-phase | Objectif | Effort |
-|------------|----------|--------|
-| 44-B-A | Securite : path traversal + shell injection | 0.5 jour |
-| 44-B-B | Data integrity : BlocksController.Update + WorkspacesController persist | 0.5 jour |
-| 44-B-C | TUI stability : scroll blank + double StatusBar + input bar | 0.5 jour |
-| 44-B-D | SDK contract : Models page field mapping | 0.5 jour |
-| 44-B-E | Conversation persistante (ADR Option B) | 2-3 jours |
-| 44-B-F | Slash commands de base + task cancellation | 1 jour |
-| 44-B-G | Session reuse + working directory indicator | 0.5 jour |
-| 44-B-H | Dogfooding de validation | 0.5 jour |
+> **Decision strategique 2026-03-02** : Les phases 44-B et 44-C sont annulees comme prerequis.
+> Seuls les items essentiels sont extraits dans 45-PREP. Voir `docs/phases/PHASE-45/STRATEGIC-ANALYSIS.md`.
 
 ---
 
-### Phase 44-C : TUI Feature Completion
+### Phase 45-PREP : Stabilisation essentielle (1 semaine max)
 
-**But** : Transformer maestro code d'un outil de monitoring en un outil de productivite.
+**But** : Rendre maestro-code utilisable au quotidien. L'agent est un assistant conversationnel qui orchestre Maestro (workspaces, sessions, training, monitoring). Il discute, explique, confirme avant d'agir, et doit etre plus rapide que faire les commandes CLI a la main.
 
-| Sous-phase | Objectif | Effort |
-|------------|----------|--------|
-| 44-C-A | Differencier Foundry vs Catalog | 1 jour |
-| 44-C-B | Block creation depuis Foundry | 1 jour |
-| 44-C-C | Help overlay sur toutes les pages | 0.5 jour |
-| 44-C-D | Context/token usage display | 0.5 jour |
-| 44-C-E | Error display + retry | 0.5 jour |
-| 44-C-F | Git status integration | 0.5 jour |
-| 44-C-G | Dead code cleanup | 0.5 jour |
-| 44-C-H | Dogfooding final V1-ready | 0.5 jour |
+**Critere de succes** : Le developpeur principal utilise maestro-code pendant 2h pour orchestrer des sessions sur Cantante, score moyen >= 3.5/5 sur les dimensions de qualite agent.
+
+| Item | Objectif | Effort |
+|------|----------|--------|
+| 1 | Securite : path traversal + shell injection sanitization | 0.5 jour |
+| 2 | TUI : scroll fix, error display dans ConversationLog | 0.5 jour |
+| 3 | Conversations persistantes (sauver/recharger entre sessions) | 1-2 jours |
+| 4 | Slash commands essentiels (/help, /new, /clear, /stop, /quit) | 0.5 jour |
+| 5 | Agent quality : system prompt Maestro-aware, CLI knowledge, operation chaining | 1-2 jours |
+| 6 | Dogfooding profond (2h orchestration tasks, scoring, comparaison vs CLI manuel) | 0.5 jour |
+
+**NOT in scope** : Foundry CRUD, block creation TUI, git status integration, token display, refactoring cosmetique.
+
+**Gate** : Score dogfooding >= 3.5/5. Aucune dimension < 2. Le developpeur VEUT utiliser maestro-code.
 
 ---
 
-### Phase 45 : Premiere version distribuable
+### Phase 45 : Premiere version distribuable (2 semaines max)
 
-**But** : Maestro installable et utilisable par quelqu'un d'autre.
+**But** : `npm install -g @maestro/cli && maestro init && maestro code` fonctionne.
 
 | Sous-phase | Objectif | Effort |
 |------------|----------|--------|
-| 45-A | Packaging et installation (npm global + SDK) | 1 semaine |
-| 45-B | Onboarding premier lancement | 3-5 jours |
-| 45-C | Documentation utilisateur | 3-5 jours |
-| 45-D | Beta testing (3-5 testeurs) | 2 semaines |
+| 45-A | Packaging npm, commande globale, sidecar auto-start | 3-4 jours |
+| 45-B | `maestro init` + onboarding premier lancement (provider config) | 2-3 jours |
+| 45-C | Documentation : README, Getting Started, 3 exemples concrets | 2-3 jours |
+| 45-D | Beta testing (3-5 testeurs, feedback structure) | 3-5 jours |
+
+**Gate** : 3 testeurs externes installent et utilisent maestro-code avec succes sur leur propre projet.
 
 ---
 
@@ -114,52 +106,48 @@
 
 ### Phase 47+ : Futur
 
-- 47 : Catalogue communautaire (publier/importer blocks + docs + sandboxes)
-- 48 : Auth et subscriptions
-- 49 : Fitness Engine + Agent Evaluateur Autonome
-- 50 : Agent Creator (meta-programmation — utilise l'evaluateur de 49)
-- 51+ : Multi-domaine
+| Phase | Objectif |
+|-------|----------|
+| 47 | Catalogue communautaire (publier/importer blocks + docs + sandboxes) |
+| 48 | Auth et subscriptions |
+| 49 | Fitness Engine + Agent Evaluateur Autonome |
+| 50 | Agent Creator (meta-programmation — utilise l'evaluateur de 49) |
+| 51+ | Multi-domaine, self-improvement |
 
 ---
 
 ## Chaine de dependances
 
 ```
-35 Dogfooding (DONE)
- └→ 36 Context/Memory/Docs (DONE)
-     └→ 37 Runtime & SDK (DONE)
-         └→ 38 Sandbox Foundry (DONE)
-             └→ 39 adapt + optimize (DONE)
-                 └→ 40-PRE Polish & Agent-First UX (DONE)
-                     └→ 41-PRE Spatial TUI (DONE — remplace par 42)
-                         └→ 42 Restructuration maestro-code (DONE)
-                             └→ 43 Visual Gate (DONE)
-                                 └→ 44 Dogfooding Cantante + Jarvis (DONE)
-                                     └→ 44-B Stabilisation critique (A FAIRE)
-                                         └→ 44-C TUI Feature Completion (A FAIRE)
-                                             └→ 45 Distribution (A FAIRE)
-                                                 └→ 46 Cantante v1 (premiere app Maestro publique)
-                                                     └→ 47+ Catalogue, Auth, Fitness Engine...
+44 Dogfooding Cantante (DONE)
+ └→ 45-PREP Stabilisation essentielle (A FAIRE — 1 semaine)
+     └→ 45 Distribution (A FAIRE — 2 semaines)
+         └→ 46 Cantante v1 (premiere app Maestro publique)
+             └→ 47+ Catalogue, Auth, Fitness Engine...
 ```
 
 ## Features planifiees (TODOS)
 
-| Feature | Phase cible | Document |
-|---------|-------------|----------|
-| Visual Gate (PTY capture) | 43 | `docs/phases/PHASE-43/README.md` (DONE) |
-| Dogfooding Cantante + Jarvis | 44 | `docs/phases/PHASE-44/README.md` (DONE) |
-| Stabilisation critique (securite, conversation, slash commands) | 44-B | `docs/phases/PHASE-44-B/README.md` |
-| TUI Feature Completion (Foundry CRUD, help, tokens, git, errors) | 44-C | `docs/phases/PHASE-44-C/README.md` |
-| Distribution / packaging | 45 | A creer |
-| Cantante v1 | 46 | A creer |
-| Catalogue communautaire | 47 | Futur |
-| Fitness Engine + Agent Evaluateur | 49 | `docs/TODOS/FEATURE-fitness-engine-evaluator.md` |
+| Feature | Phase cible | Statut |
+|---------|-------------|--------|
+| Securite + conversations persistantes + slash commands | 45-PREP | A faire |
+| Agent quality (Claude Code parity) | 45-PREP | A faire |
+| npm packaging + global install + sidecar auto-start | 45 | A faire |
+| Onboarding premier lancement | 45 | A faire |
+| Documentation utilisateur | 45 | A faire |
+| Beta testing externe | 45 | A faire |
+| Cantante v1 | 46 | Futur |
+| Pages secondaires (Spaces, Foundry, Catalog, Models) | 46+ | Futur |
+| Foundry CRUD dans TUI | 46+ | Futur |
+| Fitness Engine + Agent Evaluateur | 49 | Futur |
+| Agent Creator | 50 | Futur |
 
 ## Principes
 
-1. **Profondeur avant largeur** — Utiliser ce qui existe avant de construire du nouveau
-2. **Usage reel avant features** — Tester sur Cantante avant d'ajouter des commandes
-3. **Pas de phase "complete" sans test** — Un commit sur main ne suffit pas
-4. **Committer directement sur main** — Pas de PRs pour un dev solo, tags pour les milestones
-5. **Chaque phase construit sur la precedente** — Pas de trou dans les dependances
-6. **Verifier avant de declarer** — vitest passing ≠ feature works (incident Phase 41-PRE)
+1. **Livrer avant de perfectionner** — V1 imparfaite > V2 jamais livree
+2. **L'agent doit etre UTILE** — Pas juste fonctionnel. Utile au quotidien.
+3. **Profondeur avant largeur** — Utiliser ce qui existe avant de construire du nouveau
+4. **Pas de refactoring cosmetique** — Seuls les bugs et features bloquees justifient du refactoring
+5. **Dogfooding profond** — 2h continu, taches d'orchestration, comparaison vs CLI manuel (voir Section 8 de dogfooding-methodology.md)
+6. **Max 3 jours par phase** — Decouper si necessaire
+7. **Definition of Done AVANT de coder** — Chaque phase a un "NOT in scope" explicite
