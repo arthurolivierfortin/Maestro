@@ -1,96 +1,36 @@
 # Phase 45-PREP : Stabilisation essentielle
 
-> **Decision** : 2026-03-02
-> **Contexte** : `docs/phases/PHASE-45/STRATEGIC-ANALYSIS.md`
-> **Duree max** : 1 semaine
-> **Prerequis** : Phase 44 (DONE)
+**Statut** : A faire
+**Prerequis** : Phase 44 COMPLETE (dogfooding pragmatique — 4/4 taches, 8 sessions, 100% succes)
+**Objectif** : Rendre maestro-code utilisable au quotidien comme assistant conversationnel qui orchestre Maestro — plus rapide et agreable que les commandes CLI manuelles.
 
 ---
 
-## But
+## Regles pour l'agent executant [OBLIGATOIRE]
 
-Rendre maestro-code utilisable au quotidien. **L'agent est un assistant conversationnel qui orchestre Maestro** — il discute, repond aux questions, explique les concepts, et quand on lui demande une action, il confirme son plan avant d'executer. Il cree des workspaces, sessions, lance des agents specialises, monitore le training, publie des blocks.
-
-Le critere n'est pas "ca code" mais "c'est plus agreable et plus rapide que faire les commandes Maestro a la main, et je peux discuter avec lui naturellement".
+1. **Lire `docs/system/AGENT-PROTOCOL.md`** avant de commencer
+2. **Lire le fichier de la sous-phase** avant de commencer (ex: `45-PREP-A-security.md`)
+3. **Ecrire dans `docs/phases/PHASE-45-PREP/checkpoint.md`** apres chaque sous-phase
+4. **Ne PAS refactorer** App.ts, SessionManager, ou le navigation system — fixes chirurgicaux uniquement
+5. **Ne PAS creer de nouveaux composants TUI** ou de nouvelles pages
+6. **Ne PAS changer l'infrastructure generique** — les changements sont dans le contenu (prompts, blocks) et le TUI client
+7. **Tester apres chaque sous-phase** — `npx vitest run tests/` dans maestro-code. Aucun test existant ne doit casser.
+8. **L'agent maestro-code est un orchestrateur conversationnel, PAS un codeur** — il orchestre des operations Maestro (workspaces, sessions, training, monitoring). Les agents specialises dans les sessions font le coding.
 
 ---
 
-## Items
+## Sous-phases [OBLIGATOIRE]
 
-### 1. Securite : Path Traversal + Shell Injection (0.5 jour)
+| Phase | Fichier | Titre | Effort |
+|-------|---------|-------|--------|
+| 45-PREP-A | [`45-PREP-A-security.md`](./45-PREP-A-security.md) | Securite : Path Traversal + Shell Injection | 0.5 jour |
+| 45-PREP-B | [`45-PREP-B-tui-errors.md`](./45-PREP-B-tui-errors.md) | TUI : Scroll Fix + Error Display | 0.5 jour |
+| 45-PREP-C | [`45-PREP-C-conversations.md`](./45-PREP-C-conversations.md) | Conversations Persistantes | 1 jour |
+| 45-PREP-D | [`45-PREP-D-slash-commands.md`](./45-PREP-D-slash-commands.md) | Slash Commands Essentiels | 0.5 jour |
+| 45-PREP-E | [`45-PREP-E-agent-quality.md`](./45-PREP-E-agent-quality.md) | Agent Quality : Orchestrateur Conversationnel | 1-2 jours |
+| 45-PREP-F | [`45-PREP-F-dogfooding.md`](./45-PREP-F-dogfooding.md) | Dogfooding Profond | 0.5 jour |
 
-Sanitiser les inputs utilisateur avant de les passer aux outils file-read/file-write/shell-execute :
-- Pas de `../../../etc/passwd` dans les chemins
-- Pas de `;rm -rf /` dans les commandes shell
-- Validation dans les tool blocks, pas dans l'infra generique
-
-**Done quand** : Test avec des inputs malveillants → bloque correctement.
-
-### 2. TUI : Scroll Fix + Error Display (0.5 jour)
-
-- Le scroll sur les listes longues ne coupe pas le contenu
-- Quand un node echoue dans l'execution tree, le message d'erreur apparait dans le ConversationLog
-- L'agent montre les erreurs au lieu de les ignorer silencieusement
-
-**Done quand** : Un node en erreur affiche le message d'erreur visible dans le TUI.
-
-### 3. Conversations Persistantes (1-2 jours)
-
-Sauver et recharger l'historique de conversation entre les sessions TUI :
-- Quand l'utilisateur ferme et reouvre `maestro code`, la conversation precedente est visible
-- Implementation : sauver dans `.maestro/conversations/` ou via session variables backend
-- ADR Option B (backend-side storage via session variables)
-
-**Done quand** : Fermer le TUI, le rouvrir → conversation precedente visible. Nouvelle conversation avec `/new`.
-
-### 4. Slash Commands Essentiels (0.5 jour)
-
-Commandes dans la TaskInputBar :
-- `/help` — Affiche les commandes disponibles
-- `/new` — Nouvelle conversation (reset l'historique)
-- `/clear` — Efface le log visuel
-- `/stop` — Annule la tache en cours
-- `/quit` — Quitte le TUI
-
-**Done quand** : Chaque commande fonctionne. `/help` liste toutes les commandes.
-
-### 5. Agent Quality : Maestro Orchestrator (1-2 jours)
-
-> **C'est l'item LE PLUS IMPORTANT de la phase.**
-
-L'agent maestro-code est un **assistant conversationnel qui orchestre Maestro**. Il doit :
-- **Converser naturellement** — repondre aux questions, expliquer des concepts, discuter de sujets non-Maestro
-- **Confirmer avant d'agir** — "Je vais creer un workspace pour Cantante et lancer une session de dev avec le template project-autonomous. Ca te va ?" JAMAIS executer silencieusement
-- **Connaitre le CLI Maestro** — workspace, session, foundry, block, monitor, adapt, optimize
-- **Chainer les operations** dans le bon ordre (workspace → session → template → start → invoke)
-- **Monitorer et rapporter** — verifier le statut, expliquer les resultats, suggerer les prochaines etapes
-- **Recuperer des erreurs** — diagnostiquer, expliquer le probleme, proposer une solution
-
-**Actions concretes** :
-- Reecrire le system prompt de `maestro-assistant-workflow` :
-  - Personnalite conversationnelle (pas un robot qui execute)
-  - Regle de confirmation avant action
-  - Reference CLI complete, templates disponibles, workflows connus
-  - Capacite a discuter de sujets generaux
-- S'assurer que l'agent a acces aux tools : `shell-execute` (CLI), `file-read` (configs)
-- Verifier le flow complet : conversation → question → confirmation → execution → rapport
-- Tester sur un mix de conversations + orchestration (pas uniquement des commandes)
-
-**Done quand** :
-1. L'agent repond a "C'est quoi une session foundry?" avec une explication claire
-2. L'agent confirme avant d'executer "Cree un workspace pour Cantante"
-3. L'agent complete le setup (workspace → session → invoke) et rapporte le resultat
-
-### 6. Dogfooding Profond (0.5 jour)
-
-Suivre la Section 8 de `docs/guides/ai-agents/dogfooding-methodology.md` :
-- 2h continu d'orchestration Maestro sur Cantante
-- 3 taches d'orchestration minimum (workspace setup, foundry training, session monitoring)
-- Scoring sur 10 dimensions
-- Comparaison directe avec les commandes CLI manuelles sur au moins 1 tache
-- Notes structurees dans `docs/phases/PHASE-45-PREP/dogfood-notes.md`
-
-**Done quand** : Score moyen >= 3.5/5. Aucune dimension < 2. L'utilisateur prefere l'agent aux commandes CLI manuelles.
+**Ordre d'execution** : A → B → C → D → E → F (sequentiel — chaque sous-phase depend de la precedente)
 
 ---
 
@@ -104,6 +44,7 @@ Suivre la Section 8 de `docs/guides/ai-agents/dogfooding-methodology.md` :
 - Multi-model support
 - Changement de paradigme de navigation (les pages existantes restent telles quelles)
 - Tout refactoring cosmetique
+- Sub-agents (un seul agent avec un bon prompt pour V1)
 
 **Si un de ces items semble necessaire** : le documenter dans `next-phase-items.md` et continuer.
 
@@ -112,23 +53,36 @@ Suivre la Section 8 de `docs/guides/ai-agents/dogfooding-methodology.md` :
 ## Definition of Done
 
 ```
-[ ] Security : path traversal + shell injection bloques
+[ ] Security : path traversal + shell injection bloques (tests backend passent)
 [ ] TUI : erreurs visibles dans ConversationLog
-[ ] Conversations : persistantes entre sessions, /new pour reset
-[ ] Slash commands : /help, /new, /clear, /stop, /quit fonctionnels
-[ ] Agent quality : complete une tache multi-fichiers complexe
-[ ] Dogfooding : 2h, score >= 3.5/5, notes structurees
+[ ] Conversations : persistantes entre sessions TUI, /new pour nouvelle conversation
+[ ] Slash commands : /help, /new, /clear, /stop, /quit, /status fonctionnels
+[ ] Agent quality : conversation naturelle + confirmation avant action + operations Maestro
+[ ] Dogfooding : 2h, score >= 3.5/5, notes structurees, comparaison vs CLI
 [ ] Aucun test existant casse
 [ ] Commit sur main avec tag v0.2.0-alpha
 ```
 
 ---
 
+## Gestion de la memoire [OBLIGATOIRE]
+
+### Checkpoint global
+Fichier `docs/phases/PHASE-45-PREP/checkpoint.md` — format defini dans AGENT-PROTOCOL.md.
+
+### Mise a jour MEMORY.md apres completion
+- Ajouter : "Phase 45-PREP DONE — securite, conversations persistantes, agent orchestrateur conversationnel, dogfooding score X/5"
+- Ajouter : "System prompt reecrit — orchestrateur conversationnel avec confirmation, reference CLI complete"
+- Retirer : entries liees a "Active phase: 44 DONE. Next: Phase 45"
+- Mettre a jour : "Active phase: 45-PREP DONE. Next: Phase 45 (distribution)"
+
+---
+
 ## Echec acceptable
 
-Si apres l'item 5 (agent quality), le score de dogfooding est < 3.0 :
-- Documenter les problemes precis
+Si apres 45-PREP-E (agent quality), le score de dogfooding est < 3.0 :
+- Documenter les problemes precis dans `dogfood-notes.md`
 - Creer une Phase 45-PREP-B specifiquement pour les fixes agent
 - Ne PAS etendre cette phase au-dela d'1 semaine
 
-La regle du "max 3 jours par phase" s'applique a chaque item, pas a la phase entiere.
+La regle du "max 3 jours par phase" s'applique a chaque sous-phase, pas a la phase entiere.

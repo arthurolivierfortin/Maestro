@@ -1992,6 +1992,9 @@ public class EntryPointExecutor
         if (!string.IsNullOrEmpty(session.ParentWorkspaceId))
             execContext.Variables["workspaceId"] = session.ParentWorkspaceId;
         execContext.Variables["agentId"] = blockRefId;
+        // Pass session permissions for tool-level path validation
+        var effectivePermissions = session.GetEffectivePermissions();
+        execContext.Variables["_permissions_allowedPaths"] = effectivePermissions.AllowedPaths;
 
         try
         {

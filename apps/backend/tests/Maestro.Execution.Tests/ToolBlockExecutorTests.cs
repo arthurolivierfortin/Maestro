@@ -103,7 +103,8 @@ public class OtherExecutorsTests
         var mock = System.Text.Json.JsonSerializer.Serialize(new { outputs = new { message = "ok" } });
         await System.IO.File.WriteAllTextAsync(System.IO.Path.Combine(path, "mock-response.json"), mock);
 
-        var executor = new Maestro.Infrastructure.BlockExecutors.AgentBlockExecutor(new Maestro.Infrastructure.LLMGateway.LLMGateway(), serviceProvider: null);
+        var mockGateway = new Moq.Mock<Maestro.Application.Interfaces.ILLMGateway>();
+        var executor = new Maestro.Infrastructure.BlockExecutors.AgentBlockExecutor(mockGateway.Object, serviceProvider: null);
         var block = BlockDefinition.Create("a1", "agent", "agent");
         block.UpdateConfig(new Dictionary<string, object> { ["path"] = path });
         var ctx = ExecutionContext.Create("wf");

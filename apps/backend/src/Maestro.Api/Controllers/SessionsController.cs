@@ -553,6 +553,48 @@ public class SessionsController : ControllerBase
         }
     }
 
+    // ========== Permissions Endpoints ==========
+
+    /// <summary>
+    /// Get current permissions for a session.
+    /// </summary>
+    [HttpGet("{id}/permissions")]
+    public async Task<ActionResult<ContextPermissionsDto>> GetPermissions(string id)
+    {
+        var sessionId = SessionId.From(id);
+        var session = await _sessionServer.GetAsync(sessionId);
+        if (session == null)
+            return NotFound(new { error = $"Session '{id}' not found" });
+
+        return Ok(ContextPermissionsDto.FromDomain(session.GetEffectivePermissions()));
+    }
+
+    /// <summary>
+    /// Update permissions for a session.
+    /// </summary>
+    [HttpPut("{id}/permissions")]
+    public async Task<ActionResult<ContextPermissionsDto>> UpdatePermissions(
+        string id, [FromBody] ContextPermissionsDto request)
+    {
+        var sessionId = SessionId.From(id);
+        var session = await _sessionServer.GetAsync(sessionId);
+        if (session == null)
+            return NotFound(new { error = $"Session '{id}' not found" });
+
+        try
+        {
+            session.UpdatePermissions(request.ToDomain());
+            await _sessionServer.SaveAsync(session);
+            _logger.LogInformation("Updated permissions for session {SessionId}", id);
+            return Ok(ContextPermissionsDto.FromDomain(session.GetEffectivePermissions()));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to update permissions for session {SessionId}", id);
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
     // ========== Widget Endpoints ==========
 
     /// <summary>

@@ -1674,6 +1674,10 @@ async function importSessionTemplate(sessionId, templateName, options: { quiet?:
     if (templateContent.variables) {
       if (verbose) console.log(`  ${c.gray('Variables...')}`);
       for (const [key, value] of Object.entries(templateContent.variables)) {
+        if (value === null || value === undefined) {
+          if (verbose) console.log(`    ${c.yellow('⚠')} ${key} ${c.gray('— skipped (null value, migrate to "" or remove)')}`);
+          continue;
+        }
         await client._fetch('PUT', `/api/sessions/${sessionId}/variables/${key}`, {
           body: { value }
         });
@@ -6547,6 +6551,9 @@ ${c.bold('Commands:')}
   vars <id> [list|get|set|remove]  Manage variables
   entry-points <id>            Manage entry points
   invoke <id> [entry-point]    Invoke entry point (--input key=val or key=val)
+  permissions <id>             Show/manage session permissions
+    add-path <path>            Add a path to AllowedPaths (read access)
+    remove-path <path>         Remove a path from AllowedPaths
   widgets <id>                 Manage monitor widgets
   exec <id> "<cmd>"            Execute command in session
   events <id>                  Show event history
@@ -6865,6 +6872,79 @@ ${c.bold('Quick Start:')}
         }
 
         return await invokeSessionEntryPoint(await resolveId(id, 'session'), entryPoint, Object.keys(inputs).length > 0 ? inputs : undefined);
+      }
+
+      // Session permissions commands
+      if (subCmd === 'permissions' || subCmd === 'perms') {
+        const id = argv._[2];
+        const permCmd = argv._[3];
+
+        if (!id) { formatter.error('Session ID required', 'MISSING_PARAM'); process.exit(EXIT.USER_ERROR); }
+        const resolvedId = await resolveId(id, 'session');
+
+        if (!permCmd || permCmd === 'list') {
+          // Show current permissions
+          try {
+            const perms = await client._fetch('GET', `/api/sessions/${resolvedId}/permissions`);
+            console.log(`\nSession Permissions (${resolvedId}):\n`);
+            console.log(`  Allowed Commands: ${perms.allowedCommands?.join(', ') || '(none)'}`);
+            console.log(`  Allowed Tools:    ${perms.allowedTools?.join(', ') || '(none)'}`);
+            console.log(`  Allowed Blocks:   ${perms.allowedBlocks?.join(', ') || '(none)'}`);
+            console.log(`  Allowed Paths:    ${perms.allowedPaths?.join(', ') || '(none)'}`);
+            console.log(`  Can Create Blocks:   ${perms.canCreateBlocks}`);
+            console.log(`  Can Create Sessions: ${perms.canCreateSessions}`);
+            console.log('');
+          } catch (error) {
+            handleApiError(error, 'getting session permissions');
+            process.exit(1);
+          }
+          return;
+        }
+
+        if (permCmd === 'add-path') {
+          const pathToAdd = argv._[4];
+          if (!pathToAdd) { formatter.error('Path required: session permissions <id> add-path <path>', 'MISSING_PARAM'); process.exit(EXIT.USER_ERROR); }
+          try {
+            const perms = await client._fetch('GET', `/api/sessions/${resolvedId}/permissions`);
+            const allowedPaths = perms.allowedPaths || [];
+            if (!allowedPaths.includes(pathToAdd)) {
+              allowedPaths.push(pathToAdd);
+            }
+            const updated = await client._fetch('PUT', `/api/sessions/${resolvedId}/permissions`, {
+              ...perms,
+              allowedPaths
+            });
+            console.log(`\nAdded '${pathToAdd}' to allowed paths.`);
+            console.log(`  Allowed Paths: ${updated.allowedPaths?.join(', ')}\n`);
+          } catch (error) {
+            handleApiError(error, 'adding allowed path');
+            process.exit(1);
+          }
+          return;
+        }
+
+        if (permCmd === 'remove-path') {
+          const pathToRemove = argv._[4];
+          if (!pathToRemove) { formatter.error('Path required: session permissions <id> remove-path <path>', 'MISSING_PARAM'); process.exit(EXIT.USER_ERROR); }
+          try {
+            const perms = await client._fetch('GET', `/api/sessions/${resolvedId}/permissions`);
+            const allowedPaths = (perms.allowedPaths || []).filter(p => p !== pathToRemove);
+            const updated = await client._fetch('PUT', `/api/sessions/${resolvedId}/permissions`, {
+              ...perms,
+              allowedPaths
+            });
+            console.log(`\nRemoved '${pathToRemove}' from allowed paths.`);
+            console.log(`  Allowed Paths: ${updated.allowedPaths?.join(', ') || '(none)'}\n`);
+          } catch (error) {
+            handleApiError(error, 'removing allowed path');
+            process.exit(1);
+          }
+          return;
+        }
+
+        formatter.error(`Unknown permissions command: ${permCmd}. Use: list, add-path, remove-path`, 'INVALID_COMMAND');
+        process.exit(EXIT.USER_ERROR);
+        return;
       }
 
       // Session widgets commands

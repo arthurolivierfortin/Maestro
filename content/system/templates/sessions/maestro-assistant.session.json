@@ -22,7 +22,7 @@
   },
   "variables": {
     "sessionMode": "assistant",
-    "_activeConversation": null,
+    "_activeConversation": "",
     "_conversations": [],
     "_blockOutputs": {},
     "_llmActivity": [],

@@ -63,8 +63,10 @@ class SessionManager {
   private widgetPollTimer: ReturnType<typeof setInterval> | null = null;
   private lastWidgetId: string | null = null;
   private _lastOutput: string | null = null;
+  private _lastHadErrors: boolean = false;
 
   getLastOutput(): string | null { return this._lastOutput; }
+  getLastHadErrors(): boolean { return this._lastHadErrors; }
 
   constructor(options: InteractiveOptions) {
     this.client = options.apiClient;
@@ -140,6 +142,73 @@ class SessionManager {
     return this.repoPath;
   }
 
+  /**
+   * Try to load conversation history from an existing session.
+   * Called at TUI startup to restore previous conversation.
+   * Non-fatal — if anything fails, returns empty array.
+   */
+  async loadConversationHistory(): Promise<LogLine[]> {
+    const sessionFile = nodePath.join(this.repoPath, '.maestro', 'session.json');
+    const lines: LogLine[] = [];
+
+    try {
+      const data = await fs.readFile(sessionFile, 'utf-8');
+      const saved = JSON.parse(data);
+      if (!saved.sessionId) return lines;
+
+      const session = await this.client.getSession(saved.sessionId);
+      if (!session || !session.id) return lines;
+
+      const vars = session.variables || {};
+
+      // Find conversation state — look for _conversationState_* variables
+      let messages: Array<{ role: string; content: string }> = [];
+      const convKeys = Object.keys(vars).filter(k => k.startsWith('_conversationState_'));
+      for (const key of convKeys) {
+        const conv = vars[key];
+        if (conv && Array.isArray(conv.messages) && conv.messages.length > 0) {
+          messages = conv.messages;
+          break;
+        }
+      }
+
+      if (messages.length === 0) return lines;
+
+      // Limit to last 50 messages
+      const recent = messages.slice(-50);
+
+      lines.push({ text: '--- Previous conversation ---', color: 'gray', dim: true });
+
+      for (const msg of recent) {
+        if (msg.role === 'user') {
+          lines.push({ text: `> ${msg.content}`, color: 'green', bold: true });
+        } else if (msg.role === 'assistant') {
+          // Try to unwrap JSON summary
+          let content = String(msg.content || '');
+          try {
+            const parsed = JSON.parse(content);
+            if (parsed && typeof parsed.summary === 'string') content = parsed.summary;
+          } catch { /* not JSON */ }
+
+          lines.push({ text: 'Agent:', color: 'cyan', bold: true });
+          const outputLines = content.split('\n').slice(0, 10);
+          for (const line of outputLines) {
+            lines.push({ text: `  ${line}`, color: 'white' });
+          }
+          if (content.split('\n').length > 10) {
+            lines.push({ text: '  ...', color: 'gray', dim: true });
+          }
+        }
+      }
+
+      lines.push({ text: '' });
+    } catch {
+      // Non-fatal — TUI works fine without history
+    }
+
+    return lines;
+  }
+
   async submitTask(
     task: string,
     addLine: (line: LogLine) => void,
@@ -177,7 +246,7 @@ class SessionManager {
   private startPolling(addLine: (line: LogLine) => void, setBusy: (b: boolean) => void) {
     this.lastReportedStatus.clear();
 
-    const reportNode = (key: string, name: string, status: string) => {
+    const reportNode = (key: string, name: string, status: string, node?: any) => {
       const isDone = status === 'completed' || status === 'done';
       const isError = status === 'error';
       const icon = isDone ? '✓' : isError ? '✗' : '…';
@@ -189,6 +258,18 @@ class SessionManager {
 
       this.lastReportedStatus.set(key, status);
       addLine({ text: `  ${icon} ${name}`, color, timestamp: ts() });
+
+      // Extract and display error message for failed nodes
+      if (isError && node) {
+        const errMsg = node.error
+          || node.errorMessage
+          || (typeof node.output === 'string' ? node.output : null)
+          || (node.output?.error ? String(node.output.error) : null);
+        if (errMsg) {
+          const truncated = String(errMsg).split('\n')[0].slice(0, 120);
+          addLine({ text: `    Error: ${truncated}`, color: 'red' });
+        }
+      }
     };
 
     this.pollTimer = setInterval(async () => {
@@ -204,7 +285,8 @@ class SessionManager {
             reportNode(
               `${node.id}:${child.id || child.name}`,
               child.name || child.id || 'step',
-              child.status
+              child.status,
+              child
             );
           }
         }
@@ -215,7 +297,8 @@ class SessionManager {
             reportNode(
               `root:${node.id || node.name}`,
               node.name || node.id || 'step',
-              node.status
+              node.status,
+              node
             );
           }
         }
@@ -325,6 +408,7 @@ class SessionManager {
             addLine({ text: 'Task completed', color: 'green', bold: true, timestamp: ts() });
           }
           addLine({ text: '' });
+          this._lastHadErrors = hasErrors;
           setBusy(false);
         }
       } catch (err: any) {

@@ -15,7 +15,7 @@
       {
         "id": "ensure-conversation",
         "type": "conditional",
-        "condition": "{{_activeConversation}} != null",
+        "condition": "{{_activeConversation}} != ",
         "else": {
           "nodes": [
             {

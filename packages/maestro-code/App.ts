@@ -314,6 +314,18 @@ const App = ({ apiClient: clientProp, sessionManager: smProp, demoMode, repoPath
     };
   }, [sessionManager]);
 
+  // ── Load conversation history on startup ──
+  const historyLoaded = useRef(false);
+  useEffect(() => {
+    if (!sessionManager || demoMode || historyLoaded.current) return;
+    historyLoaded.current = true;
+    sessionManager.loadConversationHistory().then(historyLines => {
+      if (historyLines.length > 0) {
+        setLines(prev => [...prev, ...historyLines]);
+      }
+    }).catch(() => { /* non-fatal */ });
+  }, [sessionManager, demoMode]);
+
   // ── Terminal bell ──
   const bell = useCallback((count: number) => {
     if (noBell) return;
@@ -418,6 +430,7 @@ const App = ({ apiClient: clientProp, sessionManager: smProp, demoMode, repoPath
       addLine({ text: '' });
       addLine({ text: 'Available commands:', color: 'cyan', bold: true, timestamp: ts() });
       addLine({ text: '  /help    — Show this help message', color: 'white' });
+      addLine({ text: '  /status  — Show session and connection status', color: 'white' });
       addLine({ text: '  /new     — Start a new conversation (keeps history)', color: 'white' });
       addLine({ text: '  /clear   — Clear conversation and start fresh', color: 'white' });
       addLine({ text: '  /stop    — Cancel the current task', color: 'white' });
@@ -427,7 +440,11 @@ const App = ({ apiClient: clientProp, sessionManager: smProp, demoMode, repoPath
       addLine({ text: 'Keyboard:', color: 'cyan', bold: true });
       addLine({ text: '  /        — Focus input bar', color: 'white' });
       addLine({ text: '  Escape   — Return to navigation', color: 'white' });
+      addLine({ text: '  ?        — Toggle keyboard shortcuts overlay', color: 'white' });
       addLine({ text: '  Ctrl+C   — Cancel task (when busy) or quit', color: 'white' });
+      addLine({ text: '' });
+      addLine({ text: 'Pages:', color: 'cyan', bold: true });
+      addLine({ text: '  h Home  a Agent  s Spaces  f Foundry  c Catalog  m Models', color: 'white' });
       addLine({ text: '' });
     },
     '/new': () => {
@@ -479,6 +496,30 @@ const App = ({ apiClient: clientProp, sessionManager: smProp, demoMode, repoPath
         }
       })();
     },
+    '/status': () => {
+      addLine({ text: '' });
+      addLine({ text: 'Status:', color: 'cyan', bold: true, timestamp: ts() });
+      const sid = sessionManager?.getSessionId();
+      addLine({ text: `  Session:  ${sid ? sid.slice(0, 8) : 'No active session'}`, color: 'white' });
+      addLine({ text: `  Template: ${sessionManager ? 'maestro-assistant' : 'N/A'}`, color: 'white' });
+      addLine({ text: `  Repo:     ${sessionManager?.getRepoPath() || 'N/A'}`, color: 'white' });
+      if (sid && apiClient) {
+        (async () => {
+          try {
+            const session = await apiClient.getSession(sid);
+            const status = session?.status || session?.containerStatus || 'unknown';
+            const convId = session?.variables?._activeConversation;
+            addLine({ text: `  Status:   ${status}`, color: 'white' });
+            addLine({ text: `  Conversation: ${convId || 'None'}`, color: 'white' });
+          } catch {
+            addLine({ text: `  Status:   (could not fetch)`, color: 'yellow' });
+          }
+          addLine({ text: '' });
+        })();
+      } else {
+        addLine({ text: '' });
+      }
+    },
   }), [handleQuit, handleCancel, addLine, sessionManager, apiClient]);
 
   // ── Handle task submit ──
@@ -526,8 +567,9 @@ const App = ({ apiClient: clientProp, sessionManager: smProp, demoMode, repoPath
         setBusy(b);
         if (!b) {
           sessionManager.stopWidgetPolling();
-          // Show 'completed' state for 3s before returning to 'idle'
-          setAgentState('completed');
+          const hadErrors = sessionManager.getLastHadErrors();
+          // Show 'error' or 'completed' state for 3s before returning to 'idle'
+          setAgentState(hadErrors ? 'error' : 'completed');
           completedTimerRef.current = setTimeout(() => {
             setAgentState('idle');
             completedTimerRef.current = null;

@@ -81,10 +81,43 @@ public class AgentBlockExecutor : IBlockExecutor
         }
 
         // 3. Build conversation via IConversationManager
-        var conversationId = _conversationManager.CreateConversation(systemPrompt);
+        // Use deterministic conversation ID when running in a session context,
+        // so the same agent reuses its conversation across invocations.
+        var sessionId = context.Variables.ContainsKey("sessionId")
+            ? context.Variables["sessionId"]?.ToString()
+            : null;
+        var persistentId = sessionId != null ? $"{sessionId}:{block.Id}" : null;
 
-        // Seed conversation with history if provided (from workflow conversation block)
-        if (inputs.TryGetValue("conversationHistory", out var historyObj) && historyObj != null)
+        string conversationId;
+        bool isNewConversation;
+
+        if (persistentId != null)
+        {
+            // Check if conversation already exists before creating
+            try
+            {
+                _conversationManager.GetMessages(persistentId);
+                // Conversation exists — reuse it
+                conversationId = _conversationManager.CreateOrGetConversation(persistentId, systemPrompt);
+                isNewConversation = false;
+                result.Logs.Add($"Reusing persistent conversation {persistentId}");
+            }
+            catch (InvalidOperationException)
+            {
+                // Conversation doesn't exist — create it
+                conversationId = _conversationManager.CreateOrGetConversation(persistentId, systemPrompt);
+                isNewConversation = true;
+                result.Logs.Add($"Created persistent conversation {persistentId}");
+            }
+        }
+        else
+        {
+            conversationId = _conversationManager.CreateConversation(systemPrompt);
+            isNewConversation = true;
+        }
+
+        // Seed conversation with history only for new conversations
+        if (isNewConversation && inputs.TryGetValue("conversationHistory", out var historyObj) && historyObj != null)
         {
             var historyJson = historyObj.ToString();
             if (!string.IsNullOrEmpty(historyJson) && historyJson != "null" && historyJson != "[]")
@@ -278,7 +311,7 @@ public class AgentBlockExecutor : IBlockExecutor
                 result.TotalTokens = totalAllTokens;
                 result.EstimatedCostUsd = LLMBlockExecutorBase.EstimateCost(lastResponse?.Model ?? modelId, totalPromptTokens, totalCompletionTokens);
                 result.DurationMs = sw.ElapsedMilliseconds;
-                _conversationManager.CleanupConversation(conversationId);
+                if (persistentId == null) _conversationManager.CleanupConversation(conversationId);
                 return result;
             }
 
@@ -295,7 +328,7 @@ public class AgentBlockExecutor : IBlockExecutor
                     result.TotalTokens = totalAllTokens;
                     result.EstimatedCostUsd = LLMBlockExecutorBase.EstimateCost(modelId, totalPromptTokens, totalCompletionTokens);
                     result.DurationMs = sw.ElapsedMilliseconds;
-                    _conversationManager.CleanupConversation(conversationId);
+                    if (persistentId == null) _conversationManager.CleanupConversation(conversationId);
                     return result;
                 }
                 // Nudge the agent instead of breaking — empty responses often mean the agent
@@ -594,8 +627,11 @@ public class AgentBlockExecutor : IBlockExecutor
         result.EstimatedCostUsd = LLMBlockExecutorBase.EstimateCost(lastResponse?.Model ?? modelId, totalPromptTokens, totalCompletionTokens);
         result.Logs.Add($"Total tokens: {totalAllTokens} (prompt={totalPromptTokens}, completion={totalCompletionTokens}), cost=${result.EstimatedCostUsd:F6}");
 
-        // 9. Cleanup conversation
-        _conversationManager.CleanupConversation(conversationId);
+        // 9. Cleanup conversation (only for non-persistent conversations)
+        if (persistentId == null)
+        {
+            _conversationManager.CleanupConversation(conversationId);
+        }
 
         result.DurationMs = sw.ElapsedMilliseconds;
         return result;

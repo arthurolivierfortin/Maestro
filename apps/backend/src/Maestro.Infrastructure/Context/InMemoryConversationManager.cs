@@ -23,6 +23,17 @@ public class InMemoryConversationManager : IConversationManager
     }
 
     /// <inheritdoc />
+    public string CreateOrGetConversation(string conversationId, string? systemPrompt = null)
+    {
+        if (_conversations.ContainsKey(conversationId))
+            return conversationId;
+
+        var conversation = new Conversation(conversationId, systemPrompt);
+        _conversations.TryAdd(conversationId, conversation);
+        return conversationId;
+    }
+
+    /// <inheritdoc />
     public void AddMessage(string conversationId, string role, string content)
     {
         if (!_conversations.TryGetValue(conversationId, out var conversation))

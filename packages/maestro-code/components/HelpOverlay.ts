@@ -61,12 +61,13 @@ const SHORTCUTS = {
     { key: 'Enter',   label: 'Open model detail' },
   ],
   commands: [
-    { key: '/help',  label: 'Show available commands' },
-    { key: '/new',   label: 'New conversation' },
-    { key: '/clear', label: 'Clear conversation' },
-    { key: '/stop',  label: 'Cancel current task' },
-    { key: '/purge', label: 'Delete idle sessions' },
-    { key: '/quit',  label: 'Quit' },
+    { key: '/help',   label: 'Show available commands' },
+    { key: '/status', label: 'Show session status' },
+    { key: '/new',    label: 'New conversation' },
+    { key: '/clear',  label: 'Clear conversation' },
+    { key: '/stop',   label: 'Cancel current task' },
+    { key: '/purge',  label: 'Delete idle sessions' },
+    { key: '/quit',   label: 'Quit' },
   ],
 };
 

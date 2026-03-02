@@ -4,6 +4,7 @@ using Maestro.Application.Interfaces;
 using Maestro.Domain.Entities;
 using ExecutionContext = Maestro.Domain.Entities.ExecutionContext;
 using Maestro.Domain.ValueObjects;
+using Maestro.Infrastructure.Containers;
 
 namespace Maestro.Infrastructure.BlockExecutors;
 
@@ -226,7 +227,7 @@ public class ToolBlockExecutor : IBlockExecutor
             if (toolType == "filesystem")
             {
                 var operation = GetConfigString(config, "operation");
-                return await HandleFilesystemOperationAsync(block, inputs, operation, workingDir, logs, sw, ct);
+                return await HandleFilesystemOperationAsync(block, context, inputs, operation, workingDir, logs, sw, ct);
             }
 
             // Handle shell tool type - get command from inputs
@@ -235,10 +236,22 @@ public class ToolBlockExecutor : IBlockExecutor
                 var shellCmd = inputs.TryGetValue("command", out var cmdObj) ? cmdObj?.ToString() : null;
                 if (!string.IsNullOrEmpty(shellCmd))
                 {
-                    // Override working directory from inputs if provided
+                    // Override working directory from inputs if provided — validate it exists
                     if (inputs.TryGetValue("workingDir", out var wdInput) && wdInput is string wdStr && !string.IsNullOrEmpty(wdStr))
                     {
-                        workingDir = wdStr;
+                        var resolvedShellWd = Path.GetFullPath(wdStr);
+                        if (!Directory.Exists(resolvedShellWd))
+                        {
+                            var shellLogs = new List<string> { $"Rejected shell workingDir (directory does not exist): {wdStr}" };
+                            return new BlockExecutionResult
+                            {
+                                Outputs = new Dictionary<string, object> { ["error"] = "Shell working directory does not exist" },
+                                Logs = shellLogs,
+                                Success = false,
+                                DurationMs = sw.ElapsedMilliseconds
+                            };
+                        }
+                        workingDir = resolvedShellWd;
                     }
 
                     // Get timeout from inputs
@@ -653,6 +666,7 @@ public class ToolBlockExecutor : IBlockExecutor
     /// </summary>
     private async Task<BlockExecutionResult> HandleFilesystemOperationAsync(
         BlockDefinition block,
+        ExecutionContext context,
         Dictionary<string, object> inputs,
         string operation,
         string? workingDir,
@@ -681,7 +695,18 @@ public class ToolBlockExecutor : IBlockExecutor
             // Override working directory from inputs if provided (check this FIRST)
             if (inputs.TryGetValue("workingDir", out var wdObj) && wdObj is string wdStr && !string.IsNullOrEmpty(wdStr))
             {
-                workingDir = wdStr;
+                var resolvedWd = Path.GetFullPath(wdStr);
+                if (!Directory.Exists(resolvedWd))
+                {
+                    logs.Add($"Rejected workingDir override (directory does not exist): {wdStr}");
+                    return new BlockExecutionResult
+                    {
+                        Outputs = new Dictionary<string, object> { ["error"] = "Working directory does not exist" },
+                        Success = false,
+                        DurationMs = sw.ElapsedMilliseconds
+                    };
+                }
+                workingDir = resolvedWd;
             }
 
             // Resolve path relative to working directory if not absolute
@@ -693,18 +718,33 @@ public class ToolBlockExecutor : IBlockExecutor
             filePath = Path.GetFullPath(filePath);
 
             // Validate that resolved path stays within working directory (prevent path traversal)
+            // For read/list operations, also check AllowedPaths from session permissions
             if (!string.IsNullOrEmpty(workingDir))
             {
-                var baseDir = Path.GetFullPath(workingDir);
-                if (!filePath.StartsWith(baseDir + Path.DirectorySeparatorChar) && filePath != baseDir)
+                if (!PathValidator.IsPathUnderRoot(filePath, workingDir))
                 {
-                    logs.Add($"Rejected file path (path traversal outside working directory): {filePath}");
-                    return new BlockExecutionResult
+                    // Path is outside workingDir — check AllowedPaths for read-only operations
+                    var isReadOnly = operation.ToLowerInvariant() is "read" or "list";
+                    var allowedPaths = new List<string>();
+                    if (context.Variables.TryGetValue("_permissions_allowedPaths", out var ap) && ap is List<string> pl)
+                        allowedPaths = pl;
+                    var isInAllowedPaths = allowedPaths.Contains("*")
+                        || allowedPaths.Any(p =>
+                        {
+                            try { return PathValidator.IsPathUnderRoot(filePath, Path.GetFullPath(p)); }
+                            catch { return false; }
+                        });
+
+                    if (!isReadOnly || !isInAllowedPaths)
                     {
-                        Outputs = new Dictionary<string, object> { ["error"] = "File path escapes working directory" },
-                        Success = false,
-                        DurationMs = sw.ElapsedMilliseconds
-                    };
+                        logs.Add($"Rejected file path (outside working directory, not in allowedPaths): {filePath}");
+                        return new BlockExecutionResult
+                        {
+                            Outputs = new Dictionary<string, object> { ["error"] = "File path escapes working directory" },
+                            Success = false,
+                            DurationMs = sw.ElapsedMilliseconds
+                        };
+                    }
                 }
             }
 
