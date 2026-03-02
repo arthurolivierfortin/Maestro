@@ -935,14 +935,151 @@ namespace Maestro.Application.Agents
 
 ---
 
-## 🔗 Related Documentation
+## Maestro-Specific Architecture Guidelines
+
+> **Extracted from CLAUDE.md.** These are practical rules for Maestro development.
+
+### Frontend (React + TypeScript)
+
+- **Block types are defined in** `apps/desktop/src/registry/blockTypeDefinitions.ts`
+- **Block type registry** at `apps/desktop/src/registry/BlockTypeRegistry.ts` defines containment rules
+- **Block type interface** at `apps/desktop/src/types/block.types.ts` defines the `Block` interface
+- **isAtomic property** determines if a block can contain children:
+  - Atomic blocks (`isAtomic: true`): `prompt`, `instruction`, `tool`, `decision`, `validator`, `trigger`, `inference`, `script`
+  - Composite blocks (`isAtomic: false`): `workflow`, `agent`, `task`
+
+### Backend (C# .NET)
+
+- **BlockDto** at `apps/backend/src/Maestro.Application/DTOs/BlockDto.cs` must include all properties from `BlockDefinition`
+- **BlockDefinition** at `apps/backend/src/Maestro.Domain/Entities/BlockDefinition.cs` is the domain entity
+- **isAtomic property** MUST be included in API responses — missing this causes UI bugs
+
+### Session Architecture Principles
+
+#### Generic vs Specific Separation (CRITICAL)
+
+Infrastructure code (`apps/backend/src/Maestro.Infrastructure/`) MUST NOT contain session-specific logic:
+- **Phase definitions** → session template variables (`_phases`), never hardcoded in C#
+- **Monitor descriptors** → session template variables (`_monitorDescriptor`), never hardcoded
+- **Workflow structure** → workflow block JSON (`config.nodes`), never hardcoded
+- **LLM prompts, output paths, evaluation criteria** → session template variables (`_workflowConfig`), never hardcoded
+- **Workflow routing** → read from block metadata, never `if (workflowId.Contains(...))`
+
+**Litmus test**: Can a new session type be created with ONLY JSON changes (template + block)?
+If the answer is no, the architecture is violated.
+
+#### Entry Point Execution
+- `EntryPointExecutor` bridges Session layer and Execution layer
+- Reads workflow structure from `IBlockRepository` (block's `config.nodes`)
+- Reads display config from session variables (set by template import)
+- New workflows require only new JSON data, zero C# changes
+
+#### Session Variable Conventions
+`_` prefix = system/infrastructure variables:
+
+| Variable | Purpose |
+|----------|---------|
+| `_phases` | Phase definitions for TUI phase-list component |
+| `_monitorDescriptor` | TUI layout and component configuration |
+| `_executionTree` | Runtime execution tree state |
+| `_activeBlock` | Currently executing block detail |
+| `_executionLog` | Execution log entries (FIFO 50) |
+| `_artifacts` | Files produced by the session |
+| `_activeWorkflow` | Currently active workflow ID |
+| `_workflowConfig` | Per-workflow config (prompts, paths, eval criteria) |
+
+No-prefix = session-specific state (`currentFitness`, `scoreHistory`, etc.)
+
+#### Template-Driven Configuration
+Session templates (`content/system/templates/sessions/*.session.json`) carry ALL session-specific data:
+- `variables` — Initial state including `_phases`, `_monitorDescriptor`, `_workflowConfig`
+- `entryPoints` — Maps names to workflow block IDs
+- `monitorWidgets` — Widget configs (legacy, used when no `_monitorDescriptor`)
+- Template import is done by CLI (`importSessionTemplate` in `packages/maestro-cli/cli.ts`)
+- CLI reads JSON, calls PUT APIs for variables, entry points, widgets
+- No backend code changes needed for new session types
+
+### API Contract
+
+When adding properties to domain entities:
+1. Add the property to the domain entity
+2. Add the property to the DTO
+3. Update `FromDomain` method to map the property
+4. Update file loaders to read the property from JSON
+
+#### SDK-Backend Contract Verification (MANDATORY)
+
+The SDK (`packages/maestro-client/src/`) is the ONLY bridge between the TUI/CLI and the backend. Its types and API calls MUST match the backend exactly.
+
+**When writing or modifying SDK domain methods:**
+1. `curl` the actual backend endpoint and inspect the JSON response shape
+2. Verify the SDK return type matches (array vs wrapper object, field names)
+3. Verify the TypeScript interface field names match the backend DTO's JSON serialization (C# PascalCase → JSON camelCase: `ModelId` → `modelId`)
+
+**Rules:**
+- **One source of truth for field names**: the backend DTO (`apps/backend/src/Maestro.Application/DTOs/`). SDK mirrors it exactly. TUI uses SDK types. No guessing.
+- **No fallback chains**: `model.id || model.name || model.model_id` is ALWAYS wrong — it means you don't know what the backend returns. Check the DTO, use the correct field name.
+- **No `[key: string]: unknown` as a substitute for typed fields**: If the backend returns specific fields, type them. Catch-all index signatures hide contract mismatches.
+
+### TUI Monitor Architecture
+
+#### How the Monitor Works
+
+The TUI monitor (`node index.js monitor <session-id>`) polls `GET /api/sessions/{id}` every 2 seconds and renders session state.
+
+**Critical**: The API requires **full UUIDs**, not short ID prefixes. The CLI resolves short IDs to full UUIDs before calling the API, but the monitor's internal API client does NOT — it passes the ID as-is. If the monitor receives a short ID, it will get 404.
+
+#### Monitor Data Dependencies
+
+The monitor reads these session variables. **If they're malformed, the monitor breaks silently.**
+
+| Variable | Expected Format | What Breaks If Wrong |
+|----------|----------------|---------------------|
+| `_phases` | `[{id: string, name: string, status: string, description?: string}, ...]` | Phases show as white/unnamed, wrong expand behavior |
+| `_monitorDescriptor` | `{layout: {mode: string, zones: {...}}, components: [...]}` | Monitor layout collapses, shows nothing |
+| `_executionTree` | `[{id, name, status, children: [], output?}, ...]` | Execution tree empty |
+| `_executionLog` | `[{time, level, msg}, ...]` | Log panel empty |
+| `_llmActivity` | `[{nodeId, time, duration, promptPreview, responsePreview}, ...]` | LLM panel empty |
+
+#### Verifying Monitor Health
+
+After setting variables or invoking entry points, **always verify the data is correct**:
+
+```bash
+# Verify _phases is an array of objects with id/name/status
+curl -s http://localhost:5000/api/sessions/<FULL-UUID>/variables/_phases | python -m json.tool
+
+# Verify _monitorDescriptor has layout.mode and components
+curl -s http://localhost:5000/api/sessions/<FULL-UUID>/variables/_monitorDescriptor | python -m json.tool
+
+# Check the full session response that the monitor sees
+curl -s http://localhost:5000/api/sessions/<FULL-UUID> | python -m json.tool | head -50
+```
+
+#### Session Invoke vs Run
+
+- `node index.js run <block-id>` — Direct block execution. **No session context, no monitoring.** Results only in CLI output.
+- `node index.js session invoke <id> <entry-point>` — Executes through the session. Updates `_executionTree`, `_executionLog`, `_llmActivity`. **The monitor can see it.**
+
+Entry points map to block IDs. The `EntryPointExecutor` dispatches based on block type:
+- **Workflow block** → walks `config.nodes`, each node appears in `_executionTree`
+- **Agent block** → runs the agent loop, appears as a single node in `_executionTree`
+- **Block without config.nodes** → executes as a "passthrough" (does nothing useful)
+
+**Rule**: For the monitor to show meaningful data, always use `session invoke`, never `run`.
+
+---
+
+## Related Documentation
 
 - [README.md](../README.md) - Project overview
 - [Clean Architecture Instructions](../.github/instructions/clean-architecture.instructions.md) - Detailed architecture rules
 - [ROADMAP.md](../ROADMAP.md) - Development roadmap
 - [Frontend Guide](./frontend-guide.md) - Frontend development guide
+- [Common Pitfalls](../../guides/ai-agents/common-pitfalls.md) - Known pitfalls and fixes
+- [Testing Strategy](../../guides/ai-agents/testing-strategy.md) - Testing requirements
 
 ---
 
-**Last Updated**: 2026-01-10  
+**Last Updated**: 2026-03-02
 **Maintained by**: Backend Team
