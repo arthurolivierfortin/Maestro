@@ -1,8 +1,8 @@
 // @ts-nocheck
 /**
  * Launcher for Maestro Interactive Mode.
- * Uses dynamic import to avoid yoga-layout top-level await issue with CJS.
- * Same pattern as monitor/tui-monitor.ts.
+ * Must be ESM (export, not module.exports) so that the await import('./App.ts')
+ * chain stays in ESM context — required for yoga-layout's top-level await.
  */
 
 interface InteractiveOptions {
@@ -16,9 +16,7 @@ interface InteractiveOptions {
   noBell?: boolean;
 }
 
-async function startInteractiveMode(options: InteractiveOptions = {}) {
+export async function startInteractiveMode(options: InteractiveOptions = {}) {
   const { startInteractive } = await import('./App.ts');
   await startInteractive(options);
 }
-
-module.exports = { startInteractiveMode };

@@ -5,7 +5,7 @@
  */
 
 import { createElement as h, useState, useEffect } from 'react';
-const { Box, Text } = require('ink');
+import { Box, Text } from 'ink';
 import { theme, T, primary, success, warning, error, muted } from '../theme.ts';
 import { Panel } from '@maestro/tui/components';
 import { useApiData } from '@maestro/tui/hooks';

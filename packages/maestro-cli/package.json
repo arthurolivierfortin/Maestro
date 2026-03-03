@@ -22,6 +22,7 @@
     "shell.ts",
     "discover.ts",
     "init-wizard.ts",
+    "esm-bridge.mjs",
     "utils/",
     "dist/",
     "content/"
@@ -33,7 +34,10 @@
     "@maestro/code",
     "@maestro/client",
     "@maestro/sidecar",
-    "tree-kill"
+    "tree-kill",
+    "tsx",
+    "ink",
+    "react"
   ],
   "dependencies": {
     "@maestro/tui": "*",

@@ -1,8 +1,9 @@
 {
   "name": "@maestro/monitor",
   "version": "0.1.0",
+  "type": "module",
   "main": "./tui-monitor.ts",
-  "files": ["tui-monitor.ts", "App.ts", "components/", "hooks/", "theme.ts"],
+  "files": ["tui-monitor.ts", "App.ts", "mock-api-client.ts", "components/", "hooks/", "theme.ts"],
   "exports": {
     ".": "./tui-monitor.ts",
     "./tui-monitor.ts": "./tui-monitor.ts",

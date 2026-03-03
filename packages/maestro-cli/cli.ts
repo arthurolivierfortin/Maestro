@@ -279,7 +279,7 @@ async function launchInteractiveBlocksTable(filter: any = {}) {
       { key: 'Version', label: 'Version', width: 8 },
       { key: 'Score', label: 'Score', width: 6, align: 'right' as const },
     ];
-    const { launchInkTable } = require('@maestro/code/ink-table-launcher.ts');
+    const { launchInkTable } = await import('./esm-bridge.mjs');
     await launchInkTable({ title: 'Blocks', columns, rows });
   } catch (error) {
     console.error(c.fail(`Error: ${error.message}`));
@@ -311,7 +311,7 @@ async function launchInteractiveSessionsTable() {
       { key: 'Authority', label: 'Authority', width: 10 },
       { key: 'Created', label: 'Created', width: 14 },
     ];
-    const { launchInkTable } = require('@maestro/code/ink-table-launcher.ts');
+    const { launchInkTable } = await import('./esm-bridge.mjs');
     await launchInkTable({ title: 'Sessions', columns, rows });
   } catch (error) {
     console.error(c.fail(`Error: ${error.message}`));
@@ -6303,7 +6303,7 @@ ${c.bold('Examples:')}
       // Headless mode: no Ink, structured text output, works without TTY
       if (argv.headless) {
         const { apiClient } = isDemoMode ? { apiClient: client } : await ensureBackend();
-        const { runHeadless } = require('@maestro/code/headless.ts');
+        const { runHeadless } = await import('./esm-bridge.mjs');
         return runHeadless({
           apiClient: apiClient || client,
           repoPath: argv.repo || process.cwd(),
@@ -6316,7 +6316,7 @@ ${c.bold('Examples:')}
       }
 
       // Interactive TUI mode (requires TTY)
-      const { startInteractiveMode } = require('@maestro/code/launcher.ts');
+      const { startInteractiveMode } = await import('./esm-bridge.mjs');
 
       const codeRepoPath = argv.repo || process.cwd();
       const isFirstRun = isDemoMode ? false : !fs.existsSync(path.join(codeRepoPath, '.maestro'));
@@ -6430,7 +6430,7 @@ ${c.bold('Examples:')}
       const isLLM = argv.llm || argv._[1] === 'llm';
       const listMode = argv.list || (!targetId && !isLLM);
 
-      const { startMonitor } = require('@maestro/monitor/tui-monitor.ts');
+      const { startMonitor } = await import('./esm-bridge.mjs');
 
       const options = {
         refreshInterval: argv.refresh ? parseInt(argv.refresh) * 1000 : (listMode ? 3000 : 2000),

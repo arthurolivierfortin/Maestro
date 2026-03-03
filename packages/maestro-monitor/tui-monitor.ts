@@ -42,6 +42,4 @@ async function startMonitor(sessionId: string | null, apiClient: any, options: M
 }
 
 // Export for use by CLI
-module.exports = {
-    startMonitor,
-};
+export { startMonitor };

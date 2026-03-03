@@ -12,9 +12,7 @@ interface LaunchTableOptions {
   pageSize?: number;
 }
 
-async function launchInkTable(options: LaunchTableOptions) {
+export async function launchInkTable(options: LaunchTableOptions) {
   const { renderInkTable } = await import('./ink-table.ts');
   await renderInkTable(options);
 }
-
-module.exports = { launchInkTable };

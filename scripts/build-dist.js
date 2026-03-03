@@ -259,6 +259,21 @@ if (!skipPack) {
     }
   }
 
+  // Strip fsevents from tsx's optionalDependencies so npm install -g
+  // doesn't try to rebuild it (fails on Windows with node-gyp)
+  const tsxPkgPath = path.join(stagingNM, 'tsx', 'package.json');
+  if (fs.existsSync(tsxPkgPath)) {
+    const tsxPkg = JSON.parse(fs.readFileSync(tsxPkgPath, 'utf8'));
+    if (tsxPkg.optionalDependencies && tsxPkg.optionalDependencies.fsevents) {
+      delete tsxPkg.optionalDependencies.fsevents;
+      if (Object.keys(tsxPkg.optionalDependencies).length === 0) {
+        delete tsxPkg.optionalDependencies;
+      }
+      fs.writeFileSync(tsxPkgPath, JSON.stringify(tsxPkg, null, 2));
+      console.log('    Stripped fsevents from tsx optionalDependencies');
+    }
+  }
+
   // Debug: verify staging structure
   console.log(`    Staging node_modules exists: ${fs.existsSync(stagingNM)}`);
   if (fs.existsSync(stagingNM)) {

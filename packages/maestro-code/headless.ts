@@ -41,7 +41,7 @@ function formatDuration(ms: number): string {
 }
 
 async function runHeadless(options: HeadlessOptions): Promise<void> {
-  const path = require('path');
+  const path = await import('path');
   const client = options.apiClient;
   const repoPath = options.repoPath || process.cwd();
   const template = options.template || 'project-autonomous';
@@ -51,7 +51,7 @@ async function runHeadless(options: HeadlessOptions): Promise<void> {
   let task = options.task;
   if (!task) {
     // Read a single line from stdin
-    const readline = require('readline');
+    const readline = await import('readline');
     const rl = readline.createInterface({ input: process.stdin });
     log('INFO', 'Enter task (one line):');
     task = await new Promise<string>((resolve) => {
@@ -113,8 +113,8 @@ async function runHeadless(options: HeadlessOptions): Promise<void> {
     // 3b. Generate project structure snapshot to save agent exploration iterations
     let projectStructure = '';
     try {
-      const fs = require('fs');
-      const pathModule = require('path');
+      const fs = await import('fs');
+      const pathModule = await import('path');
       function listTree(dir: string, prefix: string = '', depth: number = 3): string {
         if (depth <= 0) return '';
         let output = '';

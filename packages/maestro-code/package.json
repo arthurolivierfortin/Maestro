@@ -1,6 +1,7 @@
 {
   "name": "@maestro/code",
   "version": "0.2.0",
+  "type": "module",
   "files": [
     "App.ts",
     "launcher.ts",
@@ -9,7 +10,10 @@
     "ink-table-launcher.ts",
     "components/",
     "services/",
-    "audio/"
+    "hooks/",
+    "audio/",
+    "mocks/",
+    "theme.ts"
   ],
   "exports": {
     ".": "./launcher.ts",
