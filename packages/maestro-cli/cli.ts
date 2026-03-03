@@ -28,7 +28,7 @@ function getContentPath() {
   return path.join(__dirname, '..', '..', 'content', 'system');
 }
 
-const client = new MaestroApiClient(API_URL, { debug: DEBUG, apiKey: getApiKey() });
+let client = new MaestroApiClient(API_URL, { debug: DEBUG, apiKey: getApiKey() });
 
 // Module-level formatter — set to JSON mode in main() when --json is used
 let formatter = new OutputFormatter(false);
@@ -89,8 +89,13 @@ async function ensureBackend(skipAutoStart = false) {
     process.on('SIGINT', () => { cleanup(); process.exit(0); });
     process.on('SIGTERM', () => { cleanup(); process.exit(0); });
 
+    const sidecarClient = new MaestroApiClient(`http://localhost:${port}`, { debug: DEBUG, apiKey: getApiKey() });
+    // Update global client so importSessionTemplate and other module-level users
+    // talk to the sidecar backend, not the default port.
+    client = sidecarClient;
+
     return {
-      apiClient: new MaestroApiClient(`http://localhost:${port}`, { debug: DEBUG, apiKey: getApiKey() }),
+      apiClient: sidecarClient,
       sidecar,
     };
   } catch (err) {
@@ -183,8 +188,8 @@ function loadJson(p) {
   try { return JSON.parse(fs.readFileSync(p, 'utf8')); } catch(e) { return null; }
 }
 
-// Content path helper
-function getContentPath(scope = 'user') {
+// Dev-mode content path helper (resolves content/{scope}/ from monorepo root)
+function getDevContentPath(scope = 'user') {
   const root = path.resolve(__dirname, '../..');
   return path.join(root, 'content', scope);
 }
@@ -5092,11 +5097,11 @@ ${c.bold('Environment:')}
 async function listDocs(options = {}) {
   try {
     // Read system docs index
-    const systemIndexPath = path.join(getContentPath('system'), 'docs', 'index.json');
+    const systemIndexPath = path.join(getDevContentPath('system'), 'docs', 'index.json');
     const systemIndex = loadJson(systemIndexPath);
 
     // Read user docs index
-    const userIndexPath = path.join(getContentPath('user'), 'docs', 'index.json');
+    const userIndexPath = path.join(getDevContentPath('user'), 'docs', 'index.json');
     const userIndex = loadJson(userIndexPath);
 
     // Display system docs
@@ -5118,7 +5123,7 @@ async function listDocs(options = {}) {
       }
 
       // List model entries if models category exists
-      const modelsIndexPath = path.join(getContentPath('system'), 'docs', 'models', 'index.json');
+      const modelsIndexPath = path.join(getDevContentPath('system'), 'docs', 'models', 'index.json');
       const modelsIndex = loadJson(modelsIndexPath);
       if (modelsIndex && modelsIndex.entries && (!options.category || options.category === 'models')) {
         console.log('');
@@ -5162,7 +5167,7 @@ async function listDocs(options = {}) {
     if (options.knowledge) {
       console.log('');
       formatter.info('Knowledge Articles');
-      const knowledgeIndexPath = path.join(getContentPath('user'), 'docs', 'knowledge', 'index.json');
+      const knowledgeIndexPath = path.join(getDevContentPath('user'), 'docs', 'knowledge', 'index.json');
       const knowledgeIndex = loadJson(knowledgeIndexPath);
       if (knowledgeIndex && knowledgeIndex.articles && knowledgeIndex.articles.length > 0) {
         const rows = knowledgeIndex.articles.map(a => ({
@@ -5189,7 +5194,7 @@ async function showDoc(topic, options = {}) {
     let filePath = null;
 
     // Search in system docs models
-    const modelsDir = path.join(getContentPath('system'), 'docs', 'models');
+    const modelsDir = path.join(getDevContentPath('system'), 'docs', 'models');
     if (fs.existsSync(modelsDir)) {
       const files = fs.readdirSync(modelsDir).filter(f => f.endsWith('.md'));
       const match = files.find(f => {
@@ -5203,7 +5208,7 @@ async function showDoc(topic, options = {}) {
 
     // Search in user docs knowledge subdirs
     if (!filePath) {
-      const knowledgeDir = path.join(getContentPath('user'), 'docs', 'knowledge');
+      const knowledgeDir = path.join(getDevContentPath('user'), 'docs', 'knowledge');
       if (fs.existsSync(knowledgeDir)) {
         const subdirs = fs.readdirSync(knowledgeDir).filter(d => {
           try { return fs.statSync(path.join(knowledgeDir, d)).isDirectory(); } catch { return false; }
@@ -5226,9 +5231,9 @@ async function showDoc(topic, options = {}) {
     // Also search in system docs guides, blocks dirs
     if (!filePath) {
       const searchDirs = [
-        path.join(getContentPath('system'), 'docs', 'guides'),
-        path.join(getContentPath('system'), 'docs', 'blocks'),
-        path.join(getContentPath('user'), 'docs', 'metrics')
+        path.join(getDevContentPath('system'), 'docs', 'guides'),
+        path.join(getDevContentPath('system'), 'docs', 'blocks'),
+        path.join(getDevContentPath('user'), 'docs', 'metrics')
       ];
       for (const dir of searchDirs) {
         if (!fs.existsSync(dir)) continue;
@@ -5286,10 +5291,10 @@ async function searchDocs(query) {
 
     // Search index files
     const indexFiles = [
-      { path: path.join(getContentPath('system'), 'docs', 'index.json'), scope: 'system' },
-      { path: path.join(getContentPath('user'), 'docs', 'index.json'), scope: 'user' },
-      { path: path.join(getContentPath('system'), 'docs', 'models', 'index.json'), scope: 'system/models' },
-      { path: path.join(getContentPath('user'), 'docs', 'knowledge', 'index.json'), scope: 'user/knowledge' }
+      { path: path.join(getDevContentPath('system'), 'docs', 'index.json'), scope: 'system' },
+      { path: path.join(getDevContentPath('user'), 'docs', 'index.json'), scope: 'user' },
+      { path: path.join(getDevContentPath('system'), 'docs', 'models', 'index.json'), scope: 'system/models' },
+      { path: path.join(getDevContentPath('user'), 'docs', 'knowledge', 'index.json'), scope: 'user/knowledge' }
     ];
 
     for (const idx of indexFiles) {
@@ -5302,14 +5307,14 @@ async function searchDocs(query) {
 
     // Search .md files in docs directories
     const searchDirs = [
-      { dir: path.join(getContentPath('system'), 'docs', 'models'), scope: 'system/models' },
-      { dir: path.join(getContentPath('system'), 'docs', 'guides'), scope: 'system/guides' },
-      { dir: path.join(getContentPath('system'), 'docs', 'blocks'), scope: 'system/blocks' },
-      { dir: path.join(getContentPath('user'), 'docs', 'metrics'), scope: 'user/metrics' }
+      { dir: path.join(getDevContentPath('system'), 'docs', 'models'), scope: 'system/models' },
+      { dir: path.join(getDevContentPath('system'), 'docs', 'guides'), scope: 'system/guides' },
+      { dir: path.join(getDevContentPath('system'), 'docs', 'blocks'), scope: 'system/blocks' },
+      { dir: path.join(getDevContentPath('user'), 'docs', 'metrics'), scope: 'user/metrics' }
     ];
 
     // Also search knowledge subdirs
-    const knowledgeDir = path.join(getContentPath('user'), 'docs', 'knowledge');
+    const knowledgeDir = path.join(getDevContentPath('user'), 'docs', 'knowledge');
     if (fs.existsSync(knowledgeDir)) {
       const subdirs = fs.readdirSync(knowledgeDir).filter(d => {
         try { return fs.statSync(path.join(knowledgeDir, d)).isDirectory(); } catch { return false; }
@@ -5404,7 +5409,7 @@ async function listCatalog(options = {}) {
     const allEntries = [];
 
     // Read system catalog
-    const systemCatalogPath = path.join(getContentPath('system'), 'catalog', 'index.json');
+    const systemCatalogPath = path.join(getDevContentPath('system'), 'catalog', 'index.json');
     const systemCatalog = loadJson(systemCatalogPath);
     if (systemCatalog && systemCatalog.entries) {
       systemCatalog.entries.forEach(e => {
@@ -5413,7 +5418,7 @@ async function listCatalog(options = {}) {
     }
 
     // Read user catalog
-    const userCatalogPath = path.join(getContentPath('user'), 'catalog', 'index.json');
+    const userCatalogPath = path.join(getDevContentPath('user'), 'catalog', 'index.json');
     const userCatalog = loadJson(userCatalogPath);
     if (userCatalog && userCatalog.entries) {
       userCatalog.entries.forEach(e => {
@@ -5463,7 +5468,7 @@ async function showCatalogEntry(blockId) {
     let catalogScope = null;
 
     // Search system catalog
-    const systemCatalogPath = path.join(getContentPath('system'), 'catalog', 'index.json');
+    const systemCatalogPath = path.join(getDevContentPath('system'), 'catalog', 'index.json');
     const systemCatalog = loadJson(systemCatalogPath);
     if (systemCatalog && systemCatalog.entries) {
       entry = systemCatalog.entries.find(e => (e.id || e.blockId) === blockId);
@@ -5472,7 +5477,7 @@ async function showCatalogEntry(blockId) {
 
     // Search user catalog if not found
     if (!entry) {
-      const userCatalogPath = path.join(getContentPath('user'), 'catalog', 'index.json');
+      const userCatalogPath = path.join(getDevContentPath('user'), 'catalog', 'index.json');
       const userCatalog = loadJson(userCatalogPath);
       if (userCatalog && userCatalog.entries) {
         entry = userCatalog.entries.find(e => (e.id || e.blockId) === blockId);
@@ -5501,10 +5506,10 @@ async function showCatalogEntry(blockId) {
 
     // Look for manifest.json in the block directory
     const manifestPaths = [
-      path.join(getContentPath('system'), 'catalog', blockId, 'manifest.json'),
-      path.join(getContentPath('user'), 'catalog', blockId, 'manifest.json'),
-      path.join(getContentPath('system'), 'blocks', blockId, 'manifest.json'),
-      path.join(getContentPath('user'), 'blocks', blockId, 'manifest.json')
+      path.join(getDevContentPath('system'), 'catalog', blockId, 'manifest.json'),
+      path.join(getDevContentPath('user'), 'catalog', blockId, 'manifest.json'),
+      path.join(getDevContentPath('system'), 'blocks', blockId, 'manifest.json'),
+      path.join(getDevContentPath('user'), 'blocks', blockId, 'manifest.json')
     ];
 
     for (const mp of manifestPaths) {
@@ -5547,8 +5552,8 @@ async function searchCatalog(query) {
 
     // Read both catalogs
     const catalogPaths = [
-      { path: path.join(getContentPath('system'), 'catalog', 'index.json'), scope: 'system' },
-      { path: path.join(getContentPath('user'), 'catalog', 'index.json'), scope: 'user' }
+      { path: path.join(getDevContentPath('system'), 'catalog', 'index.json'), scope: 'system' },
+      { path: path.join(getDevContentPath('user'), 'catalog', 'index.json'), scope: 'user' }
     ];
 
     for (const cp of catalogPaths) {
@@ -5612,10 +5617,10 @@ async function getBlockInfoExtended(blockId) {
 
     // Look for manifest.json to add fitness data
     const manifestPaths = [
-      path.join(getContentPath('system'), 'blocks', blockId, 'manifest.json'),
-      path.join(getContentPath('user'), 'blocks', blockId, 'manifest.json'),
-      path.join(getContentPath('system'), 'catalog', blockId, 'manifest.json'),
-      path.join(getContentPath('user'), 'catalog', blockId, 'manifest.json')
+      path.join(getDevContentPath('system'), 'blocks', blockId, 'manifest.json'),
+      path.join(getDevContentPath('user'), 'blocks', blockId, 'manifest.json'),
+      path.join(getDevContentPath('system'), 'catalog', blockId, 'manifest.json'),
+      path.join(getDevContentPath('user'), 'catalog', blockId, 'manifest.json')
     ];
 
     let manifestFound = false;

@@ -163,6 +163,18 @@ if (!skipDotnet) {
   }
 }
 
+// Copy block schemas into each backend dist (validator needs them at runtime)
+const SCHEMAS_SRC = path.join(ROOT, 'docs', 'schemas');
+if (fs.existsSync(SCHEMAS_SRC)) {
+  for (const rid of RIDS) {
+    const schemasDir = path.join(DIST, rid, 'backend', 'schemas');
+    if (fs.existsSync(path.join(DIST, rid, 'backend'))) {
+      copyDirSync(SCHEMAS_SRC, schemasDir);
+      console.log(`  [build] Schemas → dist/${rid}/backend/schemas/`);
+    }
+  }
+}
+
 // Copy content
 if (!skipContent) {
   console.log('  [build] Copying content/system/...');

@@ -38,6 +38,14 @@ namespace Maestro.Infrastructure.BlockStore
                 if (File.Exists(tryPath)) found = Path.GetFullPath(Path.Combine(baseDir, "..", "..", "..", "docs", "schemas"));
             }
 
+            if (found == null)
+            {
+                // Bundled mode: schemas are next to the binary
+                var baseDir = AppContext.BaseDirectory;
+                var tryPath = Path.Combine(baseDir, "schemas", "block.schema.json");
+                if (File.Exists(tryPath)) found = Path.Combine(baseDir, "schemas");
+            }
+
             if (found == null) throw new FileNotFoundException("Block schema not found");
 
             _schemaFolder = found;
