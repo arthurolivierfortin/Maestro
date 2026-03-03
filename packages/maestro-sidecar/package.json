@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "Sidecar process manager — spawns Maestro backend and LLM-Provider as child processes for embedding in Electron/Node.js apps.",
   "type": "module",
+  "files": ["index.ts", "src/"],
   "exports": {
     ".": "./index.ts"
   },

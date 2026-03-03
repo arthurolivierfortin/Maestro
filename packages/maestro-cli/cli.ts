@@ -15,6 +15,19 @@ const { getBackendUrl, getApiKey } = require('./config.ts');
 const API_URL = getBackendUrl();
 const DEBUG = process.env.MAESTRO_DEBUG === 'true';
 
+/**
+ * Resolve the content/system/ directory. Supports:
+ * 1. MAESTRO_CONTENT_DIR env var (explicit override)
+ * 2. {__dirname}/content/system/ (bundled npm package)
+ * 3. {__dirname}/../../content/system/ (dev mode, monorepo)
+ */
+function getContentPath() {
+  if (process.env.MAESTRO_CONTENT_DIR) return process.env.MAESTRO_CONTENT_DIR;
+  const bundled = path.join(__dirname, 'content', 'system');
+  if (fs.existsSync(bundled)) return bundled;
+  return path.join(__dirname, '..', '..', 'content', 'system');
+}
+
 const client = new MaestroApiClient(API_URL, { debug: DEBUG, apiKey: getApiKey() });
 
 // Module-level formatter — set to JSON mode in main() when --json is used
@@ -22,6 +35,66 @@ let formatter = new OutputFormatter(false);
 
 // Exit code constants (P2 item 17)
 const EXIT = { OK: 0, USER_ERROR: 1, NOT_FOUND: 2, SERVER_ERROR: 3, TIMEOUT: 4 };
+
+// Sidecar reference for cleanup on exit
+let _activeSidecar = null;
+
+/**
+ * Ensure the backend is available. If not running, auto-start via sidecar.
+ * Returns an apiClient connected to the running backend.
+ */
+async function ensureBackend(skipAutoStart = false) {
+  const backendUrl = getBackendUrl();
+
+  // 1. Check if backend is already healthy
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 2000);
+    const resp = await fetch(`${backendUrl}/api/discovery/health`, { signal: controller.signal });
+    clearTimeout(timeout);
+    if (resp.ok) {
+      return { apiClient: new MaestroApiClient(backendUrl, { debug: DEBUG, apiKey: getApiKey() }), sidecar: null };
+    }
+  } catch {}
+
+  if (skipAutoStart) return { apiClient: null, sidecar: null };
+
+  // 2. Auto-start via sidecar
+  console.log('  Starting Maestro services...');
+  const { MaestroSidecar, hasBundledBinaries } = require('@maestro/sidecar');
+  const distDir = path.join(__dirname, 'dist');
+  const contentDir = path.join(__dirname, 'content', 'system');
+  const bundled = hasBundledBinaries(distDir);
+
+  const sidecarOpts = {
+    ...(bundled ? { binaryDir: distDir, contentDir } : {}),
+    onLog: (service, line) => { if (DEBUG) console.log(`  [${service}] ${line}`); },
+    healthTimeout: 60000,
+  };
+
+  try {
+    const sidecar = new MaestroSidecar(sidecarOpts);
+    await sidecar.start();
+    _activeSidecar = sidecar;
+    const port = sidecar.backendPort;
+    console.log(`  Services ready (port ${port}).`);
+
+    // Cleanup on exit
+    const cleanup = () => { try { sidecar.stop(); } catch {} };
+    process.on('exit', cleanup);
+    process.on('SIGINT', () => { cleanup(); process.exit(0); });
+    process.on('SIGTERM', () => { cleanup(); process.exit(0); });
+
+    return {
+      apiClient: new MaestroApiClient(`http://localhost:${port}`, { debug: DEBUG, apiKey: getApiKey() }),
+      sidecar,
+    };
+  } catch (err) {
+    console.error(`\n  Failed to start Maestro services: ${err.message}`);
+    console.error('  Make sure .NET SDK is installed, or set MAESTRO_API_URL to a running backend.');
+    process.exit(EXIT.SERVER_ERROR);
+  }
+}
 
 /**
  * Resolve a short ID prefix to a full ID by querying the relevant resource list.
@@ -61,7 +134,7 @@ async function resolveId(shortId, resourceType = 'session') {
  * List available session templates by scanning the template directory.
  */
 function listAvailableTemplates() {
-  const templateDir = path.join(__dirname, '../../content/system/templates/sessions');
+  const templateDir = path.join(getContentPath(), 'templates', 'sessions');
   try {
     return fs.readdirSync(templateDir)
       .filter(f => f.endsWith('.session.json'))
@@ -1656,7 +1729,7 @@ async function importSessionTemplate(sessionId, templateName, options: { quiet?:
     const verbose = !formatter.jsonMode && !options.quiet;
 
     // Look for template in content/system/templates/sessions/
-    const templatePath = path.join(__dirname, '../../content/system/templates/sessions', `${templateName}.session.json`);
+    const templatePath = path.join(getContentPath(), 'templates', 'sessions', `${templateName}.session.json`);
 
     if (!fs.existsSync(templatePath)) {
       const available = listAvailableTemplates();
@@ -6220,11 +6293,15 @@ ${c.bold('Examples:')}
         return;
       }
 
+      // Demo mode skips backend entirely
+      const isDemoMode = argv.demo || false;
+
       // Headless mode: no Ink, structured text output, works without TTY
       if (argv.headless) {
+        const { apiClient } = isDemoMode ? { apiClient: client } : await ensureBackend();
         const { runHeadless } = require('@maestro/code/headless.ts');
         return runHeadless({
-          apiClient: client,
+          apiClient: apiClient || client,
           repoPath: argv.repo || process.cwd(),
           template: argv.template || 'project-autonomous',
           entryPoint: argv.entry || 'dev',
@@ -6238,11 +6315,15 @@ ${c.bold('Examples:')}
       const { startInteractiveMode } = require('@maestro/code/launcher.ts');
 
       const codeRepoPath = argv.repo || process.cwd();
-      const isDemoMode = argv.demo || false;
       const isFirstRun = isDemoMode ? false : !fs.existsSync(path.join(codeRepoPath, '.maestro'));
 
+      // Auto-start backend if not running (skip in demo mode)
+      const { apiClient: resolvedClient } = isDemoMode
+        ? { apiClient: client }
+        : await ensureBackend();
+
       return startInteractiveMode({
-        apiClient: client,
+        apiClient: resolvedClient || client,
         repoPath: codeRepoPath,
         template: argv.template || 'maestro-assistant',
         entryPoint: argv.entry || 'message',
@@ -7056,7 +7137,7 @@ ${c.bold('Quick Start:')}
           return;
         }
         const rows = templates.map(name => {
-          const templatePath = path.join(__dirname, '../../content/system/templates/sessions', `${name}.session.json`);
+          const templatePath = path.join(getContentPath(), 'templates', 'sessions', `${name}.session.json`);
           try {
             const content = JSON.parse(fs.readFileSync(templatePath, 'utf8'));
             const epCount = content.entryPoints ? Object.keys(content.entryPoints).length : 0;
@@ -7079,7 +7160,7 @@ ${c.bold('Quick Start:')}
         formatter.setCommand('templates.show');
         const name = argv._[2];
         if (!name) { formatter.error('Template name required', 'MISSING_PARAM'); process.exit(EXIT.USER_ERROR); }
-        const templatePath = path.join(__dirname, '../../content/system/templates/sessions', `${name}.session.json`);
+        const templatePath = path.join(getContentPath(), 'templates', 'sessions', `${name}.session.json`);
         if (!fs.existsSync(templatePath)) {
           const available = listAvailableTemplates();
           formatter.error(`Template not found: ${name}. Available: ${available.join(', ')}`, 'NOT_FOUND');

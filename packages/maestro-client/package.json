@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "TypeScript SDK for the Maestro API — sessions, blocks, variables, workspaces, LLM provider, and real-time events.",
   "type": "module",
+  "files": ["index.ts", "src/"],
   "exports": {
     ".": "./index.ts",
     "./types": "./src/types.ts",

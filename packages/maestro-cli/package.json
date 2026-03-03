@@ -1,18 +1,39 @@
 {
   "name": "@maestro/cli",
   "version": "0.1.0",
+  "description": "Maestro CLI — orchestrate AI agents, train blocks, monitor sessions.",
   "bin": { "maestro": "./index.js" },
+  "main": "./index.js",
+  "files": [
+    "index.js",
+    "cli.ts",
+    "api-client.ts",
+    "config.ts",
+    "output-formatter.ts",
+    "json-parser.ts",
+    "sandbox-manager.ts",
+    "adapt-optimize.ts",
+    "shell.ts",
+    "discover.ts",
+    "utils/",
+    "dist/",
+    "content/"
+  ],
   "engines": { "node": ">=18.0.0" },
   "dependencies": {
     "@maestro/tui": "*",
     "@maestro/monitor": "*",
     "@maestro/code": "*",
     "@maestro/client": "*",
+    "@maestro/sidecar": "*",
+    "tsx": "^4.21.0",
     "minimist": "^1.2.8",
     "ink": "^6.7.0",
     "react": "^19.2.4"
   },
   "scripts": {
+    "build:dist": "node ../../scripts/build-dist.js",
+    "prepublishOnly": "npm run build:dist",
     "test:ink": "vitest run tests/interactive/",
     "test:all": "npm test && npm run test:ink"
   }

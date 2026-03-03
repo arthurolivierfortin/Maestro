@@ -1,45 +1,61 @@
 import { MaestroClient } from '@maestro/client';
+import * as os from 'os';
+import * as path from 'path';
 import { findFreePort } from './port-finder.js';
 import { spawnManaged, type ManagedProcess } from './process-manager.js';
 import { waitForHealth } from './health-checker.js';
-import { detectMaestroRoot, getServicePaths } from './config.js';
+import { detectMaestroRoot, getServicePaths, getBundledPaths, hasBundledBinaries } from './config.js';
 import type { SidecarOptions, SidecarStatus, ServiceInfo } from './types.js';
 
 /**
  * Maestro Sidecar — manages backend + LLM-Provider as child processes.
  *
+ * Supports two modes:
+ * - Source mode: uses `dotnet run --project` (dev, requires .NET SDK + source code)
+ * - Bundled mode: spawns pre-compiled binaries from binaryDir (npm install, no SDK needed)
+ *
  * Usage:
- *   const sidecar = new MaestroSidecar({ maestroRoot: 'C:/Meastro' });
+ *   const sidecar = new MaestroSidecar({ binaryDir: '/path/to/dist' });
  *   await sidecar.start();
  *   const client = sidecar.getClient();
- *   // ... use the client ...
  *   await sidecar.stop();
  */
 export class MaestroSidecar {
-  private readonly opts: Required<SidecarOptions>;
-  private readonly maestroRoot: string;
+  private readonly opts: SidecarOptions;
+  private readonly _bundled: boolean;
   private backend: ManagedProcess | null = null;
   private llmProvider: ManagedProcess | null = null;
   private _client: MaestroClient | null = null;
+  private _backendPort: number | null = null;
+  private _llmProviderPort: number | null = null;
 
   constructor(options: SidecarOptions = {}) {
-    this.maestroRoot = detectMaestroRoot(options.maestroRoot);
+    this._bundled = !!(options.binaryDir && hasBundledBinaries(options.binaryDir));
     this.opts = {
-      maestroRoot: this.maestroRoot,
       backendPort: options.backendPort ?? 0,
       llmProviderPort: options.llmProviderPort ?? 0,
       skipLlm: options.skipLlm ?? false,
       inheritStdio: options.inheritStdio ?? false,
       healthTimeout: options.healthTimeout ?? 30000,
       onLog: options.onLog ?? (() => {}),
+      binaryDir: options.binaryDir,
+      contentDir: options.contentDir,
+      ...(!this._bundled ? { maestroRoot: detectMaestroRoot(options.maestroRoot) } : {}),
     };
   }
+
+  /** Port the backend is listening on (after start). */
+  get backendPort(): number | null { return this._backendPort; }
+  /** Port the LLM-Provider is listening on (after start). */
+  get llmProviderPort(): number | null { return this._llmProviderPort; }
+  /** Full URL of the running backend. */
+  get backendUrl(): string | null { return this._backendPort ? `http://localhost:${this._backendPort}` : null; }
 
   /**
    * Start the sidecar services.
    */
   async start(): Promise<void> {
-    const paths = getServicePaths(this.maestroRoot);
+    const log = this.opts.onLog ?? (() => {});
 
     // Assign ports
     const backendPort = this.opts.backendPort || (await findFreePort());
@@ -47,24 +63,39 @@ export class MaestroSidecar {
 
     // Start LLM-Provider first (backend depends on it)
     if (!this.opts.skipLlm) {
-      this.llmProvider = spawnManaged({
-        name: 'llm-provider',
-        command: 'dotnet',
-        args: ['run', '--project', paths.llmProviderProject, '--urls', `http://localhost:${llmPort}`],
-        cwd: paths.llmProviderDir,
-        port: llmPort,
-        onLog: (line) => this.opts.onLog('llm-provider', line),
-        inheritStdio: this.opts.inheritStdio,
-      });
+      if (this._bundled) {
+        const bp = getBundledPaths(this.opts.binaryDir!);
+        this.llmProvider = spawnManaged({
+          name: 'llm-provider',
+          command: bp.llmProviderBinary,
+          args: ['--urls', `http://localhost:${llmPort}`],
+          cwd: bp.llmProviderDir,
+          port: llmPort,
+          onLog: (line) => log('llm-provider', line),
+          inheritStdio: this.opts.inheritStdio,
+        });
+      } else {
+        const paths = getServicePaths(this.opts.maestroRoot!);
+        this.llmProvider = spawnManaged({
+          name: 'llm-provider',
+          command: 'dotnet',
+          args: ['run', '--project', paths.llmProviderProject, '--urls', `http://localhost:${llmPort}`],
+          cwd: paths.llmProviderDir,
+          port: llmPort,
+          onLog: (line) => log('llm-provider', line),
+          inheritStdio: this.opts.inheritStdio,
+        });
+      }
 
       const llmHealthy = await waitForHealth(
         `http://localhost:${llmPort}/api/v1/health/`,
-        this.opts.healthTimeout,
+        this.opts.healthTimeout ?? 30000,
       );
       if (!llmHealthy) {
         await this.stop();
-        throw new Error(`LLM-Provider failed to start on port ${llmPort} within ${this.opts.healthTimeout}ms`);
+        throw new Error(`LLM-Provider failed to start on port ${llmPort} within ${this.opts.healthTimeout ?? 30000}ms`);
       }
+      this._llmProviderPort = llmPort;
     }
 
     // Start Backend
@@ -72,28 +103,49 @@ export class MaestroSidecar {
     if (!this.opts.skipLlm) {
       backendEnv.LLM_PROVIDER_URL = `http://localhost:${llmPort}`;
     }
+    // In bundled mode, tell the backend where to find blocks and set production environment
+    if (this._bundled && this.opts.contentDir) {
+      backendEnv.MAESTRO_GLOBAL_BLOCKS_PATH = path.join(this.opts.contentDir, 'blocks');
+      backendEnv.MAESTRO_USER_BLOCKS_PATH = path.join(os.homedir(), '.maestro', 'blocks');
+      backendEnv.ASPNETCORE_ENVIRONMENT = 'Production';
+    }
 
-    this.backend = spawnManaged({
-      name: 'backend',
-      command: 'dotnet',
-      args: ['run', '--project', paths.backendProject, '--urls', `http://localhost:${backendPort}`],
-      cwd: paths.backendDir,
-      port: backendPort,
-      env: backendEnv,
-      onLog: (line) => this.opts.onLog('backend', line),
-      inheritStdio: this.opts.inheritStdio,
-    });
+    if (this._bundled) {
+      const bp = getBundledPaths(this.opts.binaryDir!);
+      this.backend = spawnManaged({
+        name: 'backend',
+        command: bp.backendBinary,
+        args: ['--urls', `http://localhost:${backendPort}`],
+        cwd: bp.backendDir,
+        port: backendPort,
+        env: backendEnv,
+        onLog: (line) => log('backend', line),
+        inheritStdio: this.opts.inheritStdio,
+      });
+    } else {
+      const paths = getServicePaths(this.opts.maestroRoot!);
+      this.backend = spawnManaged({
+        name: 'backend',
+        command: 'dotnet',
+        args: ['run', '--project', paths.backendProject, '--urls', `http://localhost:${backendPort}`],
+        cwd: paths.backendDir,
+        port: backendPort,
+        env: backendEnv,
+        onLog: (line) => log('backend', line),
+        inheritStdio: this.opts.inheritStdio,
+      });
+    }
 
     const backendHealthy = await waitForHealth(
       `http://localhost:${backendPort}/api/discovery/health`,
-      this.opts.healthTimeout,
+      this.opts.healthTimeout ?? 30000,
     );
     if (!backendHealthy) {
       await this.stop();
-      throw new Error(`Backend failed to start on port ${backendPort} within ${this.opts.healthTimeout}ms`);
+      throw new Error(`Backend failed to start on port ${backendPort} within ${this.opts.healthTimeout ?? 30000}ms`);
     }
 
-    // Create client
+    this._backendPort = backendPort;
     this._client = new MaestroClient({ baseUrl: `http://localhost:${backendPort}` });
   }
 

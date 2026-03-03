@@ -1,6 +1,16 @@
 {
   "name": "@maestro/code",
   "version": "0.2.0",
+  "files": [
+    "App.ts",
+    "launcher.ts",
+    "headless.ts",
+    "ink-table.ts",
+    "ink-table-launcher.ts",
+    "components/",
+    "services/",
+    "audio/"
+  ],
   "exports": {
     ".": "./launcher.ts",
     "./launcher.ts": "./launcher.ts",

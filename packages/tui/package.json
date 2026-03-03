@@ -2,6 +2,7 @@
   "name": "@maestro/tui",
   "version": "0.1.0",
   "type": "module",
+  "files": ["index.ts", "hooks/", "components/", "theme/", "keybindings/", "types/", "utils/", "app/", "sprites/"],
   "exports": {
     ".": "./index.ts",
     "./hooks": "./hooks/index.ts",

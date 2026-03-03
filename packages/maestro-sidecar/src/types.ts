@@ -1,6 +1,10 @@
 export interface SidecarOptions {
   /** Root directory of the Maestro project. Auto-detected via MAESTRO_ROOT env or relative paths. */
   maestroRoot?: string;
+  /** Directory containing pre-compiled binaries (dist/{platform}/). Enables bundled mode. */
+  binaryDir?: string;
+  /** Directory containing content/system/ (blocks, templates). Used in bundled mode. */
+  contentDir?: string;
   /** Port for the backend. 0 = auto-assign. */
   backendPort?: number;
   /** Port for the LLM-Provider. 0 = auto-assign. */

@@ -38,7 +38,7 @@ export function detectMaestroRoot(explicit?: string): string {
 }
 
 /**
- * Resolve paths for backend and LLM-Provider projects.
+ * Resolve paths for backend and LLM-Provider projects (source mode — dotnet run).
  */
 export function getServicePaths(root: string) {
   return {
@@ -47,4 +47,37 @@ export function getServicePaths(root: string) {
     llmProviderDir: path.join(root, 'llm-provider', 'dotnet', 'src', 'LLMProvider.Web'),
     llmProviderProject: path.join(root, 'llm-provider', 'dotnet', 'src', 'LLMProvider.Web', 'LLMProvider.Web.csproj'),
   };
+}
+
+/**
+ * Get the platform-specific runtime identifier directory name.
+ */
+export function getPlatformRid(): string {
+  return process.platform === 'win32' ? 'win-x64' : 'linux-x64';
+}
+
+/**
+ * Resolve paths for pre-compiled binaries (bundled mode).
+ */
+export function getBundledPaths(binaryDir: string) {
+  const rid = getPlatformRid();
+  const ext = process.platform === 'win32' ? '.exe' : '';
+  return {
+    backendBinary: path.join(binaryDir, rid, 'backend', `Maestro.Api${ext}`),
+    backendDir: path.join(binaryDir, rid, 'backend'),
+    llmProviderBinary: path.join(binaryDir, rid, 'llm-provider', `LLMProvider.Web${ext}`),
+    llmProviderDir: path.join(binaryDir, rid, 'llm-provider'),
+  };
+}
+
+/**
+ * Detect whether bundled binaries exist.
+ */
+export function hasBundledBinaries(binaryDir: string): boolean {
+  try {
+    const paths = getBundledPaths(binaryDir);
+    return fs.existsSync(paths.backendBinary);
+  } catch {
+    return false;
+  }
 }
