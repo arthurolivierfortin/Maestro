@@ -50,7 +50,7 @@ async function ensureBackend(skipAutoStart = false) {
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 2000);
-    const resp = await fetch(`${backendUrl}/api/discovery/health`, { signal: controller.signal });
+    const resp = await fetch(`${backendUrl}/api/health`, { signal: controller.signal });
     clearTimeout(timeout);
     if (resp.ok) {
       return { apiClient: new MaestroApiClient(backendUrl, { debug: DEBUG, apiKey: getApiKey() }), sidecar: null };

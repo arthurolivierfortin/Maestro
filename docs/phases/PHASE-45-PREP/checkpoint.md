@@ -282,3 +282,69 @@ Bugs BUG-2, BUG-3, BUG-4, + Response Truncation fixes applied immediately after 
 - `packages/maestro-code/tests/visual-gate.test.ts` — updated Spaces filter assertion to match new `[r]` display
 
 **Tests** : 70/70 maestro-code passants (tsc + vitest + visual gate + real-demo-check)
+
+---
+
+## Phase 45-0 : Fixes usabilite pre-distribution
+**Statut** : DONE
+**Date** : 2026-03-02
+**Fixes** :
+1. Response corruption (prompt artifacts) — `IsPromptArtifact()` filter in AgentBlockExecutor
+2. Concurrent invocations — guard in SessionManager.sendMessage(), input disabled while busy
+3. Context assembly delay — parallel memory loading, MemoryPreloaderService at startup
+**Tests** : 93 backend + 69 maestro-code = 162 all passing
+**Dogfood** : 10s response (vs 4m19s before), no artifacts, input disabled during processing
+
+---
+
+## Phase 45-A : npm packaging + sidecar auto-start
+**Statut** : DONE
+**Date** : 2026-03-03
+
+### What was done
+
+1. **appsettings.json cleaned** — hardcoded paths moved to appsettings.Development.json
+2. **getContentPath()** — resolves templates from bundled or dev paths (5 occurrences replaced)
+3. **Sidecar bundled mode** — supports pre-compiled .NET binaries via `binaryDir` option
+4. **Build script** (`scripts/build-dist.js`) — compiles backend + LLM-Provider for win-x64/linux-x64, copies content, bundles workspace packages, creates npm tarball
+5. **ensureBackend()** — auto-starts sidecar when backend not running, cleanup on exit
+6. **Package.json files** — `files` field on all 6 workspace packages, `bundleDependencies` on CLI
+7. **Port override** — sidecar passes `Kestrel__Endpoints__Http__Url` and `LLMProvider__BaseUrl` env vars for dynamic ports
+8. **Serilog fix** — LLM-Provider: try-catch for single-file publish compatibility
+9. **Health endpoint** — fixed `/api/discovery/health` → `/api/health` in sidecar and CLI
+10. **Staging pack** — build script creates tarball outside workspace context (npm install --install-links), removes fsevents
+
+### Verification results
+
+| Check | Status |
+|-------|--------|
+| Backend tests | 93/93 pass |
+| Sidecar tests | 5/5 pass |
+| Maestro-code tests | 67/67 fast pass (3 visual-gate pre-existing failures) |
+| `npm pack` from tarball | 188.3 MB tarball, 4487 files |
+| `npm install -g` from tarball | Works (--ignore-scripts) |
+| `maestro --help` globally | Works |
+| `maestro code --demo` globally | Works |
+| Sidecar auto-start (no backend) | Works — LLM-Provider + Backend on dynamic ports |
+| Dev regression (backend running) | Works — direct connection, no sidecar |
+
+### Files modified
+
+**New files** :
+- `scripts/build-dist.js` — distribution build script
+- `apps/backend/src/Maestro.Api/appsettings.Development.json` — dev-specific paths
+
+**Modified files** :
+- `apps/backend/src/Maestro.Api/appsettings.json` — removed hardcoded paths
+- `packages/maestro-cli/cli.ts` — getContentPath(), ensureBackend(), health endpoint fix
+- `packages/maestro-cli/package.json` — files, bundleDependencies, tree-kill, scripts
+- `packages/maestro-sidecar/src/types.ts` — binaryDir, contentDir options
+- `packages/maestro-sidecar/src/config.ts` — getBundledPaths, hasBundledBinaries, getPlatformRid
+- `packages/maestro-sidecar/src/sidecar.ts` — bundled mode, dynamic port env vars, health endpoint fix
+- `packages/maestro-sidecar/index.ts` — new exports
+- `packages/maestro-code/package.json` — files field
+- `packages/maestro-client/package.json` — files field
+- `packages/tui/package.json` — files field
+- `packages/maestro-monitor/package.json` — files field
+- `llm-provider/dotnet/src/LLMProvider.Web/Program.cs` — Serilog single-file fix
+- `.gitignore` — dist/, content/, node_modules/, .tgz, .build-staging

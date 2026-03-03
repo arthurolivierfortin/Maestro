@@ -13,11 +13,25 @@ using Serilog;
 var builder = WebApplication.CreateBuilder(args);
 
 // Configure Serilog early for logging during startup
-Log.Logger = new LoggerConfiguration()
-    .ReadFrom.Configuration(builder.Configuration)
-    .Enrich.FromLogContext()
-    .WriteTo.Console()
-    .CreateLogger();
+// In single-file mode, Serilog can't discover assemblies for ReadFrom.Configuration.
+// Fall back to console-only logging if configuration reading fails.
+try
+{
+    Log.Logger = new LoggerConfiguration()
+        .ReadFrom.Configuration(builder.Configuration)
+        .Enrich.FromLogContext()
+        .WriteTo.Console()
+        .CreateLogger();
+}
+catch (InvalidOperationException)
+{
+    // Single-file publish: assemblies not discoverable via reflection
+    Log.Logger = new LoggerConfiguration()
+        .MinimumLevel.Information()
+        .Enrich.FromLogContext()
+        .WriteTo.Console()
+        .CreateLogger();
+}
 
 builder.Host.UseSerilog();
 

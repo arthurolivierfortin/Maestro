@@ -63,14 +63,23 @@ export class MaestroSidecar {
 
     // Start LLM-Provider first (backend depends on it)
     if (!this.opts.skipLlm) {
+      // Override port via env var — LLM-Provider's Kestrel config in Production mode
+      // ignores --urls and reads Server:Port from configuration instead.
+      const llmEnv: Record<string, string> = {
+        Server__Port: String(llmPort),
+        Server__BindAddress: '127.0.0.1',
+      };
+
       if (this._bundled) {
         const bp = getBundledPaths(this.opts.binaryDir!);
+        llmEnv.ASPNETCORE_ENVIRONMENT = 'Production';
         this.llmProvider = spawnManaged({
           name: 'llm-provider',
           command: bp.llmProviderBinary,
           args: ['--urls', `http://localhost:${llmPort}`],
           cwd: bp.llmProviderDir,
           port: llmPort,
+          env: llmEnv,
           onLog: (line) => log('llm-provider', line),
           inheritStdio: this.opts.inheritStdio,
         });
@@ -82,6 +91,7 @@ export class MaestroSidecar {
           args: ['run', '--project', paths.llmProviderProject, '--urls', `http://localhost:${llmPort}`],
           cwd: paths.llmProviderDir,
           port: llmPort,
+          env: llmEnv,
           onLog: (line) => log('llm-provider', line),
           inheritStdio: this.opts.inheritStdio,
         });
@@ -99,9 +109,13 @@ export class MaestroSidecar {
     }
 
     // Start Backend
-    const backendEnv: Record<string, string> = {};
+    const backendEnv: Record<string, string> = {
+      // Override Kestrel endpoint port (.NET nested config: Kestrel:Endpoints:Http:Url)
+      Kestrel__Endpoints__Http__Url: `http://127.0.0.1:${backendPort}`,
+    };
     if (!this.opts.skipLlm) {
-      backendEnv.LLM_PROVIDER_URL = `http://localhost:${llmPort}`;
+      // .NET nested config: LLMProvider:BaseUrl
+      backendEnv.LLMProvider__BaseUrl = `http://localhost:${llmPort}`;
     }
     // In bundled mode, tell the backend where to find blocks and set production environment
     if (this._bundled && this.opts.contentDir) {
@@ -137,7 +151,7 @@ export class MaestroSidecar {
     }
 
     const backendHealthy = await waitForHealth(
-      `http://localhost:${backendPort}/api/discovery/health`,
+      `http://localhost:${backendPort}/api/health`,
       this.opts.healthTimeout ?? 30000,
     );
     if (!backendHealthy) {
@@ -196,7 +210,7 @@ export class MaestroSidecar {
     try {
       const res = await fetch(
         name === 'backend'
-          ? `${url}/api/discovery/health`
+          ? `${url}/api/health`
           : `${url}/api/v1/health/`,
       );
       healthy = res.ok;

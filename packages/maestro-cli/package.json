@@ -20,6 +20,14 @@
     "content/"
   ],
   "engines": { "node": ">=18.0.0" },
+  "bundleDependencies": [
+    "@maestro/tui",
+    "@maestro/monitor",
+    "@maestro/code",
+    "@maestro/client",
+    "@maestro/sidecar",
+    "tree-kill"
+  ],
   "dependencies": {
     "@maestro/tui": "*",
     "@maestro/monitor": "*",
