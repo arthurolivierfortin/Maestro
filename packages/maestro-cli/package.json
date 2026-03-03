@@ -1,7 +1,13 @@
 {
   "name": "@maestro/cli",
   "version": "0.1.0",
-  "description": "Maestro CLI — orchestrate AI agents, train blocks, monitor sessions.",
+  "description": "AI agent orchestrator for software development. Create sessions, launch specialized agents, and monitor their progress on your codebase.",
+  "keywords": ["ai", "agent", "orchestrator", "llm", "development", "automation", "cli", "tui"],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/anthropics/maestro",
+    "directory": "packages/maestro-cli"
+  },
   "bin": { "maestro": "./index.js" },
   "main": "./index.js",
   "files": [

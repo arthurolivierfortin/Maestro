@@ -348,3 +348,66 @@ Bugs BUG-2, BUG-3, BUG-4, + Response Truncation fixes applied immediately after 
 - `packages/maestro-monitor/package.json` — files field
 - `llm-provider/dotnet/src/LLMProvider.Web/Program.cs` — Serilog single-file fix
 - `.gitignore` — dist/, content/, node_modules/, .tgz, .build-staging
+
+---
+
+## Phase 45-B : `maestro init` + Provider config
+**Statut** : DONE
+**Date** : 2026-03-03
+
+### What was done
+
+1. **MaestroConfig extended** — added `provider` section with 4 types (azure, azure-inference, claude-code, local)
+2. **getProviderEnvVars()** — converts config to .NET env vars (Providers__Azure__ApiKey, etc.)
+3. **SidecarOptions.envOverrides** — passes provider env vars to backend + LLM-Provider child processes
+4. **ensureBackend()** — loads config, passes provider env vars to sidecar
+5. **init-wizard.ts** — interactive readline wizard (5 steps: welcome, provider picker, config prompts, health check, save config)
+6. **Init routing** — `maestro init` (no args) → wizard, `maestro init <path>` → old initRepo()
+
+### Files modified
+
+- `packages/maestro-cli/config.ts` — MaestroConfig.provider, getProviderEnvVars()
+- `packages/maestro-cli/init-wizard.ts` — **NEW** interactive wizard
+- `packages/maestro-cli/cli.ts` — import readConfig/getProviderEnvVars, pass to sidecar, init routing
+- `packages/maestro-cli/package.json` — added init-wizard.ts to files
+- `packages/maestro-sidecar/src/types.ts` — added envOverrides
+- `packages/maestro-sidecar/src/sidecar.ts` — merge envOverrides into llmEnv + backendEnv
+
+### Verification
+
+| Check | Status |
+|-------|--------|
+| Sidecar tests | 5/5 pass |
+| Maestro-code tests | 67/67 fast pass |
+| `maestro init` (wizard) | Launches correctly |
+| `maestro init /path` (old behavior) | Works |
+| getProviderEnvVars() | Produces correct .NET env vars |
+
+---
+
+## Phase 45-C : Documentation utilisateur
+**Statut** : DONE
+**Date** : 2026-03-03
+
+### What was done
+
+1. **packages/maestro-cli/README.md** — npm package README (138 lines): what is Maestro, quick start, commands, keyboard shortcuts, slash commands, providers, troubleshooting
+2. **docs/getting-started.md** — step-by-step first launch guide (190 lines): install, init, launch TUI, first task walkthrough, TUI explanation, pages, next steps
+3. **docs/examples.md** — 3 concrete task walkthroughs (193 lines): ESLint+Prettier setup, TypeScript error fixing, API doc generation
+4. **docs/troubleshooting.md** — common problems and solutions (155 lines): startup issues, services, agent, permissions, reset, debug mode
+5. **package.json metadata** — enriched description, added keywords, repository
+
+### Files created/modified
+
+- `packages/maestro-cli/README.md` — **NEW** (138 lines)
+- `docs/getting-started.md` — **NEW** (190 lines)
+- `docs/examples.md` — **NEW** (193 lines)
+- `docs/troubleshooting.md` — **NEW** (155 lines)
+- `packages/maestro-cli/package.json` — description, keywords, repository
+
+### Verification
+
+- All documented commands verified against source code (HelpOverlay.ts, App.ts)
+- All keyboard shortcuts verified against useKeyboard.ts
+- All slash commands verified against App.ts slashCommands
+- 676 total lines of user-facing documentation
