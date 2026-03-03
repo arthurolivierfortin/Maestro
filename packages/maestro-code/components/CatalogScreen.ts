@@ -64,7 +64,7 @@ const TypeFilter = ({ activeType }) => {
 // ── Catalog Block Row ────────────────────────────────────────
 
 const CatalogBlockRow = ({ block, isSelected, isExpanded }) => {
-  const type = (block.type || 'unknown').toLowerCase();
+  const type = (block.blockType || block.type || 'unknown').toLowerCase();
   const name = block.name || block.id || 'Unknown';
   const id = block.id ? block.id.substring(0, 12) : '--------';
   const selector = isSelected ? icons.arrow : ' ';
@@ -153,7 +153,7 @@ const CatalogScreen = ({ apiClient, onNavigate, onBlockSelect, onQuit, initialSt
   // Apply type filter
   const filteredBlocks = typeFilter === 'all'
     ? blockList
-    : blockList.filter(b => ((b.type || '').toLowerCase()) === typeFilter);
+    : blockList.filter(b => ((b.blockType || b.type || '').toLowerCase()) === typeFilter);
 
   // Sort by name
   const sortedBlocks = [...filteredBlocks].sort((a, b) =>

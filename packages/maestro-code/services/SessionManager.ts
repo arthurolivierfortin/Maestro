@@ -239,9 +239,13 @@ class SessionManager {
   }
 
   private lastReportedStatus = new Map<string, string>();
+  private pollStartTime: number = 0;
+  private static readonly POLL_TIMEOUT_MS = 300_000; // 5 minutes
+  private static readonly EMPTY_TREE_TIMEOUT_MS = 30_000; // 30 seconds with empty tree = likely error
 
   private startPolling(addLine: (line: LogLine) => void, setBusy: (b: boolean) => void) {
     this.lastReportedStatus.clear();
+    this.pollStartTime = Date.now();
 
     const reportNode = (key: string, name: string, status: string, node?: any) => {
       const isDone = status === 'completed' || status === 'done';
@@ -300,8 +304,71 @@ class SessionManager {
           }
         }
 
-        const status = session.status || session.containerStatus;
+        const status = (session.status || session.containerStatus || '').toLowerCase();
         const allDone = tree.length > 0 && tree.every(n => n.status === 'completed' || n.status === 'done' || n.status === 'error' || n.status === 'skipped');
+        const elapsed = Date.now() - this.pollStartTime;
+
+        // Detect session-level error (e.g., LLM provider failure)
+        if (status === 'error' || status === 'failed') {
+          this.stopPolling();
+          const errMsg = session.error || session.errorMessage || session.statusMessage || 'Session encountered an error';
+          addLine({ text: '' });
+          addLine({ text: `Error: ${errMsg}`, color: 'red', bold: true, timestamp: ts() });
+          addLine({ text: '' });
+          this._lastHadErrors = true;
+          setBusy(false);
+          return;
+        }
+
+        // Check _executionLog for error entries (backend logs errors here even when tree is empty)
+        const executionLog: any[] = vars._executionLog || [];
+        const errorLogs = executionLog.filter((e: any) => e.level === 'error');
+
+        // Detect empty execution tree that never populates (workflow failed to start)
+        if (tree.length === 0 && elapsed > SessionManager.EMPTY_TREE_TIMEOUT_MS) {
+          this.stopPolling();
+          addLine({ text: '' });
+          if (errorLogs.length > 0) {
+            const lastErr = errorLogs[errorLogs.length - 1];
+            addLine({ text: `Error: ${lastErr.msg || lastErr.message || 'Workflow failed to start'}`, color: 'red', bold: true, timestamp: ts() });
+          } else {
+            addLine({ text: 'Error: Agent did not respond — execution tree is empty.', color: 'red', bold: true, timestamp: ts() });
+          }
+          addLine({ text: '  Possible causes: LLM provider not configured, missing API keys, or workflow error.', color: 'yellow' });
+          addLine({ text: '  Run "maestro health" to check service status.', color: 'yellow' });
+          addLine({ text: '' });
+          this._lastHadErrors = true;
+          setBusy(false);
+          return;
+        }
+
+        // Detect stuck nodes: tree has nodes but all are running for too long (e.g., LLM call hangs)
+        if (tree.length > 0 && !allDone && elapsed > SessionManager.POLL_TIMEOUT_MS / 2) {
+          const hasRunning = tree.some(n => n.status === 'running');
+          if (hasRunning && errorLogs.length > 0) {
+            // Errors in the log but nodes still "running" — likely a stuck execution
+            this.stopPolling();
+            addLine({ text: '' });
+            const lastErr = errorLogs[errorLogs.length - 1];
+            addLine({ text: `Error: ${lastErr.msg || lastErr.message || 'Execution error'}`, color: 'red', bold: true, timestamp: ts() });
+            addLine({ text: '' });
+            this._lastHadErrors = true;
+            setBusy(false);
+            return;
+          }
+        }
+
+        // Global timeout
+        if (elapsed > SessionManager.POLL_TIMEOUT_MS) {
+          this.stopPolling();
+          addLine({ text: '' });
+          addLine({ text: 'Warning: Task timed out after 5 minutes.', color: 'yellow', bold: true, timestamp: ts() });
+          addLine({ text: '' });
+          this._lastHadErrors = true;
+          setBusy(false);
+          return;
+        }
+
         if (allDone || status === 'completed' || status === 'idle') {
           this.stopPolling();
           const hasErrors = tree.some(n => n.status === 'error');
