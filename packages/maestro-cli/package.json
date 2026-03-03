@@ -15,6 +15,7 @@
     "adapt-optimize.ts",
     "shell.ts",
     "discover.ts",
+    "init-wizard.ts",
     "utils/",
     "dist/",
     "content/"

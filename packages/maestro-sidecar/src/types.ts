@@ -17,6 +17,8 @@ export interface SidecarOptions {
   healthTimeout?: number;
   /** Callback invoked on stdout lines from child processes. */
   onLog?: (service: 'backend' | 'llm-provider', line: string) => void;
+  /** Additional env vars to pass to child processes (e.g. provider config). */
+  envOverrides?: Record<string, string>;
 }
 
 export interface ServiceInfo {

@@ -68,6 +68,7 @@ export class MaestroSidecar {
       const llmEnv: Record<string, string> = {
         Server__Port: String(llmPort),
         Server__BindAddress: '127.0.0.1',
+        ...(this.opts.envOverrides || {}),
       };
 
       if (this._bundled) {
@@ -112,6 +113,7 @@ export class MaestroSidecar {
     const backendEnv: Record<string, string> = {
       // Override Kestrel endpoint port (.NET nested config: Kestrel:Endpoints:Http:Url)
       Kestrel__Endpoints__Http__Url: `http://127.0.0.1:${backendPort}`,
+      ...(this.opts.envOverrides || {}),
     };
     if (!this.opts.skipLlm) {
       // .NET nested config: LLMProvider:BaseUrl

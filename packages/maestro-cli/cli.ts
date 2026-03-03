@@ -11,7 +11,7 @@ const { SandboxManager } = require('./sandbox-manager.ts');
 const { maestroAdapt, maestroOptimize } = require('./adapt-optimize.ts');
 
 // Configuration (Phase 20: config.ts provides getBackendUrl/getApiKey)
-const { getBackendUrl, getApiKey } = require('./config.ts');
+const { getBackendUrl, getApiKey, readConfig, getProviderEnvVars } = require('./config.ts');
 const API_URL = getBackendUrl();
 const DEBUG = process.env.MAESTRO_DEBUG === 'true';
 
@@ -66,8 +66,12 @@ async function ensureBackend(skipAutoStart = false) {
   const contentDir = path.join(__dirname, 'content', 'system');
   const bundled = hasBundledBinaries(distDir);
 
+  const config = readConfig();
+  const providerEnv = getProviderEnvVars(config);
+
   const sidecarOpts = {
     ...(bundled ? { binaryDir: distDir, contentDir } : {}),
+    envOverrides: Object.keys(providerEnv).length > 0 ? providerEnv : undefined,
     onLog: (service, line) => { if (DEBUG) console.log(`  [${service}] ${line}`); },
     healthTimeout: 60000,
   };
@@ -8894,9 +8898,14 @@ ${c.bold('Examples:')}
       return;
     }
 
-    // Phase 21: Init command
+    // Phase 21/45-B: Init command
     if (cmd === 'init') {
       const targetPath = argv._[1] || argv.path;
+      // No path specified → run onboarding wizard (Phase 45-B)
+      if (!targetPath && !argv.repo) {
+        const { runInitWizard } = require('./init-wizard.ts');
+        return await runInitWizard();
+      }
       return await initRepo(targetPath, { force: argv.force });
     }
 
