@@ -219,7 +219,10 @@ const AgentScreen = ({
 
   // Compute available height for conversation: terminal - NavBar(3) - AgentStatus(6) - PanelBorders(2) - global chrome(6)
   const termRows = stdout.rows || 40;
+  const termCols = stdout.columns || 80;
   const conversationHeight = Math.max(5, termRows - 17);
+  // Conversation width: terminal width - ACTIONS panel (25) - panel borders (4)
+  const conversationWidth = Math.max(20, termCols - 25 - 4);
 
   const askQuit = () => setShowQuitConfirm(true);
 
@@ -298,7 +301,7 @@ const AgentScreen = ({
         canScrollUp: scrollOffset < lines.length - conversationHeight,
         canScrollDown: scrollOffset > 0,
       },
-        h(ConversationLog, { lines, height: conversationHeight, scrollOffset }),
+        h(ConversationLog, { lines, height: conversationHeight, width: conversationWidth, scrollOffset }),
       ),
 
       // Actions (right, fixed width)

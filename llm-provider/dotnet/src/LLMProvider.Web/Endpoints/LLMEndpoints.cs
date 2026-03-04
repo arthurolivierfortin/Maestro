@@ -75,6 +75,13 @@ public static class LLMEndpoints
         {
             return Results.BadRequest(new { error = ex.Message });
         }
+        catch (Exception ex)
+        {
+            return Results.Problem(
+                detail: ex.Message,
+                statusCode: StatusCodes.Status500InternalServerError,
+                title: "Internal Server Error");
+        }
     }
 
     private static async Task StreamComplete(

@@ -273,6 +273,62 @@ public class AgentBlockExecutor : IBlockExecutor
             {
                 result.Logs.Add($"LLM request failed (iteration {iteration}): {ex.Message}");
 
+                // Detect context window limit — the system prompt itself is too large;
+                // reducing KeepLastN won't help. Fail fast with an actionable message.
+                var msg = ex.Message;
+                var isContextWindowError =
+                    msg.Contains("context", StringComparison.OrdinalIgnoreCase) &&
+                    (msg.Contains("window", StringComparison.OrdinalIgnoreCase) ||
+                     msg.Contains("length", StringComparison.OrdinalIgnoreCase) ||
+                     msg.Contains("limit", StringComparison.OrdinalIgnoreCase) ||
+                     msg.Contains("too long", StringComparison.OrdinalIgnoreCase) ||
+                     msg.Contains("maximum", StringComparison.OrdinalIgnoreCase));
+
+                if (isContextWindowError)
+                {
+                    result.Success = false;
+                    result.Outputs["error"] = "Context window limit exceeded — the model cannot process this request. " +
+                        "Try: /clear to reset the conversation, or use a model with a larger context window.";
+                    result.PromptTokens = totalPromptTokens;
+                    result.CompletionTokens = totalCompletionTokens;
+                    result.TotalTokens = totalAllTokens;
+                    result.EstimatedCostUsd = LLMBlockExecutorBase.EstimateCost(lastResponse?.Model ?? modelId, totalPromptTokens, totalCompletionTokens);
+                    result.DurationMs = sw.ElapsedMilliseconds;
+                    if (persistentId == null) _conversationManager.CleanupConversation(conversationId);
+                    return result;
+                }
+
+                // Detect provider/model routing errors — fail fast, reducing context won't help.
+                // The LLMProviderGateway already retried MaxRetries times for transient errors.
+                // These indicate config-level issues (model not registered, provider down).
+                var isProviderRoutingError =
+                    msg.Contains("No provider found", StringComparison.OrdinalIgnoreCase) ||
+                    msg.Contains("No provider registered", StringComparison.OrdinalIgnoreCase) ||
+                    msg.Contains("is currently unavailable", StringComparison.OrdinalIgnoreCase) ||
+                    msg.Contains("provider", StringComparison.OrdinalIgnoreCase) &&
+                    msg.Contains("not found", StringComparison.OrdinalIgnoreCase);
+
+                // Also detect empty 500 responses — strong signal of unhandled exception
+                // in LLM-Provider (e.g., "LLM-Provider returned InternalServerError: ")
+                var isEmptyServerError =
+                    msg.Contains("InternalServerError", StringComparison.OrdinalIgnoreCase) &&
+                    msg.TrimEnd().EndsWith(":");
+
+                if (isProviderRoutingError || isEmptyServerError)
+                {
+                    result.Success = false;
+                    result.Outputs["error"] = $"LLM provider error (not retryable): {ex.Message}. " +
+                        "Check that the model is configured in LLM-Provider appsettings.json and the service is running.";
+                    result.Logs.Add("Fail-fast: provider/routing error detected — context reduction would not help.");
+                    result.PromptTokens = totalPromptTokens;
+                    result.CompletionTokens = totalCompletionTokens;
+                    result.TotalTokens = totalAllTokens;
+                    result.EstimatedCostUsd = LLMBlockExecutorBase.EstimateCost(lastResponse?.Model ?? modelId, totalPromptTokens, totalCompletionTokens);
+                    result.DurationMs = sw.ElapsedMilliseconds;
+                    if (persistentId == null) _conversationManager.CleanupConversation(conversationId);
+                    return result;
+                }
+
                 // Strategy: reduce context window and retry. The failure is often caused by
                 // accumulated conversation exceeding provider limits (command-line length,
                 // CLI session state corruption, timeout). Reducing context keeps system prompt

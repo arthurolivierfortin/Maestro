@@ -314,6 +314,12 @@ class SessionManager {
           const errMsg = session.error || session.errorMessage || session.statusMessage || 'Session encountered an error';
           addLine({ text: '' });
           addLine({ text: `Error: ${errMsg}`, color: 'red', bold: true, timestamp: ts() });
+          // Surface provider-specific advice
+          const errLower = String(errMsg).toLowerCase();
+          if (errLower.includes('provider') || errLower.includes('not available') || errLower.includes('not authenticated') || errLower.includes('claude') || errLower.includes('api key')) {
+            addLine({ text: '  This looks like a provider configuration issue.', color: 'yellow' });
+            addLine({ text: '  Run "maestro init" to reconfigure providers, or "claude login" for Claude auth.', color: 'yellow' });
+          }
           addLine({ text: '' });
           this._lastHadErrors = true;
           setBusy(false);
@@ -328,14 +334,28 @@ class SessionManager {
         if (tree.length === 0 && elapsed > SessionManager.EMPTY_TREE_TIMEOUT_MS) {
           this.stopPolling();
           addLine({ text: '' });
+
+          // Check if errors point to a provider issue
+          const isProviderError = errorLogs.some((e: any) => {
+            const msg = String(e.msg || e.message || '').toLowerCase();
+            return msg.includes('provider') || msg.includes('not available') || msg.includes('not authenticated')
+              || msg.includes('api key') || msg.includes('claude') || msg.includes('503');
+          });
+
           if (errorLogs.length > 0) {
             const lastErr = errorLogs[errorLogs.length - 1];
             addLine({ text: `Error: ${lastErr.msg || lastErr.message || 'Workflow failed to start'}`, color: 'red', bold: true, timestamp: ts() });
           } else {
             addLine({ text: 'Error: Agent did not respond — execution tree is empty.', color: 'red', bold: true, timestamp: ts() });
           }
-          addLine({ text: '  Possible causes: LLM provider not configured, missing API keys, or workflow error.', color: 'yellow' });
-          addLine({ text: '  Run "maestro health" to check service status.', color: 'yellow' });
+
+          if (isProviderError) {
+            addLine({ text: '  LLM provider is not available or not authenticated.', color: 'yellow' });
+            addLine({ text: '  Run "maestro init" to reconfigure, or "claude login" for Claude Code auth.', color: 'yellow' });
+          } else {
+            addLine({ text: '  Possible causes: LLM provider not configured, missing API keys, or workflow error.', color: 'yellow' });
+            addLine({ text: '  Run "maestro init" to reconfigure or "maestro health" to check services.', color: 'yellow' });
+          }
           addLine({ text: '' });
           this._lastHadErrors = true;
           setBusy(false);

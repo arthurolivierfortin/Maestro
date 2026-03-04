@@ -34,6 +34,7 @@ import { ConversationLog } from './components/ConversationLog.ts';
 import { AgentScreen } from './components/AgentScreen.ts';
 import { StatusBar } from './components/StatusBar.ts';
 import { HelpOverlay } from './components/HelpOverlay.ts';
+import { ProviderSetupScreen } from './components/ProviderSetupScreen.ts';
 
 import type { IApiClient } from '@maestro/tui/types';
 
@@ -180,12 +181,16 @@ interface PageNavEntry {
 
 // ── Root App Component ─────────────────────────────────────────
 
-const App = ({ apiClient: clientProp, sessionManager: smProp, demoMode, repoPath, noBell }: {
+const App = ({ apiClient: clientProp, sessionManager: smProp, demoMode, repoPath, noBell, hasProviders: hasProvidersProp, ensureBackendFn, saveProviders, readProviders }: {
   apiClient: IApiClient | null;
   sessionManager: SessionManager | null;
   demoMode?: boolean;
   repoPath?: string;
   noBell?: boolean;
+  hasProviders?: boolean;
+  ensureBackendFn?: () => Promise<{ apiClient: any; sidecar: any }>;
+  saveProviders?: (providers: Record<string, any>) => void;
+  readProviders?: () => Record<string, any> | null;
 }) => {
   const { exit } = useApp();
   const { stdout } = useStdout();
@@ -198,8 +203,58 @@ const App = ({ apiClient: clientProp, sessionManager: smProp, demoMode, repoPath
     }
     return null;
   });
-  const sessionManager = demoMode ? (demoSetup?.sm || null) : (smProp || null);
-  const apiClient = demoMode ? (demoSetup?.client || null) : clientProp;
+  // ── Provider setup state ──
+  const [providersReady, setProvidersReady] = useState(hasProvidersProp !== false || !!demoMode);
+  const [liveApiClient, setLiveApiClient] = useState<IApiClient | null>(clientProp);
+  const [liveSessionManager, setLiveSessionManager] = useState<SessionManager | null>(smProp);
+
+  const sessionManager = demoMode ? (demoSetup?.sm || null) : (liveSessionManager || null);
+  const apiClient = demoMode ? (demoSetup?.client || null) : liveApiClient;
+
+  // Handle provider setup completion — save config and start backend
+  const [setupInProgress, setSetupInProgress] = useState(false);
+  const handleProviderSetupComplete = useCallback(async (providers: Record<string, any>) => {
+    setSetupInProgress(true);
+    try {
+      // Save providers config via callback (avoids cross-package dependency)
+      if (saveProviders) {
+        saveProviders(providers);
+      }
+      setCurrentProviders(providers);
+
+      // Start backend with new provider config
+      if (ensureBackendFn) {
+        const { apiClient: newClient } = await ensureBackendFn();
+        if (newClient) {
+          setLiveApiClient(newClient);
+          setLiveSessionManager(new SessionManager({ apiClient: newClient, repoPath }));
+        }
+      }
+
+      setProvidersReady(true);
+    } catch (err: any) {
+      // Even if backend start fails, mark as ready so user can see the TUI
+      setProvidersReady(true);
+    } finally {
+      setSetupInProgress(false);
+    }
+  }, [ensureBackendFn, saveProviders, repoPath]);
+
+  // ── Provider config for Models page ──
+  const [currentProviders, setCurrentProviders] = useState<Record<string, any> | null>(() => {
+    return readProviders ? readProviders() : null;
+  });
+  const [showReconfigure, setShowReconfigure] = useState(false);
+
+  const handleReconfigure = useCallback(() => {
+    setShowReconfigure(true);
+  }, []);
+
+  const handleReconfigureComplete = useCallback((providers: Record<string, any>) => {
+    if (saveProviders) saveProviders(providers);
+    setCurrentProviders(providers);
+    setShowReconfigure(false);
+  }, [saveProviders]);
 
   // ── Connection status polling ──
   const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'error'>(
@@ -596,6 +651,24 @@ const App = ({ apiClient: clientProp, sessionManager: smProp, demoMode, repoPath
     }
   }, [demoMode, sessionManager, handleSubmit]);
 
+  // ── Render provider setup screen if no providers configured ──
+  if (!providersReady) {
+    if (setupInProgress) {
+      return h(FullscreenBox, null,
+        h(Box, { flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flexGrow: 1 },
+          h(Text, { color: 'cyan', bold: true }, 'Starting Maestro services...'),
+          h(Text, { color: 'gray', dimColor: true }, 'This may take a few seconds.'),
+        ),
+      );
+    }
+    return h(FullscreenBox, null,
+      h(ProviderSetupScreen, {
+        onComplete: handleProviderSetupComplete,
+        onSkip: () => setProvidersReady(true),
+      }),
+    );
+  }
+
   // ── Render detail views ──
   if (detailView) {
     const detailProps = {
@@ -642,6 +715,17 @@ const App = ({ apiClient: clientProp, sessionManager: smProp, demoMode, repoPath
     );
   }
 
+  // ── Render reconfigure overlay ──
+  if (showReconfigure) {
+    return h(FullscreenBox, null,
+      h(ProviderSetupScreen, {
+        onComplete: handleReconfigureComplete,
+        onSkip: () => setShowReconfigure(false),
+        existingProviders: currentProviders,
+      }),
+    );
+  }
+
   // ── Render page views ──
   const pageProps = {
     apiClient,
@@ -681,7 +765,12 @@ const App = ({ apiClient: clientProp, sessionManager: smProp, demoMode, repoPath
         pageComponent = h(CatalogScreen, { ...pageProps, onBlockSelect: handleBlockSelect });
         break;
       case 'models':
-        pageComponent = h(ModelsScreen, { ...pageProps, onModelSelect: handleModelSelect });
+        pageComponent = h(ModelsScreen, {
+          ...pageProps,
+          onModelSelect: handleModelSelect,
+          providers: currentProviders,
+          onReconfigure: handleReconfigure,
+        });
         break;
       case 'home':
       default:
@@ -719,12 +808,21 @@ async function startInteractive(options: InteractiveOptions = {}): Promise<void>
   const sessionManager = options.apiClient ? new SessionManager(options) : null;
   const demoMode = (options as any).demo || false;
   const noBell = (options as any).noBell || false;
+  const hasProviders = (options as any).hasProviders === true;
+  const sidecar = (options as any).sidecar || null;
+  const ensureBackendFn = (options as any).ensureBackendFn || null;
 
-  // No API client and no demo mode → show error
+  // No API client, no demo mode, and providers already configured → show error
   const apiClient = options.apiClient || null;
-  const rootComponent = (!apiClient && !demoMode)
+  const needsSetup = !hasProviders && !demoMode;
+  const rootComponent = (!apiClient && !demoMode && !needsSetup)
     ? h(NoBackendScreen)
-    : h(App, { apiClient, sessionManager, demoMode, repoPath: options.repoPath, noBell });
+    : h(App, {
+        apiClient, sessionManager, demoMode, repoPath: options.repoPath, noBell,
+        hasProviders, ensureBackendFn,
+        saveProviders: (options as any).saveProviders || null,
+        readProviders: (options as any).readProviders || null,
+      });
 
   const instance = render(rootComponent, { exitOnCtrlC: false });
 
@@ -732,6 +830,11 @@ async function startInteractive(options: InteractiveOptions = {}): Promise<void>
     await instance.waitUntilExit();
   } finally {
     resetTerminalBg();
+    // Stop sidecar on TUI exit to prevent orphan processes
+    if (sidecar) {
+      try { await sidecar.stop(); } catch {}
+      console.log('  Maestro services stopped.');
+    }
   }
 }
 

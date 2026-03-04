@@ -3,6 +3,13 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
+export interface ProviderConfigs {
+  claudeCode?: { cliPath: string };
+  azure?: { endpoint: string; apiKey: string; deployment: string };
+  azureInference?: { endpoint: string; apiKey: string; model: string };
+  local?: { url: string };
+}
+
 export interface MaestroConfig {
   backendUrl?: string;
   apiKey?: string;
@@ -15,6 +22,7 @@ export interface MaestroConfig {
     apiKey?: string;
     deployment?: string;
   };
+  // Legacy single-provider field — migrated to `providers` on read
   provider?: {
     type: 'azure' | 'azure-inference' | 'claude-code' | 'local';
     azure?: { endpoint: string; apiKey: string; deployment: string };
@@ -22,6 +30,8 @@ export interface MaestroConfig {
     claudeCode?: { cliPath: string };
     local?: { url: string };
   };
+  // Multi-provider config (new)
+  providers?: ProviderConfigs;
 }
 
 const CONFIG_DIR = path.join(os.homedir(), '.maestro');
@@ -35,11 +45,42 @@ export function getConfigPath(): string {
   return CONFIG_FILE;
 }
 
+/**
+ * Migrate legacy single `provider` field to multi-provider `providers` map.
+ * Called on read — does NOT write back (caller decides when to persist).
+ */
+function migrateProviderConfig(config: MaestroConfig): MaestroConfig {
+  if (config.providers) return config; // Already migrated
+  if (!config.provider) return config; // Nothing to migrate
+
+  const p = config.provider;
+  const providers: ProviderConfigs = {};
+
+  switch (p.type) {
+    case 'claude-code':
+      if (p.claudeCode) providers.claudeCode = p.claudeCode;
+      break;
+    case 'azure':
+      if (p.azure) providers.azure = p.azure;
+      break;
+    case 'azure-inference':
+      if (p.azureInference) providers.azureInference = p.azureInference;
+      break;
+    case 'local':
+      if (p.local) providers.local = p.local;
+      break;
+  }
+
+  config.providers = providers;
+  return config;
+}
+
 export function readConfig(): MaestroConfig {
   try {
     if (fs.existsSync(CONFIG_FILE)) {
       const raw = fs.readFileSync(CONFIG_FILE, 'utf-8');
-      return JSON.parse(raw);
+      const config = JSON.parse(raw);
+      return migrateProviderConfig(config);
     }
   } catch (e) {
     // Corrupted config — return defaults
@@ -70,10 +111,56 @@ export function getApiKey(): string | undefined {
     || undefined;
 }
 
+/**
+ * Returns true if at least one provider is configured in the `providers` map.
+ */
+export function hasConfiguredProviders(config?: MaestroConfig): boolean {
+  const c = config || readConfig();
+  const p = c.providers;
+  if (!p) return false;
+  return !!(p.claudeCode || p.azure || p.azureInference || p.local);
+}
+
+/**
+ * Build env vars for ALL configured providers (not just one).
+ * The backend reads each provider's env vars independently.
+ */
 export function getProviderEnvVars(config: MaestroConfig): Record<string, string> {
   const env: Record<string, string> = {};
-  if (!config.provider) return env;
-  const p = config.provider;
+  const providers = config.providers;
+
+  // Support legacy single-provider field as fallback
+  if (!providers && config.provider) {
+    return getLegacyProviderEnvVars(config.provider);
+  }
+
+  if (!providers) return env;
+
+  if (providers.claudeCode) {
+    env.Providers__ClaudeCode__CliPath = providers.claudeCode.cliPath;
+  }
+
+  if (providers.azure) {
+    env.Providers__Azure__ApiKey = providers.azure.apiKey;
+    env.Providers__Azure__Endpoint = providers.azure.endpoint;
+    env.Providers__Azure__DefaultDeployment = providers.azure.deployment;
+  }
+
+  if (providers.azureInference) {
+    env.Providers__AzureInference__ApiKey = providers.azureInference.apiKey;
+    env.Providers__AzureInference__Endpoint = providers.azureInference.endpoint;
+  }
+
+  if (providers.local) {
+    env.Providers__Local__BaseUrl = providers.local.url;
+  }
+
+  return env;
+}
+
+function getLegacyProviderEnvVars(p: MaestroConfig['provider']): Record<string, string> {
+  const env: Record<string, string> = {};
+  if (!p) return env;
   switch (p.type) {
     case 'azure':
       if (p.azure) {

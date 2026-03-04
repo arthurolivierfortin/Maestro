@@ -54,8 +54,9 @@ public sealed class ClaudeCodeLLMProvider : ILLMProvider, IDisposable
     {
         try
         {
-            using var process = new Process();
-            process.StartInfo = new ProcessStartInfo
+            // Step 1: Check that the CLI binary exists and runs
+            using var versionProc = new Process();
+            versionProc.StartInfo = new ProcessStartInfo
             {
                 FileName = _options.CliPath,
                 Arguments = "--version",
@@ -65,10 +66,85 @@ public sealed class ClaudeCodeLLMProvider : ILLMProvider, IDisposable
                 CreateNoWindow = true
             };
             // Allow spawning claude CLI from within a Claude Code session
-            process.StartInfo.Environment.Remove("CLAUDECODE");
-            process.Start();
-            await process.WaitForExitAsync(cancellationToken);
-            return process.ExitCode == 0;
+            versionProc.StartInfo.Environment.Remove("CLAUDECODE");
+            versionProc.Start();
+            await versionProc.WaitForExitAsync(cancellationToken);
+            if (versionProc.ExitCode != 0)
+            {
+                _logger.LogDebug("Claude CLI version check failed (exit {ExitCode})", versionProc.ExitCode);
+                return false;
+            }
+
+            // Step 2: Check authentication status
+            try
+            {
+                using var authCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                authCts.CancelAfter(TimeSpan.FromSeconds(5));
+
+                using var authProc = new Process();
+                authProc.StartInfo = new ProcessStartInfo
+                {
+                    FileName = _options.CliPath,
+                    Arguments = "auth status",
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                };
+                authProc.StartInfo.Environment.Remove("CLAUDECODE");
+                authProc.Start();
+
+                var authStdout = await authProc.StandardOutput.ReadToEndAsync(authCts.Token);
+                await authProc.WaitForExitAsync(authCts.Token);
+
+                if (authProc.ExitCode != 0)
+                {
+                    _logger.LogWarning(
+                        "Claude CLI auth check failed (exit {ExitCode}). User may need to run 'claude login'.",
+                        authProc.ExitCode);
+                    return false;
+                }
+
+                // Try to parse JSON auth status
+                if (!string.IsNullOrWhiteSpace(authStdout))
+                {
+                    try
+                    {
+                        using var doc = JsonDocument.Parse(authStdout.Trim());
+                        var root = doc.RootElement;
+                        var authenticated = root.TryGetProperty("authenticated", out var authProp) && authProp.GetBoolean();
+                        if (!authenticated)
+                        {
+                            var loggedIn = root.TryGetProperty("loggedIn", out var liProp) && liProp.GetBoolean();
+                            if (!loggedIn)
+                            {
+                                _logger.LogWarning(
+                                    "Claude CLI is installed but not authenticated. Run 'claude login' to authenticate.");
+                                return false;
+                            }
+                        }
+                    }
+                    catch (JsonException)
+                    {
+                        // Non-JSON output — check for known text patterns
+                        if (authStdout.Contains("not logged in", StringComparison.OrdinalIgnoreCase) ||
+                            authStdout.Contains("not authenticated", StringComparison.OrdinalIgnoreCase))
+                        {
+                            _logger.LogWarning(
+                                "Claude CLI is installed but not authenticated. Run 'claude login' to authenticate.");
+                            return false;
+                        }
+                        // Unknown format — assume OK if exit code was 0
+                    }
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                _logger.LogDebug("Claude CLI auth check timed out — assuming available (version check passed)");
+                // Auth check timed out — don't block on this, version check passed
+            }
+
+            return true;
         }
         catch (Exception ex)
         {

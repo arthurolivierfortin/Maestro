@@ -98,9 +98,63 @@ const ModelCard = ({ model, isSelected, isActive }) => {
   );
 };
 
+// ── Providers Panel ─────────────────────────────────────────
+
+const PROVIDER_LABELS = {
+  claudeCode: 'Claude Code (CLI)',
+  azure: 'Azure OpenAI',
+  azureInference: 'Azure AI Inference',
+  local: 'Local (FastAPI)',
+};
+
+const ProvidersPanel = ({ providers }) => {
+  const entries = providers ? Object.entries(providers) : [];
+
+  if (entries.length === 0) {
+    return h(Box, { flexDirection: 'column', paddingLeft: 1 },
+      muted('No providers configured.'),
+      h(Text, null, ''),
+      h(Text, { color: 'gray', dimColor: true }, 'Run "maestro init" to set up.'),
+    );
+  }
+
+  return h(Box, { flexDirection: 'column', paddingLeft: 1 },
+    ...entries.map(([id, config]: [string, any]) => {
+      const name = PROVIDER_LABELS[id] || id;
+      // Show a brief detail for each provider
+      let detail = '';
+      if (id === 'claudeCode' && config.cliPath) {
+        const p = config.cliPath;
+        detail = p.length > 25 ? '...' + p.slice(-25) : p;
+      } else if (id === 'azure' && config.endpoint) {
+        detail = config.deployment || config.endpoint.replace(/https?:\/\//, '').slice(0, 25);
+      } else if (id === 'azureInference' && config.endpoint) {
+        detail = config.model || config.endpoint.replace(/https?:\/\//, '').slice(0, 25);
+      } else if (id === 'local' && config.url) {
+        detail = config.url;
+      }
+
+      return h(Box, { key: id, flexDirection: 'column' },
+        h(Box, { flexDirection: 'row' },
+          h(Text, { color: theme.status.success }, `${icons.done} `),
+          primary(name),
+        ),
+        detail ? h(Text, { color: 'gray', dimColor: true }, `    ${detail}`) : null,
+      );
+    }),
+    h(Text, null, ''),
+    h(Box, { flexDirection: 'row' },
+      h(Text, { color: theme.shortcut.bracket, dimColor: true }, '['),
+      h(Text, { color: theme.shortcut.key }, 'R'),
+      h(Text, { color: theme.shortcut.bracket, dimColor: true }, '] '),
+      muted('Reconfigure'),
+    ),
+  );
+};
+
 // ── ModelsScreen component ───────────────────────────────────
 
-const ModelsScreen = ({ apiClient, onNavigate, onModelSelect, onQuit, initialState, chrome, keyboardActive }) => {
+const ModelsScreen = ({ apiClient, onNavigate, onModelSelect, onQuit, initialState, chrome, keyboardActive, providers, onReconfigure }) => {
   const showChrome = chrome !== false;
   const [selectedIndex, setSelectedIndex] = useState(initialState?.selectedIndex ?? 0);
   const tick = useAnimationTick(150);
@@ -168,6 +222,7 @@ const ModelsScreen = ({ apiClient, onNavigate, onModelSelect, onQuit, initialSta
       c: () => onNavigate('catalog'),
       m: () => {},
     } : {}),
+    r: () => { if (onReconfigure) onReconfigure(); },
     escape: showChrome ? () => onNavigate('home') : undefined,
     q: onQuit,
   }, { isActive: keyboardActive !== false });
@@ -175,14 +230,19 @@ const ModelsScreen = ({ apiClient, onNavigate, onModelSelect, onQuit, initialSta
   return h(Box, { flexDirection: 'column', width: '100%', flexGrow: 1 },
     showChrome ? h(NavBar, { currentPage: 'models', sessionCount: sessionList.length, runningCount }) : null,
 
-    // Main content: Status | Model List
+    // Main content: Status | Providers | Model List
     h(Box, { flexDirection: 'row', flexGrow: 1, width: '100%' },
-      // Status panel (left, 40%)
-      h(Panel, { title: 'MODEL STATUS', width: '40%' },
+      // Status panel (left, 30%)
+      h(Panel, { title: 'MODEL STATUS', width: '30%' },
         h(ModelStatusPanel, { health: llmHealth, llmStatus, tick }),
       ),
 
-      // Model list (right, 60%)
+      // Providers panel (center, 25%)
+      h(Panel, { title: 'PROVIDERS', width: '25%' },
+        h(ProvidersPanel, { providers }),
+      ),
+
+      // Model list (right, fills remaining)
       h(Panel, { title: 'AVAILABLE MODELS', flexGrow: 1 },
         h(Box, { flexDirection: 'column' },
           h(Box, { paddingLeft: 2, marginBottom: 1 },

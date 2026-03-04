@@ -129,6 +129,7 @@ public class LLMProviderGateway : ILLMGateway, IDisposable
     {
         var attempts = 0;
         var delayMs = _settings.InitialRetryDelayMs;
+        string lastErrorContent = "";
 
         while (attempts < _settings.MaxRetries)
         {
@@ -156,10 +157,31 @@ public class LLMProviderGateway : ILLMGateway, IDisposable
                 var errorContent = await httpResponse.Content.ReadAsStringAsync(cancellationToken);
                 _logger?.LogWarning("LLM request failed with status {Status}: {Error}",
                     httpResponse.StatusCode, errorContent);
+                lastErrorContent = errorContent;
 
-                // Retry 500 errors once with a longer delay — these can be transient
-                // (CLI process crash, timeout, session state corruption).
-                if ((int)httpResponse.StatusCode >= 500)
+                var statusCode = (int)httpResponse.StatusCode;
+
+                // 400 (bad request, context window exceeded) — permanent, never retry
+                // Other 4xx except 429 (auth, forbidden, not found) — permanent, never retry
+                if (statusCode == 400 || (statusCode >= 401 && statusCode != 429))
+                {
+                    throw new HttpRequestException(
+                        $"LLM-Provider returned {httpResponse.StatusCode}: {errorContent}",
+                        null, httpResponse.StatusCode);
+                }
+
+                // 429 (rate limit) — transient, retry with backoff
+                if (statusCode == 429 && attempts < _settings.MaxRetries)
+                {
+                    _logger?.LogWarning("LLM-Provider returned 429 (attempt {Attempt}), retrying after {Delay}ms...",
+                        attempts, delayMs);
+                    await Task.Delay(delayMs, cancellationToken);
+                    delayMs *= 2;
+                    continue;
+                }
+
+                // 500+ — transient (CLI crash, timeout, session corruption), retry with longer delay
+                if (statusCode >= 500)
                 {
                     if (attempts < _settings.MaxRetries)
                     {
@@ -172,16 +194,11 @@ public class LLMProviderGateway : ILLMGateway, IDisposable
                         $"LLM-Provider returned {httpResponse.StatusCode}: {errorContent}",
                         null, httpResponse.StatusCode);
                 }
-
-                if (attempts < _settings.MaxRetries)
-                {
-                    await Task.Delay(delayMs, cancellationToken);
-                    delayMs *= 2; // Exponential backoff
-                }
             }
-            catch (HttpRequestException ex) when (attempts < _settings.MaxRetries)
+            catch (HttpRequestException ex) when (ex.StatusCode == null && attempts < _settings.MaxRetries)
             {
-                _logger?.LogWarning(ex, "LLM request attempt {Attempt} failed", attempts);
+                // Network-level errors (connection refused, DNS) — retry with backoff
+                _logger?.LogWarning(ex, "LLM request attempt {Attempt} failed (network error)", attempts);
                 await Task.Delay(delayMs, cancellationToken);
                 delayMs *= 2;
             }
@@ -192,7 +209,9 @@ public class LLMProviderGateway : ILLMGateway, IDisposable
         }
 
         _logger?.LogError("LLM request failed after {MaxRetries} attempts", _settings.MaxRetries);
-        throw new HttpRequestException($"LLM request failed after {_settings.MaxRetries} attempts");
+        throw new HttpRequestException(
+            $"LLM request failed after {_settings.MaxRetries} attempts" +
+            (string.IsNullOrEmpty(lastErrorContent) ? "" : $": {lastErrorContent}"));
     }
 
     public Task SwitchModelAsync(string modelId, CancellationToken cancellationToken = default)

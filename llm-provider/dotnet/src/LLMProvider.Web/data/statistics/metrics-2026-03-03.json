@@ -1,34 +1,34 @@
 {
-  "totalRequests": 75,
+  "totalRequests": 3,
   "latency": {
-    "p50": 0,
-    "p95": 0,
-    "p99": 0,
-    "average": 0
+    "p50": 5370,
+    "p95": 7169.1,
+    "p99": 7329.02,
+    "average": 5173
   },
   "totalTokens": {
-    "promptTokens": 225,
-    "completionTokens": 39043,
-    "totalTokens": 39268
+    "promptTokens": 9,
+    "completionTokens": 105,
+    "totalTokens": 114
   },
   "modelStats": [
     {
       "modelId": {
         "value": "sonnet"
       },
-      "requestCount": 75,
+      "requestCount": 3,
       "latency": {
-        "p50": 8774,
-        "p95": 32808.29999999998,
-        "p99": 87851.5000000001,
-        "average": 13337.173333333334
+        "p50": 5370,
+        "p95": 7169.1,
+        "p99": 7329.02,
+        "average": 5173
       },
       "totalTokens": {
-        "promptTokens": 225,
-        "completionTokens": 39043,
-        "totalTokens": 39268
+        "promptTokens": 9,
+        "completionTokens": 105,
+        "totalTokens": 114
       },
-      "requestsPerMinute": 0.19771438725901413,
+      "requestsPerMinute": 0.5298640154871198,
       "errorRate": 0
     }
   ],
@@ -58,34 +58,34 @@
         "p99": 0,
         "average": 0
       },
-      "tokensTotal": 39268
+      "tokensTotal": 114
     },
     {
       "windowName": "5m",
       "windowSeconds": 300,
-      "requestCount": 0,
-      "requestsPerMinute": 0,
+      "requestCount": 1,
+      "requestsPerMinute": 0.2,
       "latency": {
-        "p50": 0,
-        "p95": 0,
-        "p99": 0,
-        "average": 0
+        "p50": 7369,
+        "p95": 7369,
+        "p99": 7369,
+        "average": 7369
       },
-      "tokensTotal": 39268
+      "tokensTotal": 114
     },
     {
       "windowName": "15m",
       "windowSeconds": 900,
-      "requestCount": 0,
-      "requestsPerMinute": 0,
+      "requestCount": 3,
+      "requestsPerMinute": 0.2,
       "latency": {
-        "p50": 0,
-        "p95": 0,
-        "p99": 0,
-        "average": 0
+        "p50": 5370,
+        "p95": 7169.1,
+        "p99": 7329.02,
+        "average": 5173
       },
-      "tokensTotal": 39268
+      "tokensTotal": 114
     }
   ],
-  "generatedAt": "2026-03-03T00:48:21.3934468+00:00"
+  "generatedAt": "2026-03-03T16:43:08.6932652+00:00"
 }

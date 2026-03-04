@@ -14,10 +14,11 @@ import type { LogLine } from '../services/SessionManager.ts';
 export interface ConversationLogProps {
   lines: LogLine[];
   height: number;
+  width?: number;
   scrollOffset?: number;
 }
 
-const ConversationLog = ({ lines, height, scrollOffset = 0 }: ConversationLogProps) => {
+const ConversationLog = ({ lines, height, width, scrollOffset = 0 }: ConversationLogProps) => {
   const maxVisible = Math.max(height - 2, 1);
 
   // Compute visible window based on scroll offset
@@ -27,11 +28,15 @@ const ConversationLog = ({ lines, height, scrollOffset = 0 }: ConversationLogPro
   const startIndex = Math.max(0, endIndex - maxVisible);
   const visible = endIndex > 0 ? lines.slice(startIndex, endIndex) : [];
 
+  // Compute inner width: subtract padding (2 chars for paddingX: 1)
+  const innerWidth = width ? width - 2 : undefined;
+
   return h(Box, {
     flexDirection: 'column',
     flexGrow: 1,
     overflow: 'hidden',
     paddingX: 1,
+    ...(width ? { width } : {}),
   },
     ...visible.map((line, i) => {
       // Detect line type for formatting
@@ -55,6 +60,7 @@ const ConversationLog = ({ lines, height, scrollOffset = 0 }: ConversationLogPro
           color: (line.color || 'white') as any,
           bold: line.bold || isPhaseHeader,
           dimColor: line.dim,
+          wrap: 'wrap',
         }, isUserMessage ? text.slice(2) : text),
       );
     }),

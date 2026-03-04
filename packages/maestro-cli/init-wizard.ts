@@ -1,12 +1,14 @@
 // @ts-nocheck
 /**
  * Interactive onboarding wizard for `maestro init`.
- * Configures the LLM provider and saves to ~/.maestro/config.json.
+ * Configures LLM providers and saves to ~/.maestro/config.json.
+ *
+ * Uses shared helpers from provider-detect.ts for Claude CLI detection/auth.
  */
 const readline = require('readline');
 const path = require('path');
-const { execSync } = require('child_process');
-const { readConfig, writeConfig, getProviderEnvVars, getConfigPath } = require('./config.ts');
+const { readConfig, writeConfig, getProviderEnvVars, getConfigPath, hasConfiguredProviders } = require('./config.ts');
+const { findClaudeCli, getClaudeAuthStatus, runClaudeLogin } = require('./provider-detect.ts');
 
 function createInterface() {
   return readline.createInterface({ input: process.stdin, output: process.stdout });
@@ -20,20 +22,22 @@ function printBanner() {
   console.log('');
   console.log('  ╔══════════════════════════════════════╗');
   console.log('  ║       Welcome to Maestro!            ║');
-  console.log('  ║   Let\'s configure your LLM provider  ║');
+  console.log('  ║   Let\'s configure your LLM providers ║');
   console.log('  ╚══════════════════════════════════════╝');
   console.log('');
 }
 
 const PROVIDERS = [
-  { key: '1', type: 'azure',           label: 'Azure OpenAI',                   desc: 'Azure-hosted OpenAI models (endpoint + API key + deployment)' },
-  { key: '2', type: 'azure-inference',  label: 'Azure AI Inference / GitHub Models', desc: 'Azure AI or GitHub Models (endpoint + API key)' },
-  { key: '3', type: 'claude-code',      label: 'Claude Code (CLI)',              desc: 'Uses the Claude CLI installed on your machine' },
-  { key: '4', type: 'local',            label: 'Local (Python FastAPI)',         desc: 'Local GPU inference server' },
+  { key: '1', id: 'claudeCode',      label: 'Claude Code (CLI)',              desc: 'Uses the Claude CLI installed on your machine' },
+  { key: '2', id: 'azure',           label: 'Azure OpenAI',                   desc: 'Azure-hosted OpenAI models (endpoint + API key + deployment)' },
+  { key: '3', id: 'azureInference',  label: 'Azure AI Inference / GitHub Models', desc: 'Azure AI or GitHub Models (endpoint + API key)' },
+  { key: '4', id: 'local',           label: 'Local (Python FastAPI)',         desc: 'Local GPU inference server' },
 ];
 
-async function pickProvider(rl): Promise<string> {
-  console.log('  Which LLM provider do you want to use?\n');
+async function pickProviders(rl): Promise<string[]> {
+  console.log('  Which LLM providers do you want to configure?');
+  console.log('  (Enter numbers separated by commas for multiple, e.g. "1,2")\n');
+
   for (const p of PROVIDERS) {
     console.log(`    [${p.key}] ${p.label}`);
     console.log(`        ${p.desc}`);
@@ -42,9 +46,13 @@ async function pickProvider(rl): Promise<string> {
 
   while (true) {
     const choice = await ask(rl, '  Enter choice (1-4): ');
-    const match = PROVIDERS.find(p => p.key === choice);
-    if (match) return match.type;
-    console.log('  Invalid choice. Please enter 1, 2, 3, or 4.');
+    const keys = choice.split(',').map(s => s.trim()).filter(Boolean);
+    const matched = keys.map(k => PROVIDERS.find(p => p.key === k)).filter(Boolean);
+
+    if (matched.length > 0) {
+      return matched.map(m => m.id);
+    }
+    console.log('  Invalid choice. Enter 1-4, separated by commas for multiple.');
   }
 }
 
@@ -60,10 +68,7 @@ async function configureAzure(rl) {
   const deployment = await ask(rl, '  Default deployment name (e.g. gpt-4o): ');
   if (!deployment) { console.log('  Deployment name is required.'); return null; }
 
-  return {
-    type: 'azure' as const,
-    azure: { endpoint, apiKey, deployment },
-  };
+  return { endpoint, apiKey, deployment };
 }
 
 async function configureAzureInference(rl) {
@@ -77,21 +82,7 @@ async function configureAzureInference(rl) {
 
   const model = await ask(rl, '  Model name [gpt-4o]: ') || 'gpt-4o';
 
-  return {
-    type: 'azure-inference' as const,
-    azureInference: { endpoint, apiKey, model },
-  };
-}
-
-function findClaudeCli(): string | null {
-  try {
-    const cmd = process.platform === 'win32' ? 'where claude' : 'which claude';
-    const result = execSync(cmd, { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] }).trim();
-    // 'where' on Windows may return multiple lines
-    return result.split('\n')[0].trim();
-  } catch {
-    return null;
-  }
+  return { endpoint, apiKey, model };
 }
 
 async function configureClaudeCode(rl) {
@@ -106,15 +97,35 @@ async function configureClaudeCode(rl) {
     cliPath = (useDetected.toLowerCase() === 'n') ? await ask(rl, '  Path to claude CLI: ') : detected;
   } else {
     console.log('  Claude CLI not found in PATH.');
-    cliPath = await ask(rl, '  Path to claude CLI executable: ');
+    console.log('  Install: https://docs.anthropic.com/en/docs/claude-code/overview');
+    cliPath = await ask(rl, '  Path to claude CLI executable (or press Enter to skip): ');
   }
 
-  if (!cliPath) { console.log('  CLI path is required.'); return null; }
+  if (!cliPath) { console.log('  Skipped.'); return null; }
 
-  return {
-    type: 'claude-code' as const,
-    claudeCode: { cliPath },
-  };
+  // Check auth
+  console.log('  Checking authentication...');
+  const authStatus = await getClaudeAuthStatus(cliPath);
+
+  if (authStatus.loggedIn) {
+    const emailStr = authStatus.email ? ` (${authStatus.email})` : '';
+    console.log(`  Authenticated${emailStr}`);
+  } else {
+    console.log('  Not logged in.');
+    const doLogin = await ask(rl, '  Run "claude login" now? [Y/n]: ');
+    if (doLogin.toLowerCase() !== 'n') {
+      rl.close();
+      const success = await runClaudeLogin(cliPath);
+      if (success) {
+        console.log('  Login successful!');
+      } else {
+        console.log('  Login cancelled or failed. You can run "claude login" later.');
+      }
+      return { cliPath };
+    }
+  }
+
+  return { cliPath };
 }
 
 async function configureLocal(rl) {
@@ -122,19 +133,15 @@ async function configureLocal(rl) {
 
   const url = await ask(rl, '  Server URL [http://localhost:8000]: ') || 'http://localhost:8000';
 
-  return {
-    type: 'local' as const,
-    local: { url },
-  };
+  return { url };
 }
 
-async function verifyConnection(providerConfig): Promise<boolean> {
+async function verifyConnection(providers): Promise<boolean> {
   console.log('\n  Verifying connection...');
 
-  const config = { provider: providerConfig };
+  const config = { providers };
   const providerEnv = getProviderEnvVars(config);
 
-  // Quick check: try to reach the LLM-Provider health endpoint via sidecar
   try {
     const { MaestroSidecar, hasBundledBinaries } = require('@maestro/sidecar');
     const distDir = path.join(__dirname, 'dist');
@@ -152,7 +159,6 @@ async function verifyConnection(providerConfig): Promise<boolean> {
     await sidecar.start();
     const port = sidecar.llmProviderPort;
 
-    // Try a health check on the LLM-Provider
     let healthy = false;
     if (port) {
       try {
@@ -169,12 +175,12 @@ async function verifyConnection(providerConfig): Promise<boolean> {
     } else {
       console.log('  Warning: Services started but LLM-Provider health check failed.');
       console.log('  Configuration will be saved — you can re-run "maestro init" to reconfigure.');
-      return true; // Save config anyway
+      return true;
     }
   } catch (err) {
     console.log(`  Warning: Could not verify connection: ${err.message}`);
     console.log('  Configuration will be saved — you can re-run "maestro init" to reconfigure.');
-    return true; // Save config anyway, let user fix later
+    return true;
   }
 }
 
@@ -186,8 +192,9 @@ export async function runInitWizard(): Promise<void> {
 
     // Check if config already exists
     const existing = readConfig();
-    if (existing.provider) {
-      console.log(`  Existing configuration found (provider: ${existing.provider.type}).`);
+    if (hasConfiguredProviders(existing)) {
+      const names = Object.keys(existing.providers || {}).join(', ');
+      console.log(`  Existing configuration found (providers: ${names}).`);
       const overwrite = await ask(rl, '  Reconfigure? [y/N]: ');
       if (overwrite.toLowerCase() !== 'y') {
         console.log('  Keeping existing configuration.');
@@ -196,27 +203,37 @@ export async function runInitWizard(): Promise<void> {
       }
     }
 
-    // Step 1: Pick provider
-    const providerType = await pickProvider(rl);
+    // Step 1: Pick providers (multi-select)
+    const selectedIds = await pickProviders(rl);
 
-    // Step 2: Provider-specific config
-    let providerConfig;
-    switch (providerType) {
-      case 'azure':
-        providerConfig = await configureAzure(rl);
-        break;
-      case 'azure-inference':
-        providerConfig = await configureAzureInference(rl);
-        break;
-      case 'claude-code':
-        providerConfig = await configureClaudeCode(rl);
-        break;
-      case 'local':
-        providerConfig = await configureLocal(rl);
-        break;
+    // Step 2: Configure each selected provider
+    const providers: any = {};
+    for (const id of selectedIds) {
+      switch (id) {
+        case 'claudeCode': {
+          const cfg = await configureClaudeCode(rl);
+          if (cfg) providers.claudeCode = cfg;
+          break;
+        }
+        case 'azure': {
+          const cfg = await configureAzure(rl);
+          if (cfg) providers.azure = cfg;
+          break;
+        }
+        case 'azureInference': {
+          const cfg = await configureAzureInference(rl);
+          if (cfg) providers.azureInference = cfg;
+          break;
+        }
+        case 'local': {
+          const cfg = await configureLocal(rl);
+          if (cfg) providers.local = cfg;
+          break;
+        }
+      }
     }
 
-    if (!providerConfig) {
+    if (Object.keys(providers).length === 0) {
       console.log('\n  Configuration cancelled.');
       rl.close();
       return;
@@ -224,15 +241,16 @@ export async function runInitWizard(): Promise<void> {
 
     // Step 3: Ask about verification
     const doVerify = await ask(rl, '\n  Test the connection now? [Y/n]: ');
-    rl.close(); // Close readline before sidecar (it takes over stdio)
+    rl.close();
 
     if (doVerify.toLowerCase() !== 'n') {
-      await verifyConnection(providerConfig);
+      await verifyConnection(providers);
     }
 
-    // Step 4: Save config
+    // Step 4: Save config with new providers map
     const config = readConfig();
-    config.provider = providerConfig;
+    config.providers = providers;
+    delete config.provider; // Remove legacy field
     writeConfig(config);
 
     console.log(`\n  Configuration saved to ${getConfigPath()}`);

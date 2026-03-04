@@ -11,7 +11,8 @@ const { SandboxManager } = require('./sandbox-manager.ts');
 const { maestroAdapt, maestroOptimize } = require('./adapt-optimize.ts');
 
 // Configuration (Phase 20: config.ts provides getBackendUrl/getApiKey)
-const { getBackendUrl, getApiKey, readConfig, getProviderEnvVars } = require('./config.ts');
+const { getBackendUrl, getApiKey, readConfig, getProviderEnvVars, hasConfiguredProviders } = require('./config.ts');
+const { findClaudeCli, getClaudeAuthStatus } = require('./provider-detect.ts');
 const API_URL = getBackendUrl();
 const DEBUG = process.env.MAESTRO_DEBUG === 'true';
 
@@ -6304,9 +6305,14 @@ ${c.bold('Examples:')}
 
       // Demo mode skips backend entirely
       const isDemoMode = argv.demo || false;
+      const hasProviders = isDemoMode || hasConfiguredProviders();
 
       // Headless mode: no Ink, structured text output, works without TTY
       if (argv.headless) {
+        if (!hasProviders) {
+          console.error('No LLM providers configured. Run "maestro init" or "maestro code" (interactive) to set up providers.');
+          process.exit(EXIT.USER_ERROR);
+        }
         const { apiClient } = isDemoMode ? { apiClient: client } : await ensureBackend();
         const { runHeadless } = await import('./esm-bridge.mjs');
         return runHeadless({
@@ -6326,19 +6332,37 @@ ${c.bold('Examples:')}
       const codeRepoPath = argv.repo || process.cwd();
       const isFirstRun = isDemoMode ? false : !fs.existsSync(path.join(codeRepoPath, '.maestro'));
 
-      // Auto-start backend if not running (skip in demo mode)
-      const { apiClient: resolvedClient } = isDemoMode
-        ? { apiClient: client }
-        : await ensureBackend();
+      // If providers are configured, start backend now. Otherwise, TUI will handle setup first.
+      let resolvedClient = null;
+      let sidecar = null;
+      if (hasProviders && !isDemoMode) {
+        const result = await ensureBackend();
+        resolvedClient = result.apiClient;
+        sidecar = result.sidecar;
+      }
 
       return startInteractiveMode({
-        apiClient: resolvedClient || client,
+        apiClient: resolvedClient || (isDemoMode ? client : null),
+        sidecar,
         repoPath: codeRepoPath,
         template: argv.template || 'maestro-assistant',
         entryPoint: argv.entry || 'message',
         importSessionTemplate,
         noSplash: argv['no-splash'] || argv.noSplash || argv.splash === false || isDemoMode,
         isFirstRun,
+        hasProviders,
+        ensureBackendFn: () => ensureBackend(),
+        saveProviders: (providers) => {
+          const config = readConfig();
+          config.providers = providers;
+          delete config.provider;
+          const { writeConfig } = require('./config.ts');
+          writeConfig(config);
+        },
+        readProviders: () => {
+          const config = readConfig();
+          return config.providers || null;
+        },
         demo: isDemoMode,
         noBell: argv['no-bell'] || argv.noBell || false,
       });

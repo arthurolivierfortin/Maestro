@@ -7,11 +7,16 @@
 
 interface InteractiveOptions {
   apiClient?: any;
+  sidecar?: any;
   repoPath?: string;
   template?: string;
   entryPoint?: string;
   noSplash?: boolean;
   isFirstRun?: boolean;
+  hasProviders?: boolean;
+  ensureBackendFn?: () => Promise<{ apiClient: any; sidecar: any }>;
+  saveProviders?: (providers: Record<string, any>) => void;
+  readProviders?: () => Record<string, any> | null;
   demo?: boolean;
   noBell?: boolean;
 }
