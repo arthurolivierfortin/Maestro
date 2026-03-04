@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * Tests for AgentPanel component (Phase 42).
  */

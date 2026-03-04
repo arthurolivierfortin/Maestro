@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * HomeScreen — Dashboard page for the TUI monitor.
  *
@@ -29,7 +28,13 @@ import { Panel } from './Panel.ts';
 
 // ── System Status Panel ──────────────────────────────────────
 
-const SystemStatus = ({ health, llmHealth, tick = 0 }) => {
+interface SystemStatusProps {
+  health: Record<string, any> | null;
+  llmHealth: Record<string, any> | null;
+  tick?: number;
+}
+
+const SystemStatus = ({ health, llmHealth, tick = 0 }: SystemStatusProps) => {
   const backendOk = health && !health.error;
   const llmOk = llmHealth && !llmHealth.error;
 
@@ -61,7 +66,15 @@ const SystemStatus = ({ health, llmHealth, tick = 0 }) => {
 
 // ── Active Sessions Panel ────────────────────────────────────
 
-const ActiveSessionCard = ({ session, index, isSelected, onSelect, tick = 0 }) => {
+interface ActiveSessionCardProps {
+  session: Record<string, any>;
+  index: number;
+  isSelected: boolean;
+  onSelect?: (id: string) => void;
+  tick?: number;
+}
+
+const ActiveSessionCard = ({ session, index, isSelected, onSelect, tick = 0 }: ActiveSessionCardProps) => {
   const status = (session.status || 'unknown').toLowerCase();
   const sColor = statusColor(status);
   // Use animated spinner for running sessions
@@ -95,7 +108,15 @@ const ActiveSessionCard = ({ session, index, isSelected, onSelect, tick = 0 }) =
 
 const SESSIONS_PER_PAGE = 10;
 
-const ActiveSessions = ({ sessions, selectedIndex, page, totalPages, tick = 0 }) => {
+interface ActiveSessionsProps {
+  sessions: Record<string, any>[];
+  selectedIndex: number;
+  page: number;
+  totalPages: number;
+  tick?: number;
+}
+
+const ActiveSessions = ({ sessions, selectedIndex, page, totalPages, tick = 0 }: ActiveSessionsProps) => {
   if (!sessions || sessions.length === 0) {
     return h(Box, { paddingLeft: 1 },
       muted('No active sessions'),
@@ -172,7 +193,12 @@ const QuickActions = () =>
 
 // ── Quit Confirmation Overlay ─────────────────────────────────
 
-const QuitConfirmation = ({ onConfirm, onCancel }) => {
+interface QuitConfirmationProps {
+  onConfirm: () => void;
+  onCancel: () => void;
+}
+
+const QuitConfirmation = ({ onConfirm, onCancel }: QuitConfirmationProps) => {
   useKeyboard({
     enter: onConfirm,
     escape: onCancel,
@@ -217,7 +243,15 @@ const QuitConfirmation = ({ onConfirm, onCancel }) => {
 
 // ── HomeScreen component ─────────────────────────────────────
 
-const HomeScreen = ({ apiClient, onNavigate, onSessionSelect, onQuit, keyboardActive }) => {
+interface HomeScreenProps {
+  apiClient: any;
+  onNavigate: (page: string) => void;
+  onSessionSelect: (id: string) => void;
+  onQuit: () => void;
+  keyboardActive?: boolean;
+}
+
+const HomeScreen = ({ apiClient, onNavigate, onSessionSelect, onQuit, keyboardActive }: HomeScreenProps) => {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [page, setPage] = useState(0);
   const [showQuitConfirm, setShowQuitConfirm] = useState(false);
@@ -225,20 +259,20 @@ const HomeScreen = ({ apiClient, onNavigate, onSessionSelect, onQuit, keyboardAc
 
   // Fetch data (all with .catch to prevent unhandled rejections on first render)
   const { data: health } = useApiData(
-    useCallback(() => apiClient.getHealth().catch(() => ({ error: true })), [apiClient]),
+    useCallback((): Promise<any> => apiClient.getHealth().catch((): any => ({ error: true })), [apiClient]),
     5000
   );
   const { data: llmHealth } = useApiData(
-    useCallback(() => apiClient.getLLMHealth().catch(() => null), [apiClient]),
+    useCallback((): Promise<any> => apiClient.getLLMHealth().catch((): null => null), [apiClient]),
     10000
   );
   const { data: sessions } = useApiData(
-    useCallback(() => apiClient.listSessions().catch(() => []), [apiClient]),
+    useCallback((): Promise<any[]> => apiClient.listSessions().catch((): any[] => []), [apiClient]),
     5000
   );
 
-  const sessionList = sessions || [];
-  const runningCount = sessionList.filter(s => s.status === 'running').length;
+  const sessionList: any[] = (sessions as any[]) || [];
+  const runningCount = sessionList.filter((s: any) => s.status === 'running').length;
   const totalPages = Math.max(1, Math.ceil(sessionList.length / SESSIONS_PER_PAGE));
 
   // Keep page in bounds when session list changes

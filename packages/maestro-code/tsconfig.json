@@ -6,6 +6,7 @@
     "jsx": "react",
     "jsxFactory": "createElement",
     "strict": false,
+    "noImplicitAny": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "noEmit": true,

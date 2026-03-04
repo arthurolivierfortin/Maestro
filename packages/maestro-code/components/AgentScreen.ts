@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * AgentScreen — The Agent page for maestro-code.
  *
@@ -36,7 +35,7 @@ import type { LogLine } from '../services/SessionManager.ts';
 
 // ── State Display ─────────────────────────────────────────────
 
-const STATE_DISPLAY = {
+const STATE_DISPLAY: Record<string, { icon: string; color: string; label: string }> = {
   idle:      { icon: '○', color: 'gray',  label: 'idle' },
   working:   { icon: '●', color: 'cyan',  label: 'working' },
   completed: { icon: '✓', color: 'green', label: 'completed' },
@@ -45,7 +44,16 @@ const STATE_DISPLAY = {
 
 // ── Agent Status Panel ────────────────────────────────────────
 
-const AgentStatus = ({ agentState, sessionId, busy, tick = 0, lastOutput = null, repoPath = null }) => {
+interface AgentStatusProps {
+  agentState: string;
+  sessionId: string | null;
+  busy: boolean;
+  tick?: number;
+  lastOutput?: string | null;
+  repoPath?: string | null;
+}
+
+const AgentStatus = ({ agentState, sessionId, busy, tick = 0, lastOutput = null, repoPath = null }: AgentStatusProps) => {
   const state = STATE_DISPLAY[agentState] || STATE_DISPLAY.idle;
   const shortId = sessionId ? sessionId.substring(0, 8) : null;
 
@@ -98,7 +106,12 @@ const AgentStatus = ({ agentState, sessionId, busy, tick = 0, lastOutput = null,
 
 // ── Quick Actions Panel ───────────────────────────────────────
 
-const AgentActions = ({ sessionId, onSessionSelect }) => {
+interface AgentActionsProps {
+  sessionId: string | null;
+  onSessionSelect?: (id: string) => void;
+}
+
+const AgentActions = ({ sessionId, onSessionSelect }: AgentActionsProps) => {
   return h(Box, { flexDirection: 'column', paddingLeft: 1 },
     // Scroll shortcuts
     h(Text, null,
@@ -140,7 +153,12 @@ const AgentActions = ({ sessionId, onSessionSelect }) => {
 
 // ── Quit Confirmation ─────────────────────────────────────────
 
-const QuitConfirmation = ({ onConfirm, onCancel }) => {
+interface QuitConfirmationProps {
+  onConfirm: () => void;
+  onCancel: () => void;
+}
+
+const QuitConfirmation = ({ onConfirm, onCancel }: QuitConfirmationProps) => {
   useKeyboard({
     enter: onConfirm,
     escape: onCancel,

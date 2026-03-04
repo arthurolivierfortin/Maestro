@@ -476,6 +476,27 @@ Test complete workflows, not just individual interactions:
 - Submit multiple tasks in sequence → session reused? history maintained?
 - Open detail view from list → back to list → selection preserved?
 
+**First-Run Flow** (MANDATORY — test BEFORE anything else):
+> **This test exists because of a real incident (2026-03-03): the entire dogfooding
+> process tested with providers already configured. The actual first-run flow (no
+> `.maestro/` dir, no providers, provider setup screen → first message) was never
+> exercised. The primary user path was broken for every new user.**
+
+```
+1. Delete any existing .maestro/ directory in the test repo
+2. Delete any provider config (or use a fresh directory)
+3. Launch the application — it should show setup/onboarding, NOT the main interface
+4. Complete the setup (configure a provider, skip, etc.)
+5. IMMEDIATELY send a first message — this is the critical transition
+6. Verify the message is processed — no "entry point not found", no silent failure
+7. Verify the response appears in the conversation
+```
+
+**Why this must be tested FIRST**: Every new user hits this flow. If it's broken, nothing
+else matters. Testing with pre-existing config skips the most critical code path — the
+one where components are created AFTER setup, where options must be forwarded correctly,
+where the backend starts mid-session. This is where integration bugs hide.
+
 **Error Flows**:
 - Submit with backend down → error visible? recovery possible?
 - Submit empty input → no-op or clear error?

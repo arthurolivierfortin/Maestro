@@ -39,7 +39,7 @@ export function useModelList(
   interval = 10000
 ): ModelListState {
   const { data: rawModels, refresh: refreshModels } = usePolling(
-    useCallback(() => fetchModels().catch(() => []), [fetchModels]),
+    useCallback((): Promise<any> => fetchModels().catch((): never[] => []), [fetchModels]),
     interval
   );
 
@@ -49,10 +49,10 @@ export function useModelList(
   );
 
   const activeModelName = extractActiveModel(health);
-  const modelList = rawModels || [];
+  const modelList: any[] = (rawModels as any[]) || [];
 
   const models: NormalizedModel[] = useMemo(() =>
-    modelList.map(m => ({
+    modelList.map((m: any) => ({
       ...normalizeModelEntry(m),
       isActive: isActiveModel(m, activeModelName),
       raw: m,

@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * PhaseList — Simple phase list (legacy mode).
  *
@@ -10,7 +9,7 @@
  * Props: { session, context }
  */
 
-import { createElement as h } from 'react';
+import { createElement as h, type ReactElement } from 'react';
 import { Box, Text } from 'ink';
 import {
   icons, label, dim,
@@ -24,19 +23,21 @@ const SKIPPED_ICON = '\u2212'; // minus sign
 
 // ── Phase icon resolver ────────────────────────────────────────
 
-const phaseIcon = (status) => {
+const phaseIcon = (status: string) => {
   if (status === 'skipped') return SKIPPED_ICON;
   return statusIcon(status);
 };
 
-const phaseColor = (status) => {
+const phaseColor = (status: string) => {
   if (status === 'skipped') return 'gray';
   return statusColor(status);
 };
 
 // ── Single phase row ───────────────────────────────────────────
 
-const PhaseRow = ({ phase }) => {
+interface PhaseRowProps { phase: Record<string, any>; }
+
+const PhaseRow = ({ phase }: PhaseRowProps) => {
   const status = (phase.status || 'pending').toLowerCase();
   const icon = phaseIcon(status);
   const color = phaseColor(status);
@@ -89,10 +90,12 @@ const PhaseRow = ({ phase }) => {
 
 // ── Main component ─────────────────────────────────────────────
 
-const PhaseList = ({ session, context = {} }) => {
+interface PhaseListProps { session?: Record<string, any>; context?: Record<string, any>; }
+
+const PhaseList = ({ session, context = {} }: PhaseListProps) => {
   const phases = context.phases || session?.variables?._phases || [];
 
-  const children = [
+  const children: ReactElement[] = [
     h(Box, { key: 'header' }, label('PHASES')),
     h(Box, { key: 'spacer', height: 1 }),
   ];

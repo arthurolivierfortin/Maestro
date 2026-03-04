@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * ProviderSetupScreen — In-TUI provider configuration.
  *

@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * SessionMonitor Component (Ink)
  *
@@ -39,6 +38,9 @@ import { usePanelFocus } from '@maestro/tui/hooks';
 import { useScroll } from '@maestro/tui/hooks';
 import { useMouse } from '@maestro/tui/hooks';
 import { useTreeNav } from '@maestro/tui/hooks';
+import type { UseTreeNavReturn } from '@maestro/tui/hooks';
+
+type AgentState = 'idle' | 'working' | 'completed' | 'error';
 
 // ── Child component imports ─────────────────────────────────────
 import { Panel } from './Panel.ts';
@@ -61,7 +63,7 @@ import { Artifacts } from './Artifacts.ts';
 
 // ── Mode detection ──────────────────────────────────────────────
 
-const detectMode = (session) => {
+const detectMode = (session: any) => {
   if (!session) return 'idle';
   const vars = session.variables || {};
   if (vars._monitorDescriptor) return 'descriptor';
@@ -75,7 +77,7 @@ const detectMode = (session) => {
   return hasActiveWorkflow ? 'execution' : 'idle';
 };
 
-const getActiveWorkflow = (session) => {
+const getActiveWorkflow = (session: any) => {
   if (!session) return null;
   const vars = session.variables || {};
   return vars._activeWorkflow || session.activeWorkflow || null;
@@ -83,7 +85,7 @@ const getActiveWorkflow = (session) => {
 
 // ── Panel names per mode ────────────────────────────────────────
 
-const PANEL_NAMES = {
+const PANEL_NAMES: Record<string, string[]> = {
   descriptor: ['phases', 'llm', 'log'],
   execution: ['agent', 'tree', 'files', 'log'],
   idle: ['vars', 'files', 'logs'],
@@ -97,7 +99,7 @@ const BOTTOM_ANCHORED = new Set(['log', 'llm', 'agent']);
 
 // ── Panel hit-testing ────────────────────────────────────────────
 
-const getPanelAtPosition = (x, y, mode, rows, cols) => {
+const getPanelAtPosition = (x: number, y: number, mode: string, rows: number, cols: number) => {
   const hh = theme.layout.headerHeight;
   const sb = theme.layout.statusBarHeight;
   const contentHeight = rows - hh - sb;
@@ -133,7 +135,11 @@ const getPanelAtPosition = (x, y, mode, rows, cols) => {
 
 // ── Help Overlay ────────────────────────────────────────────────
 
-const HelpOverlay = ({ hasBackOption }) => {
+interface HelpOverlayProps {
+  hasBackOption: boolean;
+}
+
+const HelpOverlay = ({ hasBackOption }: HelpOverlayProps) => {
   return h(Box, {
     flexDirection: 'column',
     borderStyle: 'single',
@@ -172,7 +178,7 @@ const HelpOverlay = ({ hasBackOption }) => {
 
 // ── Error classification ────────────────────────────────────────
 
-const classifyError = (errorMessage) => {
+const classifyError = (errorMessage: string | null) => {
   if (!errorMessage) return { type: 'Unknown', detail: 'No error details available' };
   const msg = errorMessage.toLowerCase();
   if (msg.includes('econnrefused') || msg.includes('connection refused')) {
@@ -198,7 +204,12 @@ const classifyError = (errorMessage) => {
 
 // ── Error Header ────────────────────────────────────────────────
 
-const ErrorHeader = ({ sessionId, errorMessage }) => {
+interface ErrorHeaderProps {
+  sessionId: string;
+  errorMessage: string | null;
+}
+
+const ErrorHeader = ({ sessionId, errorMessage }: ErrorHeaderProps) => {
   const shortId = sessionId ? sessionId.substring(0, 8) : '--------';
   const { type, detail } = classifyError(errorMessage);
   return h(Box, { flexDirection: 'column', paddingLeft: 1 },
@@ -225,7 +236,7 @@ const ErrorHeader = ({ sessionId, errorMessage }) => {
 /**
  * Helper to build cursorInfo string from treeNav.
  */
-const getCursorInfo = (treeNav) => {
+const getCursorInfo = (treeNav: UseTreeNavReturn | null): string | null => {
   if (!treeNav) return null;
   const nodes = treeNav.getSelectedNode ? treeNav.getSelectedNode() : null;
   // Show cursor position out of total flat nodes
@@ -239,7 +250,16 @@ const getCursorInfo = (treeNav) => {
  *   Middle: PhaseWorkflow (55%) + LLMActivity (45%) — flexGrow 3
  *   Bottom: ExecutionLog (100%) — flexGrow 1
  */
-const DescriptorLayout = ({ session, context, isFocused, scrollOffset, treeNavMap, isNarrow }) => {
+interface DescriptorLayoutProps {
+  session: any;
+  context: any;
+  isFocused: (panel: string) => boolean;
+  scrollOffset: (panel: string) => number;
+  treeNavMap: Record<string, UseTreeNavReturn>;
+  isNarrow: boolean;
+}
+
+const DescriptorLayout = ({ session, context, isFocused, scrollOffset, treeNavMap, isNarrow }: DescriptorLayoutProps) => {
   const hh = theme.layout.headerHeight;
   // In narrow mode, stack header panels and middle panels vertically
   const headerDirection = isNarrow ? 'column' : 'row';
@@ -305,7 +325,19 @@ const DescriptorLayout = ({ session, context, isFocused, scrollOffset, treeNavMa
  *   Middle: AgentPanel (45%) + WorkflowTree (55%) — flexGrow 1
  *   Bottom: Filesystem (50%) + ExecutionLog (50%) — flexGrow 1
  */
-const ExecutionLayout = ({ session, context, panels, isFocused, scrollOffset, treeNavMap, isNarrow, agentLines, agentState }) => {
+interface ExecutionLayoutProps {
+  session: any;
+  context: any;
+  panels: Record<string, boolean>;
+  isFocused: (panel: string) => boolean;
+  scrollOffset: (panel: string) => number;
+  treeNavMap: Record<string, UseTreeNavReturn>;
+  isNarrow: boolean;
+  agentLines?: LogLine[];
+  agentState?: AgentState;
+}
+
+const ExecutionLayout = ({ session, context, panels, isFocused, scrollOffset, treeNavMap, isNarrow, agentLines, agentState }: ExecutionLayoutProps) => {
   const hh = theme.layout.headerHeight;
   const topDirection = isNarrow ? 'column' : 'row';
   const bottomDirection = isNarrow ? 'column' : 'row';
@@ -391,7 +423,17 @@ const ExecutionLayout = ({ session, context, panels, isFocused, scrollOffset, tr
  *   Middle: Variables + Filesystem — flexGrow 3 (~60%)
  *   Bottom: CommandLog — flexGrow 2 (~40%)
  */
-const IdleLayout = ({ session, context, panels, isFocused, scrollOffset, treeNavMap, isNarrow }) => {
+interface IdleLayoutProps {
+  session: any;
+  context: any;
+  panels: Record<string, boolean>;
+  isFocused: (panel: string) => boolean;
+  scrollOffset: (panel: string) => number;
+  treeNavMap: Record<string, UseTreeNavReturn>;
+  isNarrow: boolean;
+}
+
+const IdleLayout = ({ session, context, panels, isFocused, scrollOffset, treeNavMap, isNarrow }: IdleLayoutProps) => {
   const hh = theme.layout.headerHeight;
   // In narrow mode, stack vars and files vertically instead of side-by-side
   const topDirection = isNarrow ? 'column' : 'row';
@@ -452,7 +494,17 @@ const IdleLayout = ({ session, context, panels, isFocused, scrollOffset, treeNav
 
 // ── SessionMonitor ──────────────────────────────────────────────
 
-const SessionMonitor = ({ sessionId, apiClient, onExit, onQuit, onNavigate, agentLines, agentState: agentStateProp }) => {
+interface SessionMonitorProps {
+  sessionId: string;
+  apiClient: any;
+  onExit?: () => void;
+  onQuit?: () => void;
+  onNavigate?: (page: string) => void;
+  agentLines?: LogLine[];
+  agentState?: AgentState;
+}
+
+const SessionMonitor = ({ sessionId, apiClient, onExit, onQuit, onNavigate, agentLines, agentState: agentStateProp }: SessionMonitorProps) => {
   // ── Data polling ──
   const {
     session,
@@ -467,7 +519,7 @@ const SessionMonitor = ({ sessionId, apiClient, onExit, onQuit, onNavigate, agen
     agent: true, tree: true, files: true, widgets: true, vars: true, logs: true,
   });
   const [showHelp, setShowHelp] = useState(false);
-  const [zoomedPanel, setZoomedPanel] = useState(null);
+  const [zoomedPanel, setZoomedPanel] = useState<string | null>(null);
 
   // ── Derive mode from session data ──
   const mode = detectMode(session);
@@ -490,22 +542,22 @@ const SessionMonitor = ({ sessionId, apiClient, onExit, onQuit, onNavigate, agen
   // Get active treeNav for the currently focused panel
   const activeTreeNav = useMemo(() => {
     if (!focusedPanel || !TREE_PANELS.has(focusedPanel)) return null;
-    return treeNavMap[focusedPanel] || null;
+    return (treeNavMap as Record<string, any>)[focusedPanel] || null;
   }, [focusedPanel, treeNavMap]);
 
   // ── Scrolling ──
   const { getOffset, scrollUp, scrollDown, scrollTo, reset: resetScroll, setMaxScroll } = useScroll();
 
   // ── Panel toggle (only in execution/idle, not descriptor) ──
-  const togglePanel = useCallback((panel) => {
+  const togglePanel = useCallback((panel: string) => {
     if (mode === 'descriptor') return;
-    setPanels(prev => ({ ...prev, [panel]: !prev[panel] }));
+    setPanels(prev => ({ ...prev, [panel]: !(prev as Record<string, boolean>)[panel] }));
   }, [mode]);
 
   // ── Zoom toggle ──
   const toggleZoom = useCallback(() => {
     if (!focusedPanel) return;
-    setZoomedPanel(prev => prev === focusedPanel ? null : focusedPanel);
+    setZoomedPanel((prev: string | null) => prev === focusedPanel ? null : focusedPanel);
   }, [focusedPanel]);
 
   // ── Auto-scroll: reset scroll when panel loses focus ──
@@ -519,7 +571,7 @@ const SessionMonitor = ({ sessionId, apiClient, onExit, onQuit, onNavigate, agen
   }, [focusedPanel, resetScroll]);
 
   // ── Mouse support with layout-aware hit-testing ──
-  const handleMouseClick = useCallback((x, y, button) => {
+  const handleMouseClick = useCallback((x: number, y: number, button: number) => {
     const rows = process.stdout.rows || 24;
     const cols = process.stdout.columns || 120;
     const panel = getPanelAtPosition(x, y, mode, rows, cols);
@@ -528,7 +580,7 @@ const SessionMonitor = ({ sessionId, apiClient, onExit, onQuit, onNavigate, agen
     }
   }, [mode, panelNames, setFocus]);
 
-  const handleMouseScroll = useCallback((x, y, direction) => {
+  const handleMouseScroll = useCallback((x: number, y: number, direction: string) => {
     if (!focusedPanel) return;
     if (direction === 'up') scrollUp(focusedPanel);
     else scrollDown(focusedPanel);
@@ -614,7 +666,7 @@ const SessionMonitor = ({ sessionId, apiClient, onExit, onQuit, onNavigate, agen
       else process.exit(0);
     },
     'refresh': () => { if (showHelp) setShowHelp(false); },
-    'help': () => setShowHelp(prev => !prev),
+    'help': () => setShowHelp((prev: boolean) => !prev),
     'zoom': () => toggleZoom(),
     'back': () => {
       if (showHelp) { setShowHelp(false); return; }
@@ -768,7 +820,7 @@ const SessionMonitor = ({ sessionId, apiClient, onExit, onQuit, onNavigate, agen
 
   // ── Zoomed panel: render only that panel fullscreen ──
   if (zoomedPanel) {
-    const zoomTreeNav = treeNavMap[zoomedPanel] || null;
+    const zoomTreeNav = (treeNavMap as Record<string, any>)[zoomedPanel] || null;
     const zoomComponent = {
       agent: h(AgentPanel, { lines: agentLines || [], agentState: agentStateProp || 'idle', sessionId: session?.id || null }),
       phases: h(PhaseWorkflow, { session, context, treeNav: zoomTreeNav }),

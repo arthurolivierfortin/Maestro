@@ -6,9 +6,11 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
+import { fileURLToPath } from 'url';
 import { normalizeFrame } from './frame-capture.ts';
 
-const GOLDEN_DIR = path.resolve(__dirname, '..', 'testdata');
+const __dirname_esm = typeof __dirname !== 'undefined' ? __dirname : path.dirname(fileURLToPath(import.meta.url));
+const GOLDEN_DIR = path.resolve(__dirname_esm, '..', 'testdata');
 
 // ── Golden file I/O ──────────────────────────────────────────
 

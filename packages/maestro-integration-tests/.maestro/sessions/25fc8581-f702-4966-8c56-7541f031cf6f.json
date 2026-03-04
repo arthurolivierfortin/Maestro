@@ -1,0 +1,96 @@
+{
+  "id": "25fc8581-f702-4966-8c56-7541f031cf6f",
+  "name": "test-conditional-else",
+  "status": "created",
+  "terminalReason": "none",
+  "authority": "human",
+  "workingDirectory": ".",
+  "repositoryPath": "C:\\Meastro\\packages\\maestro-integration-tests",
+  "parentWorkspaceId": null,
+  "parentSessionId": null,
+  "config": {
+    "projectId": null,
+    "workflowId": null,
+    "task": null,
+    "context": null,
+    "access": {
+      "level": "controlled",
+      "allowedPaths": [],
+      "deniedPaths": [
+        ".env",
+        "*.env",
+        "secrets/**"
+      ],
+      "requireApprovalPaths": []
+    },
+    "validation": {
+      "runTests": false,
+      "testCommand": null,
+      "runLinter": false,
+      "linterCommand": null,
+      "requireCleanDiff": false,
+      "maxSteps": 50,
+      "timeoutMs": 600000
+    },
+    "inputs": {}
+  },
+  "createdAt": "2026-03-03T23:37:02.5767739+00:00",
+  "startedAt": null,
+  "completedAt": null,
+  "updatedAt": "2026-03-03T23:37:02.7933438+00:00",
+  "commandCount": 0,
+  "modifiedFiles": [],
+  "errorMessage": null,
+  "testResult": null,
+  "linterResult": null,
+  "commitInfo": null,
+  "variables": {
+    "sessionMode": "assistant",
+    "_activeConversation": "",
+    "_conversations": [],
+    "_blockOutputs": {},
+    "_llmActivity": [],
+    "_executionLog": [],
+    "_executionTree": [],
+    "_monitorDescriptor": {
+      "layout": {
+        "mode": "split-horizontal",
+        "zones": {
+          "top": {
+            "height": "60%"
+          },
+          "bottom": {
+            "height": "40%"
+          }
+        }
+      },
+      "components": [
+        {
+          "id": "exec-tree",
+          "type": "execution-tree",
+          "zone": "top",
+          "data": "$.variables._executionTree"
+        },
+        {
+          "id": "exec-log",
+          "type": "log-panel",
+          "zone": "bottom",
+          "data": "$.variables._executionLog"
+        }
+      ]
+    }
+  },
+  "entryPoints": {
+    "message": "maestro-assistant-workflow",
+    "new-conversation": "maestro-new-conversation",
+    "clear-conversation": "maestro-clear-conversation"
+  },
+  "monitorWidgets": null,
+  "blockSearchPaths": [
+    "C:\\Meastro\\packages\\maestro-integration-tests\\.maestro\\blocks"
+  ],
+  "defaultModel": null,
+  "modelOverrides": null,
+  "fileAccessRulesConfig": null,
+  "blockPermissionsConfig": null
+}

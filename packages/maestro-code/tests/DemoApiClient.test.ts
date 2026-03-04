@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * Tests for DemoApiClient — verifies it implements IApiClient contract
  * with realistic mock data.

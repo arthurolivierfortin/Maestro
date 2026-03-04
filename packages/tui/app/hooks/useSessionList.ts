@@ -40,7 +40,7 @@ export function useSessionList(
     lastRefresh,
     refresh,
   } = usePolling(
-    useCallback(() => fetchSessions().catch(() => []), [fetchSessions]),
+    useCallback((): Promise<any> => fetchSessions().catch((): never[] => []), [fetchSessions]),
     interval
   );
 

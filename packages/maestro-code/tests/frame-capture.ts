@@ -10,6 +10,9 @@
  */
 
 import * as path from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname_esm = typeof __dirname !== 'undefined' ? __dirname : path.dirname(fileURLToPath(import.meta.url));
 
 // ── Types ────────────────────────────────────────────────────
 
@@ -39,7 +42,7 @@ export interface KeystrokeStep {
 function getMonorepoRoot(): string {
   // tests/ is inside packages/maestro-code/tests/
   // monorepo root is 3 levels up
-  return path.resolve(__dirname, '..', '..', '..');
+  return path.resolve(__dirname_esm, '..', '..', '..');
 }
 
 function readBuffer(term: any, rows: number): string[] {

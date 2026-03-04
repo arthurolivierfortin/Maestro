@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * SessionList — Renders the list of session cards.
  *
@@ -34,7 +33,9 @@ const EmptyState = () =>
 
 // ── Fitness bar ────────────────────────────────────────────────
 
-const FitnessBar = ({ fitness }) => {
+interface FitnessBarProps { fitness?: number | null; }
+
+const FitnessBar = ({ fitness }: FitnessBarProps) => {
   if (fitness === undefined || fitness === null) return null;
 
   const percent = Math.round(fitness * 100);
@@ -52,7 +53,9 @@ const FitnessBar = ({ fitness }) => {
 
 // ── Single session card ────────────────────────────────────────
 
-const SessionCard = ({ session, index, isSelected }) => {
+interface SessionCardProps { session: Record<string, any>; index: number; isSelected: boolean; }
+
+const SessionCard = ({ session, index, isSelected }: SessionCardProps) => {
   const status = (session.status || 'unknown').toLowerCase();
   const sColor = statusColor(status);
   const sIcon = statusIcon(status);
@@ -144,13 +147,15 @@ const SessionCard = ({ session, index, isSelected }) => {
  * inside the vertical borders. Because Ink uses flex layout, these are approximations
  * that keep the visual output consistent. They return empty text when not needed.
  */
-const padToFit = () => h(Text, null, '');
-const padRight = () => h(Text, null, '');
-const padRightDuration = () => h(Text, null, '');
+const padToFit = (..._args: any[]) => h(Text, null, '');
+const padRight = (..._args: any[]) => h(Text, null, '');
+const padRightDuration = (..._args: any[]) => h(Text, null, '');
 
 // ── SessionList component ──────────────────────────────────────
 
-const SessionList = ({ sessions = [], selectedIndex = 0 }) => {
+interface SessionListProps { sessions?: any[]; selectedIndex?: number; }
+
+const SessionList = ({ sessions = [], selectedIndex = 0 }: SessionListProps) => {
   if (sessions.length === 0) {
     return h(Box, {
       flexDirection: 'column',

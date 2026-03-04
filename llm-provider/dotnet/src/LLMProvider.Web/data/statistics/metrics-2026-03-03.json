@@ -1,37 +1,17 @@
 {
-  "totalRequests": 3,
+  "totalRequests": 0,
   "latency": {
-    "p50": 5370,
-    "p95": 7169.1,
-    "p99": 7329.02,
-    "average": 5173
+    "p50": 0,
+    "p95": 0,
+    "p99": 0,
+    "average": 0
   },
   "totalTokens": {
-    "promptTokens": 9,
-    "completionTokens": 105,
-    "totalTokens": 114
+    "promptTokens": 0,
+    "completionTokens": 0,
+    "totalTokens": 0
   },
-  "modelStats": [
-    {
-      "modelId": {
-        "value": "sonnet"
-      },
-      "requestCount": 3,
-      "latency": {
-        "p50": 5370,
-        "p95": 7169.1,
-        "p99": 7329.02,
-        "average": 5173
-      },
-      "totalTokens": {
-        "promptTokens": 9,
-        "completionTokens": 105,
-        "totalTokens": 114
-      },
-      "requestsPerMinute": 0.5298640154871198,
-      "errorRate": 0
-    }
-  ],
+  "modelStats": [],
   "queue": {
     "currentDepth": 0,
     "depthByModel": {},
@@ -58,34 +38,34 @@
         "p99": 0,
         "average": 0
       },
-      "tokensTotal": 114
+      "tokensTotal": 0
     },
     {
       "windowName": "5m",
       "windowSeconds": 300,
-      "requestCount": 1,
-      "requestsPerMinute": 0.2,
+      "requestCount": 0,
+      "requestsPerMinute": 0,
       "latency": {
-        "p50": 7369,
-        "p95": 7369,
-        "p99": 7369,
-        "average": 7369
+        "p50": 0,
+        "p95": 0,
+        "p99": 0,
+        "average": 0
       },
-      "tokensTotal": 114
+      "tokensTotal": 0
     },
     {
       "windowName": "15m",
       "windowSeconds": 900,
-      "requestCount": 3,
-      "requestsPerMinute": 0.2,
+      "requestCount": 0,
+      "requestsPerMinute": 0,
       "latency": {
-        "p50": 5370,
-        "p95": 7169.1,
-        "p99": 7329.02,
-        "average": 5173
+        "p50": 0,
+        "p95": 0,
+        "p99": 0,
+        "average": 0
       },
-      "tokensTotal": 114
+      "tokensTotal": 0
     }
   ],
-  "generatedAt": "2026-03-03T16:43:08.6932652+00:00"
+  "generatedAt": "2026-03-03T23:59:38.5804714+00:00"
 }

@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * FoundryScreen — User's blocks browser (My Blocks).
  *
@@ -28,7 +27,13 @@ import { Panel } from './Panel.ts';
 
 // ── Block Row ────────────────────────────────────────────────
 
-const BlockRow = ({ block, isSelected, isExpanded }) => {
+interface BlockRowProps {
+  block: Record<string, any>;
+  isSelected: boolean;
+  isExpanded: boolean;
+}
+
+const BlockRow = ({ block, isSelected, isExpanded }: BlockRowProps) => {
   const type = (block.type || block.blockType || 'unknown').toLowerCase();
   const name = block.name || block.id || 'Unknown';
   const id = block.id ? block.id.substring(0, 12) : '--------';
@@ -66,7 +71,15 @@ const BlockRow = ({ block, isSelected, isExpanded }) => {
 
 // ── FoundryScreen component ──────────────────────────────────
 
-const FoundryScreen = ({ apiClient, onNavigate, onBlockSelect, onQuit, keyboardActive }) => {
+interface FoundryScreenProps {
+  apiClient: any;
+  onNavigate: (page: string) => void;
+  onBlockSelect?: (id: string, state?: Record<string, any>) => void;
+  onQuit: () => void;
+  keyboardActive?: boolean;
+}
+
+const FoundryScreen = ({ apiClient, onNavigate, onBlockSelect, onQuit, keyboardActive }: FoundryScreenProps) => {
   const { stdout } = useStdout();
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [expandedIndex, setExpandedIndex] = useState(-1);
@@ -77,23 +90,23 @@ const FoundryScreen = ({ apiClient, onNavigate, onBlockSelect, onQuit, keyboardA
 
   // Fetch blocks
   const { data: blocks } = useApiData(
-    useCallback(() => apiClient.listBlocks().catch(() => []), [apiClient]),
+    useCallback((): Promise<any[]> => apiClient.listBlocks().catch((): any[] => []), [apiClient]),
     10000
   );
 
   // Fetch sessions for nav badge
   const { data: sessions } = useApiData(
-    useCallback(() => apiClient.listSessions().catch(() => []), [apiClient]),
+    useCallback((): Promise<any[]> => apiClient.listSessions().catch((): any[] => []), [apiClient]),
     10000
   );
 
-  const blockList = Array.isArray(blocks) ? blocks : [];
-  const sessionList = sessions || [];
-  const runningCount = sessionList.filter(s => s.status === 'running').length;
+  const blockList: any[] = Array.isArray(blocks) ? blocks : [];
+  const sessionList: any[] = (sessions as any[]) || [];
+  const runningCount = sessionList.filter((s: any) => s.status === 'running').length;
 
   // Sort blocks by type then name
   const sortedBlocks = [...blockList].sort((a, b) => {
-    const typeOrder = { workflow: 0, agent: 1, tool: 2, template: 3 };
+    const typeOrder: Record<string, number> = { workflow: 0, agent: 1, tool: 2, template: 3 };
     const ta = typeOrder[(a.type || a.blockType || '').toLowerCase()] ?? 99;
     const tb = typeOrder[(b.type || b.blockType || '').toLowerCase()] ?? 99;
     if (ta !== tb) return ta - tb;
@@ -150,7 +163,7 @@ const FoundryScreen = ({ apiClient, onNavigate, onBlockSelect, onQuit, keyboardA
   }, { isActive: keyboardActive !== false });
 
   // Count by type
-  const typeCounts = {};
+  const typeCounts: Record<string, number> = {};
   for (const b of sortedBlocks) {
     const t = (b.type || b.blockType || 'unknown').toLowerCase();
     typeCounts[t] = (typeCounts[t] || 0) + 1;

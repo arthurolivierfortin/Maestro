@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * Interactive Table — Ink component for browsing tabular data.
  *

@@ -66,7 +66,7 @@ export function useHealthMonitor(
     data: llmData,
     refresh: refreshLLM,
   } = usePolling(
-    useCallback(() => fetchFns.getLLMHealth().catch(() => null), [fetchFns]),
+    useCallback((): Promise<any> => fetchFns.getLLMHealth().catch((): null => null), [fetchFns]),
     llmInterval
   );
 

@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * CatalogScreen — Browse system + user blocks catalog.
  *
@@ -29,7 +28,11 @@ import { Panel } from './Panel.ts';
 
 // ── Type filter tabs ─────────────────────────────────────────
 
-const TypeFilter = ({ activeType }) => {
+interface TypeFilterProps {
+  activeType: string;
+}
+
+const TypeFilter = ({ activeType }: TypeFilterProps) => {
   const types = [
     { key: 'all', num: 1, label: 'All' },
     { key: 'workflow', num: 2, label: 'Workflows' },
@@ -63,7 +66,13 @@ const TypeFilter = ({ activeType }) => {
 
 // ── Catalog Block Row ────────────────────────────────────────
 
-const CatalogBlockRow = ({ block, isSelected, isExpanded }) => {
+interface CatalogBlockRowProps {
+  block: Record<string, any>;
+  isSelected: boolean;
+  isExpanded: boolean;
+}
+
+const CatalogBlockRow = ({ block, isSelected, isExpanded }: CatalogBlockRowProps) => {
   const type = (block.blockType || block.type || 'unknown').toLowerCase();
   const name = block.name || block.id || 'Unknown';
   const id = block.id ? block.id.substring(0, 12) : '--------';
@@ -123,7 +132,17 @@ const CatalogBlockRow = ({ block, isSelected, isExpanded }) => {
 
 // ── CatalogScreen component ──────────────────────────────────
 
-const CatalogScreen = ({ apiClient, onNavigate, onBlockSelect, onQuit, initialState, chrome, keyboardActive }) => {
+interface CatalogScreenProps {
+  apiClient: any;
+  onNavigate: (page: string) => void;
+  onBlockSelect?: (id: string, state?: Record<string, any>) => void;
+  onQuit: () => void;
+  initialState?: Record<string, any>;
+  chrome?: boolean;
+  keyboardActive?: boolean;
+}
+
+const CatalogScreen = ({ apiClient, onNavigate, onBlockSelect, onQuit, initialState, chrome, keyboardActive }: CatalogScreenProps) => {
   const showChrome = chrome !== false;
   const { stdout } = useStdout();
   const [selectedIndex, setSelectedIndex] = useState(initialState?.selectedIndex ?? 0);
@@ -136,19 +155,19 @@ const CatalogScreen = ({ apiClient, onNavigate, onBlockSelect, onQuit, initialSt
 
   // Fetch blocks
   const { data: blocks } = useApiData(
-    useCallback(() => apiClient.listBlocks().catch(() => []), [apiClient]),
+    useCallback((): Promise<any[]> => apiClient.listBlocks().catch((): any[] => []), [apiClient]),
     10000
   );
 
   // Fetch sessions for nav badge
   const { data: sessions } = useApiData(
-    useCallback(() => apiClient.listSessions().catch(() => []), [apiClient]),
+    useCallback((): Promise<any[]> => apiClient.listSessions().catch((): any[] => []), [apiClient]),
     10000
   );
 
-  const blockList = Array.isArray(blocks) ? blocks : [];
-  const sessionList = sessions || [];
-  const runningCount = sessionList.filter(s => s.status === 'running').length;
+  const blockList: any[] = Array.isArray(blocks) ? blocks : [];
+  const sessionList: any[] = (sessions as any[]) || [];
+  const runningCount = sessionList.filter((s: any) => s.status === 'running').length;
 
   // Apply type filter
   const filteredBlocks = typeFilter === 'all'
@@ -193,10 +212,10 @@ const CatalogScreen = ({ apiClient, onNavigate, onBlockSelect, onQuit, initialSt
 
   // Keyboard
   useKeyboard({
-    up: () => setSelectedIndex(i => Math.max(0, i - 1)),
-    down: () => setSelectedIndex(i => Math.min(sortedBlocks.length - 1, i + 1)),
-    k: () => setSelectedIndex(i => Math.max(0, i - 1)),
-    j: () => setSelectedIndex(i => Math.min(sortedBlocks.length - 1, i + 1)),
+    up: () => setSelectedIndex((i: number) => Math.max(0, i - 1)),
+    down: () => setSelectedIndex((i: number) => Math.min(sortedBlocks.length - 1, i + 1)),
+    k: () => setSelectedIndex((i: number) => Math.max(0, i - 1)),
+    j: () => setSelectedIndex((i: number) => Math.min(sortedBlocks.length - 1, i + 1)),
     enter: () => {
       if (sortedBlocks.length > 0 && onBlockSelect) {
         const block = sortedBlocks[selectedIndex];
@@ -204,10 +223,10 @@ const CatalogScreen = ({ apiClient, onNavigate, onBlockSelect, onQuit, initialSt
       }
     },
     space: () => {
-      setExpandedIndex(prev => prev === selectedIndex ? -1 : selectedIndex);
+      setExpandedIndex((prev: number) => prev === selectedIndex ? -1 : selectedIndex);
     },
     tab: cycleTypeFilter,
-    number: (num) => {
+    number: (num: number) => {
       const types = ['all', 'workflow', 'agent', 'tool'];
       if (num >= 1 && num <= types.length) setTypeFilter(types[num - 1]);
     },

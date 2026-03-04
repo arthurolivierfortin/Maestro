@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * Tests for TaskInputBar component (Phase 42).
  */

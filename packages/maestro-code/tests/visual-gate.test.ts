@@ -45,7 +45,7 @@ const NAVBAR_ASSERTION: StructuralAssertion = {
 
 const TASKBAR_ASSERTION: StructuralAssertion = {
   label: 'TaskInputBar visible',
-  pattern: /Describe your task|Send|Press \/ to type/,
+  pattern: /Describe your task|Send|Press \/ to type|Agent is working/,
   minLine: 33,
 };
 

@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * Tests for Maestro Headless Mode.
  * Tests the runHeadless function with mock API client.

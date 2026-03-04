@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * SessionManager — Manages the Maestro session lifecycle.
  *
@@ -13,8 +12,11 @@
 
 import * as nodePath from 'path';
 import * as fs from 'fs/promises';
+import type { IMaestroCodeApiClient, InteractiveOptions } from '../types.ts';
 
 // ── Types ──────────────────────────────────────────────────────
+
+export type { InteractiveOptions };
 
 export interface LogLine {
   text: string;
@@ -22,16 +24,6 @@ export interface LogLine {
   bold?: boolean;
   dim?: boolean;
   timestamp?: string;
-}
-
-export interface InteractiveOptions {
-  apiClient?: any;
-  repoPath?: string;
-  template?: string;
-  entryPoint?: string;
-  importSessionTemplate?: (sessionId: string, templateName: string) => Promise<void>;
-  isFirstRun?: boolean;
-  demo?: boolean;
 }
 
 export interface Widget {
@@ -52,7 +44,7 @@ function ts(): string {
 // ── Session Manager ───────────────────────────────────────────
 
 class SessionManager {
-  private client: any;
+  private client: IMaestroCodeApiClient;
   private repoPath: string;
   private template: string;
   private entryPoint: string;
@@ -69,7 +61,7 @@ class SessionManager {
   getLastHadErrors(): boolean { return this._lastHadErrors; }
 
   constructor(options: InteractiveOptions) {
-    this.client = options.apiClient;
+    this.client = options.apiClient!;
     this.repoPath = options.repoPath || process.cwd();
     this.template = options.template || 'maestro-assistant';
     this.entryPoint = options.entryPoint || 'message';
@@ -99,7 +91,7 @@ class SessionManager {
         if (existing && existing.id) {
           this.sessionId = existing.id;
           this.sessionReady = true;
-          addLine({ text: `Reusing session: ${existing.id.slice(0, 8)}`, color: 'gray', timestamp: ts() });
+          addLine({ text: `Session restored (${existing.id.slice(0, 8)})`, color: 'gray', timestamp: ts() });
           return;
         }
       }
@@ -108,20 +100,24 @@ class SessionManager {
     }
 
     // Create new session
-    addLine({ text: 'Creating session...', color: 'gray', dim: true, timestamp: ts() });
+    addLine({ text: 'Starting session...', color: 'gray', dim: true, timestamp: ts() });
     const session = await this.client.createSession({
       repositoryPath: this.repoPath,
       authority: 'human',
       name: `${nodePath.basename(this.repoPath)} — ${firstTask ? firstTask.trim().slice(0, 50) : 'Assistant'}`,
     });
     this.sessionId = session.id;
-    addLine({ text: `Session: ${session.id.slice(0, 8)}`, color: 'gray', timestamp: ts() });
 
-    addLine({ text: `Importing template: ${this.template}`, color: 'gray', dim: true, timestamp: ts() });
+    const debug = process.env.MAESTRO_DEBUG;
+    if (debug) addLine({ text: `  Session: ${session.id.slice(0, 8)}`, color: 'gray', dim: true });
+    if (debug) addLine({ text: `  Template: ${this.template}`, color: 'gray', dim: true });
+
     await this.importTemplate(this.sessionId, this.template);
 
+    if (debug) addLine({ text: '  Session started', color: 'gray', dim: true });
     await this.client.startSession(this.sessionId);
-    addLine({ text: 'Session started', color: 'gray', timestamp: ts() });
+
+    addLine({ text: `Session ready (${session.id.slice(0, 8)})`, color: 'gray', timestamp: ts() });
 
     // Persist session ID to .maestro/session.json
     try {
@@ -165,7 +161,7 @@ class SessionManager {
       let messages: Array<{ role: string; content: string }> = [];
       const convKeys = Object.keys(vars).filter(k => k.startsWith('_conversationState_'));
       for (const key of convKeys) {
-        const conv = vars[key];
+        const conv = vars[key] as { messages?: Array<{ role: string; content: string }> } | undefined;
         if (conv && Array.isArray(conv.messages) && conv.messages.length > 0) {
           messages = conv.messages;
           break;
@@ -223,7 +219,9 @@ class SessionManager {
         message: task,
         repoPath: this.repoPath,
       };
-      addLine({ text: `Invoking: ${this.entryPoint}`, color: 'cyan', bold: true, timestamp: ts() });
+      if (process.env.MAESTRO_DEBUG) {
+        addLine({ text: `Invoking: ${this.entryPoint}`, color: 'gray', dim: true, timestamp: ts() });
+      }
       await this.client._fetch('POST', `/api/sessions/${this.sessionId}/invoke/${this.entryPoint}`, {
         body: { inputs }
       });
@@ -232,7 +230,19 @@ class SessionManager {
       this.startPolling(addLine, setBusy);
 
     } catch (err: any) {
-      addLine({ text: `Error: ${err.message || err}`, color: 'red', bold: true, timestamp: ts() });
+      const msg = String(err.message || err);
+      const isEntryPoint = msg.includes('not found') && msg.includes('entry');
+      const isConnection = msg.includes('ECONNREFUSED') || msg.includes('fetch failed') || msg.includes('Connection refused');
+      if (isEntryPoint) {
+        addLine({ text: 'Could not start conversation — the assistant workflow is not configured.', color: 'red', bold: true, timestamp: ts() });
+        addLine({ text: '  Try restarting with "maestro code".', color: 'yellow' });
+      } else if (isConnection) {
+        addLine({ text: `Could not connect to Maestro backend.`, color: 'red', bold: true, timestamp: ts() });
+        addLine({ text: '  Check that "maestro" services are running, or run "maestro init".', color: 'yellow' });
+      } else {
+        addLine({ text: `Could not create session: ${msg}`, color: 'red', bold: true, timestamp: ts() });
+        addLine({ text: '  Check connection with "maestro health" or run "maestro init".', color: 'yellow' });
+      }
       addLine({ text: '' });
       setBusy(false);
     }
@@ -247,6 +257,7 @@ class SessionManager {
     this.lastReportedStatus.clear();
     this.pollStartTime = Date.now();
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- polling data has extra fields beyond Session type
     const reportNode = (key: string, name: string, status: string, node?: any) => {
       const isDone = status === 'completed' || status === 'done';
       const isError = status === 'error';
@@ -275,7 +286,8 @@ class SessionManager {
 
     this.pollTimer = setInterval(async () => {
       try {
-        const session = await this.client.getSession(this.sessionId);
+        // Cast to any for polling — backend returns extra fields (error, containerStatus) beyond Session type
+        const session: any = await this.client.getSession(this.sessionId!);
         const vars = session.variables || {};
         const tree: any[] = vars._executionTree || [];
 
@@ -346,7 +358,7 @@ class SessionManager {
             const lastErr = errorLogs[errorLogs.length - 1];
             addLine({ text: `Error: ${lastErr.msg || lastErr.message || 'Workflow failed to start'}`, color: 'red', bold: true, timestamp: ts() });
           } else {
-            addLine({ text: 'Error: Agent did not respond — execution tree is empty.', color: 'red', bold: true, timestamp: ts() });
+            addLine({ text: 'The agent didn\'t respond. Check that your LLM provider is running.', color: 'red', bold: true, timestamp: ts() });
           }
 
           if (isProviderError) {
@@ -382,7 +394,8 @@ class SessionManager {
         if (elapsed > SessionManager.POLL_TIMEOUT_MS) {
           this.stopPolling();
           addLine({ text: '' });
-          addLine({ text: 'Warning: Task timed out after 5 minutes.', color: 'yellow', bold: true, timestamp: ts() });
+          addLine({ text: 'The agent took too long to respond (5 min timeout).', color: 'yellow', bold: true, timestamp: ts() });
+          addLine({ text: '  Try a simpler task or check that your LLM provider is responding.', color: 'yellow' });
           addLine({ text: '' });
           this._lastHadErrors = true;
           setBusy(false);
@@ -576,8 +589,8 @@ class SessionManager {
   ): void {
     this.widgetPollTimer = setInterval(async () => {
       try {
-        const session = await this.client.getSession(this.sessionId);
-        const vars = session.variables || {};
+        const session = await this.client.getSession(this.sessionId!);
+        const vars: Record<string, any> = (session.variables as Record<string, any>) || {};
         const widgetReq = vars._widgetRequest;
 
         if (widgetReq && widgetReq.widget && widgetReq.widget.id !== this.lastWidgetId) {

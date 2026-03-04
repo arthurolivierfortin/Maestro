@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * Maestro Code — Interactive TUI (Phase 42)
  *
@@ -37,10 +36,11 @@ import { HelpOverlay } from './components/HelpOverlay.ts';
 import { ProviderSetupScreen } from './components/ProviderSetupScreen.ts';
 
 import type { IApiClient } from '@maestro/tui/types';
+import type { IMaestroCodeApiClient, InteractiveOptions } from './types.ts';
 
 import { DemoApiClient } from './mocks/DemoApiClient.ts';
 import { SessionManager, ts } from './services/SessionManager.ts';
-import type { LogLine, InteractiveOptions, Widget } from './services/SessionManager.ts';
+import type { LogLine, Widget } from './services/SessionManager.ts';
 import { useInputHistory } from './hooks/useInputHistory.ts';
 
 // ── FullscreenBox ──────────────────────────────────────────────
@@ -54,7 +54,7 @@ const FullscreenBox = ({ children }: { children: any }) => {
       if (stdout.rows) setRows(stdout.rows);
     };
     stdout.on('resize', onResize);
-    return () => stdout.off('resize', onResize);
+    return () => { stdout.off('resize', onResize); };
   }, [stdout]);
 
   return h(Box, { flexDirection: 'column', width: '100%', height: rows }, children);
@@ -181,17 +181,22 @@ interface PageNavEntry {
 
 // ── Root App Component ─────────────────────────────────────────
 
-const App = ({ apiClient: clientProp, sessionManager: smProp, demoMode, repoPath, noBell, hasProviders: hasProvidersProp, ensureBackendFn, saveProviders, readProviders }: {
+interface AppProps {
   apiClient: IApiClient | null;
   sessionManager: SessionManager | null;
   demoMode?: boolean;
   repoPath?: string;
   noBell?: boolean;
   hasProviders?: boolean;
-  ensureBackendFn?: () => Promise<{ apiClient: any; sidecar: any }>;
+  ensureBackendFn?: () => Promise<{ apiClient: IMaestroCodeApiClient; sidecar: any }>;
   saveProviders?: (providers: Record<string, any>) => void;
   readProviders?: () => Record<string, any> | null;
-}) => {
+  importSessionTemplate?: (sessionId: string, templateName: string, options?: { quiet?: boolean }) => Promise<void>;
+  template?: string;
+  entryPoint?: string;
+}
+
+const App = ({ apiClient: clientProp, sessionManager: smProp, demoMode, repoPath, noBell, hasProviders: hasProvidersProp, ensureBackendFn, saveProviders, readProviders, importSessionTemplate, template, entryPoint }: AppProps) => {
   const { exit } = useApp();
   const { stdout } = useStdout();
 
@@ -227,7 +232,7 @@ const App = ({ apiClient: clientProp, sessionManager: smProp, demoMode, repoPath
         const { apiClient: newClient } = await ensureBackendFn();
         if (newClient) {
           setLiveApiClient(newClient);
-          setLiveSessionManager(new SessionManager({ apiClient: newClient, repoPath }));
+          setLiveSessionManager(new SessionManager({ apiClient: newClient, repoPath, importSessionTemplate, template, entryPoint }));
         }
       }
 
@@ -238,7 +243,7 @@ const App = ({ apiClient: clientProp, sessionManager: smProp, demoMode, repoPath
     } finally {
       setSetupInProgress(false);
     }
-  }, [ensureBackendFn, saveProviders, repoPath]);
+  }, [ensureBackendFn, saveProviders, repoPath, importSessionTemplate, template, entryPoint]);
 
   // ── Provider config for Models page ──
   const [currentProviders, setCurrentProviders] = useState<Record<string, any> | null>(() => {
@@ -296,7 +301,7 @@ const App = ({ apiClient: clientProp, sessionManager: smProp, demoMode, repoPath
   // ── Agent state ──
   const [lines, setLines] = useState<LogLine[]>([
     { text: 'Maestro Code', color: 'cyan', bold: true },
-    { text: 'Type a task and press Enter.', color: 'gray', dim: true },
+    { text: 'Welcome to Maestro Code. Press / to type a task.', color: 'gray', dim: true },
     { text: '' },
   ]);
   const [busy, setBusy] = useState(false);
@@ -376,7 +381,12 @@ const App = ({ apiClient: clientProp, sessionManager: smProp, demoMode, repoPath
     historyLoaded.current = true;
     sessionManager.loadConversationHistory().then(historyLines => {
       if (historyLines.length > 0) {
-        setLines(prev => [...prev, ...historyLines]);
+        setLines([
+          { text: 'Maestro Code', color: 'cyan', bold: true },
+          { text: 'Previous session restored. Press / to continue.', color: 'gray', dim: true },
+          { text: '' },
+          ...historyLines,
+        ]);
       }
     }).catch(() => { /* non-fatal */ });
   }, [sessionManager, demoMode]);
@@ -540,7 +550,7 @@ const App = ({ apiClient: clientProp, sessionManager: smProp, demoMode, repoPath
           let deleted = 0;
           for (const s of toDelete) {
             try {
-              await apiClient._fetch('DELETE', `/api/sessions/${s.id}`);
+              await (apiClient as IMaestroCodeApiClient)._fetch('DELETE', `/api/sessions/${s.id}`);
               deleted++;
             } catch { /* skip */ }
           }
@@ -623,12 +633,14 @@ const App = ({ apiClient: clientProp, sessionManager: smProp, demoMode, repoPath
         if (!b) {
           sessionManager.stopWidgetPolling();
           const hadErrors = sessionManager.getLastHadErrors();
-          // Show 'error' or 'completed' state for 3s before returning to 'idle'
+          // Show 'error' or 'completed' state before returning to 'idle'
+          // Errors stay visible longer (10s) for readability; success is brief (3s)
           setAgentState(hadErrors ? 'error' : 'completed');
+          const delay = hadErrors ? 10_000 : 3000;
           completedTimerRef.current = setTimeout(() => {
             setAgentState('idle');
             completedTimerRef.current = null;
-          }, 3000);
+          }, delay);
         } else {
           setAgentState('working');
         }
@@ -706,7 +718,7 @@ const App = ({ apiClient: clientProp, sessionManager: smProp, demoMode, repoPath
         detailComponent = h(BlockDetail, { blockId: detailView.id, ...detailProps });
         break;
       default:
-        detailComponent = h(SessionMonitor, { sessionId: detailView.id, apiClient, onExit: handleBack, onQuit: handleQuit, onNavigate: handleNavigate });
+        detailComponent = h(SessionMonitor as any, { sessionId: detailView.id, apiClient, onExit: handleBack, onQuit: handleQuit, onNavigate: handleNavigate });
     }
 
     // Detail components render their own StatusBar — no global one here
@@ -756,16 +768,16 @@ const App = ({ apiClient: clientProp, sessionManager: smProp, demoMode, repoPath
         });
         break;
       case 'spaces':
-        pageComponent = h(SpacesScreen, pageProps);
+        pageComponent = h(SpacesScreen as any, pageProps);
         break;
       case 'foundry':
-        pageComponent = h(FoundryScreen, { ...pageProps, onBlockSelect: handleBlockSelect });
+        pageComponent = h(FoundryScreen as any, { ...pageProps, onBlockSelect: handleBlockSelect });
         break;
       case 'catalog':
-        pageComponent = h(CatalogScreen, { ...pageProps, onBlockSelect: handleBlockSelect });
+        pageComponent = h(CatalogScreen as any, { ...pageProps, onBlockSelect: handleBlockSelect });
         break;
       case 'models':
-        pageComponent = h(ModelsScreen, {
+        pageComponent = h(ModelsScreen as any, {
           ...pageProps,
           onModelSelect: handleModelSelect,
           providers: currentProviders,
@@ -806,11 +818,11 @@ async function startInteractive(options: InteractiveOptions = {}): Promise<void>
   setTerminalBg(palette.bg);
 
   const sessionManager = options.apiClient ? new SessionManager(options) : null;
-  const demoMode = (options as any).demo || false;
-  const noBell = (options as any).noBell || false;
-  const hasProviders = (options as any).hasProviders === true;
-  const sidecar = (options as any).sidecar || null;
-  const ensureBackendFn = (options as any).ensureBackendFn || null;
+  const demoMode = options.demo || false;
+  const noBell = options.noBell || false;
+  const hasProviders = options.hasProviders === true;
+  const sidecar = options.sidecar || null;
+  const ensureBackendFn = options.ensureBackendFn || null;
 
   // No API client, no demo mode, and providers already configured → show error
   const apiClient = options.apiClient || null;
@@ -820,9 +832,12 @@ async function startInteractive(options: InteractiveOptions = {}): Promise<void>
     : h(App, {
         apiClient, sessionManager, demoMode, repoPath: options.repoPath, noBell,
         hasProviders, ensureBackendFn,
-        saveProviders: (options as any).saveProviders || null,
-        readProviders: (options as any).readProviders || null,
-      });
+        saveProviders: options.saveProviders || null,
+        readProviders: options.readProviders || null,
+        importSessionTemplate: options.importSessionTemplate || null,
+        template: options.template || null,
+        entryPoint: options.entryPoint || null,
+      } as AppProps);
 
   const instance = render(rootComponent, { exitOnCtrlC: false });
 

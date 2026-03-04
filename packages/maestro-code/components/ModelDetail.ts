@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * ModelDetail — Model detail page.
  *
@@ -13,6 +12,7 @@
  */
 
 import { createElement as h, useCallback } from 'react';
+import type { ReactNode } from 'react';
 import { Box, Text } from 'ink';
 import {
   theme, icons,
@@ -26,9 +26,33 @@ import { useActionKeyboard } from '../hooks/useKeyboard.ts';
 import { Panel } from './Panel.ts';
 import { StatusBar } from './StatusBar.ts';
 
+// ── Types ────────────────────────────────────────────────────
+
+interface HealthContentProps {
+  health: Record<string, any> | null;
+  llmStatus: Record<string, any> | null;
+  model: Record<string, any> | null;
+}
+
+interface UsageContentProps {
+  llmStatus: Record<string, any> | null;
+}
+
+interface PerformanceContentProps {
+  perf: Record<string, any> | null;
+}
+
+interface ModelDetailProps {
+  modelId: string;
+  apiClient: any;
+  onExit: () => void;
+  onQuit: () => void;
+  onNavigate?: (page: string) => void;
+}
+
 // ── Health panel content ─────────────────────────────────────
 
-const HealthContent = ({ health, llmStatus, model }) => {
+const HealthContent = ({ health, llmStatus, model }: HealthContentProps): ReactNode => {
   const isHealthy = health && !health.error;
   const healthColor = isHealthy ? theme.status.success : theme.status.error;
   const healthIcon = isHealthy ? icons.done : icons.failed;
@@ -81,7 +105,7 @@ const HealthContent = ({ health, llmStatus, model }) => {
 
 // ── Usage panel content ──────────────────────────────────────
 
-const UsageContent = ({ llmStatus }) => {
+const UsageContent = ({ llmStatus }: UsageContentProps): ReactNode => {
   if (!llmStatus) return muted('(no usage data)');
 
   return h(Box, { flexDirection: 'column', paddingLeft: 1 },
@@ -134,7 +158,7 @@ const UsageContent = ({ llmStatus }) => {
 
 // ── Performance panel content ────────────────────────────────
 
-const PerformanceContent = ({ perf }) => {
+const PerformanceContent = ({ perf }: PerformanceContentProps): ReactNode => {
   if (!perf || perf.bestFitness == null) {
     return h(Box, { flexDirection: 'column', paddingLeft: 1 },
       muted('(no performance data)'),
@@ -167,7 +191,7 @@ const PerformanceContent = ({ perf }) => {
     perf.taskFitness && perf.taskFitness.length > 0
       ? h(Box, { flexDirection: 'column', marginTop: 1 },
           muted('Tasks:'),
-          ...perf.taskFitness.map((tf, i) => {
+          ...perf.taskFitness.map((tf: any, i: number) => {
             const pct = Math.round(tf.fitness * 100);
             return h(Box, { key: `tf-${i}`, flexDirection: 'row', paddingLeft: 1 },
               muted(`${tf.task.length > 12 ? tf.task.substring(0, 12) : tf.task.padEnd(12)} `),
@@ -182,7 +206,7 @@ const PerformanceContent = ({ perf }) => {
       ? h(Box, { flexDirection: 'column', marginTop: 1 },
           muted('History:'),
           h(Box, { flexDirection: 'row', paddingLeft: 1 },
-            T(fitCol, sparkline(perf.fitnessHistory.map(v => v * 100), 14)),
+            T(fitCol, sparkline(perf.fitnessHistory.map((v: number) => v * 100), 14)),
           ),
         )
       : null,
@@ -191,7 +215,7 @@ const PerformanceContent = ({ perf }) => {
 
 // ── ModelDetail component ────────────────────────────────────
 
-const ModelDetail = ({ modelId, apiClient, onExit, onQuit, onNavigate }) => {
+const ModelDetail = ({ modelId, apiClient, onExit, onQuit, onNavigate }: ModelDetailProps): ReactNode => {
   // Fetch LLM health
   const {
     data: llmHealth,
@@ -199,30 +223,30 @@ const ModelDetail = ({ modelId, apiClient, onExit, onQuit, onNavigate }) => {
     latency,
     lastRefresh,
   } = useApiData(
-    useCallback(() => apiClient.getLLMHealth().catch(() => ({ error: true })), [apiClient]),
+    useCallback((): Promise<any> => apiClient.getLLMHealth().catch((): any => ({ error: true })), [apiClient]),
     5000
   );
 
   // Fetch LLM status
   const { data: llmStatus } = useApiData(
-    useCallback(() => apiClient.getLLMStatus().catch(() => null), [apiClient]),
+    useCallback((): Promise<any> => apiClient.getLLMStatus().catch((): null => null), [apiClient]),
     10000
   );
 
   // Fetch models list to get this model's detail
   const { data: models } = useApiData(
-    useCallback(() => apiClient.listLLMModels().catch(() => []), [apiClient]),
+    useCallback((): Promise<any[]> => apiClient.listLLMModels().catch((): any[] => []), [apiClient]),
     10000
   );
 
   // Fetch model performance
   const { data: perf } = useApiData(
-    useCallback(() => apiClient.getModelPerformance(modelId).catch(() => null), [apiClient, modelId]),
+    useCallback((): Promise<any> => apiClient.getModelPerformance(modelId).catch((): null => null), [apiClient, modelId]),
     10000
   );
 
-  const modelList = Array.isArray(models) ? models : [];
-  const modelInfo = modelList.find(m => m.modelId === modelId);
+  const modelList: any[] = Array.isArray(models) ? models : [];
+  const modelInfo = modelList.find((m: any) => m.modelId === modelId);
 
   // Check if this model is the active one
   const activeModel = llmHealth?.activeModel || '';

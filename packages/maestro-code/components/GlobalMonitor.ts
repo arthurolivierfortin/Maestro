@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * GlobalMonitor — Top-level session-list screen.
  *
@@ -24,7 +23,9 @@ import { StatusBar } from './StatusBar.ts';
 
 // ── Help overlay ───────────────────────────────────────────────
 
-const HelpOverlay = ({ onClose }) => {
+interface HelpOverlayProps { onClose: () => void; }
+
+const HelpOverlay = ({ onClose }: HelpOverlayProps) => {
   useKeyboard({
     escape: onClose,
     enter: onClose,
@@ -72,7 +73,9 @@ const HelpOverlay = ({ onClose }) => {
 
 // ── Error state ────────────────────────────────────────────────
 
-const ErrorContent = ({ message }) =>
+interface ErrorContentProps { message?: string; }
+
+const ErrorContent = ({ message }: ErrorContentProps) =>
   h(Panel, {
     title: 'ERROR',
     flexGrow: 1,
@@ -89,9 +92,11 @@ const ErrorContent = ({ message }) =>
 
 // ── Header ─────────────────────────────────────────────────────
 
-const ListHeader = ({ sessions = [], connectionStatus, errorMessage }) => {
+interface ListHeaderProps { sessions?: any[]; connectionStatus?: string; errorMessage?: string; }
+
+const ListHeader = ({ sessions = [], connectionStatus, errorMessage }: ListHeaderProps) => {
   const count = sessions.length;
-  const runningCount = sessions.filter(s => s.status === 'running').length;
+  const runningCount = sessions.filter((s: any) => s.status === 'running').length;
 
   if (connectionStatus === 'error') {
     return h(Panel, { title: 'MAESTRO SESSIONS', height: 5, width: '100%' },
@@ -114,7 +119,9 @@ const ListHeader = ({ sessions = [], connectionStatus, errorMessage }) => {
 
 // ── GlobalMonitor component ────────────────────────────────────
 
-const GlobalMonitor = ({ apiClient, onSessionSelect, onQuit }) => {
+interface GlobalMonitorProps { apiClient: any; onSessionSelect?: (id: string) => void; onQuit?: () => void; }
+
+const GlobalMonitor = ({ apiClient, onSessionSelect, onQuit }: GlobalMonitorProps) => {
   const { exit } = useApp();
   const doQuit = onQuit || (() => exit());
 
@@ -149,7 +156,7 @@ const GlobalMonitor = ({ apiClient, onSessionSelect, onQuit }) => {
   };
 
   // Quick-select by number (1-9)
-  const quickSelect = (num) => {
+  const quickSelect = (num: number) => {
     if (num >= 1 && num <= sessions.length) {
       setSelectedIndex(num - 1);
       // Open immediately
@@ -162,10 +169,10 @@ const GlobalMonitor = ({ apiClient, onSessionSelect, onQuit }) => {
 
   // Keyboard handlers — only active when help overlay is NOT shown
   useKeyboard(showHelp ? {} : {
-    up: () => setSelectedIndex(i => Math.max(0, i - 1)),
-    down: () => setSelectedIndex(i => Math.min(sessions.length - 1, i + 1)),
-    k: () => setSelectedIndex(i => Math.max(0, i - 1)),
-    j: () => setSelectedIndex(i => Math.min(sessions.length - 1, i + 1)),
+    up: () => setSelectedIndex((i: number) => Math.max(0, i - 1)),
+    down: () => setSelectedIndex((i: number) => Math.min(sessions.length - 1, i + 1)),
+    k: () => setSelectedIndex((i: number) => Math.max(0, i - 1)),
+    j: () => setSelectedIndex((i: number) => Math.min(sessions.length - 1, i + 1)),
     enter: openSelected,
     number: quickSelect,
     q: () => doQuit(),

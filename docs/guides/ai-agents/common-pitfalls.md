@@ -241,6 +241,67 @@ The json-validator returns `{isValid: false, errors: [...]}` on failure or the p
 
 ---
 
+## Using @ts-nocheck Instead of Fixing Type Errors (CRITICAL)
+
+**Cause**: Adding `// @ts-nocheck` at the top of a file to suppress all TypeScript errors, because fixing them takes time or requires interface changes.
+
+**Why it's dangerous**: `@ts-nocheck` disables ALL compile-time checking — missing properties, wrong types, interface mismatches. These become runtime crashes that only appear in specific flows and are invisible to tests.
+
+**Incident (2026-03-03)**: All 35 files in `packages/maestro-code/` had `@ts-nocheck`. `App.ts` line 230 created a `SessionManager` after provider setup without passing `importSessionTemplate`. With TypeScript enabled, this would have been a compile error (missing required property). Instead, it defaulted to a no-op, the template was never imported, and every new user got "Entry point 'message' not found" on their first message.
+
+**Fix**: Never add `@ts-nocheck`. If type errors exist, fix them. If a dependency has bad types, add a `.d.ts` declaration file or use targeted `// @ts-expect-error` on the specific line.
+
+**Verification**: `grep -rl "@ts-nocheck" packages/maestro-code/` should return 0 files.
+
+---
+
+## Creating Components After Setup Without Forwarding All Options (CRITICAL)
+
+**Cause**: When a setup flow (provider setup, onboarding, config wizard) completes, the app creates new instances of services (SessionManager, API client). If the creation doesn't forward ALL required options from the original launch context, the new instance is silently broken.
+
+**Incident (2026-03-03)**: After provider setup, `App.ts` created a new `SessionManager`:
+```typescript
+// BROKEN — missing importSessionTemplate, template, entryPoint
+setLiveSessionManager(new SessionManager({ apiClient: newClient, repoPath }));
+```
+The original creation at startup had all options because it used the full `options` object. The post-setup creation only passed 2 of 5 required fields. The `importSessionTemplate` callback defaulted to a no-op.
+
+**Fix**: When creating service instances after a setup/config flow, always forward ALL options from the original launch context. Use typed interfaces to make missing properties a compile error.
+
+**Pattern**: Store the original options object and destructure from it:
+```typescript
+// CORRECT — use the same options source
+setLiveSessionManager(new SessionManager({
+  apiClient: newClient,
+  repoPath: originalOptions.repoPath,
+  importSessionTemplate: originalOptions.importSessionTemplate,
+  template: originalOptions.template,
+  entryPoint: originalOptions.entryPoint,
+}));
+```
+
+**Verification**: After any setup/onboarding flow, immediately test the first user action (send a message, create a session, etc.). If it fails with "not found" or similar, options were not forwarded.
+
+---
+
+## Dogfooding With Pre-Configured State (CRITICAL)
+
+**Cause**: Running dogfooding sessions with providers already configured, `.maestro/` directory already existing, backend already running. This skips the first-run flow — the most critical path for new users.
+
+**Incident (2026-03-03)**: All dogfooding sessions were run with providers pre-configured. The provider setup → backend start → session creation flow was never exercised. The primary user path was broken.
+
+**Fix**: Every dogfooding session MUST include at least one test of the first-run flow:
+1. Delete `.maestro/` in the test repo
+2. Clear provider config
+3. Launch the app fresh
+4. Complete setup
+5. Send first message
+6. Verify it works
+
+**Rule**: If dogfooding only tests with pre-existing state, it is not testing the user's experience. The first-run flow is where most integration bugs hide because it exercises component creation, option forwarding, and service initialization that the normal flow skips.
+
+---
+
 ## Shell Commands Fail on Windows
 
 **Cause**: Unix commands like `mkdir -p` don't work on Windows cmd.

@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * ConversationLog — Scrollable conversation log for Agent working state.
  *

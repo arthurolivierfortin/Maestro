@@ -171,13 +171,18 @@ powershell.exe -File C:\Meastro\dev-scripts\dev-start.ps1 -Stop
 2. Verify builds: `dotnet build` (backend), `npm run build` (frontend)
 3. Verify API behavior with `curl` — **never claim "fixed" based on build success alone**
 4. For TUI changes: run `real-demo-check.cjs` and `test:visual`
-5. For dogfooding: follow `docs/guides/ai-agents/dogfooding-methodology.md`
+5. For maestro-code changes: run `npx tsc --noEmit` in `packages/maestro-code/` — type errors are bugs
+6. For any setup/onboarding flow change: test the first-run flow (no `.maestro/`, no provider config)
+7. For dogfooding: follow `docs/guides/ai-agents/dogfooding-methodology.md` — **MUST include first-run flow test**
 
 ## Common Pitfalls
 
 > **Full reference**: `docs/guides/ai-agents/common-pitfalls.md` (20+ detailed pitfalls with cause/fix/verification)
 
 **Critical ones to always remember**:
+- **NEVER use `@ts-nocheck`**: Directly caused the 2026-03-03 incident — missing props invisible to compiler, shipped broken first-run flow
+- **Forward ALL options after setup flows**: When creating services after onboarding/config, forward every option from the original launch context. Missing options default to no-ops silently
+- **Dogfood the first-run flow**: Delete `.maestro/` + provider config, launch fresh, complete setup, send first message. Pre-configured state skips the most critical code path
 - **JsonElement corruption**: `NormalizeObjectValue()` in `SessionsController.cs` — variables become nested arrays without it
 - **DI circular dependency**: `AgentBlockExecutor` ↔ `BlockExecutorRegistry` — use lazy `??=` resolution
 - **SDK/backend type mismatch**: ALWAYS `curl` the API to verify response shape before writing SDK types

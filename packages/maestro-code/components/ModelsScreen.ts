@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * ModelsScreen — LLM model management page.
  *
@@ -27,7 +26,13 @@ import { Panel } from './Panel.ts';
 
 // ── Model Status Panel ───────────────────────────────────────
 
-const ModelStatusPanel = ({ health, llmStatus, tick = 0 }) => {
+interface ModelStatusPanelProps {
+  health: Record<string, any> | null;
+  llmStatus: Record<string, any> | null;
+  tick?: number;
+}
+
+const ModelStatusPanel = ({ health, llmStatus, tick = 0 }: ModelStatusPanelProps) => {
   const isLoading = health === null || health === undefined;
   const isHealthy = health && !health.error;
   const healthColor = isLoading ? theme.text.muted : (isHealthy ? theme.status.success : theme.status.error);
@@ -76,7 +81,13 @@ const ModelStatusPanel = ({ health, llmStatus, tick = 0 }) => {
 
 // ── Model List ───────────────────────────────────────────────
 
-const ModelCard = ({ model, isSelected, isActive }) => {
+interface ModelCardProps {
+  model: Record<string, any>;
+  isSelected: boolean;
+  isActive: boolean;
+}
+
+const ModelCard = ({ model, isSelected, isActive }: ModelCardProps) => {
   const name = model.name || model.modelId || 'Unknown';
   const category = model.category || '';
   const selector = isSelected ? icons.arrow : ' ';
@@ -100,14 +111,18 @@ const ModelCard = ({ model, isSelected, isActive }) => {
 
 // ── Providers Panel ─────────────────────────────────────────
 
-const PROVIDER_LABELS = {
+const PROVIDER_LABELS: Record<string, string> = {
   claudeCode: 'Claude Code (CLI)',
   azure: 'Azure OpenAI',
   azureInference: 'Azure AI Inference',
   local: 'Local (FastAPI)',
 };
 
-const ProvidersPanel = ({ providers }) => {
+interface ProvidersPanelProps {
+  providers: Record<string, any> | null;
+}
+
+const ProvidersPanel = ({ providers }: ProvidersPanelProps) => {
   const entries = providers ? Object.entries(providers) : [];
 
   if (entries.length === 0) {
@@ -154,41 +169,54 @@ const ProvidersPanel = ({ providers }) => {
 
 // ── ModelsScreen component ───────────────────────────────────
 
-const ModelsScreen = ({ apiClient, onNavigate, onModelSelect, onQuit, initialState, chrome, keyboardActive, providers, onReconfigure }) => {
+interface ModelsScreenProps {
+  apiClient: any;
+  onNavigate: (page: string) => void;
+  onModelSelect?: (id: string, state?: Record<string, any>) => void;
+  onQuit: () => void;
+  initialState?: Record<string, any>;
+  chrome?: boolean;
+  keyboardActive?: boolean;
+  providers?: Record<string, any> | null;
+  onReconfigure?: () => void;
+}
+
+const ModelsScreen = ({ apiClient, onNavigate, onModelSelect, onQuit, initialState, chrome, keyboardActive, providers, onReconfigure }: ModelsScreenProps) => {
   const showChrome = chrome !== false;
   const [selectedIndex, setSelectedIndex] = useState(initialState?.selectedIndex ?? 0);
   const tick = useAnimationTick(150);
 
   // Fetch LLM health
   const { data: llmHealth } = useApiData(
-    useCallback(() => apiClient.getLLMHealth().catch(() => ({ error: true })), [apiClient]),
+    useCallback((): Promise<any> => apiClient.getLLMHealth().catch((): any => ({ error: true })), [apiClient]),
     5000
   );
 
   // Fetch models list
   const { data: models } = useApiData(
-    useCallback(() => apiClient.listLLMModels().catch(() => []), [apiClient]),
+    useCallback((): Promise<any[]> => apiClient.listLLMModels().catch((): any[] => []), [apiClient]),
     10000
   );
 
   // Fetch LLM status
   const { data: llmStatus } = useApiData(
-    useCallback(() => apiClient.getLLMStatus().catch(() => null), [apiClient]),
+    useCallback((): Promise<any> => apiClient.getLLMStatus().catch((): null => null), [apiClient]),
     10000
   );
 
   // Fetch sessions for nav badge
   const { data: sessions } = useApiData(
-    useCallback(() => apiClient.listSessions().catch(() => []), [apiClient]),
+    useCallback((): Promise<any[]> => apiClient.listSessions().catch((): any[] => []), [apiClient]),
     10000
   );
 
-  const modelList = Array.isArray(models) ? models : [];
-  const sessionList = sessions || [];
-  const runningCount = sessionList.filter(s => s.status === 'running').length;
+  const modelList: any[] = Array.isArray(models) ? models : [];
+  const sessionList: any[] = (sessions as any[]) || [];
+  const runningCount = sessionList.filter((s: any) => s.status === 'running').length;
 
   // Active model name
-  const activeModel = llmHealth?.activeModel || '';
+  const llmHealthData = llmHealth as Record<string, any> | null;
+  const activeModel = llmHealthData?.activeModel || '';
 
   // Clamp selected index
   useEffect(() => {
@@ -199,10 +227,10 @@ const ModelsScreen = ({ apiClient, onNavigate, onModelSelect, onQuit, initialSta
 
   // Keyboard
   useKeyboard({
-    up: () => setSelectedIndex(i => Math.max(0, i - 1)),
-    down: () => setSelectedIndex(i => Math.min(modelList.length - 1, i + 1)),
-    k: () => setSelectedIndex(i => Math.max(0, i - 1)),
-    j: () => setSelectedIndex(i => Math.min(modelList.length - 1, i + 1)),
+    up: () => setSelectedIndex((i: number) => Math.max(0, i - 1)),
+    down: () => setSelectedIndex((i: number) => Math.min(modelList.length - 1, i + 1)),
+    k: () => setSelectedIndex((i: number) => Math.max(0, i - 1)),
+    j: () => setSelectedIndex((i: number) => Math.min(modelList.length - 1, i + 1)),
     // Chrome-only keys: page navigation (disabled when embedded in maestro-code)
     ...(showChrome ? {
       ctrlLeft: () => onNavigate(prevPage('models')),

@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * NavBar — Monitor-specific navigation bar.
  *
@@ -20,7 +19,13 @@ const MONITOR_PAGES = [
   { key: 'models',  hotkey: 'M', label: 'odels' },
 ];
 
-const NavBar = ({ currentPage = 'home', sessionCount = 0, runningCount = 0 }) => {
+interface NavBarProps {
+  currentPage?: string;
+  sessionCount?: number;
+  runningCount?: number;
+}
+
+const NavBar = ({ currentPage = 'home', sessionCount = 0, runningCount = 0 }: NavBarProps) => {
   // Session count badge
   const badge = sessionCount > 0
     ? h(Text, { color: theme.text.muted },

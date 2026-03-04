@@ -23,7 +23,7 @@
   },
   "scripts": {
     "test": "npx vitest run tests/",
-    "test:fast": "npx vitest run tests/App.test.ts tests/DemoApiClient.test.ts tests/AgentPanel.test.ts tests/TaskInputBar.test.ts",
+    "test:fast": "npx vitest run tests/App.test.ts tests/SessionManager.test.ts tests/DemoApiClient.test.ts tests/AgentPanel.test.ts tests/TaskInputBar.test.ts tests/first-run.test.ts",
     "test:visual": "npx vitest run tests/smoke-capture.test.ts tests/visual-gate.test.ts"
   },
   "dependencies": {

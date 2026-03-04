@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * CJS-safe launcher for Ink interactive table.
  * Same dynamic import pattern as launcher.ts.

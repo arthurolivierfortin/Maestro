@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * TaskInputBar — Fixed text input for task submission.
  *
@@ -91,7 +90,8 @@ const TaskInputBar = ({ onSubmit, disabled, placeholder, onUpArrow, onDownArrow,
     h(Text, { color: promptColor, bold: true }, `${prompt} `),
     h(Text, null,
       value || h(Text, { color: 'gray', dimColor: true },
-        captureInput ? (placeholder || 'Describe your task...') : 'Press / to type...'
+        disabled ? 'Agent is working...'
+          : captureInput ? (placeholder || 'Describe your task...') : 'Press / to type...'
       )
     )
   );

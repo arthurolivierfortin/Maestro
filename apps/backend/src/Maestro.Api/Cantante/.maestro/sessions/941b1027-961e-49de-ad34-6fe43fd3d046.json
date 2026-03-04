@@ -1,0 +1,202 @@
+{
+  "id": "941b1027-961e-49de-ad34-6fe43fd3d046",
+  "name": "Cantante \u2014 Hello, what can you help me with?",
+  "status": "idle",
+  "terminalReason": "none",
+  "authority": "human",
+  "workingDirectory": ".",
+  "repositoryPath": "C:\\Meastro\\apps\\backend\\src\\Maestro.Api\\Cantante",
+  "parentWorkspaceId": null,
+  "parentSessionId": null,
+  "config": {
+    "projectId": null,
+    "workflowId": null,
+    "task": null,
+    "context": null,
+    "access": {
+      "level": "controlled",
+      "allowedPaths": [],
+      "deniedPaths": [
+        ".env",
+        "*.env",
+        "secrets/**"
+      ],
+      "requireApprovalPaths": []
+    },
+    "validation": {
+      "runTests": false,
+      "testCommand": null,
+      "runLinter": false,
+      "linterCommand": null,
+      "requireCleanDiff": false,
+      "maxSteps": 50,
+      "timeoutMs": 600000
+    },
+    "inputs": {}
+  },
+  "createdAt": "2026-03-03T22:58:25.8071267+00:00",
+  "startedAt": "2026-03-03T22:58:26.2404795+00:00",
+  "completedAt": null,
+  "updatedAt": "2026-03-03T22:58:26.5281127+00:00",
+  "commandCount": 0,
+  "modifiedFiles": [],
+  "errorMessage": null,
+  "testResult": null,
+  "linterResult": null,
+  "commitInfo": null,
+  "variables": {
+    "sessionMode": "assistant",
+    "_activeConversation": "",
+    "_conversations": [],
+    "_blockOutputs": {
+      "ensure-conversation": {
+        "type": "conditional",
+        "output": "Node \u0027ensure-conversation\u0027 executed (passthrough)",
+        "timestamp": "22:58:26"
+      }
+    },
+    "_llmActivity": [],
+    "_executionLog": [
+      {
+        "time": "22:58:26",
+        "level": "info",
+        "msg": "Starting workflow: maestro-assistant-workflow"
+      },
+      {
+        "time": "22:58:26",
+        "level": "info",
+        "msg": "Conditional \u0027ensure-conversation\u0027: \u0027{{_activeConversation}} != \u0022\u0022\u0027 \u2192 \u0027 != \u0022\u0022\u0027 \u2192 True"
+      },
+      {
+        "time": "22:58:26",
+        "level": "success",
+        "msg": "ensure-conversation: Completed (49 chars)"
+      },
+      {
+        "time": "22:58:26",
+        "level": "info",
+        "msg": "save-user-message: Starting blockRef \u0027conversation\u0027..."
+      },
+      {
+        "time": "22:58:26",
+        "level": "info",
+        "msg": "Executing blockRef \u0027conversation\u0027 (type: conversation) with 5 inputs"
+      },
+      {
+        "time": "22:58:26",
+        "level": "info",
+        "msg": "[conversation] Conversation operation failed: Conversation \u0027\u0027 not found."
+      },
+      {
+        "time": "22:58:26",
+        "level": "error",
+        "msg": "blockRef \u0027conversation\u0027 failed: Conversation \u0027\u0027 not found."
+      },
+      {
+        "time": "22:58:26",
+        "level": "error",
+        "msg": "blockRef \u0027conversation\u0027 error: Block \u0027conversation\u0027 failed: Conversation \u0027\u0027 not found."
+      },
+      {
+        "time": "22:58:26",
+        "level": "error",
+        "msg": "save-user-message: Block \u0027conversation\u0027 failed: Conversation \u0027\u0027 not found."
+      },
+      {
+        "time": "22:58:26",
+        "level": "error",
+        "msg": "save-user-message: Block \u0027conversation\u0027 failed: Conversation \u0027\u0027 not found."
+      },
+      {
+        "time": "22:58:26",
+        "level": "warning",
+        "msg": "Stopping sequence: node \u0027save-user-message\u0027 failed"
+      }
+    ],
+    "_executionTree": [
+      {
+        "id": "ensure-conversation",
+        "name": "Ensure Conversation",
+        "status": "done",
+        "children": [],
+        "output": "Node \u0027ensure-conversation\u0027 executed (passthrough)"
+      },
+      {
+        "id": "save-user-message",
+        "name": "Save User Message",
+        "status": "error",
+        "children": [],
+        "output": "(error: Block \u0027conversation\u0027 failed: Conversation \u0027\u0027 not found.)"
+      },
+      {
+        "id": "load-history",
+        "name": "Load History",
+        "status": "pending",
+        "children": []
+      },
+      {
+        "id": "execute-agent",
+        "name": "Execute Agent",
+        "status": "pending",
+        "children": []
+      },
+      {
+        "id": "save-assistant-response",
+        "name": "Save Assistant Response",
+        "status": "pending",
+        "children": []
+      }
+    ],
+    "_monitorDescriptor": {
+      "layout": {
+        "mode": "split-horizontal",
+        "zones": {
+          "top": {
+            "height": "60%"
+          },
+          "bottom": {
+            "height": "40%"
+          }
+        }
+      },
+      "components": [
+        {
+          "id": "exec-tree",
+          "type": "execution-tree",
+          "zone": "top",
+          "data": "$.variables._executionTree"
+        },
+        {
+          "id": "exec-log",
+          "type": "log-panel",
+          "zone": "bottom",
+          "data": "$.variables._executionLog"
+        }
+      ]
+    },
+    "_artifacts": [],
+    "_phaseMetrics": {},
+    "_activeWorkflow": "",
+    "message": "Hello, what can you help me with?",
+    "repoPath": "C:Cantante",
+    "_activeBlock": null,
+    "_nodeResult_ensure-conversation": "Node \u0027ensure-conversation\u0027 executed (passthrough)",
+    "_workflowCheckpoint": null,
+    "_nodeResult_save-user-message": "(error executing blockRef \u0027conversation\u0027: Block \u0027conversation\u0027 failed: Conversation \u0027\u0027 not found.)",
+    "_workflowCheckpoint_whileState": null,
+    "_workflowCheckpoint_foreachIndex": null
+  },
+  "entryPoints": {
+    "message": "maestro-assistant-workflow",
+    "new-conversation": "maestro-new-conversation",
+    "clear-conversation": "maestro-clear-conversation"
+  },
+  "monitorWidgets": null,
+  "blockSearchPaths": [
+    "C:\\Meastro\\apps\\backend\\src\\Maestro.Api\\Cantante\\.maestro\\blocks"
+  ],
+  "defaultModel": null,
+  "modelOverrides": null,
+  "fileAccessRulesConfig": null,
+  "blockPermissionsConfig": null
+}

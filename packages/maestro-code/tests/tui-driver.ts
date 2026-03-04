@@ -13,6 +13,9 @@
  */
 
 import * as path from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname_esm = typeof __dirname !== 'undefined' ? __dirname : path.dirname(fileURLToPath(import.meta.url));
 
 // ── Types ────────────────────────────────────────────────────
 
@@ -61,7 +64,7 @@ export class TuiDriver {
     const pty = await import('node-pty');
     const { Terminal } = await import('@xterm/headless');
 
-    const root = options.cwd || path.resolve(__dirname, '..', '..', '..');
+    const root = options.cwd || path.resolve(__dirname_esm, '..', '..', '..');
     const isWin = process.platform === 'win32';
     const shell = isWin ? 'cmd.exe' : '/bin/bash';
 

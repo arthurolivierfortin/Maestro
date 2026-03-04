@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * BlockDetail — Block detail page.
  *
@@ -14,6 +13,7 @@
  */
 
 import { createElement as h, useState, useCallback } from 'react';
+import type { ReactNode } from 'react';
 import { Box, Text } from 'ink';
 import {
   theme, icons,
@@ -27,9 +27,34 @@ import { useActionKeyboard } from '../hooks/useKeyboard.ts';
 import { Panel } from './Panel.ts';
 import { StatusBar } from './StatusBar.ts';
 
+// ── Types ────────────────────────────────────────────────────
+
+interface InfoContentProps {
+  block: Record<string, any>;
+}
+
+interface FitnessContentProps {
+  block: Record<string, any>;
+}
+
+interface SessionRowProps {
+  session: Record<string, any>;
+  isSelected: boolean;
+}
+
+interface BlockDetailProps {
+  blockId: string;
+  apiClient: any;
+  onExit: () => void;
+  onQuit: () => void;
+  onNavigate?: (page: string) => void;
+  onSessionSelect: (id: string, state?: Record<string, any>) => void;
+  initialState?: Record<string, any>;
+}
+
 // ── Info panel content ───────────────────────────────────────
 
-const InfoContent = ({ block }) => {
+const InfoContent = ({ block }: InfoContentProps): ReactNode => {
   if (!block) return muted('(loading...)');
 
   const children = block.children || [];
@@ -60,7 +85,7 @@ const InfoContent = ({ block }) => {
     children.length > 0
       ? h(Box, { flexDirection: 'column', marginTop: 1 },
           muted(`Children: ${children.length} block(s)`),
-          ...children.map((childId, i) => {
+          ...children.map((childId: any, i: number) => {
             const isLast = i === children.length - 1;
             const branch = isLast ? icons.lastBranch : icons.branch;
             return h(Box, { key: `ch-${i}`, flexDirection: 'row', paddingLeft: 1 },
@@ -75,7 +100,7 @@ const InfoContent = ({ block }) => {
 
 // ── Fitness panel content ────────────────────────────────────
 
-const FitnessContent = ({ block }) => {
+const FitnessContent = ({ block }: FitnessContentProps): ReactNode => {
   if (!block) return muted('(loading...)');
 
   const fitness = block.fitness;
@@ -176,7 +201,7 @@ const FitnessContent = ({ block }) => {
 
 // ── Session row (compact) ────────────────────────────────────
 
-const SessionRow = ({ session, isSelected }) => {
+const SessionRow = ({ session, isSelected }: SessionRowProps): ReactNode => {
   const status = (session.status || 'unknown').toLowerCase();
   const sColor = statusColor(status);
   const sIcon = statusIcon(status);
@@ -197,7 +222,7 @@ const SessionRow = ({ session, isSelected }) => {
 
 // ── Actions panel content ────────────────────────────────────
 
-const ActionsContent = () => {
+const ActionsContent = (): ReactNode => {
   const actions = [
     { key: 'v', label: 'View source JSON' },
   ];
@@ -218,7 +243,7 @@ const ActionsContent = () => {
 
 // ── BlockDetail component ────────────────────────────────────
 
-const BlockDetail = ({ blockId, apiClient, onExit, onQuit, onNavigate, onSessionSelect, initialState }) => {
+const BlockDetail = ({ blockId, apiClient, onExit, onQuit, onNavigate, onSessionSelect, initialState }: BlockDetailProps): ReactNode => {
   const [selectedIndex, setSelectedIndex] = useState(initialState?.selectedIndex ?? 0);
   const [activePanel, setActivePanel] = useState(initialState?.activePanel ?? 'sessions'); // 'sessions' | 'actions'
 
@@ -229,19 +254,19 @@ const BlockDetail = ({ blockId, apiClient, onExit, onQuit, onNavigate, onSession
     latency,
     lastRefresh,
   } = useApiData(
-    useCallback(() => apiClient.getBlock(blockId), [apiClient, blockId]),
+    useCallback((): Promise<any> => apiClient.getBlock(blockId), [apiClient, blockId]),
     10000
   );
 
   // Fetch all sessions to filter by block
   const { data: allSessions } = useApiData(
-    useCallback(() => apiClient.listSessions().catch(() => []), [apiClient]),
+    useCallback((): Promise<any[]> => apiClient.listSessions().catch((): any[] => []), [apiClient]),
     5000
   );
 
   // Filter sessions linked to this block
   const sessionIds = block?.sessionIds || [];
-  const sessions = (allSessions || []).filter(s => sessionIds.includes(s.id));
+  const sessions = ((allSessions as any[]) || []).filter((s: any) => sessionIds.includes(s.id));
 
   const maxIndex = Math.max(0, sessions.length - 1);
   const clampedIndex = Math.min(selectedIndex, maxIndex);
@@ -249,20 +274,20 @@ const BlockDetail = ({ blockId, apiClient, onExit, onQuit, onNavigate, onSession
   // Keyboard (Schema A: detail context)
   useActionKeyboard({
     'cursor.up': () => {
-      if (activePanel === 'sessions') setSelectedIndex(i => Math.max(0, i - 1));
+      if (activePanel === 'sessions') setSelectedIndex((i: number) => Math.max(0, i - 1));
     },
     'cursor.down': () => {
-      if (activePanel === 'sessions') setSelectedIndex(i => Math.min(maxIndex, i + 1));
+      if (activePanel === 'sessions') setSelectedIndex((i: number) => Math.min(maxIndex, i + 1));
     },
     'cursor.upAlt': () => {
-      if (activePanel === 'sessions') setSelectedIndex(i => Math.max(0, i - 1));
+      if (activePanel === 'sessions') setSelectedIndex((i: number) => Math.max(0, i - 1));
     },
     'cursor.downAlt': () => {
-      if (activePanel === 'sessions') setSelectedIndex(i => Math.min(maxIndex, i + 1));
+      if (activePanel === 'sessions') setSelectedIndex((i: number) => Math.min(maxIndex, i + 1));
     },
-    'panel.cycle': () => setActivePanel(p => p === 'sessions' ? 'actions' : 'sessions'),
-    'panel.next': () => setActivePanel(p => p === 'sessions' ? 'actions' : 'sessions'),
-    'panel.prev': () => setActivePanel(p => p === 'sessions' ? 'actions' : 'sessions'),
+    'panel.cycle': () => setActivePanel((p: string) => p === 'sessions' ? 'actions' : 'sessions'),
+    'panel.next': () => setActivePanel((p: string) => p === 'sessions' ? 'actions' : 'sessions'),
+    'panel.prev': () => setActivePanel((p: string) => p === 'sessions' ? 'actions' : 'sessions'),
     'tree.toggle': () => {
       if (activePanel === 'sessions' && sessions.length > 0) {
         const session = sessions[clampedIndex];

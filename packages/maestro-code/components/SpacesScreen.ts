@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * SpacesScreen — Repos / Workspaces / Sessions browser.
  *
@@ -30,7 +29,11 @@ import { Panel } from './Panel.ts';
 
 // ── Tab Header ───────────────────────────────────────────────
 
-const TabHeader = ({ activeTab }) => {
+interface TabHeaderProps {
+  activeTab: string;
+}
+
+const TabHeader = ({ activeTab }: TabHeaderProps) => {
   const tabs = [
     { key: 'repos', num: 1, label: 'Repos' },
     { key: 'workspaces', num: 2, label: 'Workspaces' },
@@ -61,7 +64,11 @@ const TabHeader = ({ activeTab }) => {
 
 // ── Status Filter ────────────────────────────────────────────
 
-const StatusFilter = ({ activeFilter }) => {
+interface StatusFilterProps {
+  activeFilter: string;
+}
+
+const StatusFilter = ({ activeFilter }: StatusFilterProps) => {
   const isRunning = activeFilter === 'running';
 
   return h(Box, { flexDirection: 'row', paddingLeft: 1 },
@@ -79,7 +86,13 @@ const StatusFilter = ({ activeFilter }) => {
 
 // ── Generic list row ─────────────────────────────────────────
 
-const SessionRow = ({ session, isSelected, isExpanded }) => {
+interface SessionRowProps {
+  session: Record<string, any>;
+  isSelected: boolean;
+  isExpanded: boolean;
+}
+
+const SessionRow = ({ session, isSelected, isExpanded }: SessionRowProps) => {
   const status = (session.status || 'unknown').toLowerCase();
   const sColor = statusColor(status);
   const sIcon = statusIcon(status);
@@ -133,7 +146,7 @@ const SessionRow = ({ session, isSelected, isExpanded }) => {
           vars._phases && Array.isArray(vars._phases)
             ? h(Box, { flexDirection: 'row' },
                 muted('phases: '),
-                ...vars._phases.map((p, pi) => {
+                ...vars._phases.map((p: any, pi: number) => {
                   const ps = (p.status || 'pending').toLowerCase();
                   return h(Text, { key: `ph-${pi}` },
                     T(statusColor(ps), statusIcon(ps)),
@@ -161,7 +174,12 @@ const SessionRow = ({ session, isSelected, isExpanded }) => {
   );
 };
 
-const RepoRow = ({ project, isSelected }) => {
+interface RepoRowProps {
+  project: Record<string, any>;
+  isSelected: boolean;
+}
+
+const RepoRow = ({ project, isSelected }: RepoRowProps) => {
   const name = project.name || project.rootPath || 'Unknown';
   const id = project.id ? project.id.substring(0, 8) : '--------';
   const status = project.containerStatus || 'idle';
@@ -182,7 +200,12 @@ const RepoRow = ({ project, isSelected }) => {
   );
 };
 
-const WorkspaceRow = ({ workspace, isSelected }) => {
+interface WorkspaceRowProps {
+  workspace: Record<string, any>;
+  isSelected: boolean;
+}
+
+const WorkspaceRow = ({ workspace, isSelected }: WorkspaceRowProps) => {
   const name = workspace.name || workspace.id || 'Unknown';
   const id = workspace.id ? workspace.id.substring(0, 8) : '--------';
   const type = workspace.type || '';
@@ -203,7 +226,13 @@ const WorkspaceRow = ({ workspace, isSelected }) => {
 
 // ── Delete confirmation overlay ──────────────────────────────
 
-const DeleteConfirmation = ({ sessionName, onConfirm, onCancel }) => {
+interface DeleteConfirmationProps {
+  sessionName: string;
+  onConfirm: () => void;
+  onCancel: () => void;
+}
+
+const DeleteConfirmation = ({ sessionName, onConfirm, onCancel }: DeleteConfirmationProps) => {
   useKeyboard({
     enter: onConfirm,
     escape: onCancel,
@@ -243,13 +272,25 @@ const DeleteConfirmation = ({ sessionName, onConfirm, onCancel }) => {
 
 // ── SpacesScreen component ───────────────────────────────────
 
-const SpacesScreen = ({ apiClient, onNavigate, onSessionSelect, onWorkspaceSelect, onRepoSelect, onQuit, initialState, chrome, keyboardActive }) => {
+interface SpacesScreenProps {
+  apiClient: any;
+  onNavigate: (page: string) => void;
+  onSessionSelect: (id: string, state?: Record<string, any>) => void;
+  onWorkspaceSelect?: (id: string, state?: Record<string, any>) => void;
+  onRepoSelect?: (id: string, state?: Record<string, any>) => void;
+  onQuit: () => void;
+  initialState?: Record<string, any>;
+  chrome?: boolean;
+  keyboardActive?: boolean;
+}
+
+const SpacesScreen = ({ apiClient, onNavigate, onSessionSelect, onWorkspaceSelect, onRepoSelect, onQuit, initialState, chrome, keyboardActive }: SpacesScreenProps) => {
   const showChrome = chrome !== false;
   const { stdout } = useStdout();
   const [activeTab, setActiveTab] = useState(initialState?.activeTab ?? 'sessions');
   const [selectedIndex, setSelectedIndex] = useState(initialState?.selectedIndex ?? 0);
   const [statusFilter, setStatusFilter] = useState(initialState?.statusFilter ?? 'all');
-  const [deleteConfirm, setDeleteConfirm] = useState(null); // { id, name } | null
+  const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
 
   // Terminal rows for scroll calculation
   // NavBar(3) + TabHeader(3) + PanelBorder(2) + title(1) + spacer(1) + headerLines(2) + StatusBar(3) = 15 fixed
@@ -258,26 +299,26 @@ const SpacesScreen = ({ apiClient, onNavigate, onSessionSelect, onWorkspaceSelec
 
   // Fetch sessions
   const { data: sessions } = useApiData(
-    useCallback(() => apiClient.listSessions(), [apiClient]),
+    useCallback((): Promise<any[]> => apiClient.listSessions(), [apiClient]),
     3000
   );
 
   // Fetch projects (repos)
   const { data: projects } = useApiData(
-    useCallback(() => apiClient.listProjects().catch(() => []), [apiClient]),
+    useCallback((): Promise<any[]> => apiClient.listProjects().catch((): any[] => []), [apiClient]),
     10000
   );
 
   // Fetch workspaces
   const { data: workspaces } = useApiData(
-    useCallback(() => apiClient.get('/api/workspaces').catch(() => []), [apiClient]),
+    useCallback((): Promise<any[]> => apiClient.get('/api/workspaces').catch((): any[] => []), [apiClient]),
     10000
   );
 
-  const sessionList = sessions || [];
-  const projectList = projects || [];
-  const workspaceList = workspaces || [];
-  const runningCount = sessionList.filter(s => s.status === 'running').length;
+  const sessionList: any[] = (sessions as any[]) || [];
+  const projectList: any[] = (projects as any[]) || [];
+  const workspaceList: any[] = (workspaces as any[]) || [];
+  const runningCount = sessionList.filter((s: any) => s.status === 'running').length;
 
   // Apply status filter
   const filteredSessions = statusFilter === 'all'
@@ -317,10 +358,10 @@ const SpacesScreen = ({ apiClient, onNavigate, onSessionSelect, onWorkspaceSelec
 
   // Keyboard
   useKeyboard({
-    up: () => setSelectedIndex(i => Math.max(0, i - 1)),
-    down: () => setSelectedIndex(i => Math.min(currentItems.length - 1, i + 1)),
-    k: () => setSelectedIndex(i => Math.max(0, i - 1)),
-    j: () => setSelectedIndex(i => Math.min(currentItems.length - 1, i + 1)),
+    up: () => setSelectedIndex((i: number) => Math.max(0, i - 1)),
+    down: () => setSelectedIndex((i: number) => Math.min(currentItems.length - 1, i + 1)),
+    k: () => setSelectedIndex((i: number) => Math.max(0, i - 1)),
+    j: () => setSelectedIndex((i: number) => Math.min(currentItems.length - 1, i + 1)),
     // Chrome-only keys: page navigation (disabled when embedded in maestro-code)
     ...(showChrome ? {
       ctrlLeft: () => onNavigate(prevPage('spaces')),
@@ -344,7 +385,7 @@ const SpacesScreen = ({ apiClient, onNavigate, onSessionSelect, onWorkspaceSelec
       else if (num === 2) setActiveTab('workspaces');
       else if (num === 3) setActiveTab('sessions');
     },
-    r: () => setStatusFilter(f => f === 'running' ? 'all' : 'running'),
+    r: () => setStatusFilter((f: string) => f === 'running' ? 'all' : 'running'),
     d: () => {
       if (activeTab === 'sessions' && filteredSessions.length > 0) {
         const session = filteredSessions[selectedIndex];
@@ -392,7 +433,7 @@ const SpacesScreen = ({ apiClient, onNavigate, onSessionSelect, onWorkspaceSelec
     : 'SESSIONS';
 
   // Header inside content panel (with spacing from panel title)
-  const headerLines = [
+  const headerLines: any[] = [
     h(Box, { key: 'spacer', height: 1 }),  // breathing room after panel title
   ];
   if (activeTab === 'sessions') {

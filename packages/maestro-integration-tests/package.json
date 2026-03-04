@@ -1,0 +1,24 @@
+{
+  "name": "@maestro/integration-tests",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Integration tests for Maestro — exercises the real backend with mock LLM responses.",
+  "type": "module",
+  "scripts": {
+    "test": "npx vitest run",
+    "test:api": "npx vitest run tests/level-1-api/",
+    "test:workflow": "npx vitest run tests/level-2-workflow/",
+    "test:pipeline": "npx vitest run tests/level-3-pipeline/"
+  },
+  "dependencies": {
+    "@maestro/client": "*",
+    "@maestro/sidecar": "*"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

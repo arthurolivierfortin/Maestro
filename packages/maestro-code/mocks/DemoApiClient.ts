@@ -1,6 +1,5 @@
-// @ts-nocheck
 /**
- * DemoApiClient — Full IApiClient implementation with demo data.
+ * DemoApiClient — Full IMaestroCodeApiClient implementation with demo data.
  *
  * Used by maestro-code in --demo mode. Monitor screens call standard
  * IApiClient methods (listBlocks, listSessions, etc.) and get back
@@ -9,6 +8,8 @@
  * Also includes extra methods needed by SessionManager (createSession,
  * startSession, _fetch) for the agent page's task submission flow.
  */
+
+import type { IMaestroCodeApiClient, CreateSessionOptions } from '../types.ts';
 
 import {
   DEMO_BLOCKS,
@@ -28,7 +29,7 @@ function ts() {
 
 // ── Evolving session data (staged mock execution) ────────────
 
-function getTree(elapsed: number) {
+function getTree(elapsed: number): any[] {
   return [
     { id: 'prepare', name: 'Prepare', status: elapsed > 500 ? 'completed' : 'running', type: 'task', children: [] },
     { id: 'plan', name: 'Plan', status: elapsed > 2000 ? 'completed' : elapsed > 500 ? 'running' : 'pending', type: 'workflow', children: [
@@ -72,7 +73,7 @@ function getLLM(elapsed: number) {
 
 // ── Map demo data to IApiClient types ────────────────────────
 
-function mapDemoBlocks(filter?: { type?: string; designation?: string; category?: string }) {
+function mapDemoBlocks(filter?: { type?: string; designation?: string; category?: string }): any[] {
   let blocks = DEMO_BLOCKS.map(b => ({
     id: b.id,
     name: b.name,
@@ -81,7 +82,7 @@ function mapDemoBlocks(filter?: { type?: string; designation?: string; category?
     description: `${b.name} block`,
     isAtomic: b.isAtomic,
     fitness: b.fitness,
-    children: [],
+    children: [] as any[],
   }));
   if (filter?.type) {
     blocks = blocks.filter(b => b.type === filter.type);
@@ -119,18 +120,18 @@ function mapDemoModels() {
   }));
 }
 
-function mapDemoProjects() {
+function mapDemoProjects(): any[] {
   return DEMO_REPOS.map(r => ({
     id: r.id,
     name: r.name,
     rootPath: r.path,
     containerStatus: 'active',
     maestroInfo: { blocks: 4, artifacts: 2, metrics: 8, logs: 15 },
-    sessionIds: [],
+    sessionIds: [] as string[],
   }));
 }
 
-function mapDemoWorkspaces() {
+function mapDemoWorkspaces(): any[] {
   return DEMO_WORKSPACES.map(ws => ({
     id: ws.id,
     name: ws.name,
@@ -138,7 +139,7 @@ function mapDemoWorkspaces() {
     status: 'active',
     description: `${ws.name} workspace`,
     repositoryPath: 'C:\\Meastro',
-    sessionIds: [],
+    sessionIds: [] as string[],
     settings: {
       maxConcurrentSessions: 5,
       autoPromotionEnabled: false,
@@ -149,17 +150,17 @@ function mapDemoWorkspaces() {
 
 // ── DemoApiClient class ──────────────────────────────────────
 
-class DemoApiClient {
+class DemoApiClient implements IMaestroCodeApiClient {
   DEMO_SESSION_ID = DEMO_SESSION_ID;
   private startTime = 0;
 
   // ── IApiClient methods ──────────────────────────────────
 
-  async listSessions() {
+  async listSessions(): Promise<any[]> {
     return mapDemoSessions();
   }
 
-  async getSession(id: string) {
+  async getSession(id: string): Promise<any> {
     const elapsed = Date.now() - this.startTime;
     const tree = getTree(elapsed);
     const allDone = tree.every((n: any) => n.status === 'completed');
@@ -185,7 +186,7 @@ class DemoApiClient {
     return { status: 'ok', version: '0.1.0-demo', uptime: '1h 23m' };
   }
 
-  async getLLMHealth() {
+  async getLLMHealth(): Promise<any> {
     return {
       status: 'healthy',
       activeModel: 'claude-sonnet-4-6',
@@ -197,7 +198,7 @@ class DemoApiClient {
     };
   }
 
-  async listLLMModels() {
+  async listLLMModels(): Promise<any[]> {
     return mapDemoModels();
   }
 
@@ -218,11 +219,11 @@ class DemoApiClient {
     };
   }
 
-  async listBlocks(filter?: { type?: string; designation?: string; category?: string }) {
+  async listBlocks(filter?: { type?: string; designation?: string; category?: string }): Promise<any[]> {
     return mapDemoBlocks(filter);
   }
 
-  async getBlock(id: string) {
+  async getBlock(id: string): Promise<any> {
     const blocks = mapDemoBlocks();
     return blocks.find(b => b.id === id) || null;
   }
@@ -237,7 +238,7 @@ class DemoApiClient {
     };
   }
 
-  async getTopBlocks(options?: { designation?: string; type?: string; limit?: number }) {
+  async getTopBlocks(options?: { designation?: string; type?: string; limit?: number }): Promise<any[]> {
     let blocks = mapDemoBlocks({ type: options?.type, designation: options?.designation });
     blocks.sort((a, b) => (b.fitness || 0) - (a.fitness || 0));
     if (options?.limit) blocks = blocks.slice(0, options.limit);
@@ -301,18 +302,18 @@ class DemoApiClient {
 
   // ── Extra methods for SessionManager compat ─────────────
 
-  async _fetch(method: string, path: string) {
+  async _fetch(method: string, path: string, _options?: { body?: unknown }) {
     if (path === '/api/health') return { status: 'ok' };
     if (method === 'DELETE' && path.startsWith('/api/sessions/')) return { success: true };
     return {};
   }
 
-  async createSession(_opts: any) {
+  async createSession(_opts: CreateSessionOptions) {
     this.startTime = Date.now();
     return { id: DEMO_SESSION_ID };
   }
 
-  async startSession() {}
+  async startSession(_id: string) {}
 
   _startTime() {
     this.startTime = Date.now();

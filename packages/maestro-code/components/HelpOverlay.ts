@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * HelpOverlay — Global keyboard shortcut overlay for maestro-code.
  *
@@ -12,7 +11,7 @@ import { theme } from '../theme.ts';
 
 // ── Shortcut definitions per context ─────────────────────────
 
-const SHORTCUTS = {
+const SHORTCUTS: Record<string, ShortcutItem[]> = {
   global: [
     { key: '/',       label: 'Focus input bar' },
     { key: 'Esc',     label: 'Return to navigation / close' },
@@ -73,7 +72,17 @@ const SHORTCUTS = {
 
 // ── Section renderer ─────────────────────────────────────────
 
-const Section = ({ title, items }) => {
+interface ShortcutItem {
+  key: string;
+  label: string;
+}
+
+interface SectionProps {
+  title: string;
+  items: ShortcutItem[];
+}
+
+const Section = ({ title, items }: SectionProps) => {
   return h(Box, { flexDirection: 'column' },
     h(Text, { bold: true, color: theme.panel.borderFocused }, `  ${title}`),
     ...items.map((item, i) =>
@@ -88,7 +97,12 @@ const Section = ({ title, items }) => {
 
 // ── HelpOverlay component ────────────────────────────────────
 
-const HelpOverlay = ({ currentPage, onClose }) => {
+interface HelpOverlayProps {
+  currentPage?: string;
+  onClose?: () => void;
+}
+
+const HelpOverlay = ({ currentPage, onClose }: HelpOverlayProps) => {
   const pageKey = currentPage || 'agent';
   const pageShortcuts = SHORTCUTS[pageKey] || [];
 

@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * Tests for Maestro Code — Phase 42 architecture (Monitor + AgentPanel).
  * Uses ink-testing-library to render Ink components without a TTY.
@@ -204,8 +203,8 @@ describe('App', () => {
 
     await delay(500);
     const frame = stripAnsi(lastFrame() || '');
-    // TaskInputBar visible (unfocused shows / prompt and "Press / to type...")
-    expect(frame).toContain('Press / to type...');
+    // TaskInputBar visible — demo mode auto-starts task so it shows busy state
+    expect(frame).toContain('Agent is working...');
   });
 
   it('shows TaskInputBar with / prompt (unfocused)', async () => {
@@ -233,169 +232,9 @@ describe('App', () => {
     expect(frame).toContain('CONVERSATION');
     // Agent status shows working state
     expect(frame).toContain('AGENT STATUS');
-    // TaskInputBar visible at bottom (unfocused after auto-submit)
-    expect(frame).toContain('Press / to type...');
+    // TaskInputBar visible at bottom — busy state during demo auto-task
+    expect(frame).toContain('Agent is working...');
   });
 });
 
-// ── SessionManager Tests ──────────────────────────────────────
-
-describe('SessionManager', () => {
-  let mockClient: any;
-  let mockImportTemplate: any;
-
-  beforeEach(() => {
-    mockClient = {
-      createSession: vi.fn().mockResolvedValue({ id: 'sess-1234-5678-abcd-ef0123456789' }),
-      startSession: vi.fn().mockResolvedValue({}),
-      getSession: vi.fn().mockResolvedValue({
-        status: 'idle',
-        variables: { _executionTree: [], _executionLog: [] },
-      }),
-      _fetch: vi.fn().mockResolvedValue({ status: 'running' }),
-    };
-    mockImportTemplate = vi.fn().mockResolvedValue(undefined);
-  });
-
-  it('creates session, imports template, starts, and invokes', async () => {
-    const { SessionManager } = await import('../App.ts');
-    const sm = new SessionManager({
-      apiClient: mockClient,
-      repoPath: '/test/project',
-      importSessionTemplate: mockImportTemplate,
-    });
-
-    const addLine = vi.fn();
-    const setBusy = vi.fn();
-
-    await sm.submitTask('Add README', addLine, setBusy);
-
-    // Should have called createSession
-    expect(mockClient.createSession).toHaveBeenCalledWith(
-      expect.objectContaining({
-        repositoryPath: '/test/project',
-        authority: 'human',
-      })
-    );
-
-    // Should have imported template (maestro-assistant by default)
-    expect(mockImportTemplate).toHaveBeenCalledWith('sess-1234-5678-abcd-ef0123456789', 'maestro-assistant');
-
-    // Should have started session
-    expect(mockClient.startSession).toHaveBeenCalledWith('sess-1234-5678-abcd-ef0123456789');
-
-    // Should have invoked entry point with message input
-    expect(mockClient._fetch).toHaveBeenCalledWith(
-      'POST',
-      '/api/sessions/sess-1234-5678-abcd-ef0123456789/invoke/message',
-      expect.objectContaining({
-        body: { inputs: { message: 'Add README', repoPath: '/test/project' } },
-      })
-    );
-
-    // Should have set busy
-    expect(setBusy).toHaveBeenCalledWith(true);
-
-    // Should have added progress lines
-    expect(addLine).toHaveBeenCalledWith(expect.objectContaining({ text: 'Creating session...' }));
-    expect(addLine).toHaveBeenCalledWith(expect.objectContaining({ text: expect.stringContaining('Session:') }));
-    expect(addLine).toHaveBeenCalledWith(expect.objectContaining({ text: 'Session started' }));
-    expect(addLine).toHaveBeenCalledWith(expect.objectContaining({ text: 'Invoking: message' }));
-
-    // Cleanup polling
-    sm.stopPolling();
-  });
-
-  it('handles API error gracefully', async () => {
-    const { SessionManager } = await import('../App.ts');
-    mockClient.createSession.mockRejectedValue(new Error('Connection refused'));
-
-    const sm = new SessionManager({
-      apiClient: mockClient,
-      repoPath: '/test/project',
-      importSessionTemplate: mockImportTemplate,
-    });
-
-    const addLine = vi.fn();
-    const setBusy = vi.fn();
-
-    await sm.submitTask('fail task', addLine, setBusy);
-
-    // Should show error
-    expect(addLine).toHaveBeenCalledWith(
-      expect.objectContaining({ text: 'Error: Connection refused', color: 'red' })
-    );
-
-    // Should release busy state
-    expect(setBusy).toHaveBeenCalledWith(false);
-  });
-
-  it('detects workflow completion via polling', async () => {
-    vi.useFakeTimers();
-    const { SessionManager } = await import('../App.ts');
-
-    let pollCount = 0;
-    mockClient.getSession.mockImplementation(async () => {
-      pollCount++;
-      if (pollCount === 1) {
-        return {
-          status: 'running',
-          variables: {
-            _executionTree: [{ name: 'Plan', status: 'running' }],
-            _executionLog: [{ msg: 'Planning started', level: 'info', time: '10:00:00' }],
-          },
-        };
-      }
-      return {
-        status: 'idle',
-        variables: {
-          _executionTree: [{ name: 'Plan', status: 'completed' }],
-          _executionLog: [
-            { msg: 'Planning started', level: 'info', time: '10:00:00' },
-            { msg: 'Plan done', level: 'info', time: '10:00:05' },
-          ],
-        },
-      };
-    });
-
-    const sm = new SessionManager({
-      apiClient: mockClient,
-      repoPath: '/test/project',
-      importSessionTemplate: mockImportTemplate,
-    });
-
-    const addLine = vi.fn();
-    const setBusy = vi.fn();
-
-    await sm.submitTask('plan task', addLine, setBusy);
-
-    // First poll (2s) — running, no completion yet
-    await vi.advanceTimersByTimeAsync(2100);
-
-    // Second poll — should detect completion
-    await vi.advanceTimersByTimeAsync(2100);
-
-    expect(addLine).toHaveBeenCalledWith(
-      expect.objectContaining({ text: 'Task completed', color: 'green' })
-    );
-    expect(setBusy).toHaveBeenCalledWith(false);
-
-    vi.useRealTimers();
-  });
-
-  it('stores session ID', async () => {
-    const { SessionManager } = await import('../App.ts');
-    const sm = new SessionManager({
-      apiClient: mockClient,
-      repoPath: '/test/project',
-      importSessionTemplate: mockImportTemplate,
-    });
-
-    expect(sm.getSessionId()).toBeNull();
-
-    await sm.submitTask('test', vi.fn(), vi.fn());
-    expect(sm.getSessionId()).toBe('sess-1234-5678-abcd-ef0123456789');
-
-    sm.stopPolling();
-  });
-});
+// SessionManager tests moved to tests/SessionManager.test.ts (Phase 46-B)

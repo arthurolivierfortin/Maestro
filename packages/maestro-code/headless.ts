@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * Maestro Headless Mode — Non-interactive session runner (Phase 33-B)
  *

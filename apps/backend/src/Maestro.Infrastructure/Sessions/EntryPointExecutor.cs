@@ -3569,6 +3569,12 @@ public class EntryPointExecutor
                 var left = expr[..idx].Trim();
                 var right = expr[(idx + op.Length)..].Trim();
 
+                // Strip surrounding quotes from both sides.
+                // Conditions like {{var}} != "" resolve to ' != ""' after template substitution.
+                // Without unquoting, the comparison becomes "" != "\"\"" → true (wrong).
+                left = StripSurroundingQuotes(left);
+                right = StripSurroundingQuotes(right);
+
                 // Numeric comparison
                 if (double.TryParse(left, System.Globalization.CultureInfo.InvariantCulture, out var leftNum) &&
                     double.TryParse(right, System.Globalization.CultureInfo.InvariantCulture, out var rightNum))
@@ -3601,6 +3607,18 @@ public class EntryPointExecutor
         // Truthy: non-empty, non-zero
         if (double.TryParse(expr, System.Globalization.CultureInfo.InvariantCulture, out var numVal)) return numVal != 0;
         return !string.IsNullOrEmpty(expr) && expr != "0" && expr.ToLowerInvariant() != "false";
+    }
+
+    /// <summary>
+    /// Strips surrounding double quotes from a string literal.
+    /// Handles conditions like {{var}} != "" where after template resolution
+    /// the empty string value is compared against the literal "".
+    /// </summary>
+    private static string StripSurroundingQuotes(string s)
+    {
+        if (s.Length >= 2 && s[0] == '"' && s[^1] == '"')
+            return s[1..^1];
+        return s;
     }
 
     /// <summary>

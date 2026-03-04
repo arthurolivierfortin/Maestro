@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * Demo mock data — used by CatalogPage, SpacesPage, ModelsPage
  * when demoMode=true. Replaces API calls with static data.

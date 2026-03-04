@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * AgentPanel — Conversation log + agent state indicator.
  *

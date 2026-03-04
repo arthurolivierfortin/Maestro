@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * RepoDetail — Repo/Project detail page.
  *
@@ -14,6 +13,7 @@
  */
 
 import { createElement as h, useState, useCallback } from 'react';
+import type { ReactNode } from 'react';
 import { Box, Text } from 'ink';
 import {
   theme, icons,
@@ -25,9 +25,30 @@ import { useActionKeyboard } from '../hooks/useKeyboard.ts';
 import { Panel } from './Panel.ts';
 import { StatusBar } from './StatusBar.ts';
 
+// ── Types ────────────────────────────────────────────────────
+
+interface SessionRowProps {
+  session: Record<string, any>;
+  isSelected: boolean;
+}
+
+interface InfoContentProps {
+  project: Record<string, any> | null;
+}
+
+interface RepoDetailProps {
+  repoId: string;
+  apiClient: any;
+  onExit: () => void;
+  onQuit: () => void;
+  onNavigate?: (page: string) => void;
+  onSessionSelect: (id: string, state?: Record<string, any>) => void;
+  initialState?: Record<string, any>;
+}
+
 // ── Session row (compact) ────────────────────────────────────
 
-const SessionRow = ({ session, isSelected }) => {
+const SessionRow = ({ session, isSelected }: SessionRowProps): ReactNode => {
   const status = (session.status || 'unknown').toLowerCase();
   const sColor = statusColor(status);
   const sIcon = statusIcon(status);
@@ -51,7 +72,7 @@ const SessionRow = ({ session, isSelected }) => {
 
 // ── Info panel content ───────────────────────────────────────
 
-const InfoContent = ({ project }) => {
+const InfoContent = ({ project }: InfoContentProps): ReactNode => {
   const info = project?.maestroInfo || {};
   const containerStatus = project?.containerStatus || 'unknown';
   const csColor = statusColor(containerStatus);
@@ -82,7 +103,7 @@ const InfoContent = ({ project }) => {
 
 // ── RepoDetail component ────────────────────────────────────
 
-const RepoDetail = ({ repoId, apiClient, onExit, onQuit, onNavigate, onSessionSelect, initialState }) => {
+const RepoDetail = ({ repoId, apiClient, onExit, onQuit, onNavigate, onSessionSelect, initialState }: RepoDetailProps): ReactNode => {
   const [selectedIndex, setSelectedIndex] = useState(initialState?.selectedIndex ?? 0);
   const [activePanel, setActivePanel] = useState(initialState?.activePanel ?? 'sessions'); // 'sessions' | 'info'
 
@@ -93,19 +114,19 @@ const RepoDetail = ({ repoId, apiClient, onExit, onQuit, onNavigate, onSessionSe
     latency,
     lastRefresh,
   } = useApiData(
-    useCallback(() => apiClient.getProject(repoId), [apiClient, repoId]),
+    useCallback((): Promise<any> => apiClient.getProject(repoId), [apiClient, repoId]),
     5000
   );
 
   // Fetch all sessions to filter by project
   const { data: allSessions } = useApiData(
-    useCallback(() => apiClient.listSessions().catch(() => []), [apiClient]),
+    useCallback((): Promise<any[]> => apiClient.listSessions().catch((): any[] => []), [apiClient]),
     5000
   );
 
   // Filter sessions belonging to this project
   const sessionIds = project?.sessionIds || [];
-  const sessions = (allSessions || []).filter(s => sessionIds.includes(s.id));
+  const sessions = ((allSessions as any[]) || []).filter((s: any) => sessionIds.includes(s.id));
 
   const maxIndex = Math.max(0, sessions.length - 1);
   const clampedIndex = Math.min(selectedIndex, maxIndex);
@@ -113,20 +134,20 @@ const RepoDetail = ({ repoId, apiClient, onExit, onQuit, onNavigate, onSessionSe
   // Keyboard (Schema A: detail context)
   useActionKeyboard({
     'cursor.up': () => {
-      if (activePanel === 'sessions') setSelectedIndex(i => Math.max(0, i - 1));
+      if (activePanel === 'sessions') setSelectedIndex((i: number) => Math.max(0, i - 1));
     },
     'cursor.down': () => {
-      if (activePanel === 'sessions') setSelectedIndex(i => Math.min(maxIndex, i + 1));
+      if (activePanel === 'sessions') setSelectedIndex((i: number) => Math.min(maxIndex, i + 1));
     },
     'cursor.upAlt': () => {
-      if (activePanel === 'sessions') setSelectedIndex(i => Math.max(0, i - 1));
+      if (activePanel === 'sessions') setSelectedIndex((i: number) => Math.max(0, i - 1));
     },
     'cursor.downAlt': () => {
-      if (activePanel === 'sessions') setSelectedIndex(i => Math.min(maxIndex, i + 1));
+      if (activePanel === 'sessions') setSelectedIndex((i: number) => Math.min(maxIndex, i + 1));
     },
-    'panel.cycle': () => setActivePanel(p => p === 'sessions' ? 'info' : 'sessions'),
-    'panel.next': () => setActivePanel(p => p === 'sessions' ? 'info' : 'sessions'),
-    'panel.prev': () => setActivePanel(p => p === 'sessions' ? 'info' : 'sessions'),
+    'panel.cycle': () => setActivePanel((p: string) => p === 'sessions' ? 'info' : 'sessions'),
+    'panel.next': () => setActivePanel((p: string) => p === 'sessions' ? 'info' : 'sessions'),
+    'panel.prev': () => setActivePanel((p: string) => p === 'sessions' ? 'info' : 'sessions'),
     'tree.toggle': () => {
       if (activePanel === 'sessions' && sessions.length > 0) {
         const session = sessions[clampedIndex];
