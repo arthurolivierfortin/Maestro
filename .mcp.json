@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "tui-dogfood": {
+      "type": "stdio",
+      "command": "cmd",
+      "args": [
+        "/c",
+        "npx",
+        "-y",
+        "tsx",
+        "packages/maestro-code/tests/tui-mcp-server.ts"
+      ]
+    }
+  }
+}

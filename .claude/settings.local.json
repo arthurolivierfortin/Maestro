@@ -1,13 +1,25 @@
 {
   "permissions": {
-    "additionalDirectories": [
-      "C:\\Meastro\\llm-provider",
-      "C:\\Cantante"
-    ],
     "allow": [
       "Bash",
       "WebSearch",
-      "WebFetch"
+      "WebFetch",
+      "mcp__tui-dogfood__tui_check",
+      "mcp__tui-dogfood__tui_spawn",
+      "mcp__tui-dogfood__tui_frame",
+      "mcp__tui-dogfood__tui_press",
+      "mcp__tui-dogfood__tui_kill",
+      "mcp__tui-dogfood__tui_stable",
+      "mcp__tui-dogfood__tui_note",
+      "mcp__tui-dogfood__tui_report"
+    ],
+    "additionalDirectories": [
+      "C:\\Meastro\\llm-provider",
+      "C:\\Cantante"
     ]
-  }
+  },
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": [
+    "tui-dogfood"
+  ]
 }
