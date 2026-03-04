@@ -1,5 +1,5 @@
 import type { HttpTransport } from '../http.js';
-import type { LLMHealthResponse, LLMModel } from '../types.js';
+import type { LLMHealthResponse, LLMModel, LLMProviderStats, LLMQueueStats, LLMPerformanceProfile, LLMSwitchEvent } from '../types.js';
 
 export function llmDomain(http: HttpTransport) {
   return {
@@ -30,6 +30,12 @@ export function llmDomain(http: HttpTransport) {
 
     loadModel: (modelId: string, use8bit = false) =>
       http.post('/api/provider/models/load', { modelId, use8bit }),
+
+    // Stats / metrics
+    stats: () => http.get<LLMProviderStats>('/api/provider/stats'),
+    queueStats: () => http.get<LLMQueueStats>('/api/provider/stats/queue'),
+    performanceProfiles: () => http.get<LLMPerformanceProfile[]>('/api/provider/stats/performance'),
+    switchDecisions: () => http.get<LLMSwitchEvent[]>('/api/provider/stats/switching'),
 
     azureConfig: () => http.get('/api/provider/azure'),
     saveAzureConfig: (config: Record<string, unknown>) => http.put('/api/provider/azure', config),

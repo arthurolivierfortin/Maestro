@@ -15,6 +15,13 @@
 import { createElement as h, useState, useRef, useCallback } from 'react';
 import { Box, Text, useInput } from 'ink';
 import { execSync } from 'node:child_process';
+import {
+  detectHardware,
+  getRecommendedModels,
+  saveCapabilities,
+  type HardwareCapabilities,
+  type RecommendedModel,
+} from '../services/hardware-detect.ts';
 
 // ── Types ────────────────────────────────────────────────────
 
@@ -314,6 +321,119 @@ const ClaudeCodeSetup = ({ onDone }: { onDone: (config: { cliPath: string } | nu
   );
 };
 
+// ── Phase 2c: Local Provider Setup (hardware-aware) ──────────
+
+const LocalSetup = ({ onDone }: { onDone: (config: Record<string, any>) => void }) => {
+  const [step, setStep] = useState<'detect' | 'review'>('detect');
+  const [hw, setHw] = useState<HardwareCapabilities | null>(null);
+  const [models, setModels] = useState<RecommendedModel[]>([]);
+  const [selectedModel, setSelectedModel] = useState(0);
+  const [url, setUrl] = useState('http://localhost:8000');
+
+  // Auto-detect on mount
+  const detected = useRef(false);
+  if (!detected.current) {
+    detected.current = true;
+    const caps = detectHardware();
+    setHw(caps);
+    saveCapabilities(caps);
+    const recommended = getRecommendedModels(caps);
+    setModels(recommended);
+    setStep('review');
+  }
+
+  useInput((input, key) => {
+    if (step !== 'review') return;
+
+    if (key.upArrow || input === 'k') {
+      setSelectedModel(i => Math.max(0, i - 1));
+    } else if (key.downArrow || input === 'j') {
+      setSelectedModel(i => Math.min(models.length - 1, i + 1));
+    } else if (key.return) {
+      const chosen = models[selectedModel];
+      onDone({
+        url,
+        recommendedModel: chosen?.modelId ?? null,
+        capabilities: hw,
+      });
+    }
+  });
+
+  if (step === 'detect' || !hw) {
+    return h(Box, { flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flexGrow: 1, padding: 2 },
+      h(Text, { color: 'cyan' }, '  Detecting hardware...'),
+    );
+  }
+
+  const vramGb = hw.vramMb > 0 ? `${(hw.vramMb / 1024).toFixed(1)} GB` : 'None';
+  const ramGb = `${(hw.ramMb / 1024).toFixed(1)} GB`;
+
+  return h(Box, { flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flexGrow: 1, padding: 2 },
+    h(Box, { flexDirection: 'column', borderStyle: 'single', borderColor: 'cyan', padding: 1, width: 68 },
+      h(Text, { color: 'cyan', bold: true }, '  Local Provider Setup'),
+      h(Box, { height: 1 }),
+
+      // Hardware summary
+      h(Box, { flexDirection: 'column', paddingLeft: 2 },
+        h(Text, { bold: true }, '  Hardware Detected:'),
+        h(Box, { flexDirection: 'row' },
+          h(Text, { color: 'gray' }, '    GPU:    '),
+          hw.cudaAvailable
+            ? h(Text, { color: 'green' }, hw.gpuName ?? 'CUDA GPU')
+            : h(Text, { color: 'yellow' }, 'No GPU (CPU only)'),
+        ),
+        hw.cudaAvailable
+          ? h(Box, { flexDirection: 'row' },
+              h(Text, { color: 'gray' }, '    VRAM:   '),
+              h(Text, { color: 'white' }, vramGb),
+            )
+          : null,
+        h(Box, { flexDirection: 'row' },
+          h(Text, { color: 'gray' }, '    RAM:    '),
+          h(Text, { color: 'white' }, ramGb),
+        ),
+        h(Box, { flexDirection: 'row' },
+          h(Text, { color: 'gray' }, '    CPU:    '),
+          h(Text, { color: 'white' }, `${hw.cpuCores} cores`),
+        ),
+      ),
+
+      h(Box, { height: 1 }),
+
+      // Model recommendations
+      h(Box, { flexDirection: 'column', paddingLeft: 2 },
+        h(Text, { bold: true }, '  Recommended Models:'),
+        !hw.cudaAvailable
+          ? h(Text, { color: 'yellow', dimColor: true }, '    No GPU detected. CPU inference will be very slow.')
+          : null,
+        h(Box, { height: 1 }),
+        ...models.map((m, i) => {
+          const sel = i === selectedModel;
+          const arrow = sel ? '>' : ' ';
+          const nameColor = sel ? 'cyan' : 'white';
+          return h(Box, { key: m.modelId, flexDirection: 'column', paddingLeft: 2 },
+            h(Box, { flexDirection: 'row' },
+              h(Text, { color: sel ? 'cyan' : 'gray' }, `  ${arrow} `),
+              h(Text, { color: nameColor, bold: sel }, m.name),
+              h(Text, { color: 'gray' }, `  ${m.sizeLabel}`),
+              m.slow ? h(Text, { color: 'red' }, '  SLOW') : null,
+            ),
+            h(Text, { color: 'gray', dimColor: true }, `      ${m.description}`),
+          );
+        }),
+      ),
+
+      h(Box, { height: 1 }),
+      h(Box, { flexDirection: 'row', paddingLeft: 2 },
+        h(Text, { color: 'gray' }, '    Server URL: '),
+        h(Text, { color: 'white' }, url),
+      ),
+      h(Box, { height: 1 }),
+      h(Text, { color: 'cyan', dimColor: true }, '    Use j/k to select model, Enter to confirm.'),
+    ),
+  );
+};
+
 // ── Main ProviderSetupScreen ─────────────────────────────────
 
 type Phase = 'select' | 'configure' | 'done';
@@ -384,6 +504,13 @@ const ProviderSetupScreen = ({ onComplete, onSkip, existingProviders }: Provider
     // Claude Code has special auto-detection flow
     if (providerId === 'claudeCode') {
       return h(ClaudeCodeSetup, {
+        onDone: (config) => handleProviderConfigured(providerId, config),
+      });
+    }
+
+    // Local provider has hardware-aware setup
+    if (providerId === 'local') {
+      return h(LocalSetup, {
         onDone: (config) => handleProviderConfigured(providerId, config),
       });
     }

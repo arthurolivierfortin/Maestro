@@ -78,10 +78,12 @@ function mapDemoBlocks(filter?: { type?: string; designation?: string; category?
     id: b.id,
     name: b.name,
     type: b.type,
+    blockType: b.type,
     version: b.version,
     description: `${b.name} block`,
     isAtomic: b.isAtomic,
     fitness: b.fitness,
+    capabilities: b.capabilities || [],
     children: [] as any[],
   }));
   if (filter?.type) {
@@ -200,6 +202,36 @@ class DemoApiClient implements IMaestroCodeApiClient {
 
   async listLLMModels(): Promise<any[]> {
     return mapDemoModels();
+  }
+
+  async getLLMStats() {
+    return {
+      totalRequests: 142,
+      totalErrors: 2,
+      errorRate: 0.014,
+      promptTokens: 45000,
+      completionTokens: 12000,
+      totalTokens: 57000,
+      latencyP50Ms: 230,
+      latencyP95Ms: 890,
+      latencyP99Ms: 1450,
+      avgLatencyMs: 350,
+      perModel: [
+        { model: 'claude-sonnet-4-6', requests: 120, avgLatencyMs: 320, totalTokens: 48000, rpm: 8 },
+        { model: 'gpt-4o', requests: 22, avgLatencyMs: 510, totalTokens: 9000, rpm: 2 },
+      ],
+    };
+  }
+
+  async getLLMQueueStats() {
+    return {
+      activeModel: 'claude-sonnet-4-6',
+      depth: 0,
+      avgWaitMs: 12,
+      totalEnqueued: 142,
+      totalProcessed: 142,
+      depthByModel: {},
+    };
   }
 
   async getLLMStatus() {

@@ -127,6 +127,8 @@ const MODELS_PAGE_ASSERTIONS: StructuralAssertion[] = [
   NAVBAR_ASSERTION,
   { label: 'Models tab indicator', pattern: /odels/ },
   { label: 'MODEL STATUS panel', pattern: 'MODEL STATUS' },
+  { label: 'METRICS panel', pattern: 'METRICS' },
+  { label: 'QUEUE panel', pattern: 'QUEUE' },
   { label: 'AVAILABLE MODELS panel', pattern: 'AVAILABLE MODELS' },
   { label: 'Claude model visible', pattern: /claude-sonnet|Claude Sonnet/ },
   { label: 'Model count', pattern: /6 model/ },
@@ -186,7 +188,7 @@ describe('Visual Gate — Page Navigation', () => {
         { key: 'c', label: 'Catalog', waitMs: 3000 },
         { key: 'm', label: 'Models', waitMs: 3000 },
       ],
-      { waitMs: 8000 },
+      { waitMs: 12000 },
     );
 
     // Diagnostic: log first 3 lines of each frame

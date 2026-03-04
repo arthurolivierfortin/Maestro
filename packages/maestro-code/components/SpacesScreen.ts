@@ -299,7 +299,7 @@ const SpacesScreen = ({ apiClient, onNavigate, onSessionSelect, onWorkspaceSelec
 
   // Fetch sessions
   const { data: sessions } = useApiData(
-    useCallback((): Promise<any[]> => apiClient.listSessions(), [apiClient]),
+    useCallback((): Promise<any[]> => apiClient.listSessions().catch((): any[] => []), [apiClient]),
     3000
   );
 

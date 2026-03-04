@@ -75,11 +75,12 @@ interface CatalogBlockRowProps {
 const CatalogBlockRow = ({ block, isSelected, isExpanded }: CatalogBlockRowProps) => {
   const type = (block.blockType || block.type || 'unknown').toLowerCase();
   const name = block.name || block.id || 'Unknown';
-  const id = block.id ? block.id.substring(0, 12) : '--------';
+  const id = block.id ? block.id.substring(0, 18) : '--------';
   const selector = isSelected ? icons.arrow : ' ';
   const description = block.description || '';
   const expandIcon = isExpanded ? icons.expanded : (isSelected ? icons.collapsed : ' ');
 
+  const capabilities: string[] = Array.isArray(block.capabilities) ? block.capabilities : [];
   const fitness = block.fitness !== undefined ? block.fitness : null;
   const fitnessStr = fitness !== null
     ? `${Math.round(fitness * 100)}%`
@@ -102,8 +103,14 @@ const CatalogBlockRow = ({ block, isSelected, isExpanded }: CatalogBlockRowProps
         ? T(progressColor(fitness * 100), fitnessStr)
         : muted('-'),
       h(Text, null, ' '),
+      capabilities.length > 0
+        ? h(Text, { color: theme.text.muted, dimColor: true }, capabilities.slice(0, 3).join(','))
+        : null,
+      capabilities.length > 0 && description
+        ? h(Text, { color: theme.text.muted, dimColor: true }, ' | ')
+        : (capabilities.length > 0 ? h(Text, null, ' ') : null),
       description
-        ? muted(truncate(description, 30))
+        ? muted(truncate(description, capabilities.length > 0 ? 18 : 30))
         : null,
     ),
     isExpanded
@@ -125,6 +132,14 @@ const CatalogBlockRow = ({ block, isSelected, isExpanded }: CatalogBlockRowProps
                 )
               : null,
           ),
+          capabilities.length > 0
+            ? h(Box, { flexDirection: 'row', gap: 1 },
+                muted('capabilities: '),
+                ...capabilities.map((cap: string) =>
+                  h(Text, { key: cap, color: theme.panel.borderFocused, dimColor: true }, `[${cap}]`),
+                ),
+              )
+            : null,
         )
       : null,
   );

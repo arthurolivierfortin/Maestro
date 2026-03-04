@@ -24,6 +24,122 @@ import { useAnimationTick } from '../hooks/useAnimationTick.ts';
 import { NavBar } from './NavBar.ts';
 import { Panel } from './Panel.ts';
 
+// ── Metrics Panel ────────────────────────────────────────────
+
+interface MetricsPanelProps {
+  stats: Record<string, any> | null;
+}
+
+const MetricsPanel = ({ stats }: MetricsPanelProps) => {
+  if (!stats || stats.error) {
+    return h(Box, { flexDirection: 'column', paddingLeft: 1 },
+      muted('No metrics available'),
+    );
+  }
+
+  const totalReqs = stats.totalRequests ?? 0;
+  const totalErrs = stats.totalErrors ?? 0;
+  const errRate = stats.errorRate != null ? `${(stats.errorRate * 100).toFixed(1)}%` : '-';
+  const promptTok = stats.promptTokens ?? 0;
+  const completionTok = stats.completionTokens ?? 0;
+  const totalTok = stats.totalTokens ?? 0;
+  const p50 = stats.latencyP50Ms != null ? `${Math.round(stats.latencyP50Ms)}ms` : '-';
+  const p95 = stats.latencyP95Ms != null ? `${Math.round(stats.latencyP95Ms)}ms` : '-';
+  const avg = stats.avgLatencyMs != null ? `${Math.round(stats.avgLatencyMs)}ms` : '-';
+
+  return h(Box, { flexDirection: 'column', paddingLeft: 1 },
+    h(Box, { flexDirection: 'row' },
+      muted('Requests:   '),
+      primary(String(totalReqs)),
+      totalErrs > 0 ? h(Text, { color: theme.status.error }, `  (${totalErrs} errors)`) : null,
+    ),
+    h(Box, { flexDirection: 'row' },
+      muted('Error Rate: '),
+      h(Text, { color: totalErrs > 0 ? theme.status.error : theme.text.primary }, errRate),
+    ),
+    h(Text, null, ''),
+    h(Box, { flexDirection: 'row' },
+      muted('Tokens:     '),
+      primary(String(totalTok)),
+    ),
+    h(Box, { flexDirection: 'row' },
+      muted('  Prompt:   '),
+      primary(String(promptTok)),
+    ),
+    h(Box, { flexDirection: 'row' },
+      muted('  Compl:    '),
+      primary(String(completionTok)),
+    ),
+    h(Text, null, ''),
+    h(Box, { flexDirection: 'row' },
+      muted('Latency p50: '),
+      primary(p50),
+    ),
+    h(Box, { flexDirection: 'row' },
+      muted('Latency p95: '),
+      primary(p95),
+    ),
+    h(Box, { flexDirection: 'row' },
+      muted('Latency avg: '),
+      primary(avg),
+    ),
+  );
+};
+
+// ── Queue Panel ──────────────────────────────────────────────
+
+interface QueuePanelProps {
+  queue: Record<string, any> | null;
+}
+
+const QueuePanel = ({ queue }: QueuePanelProps) => {
+  if (!queue || queue.error) {
+    return h(Box, { flexDirection: 'column', paddingLeft: 1 },
+      muted('No queue data'),
+    );
+  }
+
+  const depth = queue.depth ?? 0;
+  const avgWait = queue.avgWaitMs != null ? `${Math.round(queue.avgWaitMs)}ms` : '-';
+  const totalEnq = queue.totalEnqueued ?? 0;
+  const totalProc = queue.totalProcessed ?? 0;
+  const depthColor = depth > 5 ? theme.status.warning : (depth > 0 ? theme.text.primary : theme.status.success);
+
+  const depthByModel = queue.depthByModel as Record<string, number> | undefined;
+  const modelEntries = depthByModel ? Object.entries(depthByModel).filter(([, v]) => v > 0) : [];
+
+  return h(Box, { flexDirection: 'column', paddingLeft: 1 },
+    h(Box, { flexDirection: 'row' },
+      muted('Queue Depth: '),
+      h(Text, { color: depthColor }, String(depth)),
+    ),
+    h(Box, { flexDirection: 'row' },
+      muted('Avg Wait:    '),
+      primary(avgWait),
+    ),
+    h(Text, null, ''),
+    h(Box, { flexDirection: 'row' },
+      muted('Enqueued:    '),
+      primary(String(totalEnq)),
+    ),
+    h(Box, { flexDirection: 'row' },
+      muted('Processed:   '),
+      primary(String(totalProc)),
+    ),
+    modelEntries.length > 0
+      ? h(Box, { flexDirection: 'column', marginTop: 1 },
+          muted('Per-model queue:'),
+          ...modelEntries.map(([model, count]) =>
+            h(Box, { key: model, flexDirection: 'row', paddingLeft: 1 },
+              muted(`${model}: `),
+              h(Text, { color: depthColor }, String(count)),
+            ),
+          ),
+        )
+      : null,
+  );
+};
+
 // ── Model Status Panel ───────────────────────────────────────
 
 interface ModelStatusPanelProps {
@@ -204,6 +320,18 @@ const ModelsScreen = ({ apiClient, onNavigate, onModelSelect, onQuit, initialSta
     10000
   );
 
+  // Fetch LLM stats (metrics)
+  const { data: llmStats } = useApiData(
+    useCallback((): Promise<any> => apiClient.getLLMStats().catch((): null => null), [apiClient]),
+    5000
+  );
+
+  // Fetch queue stats
+  const { data: queueStats } = useApiData(
+    useCallback((): Promise<any> => apiClient.getLLMQueueStats().catch((): null => null), [apiClient]),
+    5000
+  );
+
   // Fetch sessions for nav badge
   const { data: sessions } = useApiData(
     useCallback((): Promise<any[]> => apiClient.listSessions().catch((): any[] => []), [apiClient]),
@@ -258,19 +386,25 @@ const ModelsScreen = ({ apiClient, onNavigate, onModelSelect, onQuit, initialSta
   return h(Box, { flexDirection: 'column', width: '100%', flexGrow: 1 },
     showChrome ? h(NavBar, { currentPage: 'models', sessionCount: sessionList.length, runningCount }) : null,
 
-    // Main content: Status | Providers | Model List
-    h(Box, { flexDirection: 'row', flexGrow: 1, width: '100%' },
-      // Status panel (left, 30%)
-      h(Panel, { title: 'MODEL STATUS', width: '30%' },
+    // Row 1: Status | Metrics | Queue
+    h(Box, { flexDirection: 'row', width: '100%' },
+      h(Panel, { title: 'MODEL STATUS', width: '34%' },
         h(ModelStatusPanel, { health: llmHealth, llmStatus, tick }),
       ),
+      h(Panel, { title: 'METRICS', width: '34%' },
+        h(MetricsPanel, { stats: llmStats as Record<string, any> | null }),
+      ),
+      h(Panel, { title: 'QUEUE', flexGrow: 1 },
+        h(QueuePanel, { queue: queueStats as Record<string, any> | null }),
+      ),
+    ),
 
-      // Providers panel (center, 25%)
+    // Row 2: Providers | Model List
+    h(Box, { flexDirection: 'row', flexGrow: 1, width: '100%' },
       h(Panel, { title: 'PROVIDERS', width: '25%' },
         h(ProvidersPanel, { providers }),
       ),
 
-      // Model list (right, fills remaining)
       h(Panel, { title: 'AVAILABLE MODELS', flexGrow: 1 },
         h(Box, { flexDirection: 'column' },
           h(Box, { paddingLeft: 2, marginBottom: 1 },

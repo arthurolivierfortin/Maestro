@@ -51,9 +51,10 @@ interface AgentStatusProps {
   tick?: number;
   lastOutput?: string | null;
   repoPath?: string | null;
+  activeAgent?: string | null;
 }
 
-const AgentStatus = ({ agentState, sessionId, busy, tick = 0, lastOutput = null, repoPath = null }: AgentStatusProps) => {
+const AgentStatus = ({ agentState, sessionId, busy, tick = 0, lastOutput = null, repoPath = null, activeAgent = null }: AgentStatusProps) => {
   const state = STATE_DISPLAY[agentState] || STATE_DISPLAY.idle;
   const shortId = sessionId ? sessionId.substring(0, 8) : null;
 
@@ -88,6 +89,12 @@ const AgentStatus = ({ agentState, sessionId, busy, tick = 0, lastOutput = null,
             primary(shortId),
           )
         : muted('No active session'),
+      activeAgent && activeAgent !== 'system:maestro-assistant'
+        ? h(Text, null,
+            muted('Model: '),
+            T('magenta', activeAgent.replace(/^system:/, '')),
+          )
+        : null,
       busy
         ? h(Text, null,
             muted('  '),
@@ -215,6 +222,7 @@ interface AgentScreenProps {
   keyboardActive?: boolean;
   lastOutput?: string | null;
   repoPath?: string | null;
+  activeAgent?: string | null;
 }
 
 const AgentScreen = ({
@@ -229,6 +237,7 @@ const AgentScreen = ({
   keyboardActive,
   lastOutput = null,
   repoPath = null,
+  activeAgent = null,
 }: AgentScreenProps) => {
   const { stdout } = useStdout();
   const [showQuitConfirm, setShowQuitConfirm] = useState(false);
@@ -305,7 +314,7 @@ const AgentScreen = ({
 
     // Agent Status (title + 2 content lines + borders = 6)
     h(Panel, { title: 'AGENT STATUS', height: 6, width: '100%' },
-      h(AgentStatus, { agentState, sessionId, busy, tick, lastOutput, repoPath }),
+      h(AgentStatus, { agentState, sessionId, busy, tick, lastOutput, repoPath, activeAgent }),
     ),
 
     // Main content: Conversation | Actions

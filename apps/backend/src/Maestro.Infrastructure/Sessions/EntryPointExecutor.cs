@@ -931,7 +931,7 @@ public class EntryPointExecutor
                 if (hasBrBlockRef)
                 {
                     var branchId = branchNode.TryGetProperty("id", out var branchIdProp) ? branchIdProp.GetString() ?? branchName : branchName;
-                    var blockRefId = brBlockRefProp.GetString()!;
+                    var blockRefId = ResolveTemplate(brBlockRefProp.GetString()!, session);
                     AppendExecutionLog(session, "info", $"Conditional '{nodeId}': executing '{branchName}' branch → blockRef '{blockRefId}'");
                     output = await ExecuteBlockRefAsync(session, blockRefId, branchNode, workingDir, displayTree, branchId, previousOutput);
                     session.SetVariable($"_nodeResult_{branchId}", output ?? "");
@@ -1846,7 +1846,7 @@ public class EntryPointExecutor
         else if (phaseNode.TryGetProperty("blockRef", out var blockRefProp) && blockRefProp.ValueKind == JsonValueKind.String)
         {
             // Phase references an external block (e.g., an agent) — dispatch via BlockExecutorRegistry
-            var blockRefId = blockRefProp.GetString()!;
+            var blockRefId = ResolveTemplate(blockRefProp.GetString()!, session);
             lastOutput = await ExecuteBlockRefAsync(session, blockRefId, phaseNode, workingDir, displayTree, nodeId, previousOutput);
         }
 
@@ -2105,11 +2105,11 @@ public class EntryPointExecutor
         {
             if (nodeConfig.Value.TryGetProperty("blockRef", out var blockRefProp) && blockRefProp.ValueKind == JsonValueKind.String)
             {
-                resolvedBlockRef = blockRefProp.GetString();
+                resolvedBlockRef = ResolveTemplate(blockRefProp.GetString()!, session);
             }
             else if (nodeConfig.Value.TryGetProperty("blockId", out var blockIdProp) && blockIdProp.ValueKind == JsonValueKind.String)
             {
-                resolvedBlockRef = blockIdProp.GetString();
+                resolvedBlockRef = ResolveTemplate(blockIdProp.GetString()!, session);
                 _logger.LogWarning("Node '{NodeId}' uses deprecated 'blockId' — use 'blockRef' instead", nodeId);
             }
         }

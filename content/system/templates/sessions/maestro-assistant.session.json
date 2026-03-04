@@ -22,6 +22,7 @@
   },
   "variables": {
     "sessionMode": "assistant",
+    "_activeAgent": "system:maestro-assistant",
     "_activeConversation": "",
     "_conversations": [],
     "_blockOutputs": {},

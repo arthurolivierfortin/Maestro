@@ -75,17 +75,59 @@ public class LLMProviderService : ILLMProviderService
         }
     }
 
-    public Task<SystemCapabilities> GetSystemCapabilitiesAsync(CancellationToken ct = default)
+    public async Task<SystemCapabilities> GetSystemCapabilitiesAsync(CancellationToken ct = default)
     {
-        // System capabilities (GPU/VRAM info) are Python-specific.
-        // The .NET API manages provider routing, not hardware.
-        _logger?.LogDebug("GetSystemCapabilitiesAsync — not available via .NET API");
-        return Task.FromResult(new SystemCapabilities
+        // Try to read client-side detected capabilities from ~/.maestro/capabilities.json
+        try
         {
-            Platform = "dotnet",
+            var capFile = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+                ".maestro", "capabilities.json");
+
+            if (File.Exists(capFile))
+            {
+                var json = await File.ReadAllTextAsync(capFile, ct);
+                var caps = JsonSerializer.Deserialize<JsonElement>(json, _jsonOptions);
+
+                return new SystemCapabilities
+                {
+                    Platform = caps.TryGetProperty("platform", out var p) ? p.GetString() : "unknown",
+                    CudaAvailable = caps.TryGetProperty("cudaAvailable", out var ca) && ca.GetBoolean(),
+                    MpsAvailable = false,
+                    Gpu = caps.TryGetProperty("gpuName", out var gn) && gn.GetString() != null
+                        ? new GpuInfo
+                        {
+                            Available = caps.TryGetProperty("cudaAvailable", out var ga) && ga.GetBoolean(),
+                            Name = gn.GetString(),
+                            VramTotalGb = caps.TryGetProperty("vramMb", out var vm) ? vm.GetDouble() / 1024.0 : 0,
+                        }
+                        : null,
+                    Ram = caps.TryGetProperty("ramMb", out var rm)
+                        ? new RamInfo { TotalGb = rm.GetDouble() / 1024.0 }
+                        : null,
+                    Cpu = caps.TryGetProperty("cpuCores", out var cc)
+                        ? new CpuInfo
+                        {
+                            CoresLogical = cc.GetInt32(),
+                            Name = caps.TryGetProperty("cpuModel", out var cm) ? cm.GetString() : null,
+                        }
+                        : null,
+                };
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogDebug(ex, "Failed to read capabilities file");
+        }
+
+        // Fallback: no capabilities detected
+        _logger?.LogDebug("No capabilities file found at ~/.maestro/capabilities.json");
+        return new SystemCapabilities
+        {
+            Platform = $"{Environment.OSVersion.Platform}",
             CudaAvailable = false,
             MpsAvailable = false
-        });
+        };
     }
 
     public async Task<CompatibleModelsResponse> GetCompatibleModelsAsync(string? category = null, CancellationToken ct = default)
@@ -224,6 +266,138 @@ public class LLMProviderService : ILLMProviderService
             LoadTimeS = 0,
             Device = "managed"
         });
+    }
+
+    // ═══ Stats / Metrics — call LLM-Provider .NET endpoints ═══
+
+    public async Task<LLMProviderStats> GetStatsAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            var response = await _httpClient.GetAsync("/api/v1/stats", ct);
+            if (!response.IsSuccessStatusCode)
+                return new LLMProviderStats();
+
+            var json = await response.Content.ReadFromJsonAsync<JsonElement>(_jsonOptions, ct);
+            return MapStats(json);
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
+        {
+            _logger?.LogDebug(ex, "Stats endpoint unavailable");
+            return new LLMProviderStats();
+        }
+    }
+
+    public async Task<LLMQueueStats> GetQueueStatsAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            var response = await _httpClient.GetAsync("/api/v1/stats/queue", ct);
+            if (!response.IsSuccessStatusCode)
+                return new LLMQueueStats();
+
+            var json = await response.Content.ReadFromJsonAsync<JsonElement>(_jsonOptions, ct);
+            return new LLMQueueStats
+            {
+                ActiveModel = json.TryGetProperty("activeModel", out var am) ? am.GetString() : null,
+                Depth = json.TryGetProperty("depth", out var d) ? d.GetInt32() : 0,
+                AvgWaitMs = json.TryGetProperty("avgWaitMs", out var aw) ? aw.GetDouble() : 0,
+                TotalEnqueued = json.TryGetProperty("totalEnqueued", out var te) ? te.GetInt64() : 0,
+                TotalProcessed = json.TryGetProperty("totalProcessed", out var tp) ? tp.GetInt64() : 0,
+                DepthByModel = json.TryGetProperty("depthByModel", out var dbm)
+                    ? JsonSerializer.Deserialize<Dictionary<string, int>>(dbm.GetRawText(), _jsonOptions) ?? new()
+                    : new()
+            };
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
+        {
+            _logger?.LogDebug(ex, "Queue stats endpoint unavailable");
+            return new LLMQueueStats();
+        }
+    }
+
+    public async Task<List<LLMPerformanceProfile>> GetPerformanceProfilesAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            var response = await _httpClient.GetAsync("/api/v1/stats/performance", ct);
+            if (!response.IsSuccessStatusCode)
+                return new List<LLMPerformanceProfile>();
+
+            var profiles = await response.Content.ReadFromJsonAsync<List<JsonElement>>(_jsonOptions, ct);
+            return profiles?.Select(p => new LLMPerformanceProfile
+            {
+                Model = p.TryGetProperty("model", out var m) ? m.GetString() ?? "" : "",
+                RequestCount = p.TryGetProperty("requestCount", out var rc) ? rc.GetInt64() : 0,
+                AvgResponseTimeMs = p.TryGetProperty("avgResponseTimeMs", out var art) ? art.GetDouble() : 0,
+                AvgTokensPerRequest = p.TryGetProperty("avgTokensPerRequest", out var atr) ? atr.GetDouble() : 0,
+                AvgLoadTimeMs = p.TryGetProperty("avgLoadTimeMs", out var alt) ? alt.GetDouble() : 0,
+            }).ToList() ?? new List<LLMPerformanceProfile>();
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
+        {
+            _logger?.LogDebug(ex, "Performance profiles endpoint unavailable");
+            return new List<LLMPerformanceProfile>();
+        }
+    }
+
+    public async Task<List<LLMSwitchEvent>> GetSwitchDecisionsAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            var response = await _httpClient.GetAsync("/api/v1/stats/switching/decisions", ct);
+            if (!response.IsSuccessStatusCode)
+                return new List<LLMSwitchEvent>();
+
+            var events = await response.Content.ReadFromJsonAsync<List<JsonElement>>(_jsonOptions, ct);
+            return events?.Select(e => new LLMSwitchEvent
+            {
+                Timestamp = e.TryGetProperty("timestamp", out var ts) ? ts.GetString() ?? "" : "",
+                Action = e.TryGetProperty("action", out var a) ? a.GetString() ?? "" : "",
+                Target = e.TryGetProperty("target", out var t) ? t.GetString() ?? "" : "",
+                Score = e.TryGetProperty("score", out var s) ? s.GetDouble() : 0,
+                Reason = e.TryGetProperty("reason", out var r) ? r.GetString() : null,
+            }).ToList() ?? new List<LLMSwitchEvent>();
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
+        {
+            _logger?.LogDebug(ex, "Switch decisions endpoint unavailable");
+            return new List<LLMSwitchEvent>();
+        }
+    }
+
+    private static LLMProviderStats MapStats(JsonElement json)
+    {
+        var perModel = new List<PerModelStats>();
+        if (json.TryGetProperty("perModel", out var pm) && pm.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var item in pm.EnumerateArray())
+            {
+                perModel.Add(new PerModelStats
+                {
+                    Model = item.TryGetProperty("model", out var m) ? m.GetString() ?? "" : "",
+                    Requests = item.TryGetProperty("requests", out var r) ? r.GetInt64() : 0,
+                    AvgLatencyMs = item.TryGetProperty("avgLatencyMs", out var al) ? al.GetDouble() : 0,
+                    TotalTokens = item.TryGetProperty("totalTokens", out var tt) ? tt.GetInt64() : 0,
+                    Rpm = item.TryGetProperty("rpm", out var rpm) ? rpm.GetDouble() : 0,
+                });
+            }
+        }
+
+        return new LLMProviderStats
+        {
+            TotalRequests = json.TryGetProperty("totalRequests", out var tr) ? tr.GetInt64() : 0,
+            TotalErrors = json.TryGetProperty("totalErrors", out var te) ? te.GetInt64() : 0,
+            ErrorRate = json.TryGetProperty("errorRate", out var er) ? er.GetDouble() : 0,
+            PromptTokens = json.TryGetProperty("promptTokens", out var pt) ? pt.GetInt64() : 0,
+            CompletionTokens = json.TryGetProperty("completionTokens", out var ct2) ? ct2.GetInt64() : 0,
+            TotalTokens = json.TryGetProperty("totalTokens", out var tt2) ? tt2.GetInt64() : 0,
+            LatencyP50Ms = json.TryGetProperty("latencyP50Ms", out var p50) ? p50.GetDouble() : 0,
+            LatencyP95Ms = json.TryGetProperty("latencyP95Ms", out var p95) ? p95.GetDouble() : 0,
+            LatencyP99Ms = json.TryGetProperty("latencyP99Ms", out var p99) ? p99.GetDouble() : 0,
+            AvgLatencyMs = json.TryGetProperty("avgLatencyMs", out var avg) ? avg.GetDouble() : 0,
+            PerModel = perModel
+        };
     }
 }
 

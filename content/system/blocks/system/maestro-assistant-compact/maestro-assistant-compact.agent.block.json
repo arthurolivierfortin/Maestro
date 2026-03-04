@@ -1,0 +1,50 @@
+{
+  "id": "system:maestro-assistant-compact",
+  "name": "Maestro Assistant (Compact)",
+  "blockType": "agent",
+  "version": "1.0.0",
+  "isSystem": true,
+  "isAtomic": false,
+  "overridable": true,
+  "description": "Lightweight Maestro assistant for smaller or local models. Simplified prompt, fewer tools, lower resource usage. Same conversation pipeline as the full assistant.",
+
+  "inputs": [
+    { "id": "message", "type": "string", "required": true, "description": "User message to process" },
+    { "id": "repoPath", "type": "string", "required": false, "description": "Path to the user's project repository" },
+    { "id": "conversationHistory", "type": "string", "required": false, "description": "JSON array of previous conversation turns" }
+  ],
+  "outputs": [
+    { "id": "result", "type": "string", "description": "Summary of what was accomplished or the response to the user" }
+  ],
+
+  "config": {
+    "maxIterations": 5,
+    "wallClockTimeoutSeconds": 300,
+    "systemPromptFile": "system-prompt.md",
+    "context": {
+      "strategy": "sliding-window",
+      "maxTokens": 8192,
+      "keepSystemPrompt": true,
+      "keepLastN": 10
+    },
+    "nodes": [
+      {
+        "id": "reasoning",
+        "blockRef": "inference",
+        "config": {
+          "model": "local",
+          "maxTokens": 2048,
+          "temperature": 0.1
+        }
+      }
+    ]
+  },
+
+  "metadata": {
+    "author": "system",
+    "category": "core",
+    "designation": "orchestrator",
+    "tags": ["assistant", "tui", "core", "compact", "local", "system"],
+    "tier": 2
+  }
+}

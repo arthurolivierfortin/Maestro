@@ -142,6 +142,62 @@ public class ProviderController : ControllerBase
         }
     }
 
+    [HttpGet("stats")]
+    public async Task<ActionResult<LLMProviderStats>> GetStats(CancellationToken ct)
+    {
+        try
+        {
+            var stats = await _llmService.GetStatsAsync(ct);
+            return Ok(stats);
+        }
+        catch (LLMProviderUnavailableException ex)
+        {
+            return StatusCode(503, new { error = "LLM Provider is not running", details = ex.Message });
+        }
+    }
+
+    [HttpGet("stats/queue")]
+    public async Task<ActionResult<LLMQueueStats>> GetQueueStats(CancellationToken ct)
+    {
+        try
+        {
+            var stats = await _llmService.GetQueueStatsAsync(ct);
+            return Ok(stats);
+        }
+        catch (LLMProviderUnavailableException ex)
+        {
+            return StatusCode(503, new { error = "LLM Provider is not running", details = ex.Message });
+        }
+    }
+
+    [HttpGet("stats/performance")]
+    public async Task<ActionResult<List<LLMPerformanceProfile>>> GetPerformanceProfiles(CancellationToken ct)
+    {
+        try
+        {
+            var profiles = await _llmService.GetPerformanceProfilesAsync(ct);
+            return Ok(profiles);
+        }
+        catch (LLMProviderUnavailableException ex)
+        {
+            return StatusCode(503, new { error = "LLM Provider is not running", details = ex.Message });
+        }
+    }
+
+    [HttpGet("stats/switching")]
+    public async Task<ActionResult<List<LLMSwitchEvent>>> GetSwitchDecisions(CancellationToken ct)
+    {
+        try
+        {
+            var events = await _llmService.GetSwitchDecisionsAsync(ct);
+            return Ok(events);
+        }
+        catch (LLMProviderUnavailableException ex)
+        {
+            return StatusCode(503, new { error = "LLM Provider is not running", details = ex.Message });
+        }
+    }
+
     /// <summary>Get current active provider type.</summary>
     [HttpGet("active")]
     public ActionResult GetActiveProvider()

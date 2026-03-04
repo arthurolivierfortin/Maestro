@@ -52,7 +52,7 @@
       },
       {
         "id": "execute-agent",
-        "blockRef": "system:maestro-assistant",
+        "blockRef": "{{_activeAgent}}",
         "inputs": {
           "message": "{{message}}",
           "repoPath": "{{repoPath}}",

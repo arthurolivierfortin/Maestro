@@ -105,43 +105,101 @@
 
 ---
 
-### Phase 47+ : Futur
+### Phase 48 : Bug Fixes Dogfooding + Agent Local Model
 
-| Phase | Objectif |
-|-------|----------|
-| 47 | Catalogue communautaire (publier/importer blocks + docs + sandboxes) |
-| 48 | Auth et subscriptions |
-| 49 | Fitness Engine + Agent Evaluateur Autonome |
-| 50 | Agent Creator (meta-programmation — utilise l'evaluateur de 49) |
-| 51+ | Multi-domaine, self-improvement |
+**But** : Corriger les bugs critiques du dogfooding, dynamic blockRef, maestro-assistant-compact.
+
+| Sous-phase | Objectif | Effort |
+|------------|----------|--------|
+| 48-A | Bug fixes dogfooding (4 bugs) | 1h |
+| 48-B | Assistant local gratuit + dynamic blockRef | 2h |
+| 48-C | Diagnostic provider Claude Code CLI | 30min |
+
+---
+
+### Phase 49 : Hardware-Aware Setup, Agent Capabilities & Provider Metrics
+
+**But** : L'utilisateur arrive pour la premiere fois, voit ses capacites hardware, telecharge un modele local gratuit, et commence a utiliser Maestro en 5 minutes. Les capacites agent sont claires. La page Models retrouve la richesse du provider-monitor.
+
+| Sous-phase | Objectif | Effort |
+|------------|----------|--------|
+| 49-A | First-run hardware-aware + model download + CPU-only support | 3-4 jours |
+| 49-B | Modele de capacites agent (schema, tests, affichage TUI) | 2-3 jours |
+| 49-C | Restauration metriques provider (stats, queue, perf dans page Models) | 2-3 jours |
+
+**Analyse detaillee** : `docs/phases/PHASE-49/analysis.md`
+
+---
+
+### Phase 50 : Adapt Integration TUI + Fitness Engine Production
+
+**But** : `/adapt` dans le TUI, fitness multi-dimensionnel (formule PHILOSOPHY-V2), auto-adapt post-setup.
+
+| Sous-phase | Objectif | Effort |
+|------------|----------|--------|
+| 50-A | Adapt dans le TUI (/adapt, [A] dans Models) | 2-3 jours |
+| 50-B | Fitness multi-dimensionnel (P×S×W / costs^λ) + cascade evaluateurs | 2-3 jours |
+| 50-C | Auto-adapt propose apres le first-run | 1-2 jours |
+
+---
+
+### Phase 51 : Agent Creator — Meta-agent de creation d'agents
+
+**But** : `maestro create-agent --description "..."` — Maestro cree automatiquement le workflow complet.
+
+| Sous-phase | Objectif | Effort |
+|------------|----------|--------|
+| 51-A | Agent Creator workflow (5 sous-blocks, iteration, fitness gate) | 3-5 jours |
+| 51-B | Integration TUI (/create-agent) + CLI | 2-3 jours |
+| 51-C | 3 templates pre-construits + documentation | 2 jours |
+
+---
+
+### Phase 52 : Catalogue communautaire + Auth
+
+**But** : Publier et importer des blocks. Systeme d'auth et comptes.
+
+| Sous-phase | Objectif | Effort |
+|------------|----------|--------|
+| 52-A | Auth + comptes utilisateurs (JWT, local d'abord) | 3-5 jours |
+| 52-B | Catalogue backend (publish/search/import API) | 3-5 jours |
+| 52-C | TUI integration (local + community, filtrage hardware) | 2-3 jours |
+
+---
+
+### Phase 53+ : Self-Improvement — Maestro s'ameliore lui-meme
+
+**But** : Research Team workflow (observer → ameliorer → tester → publier). Workspace Orchestrator pour promotion automatique. L'Agent Creator s'ameliore lui-meme.
 
 ---
 
 ## Chaine de dependances
 
 ```
-44 Dogfooding Cantante (DONE)
- └→ 45-PREP Stabilisation essentielle (A FAIRE — 1 semaine)
-     └→ 45 Distribution (A FAIRE — 2 semaines)
-         └→ 46 Cantante v1 (premiere app Maestro publique)
-             └→ 47+ Catalogue, Auth, Fitness Engine...
+47 Integration Tests (DONE)
+ └→ 48 Bug fixes + dynamic blockRef + local agent (A FAIRE)
+     └→ 49 Hardware-aware setup + capabilities + metrics (A FAIRE)
+         └→ 50 Adapt TUI + fitness engine production
+             └→ 51 Agent Creator
+                 └→ 52 Catalogue communautaire + Auth
+                     └→ 53+ Self-improvement loop
 ```
 
 ## Features planifiees (TODOS)
 
 | Feature | Phase cible | Statut |
 |---------|-------------|--------|
-| Securite + conversations persistantes + slash commands | 45-PREP | A faire |
-| Agent quality (Claude Code parity) | 45-PREP | A faire |
-| npm packaging + global install + sidecar auto-start | 45 | A faire |
-| Onboarding premier lancement | 45 | A faire |
-| Documentation utilisateur | 45 | A faire |
-| Beta testing externe | 45 | A faire |
-| Cantante v1 | 46 | Futur |
-| Pages secondaires (Spaces, Foundry, Catalog, Models) | 46+ | Futur |
-| Foundry CRUD dans TUI | 46+ | Futur |
-| Fitness Engine + Agent Evaluateur | 49 | Futur |
-| Agent Creator | 50 | Futur |
+| Bug fixes dogfooding + dynamic blockRef | 48 | A faire |
+| Hardware-aware first-run + model download | 49-A | A faire |
+| Agent capabilities model + tests | 49-B | A faire |
+| Provider metrics restoration (page Models) | 49-C | A faire |
+| CPU-only support avec avertissement | 49-A | A faire |
+| Adapt dans le TUI (/adapt) | 50 | Planifie |
+| Fitness engine multi-dimensionnel | 50 | Planifie |
+| Agent Creator | 51 | Planifie |
+| Catalogue communautaire | 52 | Planifie |
+| Auth + comptes | 52 | Planifie |
+| Self-improvement | 53+ | Vision |
 
 ## Principes
 

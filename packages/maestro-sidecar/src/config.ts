@@ -1,5 +1,8 @@
 import * as path from 'path';
 import * as fs from 'fs';
+import { fileURLToPath } from 'url';
+
+const __sidecar_dirname = path.dirname(fileURLToPath(import.meta.url));
 
 /**
  * Detect the Maestro root directory.
@@ -7,7 +10,7 @@ import * as fs from 'fs';
  * Priority:
  * 1. Explicit path from options
  * 2. MAESTRO_ROOT environment variable
- * 3. Walk up from __dirname looking for apps/backend/
+ * 3. Walk up from this file's location looking for apps/backend/
  */
 export function detectMaestroRoot(explicit?: string): string {
   if (explicit) {
@@ -23,7 +26,7 @@ export function detectMaestroRoot(explicit?: string): string {
   }
 
   // Walk up from this file's location
-  let dir = __dirname;
+  let dir = __sidecar_dirname;
   for (let i = 0; i < 10; i++) {
     const candidate = path.join(dir, 'apps', 'backend');
     if (fs.existsSync(candidate)) return dir;

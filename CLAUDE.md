@@ -131,6 +131,7 @@ docs/
 | Document | When to read |
 |----------|-------------|
 | `docs/system/AGENT-PROTOCOL.md` | **Before executing ANY phase** |
+| `docs/system/TESTING-PROTOCOL.md` | **Before declaring ANY phase DONE** — 6 mandatory test layers |
 | `docs/system/PHASE-TEMPLATE.md` | **Before writing ANY phase plan** |
 | `docs/ROADMAP.md` | Current roadmap overview |
 | `docs/guides/users/full-pipeline.md` | **Before creating ANY block** |
@@ -165,15 +166,16 @@ powershell.exe -File C:\Meastro\dev-scripts\dev-start.ps1 -Stop
 
 ## Testing Requirements
 
+> **Testing Protocol (MANDATORY)**: `docs/system/TESTING-PROTOCOL.md` — 6 couches obligatoires, checklist de fin de phase, matrice par type de changement.
 > **Full guide**: `docs/guides/ai-agents/testing-strategy.md`
 
-1. Run tests **before** and **after** every significant change
-2. Verify builds: `dotnet build` (backend), `npm run build` (frontend)
-3. Verify API behavior with `curl` — **never claim "fixed" based on build success alone**
-4. For TUI changes: run `real-demo-check.cjs` and `test:visual`
-5. For maestro-code changes: run `npx tsc --noEmit` in `packages/maestro-code/` — type errors are bugs
+1. **Follow the Testing Protocol** — 6 layers: Type Check → Unit Tests → Visual Gate → Real Demo Check → Integration → E2E Dogfooding
+2. **Every feature MUST have tests** — no feature without at least one unit test
+3. Verify builds: `dotnet build` (backend), `npx tsc --noEmit` (TypeScript) — type errors are bugs
+4. **NEVER claim DONE without running ALL applicable layers** — see the matrix in `TESTING-PROTOCOL.md`
+5. For TUI changes: run `real-demo-check.cjs` AND `test:visual` — vitest alone is NOT sufficient
 6. For any setup/onboarding flow change: test the first-run flow (no `.maestro/`, no provider config)
-7. For dogfooding: follow `docs/guides/ai-agents/dogfooding-methodology.md` — **MUST include first-run flow test**
+7. For dogfooding: use e2e-tester sub-agent — **never dogfood your own changes** (bias)
 
 ## Common Pitfalls
 

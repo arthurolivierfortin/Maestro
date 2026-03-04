@@ -8,18 +8,18 @@
 // ── Catalog: 12 blocks ──────────────────────────────────────
 
 export const DEMO_BLOCKS = [
-  { id: 'code-analyzer', name: 'Code Analyzer', type: 'agent', designation: 'tool', isAtomic: false, version: '1.2.0', fitness: 0.87 },
-  { id: 'file-read', name: 'File Read', type: 'tool', designation: 'tool', isAtomic: true, version: '2.0.0', fitness: 0.95 },
-  { id: 'file-write', name: 'File Write', type: 'tool', designation: 'tool', isAtomic: true, version: '2.0.0', fitness: 0.93 },
-  { id: 'dev-orchestrator', name: 'Dev Orchestrator', type: 'agent', designation: 'agent', isAtomic: false, version: '3.1.0', fitness: 0.82 },
-  { id: 'json-validator', name: 'JSON Validator', type: 'validator', designation: 'tool', isAtomic: true, version: '1.0.0', fitness: 0.98 },
-  { id: 'task-planner', name: 'Task Planner', type: 'inference', designation: 'tool', isAtomic: true, version: '1.4.0', fitness: 0.79 },
-  { id: 'code-reviewer', name: 'Code Reviewer', type: 'agent', designation: 'agent', isAtomic: false, version: '2.0.0', fitness: 0.84 },
-  { id: 'test-runner', name: 'Test Runner', type: 'tool', designation: 'tool', isAtomic: true, version: '1.1.0', fitness: 0.91 },
-  { id: 'commit-helper', name: 'Commit Helper', type: 'tool', designation: 'tool', isAtomic: true, version: '1.0.0', fitness: 0.88 },
-  { id: 'refactor-agent', name: 'Refactor Agent', type: 'agent', designation: 'agent', isAtomic: false, version: '1.0.0', fitness: 0.76 },
-  { id: 'doc-generator', name: 'Doc Generator', type: 'inference', designation: 'tool', isAtomic: true, version: '1.2.0', fitness: 0.85 },
-  { id: 'autonomous-dev', name: 'Autonomous Dev', type: 'workflow', designation: 'workflow', isAtomic: false, version: '3.0.0', fitness: 0.80 },
+  { id: 'code-analyzer', name: 'Code Analyzer', type: 'agent', designation: 'tool', isAtomic: false, version: '1.2.0', fitness: 0.87, capabilities: ['analysis', 'ast', 'metrics'] },
+  { id: 'file-read', name: 'File Read', type: 'tool', designation: 'tool', isAtomic: true, version: '2.0.0', fitness: 0.95, capabilities: ['filesystem', 'read'] },
+  { id: 'file-write', name: 'File Write', type: 'tool', designation: 'tool', isAtomic: true, version: '2.0.0', fitness: 0.93, capabilities: ['filesystem', 'write'] },
+  { id: 'dev-orchestrator', name: 'Dev Orchestrator', type: 'agent', designation: 'agent', isAtomic: false, version: '3.1.0', fitness: 0.82, capabilities: ['orchestration', 'planning', 'git'] },
+  { id: 'json-validator', name: 'JSON Validator', type: 'validator', designation: 'tool', isAtomic: true, version: '1.0.0', fitness: 0.98, capabilities: ['validation', 'json'] },
+  { id: 'task-planner', name: 'Task Planner', type: 'inference', designation: 'tool', isAtomic: true, version: '1.4.0', fitness: 0.79, capabilities: ['nlp', 'inference', 'planning'] },
+  { id: 'code-reviewer', name: 'Code Reviewer', type: 'agent', designation: 'agent', isAtomic: false, version: '2.0.0', fitness: 0.84, capabilities: ['analysis', 'review'] },
+  { id: 'test-runner', name: 'Test Runner', type: 'tool', designation: 'tool', isAtomic: true, version: '1.1.0', fitness: 0.91, capabilities: ['shell', 'testing'] },
+  { id: 'commit-helper', name: 'Commit Helper', type: 'tool', designation: 'tool', isAtomic: true, version: '1.0.0', fitness: 0.88, capabilities: ['git', 'shell'] },
+  { id: 'refactor-agent', name: 'Refactor Agent', type: 'agent', designation: 'agent', isAtomic: false, version: '1.0.0', fitness: 0.76, capabilities: ['analysis', 'refactoring', 'ast'] },
+  { id: 'doc-generator', name: 'Doc Generator', type: 'inference', designation: 'tool', isAtomic: true, version: '1.2.0', fitness: 0.85, capabilities: ['nlp', 'inference'] },
+  { id: 'autonomous-dev', name: 'Autonomous Dev', type: 'workflow', designation: 'workflow', isAtomic: false, version: '3.0.0', fitness: 0.80, capabilities: ['workflow', 'orchestration', 'git', 'testing'] },
 ];
 
 // ── Spaces: repos, workspaces, sessions ─────────────────────

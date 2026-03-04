@@ -86,13 +86,18 @@ class SessionManager {
       const data = await fs.readFile(sessionFile, 'utf-8');
       const saved = JSON.parse(data);
       if (saved.sessionId) {
-        // Verify the session exists on the backend
+        // Verify the session exists on the backend AND is usable
         const existing = await this.client.getSession(saved.sessionId);
-        if (existing && existing.id) {
+        const deadStatuses = ['stopped', 'ended', 'error', 'completed'];
+        if (existing && existing.id && !deadStatuses.includes(existing.status)) {
           this.sessionId = existing.id;
           this.sessionReady = true;
           addLine({ text: `Session restored (${existing.id.slice(0, 8)})`, color: 'gray', timestamp: ts() });
           return;
+        }
+        // Session is dead — will create a new one below
+        if (existing && existing.id) {
+          addLine({ text: `Previous session ${existing.id.slice(0, 8)} is ${existing.status}, creating new one...`, color: 'yellow', dim: true, timestamp: ts() });
         }
       }
     } catch {
@@ -393,6 +398,12 @@ class SessionManager {
         // Global timeout
         if (elapsed > SessionManager.POLL_TIMEOUT_MS) {
           this.stopPolling();
+          // Mark in-progress nodes as failed so they show ✗ instead of …
+          for (const node of tree) {
+            if (node.status === 'running' || node.status === 'in-progress' || node.status === 'executing') {
+              reportNode(node.id || node.name, node.name || node.id, 'error', node);
+            }
+          }
           addLine({ text: '' });
           addLine({ text: 'The agent took too long to respond (5 min timeout).', color: 'yellow', bold: true, timestamp: ts() });
           addLine({ text: '  Try a simpler task or check that your LLM provider is responding.', color: 'yellow' });
@@ -637,6 +648,38 @@ class SessionManager {
       clearInterval(this.widgetPollTimer);
       this.widgetPollTimer = null;
     }
+  }
+
+  /**
+   * Set a session variable via the API.
+   */
+  async setVariable(name: string, value: any): Promise<void> {
+    if (!this.sessionId) return;
+    await this.client._fetch('PUT',
+      `/api/sessions/${this.sessionId}/variables/${name}`,
+      { body: { value } }
+    );
+  }
+
+  /**
+   * Get a session variable via the API.
+   */
+  async getVariable(name: string): Promise<any> {
+    if (!this.sessionId) return undefined;
+    try {
+      const resp: any = await this.client._fetch('GET',
+        `/api/sessions/${this.sessionId}/variables/${name}`);
+      return resp?.value;
+    } catch { return undefined; }
+  }
+
+  /**
+   * Force-reset session state so the next submitTask creates a fresh session.
+   * Used by /new when the current session is dead.
+   */
+  resetSession(): void {
+    this.sessionId = null;
+    this.sessionReady = false;
   }
 
   /**

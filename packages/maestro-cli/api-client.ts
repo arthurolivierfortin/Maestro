@@ -125,6 +125,10 @@ class MaestroApiClient {
   async saveAzureConfig(config: any) { return this._client.llm.saveAzureConfig(config); }
   async testAzureConnection(config: any = {}) { return this._client.llm.testAzureConnection(config); }
   async chatCompletion(messages: any[], options: any = {}) { return this._client.llm.complete(messages, options); }
+  async getLLMStats() { return this._client.llm.stats(); }
+  async getLLMQueueStats() { return this._client.llm.queueStats(); }
+  async getLLMPerformanceProfiles() { return this._client.llm.performanceProfiles(); }
+  async getLLMSwitchDecisions() { return this._client.llm.switchDecisions(); }
 
   // ── Metrics ──
   async listExecutionMetrics(filter: any = {}) { return this._client.metrics.executions(filter); }

@@ -49,9 +49,10 @@ L'agent execute UNE sous-phase a la fois, dans l'ordre. Pour chaque sous-phase :
 - Si une instruction est ambigue, chercher dans le code AVANT de deviner
 
 ### 2c. Verifier
-- Executer TOUTES les commandes de verification listees dans la sous-phase
-- Copier-coller le resultat dans le checkpoint
+- Executer TOUTES les couches de test definies dans `docs/system/TESTING-PROTOCOL.md`
+- Copier-coller le resultat dans le checkpoint (utiliser la checklist du Testing Protocol)
 - **REGLE ABSOLUE** : Si la verification echoue, la sous-phase est BLOQUEE, pas DONE
+- **REGLE ABSOLUE** : Chaque feature ajoutee DOIT avoir au minimum un test unitaire
 
 ### 2d. Checkpointer
 - Ecrire/mettre a jour `docs/phases/PHASE-XX/checkpoint.md` (voir Regle 3)

@@ -306,6 +306,7 @@ const App = ({ apiClient: clientProp, sessionManager: smProp, demoMode, repoPath
   ]);
   const [busy, setBusy] = useState(false);
   const [agentState, setAgentState] = useState<'idle' | 'working' | 'completed' | 'error'>('idle');
+  const [activeAgent, setActiveAgent] = useState<string | null>(null);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [pendingInteractive, setPendingInteractive] = useState<Widget | null>(null);
   const [currentWidget, setCurrentWidget] = useState<Widget | null>(null);
@@ -500,6 +501,7 @@ const App = ({ apiClient: clientProp, sessionManager: smProp, demoMode, repoPath
       addLine({ text: '  /clear   — Clear conversation and start fresh', color: 'white' });
       addLine({ text: '  /stop    — Cancel the current task', color: 'white' });
       addLine({ text: '  /purge   — Delete all idle/completed sessions', color: 'white' });
+      addLine({ text: '  /agent   — Show or switch active agent (/agent compact)', color: 'white' });
       addLine({ text: '  /quit    — Quit Maestro Code', color: 'white' });
       addLine({ text: '' });
       addLine({ text: 'Keyboard:', color: 'cyan', bold: true });
@@ -514,15 +516,15 @@ const App = ({ apiClient: clientProp, sessionManager: smProp, demoMode, repoPath
     },
     '/new': () => {
       if (!sessionManager) return;
-      addLine({ text: '' });
-      addLine({ text: 'Starting new conversation...', color: 'cyan', timestamp: ts() });
-      sessionManager.invokeEntryPoint('new-conversation', addLine).then(() => {
-        setLines([
-          { text: 'Maestro Code', color: 'cyan', bold: true },
-          { text: 'New conversation started.', color: 'green' },
-          { text: '' },
-        ]);
-      });
+      // Reset session so next message creates a fresh one (handles dead sessions)
+      sessionManager.resetSession();
+      setAgentState('idle');
+      setCurrentSessionId(null);
+      setLines([
+        { text: 'Maestro Code', color: 'cyan', bold: true },
+        { text: 'New conversation started.', color: 'green' },
+        { text: '' },
+      ]);
     },
     '/clear': () => {
       if (!sessionManager) return;
@@ -597,6 +599,40 @@ const App = ({ apiClient: clientProp, sessionManager: smProp, demoMode, repoPath
     // Slash commands — dispatch via map
     const cmd = slashCommands[trimmed];
     if (cmd) { cmd(); return; }
+
+    // Parametric slash commands (e.g. /agent compact)
+    if (trimmed.startsWith('/agent')) {
+      const arg = input.trim().slice(6).trim(); // preserve original case for block IDs
+      if (!arg) {
+        // Show current agent
+        if (sessionManager) {
+          sessionManager.getVariable('_activeAgent').then((v: any) => {
+            addLine({ text: '' });
+            addLine({ text: `Active agent: ${v || 'system:maestro-assistant (default)'}`, color: 'cyan', timestamp: ts() });
+            addLine({ text: '' });
+          });
+        } else {
+          addLine({ text: 'No session manager available.', color: 'yellow', timestamp: ts() });
+        }
+      } else {
+        // Switch agent — resolve shorthand to full block ID
+        const blockId = arg.includes(':') ? arg : `system:maestro-assistant-${arg}`;
+        const label = arg === 'default' ? 'system:maestro-assistant' : blockId;
+        const resolvedId = arg === 'default' ? 'system:maestro-assistant' : blockId;
+        if (sessionManager) {
+          sessionManager.setVariable('_activeAgent', resolvedId).then(() => {
+            setActiveAgent(resolvedId);
+            addLine({ text: '' });
+            addLine({ text: `Switched agent to: ${label}`, color: 'green', bold: true, timestamp: ts() });
+            addLine({ text: '  Next message will use this agent.', color: 'gray' });
+            addLine({ text: '' });
+          }).catch((err: any) => {
+            addLine({ text: `Error switching agent: ${err.message}`, color: 'red', timestamp: ts() });
+          });
+        }
+      }
+      return;
+    }
 
     // Push to input history
     history.push(input);
@@ -765,6 +801,7 @@ const App = ({ apiClient: clientProp, sessionManager: smProp, demoMode, repoPath
           keyboardActive: !inputFocused,
           lastOutput: sessionManager?.getLastOutput() || null,
           repoPath: sessionManager?.getRepoPath() || repoPath || null,
+          activeAgent,
         });
         break;
       case 'spaces':

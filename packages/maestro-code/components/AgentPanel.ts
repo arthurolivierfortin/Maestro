@@ -19,6 +19,7 @@ export interface AgentPanelProps {
   lines: LogLine[];
   agentState: 'idle' | 'working' | 'completed' | 'error';
   sessionId: string | null;
+  activeAgent?: string | null;
 }
 
 const STATE_DISPLAY = {
@@ -28,9 +29,13 @@ const STATE_DISPLAY = {
   error: { icon: '✗', color: 'red', label: 'error' },
 };
 
-const AgentPanel = ({ lines, agentState, sessionId }: AgentPanelProps) => {
+const AgentPanel = ({ lines, agentState, sessionId, activeAgent }: AgentPanelProps) => {
   const state = STATE_DISPLAY[agentState] || STATE_DISPLAY.idle;
   const shortId = sessionId ? sessionId.substring(0, 8) : null;
+  // Show short agent name (strip "system:" prefix for display)
+  const agentLabel = activeAgent && activeAgent !== 'system:maestro-assistant'
+    ? activeAgent.replace(/^system:/, '')
+    : null;
 
   return h(Box, { flexDirection: 'column', width: '100%', flexGrow: 1 },
     // State badge line
@@ -38,6 +43,9 @@ const AgentPanel = ({ lines, agentState, sessionId }: AgentPanelProps) => {
       h(Text, { color: state.color }, `${state.icon} ${state.label}`),
       shortId
         ? h(Text, { color: 'gray', dimColor: true }, `  session:${shortId}`)
+        : null,
+      agentLabel
+        ? h(Text, { color: 'magenta', dimColor: true }, `  agent:${agentLabel}`)
         : null,
     ),
 

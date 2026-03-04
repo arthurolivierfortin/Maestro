@@ -15,4 +15,10 @@ public interface ILLMProviderService
     Task<RegistryModelsResponse> GetRegistryModelsAsync(string? category = null, CancellationToken ct = default);
     Task<SwitchModelResult> SwitchModelAsync(string modelId, bool use8bit = false, CancellationToken ct = default);
     Task<LoadModelResult> LoadModelAsync(string modelId, bool use8bit = false, CancellationToken ct = default);
+
+    // Stats / metrics
+    Task<LLMProviderStats> GetStatsAsync(CancellationToken ct = default);
+    Task<LLMQueueStats> GetQueueStatsAsync(CancellationToken ct = default);
+    Task<List<LLMPerformanceProfile>> GetPerformanceProfilesAsync(CancellationToken ct = default);
+    Task<List<LLMSwitchEvent>> GetSwitchDecisionsAsync(CancellationToken ct = default);
 }

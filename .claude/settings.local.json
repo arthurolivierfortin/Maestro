@@ -11,7 +11,9 @@
       "mcp__tui-dogfood__tui_kill",
       "mcp__tui-dogfood__tui_stable",
       "mcp__tui-dogfood__tui_note",
-      "mcp__tui-dogfood__tui_report"
+      "mcp__tui-dogfood__tui_report",
+      "mcp__tui-dogfood__tui_type",
+      "mcp__tui-dogfood__tui_wait"
     ],
     "additionalDirectories": [
       "C:\\Meastro\\llm-provider",

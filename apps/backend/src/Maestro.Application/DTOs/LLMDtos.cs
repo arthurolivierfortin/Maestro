@@ -177,6 +177,60 @@ public record LoadModelResult
     public List<string> Capabilities { get; init; } = new();
 }
 
+// ═══ LLM PROVIDER STATS ═══
+
+public record LLMProviderStats
+{
+    public long TotalRequests { get; init; }
+    public long TotalErrors { get; init; }
+    public double ErrorRate { get; init; }
+    public long PromptTokens { get; init; }
+    public long CompletionTokens { get; init; }
+    public long TotalTokens { get; init; }
+    public double LatencyP50Ms { get; init; }
+    public double LatencyP95Ms { get; init; }
+    public double LatencyP99Ms { get; init; }
+    public double AvgLatencyMs { get; init; }
+    public List<PerModelStats> PerModel { get; init; } = new();
+}
+
+public record PerModelStats
+{
+    public string Model { get; init; } = string.Empty;
+    public long Requests { get; init; }
+    public double AvgLatencyMs { get; init; }
+    public long TotalTokens { get; init; }
+    public double Rpm { get; init; }
+}
+
+public record LLMQueueStats
+{
+    public string? ActiveModel { get; init; }
+    public int Depth { get; init; }
+    public double AvgWaitMs { get; init; }
+    public long TotalEnqueued { get; init; }
+    public long TotalProcessed { get; init; }
+    public Dictionary<string, int> DepthByModel { get; init; } = new();
+}
+
+public record LLMPerformanceProfile
+{
+    public string Model { get; init; } = string.Empty;
+    public long RequestCount { get; init; }
+    public double AvgResponseTimeMs { get; init; }
+    public double AvgTokensPerRequest { get; init; }
+    public double AvgLoadTimeMs { get; init; }
+}
+
+public record LLMSwitchEvent
+{
+    public string Timestamp { get; init; } = string.Empty;
+    public string Action { get; init; } = string.Empty;
+    public string Target { get; init; } = string.Empty;
+    public double Score { get; init; }
+    public string? Reason { get; init; }
+}
+
 // ═══ CHAT REQUEST/RESPONSE ═══
 
 public record ChatCompletionRequest

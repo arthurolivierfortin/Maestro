@@ -43,6 +43,7 @@ export interface BlockDefinition {
   version: string;
   isAtomic: boolean;
   description?: string;
+  capabilities?: string[];
   inputs?: BlockPort[];
   outputs?: BlockPort[];
   config?: Record<string, unknown>;
@@ -199,6 +200,53 @@ export interface LLMModel {
   quantizationRequired?: string;
   vramRequired?: number;
   isLocal?: boolean;
+}
+
+export interface LLMProviderStats {
+  totalRequests: number;
+  totalErrors: number;
+  errorRate: number;
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+  latencyP50Ms: number;
+  latencyP95Ms: number;
+  latencyP99Ms: number;
+  avgLatencyMs: number;
+  perModel: PerModelStats[];
+}
+
+export interface PerModelStats {
+  model: string;
+  requests: number;
+  avgLatencyMs: number;
+  totalTokens: number;
+  rpm: number;
+}
+
+export interface LLMQueueStats {
+  activeModel?: string | null;
+  depth: number;
+  avgWaitMs: number;
+  totalEnqueued: number;
+  totalProcessed: number;
+  depthByModel: Record<string, number>;
+}
+
+export interface LLMPerformanceProfile {
+  model: string;
+  requestCount: number;
+  avgResponseTimeMs: number;
+  avgTokensPerRequest: number;
+  avgLoadTimeMs: number;
+}
+
+export interface LLMSwitchEvent {
+  timestamp: string;
+  action: string;
+  target: string;
+  score: number;
+  reason?: string | null;
 }
 
 export interface LLMCompletionRequest {
