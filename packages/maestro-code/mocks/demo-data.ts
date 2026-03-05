@@ -20,6 +20,8 @@ export const DEMO_BLOCKS = [
   { id: 'refactor-agent', name: 'Refactor Agent', type: 'agent', designation: 'agent', isAtomic: false, version: '1.0.0', fitness: 0.76, capabilities: ['analysis', 'refactoring', 'ast'] },
   { id: 'doc-generator', name: 'Doc Generator', type: 'inference', designation: 'tool', isAtomic: true, version: '1.2.0', fitness: 0.85, capabilities: ['nlp', 'inference'] },
   { id: 'autonomous-dev', name: 'Autonomous Dev', type: 'workflow', designation: 'workflow', isAtomic: false, version: '3.0.0', fitness: 0.80, capabilities: ['workflow', 'orchestration', 'git', 'testing'] },
+  { id: 'system:maestro-assistant', name: 'Maestro Assistant', type: 'agent', designation: 'orchestrator', isAtomic: false, version: '1.0.0', fitness: 0.95, capabilities: ['conversation', 'tool-calling', 'structured-output', 'long-context', 'orchestration'], contract: 'maestro-assistant' },
+  { id: 'system:maestro-assistant-compact', name: 'Maestro Assistant (Compact)', type: 'agent', designation: 'orchestrator', isAtomic: false, version: '1.0.0', fitness: 0.65, capabilities: ['conversation'], contract: 'maestro-assistant' },
 ];
 
 // ── Spaces: repos, workspaces, sessions ─────────────────────

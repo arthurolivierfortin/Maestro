@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * Phase 39: maestro adapt + maestro optimize
  *
@@ -6,9 +5,75 @@
  * Uses sandbox foundry (Phase 38) for reproducible fitness measurement.
  */
 
+/* eslint-disable @typescript-eslint/no-var-requires */
 const fs = require('fs');
 const path = require('path');
 const { SandboxManager } = require('./sandbox-manager.ts');
+
+// ── Minimal type declarations for CJS imports ──────────────────
+
+interface SandboxCheckpoint {
+  id: string;
+  description?: string;
+  git_ref?: string;
+}
+
+interface SandboxImage {
+  id: string;
+  type: string;
+  source_path: string;
+  checkpoints: SandboxCheckpoint[];
+}
+
+interface SandboxManagerInstance {
+  get(id: string): SandboxImage | null;
+  provisionWorktree(sandboxId: string, checkpointId: string): string;
+  destroyWorktree(sourceRepo: string, worktreePath: string): void;
+}
+
+/** Minimal API client interface used by adapt-optimize functions. */
+interface AdaptClient {
+  getBlock(id: string): Promise<Record<string, unknown>>;
+  listLLMModels(): Promise<{ models?: LLMModelInfo[] } | LLMModelInfo[]>;
+  executeWorkflow(id: string, opts: { inputs: Record<string, unknown>; workingDirectory: string }): Promise<ExecutionResult>;
+  _fetch(method: string, path: string, options?: { body?: unknown }): Promise<Record<string, unknown>>;
+}
+
+interface LLMModelInfo {
+  modelId?: string;
+  id?: string;
+  provider?: string;
+  providerType?: string;
+  isLocal?: boolean;
+  parametersB?: number;
+  parametersBillions?: number;
+  costPerMillionInputTokens?: number;
+  averageCostPerMillion?: number;
+}
+
+interface ExecutionResult {
+  success: boolean;
+  totalTokens?: number;
+  estimatedCostUsd?: number;
+  [key: string]: unknown;
+}
+
+/** CLI color utilities interface. */
+interface CliColors {
+  boldColor(color: string, text: string): string;
+  bold(text: string): string;
+  gray(text: string): string;
+  ok(text: string): string;
+  fail(text: string): string;
+}
+
+interface StrategyOptions {
+  threshold?: number;
+  checkpoints?: string;
+  inputKey?: string;
+  extraInputs?: Record<string, string>;
+  [key: string]: unknown;
+}
 
 // ── Types ───────────────────────────────────────────────────────
 
@@ -75,7 +140,7 @@ interface OptimizationResult {
  * Recursively extract model requirements from a block and its children.
  * Handles both atomic agents (config.model) and composite agents/workflows (config.nodes[].config.model + blockRef).
  */
-async function extractManifest(blockId: string, client: any, visited = new Set<string>()): Promise<BlockManifest> {
+async function extractManifest(blockId: string, client: AdaptClient, visited = new Set<string>()): Promise<BlockManifest> {
   if (visited.has(blockId)) {
     return { blockId, blockType: 'ref', model: null, planningModel: null, childBlocks: [] };
   }
@@ -88,15 +153,15 @@ async function extractManifest(blockId: string, client: any, visited = new Set<s
     return { blockId, blockType: 'unknown', model: null, planningModel: null, childBlocks: [] };
   }
 
-  const config = block.config || {};
+  const config = (block.config || {}) as Record<string, any>;
   const model = config.model || null;
   const planningModel = config.planningModel || null;
   const childBlocks: BlockManifest[] = [];
 
   // Composite: walk config.nodes for inline models and blockRefs
-  const nodes = config.nodes || [];
+  const nodes: Record<string, any>[] = config.nodes || [];
   for (const node of nodes) {
-    const nodeConfig = node.config || {};
+    const nodeConfig = (node.config || {}) as Record<string, any>;
     if (nodeConfig.model || nodeConfig.planningModel) {
       // Inline model override in a node
       childBlocks.push({
@@ -227,12 +292,12 @@ function collectModelBlocks(manifest: BlockManifest): Array<{ blockId: string; m
 /**
  * Detect which models are available via LLM-Provider.
  */
-async function detectModels(requiredModels: string[], client: any): Promise<ModelAvailability[]> {
-  let availableModels: any[] = [];
+async function detectModels(requiredModels: string[], client: AdaptClient): Promise<ModelAvailability[]> {
+  let availableModels: LLMModelInfo[] = [];
   try {
     const response = await client.listLLMModels();
-    availableModels = response?.models || response || [];
-    if (!Array.isArray(availableModels)) availableModels = [];
+    const raw = Array.isArray(response) ? response : ((response as { models?: LLMModelInfo[] })?.models || []);
+    availableModels = Array.isArray(raw) ? raw : [];
   } catch {
     // LLM-Provider not running — nothing available
   }
@@ -261,10 +326,10 @@ async function detectModels(requiredModels: string[], client: any): Promise<Mode
 /**
  * Get all available models from LLM-Provider (not filtered).
  */
-async function getAllAvailableModels(client: any): Promise<any[]> {
+async function getAllAvailableModels(client: AdaptClient): Promise<LLMModelInfo[]> {
   try {
     const response = await client.listLLMModels();
-    const models = response?.models || response || [];
+    const models = Array.isArray(response) ? response : ((response as { models?: LLMModelInfo[] })?.models || []);
     return Array.isArray(models) ? models : [];
   } catch {
     return [];
@@ -329,28 +394,28 @@ function findBlocksRoot(): string {
  *
  * After the function completes (or errors), the variant file is deleted.
  */
-async function withBlockVariant(
+async function withBlockVariant<T>(
   blockId: string,
-  mutations: { [key: string]: any },
-  client: any,
-  fn: (variantId: string) => Promise<any>,
+  mutations: Record<string, unknown>,
+  client: AdaptClient,
+  fn: (variantId: string) => Promise<T>,
   options: { skipDiscovery?: boolean } = {}
-): Promise<any> {
+): Promise<T> {
   // Fetch original block
   const original = await client.getBlock(blockId);
   const variantId = `${blockId}--variant-${Date.now()}`;
 
   // Deep clone and apply mutations
-  const variant = JSON.parse(JSON.stringify(original));
+  const variant: Record<string, any> = JSON.parse(JSON.stringify(original));
   variant.id = variantId;
   variant.name = `${variant.name} (variant)`;
 
   for (const [key, value] of Object.entries(mutations)) {
     const parts = key.split('.');
-    let target = variant;
+    let target: Record<string, any> = variant;
     for (let i = 0; i < parts.length - 1; i++) {
       if (!target[parts[i]]) target[parts[i]] = {};
-      target = target[parts[i]];
+      target = target[parts[i]] as Record<string, any>;
     }
     target[parts[parts.length - 1]] = value;
   }
@@ -382,7 +447,7 @@ async function withBlockVariant(
   try {
     fs.writeFileSync(variantFile, JSON.stringify(variant, null, 2));
   } catch (err) {
-    throw new Error(`Failed to write variant block file: ${err.message}`);
+    throw new Error(`Failed to write variant block file: ${(err as Error).message}`);
   }
 
   // Wait for FileSystemWatcher to discover the new block file.
@@ -431,15 +496,15 @@ async function withBlockVariant(
 async function measureFitness(
   blockId: string,
   sandboxId: string,
-  client: any,
+  client: AdaptClient,
   options: {
     checkpoints?: string;
     inputKey?: string;
-    extraInputs?: { [key: string]: string };
+    extraInputs?: Record<string, string>;
     silent?: boolean;
   } = {}
 ): Promise<{ fitness: number; passed: number; total: number; duration: number; tokens: number; cost: number }> {
-  const sandbox = new SandboxManager(process.cwd());
+  const sandbox: SandboxManagerInstance = new SandboxManager(process.cwd());
   const image = sandbox.get(sandboxId);
   if (!image) throw new Error(`Sandbox '${sandboxId}' not found`);
 
@@ -459,7 +524,7 @@ async function measureFitness(
   let totalCost = 0;
 
   // Fetch block to check type
-  let block;
+  let block: Record<string, unknown>;
   try {
     block = await client._fetch('GET', `/api/blocks/${blockId}`);
   } catch {
@@ -470,16 +535,16 @@ async function measureFitness(
     let worktreePath: string | null = null;
     try {
       worktreePath = sandbox.provisionWorktree(sandboxId, cp.id);
-      const inputs = { ...extraInputs, [inputKey]: worktreePath };
+      const inputs: Record<string, unknown> = { ...extraInputs, [inputKey]: worktreePath };
       const startTime = Date.now();
 
-      let result;
+      let result: ExecutionResult;
       if (block.blockType === 'workflow') {
         result = await client.executeWorkflow(blockId, { inputs, workingDirectory: worktreePath });
       } else {
         result = await client._fetch('POST', `/api/blocks/${blockId}/execute`, {
           body: { inputs, workingDirectory: worktreePath }
-        });
+        }) as ExecutionResult;
       }
 
       const duration = Date.now() - startTime;
@@ -511,8 +576,8 @@ async function measureFitness(
 async function maestroAdapt(
   workflowId: string,
   sandboxId: string,
-  client: any,
-  c: any,
+  client: AdaptClient,
+  c: CliColors,
   options: {
     threshold?: number;
     checkpoints?: string;
@@ -520,7 +585,7 @@ async function maestroAdapt(
     save?: boolean;
     jsonMode?: boolean;
     inputKey?: string;
-    extraInputs?: { [key: string]: string };
+    extraInputs?: Record<string, string>;
   } = {}
 ): Promise<AdaptResult | null> {
   const threshold = options.threshold ?? 0.80;
@@ -577,15 +642,15 @@ async function maestroAdapt(
 
   for (const { blockId, model: originalModel } of modelBlocks) {
     // Find candidate models (available, different from original)
-    const candidates = allModels.filter(m => {
-      const mId = m.modelId || m.id;
+    const candidates = allModels.filter((m: LLMModelInfo) => {
+      const mId = m.modelId || m.id || '';
       return mId && mId !== originalModel && !originalModel.startsWith(mId) && !mId.startsWith(originalModel);
     });
 
     if (candidates.length === 0) continue;
 
     for (const candidate of candidates.slice(0, 3)) { // Test up to 3 alternatives per block
-      const candidateId = candidate.modelId || candidate.id;
+      const candidateId = candidate.modelId || candidate.id || '';
       process.stdout.write(`    ${blockId.padEnd(24)} ${originalModel} → ${candidateId}... `);
 
       try {
@@ -619,7 +684,7 @@ async function maestroAdapt(
         // If this candidate was accepted, skip testing more for this block
         if (accepted) break;
       } catch (err) {
-        console.log(`${c.fail('ERROR')} ${c.gray(err.message?.substring(0, 50) || 'unknown')}`);
+        console.log(`${c.fail('ERROR')} ${c.gray((err as Error).message?.substring(0, 50) || 'unknown')}`);
         substitutions.push({
           blockId,
           originalModel,
@@ -690,10 +755,10 @@ async function maestroAdapt(
 async function saveAdaptedWorkflow(
   workflowId: string,
   overrides: { [blockId: string]: { model: string } },
-  client: any
+  client: AdaptClient
 ): Promise<string> {
   const original = await client.getBlock(workflowId);
-  const adapted = JSON.parse(JSON.stringify(original));
+  const adapted: Record<string, any> = JSON.parse(JSON.stringify(original));
   adapted.id = `${workflowId}-adapted`;
   adapted.name = `${adapted.name} (Adapted)`;
   adapted.metadata = adapted.metadata || {};
@@ -714,7 +779,7 @@ async function saveAdaptedWorkflow(
   return outputPath;
 }
 
-function applyOverridesToNodes(nodes: any[], overrides: { [blockId: string]: { model: string } }) {
+function applyOverridesToNodes(nodes: Record<string, any>[], overrides: { [blockId: string]: { model: string } }) {
   for (const node of nodes) {
     if (node.blockRef && overrides[node.blockRef]) {
       if (!node.config) node.config = {};
@@ -735,12 +800,13 @@ function applyOverridesToNodes(nodes: any[], overrides: { [blockId: string]: { m
 async function strategyModelDowngrade(
   blockId: string,
   sandboxId: string,
-  client: any,
-  c: any,
-  options: any
+  client: AdaptClient,
+  c: CliColors,
+  options: StrategyOptions
 ): Promise<OptimizationResult> {
   const block = await client.getBlock(blockId);
-  const originalModel = block.config?.model;
+  const config = block.config as Record<string, unknown> | undefined;
+  const originalModel = config?.model as string | undefined;
   if (!originalModel) {
     throw new Error(`Block '${blockId}' has no config.model — nothing to downgrade`);
   }
@@ -761,18 +827,18 @@ async function strategyModelDowngrade(
 
   // Sort models by cost (cheapest first), filter out current
   const sorted = allModels
-    .filter(m => {
-      const mId = m.modelId || m.id;
+    .filter((m: LLMModelInfo) => {
+      const mId = m.modelId || m.id || '';
       return mId && mId !== originalModel && !originalModel.startsWith(mId) && !mId.startsWith(originalModel);
     })
-    .sort((a, b) => {
+    .sort((a: LLMModelInfo, b: LLMModelInfo) => {
       const costA = a.costPerMillionInputTokens || a.averageCostPerMillion || 999;
       const costB = b.costPerMillionInputTokens || b.averageCostPerMillion || 999;
       return costA - costB;
     });
 
   for (const model of sorted.slice(0, 5)) { // Test up to 5 models
-    const modelId = model.modelId || model.id;
+    const modelId = model.modelId || model.id || '';
     process.stdout.write(`    ${c.gray('Testing')} ${modelId}... `);
 
     try {
@@ -808,7 +874,7 @@ async function strategyModelDowngrade(
     }
   }
 
-  const best = candidates.filter(c => c.accepted).sort((a, b) => b.fitness - a.fitness)[0] || null;
+  const best = candidates.filter(cand => cand.accepted).sort((a, b) => b.fitness - a.fitness)[0] || null;
 
   return {
     strategyId: 'model-downgrade',
@@ -823,13 +889,14 @@ async function strategyModelDowngrade(
 async function strategyTemperatureTuning(
   blockId: string,
   sandboxId: string,
-  client: any,
-  c: any,
-  options: any
+  client: AdaptClient,
+  c: CliColors,
+  options: StrategyOptions
 ): Promise<OptimizationResult> {
   const block = await client.getBlock(blockId);
-  const originalModel = block.config?.model || 'unknown';
-  const currentTemp = block.config?.temperature ?? 0;
+  const config = block.config as Record<string, unknown> | undefined;
+  const originalModel = (config?.model as string) || 'unknown';
+  const currentTemp = (config?.temperature as number) ?? 0;
 
   // Get baseline fitness
   process.stdout.write(`    ${c.gray('Baseline')} (temp=${currentTemp})... `);
@@ -884,7 +951,7 @@ async function strategyTemperatureTuning(
     }
   }
 
-  const best = candidates.filter(c => c.accepted).sort((a, b) => b.fitness - a.fitness)[0] || null;
+  const best = candidates.filter(cand => cand.accepted).sort((a, b) => b.fitness - a.fitness)[0] || null;
 
   return {
     strategyId: 'temperature-tuning',
@@ -907,8 +974,8 @@ const STRATEGIES: { [id: string]: typeof strategyModelDowngrade } = {
 async function maestroOptimize(
   blockId: string,
   sandboxId: string,
-  client: any,
-  c: any,
+  client: AdaptClient,
+  c: CliColors,
   options: {
     strategy?: string;
     threshold?: number;
@@ -917,7 +984,7 @@ async function maestroOptimize(
     save?: boolean;
     jsonMode?: boolean;
     inputKey?: string;
-    extraInputs?: { [key: string]: string };
+    extraInputs?: Record<string, string>;
   } = {}
 ): Promise<OptimizationResult[]> {
   const strategyId = options.strategy || 'model-downgrade';
@@ -956,7 +1023,7 @@ async function maestroOptimize(
         const result = await strategyFn(bid, sandboxId, client, c, options);
         results.push(result);
       } catch (err) {
-        console.log(`    ${c.fail('ERROR')}: ${err.message}\n`);
+        console.log(`    ${c.fail('ERROR')}: ${(err as Error).message}\n`);
       }
     }
   } else {

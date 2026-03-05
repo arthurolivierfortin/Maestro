@@ -1,99 +1,102 @@
-# Phase 53+ : Self-Improvement Loop — Maestro s'ameliore lui-meme
+# Phase 53 : Production des variantes pre-testees
 
-**Statut** : Vision
-**Prerequis** : Phase 52 COMPLETE (catalogue, auth, Agent Creator en production)
-**Objectif** : Maestro utilise ses propres agents pour ameliorer ses propres agents. La boucle vertueuse : observer → identifier des faiblesses → creer/ameliorer un agent → tester → publier → observer...
-
----
-
-## La vision complete (de MAESTRO-PHILOSOPHY-V2.md)
-
-### Research Team Workflow
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│  RESEARCH TEAM (workflow composite, runs continuously)       │
-│                                                               │
-│  1. Researcher Agent                                          │
-│     Observe les metriques de fitness des agents en production │
-│     Identifie les opportunities d'amelioration                │
-│     "Block X a un fitness de 0.62, le tool-calling echoue    │
-│      dans 30% des cas sur les modeles < 7B"                  │
-│                                                               │
-│  2. Trainer Agent                                             │
-│     Prend une opportunity et cree/ameliore un agent           │
-│     Utilise l'Agent Creator (Phase 51) comme outil            │
-│     Teste iterativement avec des prompts varies               │
-│                                                               │
-│  3. Tester Agent                                              │
-│     Execute les tests de capabilities (Phase 49)              │
-│     Mesure le fitness multi-dimensionnel (Phase 50)           │
-│     Compare avec la version precedente                        │
-│                                                               │
-│  4. Fitness Evaluator                                         │
-│     Calcule le score final                                    │
-│     Decide : PASS (>= 0.75) ou FAIL (< 0.75)                │
-│                                                               │
-│  5a. Si PASS → Documenter Agent                               │
-│      Genere la documentation du block ameliore                │
-│      → Publisher Agent publie dans le catalogue               │
-│                                                               │
-│  5b. Si FAIL → retour au Researcher pour iteration suivante   │
-└─────────────────────────────────────────────────────────────┘
-```
-
-### Workspace Orchestrator
-
-Pipeline automatise de promotion :
-
-```
-Research Workspace → Staging Workspace → Production Workspace
-     (tester)           (valider)           (deployer)
-
-Regles :
-  fitness > 0.70 → promote to staging
-  fitness > 0.85 → promote to production
-  fitness drop > 10% → automatic rollback
-```
-
-Le Workspace Gateway controle la communication inter-workspaces. L'Orchestrator Agent monitore le fitness en continu et gere le cycle de vie complet.
+**Statut** : Planifie
+**Prerequis** : Phase 52 COMPLETE (/adapt fonctionnel avec Agent Creator + contracts)
+**Objectif** : Utiliser `/adapt` nous-memes pour creer ~30 maestro-assistants couvrant les profils hardware courants. Chaque variante implemente le contract `maestro-assistant` avec des capabilities verifiees. Configurer les providers cloud opensource.
+**Duree estimee** : 6-10 jours
 
 ---
 
-## Sous-phases potentielles
+## Contexte
 
-| Phase | Titre | Description |
-|-------|-------|-------------|
-| 53-A | Researcher Agent | Observer, mesurer, identifier les faiblesses |
-| 53-B | Trainer Agent | Utiliser Agent Creator pour ameliorer |
-| 53-C | Workspace Orchestrator | Pipeline automatise Research → Staging → Prod |
-| 53-D | Self-referential improvement | L'Agent Creator s'ameliore lui-meme |
-| 54+ | Multi-domain | Etendre au-dela du code : traduction, analyse, cuisine... |
+### Pourquoi ~30 variantes
 
----
+L'objectif est que n'importe quel utilisateur recoit un assistant fonctionnel en < 30 secondes au setup. Le contract `maestro-assistant` definit les features, les capabilities determinent lesquelles sont actives :
 
-## Pourquoi c'est important
+| Tier | Modeles | Capabilities attendues | Features actives |
+|------|---------|----------------------|-----------------|
+| cpu-only | TinyLlama, Phi-2 | conversation | 1/5 |
+| light | Phi-3 Mini, StableLM | conversation, tool-calling | 2/5 |
+| standard | Mistral 7B, DeepSeek 6.7B | conversation, orchestration, tool-calling | 3/5 |
+| heavy | CodeLlama 13B, Llama-3 8B | conversation, orchestration, tool-calling, long-context | 4/5 |
+| cloud-free | Mistral API, Together.ai | conversation, orchestration, tool-calling, structured-output | 4-5/5 |
+| cloud-paid | Claude, GPT-4 | ALL | 5/5 |
+| hybrid | Local + cloud fallback | Varie selon le split | 3-5/5 |
 
-C'est le **differenciateur ultime** de Maestro. Aucun concurrent ne fait ca :
-- Claude Code = un agent statique qui code
-- Cursor = un editeur avec IA integree
-- **Maestro = un systeme d'agents qui s'ameliorent** via fitness, training, et feedback
-
-La valeur a long terme n'est pas dans les agents livres avec Maestro, mais dans le **pipeline qui permet a n'importe qui de creer, tester, et ameliorer des agents specialises** — et eventuellement, que Maestro fasse ca tout seul.
+L'utilisateur voit clairement : "Cet assistant a 3/5 features actives. Si vous voulez les 5, choisissez la version cloud."
 
 ---
 
-## Prerequis techniques
+## Sous-phases
 
-Tout ce qui a ete construit dans les phases precedentes converge ici :
+| Phase | Titre | Effort |
+|-------|-------|--------|
+| 53-A | Configuration providers cloud opensource | 2-3 jours |
+| 53-B | Execution de /adapt par profil hardware | 3-5 jours |
+| 53-C | Validation, tri, integration dans content/system/ | 1-2 jours |
 
-| Phase | Contribution |
-|-------|-------------|
-| 38 | Sandbox + git worktrees pour tests isoles |
-| 39 | Adapt/Optimize module |
-| 49 | Hardware detection + capabilities model + tests |
-| 50 | Fitness engine multi-dimensionnel + evaluateurs |
-| 51 | Agent Creator (le meta-agent) |
-| 52 | Catalogue (ou publier les resultats) |
+---
 
-Phase 53 est la **synthese** de tout le travail precedent. C'est pour ca qu'elle est en dernier — elle a besoin de chaque piece du puzzle.
+## 53-A : Configuration providers cloud opensource
+
+### Taches
+
+1. **Ajouter des providers dans LLM-Provider .NET** :
+   - Mistral API (free tier ou bas cout)
+   - Together.ai (modeles open-source heberges)
+   - Groq (inference rapide)
+   - Chaque provider = nouveau projet dans `LLMProvider.Providers/`
+
+2. **Verifier chaque provider** : health check, completion, tool-calling
+
+---
+
+## 53-B : Execution de /adapt
+
+### Taches
+
+1. **Pour chaque tier** :
+   - `maestro adapt maestro-assistant-workflow --target-model <model> --target-tier <tier>`
+   - Le workflow Agent Creator regenere les prompts pour le modele cible
+   - Les capabilities sont verifiees (pas juste declarees)
+
+2. **Documenter chaque variante** :
+   - Contract, capabilities verifiees, fitness, features actives/inactives
+   - Forces/faiblesses, temps de reponse
+
+3. **Iterer si fitness < 0.6** — relancer, essayer modele alternatif
+
+---
+
+## 53-C : Validation et integration
+
+### Taches
+
+1. **Garder les variantes avec fitness > 0.6**
+2. **Copier dans `content/system/blocks/`** — livrees avec l'app
+3. **Mettre a jour demo data**
+4. **Creer l'index** : `content/system/contracts/maestro-assistant-variants.json`
+   - Pour chaque variante : capabilities verifiees, features actives, hardware profile, fitness
+
+### Gate
+
+- [ ] Au moins 15 variantes avec fitness > 0.6
+- [ ] Toutes declarent `contract: "maestro-assistant"` avec capabilities verifiees
+- [ ] Couverture : au moins 1 variante par tier
+- [ ] Les features actives/inactives sont correctes pour chaque variante
+
+---
+
+## Definition of Done
+
+- [ ] 3+ providers cloud opensource configures
+- [ ] 15+ variantes avec fitness > 0.6 et contract `maestro-assistant`
+- [ ] Capabilities verifiees (pas juste declarees)
+- [ ] Features actives/inactives coherentes avec les capabilities
+- [ ] Variantes integrees dans `content/system/blocks/`
+- [ ] Index cree
+- [ ] Documentation des variantes
+
+### NOT in scope
+- UI de choix au setup (Phase 54)
+- Catalogue communautaire (Phase 55)

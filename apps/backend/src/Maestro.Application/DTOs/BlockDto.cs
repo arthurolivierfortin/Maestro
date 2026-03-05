@@ -67,6 +67,13 @@ namespace Maestro.Application.DTOs
         public object? Metrics { get; init; }
 
         /// <summary>
+        /// The contract this block implements (e.g. "maestro-assistant", "agent-creator").
+        /// Blocks implementing the same contract are interchangeable.
+        /// Null for utility blocks that don't fill a specific role.
+        /// </summary>
+        public string? Contract { get; init; }
+
+        /// <summary>
         /// Documentation companion files. Maps doc names (readme, research, changelog, fitness)
         /// to relative paths. Extracted from Metadata["docs"].
         /// </summary>
@@ -97,6 +104,7 @@ namespace Maestro.Application.DTOs
                 Author = block.Author,
                 Tags = block.Tags ?? block.Capabilities, // fallback to capabilities if no tags
                 Metrics = block.GetAggregatedMetrics(),
+                Contract = block.Contract,
                 Docs = block.Docs
             };
         }

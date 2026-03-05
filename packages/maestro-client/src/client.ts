@@ -16,6 +16,7 @@ import { testingDomain } from './domains/testing.js';
 import { runDomain } from './domains/runs.js';
 import { authDomain } from './domains/auth.js';
 import { filesystemDomain } from './domains/filesystem.js';
+import { fitnessDomain } from './domains/fitness.js';
 import { SignalRClient } from './realtime/signalr-client.js';
 import { ClientBlockRegistry } from './client-blocks.js';
 
@@ -45,6 +46,7 @@ export class MaestroClient {
   readonly runs: ReturnType<typeof runDomain>;
   readonly auth: ReturnType<typeof authDomain>;
   readonly filesystem: ReturnType<typeof filesystemDomain>;
+  readonly fitness: ReturnType<typeof fitnessDomain>;
   readonly realtime: SignalRClient;
   readonly clientBlocks: ClientBlockRegistry;
 
@@ -76,6 +78,7 @@ export class MaestroClient {
     this.runs = runDomain(this.http);
     this.auth = authDomain(this.http);
     this.filesystem = filesystemDomain(this.http);
+    this.fitness = fitnessDomain(this.http);
     this.realtime = new SignalRClient(transportOpts.baseUrl);
     this.clientBlocks = new ClientBlockRegistry();
   }

@@ -52,6 +52,7 @@ namespace Maestro.Api.Controllers
             [FromQuery] string? designation = null,
             [FromQuery] string? category = null,
             [FromQuery] string? capability = null,
+            [FromQuery] string? contract = null,
             [FromQuery] string? search = null)
         {
             var blocks = await _discovery.DiscoverAllAsync();
@@ -75,6 +76,11 @@ namespace Maestro.Api.Controllers
             if (!string.IsNullOrEmpty(capability))
             {
                 blocks = blocks.Where(b => b.Capabilities.Contains(capability));
+            }
+
+            if (!string.IsNullOrEmpty(contract))
+            {
+                blocks = blocks.Where(b => string.Equals(b.Contract, contract, System.StringComparison.OrdinalIgnoreCase));
             }
 
             if (!string.IsNullOrEmpty(search))
@@ -346,6 +352,7 @@ namespace Maestro.Api.Controllers
             [FromQuery] string? designation = null,
             [FromQuery] string? category = null,
             [FromQuery] string? capability = null,
+            [FromQuery] string? contract = null,
             [FromQuery] int limit = 50)
         {
             var blocks = await _discovery.DiscoverAllAsync();
@@ -371,6 +378,9 @@ namespace Maestro.Api.Controllers
 
             if (!string.IsNullOrEmpty(capability))
                 blocks = blocks.Where(b => b.Capabilities.Contains(capability));
+
+            if (!string.IsNullOrEmpty(contract))
+                blocks = blocks.Where(b => string.Equals(b.Contract, contract, System.StringComparison.OrdinalIgnoreCase));
 
             // Apply limit
             blocks = blocks.Take(limit);

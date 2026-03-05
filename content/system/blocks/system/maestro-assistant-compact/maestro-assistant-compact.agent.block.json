@@ -40,6 +40,9 @@
     ]
   },
 
+  "contract": "maestro-assistant",
+  "capabilities": ["conversation"],
+
   "metadata": {
     "author": "system",
     "category": "core",

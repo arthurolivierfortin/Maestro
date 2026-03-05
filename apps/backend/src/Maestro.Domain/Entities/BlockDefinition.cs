@@ -18,6 +18,13 @@ namespace Maestro.Domain.Entities
         public List<string> Capabilities { get; private set; } = new();
 
         /// <summary>
+        /// The contract this block implements (e.g. "maestro-assistant", "agent-creator").
+        /// Blocks implementing the same contract are interchangeable — the user chooses which one to use.
+        /// Null for utility blocks (tools, helpers) that don't fill a specific role.
+        /// </summary>
+        public string? Contract { get; private set; }
+
+        /// <summary>
         /// Indicates whether this is a system block (provided by Maestro).
         /// System blocks are loaded from the blocks/system directory.
         /// </summary>
@@ -144,6 +151,11 @@ namespace Maestro.Domain.Entities
         public void SetOverridesSystemBlock(string? systemBlockId)
         {
             OverridesSystemBlock = systemBlockId;
+        }
+
+        public void SetContract(string? contract)
+        {
+            Contract = contract;
         }
 
         // ── Designation & Category setters ──

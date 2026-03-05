@@ -366,6 +366,9 @@ namespace Maestro.Infrastructure.BlockStore
             }
             merged.AddCapabilities(allCaps);
 
+            // Contract: user override takes precedence, fallback to system
+            merged.SetContract(userOverride.Contract ?? systemBlock.Contract);
+
             return merged;
         }
 
@@ -472,6 +475,12 @@ namespace Maestro.Infrastructure.BlockStore
                     }
                 }
                 def.AddCapabilities(caps);
+            }
+
+            // Contract
+            if (root.TryGetProperty("contract", out var contractEl) && contractEl.ValueKind == JsonValueKind.String)
+            {
+                def.SetContract(contractEl.GetString());
             }
 
             if (root.TryGetProperty("config", out var cfg))

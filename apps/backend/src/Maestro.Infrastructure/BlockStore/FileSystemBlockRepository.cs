@@ -133,6 +133,7 @@ namespace Maestro.Infrastructure.BlockStore
                     version = block.Version,
                     isAtomic = block.IsAtomic,
                     description = block.Description,
+                    contract = block.Contract,
                     config = block.Config,
                     metadata = block.Metadata,
                     capabilities = block.Capabilities
@@ -250,6 +251,12 @@ namespace Maestro.Infrastructure.BlockStore
                     .Select(e => e.GetString()!)
                     .ToList();
                 def.AddCapabilities(capabilities);
+            }
+
+            // Contract
+            if (root.TryGetProperty("contract", out var contractEl) && contractEl.ValueKind == JsonValueKind.String)
+            {
+                def.SetContract(contractEl.GetString());
             }
 
             return def;

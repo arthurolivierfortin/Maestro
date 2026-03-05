@@ -1,0 +1,30 @@
+{
+  "id": "maestro-assistant",
+  "name": "Maestro Assistant",
+  "description": "The primary conversational assistant in maestro-code. Handles user messages, orchestrates sessions, manages blocks, and provides guidance. Blocks implementing this contract are interchangeable — the user chooses which one to use.",
+
+  "requiredCapabilities": ["conversation"],
+
+  "features": {
+    "conversation": {
+      "description": "Basic conversational interaction with the user",
+      "requires": ["conversation"]
+    },
+    "tool-use": {
+      "description": "Execute tools (file operations, CLI commands, Maestro API calls)",
+      "requires": ["tool-calling"]
+    },
+    "json-config": {
+      "description": "Generate structured JSON for block configs, session templates, etc.",
+      "requires": ["structured-output"]
+    },
+    "deep-context": {
+      "description": "Handle large codebases and long conversation histories without losing context",
+      "requires": ["long-context"]
+    },
+    "session-orchestration": {
+      "description": "Create and manage workspaces, sessions, and specialized agents",
+      "requires": ["orchestration", "tool-calling"]
+    }
+  }
+}

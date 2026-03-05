@@ -43,7 +43,13 @@ function createMockApiClient() {
     get: vi.fn().mockResolvedValue([]),
     getTopBlocks: vi.fn().mockResolvedValue([]),
     getApiUrl: vi.fn().mockReturnValue('http://localhost:5000'),
-    _fetch: vi.fn().mockResolvedValue({ status: 'ok' }),
+    _fetch: vi.fn().mockImplementation((method: string, path: string) => {
+      if (path.startsWith('/api/blocks')) return Promise.resolve([]);
+      if (path.startsWith('/api/contracts/')) return Promise.resolve({
+        id: 'maestro-assistant', requiredCapabilities: ['conversation'], features: {},
+      });
+      return Promise.resolve({ status: 'ok' });
+    }),
   };
 }
 
@@ -132,17 +138,17 @@ describe('First Run Flow', () => {
       entryPoint: 'message',
     }));
 
-    await delay(100);
+    await delay(200);
     let frame = stripAnsi(lastFrame() || '');
     expect(frame).toContain('Provider Setup');
 
     // Select Claude Code provider (key '1')
     stdin.write('1');
-    await delay(100);
+    await delay(200);
 
     // Confirm selection (Enter)
     stdin.write(ENTER);
-    await delay(200);
+    await delay(300);
 
     // Claude Code auto-detection runs — we're in ClaudeCodeSetup now.
     // It will try `where claude` / `which claude`. In test environment, it might
@@ -155,14 +161,27 @@ describe('First Run Flow', () => {
       } else {
         stdin.write('s');
       }
-      await delay(200);
+      await delay(300);
     }
 
     // Wait for ensureBackendFn to complete and providersReady to flip
-    await delay(500);
+    await delay(800);
 
     // ensureBackendFn should have been called
     expect(mockEnsureBackend).toHaveBeenCalled();
+
+    // After provider setup, AssistantSelector may appear — skip it
+    frame = stripAnsi(lastFrame() || '');
+    if (frame.includes('Assistant') || frame.includes('No Assistants') || frame.includes('Loading')) {
+      stdin.write('s');
+      await delay(300);
+      // May still be loading — wait and try again
+      frame = stripAnsi(lastFrame() || '');
+      if (!frame.includes('AGENT STATUS')) {
+        stdin.write(ENTER);
+        await delay(300);
+      }
+    }
 
     // After setup, agent page should be visible
     frame = stripAnsi(lastFrame() || '');
@@ -192,13 +211,13 @@ describe('First Run Flow', () => {
       entryPoint: 'message',
     }));
 
-    await delay(100);
+    await delay(200);
 
     // Complete provider setup: select Claude Code, confirm, accept/skip
     stdin.write('1');
-    await delay(100);
-    stdin.write(ENTER);
     await delay(200);
+    stdin.write(ENTER);
+    await delay(300);
 
     let frame = stripAnsi(lastFrame() || '');
     if (frame.includes('Claude Code Setup')) {
@@ -207,11 +226,23 @@ describe('First Run Flow', () => {
       } else {
         stdin.write('s');
       }
-      await delay(200);
+      await delay(300);
     }
 
     // Wait for setup to complete
-    await delay(500);
+    await delay(800);
+
+    // After provider setup, AssistantSelector may appear — skip it
+    frame = stripAnsi(lastFrame() || '');
+    if (frame.includes('Assistant') || frame.includes('No Assistants') || frame.includes('Loading')) {
+      stdin.write('s');
+      await delay(300);
+      frame = stripAnsi(lastFrame() || '');
+      if (!frame.includes('AGENT STATUS')) {
+        stdin.write(ENTER);
+        await delay(300);
+      }
+    }
 
     frame = stripAnsi(lastFrame() || '');
     // If we're on the agent page, submit a message

@@ -34,6 +34,7 @@ import { AgentScreen } from './components/AgentScreen.ts';
 import { StatusBar } from './components/StatusBar.ts';
 import { HelpOverlay } from './components/HelpOverlay.ts';
 import { ProviderSetupScreen } from './components/ProviderSetupScreen.ts';
+import { AssistantSelector } from './components/AssistantSelector.ts';
 
 import type { IApiClient } from '@maestro/tui/types';
 import type { IMaestroCodeApiClient, InteractiveOptions } from './types.ts';
@@ -210,6 +211,7 @@ const App = ({ apiClient: clientProp, sessionManager: smProp, demoMode, repoPath
   });
   // ── Provider setup state ──
   const [providersReady, setProvidersReady] = useState(hasProvidersProp !== false || !!demoMode);
+  const [assistantReady, setAssistantReady] = useState(hasProvidersProp !== false || !!demoMode);
   const [liveApiClient, setLiveApiClient] = useState<IApiClient | null>(clientProp);
   const [liveSessionManager, setLiveSessionManager] = useState<SessionManager | null>(smProp);
 
@@ -250,6 +252,16 @@ const App = ({ apiClient: clientProp, sessionManager: smProp, demoMode, repoPath
     return readProviders ? readProviders() : null;
   });
   const [showReconfigure, setShowReconfigure] = useState(false);
+
+  // ── Assistant selection handler ──
+  const handleAssistantSelect = useCallback((blockId: string) => {
+    // Save assistant choice via provider config (add _selectedAssistant)
+    if (saveProviders && currentProviders) {
+      saveProviders({ ...currentProviders, _selectedAssistant: blockId });
+    }
+    setActiveAgent(blockId);
+    setAssistantReady(true);
+  }, [saveProviders, currentProviders]);
 
   const handleReconfigure = useCallback(() => {
     setShowReconfigure(true);
@@ -306,7 +318,11 @@ const App = ({ apiClient: clientProp, sessionManager: smProp, demoMode, repoPath
   ]);
   const [busy, setBusy] = useState(false);
   const [agentState, setAgentState] = useState<'idle' | 'working' | 'completed' | 'error'>('idle');
-  const [activeAgent, setActiveAgent] = useState<string | null>(null);
+  const [activeAgent, setActiveAgent] = useState<string | null>(() => {
+    // Load saved assistant choice from provider config
+    const cfg = readProviders ? readProviders() : null;
+    return (cfg as any)?._selectedAssistant || null;
+  });
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [pendingInteractive, setPendingInteractive] = useState<Widget | null>(null);
   const [currentWidget, setCurrentWidget] = useState<Widget | null>(null);
@@ -713,6 +729,17 @@ const App = ({ apiClient: clientProp, sessionManager: smProp, demoMode, repoPath
       h(ProviderSetupScreen, {
         onComplete: handleProviderSetupComplete,
         onSkip: () => setProvidersReady(true),
+      }),
+    );
+  }
+
+  // ── Render assistant selection (after provider setup, before main TUI) ──
+  if (providersReady && !assistantReady && apiClient) {
+    return h(FullscreenBox, null,
+      h(AssistantSelector, {
+        apiClient: apiClient as IMaestroCodeApiClient,
+        onSelect: handleAssistantSelect,
+        onSkip: () => setAssistantReady(true),
       }),
     );
   }

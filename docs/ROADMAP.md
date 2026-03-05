@@ -1,6 +1,6 @@
 # Maestro — Roadmap
 
-**Derniere mise a jour** : 2026-03-02
+**Derniere mise a jour** : 2026-03-04
 **Version actuelle** : v0.1.0-alpha (tag sur main)
 
 ---
@@ -46,160 +46,174 @@
 | 42 | Restructuration maestro-code = Monitor + AgentPanel + keyboard fix | COMPLETE |
 | 43 | Visual Gate — PTY Capture + Golden Files + Structural Assertions | COMPLETE |
 | 44 | Dogfooding Pragmatique — Cantante + Jarvis (4/4 taches, 8 sessions, 100% succes) | COMPLETE |
+| 46 | Unit Tests — 89 tests maestro-code | COMPLETE |
+| 47 | Integration Tests — 31 tests, condition quote stripping fix | COMPLETE |
+| 48 | Bug Fixes Dogfooding + dynamic blockRef + local agent | COMPLETE |
+| 49 | Hardware-Aware Setup + Agent Capabilities + Provider Metrics (28 tests, E2E 4/5) | COMPLETE |
+| 50 | Contracts + Second Assistant + Fondations Adapt (141 tests, E2E 5/5) | COMPLETE |
+
+---
+
+## Vision strategique (mise a jour 2026-03-04)
+
+> **Deux concepts fondamentaux** :
+>
+> **Contract** = le role qu'un block remplit (ex: `maestro-assistant`, `agent-creator`, `code-reviewer`).
+> Plusieurs blocks peuvent implementer le meme contract. L'utilisateur choisit lequel utiliser.
+>
+> **Capabilities** = ce que le block sait faire concretement (ex: `conversation`, `structured-output`,
+> `tool-calling`). Les features d'un contract sont activees/desactivees selon les capabilities
+> du block choisi. Un assistant sans `structured-output` ne peut pas generer de JSON config.
+>
+> `/adapt` est un workflow qui utilise Agent Creator pour creer des variantes qui implementent
+> le meme contract, optimisees pour un modele/hardware donne. Nous l'utilisons nous-memes
+> pour produire les ~30 variantes pre-testees livrees avec l'app.
+>
+> L'utilisateur au premier lancement voit les implementations disponibles pour son hardware,
+> avec les features actives/inactives de chacune, et choisit.
+
+### Sequence logique
+
+```
+1. Concept contract + capabilities feature-gating + nettoyage adapt
+2. Deuxieme maestro-assistant (meme contract, capabilities differentes)
+3. Agent Creator (meta-agent, genere blocks avec contract + capabilities)
+4. /adapt = workflow Agent Creator (cree variantes meme contract)
+5. Production ~30 variantes pre-testees avec /adapt
+6. Choix assistant au setup (UI par contract, features actives/inactives)
+7. Catalogue communautaire organise par contract
+8. Premiere version deployable
+9. Self-improvement loop
+```
 
 ---
 
 ## Phases actives et a venir
 
-> **Decision strategique 2026-03-02** : Les phases 44-B et 44-C sont annulees comme prerequis.
-> Seuls les items essentiels sont extraits dans 45-PREP. Voir `docs/phases/PHASE-45/STRATEGIC-ANALYSIS.md`.
+---
+
+### Phase 50 : Contracts + Second Assistant + Fondations Adapt — COMPLETE
+
+**Resultats** : Contract field sur BlockDefinition, feature gating par capabilities, AssistantSelector au first-run, SDK fitness, adapt-optimize type-safe. 141 tests, E2E 5/5.
+
+**Checkpoint** : `docs/phases/PHASE-50/checkpoint.md`
 
 ---
 
-### Phase 45-PREP : Stabilisation essentielle (1 semaine max)
+### Phase 51 : Agent Creator
 
-**But** : Rendre maestro-code utilisable au quotidien. L'agent est un assistant conversationnel qui orchestre Maestro (workspaces, sessions, training, monitoring). Il discute, explique, confirme avant d'agir, et doit etre plus rapide que faire les commandes CLI a la main.
-
-**Critere de succes** : Le developpeur principal utilise maestro-code pendant 2h pour orchestrer des sessions sur Cantante, score moyen >= 3.5/5 sur les dimensions de qualite agent.
-
-| Item | Objectif | Effort |
-|------|----------|--------|
-| 1 | Securite : path traversal + shell injection sanitization | 0.5 jour |
-| 2 | TUI : scroll fix, error display dans ConversationLog | 0.5 jour |
-| 3 | Conversations persistantes (sauver/recharger entre sessions) | 1-2 jours |
-| 4 | Slash commands essentiels (/help, /new, /clear, /stop, /quit) | 0.5 jour |
-| 5 | Agent quality : system prompt Maestro-aware, CLI knowledge, operation chaining | 1-2 jours |
-| 6 | Dogfooding profond (2h orchestration tasks, scoring, comparaison vs CLI manuel) | 0.5 jour |
-
-**NOT in scope** : Foundry CRUD, block creation TUI, git status integration, token display, refactoring cosmetique.
-
-**Gate** : Score dogfooding >= 3.5/5. Aucune dimension < 2. Le developpeur VEUT utiliser maestro-code.
-
----
-
-### Phase 45 : Premiere version distribuable (2 semaines max)
-
-**But** : `npm install -g @maestro/cli && maestro init && maestro code` fonctionne.
+**But** : Meta-agent qui cree des agents/workflows avec contract + capabilities verifiees. Brique fondamentale pour `/adapt`.
 
 | Sous-phase | Objectif | Effort |
 |------------|----------|--------|
-| 45-0 | Fixes usabilite (context assembly delay, concurrent invocations, response corruption) | 0.5 jour |
-| 45-A | Packaging npm, commande globale, sidecar auto-start | 3-4 jours |
-| 45-B | `maestro init` + onboarding premier lancement (provider config) | 2-3 jours |
-| 45-C | Documentation : README, Getting Started, 3 exemples concrets | 2-3 jours |
-| 45-D | Beta testing (3-5 testeurs, feedback structure) | 3-5 jours |
-
-**Gate** : 3 testeurs externes installent et utilisent maestro-code avec succes sur leur propre projet.
+| 51-A | Agent Creator workflow (analyse → generation → test capabilities → publish) | 3-5 jours |
+| 51-B | Integration TUI (`/create-agent`) + CLI | 2-3 jours |
+| 51-C | 3 contracts pre-definis + templates (code-reviewer, doc-writer, test-generator) | 2 jours |
 
 ---
 
-### Phase 46 : Cantante v1 — Premiere app propulsee par Maestro
+### Phase 52 : /adapt = Workflow Agent Creator + Contract Resolution
 
-**But** : Faire de Cantante la premiere application publique qui tourne SUR Maestro.
+**But** : `/adapt` utilise Agent Creator pour creer des variantes qui implementent le meme contract. `contractRef` dans les workflows pour resolution runtime.
 
 | Sous-phase | Objectif | Effort |
 |------------|----------|--------|
-| 46-A | Integration @maestro/client + @maestro/sidecar dans Cantante | 1 semaine |
-| 46-B | Agent Jarvis specialise Cantante | 1-2 semaines |
-| 46-C | Case study public (metriques, tutorial) | 3-5 jours |
+| 52-A | Workflow `/adapt` : meme contract, capabilities adaptees au modele cible | 2-3 jours |
+| 52-B | `contractRef` dans les workflows (resolution runtime + verification capabilities) | 1-2 jours |
+| 52-C | Integration TUI : `/adapt` dans AgentPanel, `[A]` dans CatalogScreen | 1 jour |
 
 ---
 
-### Phase 48 : Bug Fixes Dogfooding + Agent Local Model
+### Phase 53 : Production des variantes pre-testees
 
-**But** : Corriger les bugs critiques du dogfooding, dynamic blockRef, maestro-assistant-compact.
+**But** : Utiliser `/adapt` pour creer ~30 implementations du contract `maestro-assistant` avec capabilities verifiees. Config providers cloud opensource.
 
 | Sous-phase | Objectif | Effort |
 |------------|----------|--------|
-| 48-A | Bug fixes dogfooding (4 bugs) | 1h |
-| 48-B | Assistant local gratuit + dynamic blockRef | 2h |
-| 48-C | Diagnostic provider Claude Code CLI | 30min |
+| 53-A | Configuration providers cloud opensource dans LLM-Provider .NET | 2-3 jours |
+| 53-B | Execution de `/adapt` par profil hardware (capabilities verifiees par tier) | 3-5 jours |
+| 53-C | Validation, tri, integration dans `content/system/blocks/` | 1-2 jours |
+
+**Gate** : 15+ variantes fitness > 0.6, toutes contract `maestro-assistant`, capabilities verifiees, features actives/inactives correctes.
 
 ---
 
-### Phase 49 : Hardware-Aware Setup, Agent Capabilities & Provider Metrics
+### Phase 54 : Choix assistant au setup + Catalog par contract
 
-**But** : L'utilisateur arrive pour la premiere fois, voit ses capacites hardware, telecharge un modele local gratuit, et commence a utiliser Maestro en 5 minutes. Les capacites agent sont claires. La page Models retrouve la richesse du provider-monitor.
+**But** : L'utilisateur voit les implementations du contract `maestro-assistant` compatibles avec son hardware, avec features actives/inactives, et choisit. Changement possible depuis le Catalog.
 
 | Sous-phase | Objectif | Effort |
 |------------|----------|--------|
-| 49-A | First-run hardware-aware + model download + CPU-only support | 3-4 jours |
-| 49-B | Modele de capacites agent (schema, tests, affichage TUI) | 2-3 jours |
-| 49-C | Restauration metriques provider (stats, queue, perf dans page Models) | 2-3 jours |
+| 54-A | Filtrage compatibilite + feature gating UI | 1 jour |
+| 54-B | UI de choix au setup (par contract, features ✓/✗, recommended) | 1.5-2 jours |
+| 54-C | Catalog organise par contract + changement d'implementation | 1 jour |
+| 54-D | Dogfooding complet | 0.5 jour |
 
-**Analyse detaillee** : `docs/phases/PHASE-49/analysis.md`
+**Gate** : L'utilisateur comprend ce qu'il gagne/perd avec chaque choix et peut changer depuis le Catalog.
 
 ---
 
-### Phase 50 : Adapt Integration TUI + Fitness Engine Production
+### Phase 55 : Catalogue communautaire + Auth
 
-**But** : `/adapt` dans le TUI, fitness multi-dimensionnel (formule PHILOSOPHY-V2), auto-adapt post-setup.
+**But** : Publier et importer des blocks. Catalogue organise par contract — chercher "un code-reviewer" montre toutes les implementations avec capabilities et compatibilite hardware.
 
 | Sous-phase | Objectif | Effort |
 |------------|----------|--------|
-| 50-A | Adapt dans le TUI (/adapt, [A] dans Models) | 2-3 jours |
-| 50-B | Fitness multi-dimensionnel (P×S×W / costs^λ) + cascade evaluateurs | 2-3 jours |
-| 50-C | Auto-adapt propose apres le first-run | 1-2 jours |
+| 55-A | Auth + comptes utilisateurs (JWT, SQLite) | 3-5 jours |
+| 55-B | Catalogue backend (publish/search/import par contract + capabilities) | 3-5 jours |
+| 55-C | TUI integration (local + community, par contract, filtrage hardware) | 2-3 jours |
 
 ---
 
-### Phase 51 : Agent Creator — Meta-agent de creation d'agents
+### Phase 56 : Premiere version deployable
 
-**But** : `maestro create-agent --description "..."` — Maestro cree automatiquement le workflow complet.
+**But** : `npm install -g @maestro/cli && maestro init && maestro code`. L'utilisateur voit les implementations disponibles par contract, choisit, et commence a travailler.
 
 | Sous-phase | Objectif | Effort |
 |------------|----------|--------|
-| 51-A | Agent Creator workflow (5 sous-blocks, iteration, fitness gate) | 3-5 jours |
-| 51-B | Integration TUI (/create-agent) + CLI | 2-3 jours |
-| 51-C | 3 templates pre-construits + documentation | 2 jours |
+| 56-A | Packaging npm, commande globale, sidecar auto-start | 3-4 jours |
+| 56-B | `maestro init` + onboarding (provider + choix assistant par contract) | 2-3 jours |
+| 56-C | Documentation : README, Getting Started, 3 exemples | 2-3 jours |
+| 56-D | Beta testing (3-5 testeurs) | 3-5 jours |
+
+**Gate** : 3 testeurs externes installent, choisissent leur assistant par contract, et accomplissent des taches reelles.
 
 ---
 
-### Phase 52 : Catalogue communautaire + Auth
+### Phase 57+ : Self-Improvement — Maestro s'ameliore lui-meme
 
-**But** : Publier et importer des blocks. Systeme d'auth et comptes.
-
-| Sous-phase | Objectif | Effort |
-|------------|----------|--------|
-| 52-A | Auth + comptes utilisateurs (JWT, local d'abord) | 3-5 jours |
-| 52-B | Catalogue backend (publish/search/import API) | 3-5 jours |
-| 52-C | TUI integration (local + community, filtrage hardware) | 2-3 jours |
-
----
-
-### Phase 53+ : Self-Improvement — Maestro s'ameliore lui-meme
-
-**But** : Research Team workflow (observer → ameliorer → tester → publier). Workspace Orchestrator pour promotion automatique. L'Agent Creator s'ameliore lui-meme.
+**But** : Research Team observe les metriques par contract/capability → `/adapt` cree des variantes ameliorees → Workspace Orchestrator gere la promotion. L'Agent Creator s'ameliore lui-meme.
 
 ---
 
 ## Chaine de dependances
 
 ```
-47 Integration Tests (DONE)
- └→ 48 Bug fixes + dynamic blockRef + local agent (A FAIRE)
-     └→ 49 Hardware-aware setup + capabilities + metrics (A FAIRE)
-         └→ 50 Adapt TUI + fitness engine production
-             └→ 51 Agent Creator
-                 └→ 52 Catalogue communautaire + Auth
-                     └→ 53+ Self-improvement loop
+49 Hardware-aware + capabilities + metrics (DONE)
+ └→ 50 Contracts + second assistant + fondations adapt
+     └→ 51 Agent Creator (genere blocks avec contract + capabilities)
+         └→ 52 /adapt = workflow Agent Creator + contractRef
+             └→ 53 Production ~30 variantes (capabilities verifiees)
+                 └→ 54 Choix au setup par contract (features ✓/✗)
+                     └→ 55 Catalogue communautaire (par contract)
+                         └→ 56 Premiere version deployable
+                             └→ 57+ Self-improvement loop
 ```
 
 ## Features planifiees (TODOS)
 
 | Feature | Phase cible | Statut |
 |---------|-------------|--------|
-| Bug fixes dogfooding + dynamic blockRef | 48 | A faire |
-| Hardware-aware first-run + model download | 49-A | A faire |
-| Agent capabilities model + tests | 49-B | A faire |
-| Provider metrics restoration (page Models) | 49-C | A faire |
-| CPU-only support avec avertissement | 49-A | A faire |
-| Adapt dans le TUI (/adapt) | 50 | Planifie |
-| Fitness engine multi-dimensionnel | 50 | Planifie |
-| Agent Creator | 51 | Planifie |
-| Catalogue communautaire | 52 | Planifie |
-| Auth + comptes | 52 | Planifie |
-| Self-improvement | 53+ | Vision |
+| Concept contract + feature gating par capabilities | 50-A | COMPLETE |
+| Nettoyage adapt-optimize + SDK fitness | 50-B | COMPLETE |
+| Second maestro-assistant (meme contract) | 50-C | COMPLETE |
+| Agent Creator (genere contract + capabilities) | 51 | Planifie |
+| /adapt + contractRef dans workflows | 52 | Planifie |
+| Production ~30 variantes pre-testees | 53 | Planifie |
+| Choix assistant au setup par contract | 54 | Planifie |
+| Catalogue communautaire par contract | 55 | Planifie |
+| Premiere version deployable (npm) | 56 | Planifie |
+| Self-improvement loop | 57+ | Vision |
 
 ## Principes
 
@@ -207,6 +221,8 @@
 2. **L'agent doit etre UTILE** — Pas juste fonctionnel. Utile au quotidien.
 3. **Profondeur avant largeur** — Utiliser ce qui existe avant de construire du nouveau
 4. **Pas de refactoring cosmetique** — Seuls les bugs et features bloquees justifient du refactoring
-5. **Dogfooding profond** — 2h continu, taches d'orchestration, comparaison vs CLI manuel (voir Section 8 de dogfooding-methodology.md)
+5. **Dogfooding profond** — 2h continu, taches d'orchestration, comparaison vs CLI manuel
 6. **Max 3 jours par phase** — Decouper si necessaire
 7. **Definition of Done AVANT de coder** — Chaque phase a un "NOT in scope" explicite
+8. **Nous sommes nos premiers utilisateurs** — `/adapt` et Agent Creator servent d'abord a NOUS
+9. **Contract + Capabilities** — Le contract definit le role, les capabilities determinent les features actives. Les blocks sont interchangeables au sein d'un meme contract.

@@ -23,6 +23,22 @@ import {
 
 const DEMO_SESSION_ID = 'demo-0000-1111-2222-333344445555';
 
+const DEMO_CONTRACTS: Record<string, any> = {
+  'maestro-assistant': {
+    id: 'maestro-assistant',
+    name: 'Maestro Assistant',
+    description: 'The primary conversational assistant in maestro-code.',
+    requiredCapabilities: ['conversation'],
+    features: {
+      'conversation': { description: 'Basic conversational interaction', requires: ['conversation'] },
+      'tool-use': { description: 'Execute tools (file ops, CLI, API calls)', requires: ['tool-calling'] },
+      'json-config': { description: 'Generate structured JSON configs', requires: ['structured-output'] },
+      'deep-context': { description: 'Handle large codebases and long histories', requires: ['long-context'] },
+      'session-orchestration': { description: 'Create and manage workspaces and sessions', requires: ['orchestration', 'tool-calling'] },
+    },
+  },
+};
+
 function ts() {
   return new Date().toISOString();
 }
@@ -73,7 +89,7 @@ function getLLM(elapsed: number) {
 
 // ── Map demo data to IApiClient types ────────────────────────
 
-function mapDemoBlocks(filter?: { type?: string; designation?: string; category?: string }): any[] {
+function mapDemoBlocks(filter?: { type?: string; designation?: string; category?: string; contract?: string }): any[] {
   let blocks = DEMO_BLOCKS.map(b => ({
     id: b.id,
     name: b.name,
@@ -84,6 +100,7 @@ function mapDemoBlocks(filter?: { type?: string; designation?: string; category?
     isAtomic: b.isAtomic,
     fitness: b.fitness,
     capabilities: b.capabilities || [],
+    contract: (b as any).contract || undefined,
     children: [] as any[],
   }));
   if (filter?.type) {
@@ -94,6 +111,9 @@ function mapDemoBlocks(filter?: { type?: string; designation?: string; category?
       const orig = DEMO_BLOCKS.find(d => d.id === b.id);
       return orig?.designation === filter.designation;
     });
+  }
+  if (filter?.contract) {
+    blocks = blocks.filter(b => b.contract === filter!.contract);
   }
   return blocks;
 }
@@ -317,7 +337,18 @@ class DemoApiClient implements IMaestroCodeApiClient {
       return mapDemoWorkspaces();
     }
     if (path.includes('/api/blocks')) {
+      // Support contract filter in get()
+      const url = new URL(path, 'http://localhost');
+      const contract = url.searchParams.get('contract');
+      if (contract) return mapDemoBlocks({ contract });
       return mapDemoBlocks();
+    }
+    if (path.includes('/api/contracts/')) {
+      const contractId = path.split('/api/contracts/')[1];
+      return DEMO_CONTRACTS[contractId] || null;
+    }
+    if (path.includes('/api/contracts')) {
+      return Object.values(DEMO_CONTRACTS);
     }
     if (path.includes('/api/sessions')) {
       return mapDemoSessions();
@@ -337,6 +368,23 @@ class DemoApiClient implements IMaestroCodeApiClient {
   async _fetch(method: string, path: string, _options?: { body?: unknown }) {
     if (path === '/api/health') return { status: 'ok' };
     if (method === 'DELETE' && path.startsWith('/api/sessions/')) return { success: true };
+    // Contract query: GET /api/blocks?contract=xxx
+    if (method === 'GET' && path.startsWith('/api/blocks')) {
+      const url = new URL(path, 'http://localhost');
+      const contract = url.searchParams.get('contract');
+      if (contract) return mapDemoBlocks({ contract });
+      return mapDemoBlocks();
+    }
+    // Contract definitions
+    if (method === 'GET' && path.startsWith('/api/contracts/')) {
+      const contractId = path.split('/api/contracts/')[1];
+      const contract = DEMO_CONTRACTS[contractId];
+      if (contract) return contract;
+      throw new Error(`Contract not found: ${contractId}`);
+    }
+    if (method === 'GET' && path === '/api/contracts') {
+      return Object.values(DEMO_CONTRACTS);
+    }
     return {};
   }
 

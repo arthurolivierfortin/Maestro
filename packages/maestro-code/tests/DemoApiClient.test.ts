@@ -6,10 +6,10 @@ import { describe, it, expect } from 'vitest';
 import { DemoApiClient } from '../mocks/DemoApiClient.ts';
 
 describe('DemoApiClient', () => {
-  it('listBlocks returns 12 blocks with correct shape', async () => {
+  it('listBlocks returns 14 blocks with correct shape', async () => {
     const client = new DemoApiClient();
     const blocks = await client.listBlocks();
-    expect(blocks).toHaveLength(12);
+    expect(blocks).toHaveLength(14);
     for (const block of blocks) {
       expect(block).toHaveProperty('id');
       expect(block).toHaveProperty('name');
@@ -136,5 +136,31 @@ describe('DemoApiClient', () => {
     const result = await client.createSession({});
     expect(result).toHaveProperty('id');
     expect(result.id).toBe(client.DEMO_SESSION_ID);
+  });
+
+  it('_fetch GET /api/blocks?contract=maestro-assistant returns only assistant blocks', async () => {
+    const client = new DemoApiClient();
+    const result = await client._fetch('GET', '/api/blocks?contract=maestro-assistant') as any[];
+    expect(result.length).toBe(2);
+    for (const b of result) {
+      expect(b.contract).toBe('maestro-assistant');
+    }
+  });
+
+  it('_fetch GET /api/contracts/maestro-assistant returns contract definition', async () => {
+    const client = new DemoApiClient();
+    const result = await client._fetch('GET', '/api/contracts/maestro-assistant') as any;
+    expect(result.id).toBe('maestro-assistant');
+    expect(result.requiredCapabilities).toContain('conversation');
+    expect(result.features).toHaveProperty('conversation');
+    expect(result.features).toHaveProperty('tool-use');
+    expect(result.features).toHaveProperty('session-orchestration');
+  });
+
+  it('listBlocks includes contract field for assistant blocks', async () => {
+    const client = new DemoApiClient();
+    const blocks = await client.listBlocks();
+    const assistants = blocks.filter((b: any) => b.contract === 'maestro-assistant');
+    expect(assistants).toHaveLength(2);
   });
 });

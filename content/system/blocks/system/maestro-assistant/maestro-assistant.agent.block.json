@@ -40,6 +40,9 @@
     ]
   },
 
+  "contract": "maestro-assistant",
+  "capabilities": ["conversation", "tool-calling", "structured-output", "long-context", "orchestration"],
+
   "metadata": {
     "author": "system",
     "category": "core",

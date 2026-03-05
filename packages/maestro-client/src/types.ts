@@ -34,6 +34,7 @@ export interface BlockFilter {
   capability?: string;
   designation?: string;
   category?: string;
+  contract?: string;
 }
 
 export interface BlockDefinition {
@@ -44,11 +45,27 @@ export interface BlockDefinition {
   isAtomic: boolean;
   description?: string;
   capabilities?: string[];
+  contract?: string;
   inputs?: BlockPort[];
   outputs?: BlockPort[];
   config?: Record<string, unknown>;
   metadata?: Record<string, unknown>;
   [key: string]: unknown;
+}
+
+// ── Contracts ───────────────────────────────────────────────
+
+export interface ContractFeature {
+  description: string;
+  requires: string[];
+}
+
+export interface ContractDefinition {
+  id: string;
+  name: string;
+  description: string;
+  requiredCapabilities: string[];
+  features: Record<string, ContractFeature>;
 }
 
 export interface BlockPort {
@@ -361,6 +378,83 @@ export interface ExecutionStatus {
   id: string;
   status: string;
   [key: string]: unknown;
+}
+
+// ── Fitness ──────────────────────────────────────────────────
+
+export interface FitnessScore {
+  performance: number;
+  specialization: number;
+  composability: number;
+  economicCost: number;
+  computeCost: number;
+  hardwareCost: number;
+  lambda: number;
+  modelId: string;
+  taskType: string;
+  totalFitness: number;
+  calculatedAt: string;
+}
+
+export interface FitnessBreakdown {
+  performance: number;
+  specialization: number;
+  composability: number;
+  economicCost: number;
+  computeCost: number;
+  hardwareCost: number;
+  totalFitness: number;
+  numerator: number;
+  combinedCost: number;
+}
+
+export interface FitnessConfig {
+  lambda: number;
+  vramWeight: number;
+  ramWeight: number;
+  gpuWeight: number;
+  baselineCostPerMillion: number;
+  retryPenaltyFactor: number;
+  minimumFitnessThreshold: number;
+  maximumFitnessScore: number;
+  performanceWeight: number;
+  specializationWeight: number;
+  composabilityWeight: number;
+  updatedAt: string;
+}
+
+export interface CalculateFitnessRequest {
+  executionId?: string;
+  modelId: string;
+  taskType?: string;
+  metrics?: WorkflowExecutionMetrics;
+}
+
+export interface WorkflowExecutionMetrics {
+  [key: string]: unknown;
+}
+
+export interface ModelFitnessRanking {
+  rank: number;
+  modelId: string;
+  displayName: string;
+  provider: string;
+  averageFitness: number;
+  executionCount: number;
+  bestFitness: number;
+  taskType?: string;
+  breakdown?: FitnessBreakdown;
+  updatedAt: string;
+}
+
+export interface AggregateFitnessStats {
+  averageFitness: number;
+  minFitness: number;
+  maxFitness: number;
+  fitnessVariance: number;
+  fitnessStdDev: number;
+  sampleCount: number;
+  averageBreakdown?: FitnessBreakdown;
 }
 
 // ── SignalR Events ───────────────────────────────────────────
