@@ -138,74 +138,7 @@ public class NodeExecutionEngine : INodeExecutionCallback
                     DisplayTree = displayTree
                 };
 
-                // Check if we have a registered handler for this node type
-                if (nodeType != null && _handlers.TryGetValue(nodeType, out var handler))
-                {
-                    lastOutput = await handler.ExecuteAsync(configNode, context, this, lastOutput);
-                }
-                else
-                {
-                    // Built-in control flow nodes + blockRef fallback
-                    switch (nodeType)
-                    {
-                        case "while":
-                            lastOutput = await ExecuteWhileNodeAsync(session, configNode, workflowConfig, workingDir, workflowId, activePhaseId, displayTree, lastOutput);
-                            break;
-                        case "conditional":
-                            lastOutput = await ExecuteConditionalNodeAsync(session, configNode, workflowConfig, workingDir, displayTree, lastOutput);
-                            break;
-                        case "sequence":
-                            lastOutput = await ExecuteSequenceNodeAsync(session, configNode, workflowConfig, workingDir, workflowId, activePhaseId, displayTree, lastOutput);
-                            break;
-                        case "parallel":
-                            lastOutput = await ExecuteParallelNodeAsync(session, configNode, workflowConfig, workingDir, workflowId, activePhaseId, displayTree, lastOutput);
-                            break;
-                        case "phase":
-                            lastOutput = await ExecutePhaseNodeInlineAsync(session, configNode, workflowConfig, workingDir, workflowId, displayTree, lastOutput);
-                            break;
-                        default:
-                        {
-                            // Default: blockRef dispatch via handler
-                            var blockRef = NodeHandlers.BlockRefHandler.ResolveBlockRef(configNode, nodeId, session);
-                            if (blockRef != null)
-                            {
-                                var displayName = SessionStateManager.NodeIdToDisplayName(nodeId);
-                                _stateManager.UpdateNodeById(displayTree, nodeId, "running", $"Executing {blockRef}...");
-                                _stateManager.SetActiveBlock(session, nodeId, displayName, "block", "running");
-                                session.SetVariable("_executionTree", displayTree);
-                                await _repository.SaveAsync(session);
-
-                                lastOutput = await BlockRefHandler!.ExecuteAsync(configNode, context, this, lastOutput);
-
-                                var truncated = lastOutput != null && lastOutput.Length > 500 ? lastOutput[..500] + "..." : lastOutput;
-                                _stateManager.UpdateNodeById(displayTree, nodeId, "done", truncated);
-                                _stateManager.UpdateActiveBlockOutput(session, lastOutput != null && lastOutput.Length > 2000 ? lastOutput[..2000] + "..." : lastOutput ?? "");
-                                _stateManager.UpdateActiveBlockStatus(session, "done");
-                                _stateManager.StoreBlockOutput(session, nodeId, "block", lastOutput ?? "");
-                                session.SetVariable("_executionTree", displayTree);
-                                session.SetVariable($"_nodeResult_{nodeId}", lastOutput ?? "");
-                                await _repository.SaveAsync(session);
-                                await Task.Delay(500);
-                            }
-                            else if (configNode.TryGetProperty("nodes", out var orphanNodes)
-                                && orphanNodes.ValueKind == JsonValueKind.Array && orphanNodes.GetArrayLength() > 0)
-                            {
-                                throw new InvalidOperationException(
-                                    $"Node '{nodeId}' has {orphanNodes.GetArrayLength()} child nodes but no 'type'. " +
-                                    "Declare type (sequence, parallel, while, for-each, conditional) in the workflow block JSON.");
-                            }
-                            else
-                            {
-                                lastOutput = lastOutput ?? $"Node '{nodeId}' executed (passthrough — no blockRef)";
-                                _stateManager.UpdateNodeById(displayTree, nodeId, "done", "passthrough (no blockRef)");
-                                session.SetVariable("_executionTree", displayTree);
-                                session.SetVariable($"_nodeResult_{nodeId}", lastOutput);
-                                await _repository.SaveAsync(session);
-                            }
-                            break;
-                        }
-                    }
-                }
+                lastOutput = await DispatchNodeAsync(configNode, nodeId, nodeType, context, lastOutput);
             }
             catch (Exception ex)
             {
@@ -288,11 +221,85 @@ public class NodeExecutionEngine : INodeExecutionCallback
         return BlockRefHandler.ExecuteAsync(phaseNode, context, this, previousOutput);
     }
 
+    // ===== Single Node Dispatch =====
+
+    /// <summary>
+    /// Dispatches a single config node to the appropriate handler or built-in control flow.
+    /// Order: registered INodeHandler → built-in switch → blockRef fallback → passthrough.
+    /// This is the SINGLE dispatch point — used by both ExecuteConfigNodesAsync and ExecuteParallelNodeAsync.
+    /// </summary>
+    private async Task<string?> DispatchNodeAsync(
+        JsonElement configNode,
+        string nodeId,
+        string? nodeType,
+        NodeExecutionContext context,
+        string? previousOutput)
+    {
+        var session = context.Session;
+        var displayTree = context.DisplayTree;
+
+        // 1. Registered handler (for-each, set-variable, or any future node type)
+        if (nodeType != null && _handlers.TryGetValue(nodeType, out var handler))
+            return await handler.ExecuteAsync(configNode, context, this, previousOutput);
+
+        // 2. Built-in control flow
+        switch (nodeType)
+        {
+            case "while":
+                return await ExecuteWhileNodeAsync(session, configNode, context.WorkflowConfig, context.WorkingDir, context.WorkflowId, context.ActivePhaseId, displayTree, previousOutput);
+            case "conditional":
+                return await ExecuteConditionalNodeAsync(session, configNode, context.WorkflowConfig, context.WorkingDir, displayTree, previousOutput);
+            case "sequence":
+                return await ExecuteSequenceNodeAsync(session, configNode, context.WorkflowConfig, context.WorkingDir, context.WorkflowId, context.ActivePhaseId, displayTree, previousOutput);
+            case "parallel":
+                return await ExecuteParallelNodeAsync(session, configNode, context.WorkflowConfig, context.WorkingDir, context.WorkflowId, context.ActivePhaseId, displayTree, previousOutput);
+            case "phase":
+                return await ExecutePhaseNodeInlineAsync(session, configNode, context.WorkflowConfig, context.WorkingDir, context.WorkflowId, displayTree, previousOutput);
+        }
+
+        // 3. BlockRef dispatch
+        var blockRef = NodeHandlers.BlockRefHandler.ResolveBlockRef(configNode, nodeId, session);
+        if (blockRef != null)
+        {
+            var displayName = SessionStateManager.NodeIdToDisplayName(nodeId);
+            _stateManager.UpdateNodeById(displayTree, nodeId, "running", $"Executing {blockRef}...");
+            _stateManager.SetActiveBlock(session, nodeId, displayName, "block", "running");
+            session.SetVariable("_executionTree", displayTree);
+            await _repository.SaveAsync(session);
+
+            var output = await BlockRefHandler!.ExecuteAsync(configNode, context, this, previousOutput);
+
+            var truncated = output != null && output.Length > 500 ? output[..500] + "..." : output;
+            _stateManager.UpdateNodeById(displayTree, nodeId, "done", truncated);
+            _stateManager.UpdateActiveBlockOutput(session, output != null && output.Length > 2000 ? output[..2000] + "..." : output ?? "");
+            _stateManager.UpdateActiveBlockStatus(session, "done");
+            _stateManager.StoreBlockOutput(session, nodeId, "block", output ?? "");
+            session.SetVariable("_executionTree", displayTree);
+            session.SetVariable($"_nodeResult_{nodeId}", output ?? "");
+            await _repository.SaveAsync(session);
+            await Task.Delay(500);
+            return output;
+        }
+
+        // 4. Guard: node with children but no type
+        if (configNode.TryGetProperty("nodes", out var orphanNodes)
+            && orphanNodes.ValueKind == JsonValueKind.Array && orphanNodes.GetArrayLength() > 0)
+        {
+            throw new InvalidOperationException(
+                $"Node '{nodeId}' has {orphanNodes.GetArrayLength()} child nodes but no 'type'. " +
+                "Declare type (sequence, parallel, while, for-each, conditional) in the workflow block JSON.");
+        }
+
+        // 5. Passthrough
+        var passthroughOutput = previousOutput ?? $"Node '{nodeId}' executed (passthrough — no blockRef)";
+        _stateManager.UpdateNodeById(displayTree, nodeId, "done", "passthrough (no blockRef)");
+        session.SetVariable("_executionTree", displayTree);
+        session.SetVariable($"_nodeResult_{nodeId}", passthroughOutput);
+        await _repository.SaveAsync(session);
+        return passthroughOutput;
+    }
+
     // ===== Built-in Control Flow Nodes =====
-    // These remain inline because they are tightly coupled to:
-    // - Checkpoint/resume (while state, iteration tracking)
-    // - Display tree management (nested children reset)
-    // - Recursive dispatch (parallel re-dispatches child types)
 
     private async Task<string?> ExecuteWhileNodeAsync(
         Domain.Entities.ProjectSession session,
@@ -639,75 +646,20 @@ public class NodeExecutionEngine : INodeExecutionCallback
             if (child.ValueKind != JsonValueKind.Object) continue;
 
             var childId = child.TryGetProperty("id", out var cIdProp) ? cIdProp.GetString() ?? "child" : "child";
+            var childType = child.TryGetProperty("type", out var ctProp) ? ctProp.GetString() : null;
 
             try
             {
-                var childType = child.TryGetProperty("type", out var ctProp) ? ctProp.GetString() : null;
-
-                string? result;
-
-                // Check for registered handler first
-                if (childType != null && _handlers.TryGetValue(childType, out var handler))
+                var childContext = new NodeExecutionContext
                 {
-                    var childContext = new NodeExecutionContext
-                    {
-                        Session = session,
-                        WorkflowConfig = workflowConfig,
-                        WorkingDir = workingDir,
-                        WorkflowId = workflowId,
-                        ActivePhaseId = activePhaseId,
-                        DisplayTree = displayTree
-                    };
-                    result = await handler.ExecuteAsync(child, childContext, this, previousOutput);
-                }
-                else
-                {
-                    switch (childType)
-                    {
-                        case "sequence":
-                            result = await ExecuteSequenceNodeAsync(session, child, workflowConfig, workingDir, workflowId, activePhaseId, displayTree, previousOutput);
-                            break;
-                        case "while":
-                            result = await ExecuteWhileNodeAsync(session, child, workflowConfig, workingDir, workflowId, activePhaseId, displayTree, previousOutput);
-                            break;
-                        case "conditional":
-                            result = await ExecuteConditionalNodeAsync(session, child, workflowConfig, workingDir, displayTree, previousOutput);
-                            break;
-                        default:
-                        {
-                            var blockRef = NodeHandlers.BlockRefHandler.ResolveBlockRef(child, childId, session);
-                            if (blockRef != null)
-                            {
-                                _stateManager.UpdateNodeById(displayTree, childId, "running", $"Executing {blockRef}...");
-                                session.SetVariable("_executionTree", displayTree);
-                                await _repository.SaveAsync(session);
-
-                                var blockContext = new NodeExecutionContext
-                                {
-                                    Session = session,
-                                    WorkflowConfig = workflowConfig,
-                                    WorkingDir = workingDir,
-                                    WorkflowId = workflowId,
-                                    ActivePhaseId = activePhaseId,
-                                    DisplayTree = displayTree
-                                };
-                                result = await BlockRefHandler!.ExecuteAsync(child, blockContext, this, previousOutput);
-                                _stateManager.UpdateNodeById(displayTree, childId, "done");
-                                session.SetVariable("_executionTree", displayTree);
-                                session.SetVariable($"_nodeResult_{childId}", result ?? "");
-                                await _repository.SaveAsync(session);
-                            }
-                            else
-                            {
-                                result = previousOutput;
-                                _stateManager.UpdateNodeById(displayTree, childId, "done", "passthrough (no blockRef)");
-                                session.SetVariable("_executionTree", displayTree);
-                            }
-                            break;
-                        }
-                    }
-                }
-                results.Add(result);
+                    Session = session,
+                    WorkflowConfig = workflowConfig,
+                    WorkingDir = workingDir,
+                    WorkflowId = workflowId,
+                    ActivePhaseId = activePhaseId,
+                    DisplayTree = displayTree
+                };
+                results.Add(await DispatchNodeAsync(child, childId, childType, childContext, previousOutput));
             }
             catch (Exception ex)
             {
