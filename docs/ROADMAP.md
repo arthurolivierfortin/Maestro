@@ -55,7 +55,7 @@
 | 52 | Agent test-designer + Contract Test Runner | COMPLETE |
 | 53 | Agent et Workflow = Multi-Node Blocks (EntryPointExecutor 4272→196 lignes, 9 executors) | COMPLETE |
 | 54 | Re-verification Phase 52 — FitnessScore, tests dans contract, E2E (fitness=0.0037) | COMPLETE |
-| 53-B | Decomposition NodeExecutionEngine (2431 → 1883 lignes, 3 classes extraites) | COMPLETE |
+| 53-B | Decomposition NodeExecutionEngine (2431 → 1815 lignes, 3 classes extraites) | COMPLETE |
 
 ---
 
@@ -87,7 +87,7 @@
 2. Agent test-designer (lit un contract → produit des tests)          ← Phase 52 ✓
 3. Agent et Workflow = Multi-Node Blocks (plus de monolithe)           ← Phase 53 ✓
 4. Re-verification Phase 52 (FitnessScore, tests dans contract)      ← Phase 54 ✓
-4b. Decomposition NodeExecutionEngine (2431 → 1883 lignes)           ← Phase 53-B ✓
+4b. Decomposition NodeExecutionEngine (2431 → 1815 lignes)           ← Phase 53-B ✓
 5. Agent agent-creator (cree un block, teste, itere)                  ← Phase 55 (NEXT)
 6. Workflow block-forge + /create-agent TUI/CLI                       ← Phase 56
 7. /adapt = workflow block-forge avec baseBlockId                     ← Phase 57
@@ -158,7 +158,7 @@
 
 ### Phase 53-B : Decomposition NodeExecutionEngine — COMPLETE
 
-**Resultats** : NodeExecutionEngine 2431 → 1883 lignes (-22.5%). Extracted: TemplateResolver (201), ConditionEvaluator (113), SessionHelper (292). ForEach source resolution refactored. All tests pass.
+**Resultats** : NodeExecutionEngine 2431 → 1815 lignes (-25.3%). Extracted: TemplateResolver (201), ConditionEvaluator (113), SessionHelper (292). ExecuteNodesAsync (legacy) supprime. All tests pass.
 
 **Checkpoint** : `docs/phases/PHASE-53-B/checkpoint.md`
 
@@ -306,7 +306,7 @@
 | Contract Test Runner (execution tests, scoring, tool block) | 52-C | COMPLETE |
 | Agent = Multi-Node Blocks (response-parser, tool-dispatcher, agent-loop) | 53 | COMPLETE |
 | Re-verification Phase 52 (FitnessScore, tests dans contract) | 54 | COMPLETE |
-| Decomposition NodeExecutionEngine (2431 → 1883 lignes) | 53-B | COMPLETE |
+| Decomposition NodeExecutionEngine (2431 → 1815 lignes) | 53-B | COMPLETE |
 | Agent agent-creator (boucle create-test-fix) | 55 | Planifie |
 | Workflow block-forge + /create-agent TUI/CLI | 56 | Planifie |
 | /adapt + contractRef dans workflows | 57 | Planifie |

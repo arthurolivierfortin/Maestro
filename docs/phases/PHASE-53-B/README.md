@@ -355,10 +355,10 @@ curl -X POST http://localhost:5000/api/contracts/test-designer/test?blockId=test
 - [x] `ConditionEvaluator` extrait — évaluation de conditions booléennes (113 lignes)
 - [x] `SessionHelper` extrait — utilitaires session, config, conversion (292 lignes)
 - [ ] `SetVariableBlockExecutor` — kept in engine (tightly coupled with session state + stateManager)
-- [ ] `ExecuteNodesAsync` — kept (still used as legacy fallback by EntryPointExecutor)
+- [x] `ExecuteNodesAsync` supprimé — code mort depuis Phase 53, fallback remplacé par throw
 - [ ] `DispatchRegularNodeAsync` — kept (UI update wrapper, not pure duplicate of ExecuteBlockRefAsync)
 - [x] `ExecuteForEachNodeAsync` réduit (460 → ~260 lignes via ResolveForEachSource extraction)
-- [x] `NodeExecutionEngine` 2431 → 1883 lignes (-22.5%)
+- [x] `NodeExecutionEngine` 2431 → 1815 lignes (-25.3%)
 - [x] Build : 0 erreurs
 - [x] Tous les tests passent (93+77 backend, 140/141 TS)
 - [ ] E2E contract test runner — not re-verified (no behavioral changes, pure refactoring)

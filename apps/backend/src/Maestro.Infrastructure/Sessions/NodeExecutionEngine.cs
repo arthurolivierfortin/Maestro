@@ -47,74 +47,6 @@ public class NodeExecutionEngine
         _executorRegistry = executorRegistry;
     }
 
-    // ===== Node Execution =====
-
-    /// <summary>
-    /// Executes tree nodes sequentially, updating session state after each.
-    /// </summary>
-    public async Task ExecuteNodesAsync(
-        Domain.Entities.ProjectSession session,
-        List<object> tree,
-        Dictionary<string, object>? workflowConfig,
-        string workingDir,
-        string? activePhaseId)
-    {
-        string? previousOutput = null;
-        var totalNodes = tree.Count;
-
-        for (int i = 0; i < tree.Count; i++)
-        {
-            if (tree[i] is not Dictionary<string, object> nodeDict) continue;
-
-            var nodeId = nodeDict["id"]?.ToString() ?? "unknown";
-            var nodeName = nodeDict["name"]?.ToString() ?? nodeId;
-
-            // Set running
-            _stateManager.UpdateNodeById(tree, nodeId, "running");
-            session.SetVariable("_executionTree", tree);
-            _stateManager.SetActiveBlock(session, nodeId, nodeName, SessionStateManager.InferBlockType(nodeId), "running");
-            _stateManager.AppendExecutionLog(session, "info", $"{nodeId}: Starting...");
-
-            if (!string.IsNullOrEmpty(activePhaseId))
-            {
-                var progress = (int)((double)i / totalNodes * 100);
-                _stateManager.UpdatePhaseStatus(session, activePhaseId, "running", progress);
-            }
-
-            await _repository.SaveAsync(session);
-
-            string output;
-            try
-            {
-                output = await DispatchRegularNodeAsync(session, nodeId, workflowConfig, workingDir, activePhaseId, tree, previousOutput) ?? "";
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Node execution failed: {NodeId}", nodeId);
-                output = $"(error: {ex.Message})";
-                _stateManager.UpdateNodeById(tree, nodeId, "error", output);
-                session.SetVariable("_executionTree", tree);
-                _stateManager.UpdateActiveBlockStatus(session, "error");
-                _stateManager.AppendExecutionLog(session, "error", $"{nodeId}: {ex.Message}");
-                await _repository.SaveAsync(session);
-                continue;
-            }
-
-            var truncatedOutput = output.Length > 500 ? output[..500] + "..." : output;
-            _stateManager.UpdateNodeById(tree, nodeId, "done", truncatedOutput);
-            session.SetVariable("_executionTree", tree);
-            _stateManager.UpdateActiveBlockOutput(session, output.Length > 2000 ? output[..2000] + "..." : output);
-            _stateManager.UpdateActiveBlockStatus(session, "done");
-            _stateManager.AppendExecutionLog(session, "success", $"{nodeId}: Completed ({output.Length} chars)");
-            _stateManager.StoreBlockOutput(session, nodeId, SessionStateManager.InferBlockType(nodeId), output);
-
-            await _repository.SaveAsync(session);
-            await Task.Delay(500);
-
-            previousOutput = output;
-        }
-    }
-
     // ===== Config-Driven Node Execution (generic while/conditional support) =====
 
     /// <summary>
@@ -1633,7 +1565,7 @@ public class NodeExecutionEngine
     // JSON conversion helpers → SessionHelper.cs (JObjectToDict, JsonElementToDict, JArrayToNativeList, etc.)
 
     // Kept here: CollectNodeIdsRecursive (private, only used by while/foreach checkpoint clearing)
-    // Kept here: ExecuteNodesAsync (legacy tree dispatch, called by EntryPointExecutor fallback)
+    // Phase 53-B: ExecuteNodesAsync removed — legacy tree dispatch, dead code since Phase 53
     // Kept here: CheckPauseAsync (private, pause/resume lifecycle)
     // Kept here: ExecuteSetVariableNode (tightly coupled with session state + stateManager logging)
 

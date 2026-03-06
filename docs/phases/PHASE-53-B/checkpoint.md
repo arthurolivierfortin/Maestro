@@ -11,9 +11,9 @@ Decompose NodeExecutionEngine by extracting utility code into focused classes.
 
 | Metric | Before | After |
 |--------|--------|-------|
-| NodeExecutionEngine lines | 2431 | 1883 |
-| Lines extracted | — | 606 |
-| Reduction | — | -22.5% (-548 lines) |
+| NodeExecutionEngine lines | 2431 | 1815 |
+| Lines extracted/removed | — | 616 |
+| Reduction | — | -25.3% (-616 lines) |
 
 ### New classes created
 
@@ -25,13 +25,15 @@ Decompose NodeExecutionEngine by extracting utility code into focused classes.
 
 ### Internal refactoring
 
+- `ExecuteNodesAsync` (legacy tree dispatch, 62 lines) **removed** — dead code since Phase 53
+- EntryPointExecutor legacy fallback replaced with `throw InvalidOperationException`
 - ForEach source normalization extracted to `ResolveForEachSource()` + `ConvertJsonElementToList()` private methods
 - Removed unused imports (`System.Text`, `System.Text.RegularExpressions`)
 - Updated callers: EntryPointExecutor, TreeDocumenterBlockExecutor → use SessionHelper
 
-### Why 1883 not 1500
+### Why 1815 not 1500
 
-The 1500-line target assumed more code could be extracted. In practice, the remaining 1883 lines are core control flow:
+The remaining 1815 lines are core control flow — each method implements distinct behavior:
 - `ExecuteConfigNodesAsync` (orchestrator) — 150 lines
 - `ExecuteWhileNodeAsync` — 156 lines
 - `ExecuteForEachNodeAsync` — ~260 lines (down from 460)
@@ -39,10 +41,9 @@ The 1500-line target assumed more code could be extracted. In practice, the rema
 - `ExecuteBlockRefAsync` — 230 lines
 - `ExecuteSetVariableNode` — 196 lines
 - `DispatchRegularNodeAsync` — 100 lines
-- `ExecuteNodesAsync` (legacy) — 62 lines
-- Other (sequence, parallel, phase, pause, helpers) — ~367 lines
+- Other (sequence, parallel, phase, pause, helpers) — ~361 lines
 
-This is irreducible complexity — each method implements distinct control flow behavior. Further decomposition would change behavior or add indirection without reducing complexity.
+Further decomposition would add indirection without reducing complexity.
 
 ## Verification
 

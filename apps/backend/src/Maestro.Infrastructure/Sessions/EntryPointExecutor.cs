@@ -185,8 +185,11 @@ public class EntryPointExecutor
         }
         else
         {
-            // Legacy tree-based execution
-            await engine.ExecuteNodesAsync(session, tree, workflowConfig, workingDir, null);
+            // Phase 53: All blocks must have either config.nodes (workflow) or a registered executor.
+            // If we reach here, the block definition is invalid.
+            throw new InvalidOperationException(
+                $"Block '{workflowId}' has no config.nodes and no registered executor (type: {workflowBlock?.BlockType ?? "null"}). " +
+                "All blocks must be dispatched via BlockExecutorRegistry since Phase 53.");
         }
 
         // Clean up checkpoint variables on normal workflow completion
