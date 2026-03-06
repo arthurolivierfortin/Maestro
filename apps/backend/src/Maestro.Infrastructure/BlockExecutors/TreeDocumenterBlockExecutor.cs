@@ -81,7 +81,7 @@ public class TreeDocumenterBlockExecutor : IBlockExecutor
         var entryBlockIds = session.EntryPoints.Values.Distinct().ToList();
         foreach (var rawId in entryBlockIds)
         {
-            var normalizedId = Sessions.NodeExecutionEngine.NormalizeBlockId(rawId);
+            var normalizedId = Sessions.SessionHelper.NormalizeBlockId(rawId);
             var entryBlock = await _blockDiscovery.GetByIdAsync(normalizedId, session.BlockSearchPaths);
             if (entryBlock == null)
             {

@@ -103,10 +103,10 @@ public class EntryPointExecutor
         var session = await repository.GetByIdAsync(sessionId);
         if (session == null) return;
 
-        var workingDir = NodeExecutionEngine.GetProjectPath(session);
+        var workingDir = SessionHelper.GetProjectPath(session);
 
         // 1. Load workflow block (optional — execution still works without it)
-        var blockId = NodeExecutionEngine.NormalizeBlockId(workflowId);
+        var blockId = SessionHelper.NormalizeBlockId(workflowId);
         var workflowBlock = await blockDiscovery.GetByIdAsync(blockId, session.BlockSearchPaths);
         if (workflowBlock == null)
         {
@@ -142,7 +142,7 @@ public class EntryPointExecutor
         await repository.SaveAsync(session);
 
         // 5. Dispatch to appropriate execution path
-        var workflowConfig = NodeExecutionEngine.GetWorkflowConfig(session, workflowId, null);
+        var workflowConfig = SessionHelper.GetWorkflowConfig(session, workflowId, null);
 
         var isWorkflowWithNodes = workflowBlock?.Config != null
             && workflowBlock.Config.ContainsKey("nodes")

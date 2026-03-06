@@ -1,6 +1,4 @@
-using System.Text;
 using System.Text.Json;
-using System.Text.RegularExpressions;
 using Newtonsoft.Json.Linq;
 using Maestro.Application.Interfaces;
 using Maestro.Domain.ValueObjects;
@@ -303,7 +301,7 @@ public class NodeExecutionEngine
                 ? maxProp.GetInt32().ToString()
                 : maxProp.GetString() ?? "50";
         }
-        var resolvedMax = ResolveTemplate(maxIterStr, session);
+        var resolvedMax = TemplateResolver.ResolveTemplate(maxIterStr, session);
         var safetyMaxIterations = int.TryParse(resolvedMax, out var mi) ? mi : 50;
 
         // Set while node to running in display tree
@@ -334,7 +332,7 @@ public class NodeExecutionEngine
         _stateManager.AppendExecutionLog(session, "info", $"Entering while loop '{nodeId}' (max: {safetyMaxIterations})");
         await _repository.SaveAsync(session);
 
-        while (iteration < safetyMaxIterations && EvaluateCondition(condition, session))
+        while (iteration < safetyMaxIterations && ConditionEvaluator.EvaluateCondition(condition, session))
         {
             // Check for early stop signal (plateau detection, etc.)
             if (session.GetVariable<bool>("_shouldStop", false))
@@ -420,7 +418,7 @@ public class NodeExecutionEngine
         string exitReason;
         if (earlyStopped)
             exitReason = $"plateau (best: {SessionStateManager.ReadDoubleVariable(session, "_bestFitness", 0):F2}, no improvement for {SessionStateManager.ReadIntVariable(session, "_plateauCount", 0)} runs)";
-        else if (!EvaluateCondition(condition, session))
+        else if (!ConditionEvaluator.EvaluateCondition(condition, session))
             exitReason = $"condition met (fitness: {finalFitness:F2})";
         else
             exitReason = $"max iterations reached ({iteration}/{safetyMaxIterations})";
@@ -452,8 +450,8 @@ public class NodeExecutionEngine
         var displayName = SessionStateManager.NodeIdToDisplayName(nodeId);
 
         // Resolve template references in condition (e.g., {{_nodeResult_review}} or {{state.results.review}})
-        var resolvedCondition = ResolveTemplate(condition, session);
-        var condResult = EvaluateCondition(resolvedCondition, session);
+        var resolvedCondition = TemplateResolver.ResolveTemplate(condition, session);
+        var condResult = ConditionEvaluator.EvaluateCondition(resolvedCondition, session);
         _stateManager.AppendExecutionLog(session, "info", $"Conditional '{nodeId}': '{condition}' → '{resolvedCondition}' → {condResult}");
 
         // Update display tree
@@ -547,7 +545,7 @@ public class NodeExecutionEngine
                 if (hasBrBlockRef)
                 {
                     var branchId = branchNode.TryGetProperty("id", out var branchIdProp) ? branchIdProp.GetString() ?? branchName : branchName;
-                    var blockRefId = ResolveTemplate(brBlockRefProp.GetString()!, session);
+                    var blockRefId = TemplateResolver.ResolveTemplate(brBlockRefProp.GetString()!, session);
                     _stateManager.AppendExecutionLog(session, "info", $"Conditional '{nodeId}': executing '{branchName}' branch → blockRef '{blockRefId}'");
                     output = await ExecuteBlockRefAsync(session, blockRefId, branchNode, workingDir, displayTree, branchId, previousOutput);
                     session.SetVariable($"_nodeResult_{branchId}", output ?? "");
@@ -799,7 +797,7 @@ public class NodeExecutionEngine
             // Handle {{previousOutput}} the same way ExecuteBlockRefAsync does
             rawValue = templateValue.Contains("{{previousOutput}}")
                 ? templateValue.Replace("{{previousOutput}}", previousOutput ?? "")
-                : ResolveTemplate(templateValue, session);
+                : TemplateResolver.ResolveTemplate(templateValue, session);
         }
 
         // Append mode: add value to existing list instead of overwriting
@@ -837,7 +835,7 @@ public class NodeExecutionEngine
 
                 if (token is JArray jArr)
                 {
-                    var list = JArrayToNativeList(jArr);
+                    var list = SessionHelper.JArrayToNativeList(jArr);
                     session.SetVariable(variableName, list);
                     _stateManager.AppendExecutionLog(session, "info",
                         $"set-variable '{nodeId}': stored {list.Count}-item list in '{variableName}' ({trimmed.Length} chars)");
@@ -883,7 +881,7 @@ public class NodeExecutionEngine
                             if (prop.Value.Type == JTokenType.String)
                             {
                                 var strVal = prop.Value.Value<string>();
-                                var extracted = TryExtractJsonArrayFromText(strVal);
+                                var extracted = SessionHelper.TryExtractJsonArrayFromText(strVal);
                                 if (extracted != null)
                                 {
                                     unwrappedArray = extracted;
@@ -911,7 +909,7 @@ public class NodeExecutionEngine
                     if (unwrappedArray != null && unwrappedArray.Count > 0)
                     {
                         // Unwrap: convert JArray → List<object> of native types
-                        var list = JArrayToNativeList(unwrappedArray);
+                        var list = SessionHelper.JArrayToNativeList(unwrappedArray);
                         session.SetVariable(variableName, list);
                         _stateManager.AppendExecutionLog(session, "info",
                             $"set-variable '{nodeId}': unwrapped '{unwrapField}' → stored {list.Count}-item list in '{variableName}'");
@@ -942,10 +940,10 @@ public class NodeExecutionEngine
         {
             // PHASE 35-E FIX 36: Plain text may contain an embedded JSON array
             // (LLM wrapped its output in prose, markdown code fences, etc.)
-            var embeddedArray = TryExtractJsonArrayFromText(rawValue);
+            var embeddedArray = SessionHelper.TryExtractJsonArrayFromText(rawValue);
             if (embeddedArray != null && embeddedArray.Count > 0)
             {
-                var list = JArrayToNativeList(embeddedArray);
+                var list = SessionHelper.JArrayToNativeList(embeddedArray);
                 session.SetVariable(variableName, list);
                 _stateManager.AppendExecutionLog(session, "info",
                     $"set-variable '{nodeId}': extracted {list.Count}-item list from plain text in '{variableName}'");
@@ -990,210 +988,10 @@ public class NodeExecutionEngine
             throw new InvalidOperationException($"for-each '{nodeId}': missing 'source' property");
         }
 
-        // Normalize source variable (may be JArray/JsonElement from API — convert to List<object>)
-        SessionStateManager.NormalizeJsonElementToList(session, source);
-
-        // If the source variable is a string containing JSON, try to parse it.
-        // This happens when set-variable stores agent output (a string) that contains a JSON array.
-        var rawSourceVar = session.GetVariable(source);
-        if (rawSourceVar is string sourceStr && !string.IsNullOrWhiteSpace(sourceStr))
+        var items = ResolveForEachSource(session, source, nodeId);
+        if (items == null || items.Count == 0)
         {
-            // Try to extract a JSON array from the string (may have prose/error prefix)
-            var bracketStart = sourceStr.IndexOf('[');
-            var bracketEnd = sourceStr.LastIndexOf(']');
-            if (bracketStart >= 0 && bracketEnd > bracketStart)
-            {
-                var jsonCandidate = sourceStr.Substring(bracketStart, bracketEnd - bracketStart + 1);
-                try
-                {
-                    var parsed = JArray.Parse(jsonCandidate);
-                    if (parsed != null && parsed.Count > 0)
-                    {
-                        // Store as JArray, then NormalizeJsonElementToList will convert to List<Dictionary>
-                        session.SetVariable(source, parsed);
-                        SessionStateManager.NormalizeJsonElementToList(session, source);
-                        var normalized = session.GetVariable(source);
-                        var count = normalized is List<object> nl ? nl.Count : 0;
-                        _stateManager.AppendExecutionLog(session, "info", $"for-each '{nodeId}': parsed source string into {count} items");
-                    }
-                }
-                catch (Newtonsoft.Json.JsonException ex)
-                {
-                    _logger.LogWarning(ex, "for-each '{NodeId}': failed to parse source string as JSON array", nodeId);
-                }
-            }
-        }
-
-        // Read the source list from session variable
-        // Defense-in-depth: normalize again in case set-variable's normalization didn't stick
-        SessionStateManager.NormalizeJsonElementToList(session, source);
-        var sourceVar = session.GetVariable(source);
-
-        // Direct JsonElement → List<object> conversion if NormalizeJsonElementToList didn't work
-        // This handles the case where JsonElement is stored but ValueKind check fails silently
-        if (sourceVar is JsonElement directJsonEl)
-        {
-            _logger.LogWarning("for-each '{NodeId}': source is still JsonElement (kind={Kind}), converting directly",
-                nodeId, directJsonEl.ValueKind);
-            if (directJsonEl.ValueKind == JsonValueKind.Array)
-            {
-                var directList = new List<object>();
-                foreach (var item in directJsonEl.EnumerateArray())
-                {
-                    if (item.ValueKind == JsonValueKind.Object)
-                    {
-                        var dict = new Dictionary<string, object>();
-                        foreach (var prop in item.EnumerateObject())
-                        {
-                            dict[prop.Name] = prop.Value.ValueKind switch
-                            {
-                                JsonValueKind.String => prop.Value.GetString()!,
-                                JsonValueKind.Number => prop.Value.TryGetInt64(out var lng) ? (object)lng : prop.Value.GetDouble(),
-                                JsonValueKind.True => true,
-                                JsonValueKind.False => false,
-                                JsonValueKind.Array => prop.Value.ToString()!,
-                                JsonValueKind.Object => prop.Value.ToString()!,
-                                _ => prop.Value.ToString()!
-                            };
-                        }
-                        directList.Add(dict);
-                    }
-                    else
-                    {
-                        directList.Add(item.ToString()!);
-                    }
-                }
-                if (directList.Count > 0)
-                {
-                    session.SetVariable(source, directList);
-                    sourceVar = directList;
-                    _stateManager.AppendExecutionLog(session, "info",
-                        $"for-each '{nodeId}': directly converted JsonElement to {directList.Count} items");
-                }
-            }
-            else if (directJsonEl.ValueKind == JsonValueKind.String)
-            {
-                // JsonElement wrapping a string — try to parse the string as JSON array
-                var strContent = directJsonEl.GetString();
-                if (!string.IsNullOrEmpty(strContent))
-                {
-                    var bracketStart = strContent.IndexOf('[');
-                    var bracketEnd = strContent.LastIndexOf(']');
-                    if (bracketStart >= 0 && bracketEnd > bracketStart)
-                    {
-                        try
-                        {
-                            var innerParsed = JsonSerializer.Deserialize<List<Dictionary<string, JsonElement>>>(
-                                strContent.Substring(bracketStart, bracketEnd - bracketStart + 1));
-                            if (innerParsed != null && innerParsed.Count > 0)
-                            {
-                                var innerList = new List<object>();
-                                foreach (var dict in innerParsed)
-                                {
-                                    var converted = new Dictionary<string, object>();
-                                    foreach (var kv in dict)
-                                    {
-                                        converted[kv.Key] = kv.Value.ValueKind switch
-                                        {
-                                            JsonValueKind.String => kv.Value.GetString()!,
-                                            JsonValueKind.Number => kv.Value.TryGetInt64(out var lng) ? (object)lng : kv.Value.GetDouble(),
-                                            JsonValueKind.True => true,
-                                            JsonValueKind.False => false,
-                                            _ => kv.Value.ToString()!
-                                        };
-                                    }
-                                    innerList.Add(converted);
-                                }
-                                session.SetVariable(source, innerList);
-                                sourceVar = innerList;
-                                _stateManager.AppendExecutionLog(session, "info",
-                                    $"for-each '{nodeId}': parsed JsonElement string to {innerList.Count} items");
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            _logger.LogWarning(ex, "for-each '{NodeId}': failed to parse JsonElement string content", nodeId);
-                        }
-                    }
-                }
-            }
-        }
-
-        // Defense-in-depth: if source is still a JArray (Newtonsoft), convert to List<object> here
-        if (sourceVar is JArray jArrSource)
-        {
-            _logger.LogWarning("for-each '{NodeId}': source is JArray ({Count} items), normalizing", nodeId, jArrSource.Count);
-            SessionStateManager.NormalizeJsonElementToList(session, source);
-            sourceVar = session.GetVariable(source);
-        }
-        // Defense-in-depth: if source is a JToken string wrapping JSON array
-        else if (sourceVar is JValue jVal && jVal.Type == JTokenType.String)
-        {
-            var jStr = jVal.Value<string>();
-            if (!string.IsNullOrEmpty(jStr) && jStr.TrimStart().StartsWith("["))
-            {
-                try
-                {
-                    var arr = JArray.Parse(jStr);
-                    session.SetVariable(source, arr);
-                    SessionStateManager.NormalizeJsonElementToList(session, source);
-                    sourceVar = session.GetVariable(source);
-                    _stateManager.AppendExecutionLog(session, "info", $"for-each '{nodeId}': parsed JValue string to list");
-                }
-                catch { /* fallthrough to error below */ }
-            }
-        }
-        // PHASE 35-E FIX 37: if source is a JObject, try to extract arrays from its properties.
-        // This handles the case where task-planner output was stored as {"summary":"prose with [{...}]"}
-        // or {"steps":[{...}]} — set-variable stored it as JObject because extraction failed.
-        else if (sourceVar is JObject jObjSource)
-        {
-            _logger.LogWarning("for-each '{NodeId}': source is JObject, attempting array extraction", nodeId);
-            JArray? extractedArr = null;
-            string? extractField = null;
-
-            // Check JArray properties first ({"steps":[...]} pattern)
-            foreach (var prop in jObjSource.Properties())
-            {
-                if (prop.Value is JArray directArr && directArr.Count > 0)
-                {
-                    extractedArr = directArr;
-                    extractField = prop.Name;
-                    break;
-                }
-            }
-
-            // Then check string properties for embedded JSON arrays
-            if (extractedArr == null)
-            {
-                foreach (var prop in jObjSource.Properties())
-                {
-                    if (prop.Value.Type == JTokenType.String)
-                    {
-                        var strVal = prop.Value.Value<string>();
-                        var embedded = TryExtractJsonArrayFromText(strVal);
-                        if (embedded != null)
-                        {
-                            extractedArr = embedded;
-                            extractField = prop.Name;
-                            break;
-                        }
-                    }
-                }
-            }
-
-            if (extractedArr != null && extractedArr.Count > 0)
-            {
-                var list = JArrayToNativeList(extractedArr);
-                session.SetVariable(source, list);
-                sourceVar = list;
-                _stateManager.AppendExecutionLog(session, "info",
-                    $"for-each '{nodeId}': extracted {list.Count} items from JObject property '{extractField}'");
-            }
-        }
-
-        if (sourceVar is not List<object> items || items.Count == 0)
-        {
+            var sourceVar = session.GetVariable(source);
             var errorMsg = $"for-each '{nodeId}': source '{source}' is empty or not a list (type: {sourceVar?.GetType().Name ?? "null"})";
             _stateManager.AppendExecutionLog(session, "error", errorMsg);
             throw new InvalidOperationException(errorMsg);
@@ -1274,7 +1072,7 @@ public class NodeExecutionEngine
 
             // Get per-item config via GetWorkflowConfig if configLookup is enabled
             var iterationConfig = configLookup
-                ? GetWorkflowConfig(session, workflowId, itemId) ?? workflowConfig
+                ? SessionHelper.GetWorkflowConfig(session, workflowId, itemId) ?? workflowConfig
                 : workflowConfig;
 
             // Reset scoped variables (data-driven from JSON)
@@ -1284,12 +1082,12 @@ public class NodeExecutionEngine
             }
 
             // Handle plateau-based phases
-            var phaseStopCondition = GetConfigString(iterationConfig, "evaluation.stopCondition", "target");
+            var phaseStopCondition = SessionHelper.GetConfigString(iterationConfig, "evaluation.stopCondition", "target");
             var originalTarget = SessionStateManager.ReadDoubleVariable(session, "targetFitness", 0.85);
             if (phaseStopCondition == "plateau")
             {
                 session.SetVariable("targetFitness", 1.0); // Unreachable; plateau stops via _shouldStop
-                _stateManager.AppendExecutionLog(session, "info", $"Item '{itemId}' uses plateau detection (runs: {GetConfigInt(iterationConfig, "evaluation.plateauRuns", 5)})");
+                _stateManager.AppendExecutionLog(session, "info", $"Item '{itemId}' uses plateau detection (runs: {SessionHelper.GetConfigInt(iterationConfig, "evaluation.plateauRuns", 5)})");
             }
 
             // Resolve phaseId: explicit phaseId on item takes priority, fallback to itemId
@@ -1442,7 +1240,7 @@ public class NodeExecutionEngine
     {
         var nodeId = phaseNode.TryGetProperty("id", out var idProp) ? idProp.GetString() ?? "phase" : "phase";
         var configSection = phaseNode.TryGetProperty("configSection", out var csProp) ? csProp.GetString() ?? nodeId : nodeId;
-        var phaseConfig = GetWorkflowConfig(session, workflowId, configSection) ?? workflowConfig;
+        var phaseConfig = SessionHelper.GetWorkflowConfig(session, workflowId, configSection) ?? workflowConfig;
 
         _stateManager.UpdatePhaseStatus(session, configSection, "running", 0);
         _stateManager.UpdateNodeById(displayTree, nodeId, "running", configSection);
@@ -1458,7 +1256,7 @@ public class NodeExecutionEngine
         }
         else if (phaseNode.TryGetProperty("blockRef", out var blockRefProp) && blockRefProp.ValueKind == JsonValueKind.String)
         {
-            var blockRefId = ResolveTemplate(blockRefProp.GetString()!, session);
+            var blockRefId = TemplateResolver.ResolveTemplate(blockRefProp.GetString()!, session);
             lastOutput = await ExecuteBlockRefAsync(session, blockRefId, phaseNode, workingDir, displayTree, nodeId, previousOutput);
         }
 
@@ -1496,7 +1294,7 @@ public class NodeExecutionEngine
         }
 
         // Resolve the block definition
-        var block = await _blockDiscovery.GetByIdAsync(NormalizeBlockId(blockRefId), session.BlockSearchPaths);
+        var block = await _blockDiscovery.GetByIdAsync(SessionHelper.NormalizeBlockId(blockRefId), session.BlockSearchPaths);
         if (block == null)
         {
             _logger.LogWarning("Block not found for blockRef: {BlockRef}", blockRefId);
@@ -1540,7 +1338,7 @@ public class NodeExecutionEngine
                 // Resolve template references like {{inputs.task}} and {{previousOutput}}
                 var resolved = rawValue.Contains("{{previousOutput}}")
                     ? rawValue.Replace("{{previousOutput}}", previousOutput ?? "")
-                    : ResolveTemplate(rawValue, session);
+                    : TemplateResolver.ResolveTemplate(rawValue, session);
                 inputs[prop.Name] = resolved;
             }
         }
@@ -1674,7 +1472,7 @@ public class NodeExecutionEngine
             else if (contentOutputs.Count == 1)
             {
                 var singleVal = contentOutputs.Values.First();
-                output = SerializeOutputValue(singleVal);
+                output = TemplateResolver.SerializeOutputValue(singleVal);
             }
             else if (contentOutputs.Count > 1)
             {
@@ -1732,11 +1530,11 @@ public class NodeExecutionEngine
         {
             if (nodeConfig.Value.TryGetProperty("blockRef", out var blockRefProp) && blockRefProp.ValueKind == JsonValueKind.String)
             {
-                resolvedBlockRef = ResolveTemplate(blockRefProp.GetString()!, session);
+                resolvedBlockRef = TemplateResolver.ResolveTemplate(blockRefProp.GetString()!, session);
             }
             else if (nodeConfig.Value.TryGetProperty("blockId", out var blockIdProp) && blockIdProp.ValueKind == JsonValueKind.String)
             {
-                resolvedBlockRef = ResolveTemplate(blockIdProp.GetString()!, session);
+                resolvedBlockRef = TemplateResolver.ResolveTemplate(blockIdProp.GetString()!, session);
                 _logger.LogWarning("Node '{NodeId}' uses deprecated 'blockId' — use 'blockRef' instead", nodeId);
             }
         }
@@ -1828,244 +1626,232 @@ public class NodeExecutionEngine
     //   Helpers removed: GetNodeInput, GetConfigFloat, GetConfigStringList, EstimateTokenCount,
     //     TryExtractJson, IsValidJson, GetScoreHistory
 
-    // ===== Config Helpers (navigate session variable _workflowConfig) =====
+    // ===== Extracted to separate classes (Phase 53-B) =====
+    // Config helpers → SessionHelper.cs (GetWorkflowConfig, GetProjectPath, GetConfigString, etc.)
+    // Template resolution → TemplateResolver.cs (ResolveTemplate, ExtractJsonSubPath, SerializeOutputValue)
+    // Condition evaluation → ConditionEvaluator.cs (EvaluateCondition, EvaluateSimpleComparison)
+    // JSON conversion helpers → SessionHelper.cs (JObjectToDict, JsonElementToDict, JArrayToNativeList, etc.)
+
+    // Kept here: CollectNodeIdsRecursive (private, only used by while/foreach checkpoint clearing)
+    // Kept here: ExecuteNodesAsync (legacy tree dispatch, called by EntryPointExecutor fallback)
+    // Kept here: CheckPauseAsync (private, pause/resume lifecycle)
+    // Kept here: ExecuteSetVariableNode (tightly coupled with session state + stateManager logging)
 
     /// <summary>
-    /// Extracts the workflow-specific config from session variable _workflowConfig.
-    /// Phase-aware: if phaseId is provided, looks for config[workflowKey][phaseId] first,
-    /// then falls back to config[workflowKey] for backward compatibility.
+    /// Resolves and normalizes the source variable for a for-each loop.
+    /// Handles: string JSON, JArray, JObject with embedded arrays, JsonElement, JValue.
+    /// Returns the normalized List&lt;object&gt; or null if resolution failed.
     /// </summary>
-    public static Dictionary<string, object>? GetWorkflowConfig(Domain.Entities.ProjectSession session, string workflowId, string? phaseId = null)
+    private List<object>? ResolveForEachSource(
+        Domain.Entities.ProjectSession session,
+        string source,
+        string nodeId)
     {
-        var configVar = session.GetVariable("_workflowConfig");
-        if (configVar == null) return null;
+        // Normalize source variable (may be JArray/JsonElement from API — convert to List<object>)
+        SessionStateManager.NormalizeJsonElementToList(session, source);
 
-        var keys = ExtractWorkflowKeys(workflowId);
-
-        // First, find the workflow-level config
-        Dictionary<string, object>? workflowLevelConfig = null;
-
-        if (configVar is Dictionary<string, object> dict)
+        // If the source variable is a string containing JSON, try to parse it.
+        var rawSourceVar = session.GetVariable(source);
+        if (rawSourceVar is string sourceStr && !string.IsNullOrWhiteSpace(sourceStr))
         {
-            foreach (var key in keys)
+            var bracketStart = sourceStr.IndexOf('[');
+            var bracketEnd = sourceStr.LastIndexOf(']');
+            if (bracketStart >= 0 && bracketEnd > bracketStart)
             {
-                if (dict.TryGetValue(key, out var value) && value is Dictionary<string, object> wc)
+                var jsonCandidate = sourceStr.Substring(bracketStart, bracketEnd - bracketStart + 1);
+                try
                 {
-                    workflowLevelConfig = wc;
-                    break;
+                    var parsed = JArray.Parse(jsonCandidate);
+                    if (parsed != null && parsed.Count > 0)
+                    {
+                        session.SetVariable(source, parsed);
+                        SessionStateManager.NormalizeJsonElementToList(session, source);
+                        var normalized = session.GetVariable(source);
+                        var count = normalized is List<object> nl ? nl.Count : 0;
+                        _stateManager.AppendExecutionLog(session, "info", $"for-each '{nodeId}': parsed source string into {count} items");
+                    }
+                }
+                catch (Newtonsoft.Json.JsonException ex)
+                {
+                    _logger.LogWarning(ex, "for-each '{NodeId}': failed to parse source string as JSON array", nodeId);
                 }
             }
         }
 
-        if (workflowLevelConfig == null && configVar is JObject jObj)
+        // Re-read and normalize again
+        SessionStateManager.NormalizeJsonElementToList(session, source);
+        var sourceVar = session.GetVariable(source);
+
+        // Direct JsonElement → List<object> conversion
+        if (sourceVar is JsonElement directJsonEl)
         {
-            foreach (var key in keys)
+            _logger.LogWarning("for-each '{NodeId}': source is still JsonElement (kind={Kind}), converting directly",
+                nodeId, directJsonEl.ValueKind);
+            sourceVar = ConvertJsonElementToList(session, source, nodeId, directJsonEl) ?? sourceVar;
+        }
+
+        // Defense-in-depth: JArray → normalize
+        if (sourceVar is JArray jArrSource)
+        {
+            _logger.LogWarning("for-each '{NodeId}': source is JArray ({Count} items), normalizing", nodeId, jArrSource.Count);
+            SessionStateManager.NormalizeJsonElementToList(session, source);
+            sourceVar = session.GetVariable(source);
+        }
+        // JValue string → parse as JSON array
+        else if (sourceVar is JValue jVal && jVal.Type == JTokenType.String)
+        {
+            var jStr = jVal.Value<string>();
+            if (!string.IsNullOrEmpty(jStr) && jStr.TrimStart().StartsWith("["))
             {
-                if (jObj.TryGetValue(key, out var prop))
+                try
                 {
-                    workflowLevelConfig = JObjectToDict(prop as JObject);
+                    var arr = JArray.Parse(jStr);
+                    session.SetVariable(source, arr);
+                    SessionStateManager.NormalizeJsonElementToList(session, source);
+                    sourceVar = session.GetVariable(source);
+                    _stateManager.AppendExecutionLog(session, "info", $"for-each '{nodeId}': parsed JValue string to list");
+                }
+                catch { /* fallthrough */ }
+            }
+        }
+        // JObject → extract arrays from properties
+        else if (sourceVar is JObject jObjSource)
+        {
+            _logger.LogWarning("for-each '{NodeId}': source is JObject, attempting array extraction", nodeId);
+            JArray? extractedArr = null;
+            string? extractField = null;
+
+            foreach (var prop in jObjSource.Properties())
+            {
+                if (prop.Value is JArray directArr && directArr.Count > 0)
+                {
+                    extractedArr = directArr;
+                    extractField = prop.Name;
                     break;
                 }
             }
-        }
 
-        if (workflowLevelConfig == null && configVar is JsonElement jsonEl && jsonEl.ValueKind == JsonValueKind.Object)
-        {
-            foreach (var key in keys)
+            if (extractedArr == null)
             {
-                if (jsonEl.TryGetProperty(key, out var prop))
+                foreach (var prop in jObjSource.Properties())
                 {
-                    workflowLevelConfig = JsonElementToDict(prop);
-                    break;
+                    if (prop.Value.Type == JTokenType.String)
+                    {
+                        var embedded = SessionHelper.TryExtractJsonArrayFromText(prop.Value.Value<string>());
+                        if (embedded != null)
+                        {
+                            extractedArr = embedded;
+                            extractField = prop.Name;
+                            break;
+                        }
+                    }
                 }
             }
-        }
 
-        if (workflowLevelConfig == null) return null;
-
-        // If phaseId provided, look for phase-specific sub-config
-        if (!string.IsNullOrEmpty(phaseId))
-        {
-            // Try to get phase-specific config from the workflow config
-            if (workflowLevelConfig.TryGetValue(phaseId, out var phaseConfig))
+            if (extractedArr != null && extractedArr.Count > 0)
             {
-                if (phaseConfig is Dictionary<string, object> phaseDict)
-                    return phaseDict;
-                if (phaseConfig is JObject phaseJObj)
-                    return JObjectToDict(phaseJObj);
-                if (phaseConfig is JsonElement phaseEl && phaseEl.ValueKind == JsonValueKind.Object)
-                    return JsonElementToDict(phaseEl);
+                var list = SessionHelper.JArrayToNativeList(extractedArr);
+                session.SetVariable(source, list);
+                sourceVar = list;
+                _stateManager.AppendExecutionLog(session, "info",
+                    $"for-each '{nodeId}': extracted {list.Count} items from JObject property '{extractField}'");
             }
         }
 
-        // Fallback: return workflow-level config (backward compat)
-        return workflowLevelConfig;
+        return sourceVar as List<object>;
     }
-
-    private static string[] ExtractWorkflowKeys(string workflowId)
-    {
-        // workflow:foundry/agent-improvement-loop → try multiple key forms
-        var stripped = workflowId
-            .Replace("workflow:", "")
-            .Replace("foundry:", "");
-        var lastSegment = stripped.Contains('/') ? stripped.Split('/').Last() : stripped;
-        return new[] { lastSegment, stripped, workflowId };
-    }
-
-    private static string GetConfigString(Dictionary<string, object>? config, string dotPath, string? defaultValue)
-    {
-        if (config == null) return defaultValue ?? "";
-
-        var parts = dotPath.Split('.');
-        object? current = config;
-
-        foreach (var part in parts)
-        {
-            if (current is Dictionary<string, object> dict)
-            {
-                if (!dict.TryGetValue(part, out current)) return defaultValue ?? "";
-            }
-            else if (current is JObject jObj)
-            {
-                if (!jObj.TryGetValue(part, out var jToken)) return defaultValue ?? "";
-                current = jToken;
-            }
-            else if (current is JsonElement jsonEl && jsonEl.ValueKind == JsonValueKind.Object)
-            {
-                if (!jsonEl.TryGetProperty(part, out var prop)) return defaultValue ?? "";
-                current = prop;
-            }
-            else
-            {
-                return defaultValue ?? "";
-            }
-        }
-
-        if (current is string s) return s;
-        if (current is JValue jVal) return jVal.Value?.ToString() ?? defaultValue ?? "";
-        if (current is JToken jt) return jt.ToString();
-        if (current is JsonElement je && je.ValueKind == JsonValueKind.String) return je.GetString() ?? defaultValue ?? "";
-        return current?.ToString() ?? defaultValue ?? "";
-    }
-
-    private static int GetConfigInt(Dictionary<string, object>? config, string dotPath, int defaultValue)
-    {
-        var str = GetConfigString(config, dotPath, null);
-        return str != null && int.TryParse(str, out var val) ? val : defaultValue;
-    }
-
-    public static string NormalizeBlockId(string workflowId)
-    {
-        // workflow:foundry/agent-improvement-loop → foundry:agent-improvement-loop
-        var stripped = workflowId.Replace("workflow:", "");
-        if (stripped.Contains('/'))
-        {
-            var parts = stripped.Split('/', 2);
-            return $"{parts[0]}:{parts[1]}";
-        }
-        return stripped;
-    }
-
-
-    // ===== Template Resolution & Condition Evaluation =====
 
     /// <summary>
-    /// Resolves {{variable}} references in a template string using session variables.
-    /// Handles {{inputs.xxx}} by looking up session variable "xxx".
-    /// Returns the resolved string with all placeholders replaced.
+    /// Converts a JsonElement (array or string-wrapped array) to List&lt;object&gt;.
     /// </summary>
-    private static string ResolveTemplate(string template, Domain.Entities.ProjectSession session)
+    private object? ConvertJsonElementToList(
+        Domain.Entities.ProjectSession session,
+        string source,
+        string nodeId,
+        JsonElement element)
     {
-        return Regex.Replace(template, @"\{\{([^}]+)\}\}", match =>
+        if (element.ValueKind == JsonValueKind.Array)
         {
-            var varPath = match.Groups[1].Value.Trim();
-            string? jsonSubPath = null;
-
-            // {{inputs.xxx}} → session variable "xxx"
-            if (varPath.StartsWith("inputs."))
-                varPath = varPath["inputs.".Length..];
-
-            // {{state.results.xxx}} → session variable "_nodeResult_xxx"
-            // {{state.results.xxx.yyy}} → session variable "_nodeResult_xxx", sub-path "yyy"
-            if (varPath.StartsWith("state.results."))
+            var directList = new List<object>();
+            foreach (var item in element.EnumerateArray())
             {
-                var afterResults = varPath["state.results.".Length..];
-                var dotIdx = afterResults.IndexOf('.');
-                if (dotIdx >= 0)
+                if (item.ValueKind == JsonValueKind.Object)
                 {
-                    var nodeId = afterResults[..dotIdx];
-                    jsonSubPath = afterResults[(dotIdx + 1)..];
-                    varPath = $"_nodeResult_{nodeId}";
+                    var dict = new Dictionary<string, object>();
+                    foreach (var prop in item.EnumerateObject())
+                    {
+                        dict[prop.Name] = prop.Value.ValueKind switch
+                        {
+                            JsonValueKind.String => prop.Value.GetString()!,
+                            JsonValueKind.Number => prop.Value.TryGetInt64(out var lng) ? (object)lng : prop.Value.GetDouble(),
+                            JsonValueKind.True => true,
+                            JsonValueKind.False => false,
+                            _ => prop.Value.ToString()!
+                        };
+                    }
+                    directList.Add(dict);
                 }
                 else
                 {
-                    varPath = $"_nodeResult_{afterResults}";
+                    directList.Add(item.ToString()!);
                 }
             }
-            // {{state.xxx}} → session variable "_state_xxx" (general state access)
-            else if (varPath.StartsWith("state."))
+            if (directList.Count > 0)
             {
-                var statePath = varPath["state.".Length..];
-                var stateKey = statePath.Contains('.') ? statePath[..statePath.IndexOf('.')] : statePath;
-                varPath = $"_state_{stateKey}";
+                session.SetVariable(source, directList);
+                _stateManager.AppendExecutionLog(session, "info",
+                    $"for-each '{nodeId}': directly converted JsonElement to {directList.Count} items");
+                return directList;
             }
-            // {{_nodeResult_xxx.yyy}} → variable "_nodeResult_xxx", sub-path "yyy"
-            else if (varPath.StartsWith("_nodeResult_") && varPath.Contains('.'))
+        }
+        else if (element.ValueKind == JsonValueKind.String)
+        {
+            var strContent = element.GetString();
+            if (!string.IsNullOrEmpty(strContent))
             {
-                var dotIdx = varPath.IndexOf('.');
-                jsonSubPath = varPath[(dotIdx + 1)..];
-                varPath = varPath[..dotIdx];
-            }
-
-            var value = session.GetVariable(varPath);
-            if (value == null) return "";
-
-            // Phase 32-C: JSON sub-path extraction
-            // If a sub-path is specified (e.g., .approved, .score), try to extract from JSON
-            if (jsonSubPath != null)
-            {
-                var extracted = ExtractJsonSubPath(value, jsonSubPath);
-                if (extracted != null) return extracted;
-            }
-
-            if (value is double d) return d.ToString(System.Globalization.CultureInfo.InvariantCulture);
-            if (value is int i) return i.ToString(System.Globalization.CultureInfo.InvariantCulture);
-            if (value is long l) return l.ToString(System.Globalization.CultureInfo.InvariantCulture);
-            if (value is float f) return f.ToString(System.Globalization.CultureInfo.InvariantCulture);
-
-            if (value is JsonElement je)
-            {
-                return je.ValueKind switch
+                var bracketStart = strContent.IndexOf('[');
+                var bracketEnd = strContent.LastIndexOf(']');
+                if (bracketStart >= 0 && bracketEnd > bracketStart)
                 {
-                    JsonValueKind.Number => je.GetDouble().ToString(System.Globalization.CultureInfo.InvariantCulture),
-                    JsonValueKind.String => je.GetString() ?? "0",
-                    JsonValueKind.True => "true",
-                    JsonValueKind.False => "false",
-                    _ => je.ToString()
-                };
+                    try
+                    {
+                        var innerParsed = JsonSerializer.Deserialize<List<Dictionary<string, JsonElement>>>(
+                            strContent.Substring(bracketStart, bracketEnd - bracketStart + 1));
+                        if (innerParsed != null && innerParsed.Count > 0)
+                        {
+                            var innerList = new List<object>();
+                            foreach (var dict in innerParsed)
+                            {
+                                var converted = new Dictionary<string, object>();
+                                foreach (var kv in dict)
+                                {
+                                    converted[kv.Key] = kv.Value.ValueKind switch
+                                    {
+                                        JsonValueKind.String => kv.Value.GetString()!,
+                                        JsonValueKind.Number => kv.Value.TryGetInt64(out var lng) ? (object)lng : kv.Value.GetDouble(),
+                                        JsonValueKind.True => true,
+                                        JsonValueKind.False => false,
+                                        _ => kv.Value.ToString()!
+                                    };
+                                }
+                                innerList.Add(converted);
+                            }
+                            session.SetVariable(source, innerList);
+                            _stateManager.AppendExecutionLog(session, "info",
+                                $"for-each '{nodeId}': parsed JsonElement string to {innerList.Count} items");
+                            return innerList;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "for-each '{NodeId}': failed to parse JsonElement string content", nodeId);
+                    }
+                }
             }
-
-            if (value is JValue jv)
-            {
-                if (jv.Value is double jd) return jd.ToString(System.Globalization.CultureInfo.InvariantCulture);
-                return jv.Value?.ToString() ?? "0";
-            }
-
-            // Collections (List<object>, Dictionary<string,object>) must be serialized to JSON,
-            // not .ToString() which returns the C# type name.
-            if (value is System.Collections.IList || value is System.Collections.IDictionary)
-            {
-                return JsonSerializer.Serialize(value);
-            }
-
-            return value.ToString() ?? "0";
-        });
+        }
+        return null;
     }
 
-    /// <summary>
-    /// Extract a field from a JSON value by sub-path (e.g., "approved", "score").
-    /// Handles string values that are parseable JSON, JsonElement objects, and JObject/JValue.
-    /// </summary>
     /// <summary>
     /// Recursively collects all node IDs from a JSON array of nodes,
     /// including nodes inside conditional branches and nested node arrays.
@@ -2093,339 +1879,5 @@ public class NodeExecutionEngine
                 }
             }
         }
-    }
-
-    private static string? ExtractJsonSubPath(object value, string subPath)
-    {
-        try
-        {
-            // If value is a string, try to parse as JSON
-            var jsonStr = value as string;
-            if (jsonStr == null && value is JsonElement je && je.ValueKind == JsonValueKind.String)
-                jsonStr = je.GetString();
-
-            if (jsonStr != null)
-            {
-                // Strip markdown code fences if present (e.g., ```json ... ```)
-                var stripped = jsonStr.Trim();
-                var fenceMatch = System.Text.RegularExpressions.Regex.Match(
-                    stripped, @"```(?:json)?\s*(\{.*\})\s*```", System.Text.RegularExpressions.RegexOptions.Singleline);
-                if (fenceMatch.Success)
-                    stripped = fenceMatch.Groups[1].Value;
-
-                using var doc = JsonDocument.Parse(stripped);
-                if (doc.RootElement.TryGetProperty(subPath, out var prop))
-                {
-                    return prop.ValueKind switch
-                    {
-                        JsonValueKind.Number => prop.GetDouble().ToString(System.Globalization.CultureInfo.InvariantCulture),
-                        JsonValueKind.String => prop.GetString() ?? "0",
-                        JsonValueKind.True => "true",
-                        JsonValueKind.False => "false",
-                        _ => prop.ToString()
-                    };
-                }
-            }
-
-            // If value is a JsonElement object, navigate directly
-            if (value is JsonElement obj && obj.ValueKind == JsonValueKind.Object)
-            {
-                if (obj.TryGetProperty(subPath, out var prop))
-                {
-                    return prop.ValueKind switch
-                    {
-                        JsonValueKind.Number => prop.GetDouble().ToString(System.Globalization.CultureInfo.InvariantCulture),
-                        JsonValueKind.String => prop.GetString() ?? "0",
-                        JsonValueKind.True => "true",
-                        JsonValueKind.False => "false",
-                        _ => prop.ToString()
-                    };
-                }
-            }
-
-            // If value is a JObject (Newtonsoft), navigate
-            if (value is Newtonsoft.Json.Linq.JObject jObj)
-            {
-                var token = jObj[subPath];
-                if (token != null) return token.ToString();
-            }
-        }
-        catch
-        {
-            // Parse failure — fall back to returning null (caller uses full value)
-        }
-
-        return null;
-    }
-
-    /// <summary>
-    /// Serializes a block output value to a string suitable for storage in session variables.
-    /// Strings pass through unchanged; complex objects (lists, dicts) get JSON-serialized
-    /// so that {{_nodeResult_xxx.key}} sub-path extraction works via ExtractJsonSubPath.
-    /// </summary>
-    private static string SerializeOutputValue(object? value)
-    {
-        if (value == null) return "";
-        if (value is string s) return s;
-        if (value is JsonElement je)
-            return je.ValueKind == JsonValueKind.String ? je.GetString() ?? "" : je.GetRawText();
-
-        // For primitive types, just use ToString
-        var type = value.GetType();
-        if (type.IsPrimitive || type == typeof(decimal))
-            return value.ToString() ?? "";
-
-        // For complex types (List<T>, Dictionary, etc.), serialize to JSON
-        try
-        {
-            return JsonSerializer.Serialize(value, new JsonSerializerOptions { WriteIndented = false });
-        }
-        catch
-        {
-            return value.ToString() ?? "";
-        }
-    }
-
-    /// <summary>
-    /// Evaluates a boolean condition expression after resolving template variables.
-    /// Supports: &amp;&amp;, ||, &lt;, &gt;, &lt;=, &gt;=, ==, !=
-    /// Example: "0.25 &lt; 0.85 &amp;&amp; 1 &lt; 50" → true
-    /// </summary>
-    private static bool EvaluateCondition(string conditionTemplate, Domain.Entities.ProjectSession session)
-    {
-        var resolved = ResolveTemplate(conditionTemplate, session);
-
-        // Split on && (all parts must be true)
-        var andParts = resolved.Split(new[] { "&&" }, StringSplitOptions.TrimEntries);
-
-        foreach (var andPart in andParts)
-        {
-            // Each andPart may contain || (any sub-part must be true)
-            var orParts = andPart.Split(new[] { "||" }, StringSplitOptions.TrimEntries);
-            var anyTrue = false;
-
-            foreach (var orPart in orParts)
-            {
-                if (EvaluateSimpleComparison(orPart.Trim()))
-                {
-                    anyTrue = true;
-                    break;
-                }
-            }
-
-            if (!anyTrue) return false;
-        }
-
-        return true;
-    }
-
-    /// <summary>
-    /// Evaluates a single comparison expression (e.g., "0.25 &lt; 0.85").
-    /// Tries numeric comparison first, falls back to string comparison.
-    /// </summary>
-    private static bool EvaluateSimpleComparison(string expr)
-    {
-        // Try operators in specificity order: <=, >=, !=, ==, <, >
-        string[] operators = { "<=", ">=", "!=", "==", "<", ">" };
-
-        foreach (var op in operators)
-        {
-            var idx = expr.IndexOf(op, StringComparison.Ordinal);
-            if (idx >= 0)
-            {
-                var left = expr[..idx].Trim();
-                var right = expr[(idx + op.Length)..].Trim();
-
-                // Strip surrounding quotes from both sides.
-                // Conditions like {{var}} != "" resolve to ' != ""' after template substitution.
-                // Without unquoting, the comparison becomes "" != "\"\"" → true (wrong).
-                left = StripSurroundingQuotes(left);
-                right = StripSurroundingQuotes(right);
-
-                // Numeric comparison
-                if (double.TryParse(left, System.Globalization.CultureInfo.InvariantCulture, out var leftNum) &&
-                    double.TryParse(right, System.Globalization.CultureInfo.InvariantCulture, out var rightNum))
-                {
-                    return op switch
-                    {
-                        "<" => leftNum < rightNum,
-                        ">" => leftNum > rightNum,
-                        "<=" => leftNum <= rightNum,
-                        ">=" => leftNum >= rightNum,
-                        "==" => Math.Abs(leftNum - rightNum) < 0.0001,
-                        "!=" => Math.Abs(leftNum - rightNum) >= 0.0001,
-                        _ => false
-                    };
-                }
-
-                // String comparison
-                return op switch
-                {
-                    "==" => left == right,
-                    "!=" => left != right,
-                    _ => false
-                };
-            }
-        }
-
-        // Boolean literal
-        if (bool.TryParse(expr, out var boolVal)) return boolVal;
-
-        // Truthy: non-empty, non-zero
-        if (double.TryParse(expr, System.Globalization.CultureInfo.InvariantCulture, out var numVal)) return numVal != 0;
-        return !string.IsNullOrEmpty(expr) && expr != "0" && expr.ToLowerInvariant() != "false";
-    }
-
-    /// <summary>
-    /// Strips surrounding double quotes from a string literal.
-    /// Handles conditions like {{var}} != "" where after template resolution
-    /// the empty string value is compared against the literal "".
-    /// </summary>
-    private static string StripSurroundingQuotes(string s)
-    {
-        if (s.Length >= 2 && s[0] == '"' && s[^1] == '"')
-            return s[1..^1];
-        return s;
-    }
-
-    private static Dictionary<string, object>? JObjectToDict(JObject? jObj)
-    {
-        if (jObj == null) return null;
-        var dict = new Dictionary<string, object>();
-        foreach (var prop in jObj.Properties())
-        {
-            dict[prop.Name] = prop.Value;
-        }
-        return dict;
-    }
-
-    private static Dictionary<string, object>? JsonElementToDict(JsonElement element)
-    {
-        if (element.ValueKind != JsonValueKind.Object) return null;
-        var dict = new Dictionary<string, object>();
-        foreach (var prop in element.EnumerateObject())
-        {
-            dict[prop.Name] = prop.Value;
-        }
-        return dict;
-    }
-
-
-    public static string GetProjectPath(Domain.Entities.ProjectSession session)
-    {
-        if (!string.IsNullOrEmpty(session.WorkingDirectory) && session.WorkingDirectory != ".")
-            return session.WorkingDirectory;
-
-        // Fall back to repository path for repo-bound sessions
-        if (!string.IsNullOrEmpty(session.RepositoryPath))
-            return session.RepositoryPath;
-
-        return Environment.CurrentDirectory;
-    }
-
-    /// <summary>
-    /// PHASE 35-E FIX 36: Attempt to extract a JSON array from text that may contain
-    /// prose, markdown code fences, or other non-JSON content around the array.
-    /// Returns null if no valid JSON array is found.
-    /// </summary>
-    private static JArray? TryExtractJsonArrayFromText(string? text)
-    {
-        if (string.IsNullOrWhiteSpace(text)) return null;
-
-        // Step 1: Strip markdown code fences (```json ... ``` or ``` ... ```)
-        var stripped = Regex.Replace(text, @"```(?:json|JSON)?\s*\n?", "").Trim();
-
-        // Step 2: Find the first "[{" pattern (start of a JSON array of objects)
-        var arrayStart = stripped.IndexOf("[{", StringComparison.Ordinal);
-        if (arrayStart < 0)
-        {
-            // Also try just "[" for arrays of primitives or "[\"" for arrays of strings
-            arrayStart = stripped.IndexOf('[');
-        }
-        if (arrayStart < 0) return null;
-
-        // Step 3: Find the matching "]" — search from the end backwards
-        var arrayEnd = stripped.LastIndexOf(']');
-        if (arrayEnd <= arrayStart) return null;
-
-        // Step 4: Extract and validate
-        var candidate = stripped.Substring(arrayStart, arrayEnd - arrayStart + 1);
-        try
-        {
-            var parsed = JArray.Parse(candidate);
-            // Only return if the array has items (empty arrays aren't useful)
-            return parsed.Count > 0 ? parsed : null;
-        }
-        catch
-        {
-            // If the greedy approach failed, try a more conservative bracket-matching approach
-            // Count brackets to find the correct closing bracket for the first "["
-            var depth = 0;
-            var inString = false;
-            var escaped = false;
-            for (var i = arrayStart; i <= arrayEnd; i++)
-            {
-                var c = stripped[i];
-                if (escaped) { escaped = false; continue; }
-                if (c == '\\') { escaped = true; continue; }
-                if (c == '"') { inString = !inString; continue; }
-                if (inString) continue;
-                if (c == '[') depth++;
-                if (c == ']')
-                {
-                    depth--;
-                    if (depth == 0)
-                    {
-                        var balanced = stripped.Substring(arrayStart, i - arrayStart + 1);
-                        try
-                        {
-                            var parsed2 = JArray.Parse(balanced);
-                            return parsed2.Count > 0 ? parsed2 : null;
-                        }
-                        catch { return null; }
-                    }
-                }
-            }
-            return null;
-        }
-    }
-
-    /// <summary>
-    /// PHASE 35-E FIX 36: Convert a Newtonsoft JArray to a native List&lt;object&gt;
-    /// of Dictionary/string/primitive types suitable for session variable storage.
-    /// </summary>
-    private static List<object> JArrayToNativeList(JArray jArr)
-    {
-        var list = new List<object>();
-        foreach (var item in jArr)
-        {
-            if (item is JObject jObj)
-            {
-                var dict = new Dictionary<string, object>();
-                foreach (var prop in jObj.Properties())
-                {
-                    dict[prop.Name] = prop.Value.Type switch
-                    {
-                        JTokenType.String => prop.Value.Value<string>()!,
-                        JTokenType.Integer => (object)prop.Value.Value<long>(),
-                        JTokenType.Float => (object)prop.Value.Value<double>(),
-                        JTokenType.Boolean => (object)prop.Value.Value<bool>(),
-                        JTokenType.Array => prop.Value.ToString(),
-                        JTokenType.Object => prop.Value.ToString(),
-                        _ => prop.Value.ToString()
-                    };
-                }
-                list.Add(dict);
-            }
-            else if (item.Type == JTokenType.String)
-            {
-                list.Add(item.Value<string>()!);
-            }
-            else
-            {
-                list.Add(item.ToString());
-            }
-        }
-        return list;
     }
 }
