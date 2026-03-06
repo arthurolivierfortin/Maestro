@@ -365,7 +365,15 @@ The only difference is the I/O contract (prepare/extract):
 
 All composite blocks **must** have `config.nodes`. Blocks without config.nodes will fail with `InvalidOperationException`.
 
-The `NodeExecutionEngine` handles control flow (while, conditional, sequence, parallel, for-each, set-variable). When it encounters a `blockRef` node, it dispatches via `BlockExecutorRegistry` to the appropriate atomic executor (InferenceBlockExecutor, ShellBlockExecutor, etc.).
+The `NodeExecutionEngine` handles built-in control flow (while, conditional, sequence, parallel, phase). All other node types are dispatched to `INodeHandler` implementations registered at construction time:
+
+| Handler | NodeType | Responsibility |
+|---------|----------|---------------|
+| `ForEachNodeHandler` | `"for-each"` | Iteration, source resolution, checkpoint resume |
+| `SetVariableNodeHandler` | `"set-variable"` | Template resolution, JSON parsing, append mode |
+| `BlockRefHandler` | `null` (default) | Block dispatch via `BlockExecutorRegistry` |
+
+New node types = new `INodeHandler` class + DI registration. Zero engine changes. Handlers receive an `INodeExecutionCallback` for recursive execution (calling back into the engine for child nodes).
 
 ### LLMBlockExecutorBase
 

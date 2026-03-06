@@ -273,16 +273,31 @@ builder.Services.AddScoped<ICommandExecutor, Maestro.Infrastructure.Sessions.Com
 // Phase 53-A: Register SessionStateManager
 builder.Services.AddSingleton<ISessionStateManager, Maestro.Infrastructure.Sessions.SessionStateManager>();
 
-// Phase 53-A: Register NodeExecutionEngine (control flow engine)
+// Phase 53-C: Register INodeHandler implementations
+builder.Services.AddScoped<INodeHandler>(sp =>
+    new Maestro.Infrastructure.Sessions.NodeHandlers.ForEachNodeHandler(
+        sp.GetRequiredService<IProjectSessionRepository>(),
+        sp.GetRequiredService<ISessionStateManager>(),
+        sp.GetRequiredService<ILogger<Maestro.Infrastructure.Sessions.NodeHandlers.ForEachNodeHandler>>()));
+builder.Services.AddScoped<INodeHandler>(sp =>
+    new Maestro.Infrastructure.Sessions.NodeHandlers.SetVariableNodeHandler(
+        sp.GetRequiredService<ISessionStateManager>()));
+builder.Services.AddScoped<INodeHandler>(sp =>
+    new Maestro.Infrastructure.Sessions.NodeHandlers.BlockRefHandler(
+        sp.GetRequiredService<IBlockDiscoveryService>(),
+        sp.GetRequiredService<Maestro.Infrastructure.BlockExecutors.BlockExecutorRegistry>(),
+        sp.GetRequiredService<ISessionStateManager>(),
+        sp.GetRequiredService<IProjectSessionRepository>(),
+        sp.GetRequiredService<ILogger<Maestro.Infrastructure.Sessions.NodeHandlers.BlockRefHandler>>()));
+
+// Phase 53-C: Register NodeExecutionEngine (control flow engine with handler dispatch)
 builder.Services.AddScoped<Maestro.Infrastructure.Sessions.NodeExecutionEngine>(sp =>
 {
     var sessionRepo = sp.GetRequiredService<IProjectSessionRepository>();
-    var llmGateway = sp.GetRequiredService<ILLMGateway>();
-    var blockDiscovery = sp.GetRequiredService<IBlockDiscoveryService>();
     var stateManager = sp.GetRequiredService<ISessionStateManager>();
     var logger = sp.GetRequiredService<ILogger<Maestro.Infrastructure.Sessions.NodeExecutionEngine>>();
-    var executorRegistry = sp.GetRequiredService<Maestro.Infrastructure.BlockExecutors.BlockExecutorRegistry>();
-    return new Maestro.Infrastructure.Sessions.NodeExecutionEngine(sessionRepo, llmGateway, blockDiscovery, stateManager, logger, executorRegistry);
+    var handlers = sp.GetServices<INodeHandler>();
+    return new Maestro.Infrastructure.Sessions.NodeExecutionEngine(sessionRepo, stateManager, logger, handlers);
 });
 
 // Phase 53-A/54: Register EntryPointExecutor as singleton — uses IServiceScopeFactory

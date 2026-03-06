@@ -172,7 +172,7 @@ public class EntryPointExecutor
                 blockRef = workflowId,
                 inputs = inputs ?? new Dictionary<string, object>()
             });
-            var output = await engine.ExecuteBlockRefAsync(session, workflowId, dummyPhaseNode, workingDir, tree, "execute", null);
+            var output = await ((INodeExecutionCallback)engine).ExecuteBlockRefAsync(session, workflowId, dummyPhaseNode, workingDir, tree, "execute", null);
 
             var truncated = output != null && output.Length > 500 ? output[..500] + "..." : output;
             stateManager.UpdateNodeById(tree, "execute", "done", truncated);
