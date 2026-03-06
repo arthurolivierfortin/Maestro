@@ -1,0 +1,1113 @@
+{
+  "id": "90b76be3-06c8-4ab5-aa95-0e58f97eff81",
+  "name": "E2E - Test Designer v4",
+  "status": "idle",
+  "terminalReason": "none",
+  "authority": "human",
+  "workingDirectory": ".",
+  "repositoryPath": "C:\\Meastro",
+  "parentWorkspaceId": null,
+  "parentSessionId": null,
+  "config": {
+    "projectId": null,
+    "workflowId": null,
+    "task": null,
+    "context": null,
+    "access": {
+      "level": "controlled",
+      "allowedPaths": [],
+      "deniedPaths": [
+        ".env",
+        "*.env",
+        "secrets/**"
+      ],
+      "requireApprovalPaths": []
+    },
+    "validation": {
+      "runTests": false,
+      "testCommand": null,
+      "runLinter": false,
+      "linterCommand": null,
+      "requireCleanDiff": false,
+      "maxSteps": 50,
+      "timeoutMs": 600000
+    },
+    "inputs": {}
+  },
+  "createdAt": "2026-03-06T02:45:08.356013+00:00",
+  "startedAt": "2026-03-06T02:45:08.4252021+00:00",
+  "completedAt": null,
+  "updatedAt": "2026-03-06T02:45:51.4978526+00:00",
+  "commandCount": 0,
+  "modifiedFiles": [],
+  "errorMessage": null,
+  "testResult": null,
+  "linterResult": null,
+  "commitInfo": null,
+  "variables": {
+    "_executionLog": [
+      {
+        "time": "02:45:41",
+        "level": "warning",
+        "msg": "Stopping sequence: node \u0027llm-call\u0027 failed"
+      },
+      {
+        "time": "02:45:41",
+        "level": "info",
+        "msg": "Iteration 35 complete. Fitness: 0.00"
+      },
+      {
+        "time": "02:45:41",
+        "level": "info",
+        "msg": "While \u0027agent-while\u0027: iteration 36/50"
+      },
+      {
+        "time": "02:45:41",
+        "level": "info",
+        "msg": "read-conversation: Starting blockRef \u0027conversation-read\u0027..."
+      },
+      {
+        "time": "02:45:41",
+        "level": "info",
+        "msg": "Executing blockRef \u0027conversation-read\u0027 (type: conversation-read) with 2 inputs"
+      },
+      {
+        "time": "02:45:41",
+        "level": "info",
+        "msg": "[conversation-read] Read 2 messages from conversation \u002790b76be3-06c8-4ab5-aa95-0e58f97eff81:test-designer\u0027"
+      },
+      {
+        "time": "02:45:41",
+        "level": "success",
+        "msg": "blockRef \u0027conversation-read\u0027 completed (103 chars)"
+      },
+      {
+        "time": "02:45:41",
+        "level": "success",
+        "msg": "read-conversation: blockRef \u0027conversation-read\u0027 completed (103 chars)"
+      },
+      {
+        "time": "02:45:41",
+        "level": "info",
+        "msg": "llm-call: Starting blockRef \u0027inference\u0027..."
+      },
+      {
+        "time": "02:45:41",
+        "level": "info",
+        "msg": "Executing blockRef \u0027inference\u0027 (type: inference) with 2 inputs"
+      },
+      {
+        "time": "02:45:41",
+        "level": "error",
+        "msg": "blockRef \u0027inference\u0027 error: \u0027m\u0027 is an invalid start of a value. Path: $ | LineNumber: 0 | BytePositionInLine: 0."
+      },
+      {
+        "time": "02:45:41",
+        "level": "error",
+        "msg": "llm-call: \u0027m\u0027 is an invalid start of a value. Path: $ | LineNumber: 0 | BytePositionInLine: 0."
+      },
+      {
+        "time": "02:45:41",
+        "level": "error",
+        "msg": "llm-call: \u0027m\u0027 is an invalid start of a value. Path: $ | LineNumber: 0 | BytePositionInLine: 0."
+      },
+      {
+        "time": "02:45:41",
+        "level": "warning",
+        "msg": "Stopping sequence: node \u0027llm-call\u0027 failed"
+      },
+      {
+        "time": "02:45:41",
+        "level": "info",
+        "msg": "Iteration 36 complete. Fitness: 0.00"
+      },
+      {
+        "time": "02:45:41",
+        "level": "info",
+        "msg": "While \u0027agent-while\u0027: iteration 37/50"
+      },
+      {
+        "time": "02:45:42",
+        "level": "info",
+        "msg": "read-conversation: Starting blockRef \u0027conversation-read\u0027..."
+      },
+      {
+        "time": "02:45:42",
+        "level": "info",
+        "msg": "Executing blockRef \u0027conversation-read\u0027 (type: conversation-read) with 2 inputs"
+      },
+      {
+        "time": "02:45:42",
+        "level": "info",
+        "msg": "[conversation-read] Read 2 messages from conversation \u002790b76be3-06c8-4ab5-aa95-0e58f97eff81:test-designer\u0027"
+      },
+      {
+        "time": "02:45:42",
+        "level": "success",
+        "msg": "blockRef \u0027conversation-read\u0027 completed (103 chars)"
+      },
+      {
+        "time": "02:45:42",
+        "level": "success",
+        "msg": "read-conversation: blockRef \u0027conversation-read\u0027 completed (103 chars)"
+      },
+      {
+        "time": "02:45:42",
+        "level": "info",
+        "msg": "llm-call: Starting blockRef \u0027inference\u0027..."
+      },
+      {
+        "time": "02:45:42",
+        "level": "info",
+        "msg": "Executing blockRef \u0027inference\u0027 (type: inference) with 2 inputs"
+      },
+      {
+        "time": "02:45:42",
+        "level": "error",
+        "msg": "blockRef \u0027inference\u0027 error: \u0027m\u0027 is an invalid start of a value. Path: $ | LineNumber: 0 | BytePositionInLine: 0."
+      },
+      {
+        "time": "02:45:42",
+        "level": "error",
+        "msg": "llm-call: \u0027m\u0027 is an invalid start of a value. Path: $ | LineNumber: 0 | BytePositionInLine: 0."
+      },
+      {
+        "time": "02:45:42",
+        "level": "error",
+        "msg": "llm-call: \u0027m\u0027 is an invalid start of a value. Path: $ | LineNumber: 0 | BytePositionInLine: 0."
+      },
+      {
+        "time": "02:45:42",
+        "level": "warning",
+        "msg": "Stopping sequence: node \u0027llm-call\u0027 failed"
+      },
+      {
+        "time": "02:45:42",
+        "level": "info",
+        "msg": "Iteration 37 complete. Fitness: 0.00"
+      },
+      {
+        "time": "02:45:42",
+        "level": "info",
+        "msg": "While \u0027agent-while\u0027: iteration 38/50"
+      },
+      {
+        "time": "02:45:42",
+        "level": "info",
+        "msg": "read-conversation: Starting blockRef \u0027conversation-read\u0027..."
+      },
+      {
+        "time": "02:45:42",
+        "level": "info",
+        "msg": "Executing blockRef \u0027conversation-read\u0027 (type: conversation-read) with 2 inputs"
+      },
+      {
+        "time": "02:45:42",
+        "level": "info",
+        "msg": "[conversation-read] Read 2 messages from conversation \u002790b76be3-06c8-4ab5-aa95-0e58f97eff81:test-designer\u0027"
+      },
+      {
+        "time": "02:45:42",
+        "level": "success",
+        "msg": "blockRef \u0027conversation-read\u0027 completed (103 chars)"
+      },
+      {
+        "time": "02:45:42",
+        "level": "success",
+        "msg": "read-conversation: blockRef \u0027conversation-read\u0027 completed (103 chars)"
+      },
+      {
+        "time": "02:45:43",
+        "level": "info",
+        "msg": "llm-call: Starting blockRef \u0027inference\u0027..."
+      },
+      {
+        "time": "02:45:43",
+        "level": "info",
+        "msg": "Executing blockRef \u0027inference\u0027 (type: inference) with 2 inputs"
+      },
+      {
+        "time": "02:45:43",
+        "level": "error",
+        "msg": "blockRef \u0027inference\u0027 error: \u0027m\u0027 is an invalid start of a value. Path: $ | LineNumber: 0 | BytePositionInLine: 0."
+      },
+      {
+        "time": "02:45:43",
+        "level": "error",
+        "msg": "llm-call: \u0027m\u0027 is an invalid start of a value. Path: $ | LineNumber: 0 | BytePositionInLine: 0."
+      },
+      {
+        "time": "02:45:43",
+        "level": "error",
+        "msg": "llm-call: \u0027m\u0027 is an invalid start of a value. Path: $ | LineNumber: 0 | BytePositionInLine: 0."
+      },
+      {
+        "time": "02:45:43",
+        "level": "warning",
+        "msg": "Stopping sequence: node \u0027llm-call\u0027 failed"
+      },
+      {
+        "time": "02:45:43",
+        "level": "info",
+        "msg": "Iteration 38 complete. Fitness: 0.00"
+      },
+      {
+        "time": "02:45:43",
+        "level": "info",
+        "msg": "While \u0027agent-while\u0027: iteration 39/50"
+      },
+      {
+        "time": "02:45:43",
+        "level": "info",
+        "msg": "read-conversation: Starting blockRef \u0027conversation-read\u0027..."
+      },
+      {
+        "time": "02:45:43",
+        "level": "info",
+        "msg": "Executing blockRef \u0027conversation-read\u0027 (type: conversation-read) with 2 inputs"
+      },
+      {
+        "time": "02:45:43",
+        "level": "info",
+        "msg": "[conversation-read] Read 2 messages from conversation \u002790b76be3-06c8-4ab5-aa95-0e58f97eff81:test-designer\u0027"
+      },
+      {
+        "time": "02:45:43",
+        "level": "success",
+        "msg": "blockRef \u0027conversation-read\u0027 completed (103 chars)"
+      },
+      {
+        "time": "02:45:43",
+        "level": "success",
+        "msg": "read-conversation: blockRef \u0027conversation-read\u0027 completed (103 chars)"
+      },
+      {
+        "time": "02:45:43",
+        "level": "info",
+        "msg": "llm-call: Starting blockRef \u0027inference\u0027..."
+      },
+      {
+        "time": "02:45:43",
+        "level": "info",
+        "msg": "Executing blockRef \u0027inference\u0027 (type: inference) with 2 inputs"
+      },
+      {
+        "time": "02:45:43",
+        "level": "error",
+        "msg": "blockRef \u0027inference\u0027 error: \u0027m\u0027 is an invalid start of a value. Path: $ | LineNumber: 0 | BytePositionInLine: 0."
+      },
+      {
+        "time": "02:45:43",
+        "level": "error",
+        "msg": "llm-call: \u0027m\u0027 is an invalid start of a value. Path: $ | LineNumber: 0 | BytePositionInLine: 0."
+      },
+      {
+        "time": "02:45:43",
+        "level": "error",
+        "msg": "llm-call: \u0027m\u0027 is an invalid start of a value. Path: $ | LineNumber: 0 | BytePositionInLine: 0."
+      },
+      {
+        "time": "02:45:43",
+        "level": "warning",
+        "msg": "Stopping sequence: node \u0027llm-call\u0027 failed"
+      },
+      {
+        "time": "02:45:43",
+        "level": "info",
+        "msg": "Iteration 39 complete. Fitness: 0.00"
+      },
+      {
+        "time": "02:45:43",
+        "level": "info",
+        "msg": "While \u0027agent-while\u0027: iteration 40/50"
+      },
+      {
+        "time": "02:45:44",
+        "level": "info",
+        "msg": "read-conversation: Starting blockRef \u0027conversation-read\u0027..."
+      },
+      {
+        "time": "02:45:44",
+        "level": "info",
+        "msg": "Executing blockRef \u0027conversation-read\u0027 (type: conversation-read) with 2 inputs"
+      },
+      {
+        "time": "02:45:44",
+        "level": "info",
+        "msg": "[conversation-read] Read 2 messages from conversation \u002790b76be3-06c8-4ab5-aa95-0e58f97eff81:test-designer\u0027"
+      },
+      {
+        "time": "02:45:44",
+        "level": "success",
+        "msg": "blockRef \u0027conversation-read\u0027 completed (103 chars)"
+      },
+      {
+        "time": "02:45:44",
+        "level": "success",
+        "msg": "read-conversation: blockRef \u0027conversation-read\u0027 completed (103 chars)"
+      },
+      {
+        "time": "02:45:44",
+        "level": "info",
+        "msg": "llm-call: Starting blockRef \u0027inference\u0027..."
+      },
+      {
+        "time": "02:45:44",
+        "level": "info",
+        "msg": "Executing blockRef \u0027inference\u0027 (type: inference) with 2 inputs"
+      },
+      {
+        "time": "02:45:44",
+        "level": "error",
+        "msg": "blockRef \u0027inference\u0027 error: \u0027m\u0027 is an invalid start of a value. Path: $ | LineNumber: 0 | BytePositionInLine: 0."
+      },
+      {
+        "time": "02:45:44",
+        "level": "error",
+        "msg": "llm-call: \u0027m\u0027 is an invalid start of a value. Path: $ | LineNumber: 0 | BytePositionInLine: 0."
+      },
+      {
+        "time": "02:45:44",
+        "level": "error",
+        "msg": "llm-call: \u0027m\u0027 is an invalid start of a value. Path: $ | LineNumber: 0 | BytePositionInLine: 0."
+      },
+      {
+        "time": "02:45:44",
+        "level": "warning",
+        "msg": "Stopping sequence: node \u0027llm-call\u0027 failed"
+      },
+      {
+        "time": "02:45:44",
+        "level": "info",
+        "msg": "Iteration 40 complete. Fitness: 0.00"
+      },
+      {
+        "time": "02:45:44",
+        "level": "info",
+        "msg": "While \u0027agent-while\u0027: iteration 41/50"
+      },
+      {
+        "time": "02:45:44",
+        "level": "info",
+        "msg": "read-conversation: Starting blockRef \u0027conversation-read\u0027..."
+      },
+      {
+        "time": "02:45:44",
+        "level": "info",
+        "msg": "Executing blockRef \u0027conversation-read\u0027 (type: conversation-read) with 2 inputs"
+      },
+      {
+        "time": "02:45:44",
+        "level": "info",
+        "msg": "[conversation-read] Read 2 messages from conversation \u002790b76be3-06c8-4ab5-aa95-0e58f97eff81:test-designer\u0027"
+      },
+      {
+        "time": "02:45:44",
+        "level": "success",
+        "msg": "blockRef \u0027conversation-read\u0027 completed (103 chars)"
+      },
+      {
+        "time": "02:45:44",
+        "level": "success",
+        "msg": "read-conversation: blockRef \u0027conversation-read\u0027 completed (103 chars)"
+      },
+      {
+        "time": "02:45:45",
+        "level": "info",
+        "msg": "llm-call: Starting blockRef \u0027inference\u0027..."
+      },
+      {
+        "time": "02:45:45",
+        "level": "info",
+        "msg": "Executing blockRef \u0027inference\u0027 (type: inference) with 2 inputs"
+      },
+      {
+        "time": "02:45:45",
+        "level": "error",
+        "msg": "blockRef \u0027inference\u0027 error: \u0027m\u0027 is an invalid start of a value. Path: $ | LineNumber: 0 | BytePositionInLine: 0."
+      },
+      {
+        "time": "02:45:45",
+        "level": "error",
+        "msg": "llm-call: \u0027m\u0027 is an invalid start of a value. Path: $ | LineNumber: 0 | BytePositionInLine: 0."
+      },
+      {
+        "time": "02:45:45",
+        "level": "error",
+        "msg": "llm-call: \u0027m\u0027 is an invalid start of a value. Path: $ | LineNumber: 0 | BytePositionInLine: 0."
+      },
+      {
+        "time": "02:45:45",
+        "level": "warning",
+        "msg": "Stopping sequence: node \u0027llm-call\u0027 failed"
+      },
+      {
+        "time": "02:45:45",
+        "level": "info",
+        "msg": "Iteration 41 complete. Fitness: 0.00"
+      },
+      {
+        "time": "02:45:45",
+        "level": "info",
+        "msg": "While \u0027agent-while\u0027: iteration 42/50"
+      },
+      {
+        "time": "02:45:45",
+        "level": "info",
+        "msg": "read-conversation: Starting blockRef \u0027conversation-read\u0027..."
+      },
+      {
+        "time": "02:45:45",
+        "level": "info",
+        "msg": "Executing blockRef \u0027conversation-read\u0027 (type: conversation-read) with 2 inputs"
+      },
+      {
+        "time": "02:45:45",
+        "level": "info",
+        "msg": "[conversation-read] Read 2 messages from conversation \u002790b76be3-06c8-4ab5-aa95-0e58f97eff81:test-designer\u0027"
+      },
+      {
+        "time": "02:45:45",
+        "level": "success",
+        "msg": "blockRef \u0027conversation-read\u0027 completed (103 chars)"
+      },
+      {
+        "time": "02:45:45",
+        "level": "success",
+        "msg": "read-conversation: blockRef \u0027conversation-read\u0027 completed (103 chars)"
+      },
+      {
+        "time": "02:45:45",
+        "level": "info",
+        "msg": "llm-call: Starting blockRef \u0027inference\u0027..."
+      },
+      {
+        "time": "02:45:45",
+        "level": "info",
+        "msg": "Executing blockRef \u0027inference\u0027 (type: inference) with 2 inputs"
+      },
+      {
+        "time": "02:45:45",
+        "level": "error",
+        "msg": "blockRef \u0027inference\u0027 error: \u0027m\u0027 is an invalid start of a value. Path: $ | LineNumber: 0 | BytePositionInLine: 0."
+      },
+      {
+        "time": "02:45:45",
+        "level": "error",
+        "msg": "llm-call: \u0027m\u0027 is an invalid start of a value. Path: $ | LineNumber: 0 | BytePositionInLine: 0."
+      },
+      {
+        "time": "02:45:45",
+        "level": "error",
+        "msg": "llm-call: \u0027m\u0027 is an invalid start of a value. Path: $ | LineNumber: 0 | BytePositionInLine: 0."
+      },
+      {
+        "time": "02:45:46",
+        "level": "warning",
+        "msg": "Stopping sequence: node \u0027llm-call\u0027 failed"
+      },
+      {
+        "time": "02:45:46",
+        "level": "info",
+        "msg": "Iteration 42 complete. Fitness: 0.00"
+      },
+      {
+        "time": "02:45:46",
+        "level": "info",
+        "msg": "While \u0027agent-while\u0027: iteration 43/50"
+      },
+      {
+        "time": "02:45:46",
+        "level": "info",
+        "msg": "read-conversation: Starting blockRef \u0027conversation-read\u0027..."
+      },
+      {
+        "time": "02:45:46",
+        "level": "info",
+        "msg": "Executing blockRef \u0027conversation-read\u0027 (type: conversation-read) with 2 inputs"
+      },
+      {
+        "time": "02:45:46",
+        "level": "info",
+        "msg": "[conversation-read] Read 2 messages from conversation \u002790b76be3-06c8-4ab5-aa95-0e58f97eff81:test-designer\u0027"
+      },
+      {
+        "time": "02:45:46",
+        "level": "success",
+        "msg": "blockRef \u0027conversation-read\u0027 completed (103 chars)"
+      },
+      {
+        "time": "02:45:46",
+        "level": "success",
+        "msg": "read-conversation: blockRef \u0027conversation-read\u0027 completed (103 chars)"
+      },
+      {
+        "time": "02:45:46",
+        "level": "info",
+        "msg": "llm-call: Starting blockRef \u0027inference\u0027..."
+      },
+      {
+        "time": "02:45:46",
+        "level": "info",
+        "msg": "Executing blockRef \u0027inference\u0027 (type: inference) with 2 inputs"
+      },
+      {
+        "time": "02:45:46",
+        "level": "error",
+        "msg": "blockRef \u0027inference\u0027 error: \u0027m\u0027 is an invalid start of a value. Path: $ | LineNumber: 0 | BytePositionInLine: 0."
+      },
+      {
+        "time": "02:45:46",
+        "level": "error",
+        "msg": "llm-call: \u0027m\u0027 is an invalid start of a value. Path: $ | LineNumber: 0 | BytePositionInLine: 0."
+      },
+      {
+        "time": "02:45:46",
+        "level": "error",
+        "msg": "llm-call: \u0027m\u0027 is an invalid start of a value. Path: $ | LineNumber: 0 | BytePositionInLine: 0."
+      },
+      {
+        "time": "02:45:46",
+        "level": "warning",
+        "msg": "Stopping sequence: node \u0027llm-call\u0027 failed"
+      },
+      {
+        "time": "02:45:46",
+        "level": "info",
+        "msg": "Iteration 43 complete. Fitness: 0.00"
+      },
+      {
+        "time": "02:45:46",
+        "level": "info",
+        "msg": "While \u0027agent-while\u0027: iteration 44/50"
+      },
+      {
+        "time": "02:45:46",
+        "level": "info",
+        "msg": "read-conversation: Starting blockRef \u0027conversation-read\u0027..."
+      },
+      {
+        "time": "02:45:46",
+        "level": "info",
+        "msg": "Executing blockRef \u0027conversation-read\u0027 (type: conversation-read) with 2 inputs"
+      },
+      {
+        "time": "02:45:46",
+        "level": "info",
+        "msg": "[conversation-read] Read 2 messages from conversation \u002790b76be3-06c8-4ab5-aa95-0e58f97eff81:test-designer\u0027"
+      },
+      {
+        "time": "02:45:46",
+        "level": "success",
+        "msg": "blockRef \u0027conversation-read\u0027 completed (103 chars)"
+      },
+      {
+        "time": "02:45:46",
+        "level": "success",
+        "msg": "read-conversation: blockRef \u0027conversation-read\u0027 completed (103 chars)"
+      },
+      {
+        "time": "02:45:47",
+        "level": "info",
+        "msg": "llm-call: Starting blockRef \u0027inference\u0027..."
+      },
+      {
+        "time": "02:45:47",
+        "level": "info",
+        "msg": "Executing blockRef \u0027inference\u0027 (type: inference) with 2 inputs"
+      },
+      {
+        "time": "02:45:47",
+        "level": "error",
+        "msg": "blockRef \u0027inference\u0027 error: \u0027m\u0027 is an invalid start of a value. Path: $ | LineNumber: 0 | BytePositionInLine: 0."
+      },
+      {
+        "time": "02:45:47",
+        "level": "error",
+        "msg": "llm-call: \u0027m\u0027 is an invalid start of a value. Path: $ | LineNumber: 0 | BytePositionInLine: 0."
+      },
+      {
+        "time": "02:45:47",
+        "level": "error",
+        "msg": "llm-call: \u0027m\u0027 is an invalid start of a value. Path: $ | LineNumber: 0 | BytePositionInLine: 0."
+      },
+      {
+        "time": "02:45:47",
+        "level": "warning",
+        "msg": "Stopping sequence: node \u0027llm-call\u0027 failed"
+      },
+      {
+        "time": "02:45:47",
+        "level": "info",
+        "msg": "Iteration 44 complete. Fitness: 0.00"
+      },
+      {
+        "time": "02:45:47",
+        "level": "info",
+        "msg": "While \u0027agent-while\u0027: iteration 45/50"
+      },
+      {
+        "time": "02:45:47",
+        "level": "info",
+        "msg": "read-conversation: Starting blockRef \u0027conversation-read\u0027..."
+      },
+      {
+        "time": "02:45:47",
+        "level": "info",
+        "msg": "Executing blockRef \u0027conversation-read\u0027 (type: conversation-read) with 2 inputs"
+      },
+      {
+        "time": "02:45:47",
+        "level": "info",
+        "msg": "[conversation-read] Read 2 messages from conversation \u002790b76be3-06c8-4ab5-aa95-0e58f97eff81:test-designer\u0027"
+      },
+      {
+        "time": "02:45:47",
+        "level": "success",
+        "msg": "blockRef \u0027conversation-read\u0027 completed (103 chars)"
+      },
+      {
+        "time": "02:45:47",
+        "level": "success",
+        "msg": "read-conversation: blockRef \u0027conversation-read\u0027 completed (103 chars)"
+      },
+      {
+        "time": "02:45:48",
+        "level": "info",
+        "msg": "llm-call: Starting blockRef \u0027inference\u0027..."
+      },
+      {
+        "time": "02:45:48",
+        "level": "info",
+        "msg": "Executing blockRef \u0027inference\u0027 (type: inference) with 2 inputs"
+      },
+      {
+        "time": "02:45:48",
+        "level": "error",
+        "msg": "blockRef \u0027inference\u0027 error: \u0027m\u0027 is an invalid start of a value. Path: $ | LineNumber: 0 | BytePositionInLine: 0."
+      },
+      {
+        "time": "02:45:48",
+        "level": "error",
+        "msg": "llm-call: \u0027m\u0027 is an invalid start of a value. Path: $ | LineNumber: 0 | BytePositionInLine: 0."
+      },
+      {
+        "time": "02:45:48",
+        "level": "error",
+        "msg": "llm-call: \u0027m\u0027 is an invalid start of a value. Path: $ | LineNumber: 0 | BytePositionInLine: 0."
+      },
+      {
+        "time": "02:45:48",
+        "level": "warning",
+        "msg": "Stopping sequence: node \u0027llm-call\u0027 failed"
+      },
+      {
+        "time": "02:45:48",
+        "level": "info",
+        "msg": "Iteration 45 complete. Fitness: 0.00"
+      },
+      {
+        "time": "02:45:48",
+        "level": "info",
+        "msg": "While \u0027agent-while\u0027: iteration 46/50"
+      },
+      {
+        "time": "02:45:48",
+        "level": "info",
+        "msg": "read-conversation: Starting blockRef \u0027conversation-read\u0027..."
+      },
+      {
+        "time": "02:45:48",
+        "level": "info",
+        "msg": "Executing blockRef \u0027conversation-read\u0027 (type: conversation-read) with 2 inputs"
+      },
+      {
+        "time": "02:45:48",
+        "level": "info",
+        "msg": "[conversation-read] Read 2 messages from conversation \u002790b76be3-06c8-4ab5-aa95-0e58f97eff81:test-designer\u0027"
+      },
+      {
+        "time": "02:45:48",
+        "level": "success",
+        "msg": "blockRef \u0027conversation-read\u0027 completed (103 chars)"
+      },
+      {
+        "time": "02:45:48",
+        "level": "success",
+        "msg": "read-conversation: blockRef \u0027conversation-read\u0027 completed (103 chars)"
+      },
+      {
+        "time": "02:45:48",
+        "level": "info",
+        "msg": "llm-call: Starting blockRef \u0027inference\u0027..."
+      },
+      {
+        "time": "02:45:48",
+        "level": "info",
+        "msg": "Executing blockRef \u0027inference\u0027 (type: inference) with 2 inputs"
+      },
+      {
+        "time": "02:45:48",
+        "level": "error",
+        "msg": "blockRef \u0027inference\u0027 error: \u0027m\u0027 is an invalid start of a value. Path: $ | LineNumber: 0 | BytePositionInLine: 0."
+      },
+      {
+        "time": "02:45:48",
+        "level": "error",
+        "msg": "llm-call: \u0027m\u0027 is an invalid start of a value. Path: $ | LineNumber: 0 | BytePositionInLine: 0."
+      },
+      {
+        "time": "02:45:48",
+        "level": "error",
+        "msg": "llm-call: \u0027m\u0027 is an invalid start of a value. Path: $ | LineNumber: 0 | BytePositionInLine: 0."
+      },
+      {
+        "time": "02:45:48",
+        "level": "warning",
+        "msg": "Stopping sequence: node \u0027llm-call\u0027 failed"
+      },
+      {
+        "time": "02:45:48",
+        "level": "info",
+        "msg": "Iteration 46 complete. Fitness: 0.00"
+      },
+      {
+        "time": "02:45:48",
+        "level": "info",
+        "msg": "While \u0027agent-while\u0027: iteration 47/50"
+      },
+      {
+        "time": "02:45:48",
+        "level": "info",
+        "msg": "read-conversation: Starting blockRef \u0027conversation-read\u0027..."
+      },
+      {
+        "time": "02:45:48",
+        "level": "info",
+        "msg": "Executing blockRef \u0027conversation-read\u0027 (type: conversation-read) with 2 inputs"
+      },
+      {
+        "time": "02:45:48",
+        "level": "info",
+        "msg": "[conversation-read] Read 2 messages from conversation \u002790b76be3-06c8-4ab5-aa95-0e58f97eff81:test-designer\u0027"
+      },
+      {
+        "time": "02:45:48",
+        "level": "success",
+        "msg": "blockRef \u0027conversation-read\u0027 completed (103 chars)"
+      },
+      {
+        "time": "02:45:48",
+        "level": "success",
+        "msg": "read-conversation: blockRef \u0027conversation-read\u0027 completed (103 chars)"
+      },
+      {
+        "time": "02:45:49",
+        "level": "info",
+        "msg": "llm-call: Starting blockRef \u0027inference\u0027..."
+      },
+      {
+        "time": "02:45:49",
+        "level": "info",
+        "msg": "Executing blockRef \u0027inference\u0027 (type: inference) with 2 inputs"
+      },
+      {
+        "time": "02:45:49",
+        "level": "error",
+        "msg": "blockRef \u0027inference\u0027 error: \u0027m\u0027 is an invalid start of a value. Path: $ | LineNumber: 0 | BytePositionInLine: 0."
+      },
+      {
+        "time": "02:45:49",
+        "level": "error",
+        "msg": "llm-call: \u0027m\u0027 is an invalid start of a value. Path: $ | LineNumber: 0 | BytePositionInLine: 0."
+      },
+      {
+        "time": "02:45:49",
+        "level": "error",
+        "msg": "llm-call: \u0027m\u0027 is an invalid start of a value. Path: $ | LineNumber: 0 | BytePositionInLine: 0."
+      },
+      {
+        "time": "02:45:49",
+        "level": "warning",
+        "msg": "Stopping sequence: node \u0027llm-call\u0027 failed"
+      },
+      {
+        "time": "02:45:49",
+        "level": "info",
+        "msg": "Iteration 47 complete. Fitness: 0.00"
+      },
+      {
+        "time": "02:45:49",
+        "level": "info",
+        "msg": "While \u0027agent-while\u0027: iteration 48/50"
+      },
+      {
+        "time": "02:45:49",
+        "level": "info",
+        "msg": "read-conversation: Starting blockRef \u0027conversation-read\u0027..."
+      },
+      {
+        "time": "02:45:49",
+        "level": "info",
+        "msg": "Executing blockRef \u0027conversation-read\u0027 (type: conversation-read) with 2 inputs"
+      },
+      {
+        "time": "02:45:49",
+        "level": "info",
+        "msg": "[conversation-read] Read 2 messages from conversation \u002790b76be3-06c8-4ab5-aa95-0e58f97eff81:test-designer\u0027"
+      },
+      {
+        "time": "02:45:49",
+        "level": "success",
+        "msg": "blockRef \u0027conversation-read\u0027 completed (103 chars)"
+      },
+      {
+        "time": "02:45:49",
+        "level": "success",
+        "msg": "read-conversation: blockRef \u0027conversation-read\u0027 completed (103 chars)"
+      },
+      {
+        "time": "02:45:50",
+        "level": "info",
+        "msg": "llm-call: Starting blockRef \u0027inference\u0027..."
+      },
+      {
+        "time": "02:45:50",
+        "level": "info",
+        "msg": "Executing blockRef \u0027inference\u0027 (type: inference) with 2 inputs"
+      },
+      {
+        "time": "02:45:50",
+        "level": "error",
+        "msg": "blockRef \u0027inference\u0027 error: \u0027m\u0027 is an invalid start of a value. Path: $ | LineNumber: 0 | BytePositionInLine: 0."
+      },
+      {
+        "time": "02:45:50",
+        "level": "error",
+        "msg": "llm-call: \u0027m\u0027 is an invalid start of a value. Path: $ | LineNumber: 0 | BytePositionInLine: 0."
+      },
+      {
+        "time": "02:45:50",
+        "level": "error",
+        "msg": "llm-call: \u0027m\u0027 is an invalid start of a value. Path: $ | LineNumber: 0 | BytePositionInLine: 0."
+      },
+      {
+        "time": "02:45:50",
+        "level": "warning",
+        "msg": "Stopping sequence: node \u0027llm-call\u0027 failed"
+      },
+      {
+        "time": "02:45:50",
+        "level": "info",
+        "msg": "Iteration 48 complete. Fitness: 0.00"
+      },
+      {
+        "time": "02:45:50",
+        "level": "info",
+        "msg": "While \u0027agent-while\u0027: iteration 49/50"
+      },
+      {
+        "time": "02:45:50",
+        "level": "info",
+        "msg": "read-conversation: Starting blockRef \u0027conversation-read\u0027..."
+      },
+      {
+        "time": "02:45:50",
+        "level": "info",
+        "msg": "Executing blockRef \u0027conversation-read\u0027 (type: conversation-read) with 2 inputs"
+      },
+      {
+        "time": "02:45:50",
+        "level": "info",
+        "msg": "[conversation-read] Read 2 messages from conversation \u002790b76be3-06c8-4ab5-aa95-0e58f97eff81:test-designer\u0027"
+      },
+      {
+        "time": "02:45:50",
+        "level": "success",
+        "msg": "blockRef \u0027conversation-read\u0027 completed (103 chars)"
+      },
+      {
+        "time": "02:45:50",
+        "level": "success",
+        "msg": "read-conversation: blockRef \u0027conversation-read\u0027 completed (103 chars)"
+      },
+      {
+        "time": "02:45:50",
+        "level": "info",
+        "msg": "llm-call: Starting blockRef \u0027inference\u0027..."
+      },
+      {
+        "time": "02:45:50",
+        "level": "info",
+        "msg": "Executing blockRef \u0027inference\u0027 (type: inference) with 2 inputs"
+      },
+      {
+        "time": "02:45:50",
+        "level": "error",
+        "msg": "blockRef \u0027inference\u0027 error: \u0027m\u0027 is an invalid start of a value. Path: $ | LineNumber: 0 | BytePositionInLine: 0."
+      },
+      {
+        "time": "02:45:50",
+        "level": "error",
+        "msg": "llm-call: \u0027m\u0027 is an invalid start of a value. Path: $ | LineNumber: 0 | BytePositionInLine: 0."
+      },
+      {
+        "time": "02:45:50",
+        "level": "error",
+        "msg": "llm-call: \u0027m\u0027 is an invalid start of a value. Path: $ | LineNumber: 0 | BytePositionInLine: 0."
+      },
+      {
+        "time": "02:45:50",
+        "level": "warning",
+        "msg": "Stopping sequence: node \u0027llm-call\u0027 failed"
+      },
+      {
+        "time": "02:45:50",
+        "level": "info",
+        "msg": "Iteration 49 complete. Fitness: 0.00"
+      },
+      {
+        "time": "02:45:50",
+        "level": "info",
+        "msg": "While \u0027agent-while\u0027: iteration 50/50"
+      },
+      {
+        "time": "02:45:50",
+        "level": "info",
+        "msg": "read-conversation: Starting blockRef \u0027conversation-read\u0027..."
+      },
+      {
+        "time": "02:45:50",
+        "level": "info",
+        "msg": "Executing blockRef \u0027conversation-read\u0027 (type: conversation-read) with 2 inputs"
+      },
+      {
+        "time": "02:45:50",
+        "level": "info",
+        "msg": "[conversation-read] Read 2 messages from conversation \u002790b76be3-06c8-4ab5-aa95-0e58f97eff81:test-designer\u0027"
+      },
+      {
+        "time": "02:45:50",
+        "level": "success",
+        "msg": "blockRef \u0027conversation-read\u0027 completed (103 chars)"
+      },
+      {
+        "time": "02:45:50",
+        "level": "success",
+        "msg": "read-conversation: blockRef \u0027conversation-read\u0027 completed (103 chars)"
+      },
+      {
+        "time": "02:45:51",
+        "level": "info",
+        "msg": "llm-call: Starting blockRef \u0027inference\u0027..."
+      },
+      {
+        "time": "02:45:51",
+        "level": "info",
+        "msg": "Executing blockRef \u0027inference\u0027 (type: inference) with 2 inputs"
+      },
+      {
+        "time": "02:45:51",
+        "level": "error",
+        "msg": "blockRef \u0027inference\u0027 error: \u0027m\u0027 is an invalid start of a value. Path: $ | LineNumber: 0 | BytePositionInLine: 0."
+      },
+      {
+        "time": "02:45:51",
+        "level": "error",
+        "msg": "llm-call: \u0027m\u0027 is an invalid start of a value. Path: $ | LineNumber: 0 | BytePositionInLine: 0."
+      },
+      {
+        "time": "02:45:51",
+        "level": "error",
+        "msg": "llm-call: \u0027m\u0027 is an invalid start of a value. Path: $ | LineNumber: 0 | BytePositionInLine: 0."
+      },
+      {
+        "time": "02:45:51",
+        "level": "warning",
+        "msg": "Stopping sequence: node \u0027llm-call\u0027 failed"
+      },
+      {
+        "time": "02:45:51",
+        "level": "info",
+        "msg": "Iteration 50 complete. Fitness: 0.00"
+      },
+      {
+        "time": "02:45:51",
+        "level": "success",
+        "msg": "While loop \u0027agent-while\u0027 completed after 50 iterations: max iterations reached (50/50)"
+      },
+      {
+        "time": "02:45:51",
+        "level": "success",
+        "msg": "blockRef \u0027test-designer\u0027 completed (0 chars)"
+      },
+      {
+        "time": "02:45:51",
+        "level": "success",
+        "msg": "blockRef \u0027test-designer\u0027 completed (0 chars)"
+      }
+    ],
+    "_artifacts": [],
+    "_blockOutputs": {
+      "read-conversation": {
+        "type": "block",
+        "output": "messages: System.Collections.Generic.List\u00601[Maestro.Application.Interfaces.ChatMessage]\nmessageCount: 2",
+        "timestamp": "02:45:50"
+      },
+      "execute": {
+        "type": "agent",
+        "output": "",
+        "timestamp": "02:45:51"
+      }
+    },
+    "_llmActivity": [
+      {
+        "type": "agent",
+        "blockRef": "test-designer",
+        "response": "",
+        "timestamp": "2026-03-06T02:45:51.4806833Z",
+        "toolCalls": "",
+        "tokens": 0
+      }
+    ],
+    "_phaseMetrics": {},
+    "_executionTree": [
+      {
+        "id": "execute",
+        "name": "Test Designer",
+        "status": "done",
+        "children": [],
+        "output": ""
+      }
+    ],
+    "_activeWorkflow": "",
+    "prompt": "Read the contract maestro-assistant at C:/Meastro/content/system/contracts/maestro-assistant.contract.json and analyze it. Then call step-complete with a summary.",
+    "contractId": "maestro-assistant",
+    "outputDir": "C:/Meastro/content/system/contracts",
+    "repoPath": "C:\\Meastro",
+    "workingDir": "C:\\Meastro",
+    "_conversationId": "90b76be3-06c8-4ab5-aa95-0e58f97eff81:test-designer",
+    "_agentDone": "false",
+    "_workflowCheckpoint": null,
+    "iteration": 50,
+    "currentIteration": 50,
+    "_workflowCheckpoint_whileState": null,
+    "_activeBlock": null,
+    "_nodeResult_read-conversation": "messages: System.Collections.Generic.List\u00601[Maestro.Application.Interfaces.ChatMessage]\nmessageCount: 2",
+    "_nodeResult_llm-call": "(error executing blockRef \u0027inference\u0027: \u0027m\u0027 is an invalid start of a value. Path: $ | LineNumber: 0 | BytePositionInLine: 0.)",
+    "_agentResult_test-designer": "",
+    "_nodeResult_execute": "",
+    "_workflowCheckpoint_foreachIndex": null
+  },
+  "entryPoints": {
+    "run-test-designer": "test-designer"
+  },
+  "monitorWidgets": null,
+  "blockSearchPaths": [
+    "C:\\Meastro\\.maestro\\blocks"
+  ],
+  "defaultModel": null,
+  "modelOverrides": null,
+  "fileAccessRulesConfig": null,
+  "blockPermissionsConfig": null
+}

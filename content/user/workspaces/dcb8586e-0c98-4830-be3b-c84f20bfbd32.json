@@ -1,0 +1,58 @@
+{
+  "id": "dcb8586e-0c98-4830-be3b-c84f20bfbd32",
+  "name": "Phase 54 - E2E Verification",
+  "description": null,
+  "type": "Custom",
+  "status": "Active",
+  "path": null,
+  "sessionIds": [
+    "31b7cf03-32dc-420f-b062-97f2d087912b"
+  ],
+  "projectIds": [],
+  "catalogRef": null,
+  "settings": {
+    "defaultModelId": null,
+    "maxConcurrentSessions": 10,
+    "maxConcurrentTrainingRuns": 3,
+    "autoPromotionEnabled": false,
+    "minFitnessForPromotion": 0.7,
+    "tags": []
+  },
+  "isolation": {
+    "enabled": false,
+    "network": null,
+    "resources": null,
+    "permissions": {
+      "canReadFrom": [],
+      "canWriteTo": [],
+      "canPromoteTo": [],
+      "allowReadFrom": [],
+      "allowWriteFrom": []
+    }
+  },
+  "permissions": {
+    "allowedCommands": [
+      "*"
+    ],
+    "allowedTools": [
+      "*"
+    ],
+    "allowedBlocks": [
+      "*"
+    ],
+    "canCreateBlocks": true,
+    "canCreateSessions": true,
+    "dataCollections": [
+      "*"
+    ],
+    "allowedPaths": [
+      "*"
+    ]
+  },
+  "sessionTemplates": {},
+  "entryPoints": {},
+  "createdAt": "2026-03-06T02:27:46.6774446+00:00",
+  "updatedAt": "2026-03-06T02:27:55.9747268+00:00",
+  "createdBy": null,
+  "repositoryPath": null
+}

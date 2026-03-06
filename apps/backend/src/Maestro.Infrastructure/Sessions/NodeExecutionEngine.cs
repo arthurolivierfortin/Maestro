@@ -158,8 +158,48 @@ public class NodeExecutionEngine
                         session.SetVariable("_executionTree", displayTree);
                         break;
                     default:
-                        lastOutput = await DispatchRegularNodeAsync(session, nodeId, workflowConfig, workingDir, activePhaseId, displayTree, lastOutput, configNode);
+                    {
+                        var resolvedBlockRef = ResolveBlockRef(configNode, nodeId, session);
+                        if (resolvedBlockRef != null)
+                        {
+                            var displayName = SessionStateManager.NodeIdToDisplayName(nodeId);
+                            _stateManager.UpdateNodeById(displayTree, nodeId, "running", $"Executing {resolvedBlockRef}...");
+                            _stateManager.SetActiveBlock(session, nodeId, displayName, "block", "running");
+                            session.SetVariable("_executionTree", displayTree);
+                            await _repository.SaveAsync(session);
+
+                            var output = await ExecuteBlockRefAsync(session, resolvedBlockRef, configNode, workingDir, displayTree, nodeId, lastOutput);
+
+                            var truncated = output != null && output.Length > 500 ? output[..500] + "..." : output;
+                            _stateManager.UpdateNodeById(displayTree, nodeId, "done", truncated);
+                            _stateManager.UpdateActiveBlockOutput(session, output != null && output.Length > 2000 ? output[..2000] + "..." : output ?? "");
+                            _stateManager.UpdateActiveBlockStatus(session, "done");
+                            _stateManager.StoreBlockOutput(session, nodeId, "block", output ?? "");
+                            session.SetVariable("_executionTree", displayTree);
+                            session.SetVariable($"_nodeResult_{nodeId}", output ?? "");
+                            await _repository.SaveAsync(session);
+                            await Task.Delay(500);
+                            lastOutput = output;
+                        }
+                        else if (configNode.TryGetProperty("nodes", out var orphanNodes)
+                            && orphanNodes.ValueKind == JsonValueKind.Array && orphanNodes.GetArrayLength() > 0)
+                        {
+                            // Guard: node with child "nodes" but no "type" is a workflow authoring error
+                            throw new InvalidOperationException(
+                                $"Node '{nodeId}' has {orphanNodes.GetArrayLength()} child nodes but no 'type'. " +
+                                "Declare type (sequence, parallel, while, for-each, conditional) in the workflow block JSON.");
+                        }
+                        else
+                        {
+                            // Passthrough — node has no blockRef and no container type
+                            lastOutput = lastOutput ?? $"Node '{nodeId}' executed (passthrough — no blockRef)";
+                            _stateManager.UpdateNodeById(displayTree, nodeId, "done", "passthrough (no blockRef)");
+                            session.SetVariable("_executionTree", displayTree);
+                            session.SetVariable($"_nodeResult_{nodeId}", lastOutput);
+                            await _repository.SaveAsync(session);
+                        }
                         break;
+                    }
                 }
             }
             catch (Exception ex)
@@ -316,24 +356,8 @@ public class NodeExecutionEngine
             // Execute child nodes
             if (whileNode.TryGetProperty("nodes", out var children) && children.ValueKind == JsonValueKind.Array)
             {
-                // CRITICAL: Clear child node IDs from _workflowCheckpoint before each iteration.
-                // Without this, after iteration 1 completes "plan"/"validate-plan"/"plan-format-gate",
-                // the checkpoint marks them as completed. At iteration 2, ExecuteConfigNodesAsync
-                // sees them in the checkpoint and SKIPS them — even though they must re-execute.
-                // Must collect RECURSIVELY to include nodes inside conditional branches.
-                var childNodeIds = new HashSet<string>();
-                CollectNodeIdsRecursive(children, childNodeIds);
-
-                var currentCheckpoint = session.GetVariable("_workflowCheckpoint") as List<object>;
-                if (currentCheckpoint != null && childNodeIds.Count > 0)
-                {
-                    currentCheckpoint.RemoveAll(entry =>
-                        entry is Dictionary<string, object> dict
-                        && dict.TryGetValue("nodeId", out var nid)
-                        && childNodeIds.Contains(nid?.ToString() ?? ""));
-                    session.SetVariable("_workflowCheckpoint", currentCheckpoint);
-                }
-
+                // Clear child node IDs from checkpoint before each iteration so they re-execute
+                ClearChildNodeCheckpoints(session, children);
                 lastOutput = await ExecuteConfigNodesAsync(session, children, workflowConfig, workingDir, workflowId, activePhaseId, displayTree, lastOutput);
             }
 
@@ -379,140 +403,32 @@ public class NodeExecutionEngine
     {
         var nodeId = condNode.TryGetProperty("id", out var idProp) ? idProp.GetString() ?? "conditional" : "conditional";
         var condition = condNode.TryGetProperty("condition", out var condProp) ? condProp.GetString() ?? "true" : "true";
-        var displayName = SessionStateManager.NodeIdToDisplayName(nodeId);
 
-        // Resolve template references in condition (e.g., {{_nodeResult_review}} or {{state.results.review}})
+        // Resolve template references in condition
         var resolvedCondition = TemplateResolver.ResolveTemplate(condition, session);
         var condResult = ConditionEvaluator.EvaluateCondition(resolvedCondition, session);
         _stateManager.AppendExecutionLog(session, "info", $"Conditional '{nodeId}': '{condition}' → '{resolvedCondition}' → {condResult}");
 
-        // Update display tree
         _stateManager.UpdateNodeById(displayTree, nodeId, "running", $"Condition: {condResult}");
-        _stateManager.SetActiveBlock(session, nodeId, displayName, "conditional", "running");
+        _stateManager.SetActiveBlock(session, nodeId, SessionStateManager.NodeIdToDisplayName(nodeId), "conditional", "running");
         session.SetVariable("_executionTree", displayTree);
         await _repository.SaveAsync(session);
 
-        // Multi-way branches: if "branches" property exists, use resolvedCondition as key
+        string? output;
+
+        // Multi-way branches: "branches" object keyed by resolved condition value
         if (condNode.TryGetProperty("branches", out var branchesObj) && branchesObj.ValueKind == JsonValueKind.Object)
         {
-            _stateManager.AppendExecutionLog(session, "info", $"Conditional '{nodeId}': multi-way branch, key='{resolvedCondition}'");
-
-            string? mwOutput = null;
-            var branchKey = resolvedCondition.Trim().Trim('"'); // Remove surrounding quotes if any
-
-            if (branchesObj.TryGetProperty(branchKey, out var selectedBranch) && selectedBranch.ValueKind == JsonValueKind.Object)
-            {
-                try
-                {
-                    if (selectedBranch.TryGetProperty("blockRef", out var brBlockRef) && brBlockRef.ValueKind == JsonValueKind.String)
-                    {
-                        var branchId = selectedBranch.TryGetProperty("id", out var brIdProp) ? brIdProp.GetString() ?? branchKey : branchKey;
-                        mwOutput = await ExecuteBlockRefAsync(session, brBlockRef.GetString()!, selectedBranch, workingDir, displayTree, branchId, previousOutput);
-                        session.SetVariable($"_nodeResult_{branchId}", mwOutput ?? "");
-                    }
-                    else if (selectedBranch.TryGetProperty("blockId", out var brBlockId) && brBlockId.ValueKind == JsonValueKind.String)
-                    {
-                        _logger.LogWarning("Multi-way branch '{BranchKey}' uses deprecated 'blockId' — use 'blockRef' instead", branchKey);
-                        var branchId = selectedBranch.TryGetProperty("id", out var brIdProp) ? brIdProp.GetString() ?? branchKey : branchKey;
-                        mwOutput = await ExecuteBlockRefAsync(session, brBlockId.GetString()!, selectedBranch, workingDir, displayTree, branchId, previousOutput);
-                        session.SetVariable($"_nodeResult_{branchId}", mwOutput ?? "");
-                    }
-                    else if (selectedBranch.TryGetProperty("nodes", out var brNodes) && brNodes.ValueKind == JsonValueKind.Array)
-                    {
-                        mwOutput = await ExecuteConfigNodesAsync(session, brNodes, workflowConfig, workingDir, nodeId, null, displayTree, previousOutput);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "Multi-way branch '{BranchKey}' failed in '{NodeId}'", branchKey, nodeId);
-                    mwOutput = $"(error in branch '{branchKey}': {ex.Message})";
-                }
-            }
-            else
-            {
-                // No matching branch — check for "default" branch
-                if (branchesObj.TryGetProperty("default", out var defaultBranch) && defaultBranch.ValueKind == JsonValueKind.Object)
-                {
-                    _stateManager.AppendExecutionLog(session, "info", $"Conditional '{nodeId}': no branch for '{branchKey}', using default");
-                    if (defaultBranch.TryGetProperty("blockRef", out var defBlockRef) && defBlockRef.ValueKind == JsonValueKind.String)
-                    {
-                        mwOutput = await ExecuteBlockRefAsync(session, defBlockRef.GetString()!, defaultBranch, workingDir, displayTree, "default", previousOutput);
-                    }
-                }
-                else
-                {
-                    _stateManager.AppendExecutionLog(session, "warning", $"Conditional '{nodeId}': no branch for '{branchKey}' and no default");
-                }
-            }
-
-            // Finalize
-            mwOutput ??= previousOutput ?? "";
-            var mwTruncated = mwOutput.Length > 500 ? mwOutput[..500] + "..." : mwOutput;
-            _stateManager.UpdateNodeById(displayTree, nodeId, "done", mwTruncated);
-            session.SetVariable("_executionTree", displayTree);
-            session.SetVariable($"_nodeResult_{nodeId}", mwOutput);
-            _stateManager.AppendExecutionLog(session, "success", $"{nodeId}: Multi-way branch completed");
-            await _repository.SaveAsync(session);
-            return mwOutput;
+            output = await ExecuteMultiWayBranchAsync(session, nodeId, branchesObj, resolvedCondition, workflowConfig, workingDir, displayTree, previousOutput);
         }
-
-        // Binary branches (existing behavior): then/else
-        string? output = null;
-        var branchName = condResult ? "then" : "else";
-        var hasBranch = condNode.TryGetProperty(branchName, out var branchNode) && branchNode.ValueKind == JsonValueKind.Object;
-
-        if (hasBranch)
-        {
-            try
-            {
-                // Branch node has a blockRef (or deprecated blockId) — dispatch it
-                var hasBrBlockRef = branchNode.TryGetProperty("blockRef", out var brBlockRefProp) && brBlockRefProp.ValueKind == JsonValueKind.String;
-                if (!hasBrBlockRef)
-                {
-                    hasBrBlockRef = branchNode.TryGetProperty("blockId", out brBlockRefProp) && brBlockRefProp.ValueKind == JsonValueKind.String;
-                    if (hasBrBlockRef)
-                        _logger.LogWarning("Conditional '{NodeId}' branch '{BranchName}' uses deprecated 'blockId' — use 'blockRef' instead", nodeId, branchName);
-                }
-
-                if (hasBrBlockRef)
-                {
-                    var branchId = branchNode.TryGetProperty("id", out var branchIdProp) ? branchIdProp.GetString() ?? branchName : branchName;
-                    var blockRefId = TemplateResolver.ResolveTemplate(brBlockRefProp.GetString()!, session);
-                    _stateManager.AppendExecutionLog(session, "info", $"Conditional '{nodeId}': executing '{branchName}' branch → blockRef '{blockRefId}'");
-                    output = await ExecuteBlockRefAsync(session, blockRefId, branchNode, workingDir, displayTree, branchId, previousOutput);
-                    session.SetVariable($"_nodeResult_{branchId}", output ?? "");
-                }
-                else
-                {
-                    // Branch has child nodes — execute them
-                    if (branchNode.TryGetProperty("nodes", out var nodesEl) && nodesEl.ValueKind == JsonValueKind.Array)
-                    {
-                        output = await ExecuteConfigNodesAsync(session, nodesEl, workflowConfig, workingDir, nodeId, null, displayTree, previousOutput);
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Conditional '{Branch}' branch execution failed: {NodeId}", branchName, nodeId);
-                output = $"(error in '{branchName}' branch: {ex.Message})";
-                _stateManager.UpdateNodeById(displayTree, nodeId, "error", output);
-                session.SetVariable("_executionTree", displayTree);
-                _stateManager.UpdateActiveBlockStatus(session, "error");
-                _stateManager.AppendExecutionLog(session, "error", $"{nodeId}: {ex.Message}");
-                await _repository.SaveAsync(session);
-                return previousOutput;
-            }
-        }
+        // Binary branches: then/else
         else
         {
-            // No branch definition — passthrough with warning
-            _logger.LogWarning("Conditional node '{NodeId}' has no then/else branches — treated as passthrough", nodeId);
-            _stateManager.AppendExecutionLog(session, "warning",
-                $"{nodeId}: Conditional without branches — passthrough. Add then/else nodes.");
-            output = previousOutput;
+            var branchName = condResult ? "then" : "else";
+            output = await ExecuteBinaryBranchAsync(session, nodeId, condNode, branchName, workflowConfig, workingDir, displayTree, previousOutput);
         }
 
-        // Set done
+        // Finalize
         output ??= previousOutput ?? "";
         var truncated = output.Length > 500 ? output[..500] + "..." : output;
         _stateManager.UpdateNodeById(displayTree, nodeId, "done", truncated);
@@ -523,8 +439,111 @@ public class NodeExecutionEngine
         session.SetVariable($"_nodeResult_{nodeId}", output);
         _stateManager.AppendExecutionLog(session, "success", $"{nodeId}: Completed ({output.Length} chars)");
         await _repository.SaveAsync(session);
-
         return output;
+    }
+
+    /// <summary>
+    /// Executes a multi-way branch conditional. Uses resolvedCondition as key into the branches object.
+    /// Falls back to "default" branch if the key doesn't match.
+    /// </summary>
+    private async Task<string?> ExecuteMultiWayBranchAsync(
+        Domain.Entities.ProjectSession session,
+        string nodeId,
+        JsonElement branchesObj,
+        string resolvedCondition,
+        Dictionary<string, object>? workflowConfig,
+        string workingDir,
+        List<object> displayTree,
+        string? previousOutput)
+    {
+        _stateManager.AppendExecutionLog(session, "info", $"Conditional '{nodeId}': multi-way branch, key='{resolvedCondition}'");
+        var branchKey = resolvedCondition.Trim().Trim('"');
+
+        if (branchesObj.TryGetProperty(branchKey, out var selectedBranch) && selectedBranch.ValueKind == JsonValueKind.Object)
+        {
+            try
+            {
+                return await ExecuteBranchBodyAsync(session, selectedBranch, branchKey, workflowConfig, workingDir, nodeId, displayTree, previousOutput);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Multi-way branch '{BranchKey}' failed in '{NodeId}'", branchKey, nodeId);
+                return $"(error in branch '{branchKey}': {ex.Message})";
+            }
+        }
+
+        // No matching branch — try "default"
+        if (branchesObj.TryGetProperty("default", out var defaultBranch) && defaultBranch.ValueKind == JsonValueKind.Object)
+        {
+            _stateManager.AppendExecutionLog(session, "info", $"Conditional '{nodeId}': no branch for '{branchKey}', using default");
+            return await ExecuteBranchBodyAsync(session, defaultBranch, "default", workflowConfig, workingDir, nodeId, displayTree, previousOutput);
+        }
+
+        _stateManager.AppendExecutionLog(session, "warning", $"Conditional '{nodeId}': no branch for '{branchKey}' and no default");
+        return null;
+    }
+
+    /// <summary>
+    /// Executes a binary (then/else) branch conditional.
+    /// </summary>
+    private async Task<string?> ExecuteBinaryBranchAsync(
+        Domain.Entities.ProjectSession session,
+        string nodeId,
+        JsonElement condNode,
+        string branchName,
+        Dictionary<string, object>? workflowConfig,
+        string workingDir,
+        List<object> displayTree,
+        string? previousOutput)
+    {
+        if (!condNode.TryGetProperty(branchName, out var branchNode) || branchNode.ValueKind != JsonValueKind.Object)
+        {
+            _stateManager.AppendExecutionLog(session, "warning",
+                $"{nodeId}: Conditional without '{branchName}' branch — passthrough.");
+            return previousOutput;
+        }
+
+        try
+        {
+            return await ExecuteBranchBodyAsync(session, branchNode, branchName, workflowConfig, workingDir, nodeId, displayTree, previousOutput);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Conditional '{Branch}' branch execution failed: {NodeId}", branchName, nodeId);
+            _stateManager.UpdateActiveBlockStatus(session, "error");
+            _stateManager.AppendExecutionLog(session, "error", $"{nodeId}: {ex.Message}");
+            await _repository.SaveAsync(session);
+            return $"(error in '{branchName}' branch: {ex.Message})";
+        }
+    }
+
+    /// <summary>
+    /// Executes a branch body: resolves blockRef/blockId → ExecuteBlockRefAsync, or child nodes → ExecuteConfigNodesAsync.
+    /// </summary>
+    private async Task<string?> ExecuteBranchBodyAsync(
+        Domain.Entities.ProjectSession session,
+        JsonElement branchNode,
+        string branchId,
+        Dictionary<string, object>? workflowConfig,
+        string workingDir,
+        string parentNodeId,
+        List<object> displayTree,
+        string? previousOutput)
+    {
+        var resolvedRef = ResolveBlockRef(branchNode, branchId, session);
+        if (resolvedRef != null)
+        {
+            var id = branchNode.TryGetProperty("id", out var brIdProp) ? brIdProp.GetString() ?? branchId : branchId;
+            _stateManager.AppendExecutionLog(session, "info", $"Conditional '{parentNodeId}': executing '{branchId}' → blockRef '{resolvedRef}'");
+            var output = await ExecuteBlockRefAsync(session, resolvedRef, branchNode, workingDir, displayTree, id, previousOutput);
+            session.SetVariable($"_nodeResult_{id}", output ?? "");
+            return output;
+        }
+
+        if (branchNode.TryGetProperty("nodes", out var nodesEl) && nodesEl.ValueKind == JsonValueKind.Array)
+            return await ExecuteConfigNodesAsync(session, nodesEl, workflowConfig, workingDir, parentNodeId, null, displayTree, previousOutput);
+
+        return null;
     }
 
     /// <summary>
@@ -630,14 +649,44 @@ public class NodeExecutionEngine
             {
                 var childType = child.TryGetProperty("type", out var ctProp) ? ctProp.GetString() : null;
 
-                var result = childType switch
+                string? result;
+                switch (childType)
                 {
-                    "sequence" => await ExecuteSequenceNodeAsync(session, child, workflowConfig, workingDir, workflowId, activePhaseId, displayTree, previousOutput),
-                    "while" => await ExecuteWhileNodeAsync(session, child, workflowConfig, workingDir, workflowId, activePhaseId, displayTree, previousOutput),
-                    "for-each" => await ExecuteForEachNodeAsync(session, child, workflowConfig, workingDir, workflowId, displayTree, previousOutput),
-                    "conditional" => await ExecuteConditionalNodeAsync(session, child, workflowConfig, workingDir, displayTree, previousOutput),
-                    _ => await DispatchRegularNodeAsync(session, childId, workflowConfig, workingDir, activePhaseId, displayTree, previousOutput, child)
-                };
+                    case "sequence":
+                        result = await ExecuteSequenceNodeAsync(session, child, workflowConfig, workingDir, workflowId, activePhaseId, displayTree, previousOutput);
+                        break;
+                    case "while":
+                        result = await ExecuteWhileNodeAsync(session, child, workflowConfig, workingDir, workflowId, activePhaseId, displayTree, previousOutput);
+                        break;
+                    case "for-each":
+                        result = await ExecuteForEachNodeAsync(session, child, workflowConfig, workingDir, workflowId, displayTree, previousOutput);
+                        break;
+                    case "conditional":
+                        result = await ExecuteConditionalNodeAsync(session, child, workflowConfig, workingDir, displayTree, previousOutput);
+                        break;
+                    default:
+                    {
+                        var blockRef = ResolveBlockRef(child, childId, session);
+                        if (blockRef != null)
+                        {
+                            _stateManager.UpdateNodeById(displayTree, childId, "running", $"Executing {blockRef}...");
+                            session.SetVariable("_executionTree", displayTree);
+                            await _repository.SaveAsync(session);
+                            result = await ExecuteBlockRefAsync(session, blockRef, child, workingDir, displayTree, childId, previousOutput);
+                            _stateManager.UpdateNodeById(displayTree, childId, "done");
+                            session.SetVariable("_executionTree", displayTree);
+                            session.SetVariable($"_nodeResult_{childId}", result ?? "");
+                            await _repository.SaveAsync(session);
+                        }
+                        else
+                        {
+                            result = previousOutput;
+                            _stateManager.UpdateNodeById(displayTree, childId, "done", "passthrough (no blockRef)");
+                            session.SetVariable("_executionTree", displayTree);
+                        }
+                        break;
+                    }
+                }
                 results.Add(result);
             }
             catch (Exception ex)
@@ -775,76 +824,14 @@ public class NodeExecutionEngine
                 else if (token is JObject jObj)
                 {
                     // Common LLM pattern: agent wraps output in {"summary":"[{...}]"} or {"result":"[{...}]"}.
-                    // If the JObject has a string field that contains a JSON array, unwrap it.
-                    // This is critical for the task-planner → store-plan → for-each pipeline.
-                    //
-                    // PHASE 35-E FIX 36: Three-pass extraction:
-                    // Pass 1: String property that STARTS with "[" (fastest, original logic)
-                    // Pass 2: String property with embedded "[{" anywhere (prose-wrapped JSON)
-                    // Pass 3: JArray property directly (object wrapping an array)
-                    JArray? unwrappedArray = null;
-                    string? unwrapField = null;
+                    // Three-pass extraction unwraps these to proper List<object>.
+                    var (unwrappedList, unwrapField) = TryUnwrapJObjectToList(jObj);
 
-                    // Pass 1: String property starting with "["
-                    foreach (var prop in jObj.Properties())
+                    if (unwrappedList != null && unwrappedList.Count > 0)
                     {
-                        if (prop.Value.Type == JTokenType.String)
-                        {
-                            var strVal = prop.Value.Value<string>();
-                            if (!string.IsNullOrEmpty(strVal) && strVal.TrimStart().StartsWith("["))
-                            {
-                                try
-                                {
-                                    unwrappedArray = JArray.Parse(strVal);
-                                    unwrapField = prop.Name;
-                                    break;
-                                }
-                                catch { /* not a valid JSON array, continue */ }
-                            }
-                        }
-                    }
-
-                    // Pass 2: String property with embedded JSON array (prose wrapping)
-                    // Handles: "Here's the plan:\n[{\"id\":1,...}]" or "```json\n[{...}]\n```"
-                    if (unwrappedArray == null)
-                    {
-                        foreach (var prop in jObj.Properties())
-                        {
-                            if (prop.Value.Type == JTokenType.String)
-                            {
-                                var strVal = prop.Value.Value<string>();
-                                var extracted = SessionHelper.TryExtractJsonArrayFromText(strVal);
-                                if (extracted != null)
-                                {
-                                    unwrappedArray = extracted;
-                                    unwrapField = prop.Name + " (embedded)";
-                                    break;
-                                }
-                            }
-                        }
-                    }
-
-                    // Pass 3: JArray property directly ({"steps":[{...}]} pattern)
-                    if (unwrappedArray == null)
-                    {
-                        foreach (var prop in jObj.Properties())
-                        {
-                            if (prop.Value is JArray directArr && directArr.Count > 0)
-                            {
-                                unwrappedArray = directArr;
-                                unwrapField = prop.Name + " (array)";
-                                break;
-                            }
-                        }
-                    }
-
-                    if (unwrappedArray != null && unwrappedArray.Count > 0)
-                    {
-                        // Unwrap: convert JArray → List<object> of native types
-                        var list = SessionHelper.JArrayToNativeList(unwrappedArray);
-                        session.SetVariable(variableName, list);
+                        session.SetVariable(variableName, unwrappedList);
                         _stateManager.AppendExecutionLog(session, "info",
-                            $"set-variable '{nodeId}': unwrapped '{unwrapField}' → stored {list.Count}-item list in '{variableName}'");
+                            $"set-variable '{nodeId}': unwrapped '{unwrapField}' → stored {unwrappedList.Count}-item list in '{variableName}'");
                     }
                     else
                     {
@@ -1078,68 +1065,19 @@ public class NodeExecutionEngine
             // The fix: collect child node IDs (recursively) and remove them from the checkpoint before each item.
             if (forEachNode.TryGetProperty("nodes", out var children) && children.ValueKind == JsonValueKind.Array)
             {
-                var childNodeIds = new HashSet<string>();
-                CollectNodeIdsRecursive(children, childNodeIds);
-
-                // Remove child node IDs from checkpoint so they aren't skipped for this new item
-                var currentCheckpoint = session.GetVariable("_workflowCheckpoint") as List<object>;
-                if (currentCheckpoint != null && childNodeIds.Count > 0)
-                {
-                    currentCheckpoint.RemoveAll(entry =>
-                        entry is Dictionary<string, object> dict
-                        && dict.TryGetValue("nodeId", out var nid)
-                        && childNodeIds.Contains(nid?.ToString() ?? ""));
-                    session.SetVariable("_workflowCheckpoint", currentCheckpoint);
-                }
-
+                // Clear child node IDs from checkpoint so they re-execute for this new item
+                ClearChildNodeCheckpoints(session, children);
                 lastOutput = await ExecuteConfigNodesAsync(
                     session, children, iterationConfig, workingDir, workflowId, itemId, displayTree, lastOutput);
             }
 
             // Restore targetFitness if overridden for plateau mode
             if (phaseStopCondition == "plateau")
-            {
                 session.SetVariable("targetFitness", originalTarget);
-            }
 
-            // Collect results
-            var fitness = phaseStopCondition == "plateau"
-                ? SessionStateManager.ReadDoubleVariable(session, "_bestFitness", SessionStateManager.ReadDoubleVariable(session, "currentFitness", 0))
-                : SessionStateManager.ReadDoubleVariable(session, "currentFitness", 0);
-            var iteration = SessionStateManager.ReadIntVariable(session, "currentIteration", 0);
-            var tokens = SessionStateManager.ReadIntVariable(session, "_tokenCount", 0);
-
-            // Detect item failure: check if lastOutput contains an error marker
-            var itemFailed = false;
-            if (lastOutput is string lastOutputStr)
-            {
-                itemFailed = lastOutputStr.StartsWith("Error:", StringComparison.OrdinalIgnoreCase)
-                    || lastOutputStr.Contains("\"error\":", StringComparison.OrdinalIgnoreCase);
-            }
-            // Also check session variable for execution errors
-            var execError = session.GetVariable<string>("_lastExecutionError", "");
-            if (!string.IsNullOrEmpty(execError)) itemFailed = true;
-
-            // Update item status based on result
-            var itemStatus = itemFailed ? "error" : "done";
-            if (itemDict.ContainsKey("status") && itemId != null)
-            {
-                _stateManager.UpdatePhaseStatus(session, itemId, itemStatus);
-                _stateManager.StorePhaseSummary(session, itemId, iteration, fitness);
-            }
-            // Also update explicit phaseId if it differs from itemId
-            if (phaseId != null && phaseId != itemId)
-            {
-                _stateManager.UpdatePhaseStatus(session, phaseId, itemStatus);
-                _stateManager.StorePhaseSummary(session, phaseId, iteration, fitness);
-            }
+            // Process item result: collect metrics, detect failure, update phase status
+            var itemFailed = ProcessForEachItemResult(session, lastOutput, itemId, phaseId, phaseStopCondition, itemDict);
             if (itemFailed) failCount++;
-
-            var logLevel = itemFailed ? "error" : "success";
-            var logMsg = $"Item '{itemId}' {(itemFailed ? "failed" : "completed")} (fitness: {fitness:F2}, iterations: {iteration}";
-            if (tokens > 0) logMsg += $", ~{tokens} tokens";
-            logMsg += ")";
-            _stateManager.AppendExecutionLog(session, logLevel, logMsg);
             await _repository.SaveAsync(session);
         }
 
@@ -1219,108 +1157,33 @@ public class NodeExecutionEngine
         string? previousOutput)
     {
         if (_executorRegistry == null)
-        {
-            _logger.LogWarning("BlockExecutorRegistry not available — cannot execute blockRef '{BlockRef}'", blockRefId);
-            _stateManager.AppendExecutionLog(session, "error", $"No executor registry for blockRef '{blockRefId}'");
             throw new InvalidOperationException($"BlockExecutorRegistry not available — cannot execute blockRef '{blockRefId}'");
-        }
 
         // Resolve the block definition
         var block = await _blockDiscovery.GetByIdAsync(SessionHelper.NormalizeBlockId(blockRefId), session.BlockSearchPaths);
         if (block == null)
-        {
-            _logger.LogWarning("Block not found for blockRef: {BlockRef}", blockRefId);
-            _stateManager.AppendExecutionLog(session, "error", $"Block not found: {blockRefId}");
             throw new InvalidOperationException($"Block not found: {blockRefId}");
-        }
 
         // Get executor for this block type
         var executor = _executorRegistry.Get(block.BlockType);
         if (executor == null)
-        {
-            _logger.LogWarning("No executor for block type '{BlockType}' (blockRef: {BlockRef})", block.BlockType, blockRefId);
-            _stateManager.AppendExecutionLog(session, "error", $"No executor for block type '{block.BlockType}'");
             throw new InvalidOperationException($"No executor for block type '{block.BlockType}' (blockRef: {blockRefId})");
-        }
 
-        // Merge per-node config overrides into the block's config.
-        // Agent loop templates use this to override model/maxTokens/temperature on inference nodes.
-        if (phaseNode.TryGetProperty("config", out var nodeConfigEl) && nodeConfigEl.ValueKind == JsonValueKind.Object)
-        {
-            foreach (var prop in nodeConfigEl.EnumerateObject())
-            {
-                block.Config[prop.Name] = prop.Value.ValueKind switch
-                {
-                    JsonValueKind.String => (object)prop.Value.GetString()!,
-                    JsonValueKind.Number => prop.Value.TryGetInt32(out var i) ? i : prop.Value.GetDouble(),
-                    JsonValueKind.True => true,
-                    JsonValueKind.False => false,
-                    _ => prop.Value.GetRawText()
-                };
-            }
-        }
-
-        // Build inputs from phase node config
-        var inputs = new Dictionary<string, object>();
-        if (phaseNode.TryGetProperty("inputs", out var inputsEl) && inputsEl.ValueKind == JsonValueKind.Object)
-        {
-            foreach (var prop in inputsEl.EnumerateObject())
-            {
-                var rawValue = prop.Value.GetString() ?? prop.Value.ToString();
-                // Resolve template references like {{inputs.task}} and {{previousOutput}}
-                var resolved = rawValue.Contains("{{previousOutput}}")
-                    ? rawValue.Replace("{{previousOutput}}", previousOutput ?? "")
-                    : TemplateResolver.ResolveTemplate(rawValue, session);
-                inputs[prop.Name] = resolved;
-            }
-        }
-
-        // Add workingDir if not explicitly set
-        if (!inputs.ContainsKey("workingDir"))
-        {
-            inputs["workingDir"] = workingDir;
-        }
+        MergeNodeConfigOverrides(block, phaseNode);
+        var inputs = BuildBlockInputs(phaseNode, session, previousOutput, workingDir);
 
         _stateManager.AppendExecutionLog(session, "info", $"Executing blockRef '{blockRefId}' (type: {block.BlockType}) with {inputs.Count} inputs");
         await _repository.SaveAsync(session);
 
-        // Workflow blocks with config.nodes are executed by walking their nodes.
-        // Agent/tool blocks with config.nodes use them for LLM params (not execution steps) —
-        // they are dispatched to their type-specific executor (AgentBlockExecutor reads config.nodes for model params).
-        var isWorkflowBlock = string.Equals(block.BlockType, "workflow", StringComparison.OrdinalIgnoreCase);
-        if (isWorkflowBlock && block.Config != null && block.Config.TryGetValue("nodes", out var nodesObj))
+        // Workflow blocks with config.nodes: walk their nodes recursively.
+        // Agent/tool blocks with config.nodes use them for LLM params — dispatched to type-specific executor.
+        if (string.Equals(block.BlockType, "workflow", StringComparison.OrdinalIgnoreCase))
         {
-            JsonElement? nodesElement = null;
-
-            // config.nodes can be: JsonElement (from System.Text.Json deserialization),
-            // JArray (from Newtonsoft API deserialization), or JsonArray (from JsonNode API)
-            if (nodesObj is JsonElement je && je.ValueKind == JsonValueKind.Array)
-            {
-                nodesElement = je;
-            }
-            else if (nodesObj is Newtonsoft.Json.Linq.JArray jArr)
-            {
-                using var nd = JsonDocument.Parse(jArr.ToString());
-                nodesElement = nd.RootElement.Clone();
-            }
-            else
-            {
-                // Try serializing whatever it is
-                try
-                {
-                    var serialized = System.Text.Json.JsonSerializer.Serialize(nodesObj);
-                    using var nd = JsonDocument.Parse(serialized);
-                    if (nd.RootElement.ValueKind == JsonValueKind.Array)
-                        nodesElement = nd.RootElement.Clone();
-                }
-                catch { /* not serializable as array, fall through to executor */ }
-            }
-
+            var nodesElement = ResolveConfigNodesToJsonElement(block.Config);
             if (nodesElement.HasValue)
             {
                 _stateManager.AppendExecutionLog(session, "info",
                     $"blockRef '{blockRefId}' has {nodesElement.Value.GetArrayLength()} config.nodes — executing as composite");
-
                 try
                 {
                     var compositeOutput = await ExecuteConfigNodesAsync(
@@ -1337,97 +1200,30 @@ public class NodeExecutionEngine
             }
         }
 
-        // Standard executor dispatch (for non-composite blocks: single-call inference, agentic loop, tools)
-        // Build execution context — must propagate workspace/session/agent IDs
-        // so AgentBlockExecutor can build a proper CliExecutionContext for tool calls
-        var execContext = new Domain.Entities.ExecutionContext();
-        execContext.Variables["sessionId"] = session.Id;
-        execContext.Variables["workingDir"] = workingDir;
-        if (!string.IsNullOrEmpty(session.ParentWorkspaceId))
-            execContext.Variables["workspaceId"] = session.ParentWorkspaceId;
-        execContext.Variables["agentId"] = blockRefId;
-        // Pass session permissions for tool-level path validation
-        var effectivePermissions = session.GetEffectivePermissions();
-        execContext.Variables["_permissions_allowedPaths"] = effectivePermissions.AllowedPaths;
+        // Standard executor dispatch (single-call inference, agentic loop, tools)
+        var execContext = BuildExecutionContext(session, workingDir, blockRefId);
 
         try
         {
             var result = await executor.ExecuteAsync(block, execContext, inputs);
 
             // Propagate agent/executor internal logs to session execution log
-            // so they're visible in the TUI monitor for diagnosis
-            if (result.Logs != null && result.Logs.Count > 0)
+            if (result.Logs is { Count: > 0 })
             {
                 foreach (var log in result.Logs)
                     _stateManager.AppendExecutionLog(session, "info", $"[{blockRefId}] {log}");
             }
 
-            // Log LLM activity if available — agents use "result" key, inference blocks use "response" or "content"
-            var responseText = result.Outputs.TryGetValue("response", out var resp) ? resp?.ToString()
-                             : result.Outputs.TryGetValue("result", out var res) ? res?.ToString()
-                             : result.Outputs.TryGetValue("content", out var cnt) ? cnt?.ToString()
-                             : null;
-            if (responseText != null)
-            {
-                _stateManager.AppendToLLMActivity(session, new Dictionary<string, object>
-                {
-                    { "type", block?.BlockType ?? "block" },
-                    { "blockRef", blockRefId },
-                    { "response", responseText.Length > 500 ? responseText[..500] + "..." : responseText },
-                    { "timestamp", DateTime.UtcNow.ToString("o") },
-                    { "toolCalls", result.Outputs.TryGetValue("warning", out var w) && w?.ToString()?.Contains("tool calls") == true ? w.ToString()! : "" },
-                    { "tokens", result.TotalTokens }
-                });
-            }
+            LogBlockLLMActivity(session, result, blockRefId, block.BlockType);
 
-            // Extract internal metadata keys (starting with '_') and save them as session variables
-            // before filtering them out of the output string. This preserves _conversationState
-            // for the TUI to display agent conversation history.
+            // Save internal metadata keys as session variables (e.g. _conversationState)
             foreach (var kv in result.Outputs.Where(kv => kv.Key.StartsWith("_")))
-            {
-                var varName = $"{kv.Key}_{blockRefId}";
-                session.SetVariable(varName, kv.Value);
-            }
+                session.SetVariable($"{kv.Key}_{blockRefId}", kv.Value);
 
-            // Build output string from non-internal keys only
-            var contentOutputs = result.Outputs
-                .Where(kv => !kv.Key.StartsWith("_"))
-                .ToDictionary(kv => kv.Key, kv => kv.Value);
-
-            // Prefer "response" key if available (clean text from agent step-complete),
-            // then "result" (JSON from agent), then single output, then multi-key JSON format.
-            string output;
-            if (contentOutputs.TryGetValue("response", out var respOutput) && respOutput != null)
-            {
-                output = respOutput.ToString() ?? "";
-            }
-            else if (contentOutputs.Count == 1)
-            {
-                var singleVal = contentOutputs.Values.First();
-                output = TemplateResolver.SerializeOutputValue(singleVal);
-            }
-            else if (contentOutputs.Count > 1)
-            {
-                // Serialize as JSON object so {{_nodeResult_xxx.key}} sub-path access works
-                var jsonDict = new Dictionary<string, object?>();
-                foreach (var kv in contentOutputs)
-                    jsonDict[kv.Key] = kv.Value;
-                output = JsonSerializer.Serialize(jsonDict, new JsonSerializerOptions { WriteIndented = false });
-            }
-            else
-            {
-                output = result.Success
-                    ? $"Block '{blockRefId}' completed successfully"
-                    : $"Block '{blockRefId}' failed";
-            }
+            var output = SerializeBlockOutput(result, blockRefId);
 
             if (!result.Success)
-            {
-                _stateManager.AppendExecutionLog(session, "error", $"blockRef '{blockRefId}' failed: {output}");
-                // Propagate block failure as exception so caller marks node as "error"
-                // and sequence-level error handling can stop execution.
                 throw new InvalidOperationException($"Block '{blockRefId}' failed: {output}");
-            }
 
             _stateManager.AppendExecutionLog(session, "success", $"blockRef '{blockRefId}' completed ({output.Length} chars)");
             return output;
@@ -1440,114 +1236,10 @@ public class NodeExecutionEngine
         }
     }
 
-    /// <summary>
-    /// Dispatches a regular (non-control-flow) config node.
-    /// Phase 53-C: Simplified from ExecuteRegularNodeAsync — blockRef dispatch + passthrough.
-    /// Native handlers (shell, tree-doc, LLM, etc.) are now standalone block executors
-    /// dispatched via blockRef in config.nodes. Nodes without blockRef get passthrough.
-    /// </summary>
-    private async Task<string?> DispatchRegularNodeAsync(
-        Domain.Entities.ProjectSession session,
-        string nodeId,
-        Dictionary<string, object>? workflowConfig,
-        string workingDir,
-        string? activePhaseId,
-        List<object> displayTree,
-        string? previousOutput,
-        JsonElement? nodeConfig = null)
-    {
-        // BlockRef dispatch — if the node has a blockRef (or deprecated blockId), dispatch via executor registry
-        string? resolvedBlockRef = null;
-        if (nodeConfig.HasValue)
-        {
-            if (nodeConfig.Value.TryGetProperty("blockRef", out var blockRefProp) && blockRefProp.ValueKind == JsonValueKind.String)
-            {
-                resolvedBlockRef = TemplateResolver.ResolveTemplate(blockRefProp.GetString()!, session);
-            }
-            else if (nodeConfig.Value.TryGetProperty("blockId", out var blockIdProp) && blockIdProp.ValueKind == JsonValueKind.String)
-            {
-                resolvedBlockRef = TemplateResolver.ResolveTemplate(blockIdProp.GetString()!, session);
-                _logger.LogWarning("Node '{NodeId}' uses deprecated 'blockId' — use 'blockRef' instead", nodeId);
-            }
-        }
-
-        if (resolvedBlockRef != null)
-        {
-            var blockRefId = resolvedBlockRef;
-            var displayName = SessionStateManager.NodeIdToDisplayName(nodeId);
-
-            _stateManager.UpdateNodeById(displayTree, nodeId, "running", $"Executing {blockRefId}...");
-            session.SetVariable("_executionTree", displayTree);
-            _stateManager.SetActiveBlock(session, nodeId, displayName, "block", "running");
-            _stateManager.AppendExecutionLog(session, "info", $"{nodeId}: Starting blockRef '{blockRefId}'...");
-            await _repository.SaveAsync(session);
-
-            try
-            {
-                var output = await ExecuteBlockRefAsync(
-                    session, blockRefId, nodeConfig.Value, workingDir, displayTree, nodeId, previousOutput);
-
-                var truncated = output != null && output.Length > 500 ? output[..500] + "..." : output;
-                _stateManager.UpdateNodeById(displayTree, nodeId, "done", truncated);
-                session.SetVariable("_executionTree", displayTree);
-                _stateManager.UpdateActiveBlockOutput(session, output != null && output.Length > 2000 ? output[..2000] + "..." : output ?? "");
-                _stateManager.UpdateActiveBlockStatus(session, "done");
-                _stateManager.AppendExecutionLog(session, "success", $"{nodeId}: blockRef '{blockRefId}' completed ({output?.Length ?? 0} chars)");
-                _stateManager.StoreBlockOutput(session, nodeId, "block", output ?? "");
-                session.SetVariable($"_nodeResult_{nodeId}", output ?? "");
-                await _repository.SaveAsync(session);
-                await Task.Delay(500);
-                return output;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "BlockRef execution failed: {NodeId} → {BlockRef}", nodeId, blockRefId);
-                var errorMsg = $"(error executing blockRef '{blockRefId}': {ex.Message})";
-                _stateManager.UpdateNodeById(displayTree, nodeId, "error", errorMsg);
-                session.SetVariable("_executionTree", displayTree);
-                _stateManager.UpdateActiveBlockStatus(session, "error");
-                _stateManager.AppendExecutionLog(session, "error", $"{nodeId}: {ex.Message}");
-                session.SetVariable($"_nodeResult_{nodeId}", errorMsg);
-                await _repository.SaveAsync(session);
-                throw;
-            }
-        }
-
-        // Guard: a node with child "nodes" but no "type" is a workflow authoring error.
-        // Every container node MUST have an explicit type (sequence, parallel, while, etc.).
-        if (nodeConfig.HasValue
-            && nodeConfig.Value.TryGetProperty("nodes", out var childNodes)
-            && childNodes.ValueKind == JsonValueKind.Array
-            && childNodes.GetArrayLength() > 0)
-        {
-            var errorMsg = $"Node '{nodeId}' has {childNodes.GetArrayLength()} child nodes but no 'type' property. " +
-                           "Every container node must declare its type (sequence, parallel, while, for-each, conditional). " +
-                           "Fix the workflow block JSON.";
-            _logger.LogError(errorMsg);
-            _stateManager.AppendExecutionLog(session, "error", errorMsg);
-            _stateManager.UpdateNodeById(displayTree, nodeId, "error", errorMsg);
-            session.SetVariable("_executionTree", displayTree);
-            await _repository.SaveAsync(session);
-            throw new InvalidOperationException(errorMsg);
-        }
-
-        // Phase 53-C: Pattern-matching dispatch removed.
-        // Nodes without blockRef and without a container type are passthrough or authoring errors.
-        // All real work should be dispatched via blockRef → BlockExecutorRegistry.
-        var passthroughMsg = previousOutput ?? $"Node '{nodeId}' executed (passthrough — no blockRef)";
-        _logger.LogWarning("Node '{NodeId}' has no blockRef and no container type — treated as passthrough. " +
-                           "Add a blockRef to dispatch via BlockExecutorRegistry.", nodeId);
-        _stateManager.AppendExecutionLog(session, "warning",
-            $"{nodeId}: No blockRef — passthrough. Migrate this node to use blockRef in Phase 53-D.");
-        _stateManager.UpdateNodeById(displayTree, nodeId, "done", "passthrough (no blockRef)");
-        session.SetVariable("_executionTree", displayTree);
-        session.SetVariable($"_nodeResult_{nodeId}", passthroughMsg);
-        await _repository.SaveAsync(session);
-
-        return passthroughMsg;
-    }
-
     // Phase 53-C: Native handler methods REMOVED — now dispatched via BlockExecutorRegistry:
+    // Phase 53-B: DispatchRegularNodeAsync REMOVED — logic inlined into default cases of
+    //   ExecuteConfigNodesAsync and ExecuteParallelNodeAsync. Was a redundant UI wrapper
+    //   around ExecuteBlockRefAsync with dead parameters (workflowConfig, activePhaseId).
     //   ExecuteNodeAsync (pattern-matching) → blockRef dispatch
     //   ExecuteLoadNodeAsync → FileReadBlockExecutor
     //   ExecuteLLMNodeAsync → InferenceBlockExecutor
@@ -1811,5 +1503,290 @@ public class NodeExecutionEngine
                 }
             }
         }
+    }
+
+    // ===== Private helpers extracted from heavy methods (Phase 53-B CC reduction) =====
+
+    /// <summary>
+    /// Clears checkpoint entries for child node IDs so they aren't skipped
+    /// on the next iteration of a loop (while/for-each).
+    /// </summary>
+    private void ClearChildNodeCheckpoints(Domain.Entities.ProjectSession session, JsonElement childNodes)
+    {
+        var childNodeIds = new HashSet<string>();
+        CollectNodeIdsRecursive(childNodes, childNodeIds);
+
+        var currentCheckpoint = session.GetVariable("_workflowCheckpoint") as List<object>;
+        if (currentCheckpoint != null && childNodeIds.Count > 0)
+        {
+            currentCheckpoint.RemoveAll(entry =>
+                entry is Dictionary<string, object> dict
+                && dict.TryGetValue("nodeId", out var nid)
+                && childNodeIds.Contains(nid?.ToString() ?? ""));
+            session.SetVariable("_workflowCheckpoint", currentCheckpoint);
+        }
+    }
+
+    /// <summary>
+    /// Three-pass extraction of an array from a JObject wrapper.
+    /// Pass 1: String property starting with "[" (parsed as JSON array).
+    /// Pass 2: String property with embedded "[{" (prose-wrapped JSON).
+    /// Pass 3: JArray property directly.
+    /// Returns the extracted list and the field name it was found in, or (null, null).
+    /// </summary>
+    private static (List<object>? list, string? fieldName) TryUnwrapJObjectToList(JObject jObj)
+    {
+        // Pass 1: String property starting with "["
+        foreach (var prop in jObj.Properties())
+        {
+            if (prop.Value.Type != JTokenType.String) continue;
+            var strVal = prop.Value.Value<string>();
+            if (!string.IsNullOrEmpty(strVal) && strVal.TrimStart().StartsWith("["))
+            {
+                try { return (SessionHelper.JArrayToNativeList(JArray.Parse(strVal)), prop.Name); }
+                catch { /* not a valid JSON array */ }
+            }
+        }
+
+        // Pass 2: String property with embedded JSON array (prose wrapping)
+        foreach (var prop in jObj.Properties())
+        {
+            if (prop.Value.Type != JTokenType.String) continue;
+            var extracted = SessionHelper.TryExtractJsonArrayFromText(prop.Value.Value<string>());
+            if (extracted != null)
+                return (SessionHelper.JArrayToNativeList(extracted), prop.Name + " (embedded)");
+        }
+
+        // Pass 3: JArray property directly
+        foreach (var prop in jObj.Properties())
+        {
+            if (prop.Value is JArray directArr && directArr.Count > 0)
+                return (SessionHelper.JArrayToNativeList(directArr), prop.Name + " (array)");
+        }
+
+        return (null, null);
+    }
+
+    /// <summary>
+    /// Merges per-node config overrides from the phase node into the block's config.
+    /// Used by agent loop templates to override model/maxTokens/temperature on inference nodes.
+    /// </summary>
+    private static void MergeNodeConfigOverrides(Domain.Entities.BlockDefinition block, JsonElement phaseNode)
+    {
+        if (!phaseNode.TryGetProperty("config", out var nodeConfigEl) || nodeConfigEl.ValueKind != JsonValueKind.Object)
+            return;
+
+        foreach (var prop in nodeConfigEl.EnumerateObject())
+        {
+            block.Config[prop.Name] = prop.Value.ValueKind switch
+            {
+                JsonValueKind.String => (object)prop.Value.GetString()!,
+                JsonValueKind.Number => prop.Value.TryGetInt32(out var i) ? i : prop.Value.GetDouble(),
+                JsonValueKind.True => true,
+                JsonValueKind.False => false,
+                _ => prop.Value.GetRawText()
+            };
+        }
+    }
+
+    /// <summary>
+    /// Builds the input dictionary for a block execution from the phase node's "inputs" property.
+    /// Resolves template references and ensures workingDir is always present.
+    /// </summary>
+    private static Dictionary<string, object> BuildBlockInputs(
+        JsonElement phaseNode,
+        Domain.Entities.ProjectSession session,
+        string? previousOutput,
+        string workingDir)
+    {
+        var inputs = new Dictionary<string, object>();
+        if (phaseNode.TryGetProperty("inputs", out var inputsEl) && inputsEl.ValueKind == JsonValueKind.Object)
+        {
+            foreach (var prop in inputsEl.EnumerateObject())
+            {
+                var rawValue = prop.Value.GetString() ?? prop.Value.ToString();
+                var resolved = rawValue.Contains("{{previousOutput}}")
+                    ? rawValue.Replace("{{previousOutput}}", previousOutput ?? "")
+                    : TemplateResolver.ResolveTemplate(rawValue, session);
+                inputs[prop.Name] = resolved;
+            }
+        }
+        if (!inputs.ContainsKey("workingDir"))
+            inputs["workingDir"] = workingDir;
+        return inputs;
+    }
+
+    /// <summary>
+    /// Attempts to extract config.nodes as a JsonElement array from a block's config.
+    /// Handles JsonElement, JArray, and generic serializable objects.
+    /// Returns null if the block has no config.nodes or they're not an array.
+    /// </summary>
+    private static JsonElement? ResolveConfigNodesToJsonElement(Dictionary<string, object>? config)
+    {
+        if (config == null || !config.TryGetValue("nodes", out var nodesObj))
+            return null;
+
+        if (nodesObj is JsonElement je && je.ValueKind == JsonValueKind.Array)
+            return je;
+
+        if (nodesObj is JArray jArr)
+        {
+            using var nd = JsonDocument.Parse(jArr.ToString());
+            return nd.RootElement.Clone();
+        }
+
+        try
+        {
+            var serialized = JsonSerializer.Serialize(nodesObj);
+            using var nd = JsonDocument.Parse(serialized);
+            if (nd.RootElement.ValueKind == JsonValueKind.Array)
+                return nd.RootElement.Clone();
+        }
+        catch { /* not serializable as array */ }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Serializes a block execution result's non-internal outputs to a string.
+    /// Priority: "response" key → single value → multi-key JSON → fallback message.
+    /// Internal keys (starting with '_') are saved as session variables, not included in output.
+    /// </summary>
+    private static string SerializeBlockOutput(
+        Application.DTOs.BlockExecutionResult result,
+        string blockRefId)
+    {
+        var contentOutputs = result.Outputs
+            .Where(kv => !kv.Key.StartsWith("_"))
+            .ToDictionary(kv => kv.Key, kv => kv.Value);
+
+        if (contentOutputs.TryGetValue("response", out var respOutput) && respOutput != null)
+            return respOutput.ToString() ?? "";
+
+        if (contentOutputs.Count == 1)
+            return TemplateResolver.SerializeOutputValue(contentOutputs.Values.First());
+
+        if (contentOutputs.Count > 1)
+        {
+            var jsonDict = new Dictionary<string, object?>();
+            foreach (var kv in contentOutputs)
+                jsonDict[kv.Key] = kv.Value;
+            return JsonSerializer.Serialize(jsonDict, new JsonSerializerOptions { WriteIndented = false });
+        }
+
+        return result.Success
+            ? $"Block '{blockRefId}' completed successfully"
+            : $"Block '{blockRefId}' failed";
+    }
+
+    /// <summary>
+    /// Builds an ExecutionContext for block dispatch, propagating workspace/session/agent IDs
+    /// and session permissions for tool-level path validation.
+    /// </summary>
+    private static Domain.Entities.ExecutionContext BuildExecutionContext(
+        Domain.Entities.ProjectSession session,
+        string workingDir,
+        string blockRefId)
+    {
+        var execContext = new Domain.Entities.ExecutionContext();
+        execContext.Variables["sessionId"] = session.Id;
+        execContext.Variables["workingDir"] = workingDir;
+        if (!string.IsNullOrEmpty(session.ParentWorkspaceId))
+            execContext.Variables["workspaceId"] = session.ParentWorkspaceId;
+        execContext.Variables["agentId"] = blockRefId;
+        var effectivePermissions = session.GetEffectivePermissions();
+        execContext.Variables["_permissions_allowedPaths"] = effectivePermissions.AllowedPaths;
+        return execContext;
+    }
+
+    /// <summary>
+    /// Logs LLM activity from a block execution result to the session state.
+    /// </summary>
+    private void LogBlockLLMActivity(
+        Domain.Entities.ProjectSession session,
+        Application.DTOs.BlockExecutionResult result,
+        string blockRefId,
+        string? blockType)
+    {
+        var responseText = result.Outputs.TryGetValue("response", out var resp) ? resp?.ToString()
+                         : result.Outputs.TryGetValue("result", out var res) ? res?.ToString()
+                         : result.Outputs.TryGetValue("content", out var cnt) ? cnt?.ToString()
+                         : null;
+        if (responseText == null) return;
+
+        _stateManager.AppendToLLMActivity(session, new Dictionary<string, object>
+        {
+            { "type", blockType ?? "block" },
+            { "blockRef", blockRefId },
+            { "response", responseText.Length > 500 ? responseText[..500] + "..." : responseText },
+            { "timestamp", DateTime.UtcNow.ToString("o") },
+            { "toolCalls", result.Outputs.TryGetValue("warning", out var w) && w?.ToString()?.Contains("tool calls") == true ? w.ToString()! : "" },
+            { "tokens", result.TotalTokens }
+        });
+    }
+
+    /// <summary>
+    /// Processes the result of a single for-each item: collects metrics, detects failure,
+    /// updates phase status, and logs the result. Returns true if the item failed.
+    /// </summary>
+    private bool ProcessForEachItemResult(
+        Domain.Entities.ProjectSession session,
+        string? lastOutput,
+        string? itemId,
+        string? phaseId,
+        string phaseStopCondition,
+        Dictionary<string, object> itemDict)
+    {
+        var fitness = phaseStopCondition == "plateau"
+            ? SessionStateManager.ReadDoubleVariable(session, "_bestFitness", SessionStateManager.ReadDoubleVariable(session, "currentFitness", 0))
+            : SessionStateManager.ReadDoubleVariable(session, "currentFitness", 0);
+        var iteration = SessionStateManager.ReadIntVariable(session, "currentIteration", 0);
+        var tokens = SessionStateManager.ReadIntVariable(session, "_tokenCount", 0);
+
+        // Detect item failure from output markers or session error variable
+        var itemFailed = false;
+        if (lastOutput is string lastOutputStr)
+        {
+            itemFailed = lastOutputStr.StartsWith("Error:", StringComparison.OrdinalIgnoreCase)
+                || lastOutputStr.Contains("\"error\":", StringComparison.OrdinalIgnoreCase);
+        }
+        if (!string.IsNullOrEmpty(session.GetVariable<string>("_lastExecutionError", "")))
+            itemFailed = true;
+
+        var itemStatus = itemFailed ? "error" : "done";
+        if (itemDict.ContainsKey("status") && itemId != null)
+        {
+            _stateManager.UpdatePhaseStatus(session, itemId, itemStatus);
+            _stateManager.StorePhaseSummary(session, itemId, iteration, fitness);
+        }
+        if (phaseId != null && phaseId != itemId)
+        {
+            _stateManager.UpdatePhaseStatus(session, phaseId, itemStatus);
+            _stateManager.StorePhaseSummary(session, phaseId, iteration, fitness);
+        }
+
+        var logMsg = $"Item '{itemId}' {(itemFailed ? "failed" : "completed")} (fitness: {fitness:F2}, iterations: {iteration}";
+        if (tokens > 0) logMsg += $", ~{tokens} tokens";
+        _stateManager.AppendExecutionLog(session, itemFailed ? "error" : "success", logMsg + ")");
+
+        return itemFailed;
+    }
+
+    /// <summary>
+    /// Resolves blockRef (or deprecated blockId) from a config node.
+    /// Returns the resolved template string, or null if no blockRef found.
+    /// </summary>
+    private string? ResolveBlockRef(JsonElement configNode, string nodeId, Domain.Entities.ProjectSession session)
+    {
+        if (configNode.TryGetProperty("blockRef", out var blockRefProp) && blockRefProp.ValueKind == JsonValueKind.String)
+            return TemplateResolver.ResolveTemplate(blockRefProp.GetString()!, session);
+
+        if (configNode.TryGetProperty("blockId", out var blockIdProp) && blockIdProp.ValueKind == JsonValueKind.String)
+        {
+            _logger.LogWarning("Node '{NodeId}' uses deprecated 'blockId' — use 'blockRef' instead", nodeId);
+            return TemplateResolver.ResolveTemplate(blockIdProp.GetString()!, session);
+        }
+
+        return null;
     }
 }

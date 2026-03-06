@@ -1,0 +1,105 @@
+{
+  "id": "31b7cf03-32dc-420f-b062-97f2d087912b",
+  "name": "E2E - Test Designer Verification",
+  "status": "running",
+  "terminalReason": "none",
+  "authority": "human",
+  "workingDirectory": ".",
+  "repositoryPath": "C:\\Meastro",
+  "parentWorkspaceId": null,
+  "parentSessionId": null,
+  "config": {
+    "projectId": null,
+    "workflowId": null,
+    "task": null,
+    "context": null,
+    "access": {
+      "level": "controlled",
+      "allowedPaths": [],
+      "deniedPaths": [
+        ".env",
+        "*.env",
+        "secrets/**"
+      ],
+      "requireApprovalPaths": []
+    },
+    "validation": {
+      "runTests": false,
+      "testCommand": null,
+      "runLinter": false,
+      "linterCommand": null,
+      "requireCleanDiff": false,
+      "maxSteps": 50,
+      "timeoutMs": 600000
+    },
+    "inputs": {}
+  },
+  "createdAt": "2026-03-06T02:27:51.8761563+00:00",
+  "startedAt": "2026-03-06T02:27:51.9305294+00:00",
+  "completedAt": null,
+  "updatedAt": "2026-03-06T02:28:58.3532246+00:00",
+  "commandCount": 0,
+  "modifiedFiles": [],
+  "errorMessage": null,
+  "testResult": null,
+  "linterResult": null,
+  "commitInfo": null,
+  "variables": {
+    "_executionLog": [
+      {
+        "time": "02:28:58",
+        "level": "info",
+        "msg": "Starting workflow: test-designer"
+      },
+      {
+        "time": "02:28:58",
+        "level": "info",
+        "msg": "Executing block \u0027test-designer\u0027 directly (type: agent)"
+      },
+      {
+        "time": "02:28:58",
+        "level": "info",
+        "msg": "Executing blockRef \u0027test-designer\u0027 (type: agent) with 4 inputs"
+      },
+      {
+        "time": "02:28:58",
+        "level": "error",
+        "msg": "blockRef \u0027test-designer\u0027 error: Cannot access a disposed object.\r\nObject name: \u0027IServiceProvider\u0027."
+      },
+      {
+        "time": "02:28:58",
+        "level": "error",
+        "msg": "Workflow crashed: Cannot access a disposed object.\r\nObject name: \u0027IServiceProvider\u0027."
+      }
+    ],
+    "_artifacts": [],
+    "_blockOutputs": {},
+    "_llmActivity": [],
+    "_phaseMetrics": {},
+    "_executionTree": [
+      {
+        "id": "execute",
+        "name": "Test Designer",
+        "status": "running",
+        "children": [],
+        "output": "Running agent..."
+      }
+    ],
+    "_activeWorkflow": "test-designer",
+    "prompt": "Analyze the contract maestro-assistant and generate comprehensive test configurations. The contract is at C:/Meastro/content/system/contracts/maestro-assistant.contract.json. Write the tests directly into the contract features[].tests[] structure. Use all 8 check types where appropriate: non-empty, contains, contains-all, contains-any, does-not-contain, tool-call, json-parseable, regex.",
+    "contractId": "maestro-assistant",
+    "outputDir": "C:/Meastro/content/system/contracts",
+    "repoPath": "C:\\Meastro"
+  },
+  "entryPoints": {
+    "run-test-designer": "test-designer"
+  },
+  "monitorWidgets": null,
+  "blockSearchPaths": [
+    "C:\\Meastro\\.maestro\\blocks"
+  ],
+  "defaultModel": null,
+  "modelOverrides": null,
+  "fileAccessRulesConfig": null,
+  "blockPermissionsConfig": null
+}
