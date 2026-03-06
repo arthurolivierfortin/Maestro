@@ -1,30 +1,259 @@
 {
   "id": "maestro-assistant",
   "name": "Maestro Assistant",
+  "version": "2.0.0",
   "description": "The primary conversational assistant in maestro-code. Handles user messages, orchestrates sessions, manages blocks, and provides guidance. Blocks implementing this contract are interchangeable — the user chooses which one to use.",
 
   "requiredCapabilities": ["conversation"],
+  "minimumFitness": 0.3,
 
   "features": {
     "conversation": {
       "description": "Basic conversational interaction with the user",
-      "requires": ["conversation"]
+      "requires": ["conversation"],
+      "weight": 0.25,
+      "minimumScore": 0.8,
+      "tests": [
+        {
+          "id": "basic-response",
+          "description": "Agent responds coherently to a greeting",
+          "prompt": "Hello, what can you do?",
+          "check": {
+            "type": "non-empty",
+            "minLength": 20
+          }
+        },
+        {
+          "id": "context-retention",
+          "description": "Agent remembers context from previous turn",
+          "turns": [
+            { "prompt": "My name is Alice" },
+            { "prompt": "What is my name?", "check": { "type": "contains", "value": "Alice" } }
+          ]
+        },
+        {
+          "id": "clarification",
+          "description": "Agent asks for clarification when request is ambiguous",
+          "prompt": "Do the thing",
+          "check": {
+            "type": "contains-any",
+            "values": ["what", "which", "could you", "clarify", "specify", "more details", "?"]
+          }
+        },
+        {
+          "id": "conv-maestro-knowledge",
+          "description": "Agent can explain core Maestro concepts coherently",
+          "prompt": "What is the difference between a workspace and a session in Maestro?",
+          "check": {
+            "type": "contains-all",
+            "values": ["workspace", "session"]
+          }
+        },
+        {
+          "id": "conv-multi-turn-topic",
+          "description": "Agent maintains topic coherence across three turns",
+          "turns": [
+            { "prompt": "I'm building a project called Resonance" },
+            { "prompt": "What's the project called?" },
+            { "prompt": "Should I create a workspace for it?", "check": { "type": "contains", "value": "Resonance" } }
+          ]
+        },
+        {
+          "id": "conv-general-question",
+          "description": "Agent handles a general (non-Maestro) question gracefully",
+          "prompt": "What is a monorepo?",
+          "check": {
+            "type": "contains-any",
+            "values": ["monorepo", "repository", "packages", "single repo", "codebase"]
+          }
+        },
+        {
+          "id": "conv-no-hallucinated-action",
+          "description": "Agent does not claim to have performed an action it cannot perform",
+          "prompt": "Send an email to my team about the deployment",
+          "check": {
+            "type": "does-not-contain",
+            "values": ["email sent", "I sent", "successfully sent", "email has been sent"]
+          }
+        }
+      ]
     },
-    "tool-use": {
-      "description": "Execute tools (file operations, CLI commands, Maestro API calls)",
-      "requires": ["tool-calling"]
+    "maestro-operations": {
+      "description": "Create and manage Maestro sessions, workspaces, and blocks",
+      "requires": ["structured-output", "tool-calling"],
+      "weight": 0.30,
+      "minimumScore": 0.7,
+      "tests": [
+        {
+          "id": "create-session",
+          "description": "Agent correctly calls session creation tool",
+          "prompt": "Create a dev session for Cantante",
+          "check": {
+            "type": "tool-call",
+            "toolName": "session-create",
+            "requiredArgs": ["name"]
+          }
+        },
+        {
+          "id": "list-workspaces",
+          "description": "Agent calls workspace-list tool",
+          "prompt": "List my workspaces",
+          "check": {
+            "type": "tool-call",
+            "toolName": "workspace-list"
+          }
+        },
+        {
+          "id": "navigate-pages",
+          "description": "Agent navigates to a specific page",
+          "prompt": "Show me the Catalog",
+          "check": {
+            "type": "contains-any",
+            "values": ["catalog", "Catalog", "/catalog"]
+          }
+        },
+        {
+          "id": "ops-list-blocks",
+          "description": "Agent calls block-list tool when asked to show available blocks",
+          "prompt": "Show me all the blocks available in the catalog",
+          "check": {
+            "type": "tool-call",
+            "toolName": "block-list"
+          }
+        },
+        {
+          "id": "ops-explain-foundry",
+          "description": "Agent explains what a foundry session is without hallucinating",
+          "prompt": "What is a foundry session used for?",
+          "check": {
+            "type": "contains-any",
+            "values": ["train", "test", "fitness", "block", "foundry"]
+          }
+        },
+        {
+          "id": "ops-create-workspace",
+          "description": "Agent calls workspace-create tool when asked to set up a workspace",
+          "prompt": "Create a new workspace for my Cantante project",
+          "check": {
+            "type": "tool-call",
+            "toolName": "workspace-create"
+          }
+        },
+        {
+          "id": "ops-confirm-before-session",
+          "description": "Agent describes the session it will create before calling the tool",
+          "turns": [
+            { "prompt": "Start a new session for Cantante using the dev template" },
+            { "prompt": "Yes, go ahead", "check": { "type": "tool-call", "toolName": "session-create" } }
+          ]
+        }
+      ]
     },
-    "json-config": {
-      "description": "Generate structured JSON for block configs, session templates, etc.",
-      "requires": ["structured-output"]
+    "orchestration": {
+      "description": "Multi-step planning and session management",
+      "requires": ["orchestration", "tool-calling", "long-context"],
+      "weight": 0.30,
+      "minimumScore": 0.7,
+      "tests": [
+        {
+          "id": "multi-step-plan",
+          "description": "Agent presents a plan with multiple steps before executing",
+          "prompt": "Set up a complete development environment for Cantante with sessions for frontend and backend",
+          "check": {
+            "type": "contains-all",
+            "values": ["workspace", "session"]
+          }
+        },
+        {
+          "id": "confirm-before-act",
+          "description": "Agent asks for confirmation before destructive actions",
+          "prompt": "Delete all my test sessions",
+          "check": {
+            "type": "does-not-contain",
+            "values": ["session-delete"],
+            "description": "Agent should NOT execute deletion without asking for confirmation first"
+          }
+        },
+        {
+          "id": "orch-plan-before-execute",
+          "description": "Agent presents a plan mentioning steps before taking action on a complex request",
+          "prompt": "Train a new commit-message agent and publish it to the catalog",
+          "check": {
+            "type": "contains-any",
+            "values": ["1.", "first", "step", "plan", "then", "foundry", "publish"]
+          }
+        },
+        {
+          "id": "orch-no-silent-execution",
+          "description": "Agent does not silently execute a multi-step destructive task",
+          "prompt": "Stop all running sessions and clean up all test workspaces",
+          "check": {
+            "type": "does-not-contain",
+            "values": ["session-stop", "workspace-delete", "I have stopped", "All sessions stopped"]
+          }
+        },
+        {
+          "id": "orch-recover-from-failure",
+          "description": "Agent suggests recovery steps when an operation fails",
+          "turns": [
+            { "prompt": "Start a dev session for Cantante" },
+            { "prompt": "The session failed to start with error: template not found", "check": { "type": "contains-any", "values": ["template", "check", "try", "available", "list", "verify", "?"] } }
+          ]
+        }
+      ]
     },
-    "deep-context": {
-      "description": "Handle large codebases and long conversation histories without losing context",
-      "requires": ["long-context"]
-    },
-    "session-orchestration": {
-      "description": "Create and manage workspaces, sessions, and specialized agents",
-      "requires": ["orchestration", "tool-calling"]
+    "memory": {
+      "description": "Remember user preferences and past interactions",
+      "requires": ["memory", "long-context"],
+      "weight": 0.15,
+      "minimumScore": 0.6,
+      "tests": [
+        {
+          "id": "remember-preference",
+          "description": "Agent stores and recalls a user preference",
+          "turns": [
+            { "prompt": "Remember that I always want verbose output" },
+            { "prompt": "What are my preferences?", "check": { "type": "contains", "value": "verbose" } }
+          ]
+        },
+        {
+          "id": "recall-context",
+          "description": "Agent recalls what happened earlier in the conversation",
+          "turns": [
+            { "prompt": "I just created a workspace called 'music-app'" },
+            { "prompt": "What workspace did I just create?", "check": { "type": "contains", "value": "music-app" } }
+          ]
+        },
+        {
+          "id": "mem-multi-preference",
+          "description": "Agent recalls multiple preferences stated in the same conversation",
+          "turns": [
+            { "prompt": "I prefer the claude-sonnet model and always want JSON output" },
+            { "prompt": "What model and output format do I prefer?", "check": { "type": "contains-all", "values": ["sonnet", "JSON"] } }
+          ]
+        },
+        {
+          "id": "mem-preference-applied",
+          "description": "Agent applies a stated preference when making a recommendation",
+          "turns": [
+            { "prompt": "I always prefer using the smallest/cheapest model available" },
+            { "prompt": "Which model would you recommend for a simple summarization task?", "check": { "type": "contains-any", "values": ["haiku", "mini", "small", "cheapest", "smallest", "fast"] } }
+          ]
+        },
+        {
+          "id": "mem-distinguish-projects",
+          "description": "Agent correctly distinguishes between two projects mentioned in conversation",
+          "turns": [
+            { "prompt": "I have two projects: Cantante (music app) and Resonance (audio editor)" },
+            { "prompt": "Which of my projects is a music app?", "check": { "type": "contains", "value": "Cantante" } }
+          ]
+        }
+      ]
     }
+  },
+
+  "scoring": {
+    "method": "weighted-average",
+    "description": "Score = sum(feature.weight * feature.score). A block is valid if score >= minimumFitness AND each active feature has score >= feature.minimumScore."
   }
 }

@@ -49,20 +49,22 @@ namespace Maestro.Execution.Tests
         [Fact]
         public async Task ExecuteBlockAsync_SingleBlock_StoresOutput()
         {
+            // Use a prompt block (atomic executor, no config.nodes required)
             var repo = new InMemoryBlockRepo();
-            var block = BlockDefinition.Create("b1", "echo", "tool");
-            block.UpdateConfig(new Dictionary<string, object> { ["script"] = "echo hi", ["runtime"] = "bash", ["timeoutMs"] = 2000 });
+            var block = BlockDefinition.Create("b1", "echo", "prompt");
+            block.UpdateConfig(new Dictionary<string, object> { ["template"] = "hello world" });
             repo.Add(block);
 
-            var registry = new BlockExecutorRegistry(new[] { (Maestro.Application.Interfaces.IBlockExecutor)new ToolBlockExecutor() });
+            var registry = new BlockExecutorRegistry(new[] { (Maestro.Application.Interfaces.IBlockExecutor)new PromptBlockExecutor() });
 
             var engine = new ExecutionEngine(repo, registry, new DummyExecutionRepo(), new NoopMonitor());
 
             var ctx = await engine.ExecuteBlockAsync("b1", new Dictionary<string, object>());
 
             Assert.NotNull(ctx);
-            var val = ctx.GetBlockOutput("b1", "stdout");
+            var val = ctx.GetBlockOutput("b1", "prompt");
             Assert.True(val != null);
+            Assert.Equal("hello world", val);
         }
 
         [Fact]

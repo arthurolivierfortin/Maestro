@@ -2,7 +2,7 @@
   "$schema": "../../../docs/schemas/block.schema.json",
   "id": "file-edit",
   "name": "File Edit",
-  "blockType": "tool",
+  "blockType": "file-edit",
   "version": "1.0.0",
   "isAtomic": true,
   "description": "Performs partial text replacement in a file. Finds old_string and replaces it with new_string. Fails if old_string is not found or matches multiple locations (unless replace_all is true).",

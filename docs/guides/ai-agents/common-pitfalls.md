@@ -121,9 +121,37 @@
 
 **Fix**: One entity (`BlockDefinition`), one metrics system. All content (system prompts, tools) lives in block config/files. The agent is composite (`isAtomic: false`) — its internal behavior should be defined by its child blocks in `config.nodes`, not by hardcoded C# logic.
 
-**ADRs**: `docs/phases/PHASE-18/ADR-BLOCKS-ARE-THE-UNIVERSAL-UNIT.md`, `docs/phases/PHASE-26/REFACTORING-AGENT-INFERENCE-MERGE.md`
+**ADRs**: `docs/phases/PHASE-18/ADR-BLOCKS-ARE-THE-UNIVERSAL-UNIT.md`, `docs/phases/PHASE-26/REFACTORING-AGENT-INFERENCE-MERGE.md`, `docs/phases/PHASE-53/ADR-AGENT-AS-WORKFLOW.md`
 
-**Current state**: Phase 26 deleted `AgentDefinition`/`ToolDefinition` and removed hardcoded content. But `AgentBlockExecutor` still calls LLM directly and hardcodes the agentic loop in C# — this architectural debt is tracked for Phase 35-PRE.
+---
+
+## God Class Pattern in Executors (CRITICAL — happened twice)
+
+**Cause**: Adding new functionality as `if (type == "xxx")` branches inside a single executor class. This happened with:
+- `ToolBlockExecutor` — grew an if-chain for every tool type (filesystem, shell, contract-test, response-parser, etc.)
+- `EntryPointExecutor` — 4272 lines mixing node execution, native handlers, and session state management
+
+**Symptoms**: One file grows past 1000+ lines. Adding a new type requires modifying an existing class. Multiple unrelated responsibilities in one class.
+
+**Fix**: Each type gets its own class, dispatched via a registry. For block types: `BlockExecutorRegistry`. There is ONE registry. No `NativeHandlerRegistry`, no `ToolHandlerRegistry` — those are just god classes in disguise.
+
+**Litmus test**: Can a new tool/block type be added with ONLY a new class + DI registration? If you must modify an existing executor, architecture is violated.
+
+**ADR**: `docs/phases/PHASE-53/ADR-AGENT-AS-WORKFLOW.md`
+
+---
+
+## Adding Tool Dispatch in AgentBlockExecutor (CRITICAL — happened 3+ times)
+
+**Cause**: The agent "owns" its loop, so it feels natural to add tool dispatch code there. This has been done and reverted at least 3 times (Phase 35-PRE, corrections, Phase 52).
+
+**Fix**: Agent behavior is defined by `config.nodes` in its block.json. `AgentBlockExecutor` only does: (a) conversation setup in `PrepareExecutionAsync`, (b) extract `_agentResult` in `ExtractResultAsync`. Tool dispatch, response parsing, and the agentic loop are nodes executed by the base class (`MultiNodeBlockExecutor`).
+
+**Rule**: If you are writing code inside `AgentBlockExecutor`, STOP and re-read the ADR. The only code that belongs there is conversation I/O contract.
+
+**ADR**: `docs/phases/PHASE-53/ADR-AGENT-AS-WORKFLOW.md`
+
+**Current state (Phase 53-E)**: `AgentBlockExecutor` is now a thin class (~100 lines) that only handles conversation setup and I/O contract. All legacy code (agentic loop, tool dispatch, response parsing, ~1150 lines) has been removed. The agentic loop is defined in config.nodes templates.
 
 ---
 

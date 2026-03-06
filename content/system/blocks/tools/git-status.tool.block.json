@@ -2,7 +2,7 @@
   "$schema": "../../../docs/schemas/block.schema.json",
   "id": "git-status",
   "name": "Git Status",
-  "blockType": "tool",
+  "blockType": "shell",
   "version": "1.0.0",
   "isAtomic": true,
   "description": "Executes git status to get repository state",

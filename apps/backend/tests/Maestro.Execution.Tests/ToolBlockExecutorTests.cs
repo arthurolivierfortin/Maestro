@@ -10,48 +10,28 @@ using Xunit;
 
 namespace Maestro.Execution.Tests;
 
+/// <summary>
+/// Tests for ToolBlockExecutor (Phase 53-E: config.nodes path only).
+/// Legacy tests removed — shell execution, filesystem ops, etc. are now handled
+/// by atomic executors (ShellBlockExecutor, FileReadBlockExecutor, etc.)
+/// dispatched via config.nodes.
+/// </summary>
 public class ToolBlockExecutorTests
 {
     [Fact]
-    public async Task ExecutesSimpleEchoScript_CapturesStdout()
+    public async Task ToolBlock_WithoutConfigNodes_ThrowsInvalidOperation()
     {
         var executor = new ToolBlockExecutor();
 
         var block = BlockDefinition.Create("b1", "echo", "tool");
         block.UpdateConfig(new Dictionary<string, object>
         {
-            ["script"] = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "Write-Output \"hello\"" : "echo hello",
-            ["runtime"] = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "powershell" : "bash",
-            ["timeoutMs"] = 5000
+            ["script"] = "echo hello",
         });
 
         var ctx = ExecutionContext.Create("wf1");
-        var result = await executor.ExecuteAsync(block, ctx, new Dictionary<string, object>());
-
-        Assert.True(result.Success);
-        Assert.Contains("hello", string.Join("\n", result.Logs), StringComparison.OrdinalIgnoreCase);
-        Assert.True(result.Outputs.ContainsKey("stdout"));
-    }
-
-    [Fact]
-    public async Task ScriptExceedsTimeout_IsKilled()
-    {
-        var executor = new ToolBlockExecutor();
-
-        var block = BlockDefinition.Create("b2", "sleep", "tool");
-        var script = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "Start-Sleep -Seconds 5" : "sleep 5";
-        block.UpdateConfig(new Dictionary<string, object>
-        {
-            ["script"] = script,
-            ["runtime"] = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "powershell" : "bash",
-            ["timeoutMs"] = 1000
-        });
-
-        var ctx = ExecutionContext.Create("wf2");
-        var result = await executor.ExecuteAsync(block, ctx, new Dictionary<string, object>());
-
-        // Expect the process to be killed or duration to be short due to timeout
-        Assert.True(result.Logs.Any(l => l.Contains("killed", StringComparison.OrdinalIgnoreCase)) || result.DurationMs < 3000);
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => executor.ExecuteAsync(block, ctx, new Dictionary<string, object>()));
     }
 }
 
@@ -96,23 +76,6 @@ public class OtherExecutorsTests
     }
 
     [Fact]
-    public async Task AgentBlock_LoadsMockResponse()
-    {
-        var path = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "maestro_agent_mock");
-        System.IO.Directory.CreateDirectory(path);
-        var mock = System.Text.Json.JsonSerializer.Serialize(new { outputs = new { message = "ok" } });
-        await System.IO.File.WriteAllTextAsync(System.IO.Path.Combine(path, "mock-response.json"), mock);
-
-        var mockGateway = new Moq.Mock<Maestro.Application.Interfaces.ILLMGateway>();
-        var executor = new Maestro.Infrastructure.BlockExecutors.AgentBlockExecutor(mockGateway.Object, serviceProvider: null);
-        var block = BlockDefinition.Create("a1", "agent", "agent");
-        block.UpdateConfig(new Dictionary<string, object> { ["path"] = path });
-        var ctx = ExecutionContext.Create("wf");
-        var res = await executor.ExecuteAsync(block, ctx, new Dictionary<string, object>());
-        Assert.True(res.Outputs.ContainsKey("message"));
-    }
-
-    [Fact]
     public async Task TriggerBlock_ForwardsPayload()
     {
         var executor = new Maestro.Infrastructure.BlockExecutors.TriggerBlockExecutor();
@@ -136,31 +99,5 @@ public class OtherExecutorsTests
         var ctx = ExecutionContext.Create("wf");
         var res = await executor.ExecuteAsync(block, ctx, new Dictionary<string, object>());
         Assert.True(res.Outputs.TryGetValue("content", out var c) && c.ToString().Contains("mocked"));
-    }
-
-    [Fact]
-    public async Task ToolBlock_ExecutesScriptFile_ParsesJsonOutput()
-    {
-        var tempDir = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "maestro_tool_test");
-        System.IO.Directory.CreateDirectory(tempDir);
-        var scriptPath = System.IO.Path.Combine(tempDir, "out.sh");
-        var content = "echo '{\"result\": \"ok\"}'";
-        await System.IO.File.WriteAllTextAsync(scriptPath, content);
-
-        var executor = new Maestro.Infrastructure.BlockExecutors.ToolBlockExecutor();
-        var block = Maestro.Domain.Entities.BlockDefinition.Create("tfile", "toolfile", "tool");
-        block.UpdateConfig(new Dictionary<string, object>
-        {
-            ["scriptFile"] = "out.sh",
-            ["runtime"] = System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Windows) ? "powershell" : "bash",
-            ["parseOutput"] = "json",
-            ["timeoutMs"] = 5000,
-            ["enableSandbox"] = true
-        });
-        block.UpdateMetadata(new Dictionary<string, object> { ["path"] = tempDir });
-
-        var ctx = ExecutionContext.Create("wf");
-        var res = await executor.ExecuteAsync(block, ctx, new Dictionary<string, object>());
-        Assert.True(res.Outputs.TryGetValue("result", out var r) && r.ToString() == "ok");
     }
 }

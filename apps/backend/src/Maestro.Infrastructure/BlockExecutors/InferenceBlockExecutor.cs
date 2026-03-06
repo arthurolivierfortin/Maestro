@@ -68,8 +68,23 @@ public class InferenceBlockExecutor : LLMBlockExecutorBase
             }
         }
 
-        var request = !string.IsNullOrEmpty(systemPrompt)
-            ? new LLMRequest
+        // If inputs contain pre-built messages (e.g. from agent config.nodes), use them directly.
+        // The inference block is a pure pass-through — it doesn't manage conversations.
+        LLMRequest request;
+        if (inputs.ContainsKey("messages"))
+        {
+            var messages = ParseMessages(inputs["messages"]);
+            request = new LLMRequest
+            {
+                ModelId = modelId,
+                MaxNewTokens = maxTokens,
+                Temperature = temperature,
+                Messages = messages
+            };
+        }
+        else if (!string.IsNullOrEmpty(systemPrompt))
+        {
+            request = new LLMRequest
             {
                 ModelId = modelId,
                 MaxNewTokens = maxTokens,
@@ -79,14 +94,18 @@ public class InferenceBlockExecutor : LLMBlockExecutorBase
                     ChatMessage.System(systemPrompt),
                     ChatMessage.User(resolved)
                 }
-            }
-            : new LLMRequest
+            };
+        }
+        else
+        {
+            request = new LLMRequest
             {
                 ModelId = modelId,
                 MaxNewTokens = maxTokens,
                 Temperature = temperature,
                 Prompt = resolved
             };
+        }
 
         var response = await CallLLMWithRetry(request, block, context, ct);
 
@@ -124,6 +143,30 @@ public class InferenceBlockExecutor : LLMBlockExecutorBase
             return t?.ToString() ?? string.Empty;
 
         return string.Empty;
+    }
+
+    private static List<ChatMessage> ParseMessages(object messagesObj)
+    {
+        if (messagesObj is List<ChatMessage> typed)
+            return typed;
+
+        // Try JSON deserialization from string or JsonElement
+        string? json = null;
+        if (messagesObj is string s)
+            json = s;
+        else if (messagesObj is System.Text.Json.JsonElement je)
+            json = je.GetRawText();
+        else
+            json = System.Text.Json.JsonSerializer.Serialize(messagesObj);
+
+        if (!string.IsNullOrEmpty(json))
+        {
+            var parsed = System.Text.Json.JsonSerializer.Deserialize<List<ChatMessage>>(json,
+                new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            if (parsed != null) return parsed;
+        }
+
+        return new List<ChatMessage> { ChatMessage.User(messagesObj?.ToString() ?? "") };
     }
 
     private async Task<LLMResponse?> CallLLMWithRetry(

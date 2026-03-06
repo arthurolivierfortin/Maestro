@@ -1,0 +1,75 @@
+{
+  "id": "response-parser",
+  "name": "Response Parser",
+  "blockType": "response-parser",
+  "version": "1.0.0",
+  "isAtomic": true,
+  "description": "Parses a raw LLM response and extracts structured data: tool calls, step-complete signals, text, or retry indicators.",
+  "inputs": [
+    {
+      "id": "rawResponse",
+      "name": "Raw Response",
+      "type": "string",
+      "required": true,
+      "description": "The raw text content from the LLM response"
+    }
+  ],
+  "outputs": [
+    {
+      "id": "type",
+      "name": "Response Type",
+      "type": "string",
+      "description": "One of: tool-call, step-complete, text, retry"
+    },
+    {
+      "id": "toolId",
+      "name": "Tool ID",
+      "type": "string",
+      "description": "The tool identifier (when type=tool-call)"
+    },
+    {
+      "id": "args",
+      "name": "Tool Arguments",
+      "type": "string",
+      "description": "JSON string of tool arguments (when type=tool-call or step-complete)"
+    },
+    {
+      "id": "text",
+      "name": "Text Content",
+      "type": "string",
+      "description": "The text content (when type=text or step-complete summary)"
+    },
+    {
+      "id": "summary",
+      "name": "Summary",
+      "type": "string",
+      "description": "The step-complete summary (when type=step-complete)"
+    },
+    {
+      "id": "jsonContent",
+      "name": "Extracted JSON",
+      "type": "string",
+      "description": "The raw extracted JSON string from the response"
+    },
+    {
+      "id": "hasMultipleToolCalls",
+      "name": "Has Multiple Tool Calls",
+      "type": "boolean",
+      "description": "Whether the response contained multiple tool calls (only first is returned)"
+    },
+    {
+      "id": "extraToolCallCount",
+      "name": "Extra Tool Call Count",
+      "type": "number",
+      "description": "Number of additional tool calls found after the first (dropped)"
+    }
+  ],
+  "config": {
+    "toolType": "response-parser"
+  },
+  "metadata": {
+    "category": "agent-infrastructure",
+    "tags": ["parsing", "llm", "agent", "tool-call"]
+  },
+  "capabilities": ["parsing"]
+}

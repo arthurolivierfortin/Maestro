@@ -328,21 +328,48 @@ Block executors implement `IBlockExecutor` and are registered in DI. The `BlockE
 
 ```
 IBlockExecutor (interface)
-├── LLMBlockExecutorBase (abstract — shared LLM plumbing)
-│   ├── InferenceBlockExecutor (single LLM call: template → call → response)
-│   └── AgentBlockExecutor (agentic loop: systemPrompt → multi-turn → tool calls)
-├── ToolBlockExecutor (script/CLI execution)
-├── ContextBlockExecutor (context management)
-├── CompositeBlockExecutor (workflow composition)
-├── DecisionBlockExecutor (conditional branching)
-├── PromptBlockExecutor (template resolution)
-├── TriggerBlockExecutor (event forwarding)
-└── ValidatorBlockExecutor (input validation)
+├── MultiNodeBlockExecutor (abstract — config.nodes execution via NodeExecutionEngine)
+│   ├── WorkflowBlockExecutor — I/O: arbitrary inputs → all variables
+│   ├── AgentBlockExecutor — I/O: prompt/messages → text (same as inference)
+│   └── ToolBlockExecutor — I/O: defined by block.json schema
+├── LLMBlockExecutorBase (abstract — shared LLM plumbing for atomic blocks)
+│   └── InferenceBlockExecutor — single LLM call (atomic)
+├── ResponseParserBlockExecutor — parse LLM response (atomic)
+├── ToolDispatcherBlockExecutor — resolve & execute tool by block-id (atomic)
+├── ConversationReadBlockExecutor — read conversation messages (atomic)
+├── ConversationAppendBlockExecutor — add message to conversation (atomic)
+├── MessageBuilderBlockExecutor — build messages from prompt (atomic)
+├── ShellBlockExecutor — execute shell command (atomic)
+├── TreeDocumenterBlockExecutor — document file tree (atomic)
+├── PhaseBlockExecutor — execute phase with status tracking (atomic)
+├── FileReadBlockExecutor — read file content (atomic)
+├── ContextBlockExecutor — context management (atomic)
+├── DecisionBlockExecutor — conditional branching (atomic)
+├── PromptBlockExecutor — template resolution (atomic)
+├── TriggerBlockExecutor — event forwarding (atomic)
+├── ValidatorBlockExecutor — input validation (atomic)
+└── MemoryBlockExecutor — persistent knowledge stores (atomic)
 ```
+
+### Multi-Node Blocks (Phase 53)
+
+Agent, workflow, and tool blocks share the same internal structure: `config.nodes` defines
+the execution graph, `MultiNodeBlockExecutor` delegates to `NodeExecutionEngine` to walk it.
+The only difference is the I/O contract (prepare/extract):
+
+| Executor | PrepareExecutionAsync | ExtractResultAsync |
+|----------|----------------------|-------------------|
+| WorkflowBlockExecutor | Pass inputs through | Return all variables |
+| AgentBlockExecutor | Create/reuse conversation, add user prompt | Read `_agentResult` from context |
+| ToolBlockExecutor | Pass inputs through | Map outputs from block schema |
+
+All composite blocks **must** have `config.nodes`. Blocks without config.nodes will fail with `InvalidOperationException`.
+
+The `NodeExecutionEngine` handles control flow (while, conditional, sequence, parallel, for-each, set-variable). When it encounters a `blockRef` node, it dispatches via `BlockExecutorRegistry` to the appropriate atomic executor (InferenceBlockExecutor, ShellBlockExecutor, etc.).
 
 ### LLMBlockExecutorBase
 
-Abstract base class providing shared LLM plumbing for both inference and agent blocks:
+Abstract base class providing shared LLM plumbing for atomic inference blocks:
 
 | Method | Purpose |
 |--------|---------|
@@ -363,8 +390,8 @@ Abstract base class providing shared LLM plumbing for both inference and agent b
 2. **Generic Infrastructure**: Works with ANY session type
 3. **No Fallbacks**: Errors propagate clearly
 4. **Self-Describing**: Execution tree built from block config
-5. **Pattern-Based Dispatch**: Pragmatic approach, evolving to full BlockExecutor integration
-6. **Thin Executors**: LLM executors share a base class; all intelligence lives in block prompts
+5. **config.nodes Everywhere**: All composite blocks (agent, workflow, tool) define their behavior via config.nodes
+6. **Thin Executors**: Composite executors handle only I/O contract; all logic lives in config.nodes and atomic executors
 
 ---
 

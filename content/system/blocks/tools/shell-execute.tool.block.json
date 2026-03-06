@@ -2,7 +2,7 @@
   "$schema": "../../../docs/schemas/block.schema.json",
   "id": "shell-execute",
   "name": "Shell Execute",
-  "blockType": "tool",
+  "blockType": "shell",
   "version": "1.0.0",
   "isAtomic": true,
   "description": "Executes a shell command and returns the output",

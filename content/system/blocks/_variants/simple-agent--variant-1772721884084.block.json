@@ -1,0 +1,9 @@
+{
+  "id": "simple-agent--variant-1772721884084",
+  "blockType": "agent",
+  "config": {
+    "model": "new-model",
+    "temperature": 0.5
+  },
+  "name": "undefined (variant)"
+}

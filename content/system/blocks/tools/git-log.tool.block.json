@@ -2,7 +2,7 @@
   "$schema": "../../../docs/schemas/block.schema.json",
   "id": "git-log",
   "name": "Git Log",
-  "blockType": "tool",
+  "blockType": "shell",
   "version": "1.0.0",
   "isAtomic": true,
   "description": "Executes git log to get recent commit history",

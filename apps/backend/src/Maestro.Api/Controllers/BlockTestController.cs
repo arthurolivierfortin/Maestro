@@ -5,7 +5,9 @@ using Maestro.Application.DTOs;
 using Maestro.Application.Interfaces;
 using Maestro.Domain.Entities;
 using Maestro.Domain.ValueObjects;
+using Maestro.Infrastructure.BlockExecutors;
 using Maestro.Infrastructure.Testing;
+using ExecutionContext = Maestro.Domain.Entities.ExecutionContext;
 
 namespace Maestro.Api.Controllers;
 
@@ -19,15 +21,18 @@ public class BlockTestController : ControllerBase
 {
     private readonly FileSystemBlockTestRepository _testRepository;
     private readonly IBlockDiscoveryService _discoveryService;
+    private readonly BlockExecutorRegistry _executorRegistry;
     private readonly ILogger<BlockTestController> _logger;
 
     public BlockTestController(
         FileSystemBlockTestRepository testRepository,
         IBlockDiscoveryService discoveryService,
+        BlockExecutorRegistry executorRegistry,
         ILogger<BlockTestController> logger)
     {
         _testRepository = testRepository;
         _discoveryService = discoveryService;
+        _executorRegistry = executorRegistry;
         _logger = logger;
     }
 
@@ -368,17 +373,26 @@ public class BlockTestController : ControllerBase
             {
                 var sw = System.Diagnostics.Stopwatch.StartNew();
 
-                // In a real implementation, this would execute the block through the execution engine
-                // For now, we'll simulate execution and let the evaluator see the outputs
+                var executor = _executorRegistry.Get(block.BlockType);
+                if (executor == null)
+                    throw new InvalidOperationException($"No executor for block type '{block.BlockType}'");
 
-                // Simulate execution - in reality, call IBlockExecutor
-                await Task.Delay(100, ct); // Simulate work
+                var context = new ExecutionContext();
+                context.Variables["workingDir"] = Directory.GetCurrentDirectory();
 
-                iteration.Success = true;
-                iteration.OutputContent = $"[Iteration {i}] Simulated output for {block.BlockType} block {block.Id}. " +
-                    $"Inputs: {JsonSerializer.Serialize(baseInputs)}";
-                iteration.Outputs["stdout"] = iteration.OutputContent;
+                var execResult = await executor.ExecuteAsync(block, context, baseInputs, ct);
+
+                iteration.Success = execResult.Success;
+                // Extract output content from result
+                var outputParts = execResult.Outputs
+                    .Where(kv => !kv.Key.StartsWith("_"))
+                    .Select(kv => kv.Value?.ToString() ?? "");
+                iteration.OutputContent = string.Join("\n", outputParts);
+                foreach (var kv in execResult.Outputs)
+                    iteration.Outputs[kv.Key] = kv.Value ?? "";
                 iteration.Logs.Add($"Executed {block.BlockType} block {block.Id}");
+                if (!execResult.Success && execResult.Outputs.TryGetValue("error", out var err))
+                    iteration.ErrorMessage = err?.ToString();
                 iteration.DurationMs = sw.ElapsedMilliseconds;
                 iteration.CompletedAt = DateTimeOffset.UtcNow;
             }

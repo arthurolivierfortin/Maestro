@@ -1,0 +1,128 @@
+{
+  "id": "agent-creator",
+  "name": "Agent Creator",
+  "version": "1.0.0",
+  "description": "Agent that creates new block definitions (block.json + system-prompt.md) from a contract specification. Iterates based on test results to improve the block until it passes the contract.",
+
+  "requiredCapabilities": ["conversation", "structured-output", "tool-calling"],
+  "minimumFitness": 0.5,
+
+  "features": {
+    "block-generation": {
+      "description": "Create a valid block.json with all required fields",
+      "requires": ["structured-output"],
+      "weight": 0.30,
+      "minimumScore": 0.7,
+      "tests": [
+        {
+          "id": "valid-block-json",
+          "description": "Generates syntactically valid block.json",
+          "prompt": "Create a block.json for an agent that implements the 'code-reviewer' contract. It should use claude-sonnet-4-6 as its model.",
+          "check": {
+            "type": "json-parseable"
+          }
+        },
+        {
+          "id": "required-fields",
+          "description": "Block.json contains all required fields",
+          "prompt": "Create a block.json for a 'commit-message-writer' agent block",
+          "check": {
+            "type": "contains-all",
+            "values": ["blockType", "name", "config"]
+          }
+        },
+        {
+          "id": "capabilities-declared",
+          "description": "Block declares its capabilities matching the contract",
+          "prompt": "Create a block.json for an agent implementing 'maestro-assistant' contract which requires capabilities: conversation, tool-calling, structured-output",
+          "check": {
+            "type": "contains-all",
+            "values": ["capabilities", "conversation", "tool-calling"]
+          }
+        }
+      ]
+    },
+    "prompt-writing": {
+      "description": "Write an effective system-prompt.md adapted to the target model",
+      "requires": ["conversation"],
+      "weight": 0.25,
+      "minimumScore": 0.6,
+      "tests": [
+        {
+          "id": "system-prompt-structure",
+          "description": "System prompt has clear sections and instructions",
+          "prompt": "Write a system-prompt.md for a code-reviewer agent. The agent should review code for bugs, style, and performance.",
+          "check": {
+            "type": "contains-all",
+            "values": ["#", "bug", "style"]
+          }
+        },
+        {
+          "id": "tool-descriptions",
+          "description": "System prompt describes available tools when the agent uses tools",
+          "prompt": "Write a system-prompt.md for an agent that uses file-read, file-write, and shell-execute tools. Include tool descriptions.",
+          "check": {
+            "type": "contains-all",
+            "values": ["file-read", "file-write", "shell-execute"]
+          }
+        }
+      ]
+    },
+    "iterative-improvement": {
+      "description": "Read test results, diagnose failures, and improve the block",
+      "requires": ["conversation", "structured-output"],
+      "weight": 0.25,
+      "minimumScore": 0.6,
+      "tests": [
+        {
+          "id": "diagnose-failure",
+          "description": "Correctly identifies why a test failed and proposes a fix",
+          "prompt": "The test 'basic-response' failed with check type 'non-empty' (minLength: 20). The agent responded with 'Hi.' (3 chars). What's wrong and how would you fix the system prompt?",
+          "check": {
+            "type": "contains-any",
+            "values": ["short", "longer", "detailed", "verbose", "elaborate", "minLength", "minimum"]
+          }
+        },
+        {
+          "id": "iterate-on-results",
+          "description": "Produces an improved version after seeing failures",
+          "turns": [
+            { "prompt": "Here are the test results for my code-reviewer agent: 'review-quality' FAILED (check: contains 'suggestion'), 'code-format' PASSED. What should I change?" },
+            { "prompt": "Now generate the updated system-prompt.md with those fixes", "check": { "type": "contains", "value": "suggestion" } }
+          ]
+        }
+      ]
+    },
+    "model-adaptation": {
+      "description": "Adapt block configuration for different model tiers",
+      "requires": ["conversation", "structured-output"],
+      "weight": 0.20,
+      "minimumScore": 0.5,
+      "tests": [
+        {
+          "id": "adapt-for-smaller-model",
+          "description": "Adjusts prompt and config for a smaller model",
+          "prompt": "I have a code-reviewer block using claude-opus-4-6. Create a variant for claude-haiku-4-5-20251001. What changes would you make to the system prompt and config?",
+          "check": {
+            "type": "contains-any",
+            "values": ["simpl", "shorter", "concise", "fewer", "explicit", "structured", "haiku"]
+          }
+        },
+        {
+          "id": "preserve-contract-compliance",
+          "description": "Adapted variant still targets the same contract",
+          "prompt": "When adapting a block from opus to haiku, should the contract reference change?",
+          "check": {
+            "type": "contains-any",
+            "values": ["no", "same", "contract", "unchanged", "keep"]
+          }
+        }
+      ]
+    }
+  },
+
+  "scoring": {
+    "method": "weighted-average",
+    "description": "Score = sum(feature.weight * feature.score). Agent creator must reliably produce valid, well-prompted blocks that pass their target contracts."
+  }
+}

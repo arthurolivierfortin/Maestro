@@ -2,7 +2,7 @@
   "$schema": "../../../docs/schemas/block.schema.json",
   "id": "git-diff",
   "name": "Git Diff",
-  "blockType": "tool",
+  "blockType": "shell",
   "version": "1.0.0",
   "isAtomic": true,
   "description": "Executes git diff to get staged and unstaged changes",

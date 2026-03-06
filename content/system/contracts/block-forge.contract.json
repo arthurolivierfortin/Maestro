@@ -1,0 +1,104 @@
+{
+  "id": "block-forge",
+  "name": "Block Forge",
+  "version": "1.0.0",
+  "description": "End-to-end workflow that creates a block from a description, tests it against a contract, iterates until it passes, and publishes the result. Orchestrates test-designer and agent-creator agents.",
+
+  "requiredCapabilities": ["orchestration", "tool-calling"],
+  "minimumFitness": 0.5,
+
+  "features": {
+    "end-to-end-creation": {
+      "description": "From a description and target contract to a published block",
+      "requires": ["orchestration", "tool-calling"],
+      "weight": 0.40,
+      "minimumScore": 0.7,
+      "tests": [
+        {
+          "id": "create-from-description",
+          "description": "Creates a block from a natural language description",
+          "prompt": "Create a code-reviewer agent that implements the code-reviewer contract. It should review code for bugs, style issues, and suggest improvements.",
+          "check": {
+            "type": "contains-all",
+            "values": ["block", "code-reviewer"]
+          }
+        },
+        {
+          "id": "workspace-usage",
+          "description": "Uses workspace for block development",
+          "prompt": "Start creating a commit-message-writer block in a new workspace",
+          "check": {
+            "type": "contains-any",
+            "values": ["workspace", "foundry"]
+          }
+        },
+        {
+          "id": "publish-result",
+          "description": "Published block is available in the catalog",
+          "prompt": "The block passed all tests. Publish it to the catalog.",
+          "check": {
+            "type": "contains-any",
+            "values": ["publish", "catalog", "available"]
+          }
+        }
+      ]
+    },
+    "contract-compliance": {
+      "description": "Created blocks pass the tests defined in their target contract",
+      "requires": ["orchestration"],
+      "weight": 0.35,
+      "minimumScore": 0.7,
+      "tests": [
+        {
+          "id": "runs-contract-tests",
+          "description": "Runs the target contract's tests against the created block",
+          "prompt": "After creating the code-reviewer block, verify it passes the code-reviewer contract tests",
+          "check": {
+            "type": "contains-any",
+            "values": ["test", "pass", "score", "contract", "verify"]
+          }
+        },
+        {
+          "id": "iterates-on-failure",
+          "description": "When tests fail, improves the block and retries",
+          "prompt": "The code-reviewer block failed the 'review-quality' test. The response didn't contain 'suggestion'. What should the forge do next?",
+          "check": {
+            "type": "contains-any",
+            "values": ["improv", "updat", "modif", "fix", "retry", "iterate", "prompt"]
+          }
+        }
+      ]
+    },
+    "adaptation": {
+      "description": "Create variants of a block for different models",
+      "requires": ["orchestration", "tool-calling"],
+      "weight": 0.25,
+      "minimumScore": 0.6,
+      "tests": [
+        {
+          "id": "create-variant",
+          "description": "Creates a variant targeting a different model",
+          "prompt": "Create a haiku variant of the code-reviewer block that currently runs on opus",
+          "check": {
+            "type": "contains-any",
+            "values": ["variant", "haiku", "adapt"]
+          }
+        },
+        {
+          "id": "variant-tested",
+          "description": "Variant is tested against the same contract",
+          "prompt": "After creating the haiku variant, how do you verify it still meets the contract?",
+          "check": {
+            "type": "contains-any",
+            "values": ["test", "contract", "score", "verify", "pass"]
+          }
+        }
+      ]
+    }
+  },
+
+  "scoring": {
+    "method": "weighted-average",
+    "description": "Score = sum(feature.weight * feature.score). Block forge must reliably produce contract-compliant blocks through end-to-end automation."
+  }
+}

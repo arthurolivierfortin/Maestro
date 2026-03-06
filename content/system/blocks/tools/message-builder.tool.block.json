@@ -1,0 +1,60 @@
+{
+  "id": "message-builder",
+  "name": "Message Builder",
+  "blockType": "message-builder",
+  "version": "1.0.0",
+  "isAtomic": true,
+  "description": "Transforms a prompt and optional system prompt into a messages[] array suitable for LLM consumption.",
+  "inputs": [
+    {
+      "id": "prompt",
+      "name": "User Prompt",
+      "type": "string",
+      "required": true,
+      "description": "The user prompt text"
+    },
+    {
+      "id": "systemPrompt",
+      "name": "System Prompt",
+      "type": "string",
+      "required": false,
+      "description": "Inline system prompt text"
+    },
+    {
+      "id": "systemPromptFile",
+      "name": "System Prompt File",
+      "type": "string",
+      "required": false,
+      "description": "Path to a system prompt file (system-prompt.md)"
+    },
+    {
+      "id": "template",
+      "name": "Template",
+      "type": "string",
+      "required": false,
+      "description": "Optional prompt template with {{placeholder}} variables"
+    }
+  ],
+  "outputs": [
+    {
+      "id": "messages",
+      "name": "Messages",
+      "type": "string",
+      "description": "JSON array of ChatMessage objects ready for LLM"
+    },
+    {
+      "id": "messageCount",
+      "name": "Message Count",
+      "type": "number",
+      "description": "Number of messages in the output array"
+    }
+  ],
+  "config": {
+    "toolType": "message-builder"
+  },
+  "metadata": {
+    "category": "agent-infrastructure",
+    "tags": ["message", "prompt", "builder", "agent"]
+  },
+  "capabilities": ["messaging"]
+}

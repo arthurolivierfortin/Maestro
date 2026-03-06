@@ -1,9 +1,9 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Text.Json;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
+using Maestro.Infrastructure.Configuration;
+using Newtonsoft.Json.Linq;
 
 namespace Maestro.Api.Controllers
 {
@@ -17,28 +17,27 @@ namespace Maestro.Api.Controllers
     {
         private readonly string _contractsPath;
 
-        public ContractsController(IConfiguration configuration)
+        public ContractsController(MaestroPathConfiguration pathConfig)
         {
-            var contentRoot = configuration["Maestro:ContentRoot"] ?? Path.Combine(Directory.GetCurrentDirectory(), "content");
-            _contractsPath = Path.Combine(contentRoot, "system", "contracts");
+            _contractsPath = Path.Combine(pathConfig.RepoRootPath, "content", "system", "contracts");
         }
 
         /// <summary>
         /// List all contract definitions.
         /// </summary>
         [HttpGet]
-        public ActionResult<List<object>> GetAll()
+        public ActionResult<JArray> GetAll()
         {
             if (!Directory.Exists(_contractsPath))
-                return Ok(new List<object>());
+                return Ok(new JArray());
 
-            var contracts = new List<object>();
+            var contracts = new JArray();
             foreach (var file in Directory.EnumerateFiles(_contractsPath, "*.contract.json"))
             {
                 try
                 {
                     var json = System.IO.File.ReadAllText(file);
-                    var doc = JsonSerializer.Deserialize<JsonElement>(json);
+                    var doc = JToken.Parse(json);
                     contracts.Add(doc);
                 }
                 catch { }
@@ -51,7 +50,7 @@ namespace Maestro.Api.Controllers
         /// Get a single contract definition by ID.
         /// </summary>
         [HttpGet("{id}")]
-        public ActionResult<object> GetById(string id)
+        public ActionResult<JObject> GetById(string id)
         {
             if (!Directory.Exists(_contractsPath))
                 return NotFound(new { error = $"Contract '{id}' not found" });
@@ -61,7 +60,7 @@ namespace Maestro.Api.Controllers
                 return NotFound(new { error = $"Contract '{id}' not found" });
 
             var json = System.IO.File.ReadAllText(file);
-            var doc = JsonSerializer.Deserialize<JsonElement>(json);
+            var doc = JObject.Parse(json);
             return Ok(doc);
         }
     }

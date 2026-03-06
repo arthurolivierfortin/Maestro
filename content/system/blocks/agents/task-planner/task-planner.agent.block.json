@@ -20,7 +20,39 @@
     "model": "claude-sonnet-4-6",
     "maxIterations": 7,
     "wallClockTimeoutSeconds": 600,
-    "systemPromptFile": "system-prompt.md"
+    "systemPromptFile": "system-prompt.md",
+    "nodes": [
+      { "id": "init", "type": "set-variable", "variable": "_agentDone", "value": "false" },
+      {
+        "id": "agent-while", "type": "while", "condition": "{{_agentDone}} != true", "maxIterations": "{{maxIterations}}",
+        "nodes": [
+          { "id": "read-conversation", "blockRef": "conversation-read", "inputs": { "conversationId": "{{_conversationId}}" } },
+          { "id": "llm-call", "blockRef": "inference", "config": { "model": "claude-sonnet-4-6", "maxTokens": 4096, "temperature": 0 }, "inputs": { "messages": "{{_nodeResult_read-conversation.messages}}" } },
+          { "id": "append-assistant", "blockRef": "conversation-append", "inputs": { "conversationId": "{{_conversationId}}", "role": "assistant", "content": "{{_nodeResult_llm-call.content}}" } },
+          { "id": "parse-response", "blockRef": "response-parser", "inputs": { "rawResponse": "{{_nodeResult_llm-call.content}}" } },
+          {
+            "id": "route-response", "type": "conditional", "condition": "{{_nodeResult_parse-response.type}}",
+            "branches": {
+              "tool-call": { "nodes": [
+                { "id": "dispatch-tool", "blockRef": "tool-dispatcher", "inputs": { "toolId": "{{_nodeResult_parse-response.toolId}}", "args": "{{_nodeResult_parse-response.args}}" } },
+                { "id": "append-tool-result", "blockRef": "conversation-append", "inputs": { "conversationId": "{{_conversationId}}", "role": "user", "content": "{{_nodeResult_dispatch-tool.result}}" } }
+              ]},
+              "step-complete": { "nodes": [
+                { "id": "set-done", "type": "set-variable", "variable": "_agentDone", "value": "true" },
+                { "id": "set-result", "type": "set-variable", "variable": "_agentResult", "value": "{{_nodeResult_parse-response.summary}}" }
+              ]},
+              "text": { "nodes": [
+                { "id": "set-text-result", "type": "set-variable", "variable": "_agentResult", "value": "{{_nodeResult_parse-response.text}}" },
+                { "id": "set-text-done", "type": "set-variable", "variable": "_agentDone", "value": "true" }
+              ]},
+              "retry": { "nodes": [
+                { "id": "nudge-agent", "blockRef": "conversation-append", "inputs": { "conversationId": "{{_conversationId}}", "role": "user", "content": "Your last response was empty or malformed. Respond with a JSON tool call. If done, call step-complete." } }
+              ]}
+            }
+          }
+        ]
+      }
+    ]
   },
   "metadata": {
     "category": "development",

@@ -1,0 +1,27 @@
+{
+  "id": "inference",
+  "name": "Generic Inference",
+  "blockType": "inference",
+  "version": "1.0.0",
+  "isAtomic": true,
+  "description": "Generic inference block used by agent config.nodes for LLM calls. Model, maxTokens, and temperature are typically overridden by per-node config in the agent's block.json.",
+  "inputs": [
+    { "id": "messages", "type": "string", "required": false, "description": "Pre-built messages array (JSON)" },
+    { "id": "prompt", "type": "string", "required": false, "description": "User prompt text" },
+    { "id": "model", "type": "string", "required": false, "description": "Model ID override" }
+  ],
+  "outputs": [
+    { "id": "content", "type": "string", "description": "LLM response content" },
+    { "id": "response", "type": "string", "description": "LLM response content (alias)" }
+  ],
+  "config": {
+    "model": "claude-sonnet-4-6",
+    "maxTokens": 4096,
+    "temperature": 0
+  },
+  "metadata": {
+    "category": "infrastructure",
+    "designation": "internal",
+    "tags": ["inference", "llm", "agent-infrastructure"]
+  }
+}

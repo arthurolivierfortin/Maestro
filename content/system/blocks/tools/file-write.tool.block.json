@@ -2,7 +2,7 @@
   "$schema": "../../../docs/schemas/block.schema.json",
   "id": "file-write",
   "name": "File Write",
-  "blockType": "tool",
+  "blockType": "file-write",
   "version": "1.0.0",
   "isAtomic": true,
   "description": "Writes content to a file on the filesystem",

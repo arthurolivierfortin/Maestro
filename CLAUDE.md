@@ -77,9 +77,9 @@ There is no Agent entity. There is no Tool entity. There are only Blocks with di
 
 **Tool availability comes from the prompt**, not from code. System prompt lists available tools as JSON schemas. No hardcoded tool lists in C#, no `tools.json`, no default system prompts built in C#.
 
-**Known debt**: `AgentBlockExecutor` still calls LLM directly instead of orchestrating child blocks. Tracked for Phase 35-PRE.
+**Execution hierarchy** (Phase 53): All multi-node blocks (agents, workflows, tools) inherit from `MultiNodeBlockExecutor`. Node execution is handled by `NodeExecutionEngine` (pure control flow). Native operations (filesystem, shell, etc.) are blocks dispatched via `BlockExecutorRegistry`. `EntryPointExecutor` is being decomposed — see ADR.
 
-**ADRs**: `docs/phases/PHASE-18/ADR-BLOCKS-ARE-THE-UNIVERSAL-UNIT.md`, `docs/phases/PHASE-26/REFACTORING-AGENT-INFERENCE-MERGE.md`
+**ADRs**: `docs/phases/PHASE-18/ADR-BLOCKS-ARE-THE-UNIVERSAL-UNIT.md`, `docs/phases/PHASE-26/REFACTORING-AGENT-INFERENCE-MERGE.md`, `docs/phases/PHASE-53/ADR-AGENT-AS-WORKFLOW.md`
 
 ### The Cardinal Rule: Generic Infrastructure, Specific Content
 
@@ -142,6 +142,7 @@ docs/
 | `docs/system/architecture/backend-guide.md` | Architecture guidelines, session system, API contract, TUI monitor |
 | `docs/system/architecture/sessions.md` | Before ANY session/infrastructure work |
 | `docs/system/architecture/blocks.md` | Before block/workflow work |
+| `docs/system/architecture/contracts.md` | Before contract/capability/feature work |
 | `docs/system/architecture/execution.md` | Before execution engine work |
 | `docs/system/conventions/error-handling.md` | Before adding error handling |
 | `docs/tools/cli/README.md` | Before proposing CLI commands |
@@ -187,6 +188,8 @@ powershell.exe -File C:\Meastro\dev-scripts\dev-start.ps1 -Stop
 - **Dogfood the first-run flow**: Delete `.maestro/` + provider config, launch fresh, complete setup, send first message. Pre-configured state skips the most critical code path
 - **JsonElement corruption**: `NormalizeObjectValue()` in `SessionsController.cs` — variables become nested arrays without it
 - **DI circular dependency**: `AgentBlockExecutor` ↔ `BlockExecutorRegistry` — use lazy `??=` resolution
+- **NEVER add tool dispatch in AgentBlockExecutor**: Agent behavior is defined by `config.nodes` in its block.json. AgentBlockExecutor only handles conversation setup and I/O contract. Tool dispatch, response parsing, and the agentic loop are config.nodes executed by `MultiNodeBlockExecutor`. This mistake happened 3+ times. See ADR: `docs/phases/PHASE-53/ADR-AGENT-AS-WORKFLOW.md`
+- **NEVER add handlers inline in ToolBlockExecutor**: Tool types are blocks with their own executors, dispatched via `BlockExecutorRegistry`. Adding `if (toolType == "xxx")` in ToolBlockExecutor recreates the god class pattern. One class per tool type.
 - **SDK/backend type mismatch**: ALWAYS `curl` the API to verify response shape before writing SDK types
 - **Session-specific logic in infra**: If adding a session type requires C# changes, architecture is violated
 - **Agents are not special**: One entity (`BlockDefinition`), one metrics system. Content in block config, not C#
@@ -221,7 +224,7 @@ The principle applies to the **execution engine only**, not to all code:
 | Workflows, agents, tools, validators | TUI components (React/Ink) |
 | Inference blocks, conditions, loops | CLI commands |
 | Anything in `content/system/blocks/` | SessionManager, ConversationManager |
-| Anything executed by `EntryPointExecutor` | SDK client, Sidecar |
+| Anything executed by `NodeExecutionEngine` / `BlockExecutorRegistry` | SDK client, Sidecar |
 
 **Stop asking "should this be a block?"** If it's not executed by the block engine, it's code. Period.
 

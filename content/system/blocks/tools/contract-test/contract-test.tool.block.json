@@ -1,0 +1,62 @@
+{
+  "id": "contract-test",
+  "name": "Contract Test Runner",
+  "blockType": "tool",
+  "version": "1.0.0",
+  "isAtomic": true,
+  "description": "Runs contract tests against a block and returns fitness scores with per-feature breakdown. Used by agent-creator to verify blocks pass their contract.",
+  "inputs": [
+    {
+      "id": "contractId",
+      "type": "string",
+      "required": true,
+      "description": "The contract ID to test against (e.g. 'maestro-assistant')"
+    },
+    {
+      "id": "blockId",
+      "type": "string",
+      "required": true,
+      "description": "The block ID to test (e.g. 'system:maestro-assistant')"
+    },
+  ],
+  "outputs": [
+    {
+      "id": "content",
+      "type": "string",
+      "description": "Full JSON result with fitness, feature scores, and individual test results"
+    },
+    {
+      "id": "fitness",
+      "type": "number",
+      "description": "Global weighted-average fitness score (0.0 - 1.0)"
+    },
+    {
+      "id": "passed",
+      "type": "boolean",
+      "description": "Whether the block passes the contract (all thresholds met)"
+    },
+    {
+      "id": "totalTests",
+      "type": "number",
+      "description": "Total number of tests executed"
+    },
+    {
+      "id": "passedTests",
+      "type": "number",
+      "description": "Number of tests that passed"
+    },
+    {
+      "id": "failedTests",
+      "type": "number",
+      "description": "Number of tests that failed"
+    }
+  ],
+  "config": {
+    "toolType": "contract-test"
+  },
+  "metadata": {
+    "category": "testing",
+    "tags": ["contract", "test", "fitness", "verification"]
+  },
+  "capabilities": ["contract-testing"]
+}

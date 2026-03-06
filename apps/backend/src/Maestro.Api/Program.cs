@@ -98,8 +98,7 @@ builder.Services.AddScoped<Maestro.Application.Interfaces.IExecutionMonitor, Mae
 // Register block executors from Infrastructure
 builder.Services.AddScoped<Maestro.Application.Interfaces.IBlockExecutor, Maestro.Infrastructure.BlockExecutors.PromptBlockExecutor>();
 // InferenceBlockExecutor (single LLM call) inherits LLMBlockExecutorBase.
-// AgentBlockExecutor (multi-turn agentic loop) implements IBlockExecutor directly — composite block.
-// Agent reads LLM params from config.nodes child blocks (or own config as deprecated fallback).
+// AgentBlockExecutor extends MultiNodeBlockExecutor — conversation setup + config.nodes execution.
 builder.Services.AddScoped<Maestro.Application.Interfaces.IBlockExecutor>(sp =>
     new Maestro.Infrastructure.BlockExecutors.InferenceBlockExecutor(
         sp.GetRequiredService<Maestro.Application.Interfaces.ILLMGateway>(),
@@ -126,12 +125,40 @@ builder.Services.AddScoped<Maestro.Application.Interfaces.IBlockExecutor>(sp =>
         sp.GetRequiredService<IMemoryManager>()));
 
 builder.Services.AddScoped<Maestro.Infrastructure.BlockExecutors.AgentBlockExecutor>(sp =>
-    new Maestro.Infrastructure.BlockExecutors.AgentBlockExecutor(
-        sp.GetRequiredService<Maestro.Application.Interfaces.ILLMGateway>(),
-        sp,
-        sp.GetService<Maestro.Application.Interfaces.IExecutionMonitor>()));
+    new Maestro.Infrastructure.BlockExecutors.AgentBlockExecutor(sp));
 builder.Services.AddScoped<Maestro.Application.Interfaces.IBlockExecutor>(sp =>
     sp.GetRequiredService<Maestro.Infrastructure.BlockExecutors.AgentBlockExecutor>());
+
+// Phase 53-B: WorkflowBlockExecutor (composite blocks with config.nodes)
+builder.Services.AddScoped<Maestro.Application.Interfaces.IBlockExecutor>(sp =>
+    new Maestro.Infrastructure.BlockExecutors.WorkflowBlockExecutor(sp));
+
+// Phase 53-C: Atomic block executors
+builder.Services.AddScoped<Maestro.Application.Interfaces.IBlockExecutor, Maestro.Infrastructure.BlockExecutors.ResponseParserBlockExecutor>();
+builder.Services.AddScoped<Maestro.Application.Interfaces.IBlockExecutor>(sp =>
+    new Maestro.Infrastructure.BlockExecutors.ToolDispatcherBlockExecutor(sp));
+builder.Services.AddScoped<Maestro.Application.Interfaces.IBlockExecutor>(sp =>
+    new Maestro.Infrastructure.BlockExecutors.ConversationReadBlockExecutor(
+        sp.GetRequiredService<Maestro.Application.Interfaces.IConversationManager>(),
+        sp.GetRequiredService<Maestro.Application.Interfaces.IContextAssembler>()));
+builder.Services.AddScoped<Maestro.Application.Interfaces.IBlockExecutor>(sp =>
+    new Maestro.Infrastructure.BlockExecutors.ConversationAppendBlockExecutor(
+        sp.GetRequiredService<Maestro.Application.Interfaces.IConversationManager>()));
+builder.Services.AddScoped<Maestro.Application.Interfaces.IBlockExecutor, Maestro.Infrastructure.BlockExecutors.MessageBuilderBlockExecutor>();
+
+// Phase 53-C: Native handler block executors (migrated from NodeExecutionEngine)
+builder.Services.AddScoped<Maestro.Application.Interfaces.IBlockExecutor>(sp =>
+    new Maestro.Infrastructure.BlockExecutors.ShellBlockExecutor(
+        sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<Maestro.Infrastructure.BlockExecutors.ShellBlockExecutor>>()));
+builder.Services.AddScoped<Maestro.Application.Interfaces.IBlockExecutor>(sp =>
+    new Maestro.Infrastructure.BlockExecutors.TreeDocumenterBlockExecutor(
+        sp.GetRequiredService<Maestro.Application.Interfaces.IBlockDiscoveryService>(),
+        sp.GetRequiredService<Maestro.Application.Interfaces.IProjectSessionRepository>()));
+builder.Services.AddScoped<Maestro.Application.Interfaces.IBlockExecutor>(sp =>
+    new Maestro.Infrastructure.BlockExecutors.PhaseBlockExecutor(sp));
+builder.Services.AddScoped<Maestro.Application.Interfaces.IBlockExecutor, Maestro.Infrastructure.BlockExecutors.FileReadBlockExecutor>();
+builder.Services.AddScoped<Maestro.Application.Interfaces.IBlockExecutor, Maestro.Infrastructure.BlockExecutors.FileWriteBlockExecutor>();
+builder.Services.AddScoped<Maestro.Application.Interfaces.IBlockExecutor, Maestro.Infrastructure.BlockExecutors.FileEditBlockExecutor>();
 
 // Orchestration services (Phase 5C)
 builder.Services.AddScoped<Maestro.Application.Interfaces.IDataFlowManager, Maestro.Infrastructure.Orchestration.DataFlowManager>();
@@ -243,15 +270,28 @@ builder.Services.AddScoped<ICommandExecutor, Maestro.Infrastructure.Sessions.Com
 builder.Services.AddScoped<ICommandExecutor, Maestro.Infrastructure.Sessions.CommandExecutors.MaestroCommandExecutor>();
 builder.Services.AddScoped<ICommandExecutor, Maestro.Infrastructure.Sessions.CommandExecutors.ControlCommandExecutor>();
 
-// Phase 10: Register EntryPointExecutor for background workflow execution
-builder.Services.AddScoped<Maestro.Infrastructure.Sessions.EntryPointExecutor>(sp =>
+// Phase 53-A: Register SessionStateManager
+builder.Services.AddSingleton<ISessionStateManager, Maestro.Infrastructure.Sessions.SessionStateManager>();
+
+// Phase 53-A: Register NodeExecutionEngine (control flow engine)
+builder.Services.AddScoped<Maestro.Infrastructure.Sessions.NodeExecutionEngine>(sp =>
 {
     var sessionRepo = sp.GetRequiredService<IProjectSessionRepository>();
     var llmGateway = sp.GetRequiredService<ILLMGateway>();
     var blockDiscovery = sp.GetRequiredService<IBlockDiscoveryService>();
-    var logger = sp.GetRequiredService<ILogger<Maestro.Infrastructure.Sessions.EntryPointExecutor>>();
+    var stateManager = sp.GetRequiredService<ISessionStateManager>();
+    var logger = sp.GetRequiredService<ILogger<Maestro.Infrastructure.Sessions.NodeExecutionEngine>>();
     var executorRegistry = sp.GetRequiredService<Maestro.Infrastructure.BlockExecutors.BlockExecutorRegistry>();
-    return new Maestro.Infrastructure.Sessions.EntryPointExecutor(sessionRepo, llmGateway, blockDiscovery, logger, executorRegistry);
+    return new Maestro.Infrastructure.Sessions.NodeExecutionEngine(sessionRepo, llmGateway, blockDiscovery, stateManager, logger, executorRegistry);
+});
+
+// Phase 53-A/54: Register EntryPointExecutor as singleton — uses IServiceScopeFactory
+// to create fresh DI scopes for each background execution (prevents disposed scope errors).
+builder.Services.AddSingleton<Maestro.Infrastructure.Sessions.EntryPointExecutor>(sp =>
+{
+    var scopeFactory = sp.GetRequiredService<IServiceScopeFactory>();
+    var logger = sp.GetRequiredService<ILogger<Maestro.Infrastructure.Sessions.EntryPointExecutor>>();
+    return new Maestro.Infrastructure.Sessions.EntryPointExecutor(scopeFactory, logger);
 });
 
 // Phase 10: Register Project Session Server
@@ -313,6 +353,17 @@ builder.Services.AddSingleton<Maestro.Infrastructure.Testing.FileSystemBlockTest
 {
     var logger = sp.GetService<ILogger<Maestro.Infrastructure.Testing.FileSystemBlockTestRepository>>();
     return new Maestro.Infrastructure.Testing.FileSystemBlockTestRepository(testingFolder, logger);
+});
+
+// Phase 52-C: Contract Test Runner
+builder.Services.AddScoped<Maestro.Infrastructure.Testing.ContractTestRunner>(sp =>
+{
+    var blockDiscovery = sp.GetRequiredService<IBlockDiscoveryService>();
+    var executorRegistry = sp.GetRequiredService<Maestro.Infrastructure.BlockExecutors.BlockExecutorRegistry>();
+    var llmGateway = sp.GetRequiredService<ILLMGateway>();
+    var sessionRepository = sp.GetRequiredService<IProjectSessionRepository>();
+    var logger = sp.GetService<ILogger<Maestro.Infrastructure.Testing.ContractTestRunner>>();
+    return new Maestro.Infrastructure.Testing.ContractTestRunner(blockDiscovery, executorRegistry, llmGateway, sessionRepository, logger!);
 });
 
 // Phase 9: Register quality evaluators

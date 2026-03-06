@@ -149,4 +149,34 @@ public record TaskEntropy
     /// This represents how many equally-likely tasks the entropy corresponds to.
     /// </summary>
     public double EffectiveTaskTypes => Math.Pow(2, EntropyValue);
+
+    /// <summary>
+    /// Create a TaskEntropy from a feature count (for contract testing).
+    /// Uses a uniform distribution across N synthetic features to produce
+    /// a reasonable entropy proportional to the number of features tested.
+    /// 1 feature → entropy 0 (specialized), N features → log2(N) (diverse).
+    /// </summary>
+    public static TaskEntropy FromFeatureCount(int featureCount)
+    {
+        if (featureCount <= 0)
+        {
+            return new TaskEntropy
+            {
+                EntityId = "contract-test",
+                EntityType = "contract",
+                TaskDistribution = new Dictionary<string, int>(),
+                EntropyValue = 0,
+                TotalTasks = 0
+            };
+        }
+
+        // Build a uniform distribution with one task type per feature
+        var distribution = new Dictionary<string, int>();
+        for (var i = 0; i < featureCount; i++)
+        {
+            distribution[$"feature-{i}"] = 1;
+        }
+
+        return Calculate("contract-test", "contract", distribution);
+    }
 }

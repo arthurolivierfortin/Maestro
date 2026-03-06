@@ -1,0 +1,47 @@
+{
+  "id": "conversation-append",
+  "name": "Conversation Append",
+  "blockType": "conversation-append",
+  "version": "1.0.0",
+  "isAtomic": true,
+  "description": "Adds a message to an existing conversation managed by IConversationManager.",
+  "inputs": [
+    {
+      "id": "conversationId",
+      "name": "Conversation ID",
+      "type": "string",
+      "required": true,
+      "description": "The conversation to append to"
+    },
+    {
+      "id": "role",
+      "name": "Message Role",
+      "type": "string",
+      "required": true,
+      "description": "The role of the message: system, user, or assistant"
+    },
+    {
+      "id": "content",
+      "name": "Message Content",
+      "type": "string",
+      "required": true,
+      "description": "The content of the message"
+    }
+  ],
+  "outputs": [
+    {
+      "id": "messageCount",
+      "name": "Message Count",
+      "type": "number",
+      "description": "Total number of messages in the conversation after append"
+    }
+  ],
+  "config": {
+    "toolType": "conversation-append"
+  },
+  "metadata": {
+    "category": "agent-infrastructure",
+    "tags": ["conversation", "append", "message", "agent"]
+  },
+  "capabilities": ["conversation"]
+}

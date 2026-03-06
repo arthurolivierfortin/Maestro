@@ -1,0 +1,46 @@
+{
+  "id": "tool-dispatcher",
+  "name": "Tool Dispatcher",
+  "blockType": "tool-dispatcher",
+  "version": "1.0.0",
+  "isAtomic": true,
+  "description": "Resolves a tool by ID and executes it with the given arguments. Supports block dispatch and legacy CLI dispatch.",
+  "inputs": [
+    {
+      "id": "toolId",
+      "name": "Tool ID",
+      "type": "string",
+      "required": true,
+      "description": "The tool/block identifier to execute"
+    },
+    {
+      "id": "args",
+      "name": "Tool Arguments",
+      "type": "string",
+      "required": true,
+      "description": "JSON string of arguments to pass to the tool"
+    }
+  ],
+  "outputs": [
+    {
+      "id": "result",
+      "name": "Tool Result",
+      "type": "string",
+      "description": "The result of the tool execution"
+    },
+    {
+      "id": "success",
+      "name": "Success",
+      "type": "boolean",
+      "description": "Whether the tool execution succeeded"
+    }
+  ],
+  "config": {
+    "toolType": "tool-dispatch"
+  },
+  "metadata": {
+    "category": "agent-infrastructure",
+    "tags": ["dispatch", "tool", "execution", "agent"]
+  },
+  "capabilities": ["tool-execution"]
+}

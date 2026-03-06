@@ -1,6 +1,6 @@
 # Maestro — Roadmap
 
-**Derniere mise a jour** : 2026-03-04
+**Derniere mise a jour** : 2026-03-06
 **Version actuelle** : v0.1.0-alpha (tag sur main)
 
 ---
@@ -51,39 +51,50 @@
 | 48 | Bug Fixes Dogfooding + dynamic blockRef + local agent | COMPLETE |
 | 49 | Hardware-Aware Setup + Agent Capabilities + Provider Metrics (28 tests, E2E 4/5) | COMPLETE |
 | 50 | Contracts + Second Assistant + Fondations Adapt (141 tests, E2E 5/5) | COMPLETE |
+| 51 | Contract System — Schema, documentation, verification, bareme | COMPLETE |
+| 52 | Agent test-designer + Contract Test Runner | COMPLETE |
+| 53 | Agent et Workflow = Multi-Node Blocks (EntryPointExecutor 4272→196 lignes, 9 executors) | COMPLETE |
+| 54 | Re-verification Phase 52 — FitnessScore, tests dans contract, E2E (fitness=0.0037) | COMPLETE |
 
 ---
 
-## Vision strategique (mise a jour 2026-03-04)
+## Vision strategique (mise a jour 2026-03-05)
 
-> **Deux concepts fondamentaux** :
+> **Trois concepts fondamentaux** :
 >
-> **Contract** = le role qu'un block remplit (ex: `maestro-assistant`, `agent-creator`, `code-reviewer`).
+> **Contract** = un role verifiable qu'un block peut remplir (ex: `maestro-assistant`, `code-reviewer`).
+> Le contract definit des **features** (groupements fonctionnels), chacune avec des **tests concrets**.
 > Plusieurs blocks peuvent implementer le meme contract. L'utilisateur choisit lequel utiliser.
 >
-> **Capabilities** = ce que le block sait faire concretement (ex: `conversation`, `structured-output`,
-> `tool-calling`). Les features d'un contract sont activees/desactivees selon les capabilities
-> du block choisi. Un assistant sans `structured-output` ne peut pas generer de JSON config.
+> **Feature** = un groupement fonctionnel visible par l'utilisateur (ex: "Conversation", "Maestro Operations").
+> Une feature est active si le block a TOUTES les **capabilities** requises par cette feature.
+> C'est ce qui s'affiche +/- dans l'AssistantSelector.
 >
-> `/adapt` est un workflow qui utilise Agent Creator pour creer des variantes qui implementent
-> le meme contract, optimisees pour un modele/hardware donne. Nous l'utilisons nous-memes
-> pour produire les ~30 variantes pre-testees livrees avec l'app.
+> **Capability** = une competence atomique d'un block (ex: `conversation`, `structured-output`, `tool-calling`).
+> Les capabilities sont declarees dans le block.json. Elles determinent quelles features sont actives.
 >
-> L'utilisateur au premier lancement voit les implementations disponibles pour son hardware,
-> avec les features actives/inactives de chacune, et choisit.
+> La hierarchie : **Contract > Features > Capabilities > Tests**
+> Voir `docs/system/architecture/contracts.md` pour la documentation complete.
+>
+> `/adapt` est un workflow qui utilise le workflow `block-forge` (test-designer + agent-creator)
+> pour creer des variantes qui implementent le meme contract, optimisees pour un modele/hardware donne.
 
 ### Sequence logique
 
 ```
-1. Concept contract + capabilities feature-gating + nettoyage adapt
-2. Deuxieme maestro-assistant (meme contract, capabilities differentes)
-3. Agent Creator (meta-agent, genere blocks avec contract + capabilities)
-4. /adapt = workflow Agent Creator (cree variantes meme contract)
-5. Production ~30 variantes pre-testees avec /adapt
-6. Choix assistant au setup (UI par contract, features actives/inactives)
-7. Catalogue communautaire organise par contract
-8. Premiere version deployable
-9. Self-improvement loop
+1. Contract System (schema, docs, verification, bareme)              ← Phase 51 ✓
+2. Agent test-designer (lit un contract → produit des tests)          ← Phase 52 ✓
+3. Agent et Workflow = Multi-Node Blocks (plus de monolithe)           ← Phase 53 ✓
+4. Re-verification Phase 52 (FitnessScore, tests dans contract)      ← Phase 54 ✓
+4b. Decomposition NodeExecutionEngine (2431 → <1500 lignes)          ← Phase 53-B (NEXT)
+5. Agent agent-creator (cree un block, teste, itere)                  ← Phase 55
+6. Workflow block-forge + /create-agent TUI/CLI                       ← Phase 56
+7. /adapt = workflow block-forge avec baseBlockId                     ← Phase 57
+8. Production ~30 variantes pre-testees avec /adapt                   ← Phase 58
+9. Choix assistant au setup + Catalog par contract                    ← Phase 59
+10. Catalogue communautaire organise par contract                     ← Phase 60
+11. Premiere version deployable                                       ← Phase 61
+12. Self-improvement loop                                             ← Phase 62+
 ```
 
 ---
@@ -100,87 +111,174 @@
 
 ---
 
-### Phase 51 : Agent Creator
+### Phase 51 : Contract System — Schema, documentation, verification, bareme — COMPLETE
 
-**But** : Meta-agent qui cree des agents/workflows avec contract + capabilities verifiees. Brique fondamentale pour `/adapt`.
+**But** : Faire du contract un systeme verifiable et documente. Definir la distinction contract/features/capabilities/tests. Enrichir le schema avec tests et baremes. Ecrire les contracts concrets.
 
-| Sous-phase | Objectif | Effort |
-|------------|----------|--------|
-| 51-A | Agent Creator workflow (analyse → generation → test capabilities → publish) | 3-5 jours |
-| 51-B | Integration TUI (`/create-agent`) + CLI | 2-3 jours |
-| 51-C | 3 contracts pre-definis + templates (code-reviewer, doc-writer, test-generator) | 2 jours |
-
----
-
-### Phase 52 : /adapt = Workflow Agent Creator + Contract Resolution
-
-**But** : `/adapt` utilise Agent Creator pour creer des variantes qui implementent le meme contract. `contractRef` dans les workflows pour resolution runtime.
+**Aucun agent n'est cree dans cette phase.** C'est la fondation sur laquelle tout le reste repose.
 
 | Sous-phase | Objectif | Effort |
 |------------|----------|--------|
-| 52-A | Workflow `/adapt` : meme contract, capabilities adaptees au modele cible | 2-3 jours |
-| 52-B | `contractRef` dans les workflows (resolution runtime + verification capabilities) | 1-2 jours |
-| 52-C | Integration TUI : `/adapt` dans AgentPanel, `[A]` dans CatalogScreen | 1 jour |
+| 51-A | Documentation : contracts.md (hierarchie, exemples, ce que c'est / ce que c'est pas) | 1 jour |
+| 51-B | Schema enrichi (tests[], weight, minimumScore, scoring) + backend API /api/contracts | 1.5 jours |
+| 51-C | 4 contracts concrets : maestro-assistant v2, test-designer, agent-creator, block-forge | 1.5 jours |
+
+**Gate** : GET /api/contracts retourne 4+ contracts enrichis avec tests. Documentation lisible.
 
 ---
 
-### Phase 53 : Production des variantes pre-testees
+### Phase 52 : Agent test-designer + Contract Test Runner — COMPLETE
+
+**But** : Premier agent cree avec le nouveau contract system. Lit un contract, produit des tests d'acceptance executables. Puis : le test runner qui execute ces tests contre un block et calcule un score de fitness.
+
+| Sous-phase | Objectif | Effort |
+|------------|----------|--------|
+| 52-A | Block definition + system prompt detaille (conventions, exemples, anti-patterns) | 2 jours |
+| 52-B | Test manuel, validation contre son propre contract, iteration du prompt | 1.5 jours |
+| 52-C | Contract Test Runner : execution reelle des tests, 8 check types, scoring par feature, tool block `contract-test` | 2.5 jours |
+
+**Gate** : Le test-designer produit des tests valides. Le test runner les execute et retourne un score de fitness par feature.
+
+**Problemes identifies** (a corriger en Phase 54) :
+- ContractTestRunner utilise une formule simpliste au lieu de `FitnessScore.Calculate()`
+- Les test-suites sont dans des fichiers separes au lieu d'etre dans les contracts
+- Le dispatch de tools est monolithique dans `AgentBlockExecutor` (Phase 53)
+
+---
+
+### Phase 53 : Agent et Workflow = Multi-Node Blocks — COMPLETE
+
+**Resultats** : EntryPointExecutor 4272→196 lignes (NodeExecutionEngine + SessionStateManager). AgentBlockExecutor 1400→124 lignes. ToolBlockExecutor 1400→78 lignes. 9 atomic executors, 3 agent-loop templates, 20 agents + 10 tools migres en config.nodes. Zero regression.
+
+**Checkpoint** : `docs/phases/PHASE-53/checkpoint.md`
+**ADR** : `docs/phases/PHASE-53/ADR-AGENT-AS-WORKFLOW.md`
+
+---
+
+### Phase 53-B : Decomposition NodeExecutionEngine — A FAIRE (NEXT)
+
+**But** : Reduire NodeExecutionEngine de 2431 lignes a <1500 en extrayant TemplateResolver, ConditionEvaluator, SetVariableBlockExecutor et SessionHelper.
+
+| Sous-phase | Objectif | Effort |
+|------------|----------|--------|
+| 53-B-A | Extraction TemplateResolver + ConditionEvaluator (~250 lignes) | 0.5 jour |
+| 53-B-B | Extraction SetVariableBlockExecutor (~196 lignes) | 0.5 jour |
+| 53-B-C | Nettoyage dispatch + suppression legacy (~180 lignes) | 0.5 jour |
+| 53-B-D | Extraction SessionHelper + reduction ForEach (~300 lignes) | 0.5 jour |
+| 53-B-E | Verification complete (build + tests + E2E) | 0.5 jour |
+
+**Gate** : NodeExecutionEngine < 1500 lignes. Tous les tests passent. Zero regression.
+
+**Plan detaille** : `docs/phases/PHASE-53-B/README.md`
+
+---
+
+### Phase 54 : Re-verification Phase 52 — Contract Test Runner + FitnessScore — COMPLETE
+
+**Resultats** : Test-suites supprimees (tests dans contract JSON). FitnessScore.Calculate() integre. SessionId regression fixee. E2E verifie : test-designer 3 iterations, 12 tests, fitness=0.0037 (P=0.3). 5 bugs E2E corriges (output serialization, blockType mismatch, checkpoint recursion, missing executors, shell config fallback).
+
+**Checkpoint** : `docs/phases/PHASE-54/checkpoint.md`
+
+---
+
+### Phase 55 : Agent agent-creator — Implementation du contract agent-creator
+
+**But** : Agent avec boucle create-test-fix. Cree des blocks, les teste contre un contract, itere jusqu'a ce que les tests passent.
+
+| Sous-phase | Objectif | Effort |
+|------------|----------|--------|
+| 55-A | Block definition + system prompt complexe (anatomie block, conventions, adaptation) | 2.5 jours |
+| 55-B | Test de la boucle create-test-fix, mode adaptation, validation contract | 2 jours |
+
+**Gate** : L'agent cree un block valide qui passe les tests du contract cible. La boucle create-test-fix fonctionne.
+
+**Plan detaille** : `docs/phases/PHASE-55/README.md`
+
+---
+
+### Phase 56 : Workflow block-forge + Integration TUI/CLI
+
+**But** : Assembler test-designer et agent-creator dans un workflow. TUI `/create-agent` et CLI `maestro create-agent`. 2 contracts supplementaires. Dogfooding.
+
+| Sous-phase | Objectif | Effort |
+|------------|----------|--------|
+| 56-A | Workflow block-forge + inference request-analyzer + 2 contracts (code-reviewer, test-generator) | 1.5 jours |
+| 56-B | TUI /create-agent + CLI maestro create-agent + demo mode | 1.5 jours |
+| 56-C | Dogfooding : 2 agents crees via /create-agent, comparaison vs creation manuelle | 1 jour |
+
+**Gate** : 2 agents crees via /create-agent avec fitness > 0.5. Score experience >= 3/5.
+
+---
+
+### Phase 57 : /adapt = Workflow block-forge + Contract Resolution
+
+**But** : `/adapt` utilise block-forge pour creer des variantes d'un block optimisees pour un modele/hardware donne. La variante implemente le meme contract que l'original. `contractRef` dans les workflows.
+
+| Sous-phase | Objectif | Effort |
+|------------|----------|--------|
+| 57-A | Commande /adapt : invoque block-forge avec baseBlockId + targetModel | 2-3 jours |
+| 57-B | `contractRef` dans les workflows (resolution runtime + verification capabilities) | 1-2 jours |
+| 57-C | Integration TUI : `/adapt` dans AgentPanel, `[A]` dans CatalogScreen | 1 jour |
+
+---
+
+### Phase 58 : Production des variantes pre-testees
 
 **But** : Utiliser `/adapt` pour creer ~30 implementations du contract `maestro-assistant` avec capabilities verifiees. Config providers cloud opensource.
 
 | Sous-phase | Objectif | Effort |
 |------------|----------|--------|
-| 53-A | Configuration providers cloud opensource dans LLM-Provider .NET | 2-3 jours |
-| 53-B | Execution de `/adapt` par profil hardware (capabilities verifiees par tier) | 3-5 jours |
-| 53-C | Validation, tri, integration dans `content/system/blocks/` | 1-2 jours |
+| 58-A | Configuration providers cloud opensource dans LLM-Provider .NET | 2-3 jours |
+| 58-B | Execution de `/adapt` par profil hardware (capabilities verifiees par tier) | 3-5 jours |
+| 58-C | Validation, tri, integration dans `content/system/blocks/` | 1-2 jours |
 
-**Gate** : 15+ variantes fitness > 0.6, toutes contract `maestro-assistant`, capabilities verifiees, features actives/inactives correctes.
-
----
-
-### Phase 54 : Choix assistant au setup + Catalog par contract
-
-**But** : L'utilisateur voit les implementations du contract `maestro-assistant` compatibles avec son hardware, avec features actives/inactives, et choisit. Changement possible depuis le Catalog.
-
-| Sous-phase | Objectif | Effort |
-|------------|----------|--------|
-| 54-A | Filtrage compatibilite + feature gating UI | 1 jour |
-| 54-B | UI de choix au setup (par contract, features ✓/✗, recommended) | 1.5-2 jours |
-| 54-C | Catalog organise par contract + changement d'implementation | 1 jour |
-| 54-D | Dogfooding complet | 0.5 jour |
-
-**Gate** : L'utilisateur comprend ce qu'il gagne/perd avec chaque choix et peut changer depuis le Catalog.
+**Gate** : 15+ variantes fitness > 0.6, toutes contract `maestro-assistant`, capabilities verifiees.
 
 ---
 
-### Phase 55 : Catalogue communautaire + Auth
+### Phase 59 : Choix assistant au setup + Catalog par contract
 
-**But** : Publier et importer des blocks. Catalogue organise par contract — chercher "un code-reviewer" montre toutes les implementations avec capabilities et compatibilite hardware.
+**But** : L'utilisateur voit les implementations du contract `maestro-assistant` compatibles avec son hardware, avec features actives/inactives, et choisit.
 
 | Sous-phase | Objectif | Effort |
 |------------|----------|--------|
-| 55-A | Auth + comptes utilisateurs (JWT, SQLite) | 3-5 jours |
-| 55-B | Catalogue backend (publish/search/import par contract + capabilities) | 3-5 jours |
-| 55-C | TUI integration (local + community, par contract, filtrage hardware) | 2-3 jours |
+| 59-A | Filtrage compatibilite + feature gating UI | 1 jour |
+| 59-B | UI de choix au setup (par contract, features actives/inactives, recommended) | 1.5-2 jours |
+| 59-C | Catalog organise par contract + changement d'implementation | 1 jour |
+| 59-D | Dogfooding complet | 0.5 jour |
+
+**Gate** : L'utilisateur comprend ce qu'il gagne/perd avec chaque choix.
 
 ---
 
-### Phase 56 : Premiere version deployable
+### Phase 60 : Catalogue communautaire + Auth
 
-**But** : `npm install -g @maestro/cli && maestro init && maestro code`. L'utilisateur voit les implementations disponibles par contract, choisit, et commence a travailler.
+**But** : Publier et importer des blocks. Catalogue organise par contract.
 
 | Sous-phase | Objectif | Effort |
 |------------|----------|--------|
-| 56-A | Packaging npm, commande globale, sidecar auto-start | 3-4 jours |
-| 56-B | `maestro init` + onboarding (provider + choix assistant par contract) | 2-3 jours |
-| 56-C | Documentation : README, Getting Started, 3 exemples | 2-3 jours |
-| 56-D | Beta testing (3-5 testeurs) | 3-5 jours |
+| 60-A | Auth + comptes utilisateurs (JWT, SQLite) | 3-5 jours |
+| 60-B | Catalogue backend (publish/search/import par contract + capabilities) | 3-5 jours |
+| 60-C | TUI integration (local + community, par contract, filtrage hardware) | 2-3 jours |
+
+---
+
+### Phase 61 : Premiere version deployable
+
+**But** : `npm install -g @maestro/cli && maestro init && maestro code`.
+
+| Sous-phase | Objectif | Effort |
+|------------|----------|--------|
+| 61-A | Packaging npm, commande globale, sidecar auto-start | 3-4 jours |
+| 61-B | `maestro init` + onboarding (provider + choix assistant par contract) | 2-3 jours |
+| 61-C | Documentation : README, Getting Started, 3 exemples | 2-3 jours |
+| 61-D | Beta testing (3-5 testeurs) | 3-5 jours |
 
 **Gate** : 3 testeurs externes installent, choisissent leur assistant par contract, et accomplissent des taches reelles.
 
 ---
 
-### Phase 57+ : Self-Improvement — Maestro s'ameliore lui-meme
+### Phase 62+ : Self-Improvement — Maestro s'ameliore lui-meme
 
 **But** : Research Team observe les metriques par contract/capability → `/adapt` cree des variantes ameliorees → Workspace Orchestrator gere la promotion. L'Agent Creator s'ameliore lui-meme.
 
@@ -189,15 +287,20 @@
 ## Chaine de dependances
 
 ```
-49 Hardware-aware + capabilities + metrics (DONE)
- └→ 50 Contracts + second assistant + fondations adapt
-     └→ 51 Agent Creator (genere blocks avec contract + capabilities)
-         └→ 52 /adapt = workflow Agent Creator + contractRef
-             └→ 53 Production ~30 variantes (capabilities verifiees)
-                 └→ 54 Choix au setup par contract (features ✓/✗)
-                     └→ 55 Catalogue communautaire (par contract)
-                         └→ 56 Premiere version deployable
-                             └→ 57+ Self-improvement loop
+50 Contracts + second assistant + fondations adapt (DONE)
+ └→ 51 Contract System (schema, docs, verification, bareme) (DONE)
+     └→ 52 Agent test-designer + Contract Test Runner (DONE)
+         └→ 53 Agent = Multi-Node Blocks (DONE)
+             └→ 54 Re-verification Phase 52 (FitnessScore, tests dans contract) (DONE)
+                 └→ 53-B Decomposition NodeExecutionEngine (NEXT)
+                     └→ 55 Agent agent-creator (cree block, teste, itere)
+                         └→ 56 Workflow block-forge + /create-agent TUI/CLI
+                             └→ 57 /adapt = block-forge + contractRef
+                                 └→ 58 Production ~30 variantes
+                                     └→ 59 Choix au setup par contract
+                                         └→ 60 Catalogue communautaire
+                                             └→ 61 Premiere version deployable
+                                                 └→ 62+ Self-improvement loop
 ```
 
 ## Features planifiees (TODOS)
@@ -207,13 +310,22 @@
 | Concept contract + feature gating par capabilities | 50-A | COMPLETE |
 | Nettoyage adapt-optimize + SDK fitness | 50-B | COMPLETE |
 | Second maestro-assistant (meme contract) | 50-C | COMPLETE |
-| Agent Creator (genere contract + capabilities) | 51 | Planifie |
-| /adapt + contractRef dans workflows | 52 | Planifie |
-| Production ~30 variantes pre-testees | 53 | Planifie |
-| Choix assistant au setup par contract | 54 | Planifie |
-| Catalogue communautaire par contract | 55 | Planifie |
-| Premiere version deployable (npm) | 56 | Planifie |
-| Self-improvement loop | 57+ | Vision |
+| Contract System (schema enrichi, docs, tests, bareme) | 51 | COMPLETE |
+| Agent test-designer (contract -> tests d'acceptance) | 52-A/B | COMPLETE |
+| Contract Test Runner (execution tests, scoring, tool block) | 52-C | COMPLETE |
+| Agent = Multi-Node Blocks (response-parser, tool-dispatcher, agent-loop) | 53 | COMPLETE |
+| Re-verification Phase 52 (FitnessScore, tests dans contract) | 54 | COMPLETE |
+| **Decomposition NodeExecutionEngine (2431 → <1500 lignes)** | **53-B** | **A FAIRE** |
+| Agent agent-creator (boucle create-test-fix) | 55 | Planifie |
+| Workflow block-forge + /create-agent TUI/CLI | 56 | Planifie |
+| /adapt + contractRef dans workflows | 57 | Planifie |
+| Production ~30 variantes pre-testees | 58 | Planifie |
+| Fitness display dans le TUI (score par feature, +/- features) | 59 | Planifie |
+| Backend contract filter `GET /api/blocks?contract=X` | 59 | Planifie |
+| Choix assistant au setup par contract | 59 | Planifie |
+| Catalogue communautaire par contract | 60 | Planifie |
+| Premiere version deployable (npm) | 61 | Planifie |
+| Self-improvement loop | 62+ | Vision |
 
 ## Principes
 
@@ -224,5 +336,7 @@
 5. **Dogfooding profond** — 2h continu, taches d'orchestration, comparaison vs CLI manuel
 6. **Max 3 jours par phase** — Decouper si necessaire
 7. **Definition of Done AVANT de coder** — Chaque phase a un "NOT in scope" explicite
-8. **Nous sommes nos premiers utilisateurs** — `/adapt` et Agent Creator servent d'abord a NOUS
-9. **Contract + Capabilities** — Le contract definit le role, les capabilities determinent les features actives. Les blocks sont interchangeables au sein d'un meme contract.
+8. **Nous sommes nos premiers utilisateurs** — `/adapt` et block-forge servent d'abord a NOUS
+9. **Contract > Features > Capabilities > Tests** — Le contract definit le role verifiable. Les features groupent les fonctionnalites. Les capabilities sont atomiques. Les tests prouvent que ca marche.
+10. **Chaque agent a son contract** — Definir le contract AVANT d'implementer l'agent. TDD pour blocks.
+11. **Tout est un block** — Si c'est dans le moteur d'execution, c'est un block. Le tool dispatch est un block, pas du code interne a l'agent.

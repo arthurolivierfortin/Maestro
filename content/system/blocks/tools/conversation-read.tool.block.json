@@ -1,0 +1,66 @@
+{
+  "id": "conversation-read",
+  "name": "Conversation Read",
+  "blockType": "conversation-read",
+  "version": "1.0.0",
+  "isAtomic": true,
+  "description": "Reads all messages from a conversation, optionally applying context truncation via IContextAssembler.",
+  "inputs": [
+    {
+      "id": "conversationId",
+      "name": "Conversation ID",
+      "type": "string",
+      "required": true,
+      "description": "The conversation to read from"
+    },
+    {
+      "id": "strategy",
+      "name": "Context Strategy",
+      "type": "string",
+      "required": false,
+      "description": "Context strategy for truncation (e.g. sliding-window). If omitted, returns all messages."
+    },
+    {
+      "id": "maxTokens",
+      "name": "Max Tokens",
+      "type": "number",
+      "required": false,
+      "description": "Maximum tokens for context assembly"
+    },
+    {
+      "id": "keepLastN",
+      "name": "Keep Last N",
+      "type": "number",
+      "required": false,
+      "description": "Number of recent messages to always keep"
+    }
+  ],
+  "outputs": [
+    {
+      "id": "messages",
+      "name": "Messages",
+      "type": "string",
+      "description": "JSON array of ChatMessage objects"
+    },
+    {
+      "id": "messageCount",
+      "name": "Message Count",
+      "type": "number",
+      "description": "Number of messages returned"
+    },
+    {
+      "id": "wasTruncated",
+      "name": "Was Truncated",
+      "type": "boolean",
+      "description": "Whether context truncation was applied"
+    }
+  ],
+  "config": {
+    "toolType": "conversation-read"
+  },
+  "metadata": {
+    "category": "agent-infrastructure",
+    "tags": ["conversation", "read", "context", "agent"]
+  },
+  "capabilities": ["conversation"]
+}

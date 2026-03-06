@@ -88,11 +88,11 @@ A **tool** says: "Give me X, return Y"
 An **agent** says: "Give me a task, I reason and accomplish it"
 
 - Interface: **Same as inference** — prompt/context in, response/score out
-- Implementation: **Composite** (`isAtomic: false`) — a black box that can contain any blocks
+- Implementation: **Composite** (`isAtomic: false`) — a multi-node block with config.nodes
 - Can contain: Tools, other agents, workflows, inference blocks, validators — anything
 - Use case: Delegate reasoning and decision-making
 
-**Key insight**: An agent has the same **interface** as an inference block, but a different **nature**. From the outside, the interface is identical — a workflow node can point to an inference block OR an agent block interchangeably. But internally, the agent is composite (like a workflow): its behavior is defined by its child blocks, not by hardcoded code.
+**Key insight**: An agent has the same **interface** as an inference block, but a different **nature**. From the outside, the interface is identical — a workflow node can point to an inference block OR an agent block interchangeably. But internally, the agent is composite (like a workflow): its behavior is defined by its child blocks in `config.nodes`.
 
 ```
 From the outside (interface — identical):
@@ -101,37 +101,35 @@ From the outside (interface — identical):
 
 From the inside (implementation — different):
   inference block:  prompt → [1 LLM call] → response                             (atomic)
-  agent block:      prompt → [black box: any combination of child blocks] → response  (composite)
+  agent block:      prompt → [config.nodes: agentic loop of child blocks] → response  (composite)
 ```
 
-The agent's internal structure could be:
-- A single inference block in an agentic loop
-- Multiple inference blocks with different models
+The agent's internal structure is defined by `config.nodes` and can be:
+- A single inference block in an agentic loop (standard agent-loop template)
+- Multiple inference blocks with different models (planning agent-loop template)
 - A pipeline of tools and validators
 - A workflow with conditional branching
-- Anything — the inside is a black box defined by `config.nodes`
+- Anything — the inside is defined by config.nodes, not by C# code
 
 Tools available to the agent come from its **system prompt**, not from code. The agent uses tool calls (JSON format) to interact with its available blocks.
 
-#### How agents SHOULD work (target architecture)
+#### How agents work (Phase 53 architecture)
 
-The agent's behavior should be defined by its `config.nodes` (child blocks), not by hardcoded C# in the executor:
+The agent's behavior IS defined by its `config.nodes` (child blocks):
 
-1. The block's `config.nodes` defines child blocks (inference, tools, validators, etc.)
-2. The executor orchestrates child blocks mechanically — it doesn't know WHAT they do
-3. The system prompt describes available tools
-4. Tool call dispatch routes to child blocks by name, passing `args` as JSON inputs
-5. When the agent signals `step-complete`, the executor returns the final output
+1. `AgentBlockExecutor.PrepareExecutionAsync` creates/reuses a persistent conversation and adds the user prompt
+2. `MultiNodeBlockExecutor` delegates to `NodeExecutionEngine` which walks `config.nodes`
+3. config.nodes defines the agentic loop: conversation-read → inference → response-parse → tool-dispatch → conversation-append → repeat
+4. The system prompt describes available tools
+5. When the agent signals `step-complete`, the loop ends and `ExtractResultAsync` reads `_agentResult`
 
-**The executor is mechanical plumbing. All intelligence lives in the block's prompt. All behavior lives in the block's child nodes.**
+**The executor is thin I/O plumbing. All intelligence lives in the block's prompt. All behavior lives in config.nodes.**
 
 **There is no `tools.json` file.** Tool descriptions live in the system prompt text.
 
 **There is no hardcoded tool list or default system prompt in C#.** If `config.systemPrompt` or `system-prompt.md` is missing, the agent errors — no fallback content is invented.
 
-**Known architectural debt**: The current `AgentBlockExecutor` inherits from `LLMBlockExecutorBase` and calls `_llmGateway.SendAsync()` directly. The agentic loop (while loop, tool call parsing, conversation management) is hardcoded in C# instead of being defined by child blocks. This means the agent's internal behavior is prescribed by infrastructure code, not by its `config.nodes`. This violates the principle "the type defines its interface, not its implementation." Tracked for correction in Phase 35-PRE.
-
-**Litmus test**: Can you create a new agent by writing ONLY a `.block.json` with child nodes? If yes, the architecture is correct. If you need to modify executor code — it's violated.
+**Litmus test**: Can you create a new agent by writing ONLY a `.block.json` with child nodes and a system-prompt.md? If yes, the architecture is correct. If you need to modify executor code — it's violated.
 
 ### Workflow: Orchestration Interface
 
@@ -314,15 +312,28 @@ Metrics are a property of **execution**, not of type. A simple inference block t
 ## Key Takeaways
 
 1. **Type = Interface**: Block types define how to use them, not what they contain
-2. **Agent = Inference Block**: Same base class (`LLMBlockExecutorBase`), same interface. `AgentBlockExecutor` adds the mechanical agentic loop; `InferenceBlockExecutor` does a single call. Both are thin — all content comes from block config. No separate entity.
-3. **Tools in the Prompt**: Agent tools are described in the system prompt text, not in separate files or hardcoded lists. The agent uses `maestro_cli` as its single tool.
+2. **Agent = Multi-Node Block**: `AgentBlockExecutor` extends `MultiNodeBlockExecutor` (not `LLMBlockExecutorBase`). Same interface as inference (prompt in, text out), but composite implementation via config.nodes. All agent behavior defined in config.nodes, not in C#.
+3. **Tools in the Prompt**: Agent tools are described in the system prompt text, not in separate files or hardcoded lists.
 4. **Every Block is Measurable**: Metrics, score, version, fitness apply to ALL blocks
 5. **Fractal Composition**: Any block can contain any other blocks
 6. **Control Flow as Blocks**: Conditions and loops are blocks, not arrows
 7. **Tree Structure**: Workflows are trees that read top-to-bottom
 8. **Abstraction Enables Reuse**: Complex blocks can be used as simple building blocks
 9. **One Entity**: `BlockDefinition` is the only entity. No `AgentDefinition`, no `ToolDefinition`. Designation (`agent`/`tool`) is metadata, not a separate class.
+10. **config.nodes Required**: All composite blocks (agent, workflow, tool) must define config.nodes. Blocks without config.nodes fail with `InvalidOperationException`.
 
 ---
 
-*See also: [execution.md](execution.md) for how blocks are executed*
+## Contracts and Capabilities
+
+A block can declare:
+- **`capabilities`** (array): Atomic competences the block has — e.g., `["conversation", "tool-calling", "structured-output"]`. These are simple booleans.
+- **`contract`** (string): The contract this block implements — e.g., `"maestro-assistant"`. A contract is an external definition (`content/system/contracts/*.contract.json`) that defines features, tests, and scoring.
+
+Capabilities are properties of the block. Contracts are external standards the block is measured against. Multiple blocks can implement the same contract with different capability sets, giving users a choice between power and cost.
+
+For the full contract system documentation, see [contracts.md](contracts.md).
+
+---
+
+*See also: [execution.md](execution.md) for how blocks are executed, [contracts.md](contracts.md) for the contract system*
