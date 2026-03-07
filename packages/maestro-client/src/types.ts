@@ -58,14 +58,71 @@ export interface BlockDefinition {
 export interface ContractFeature {
   description: string;
   requires: string[];
+  weight: number;
+  minimumScore: number;
+  tests: ContractTest[];
+}
+
+export interface ContractTest {
+  id: string;
+  description: string;
+  prompt?: string;
+  turns?: { prompt: string; check?: Record<string, unknown> }[];
+  check?: Record<string, unknown>;
 }
 
 export interface ContractDefinition {
   id: string;
   name: string;
+  version: string;
   description: string;
   requiredCapabilities: string[];
+  minimumFitness: number;
   features: Record<string, ContractFeature>;
+}
+
+export interface ContractTestResult {
+  contractId: string;
+  contractVersion: string;
+  blockId: string;
+  fitness: number;
+  performanceScore: number;
+  fitnessBreakdown: FitnessBreakdown | null;
+  passed: boolean;
+  meetsRequiredCapabilities: boolean;
+  features: FeatureTestResult[];
+  testResults: SingleTestResult[];
+  totalTests: number;
+  passedTests: number;
+  failedTests: number;
+  skippedTests: number;
+  durationMs: number;
+  estimatedCostUsd: number;
+  failureReasons: string[];
+}
+
+export interface FeatureTestResult {
+  featureId: string;
+  description: string;
+  active: boolean;
+  score: number;
+  weight: number;
+  minimumScore: number;
+  meetsThreshold: boolean;
+  testsPassed: number;
+  testsTotal: number;
+}
+
+export interface SingleTestResult {
+  testId: string;
+  featureId: string;
+  description: string | null;
+  passed: boolean;
+  skipped: boolean;
+  checkType: string | null;
+  response: string | null;
+  failureReason: string | null;
+  durationMs: number;
 }
 
 export interface BlockPort {
@@ -455,6 +512,34 @@ export interface AggregateFitnessStats {
   fitnessStdDev: number;
   sampleCount: number;
   averageBreakdown?: FitnessBreakdown;
+}
+
+// ── Block Dependency Tree ────────────────────────────────────
+
+export interface BlockDependencyManifest {
+  blockId: string;
+  blockType: string;
+  model: string | null;
+  planningModel: string | null;
+  isAtomic: boolean;
+  children: BlockDependencyManifest[];
+}
+
+export interface ModelRequirement {
+  model: string;
+  blockIds: string[];
+}
+
+export interface MissingDependency {
+  blockRef: string;
+  referencedBy: string;
+  nodeId: string;
+}
+
+export interface DependencyValidationResult {
+  isValid: boolean;
+  missingBlocks: MissingDependency[];
+  circularReferences: string[];
 }
 
 // ── SignalR Events ───────────────────────────────────────────

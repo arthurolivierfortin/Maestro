@@ -54,6 +54,12 @@ public sealed class ModelInfo
     public IReadOnlyList<string> Capabilities { get; }
 
     /// <summary>
+    /// Estimated number of parameters in billions (e.g., 70 for a 70B model).
+    /// Null when the parameter count is unknown.
+    /// </summary>
+    public double? ParametersBillions { get; }
+
+    /// <summary>
     /// Whether this model is currently available.
     /// </summary>
     public bool IsAvailable { get; }
@@ -88,7 +94,8 @@ public sealed class ModelInfo
         decimal? outputTokenPrice = null,
         string? description = null,
         IEnumerable<string>? capabilities = null,
-        bool isAvailable = true)
+        bool isAvailable = true,
+        double? parametersBillions = null)
     {
         if (string.IsNullOrWhiteSpace(name))
         {
@@ -110,6 +117,7 @@ public sealed class ModelInfo
         Description = description;
         Capabilities = capabilities?.ToList().AsReadOnly() ?? (IReadOnlyList<string>)[];
         IsAvailable = isAvailable;
+        ParametersBillions = parametersBillions;
         LastUpdated = DateTimeOffset.UtcNow;
     }
 

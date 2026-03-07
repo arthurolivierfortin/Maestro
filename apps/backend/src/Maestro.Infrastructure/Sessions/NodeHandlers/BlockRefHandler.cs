@@ -57,7 +57,10 @@ public class BlockRefHandler : INodeHandler
         // Resolve the block definition
         var block = await _blockDiscovery.GetByIdAsync(SessionHelper.NormalizeBlockId(blockRefId), session.BlockSearchPaths);
         if (block == null)
-            throw new InvalidOperationException($"Block not found: {blockRefId}");
+            throw new InvalidOperationException(
+                $"Block not found: '{blockRefId}'. " +
+                $"Referenced by node '{nodeId}'. " +
+                $"Run 'maestro block deps <parent-block>' to see all dependencies.");
 
         var executor = _executorRegistry.Get(block.BlockType);
         if (executor == null)
@@ -99,6 +102,9 @@ public class BlockRefHandler : INodeHandler
         try
         {
             var result = await executor.ExecuteAsync(block, execContext, inputs);
+
+            // Accumulate costs in session variables for parent block cost propagation
+            AccumulateCosts(session, result);
 
             if (result.Logs is { Count: > 0 })
             {
@@ -246,6 +252,22 @@ public class BlockRefHandler : INodeHandler
         return result.Success
             ? $"Block '{blockRefId}' completed successfully"
             : $"Block '{blockRefId}' failed";
+    }
+
+    /// <summary>
+    /// Accumulates block execution costs into session variables for parent block cost propagation.
+    /// Variables: _accumulatedCost, _accumulatedPromptTokens, _accumulatedCompletionTokens.
+    /// </summary>
+    private static void AccumulateCosts(ProjectSession session, BlockExecutionResult result)
+    {
+        var currentCost = decimal.TryParse(session.GetVariable("_accumulatedCost")?.ToString(), out var c) ? c : 0m;
+        session.SetVariable("_accumulatedCost", (currentCost + result.EstimatedCostUsd).ToString(System.Globalization.CultureInfo.InvariantCulture));
+
+        var currentPromptTokens = int.TryParse(session.GetVariable("_accumulatedPromptTokens")?.ToString(), out var pt) ? pt : 0;
+        session.SetVariable("_accumulatedPromptTokens", (currentPromptTokens + result.PromptTokens).ToString());
+
+        var currentCompletionTokens = int.TryParse(session.GetVariable("_accumulatedCompletionTokens")?.ToString(), out var cpt) ? cpt : 0;
+        session.SetVariable("_accumulatedCompletionTokens", (currentCompletionTokens + result.CompletionTokens).ToString());
     }
 
     private void LogBlockLLMActivity(

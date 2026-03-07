@@ -95,7 +95,8 @@ public sealed class AzureLLMProvider : ILLMProvider
             outputTokenPrice: d.OutputTokenPrice,
             description: $"Azure OpenAI deployment: {d.DeploymentName}",
             capabilities: d.Capabilities,
-            isAvailable: true
+            isAvailable: true,
+            parametersBillions: d.ParametersBillions
         )).ToList().AsReadOnly();
 
         return Task.FromResult<IReadOnlyList<ModelInfo>>(models);

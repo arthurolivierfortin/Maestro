@@ -22,11 +22,13 @@ public abstract class LLMBlockExecutorBase : IBlockExecutor
 {
     protected readonly ILLMGateway _llmGateway;
     protected readonly IExecutionMonitor? _monitor;
+    protected readonly IModelPricingService? _pricingService;
 
-    protected LLMBlockExecutorBase(ILLMGateway llmGateway, IExecutionMonitor? monitor = null)
+    protected LLMBlockExecutorBase(ILLMGateway llmGateway, IExecutionMonitor? monitor = null, IModelPricingService? pricingService = null)
     {
         _llmGateway = llmGateway ?? throw new ArgumentNullException(nameof(llmGateway));
         _monitor = monitor;
+        _pricingService = pricingService;
     }
 
     public abstract string SupportedType { get; }
@@ -231,50 +233,44 @@ public abstract class LLMBlockExecutorBase : IBlockExecutor
     }
 
     /// <summary>
-    /// Estimates cost in USD based on model ID and token counts.
-    /// Lookup per million tokens. Returns 0 for unknown/local models.
+    /// Estimates cost in USD using the pricing service (async, preferred).
+    /// Falls back to static fallback if pricing service is unavailable.
+    /// </summary>
+    protected async Task<decimal> EstimateCostAsync(string? modelId, int promptTokens, int completionTokens)
+    {
+        if (string.IsNullOrEmpty(modelId) || (promptTokens == 0 && completionTokens == 0))
+            return 0m;
+
+        if (_pricingService != null)
+            return await _pricingService.EstimateCostAsync(modelId, promptTokens, completionTokens);
+
+        return EstimateCostFallback(modelId, promptTokens, completionTokens);
+    }
+
+    /// <summary>
+    /// Static fallback cost estimation for when no pricing service is available.
+    /// Uses generic defaults: $5/$15 per million for cloud, $0/$0 for local.
     /// </summary>
     internal static decimal EstimateCost(string? modelId, int promptTokens, int completionTokens)
+    {
+        return EstimateCostFallback(modelId, promptTokens, completionTokens);
+    }
+
+    private static decimal EstimateCostFallback(string? modelId, int promptTokens, int completionTokens)
     {
         if (string.IsNullOrEmpty(modelId) || (promptTokens == 0 && completionTokens == 0))
             return 0m;
 
         var id = modelId.ToLowerInvariant();
 
-        decimal inputPerM, outputPerM;
+        // Local models: free
+        if (id.Contains("qwen") || id.Contains("llama") || id.Contains("smollm") || id.Contains("local")
+            || id.Contains("mistral") || id.Contains("mixtral") || id.Contains("phi") || id.Contains("gemma") || id.Contains("deepseek"))
+            return 0m;
 
-        if (id.Contains("opus"))
-        {
-            inputPerM = 15m; outputPerM = 75m;
-        }
-        else if (id.Contains("sonnet"))
-        {
-            inputPerM = 3m; outputPerM = 15m;
-        }
-        else if (id.Contains("haiku") && (id.Contains("4.5") || id.Contains("4-5")))
-        {
-            inputPerM = 0.80m; outputPerM = 4m;
-        }
-        else if (id.Contains("haiku"))
-        {
-            inputPerM = 0.25m; outputPerM = 1.25m;
-        }
-        else if (id.Contains("gpt-4o"))
-        {
-            inputPerM = 2.50m; outputPerM = 10m;
-        }
-        else if (id.Contains("gpt-4"))
-        {
-            inputPerM = 30m; outputPerM = 60m;
-        }
-        else if (id.Contains("qwen") || id.Contains("llama") || id.Contains("smollm") || id.Contains("local"))
-        {
-            return 0m;
-        }
-        else
-        {
-            return 0m;
-        }
+        // Default fallback for cloud models: $5/$15 per million
+        decimal inputPerM = 5m;
+        decimal outputPerM = 15m;
 
         return (promptTokens * inputPerM / 1_000_000m) + (completionTokens * outputPerM / 1_000_000m);
     }

@@ -30,10 +30,31 @@
 | XX-A | [Titre] | [Estimation] |
 | XX-B | [Titre] | [Estimation] |
 | XX-C | [Titre] | [Estimation] |
+| XX-T | Tests | [Estimation] |
+
+> **Regle 1** : Chaque sous-phase DOIT avoir son propre document `PHASE-XX-A.md`, `PHASE-XX-B.md`, etc. dans le dossier de la phase.
+> Le README.md contient la vue d'ensemble. Les sous-phase docs contiennent le detail complet (lecture obligatoire, actions, verification, anti-patterns, checkpoint).
+>
+> **Regle 2 — Sous-phase de tests OBLIGATOIRE** : Toute phase qui ajoute des fonctionnalites DOIT inclure une sous-phase dediee aux tests (generalement la derniere, nommee `XX-T`).
+> Cette sous-phase couvre **chaque couche applicable** du Testing Protocol (`docs/system/TESTING-PROTOCOL.md`) :
+>
+> | Couche | Quand obligatoire |
+> |--------|-------------------|
+> | C1 — Type Check | Toujours |
+> | C2 — Tests unitaires | Toujours (1 test minimum par feature ajoutee) |
+> | C3 — Visual Gate (PTY) | Si TUI modifie |
+> | C4 — Real Demo Check | Si TUI modifie |
+> | C5 — Tests d'integration | Si backend/API/SDK modifie |
+> | C6 — E2E Dogfooding | En fin de phase (sous-agent separe) |
+>
+> La sous-phase de tests DOIT lister : quelles couches s'appliquent, quels tests creer, quels scenarios couvrir.
+> **Ne PAS planifier de features sans planifier leurs tests.** Une phase sans sous-phase de tests est invalide.
 
 ---
 
 ## XX-A : [Titre] [OBLIGATOIRE — repeter pour chaque sous-phase]
+
+> Ce qui suit est le contenu du fichier `PHASE-XX-A.md` (un fichier par sous-phase).
 
 ### Lecture obligatoire [OBLIGATOIRE]
 - `chemin/vers/fichier1.ts` — [pourquoi le lire : "comprendre le pattern de commandes"]
@@ -129,6 +150,9 @@ Fichier `docs/phases/PHASE-XX/checkpoint.md` — format defini dans AGENT-PROTOC
 
 Avant de publier un plan, verifier :
 
+- [ ] Chaque sous-phase a son propre fichier `PHASE-XX-A.md` (pas tout dans le README)
+- [ ] Une sous-phase de tests (XX-T) existe et couvre chaque couche applicable du Testing Protocol
+- [ ] La sous-phase de tests liste les tests a creer et les scenarios a couvrir
 - [ ] Chaque sous-phase a "Lecture obligatoire" avec des chemins reels (pas de placeholders)
 - [ ] Chaque sous-phase a "Fichiers a modifier" avec des chemins exacts
 - [ ] Chaque sous-phase a "Verification" avec des commandes executables

@@ -31,8 +31,9 @@ public class NodeExecutionEngine : INodeExecutionCallback
     private readonly ISessionStateManager _stateManager;
     private readonly ILogger<NodeExecutionEngine> _logger;
 
-    // Handler registry: nodeType -> handler (null key = blockRef default handler)
-    private readonly Dictionary<string?, INodeHandler> _handlers;
+    // Handler registry: nodeType -> handler
+    private readonly Dictionary<string, INodeHandler> _handlers;
+    private INodeHandler? _blockRefHandler; // Handler for blockRef nodes (NodeType == null)
 
     public NodeExecutionEngine(
         IProjectSessionRepository repository,
@@ -44,16 +45,21 @@ public class NodeExecutionEngine : INodeExecutionCallback
         _stateManager = stateManager;
         _logger = logger;
 
-        _handlers = new Dictionary<string?, INodeHandler>();
+        _handlers = new Dictionary<string, INodeHandler>();
         foreach (var handler in handlers)
-            _handlers[handler.NodeType] = handler;
+        {
+            if (handler.NodeType == null)
+                _blockRefHandler = handler;
+            else
+                _handlers[handler.NodeType] = handler;
+        }
     }
 
     /// <summary>
     /// Gets the handler for blockRef nodes (NodeType == null).
     /// Used by the engine's own control flow nodes to dispatch inline blockRefs.
     /// </summary>
-    private INodeHandler? BlockRefHandler => _handlers.TryGetValue(null, out var h) ? h : null;
+    private INodeHandler? BlockRefHandler => _blockRefHandler;
 
     // ===== Config-Driven Node Execution =====
 

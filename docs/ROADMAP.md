@@ -1,6 +1,6 @@
 # Maestro — Roadmap
 
-**Derniere mise a jour** : 2026-03-06
+**Derniere mise a jour** : 2026-03-07
 **Version actuelle** : v0.1.0-alpha (tag sur main)
 
 ---
@@ -56,6 +56,10 @@
 | 53 | Agent et Workflow = Multi-Node Blocks (EntryPointExecutor 4272→196 lignes, 9 executors) | COMPLETE |
 | 54 | Re-verification Phase 52 — FitnessScore, tests dans contract, E2E (fitness=0.0037) | COMPLETE |
 | 53-B | Decomposition NodeExecutionEngine (2431 → 1815 lignes, 3 classes extraites) | COMPLETE |
+| 53-C | INodeHandler extraction + DispatchNodeAsync (1792 → 786 lignes, 3 handlers) | COMPLETE |
+| 55 | Block Dependency Resolution (manifest, validation, reverse lookup) | COMPLETE |
+| 56 | Metrics Pipeline — Fitness Accuracy (chaine de cout, ModelProfile) | COMPLETE |
+| 57 | Agent agent-creator (block definition + system prompt + contract test fix) | COMPLETE |
 
 ---
 
@@ -88,14 +92,17 @@
 3. Agent et Workflow = Multi-Node Blocks (plus de monolithe)           ← Phase 53 ✓
 4. Re-verification Phase 52 (FitnessScore, tests dans contract)      ← Phase 54 ✓
 4b. Decomposition NodeExecutionEngine (2431 → 1815 lignes)           ← Phase 53-B ✓
-5. Agent agent-creator (cree un block, teste, itere)                  ← Phase 55 (NEXT)
-6. Workflow block-forge + /create-agent TUI/CLI                       ← Phase 56
-7. /adapt = workflow block-forge avec baseBlockId                     ← Phase 57
-8. Production ~30 variantes pre-testees avec /adapt                   ← Phase 58
-9. Choix assistant au setup + Catalog par contract                    ← Phase 59
-10. Catalogue communautaire organise par contract                     ← Phase 60
-11. Premiere version deployable                                       ← Phase 61
-12. Self-improvement loop                                             ← Phase 62+
+4c. INodeHandler extraction + DispatchNodeAsync (1792 → 786 lignes)  ← Phase 53-C ✓
+5. Block Dependency Resolution (manifest, validation, reverse lookup)  ← Phase 55 ✓
+6. Metrics Pipeline — Fitness Accuracy (chaine de cout, ModelProfile)  ← Phase 56 ✓
+7. Agent agent-creator (cree un block, teste, itere)                   ← Phase 57 ✓
+8. Workflow block-forge + /create-agent TUI/CLI                        ← Phase 58
+9. /adapt = workflow block-forge avec baseBlockId                      ← Phase 59
+10. Production ~30 variantes pre-testees avec /adapt                   ← Phase 60
+11. Choix assistant au setup + Catalog par contract                    ← Phase 61
+12. Catalogue communautaire organise par contract                      ← Phase 62
+13. Premiere version deployable                                        ← Phase 63
+14. Self-improvement loop                                              ← Phase 64+
 ```
 
 ---
@@ -164,6 +171,14 @@
 
 ---
 
+### Phase 53-C : INodeHandler Extraction + DispatchNodeAsync — COMPLETE
+
+**Resultats** : NodeExecutionEngine 1792 → 786 lignes (-56.1%). 3 handlers extraits (ForEachNodeHandler, BlockRefHandler, SetVariableNodeHandler). DispatchNodeAsync = point de dispatch unique (elimine duplication + corrige 3 bugs dans parallel dispatch). Open/Closed : nouveau node type = nouvelle classe + DI, zero changement engine.
+
+**Checkpoint** : `docs/phases/PHASE-53-C/checkpoint.md`
+
+---
+
 ### Phase 54 : Re-verification Phase 52 — Contract Test Runner + FitnessScore — COMPLETE
 
 **Resultats** : Test-suites supprimees (tests dans contract JSON). FitnessScore.Calculate() integre. SessionId regression fixee. E2E verifie : test-designer 3 iterations, 12 tests, fitness=0.0037 (P=0.3). 5 bugs E2E corriges (output serialization, blockType mismatch, checkpoint recursion, missing executors, shell config fallback).
@@ -172,104 +187,135 @@
 
 ---
 
-### Phase 55 : Agent agent-creator — Implementation du contract agent-creator
+### Phase 55 : Block Dependency Resolution
 
-**But** : Agent avec boucle create-test-fix. Cree des blocks, les teste contre un contract, itere jusqu'a ce que les tests passent.
+**But** : Infrastructure fondamentale pour resoudre, valider et visualiser l'arbre de dependances des blocks multi-noeud. Prerequis pour la propagation des couts (Phase 56), /adapt, publication, et affichage catalog.
 
-| Sous-phase | Objectif | Effort |
-|------------|----------|--------|
-| 55-A | Block definition + system prompt complexe (anatomie block, conventions, adaptation) | 2.5 jours |
-| 55-B | Test de la boucle create-test-fix, mode adaptation, validation contract | 2 jours |
+| Tache | Objectif | Effort |
+|-------|----------|--------|
+| 1 | IBlockDependencyService (manifest, models, validation, reverse lookup) | 1 jour |
+| 2 | API endpoints (manifest, manifest/models, manifest/validate) | 0.25 jour |
+| 3 | Validation pre-execution (warning dans EntryPointExecutor) | 0.25 jour |
+| 4 | SDK + CLI (`client.blocks.manifest()`, `maestro block deps`) | 0.25 jour |
+| 5 | Refactorer adapt-optimize.ts (supprimer extractManifest local, utiliser SDK) | 0.25 jour |
 
-**Gate** : L'agent cree un block valide qui passe les tests du contract cible. La boucle create-test-fix fonctionne.
+**Gate** : `maestro block deps maestro-assistant` affiche l'arbre complet avec modeles requis et validation OK.
 
 **Plan detaille** : `docs/phases/PHASE-55/README.md`
 
 ---
 
-### Phase 56 : Workflow block-forge + Integration TUI/CLI
+### Phase 56 : Metrics Pipeline — Fitness Accuracy
+
+**But** : Rendre le fitness score reel. Reparer la chaine de cout (ContractTestRunner ne somme pas les couts), connecter ModelProfile a LLM-Provider, supprimer les tables de prix hardcodees.
+
+| Sous-phase | Objectif | Effort |
+|------------|----------|--------|
+| 56-A | Reparer la chaine de cout (accumulation, resolution modele, suppression hardcode, propagation multi-modele) | 1 jour |
+| 56-B | SDK + CLI + LLM-Provider enrichissement (ParametersBillions, contracts domain) | 0.5 jour |
+| 56-C | TUI + Validation E2E ([T] test, fitness affichage, E2E complet) | 1 jour |
+
+**Gate** : Contract test retourne `EstimatedCostUsd > 0` et un fitness qui reflete le vrai cout du modele.
+
+**Plan detaille** : `docs/phases/PHASE-56/README.md`
+
+---
+
+### Phase 57 : Agent agent-creator — Implementation du contract agent-creator — COMPLETE
+
+**Resultats** : Block definition (agent-creator.agent.block.json) + system prompt (994 lignes, 9 sections). Directory-list tool publie. ContractTestRunner fix (conversationHistory). Limite identifiee : contract tests inadequats pour blocks agentiques (verifient le texte de reponse, pas les fichiers crees).
+
+**Checkpoint** : `docs/phases/PHASE-57/checkpoint.md`
+
+---
+
+### Phase 58 : Workflow block-forge + Integration TUI/CLI
 
 **But** : Assembler test-designer et agent-creator dans un workflow. TUI `/create-agent` et CLI `maestro create-agent`. 2 contracts supplementaires. Dogfooding.
 
 | Sous-phase | Objectif | Effort |
 |------------|----------|--------|
-| 56-A | Workflow block-forge + inference request-analyzer + 2 contracts (code-reviewer, test-generator) | 1.5 jours |
-| 56-B | TUI /create-agent + CLI maestro create-agent + demo mode | 1.5 jours |
-| 56-C | Dogfooding : 2 agents crees via /create-agent, comparaison vs creation manuelle | 1 jour |
+| 58-A | Workflow block-forge + inference request-analyzer + 2 contracts (code-reviewer, test-generator) | 1.5 jours |
+| 58-B | TUI /create-agent + CLI maestro create-agent + demo mode | 1.5 jours |
+| 58-C | Dogfooding : 2 agents crees via /create-agent, comparaison vs creation manuelle | 1 jour |
 
 **Gate** : 2 agents crees via /create-agent avec fitness > 0.5. Score experience >= 3/5.
 
+**Plan detaille** : `docs/phases/PHASE-58/README.md`
+
 ---
 
-### Phase 57 : /adapt = Workflow block-forge + Contract Resolution
+### Phase 59 : /adapt = Workflow block-forge + Contract Resolution
 
 **But** : `/adapt` utilise block-forge pour creer des variantes d'un block optimisees pour un modele/hardware donne. La variante implemente le meme contract que l'original. `contractRef` dans les workflows.
 
 | Sous-phase | Objectif | Effort |
 |------------|----------|--------|
-| 57-A | Commande /adapt : invoque block-forge avec baseBlockId + targetModel | 2-3 jours |
-| 57-B | `contractRef` dans les workflows (resolution runtime + verification capabilities) | 1-2 jours |
-| 57-C | Integration TUI : `/adapt` dans AgentPanel, `[A]` dans CatalogScreen | 1 jour |
+| 59-A | Commande /adapt : invoque block-forge avec baseBlockId + targetModel | 2-3 jours |
+| 59-B | `contractRef` dans les workflows (resolution runtime + verification capabilities) | 1-2 jours |
+| 59-C | Integration TUI : `/adapt` dans AgentPanel, `[A]` dans CatalogScreen | 1 jour |
 
 ---
 
-### Phase 58 : Production des variantes pre-testees
+### Phase 60 : Production des variantes pre-testees
 
 **But** : Utiliser `/adapt` pour creer ~30 implementations du contract `maestro-assistant` avec capabilities verifiees. Config providers cloud opensource.
 
 | Sous-phase | Objectif | Effort |
 |------------|----------|--------|
-| 58-A | Configuration providers cloud opensource dans LLM-Provider .NET | 2-3 jours |
-| 58-B | Execution de `/adapt` par profil hardware (capabilities verifiees par tier) | 3-5 jours |
-| 58-C | Validation, tri, integration dans `content/system/blocks/` | 1-2 jours |
+| 60-A | Configuration providers cloud opensource dans LLM-Provider .NET | 2-3 jours |
+| 60-B | Execution de `/adapt` par profil hardware (capabilities verifiees par tier) | 3-5 jours |
+| 60-C | Validation, tri, integration dans `content/system/blocks/` | 1-2 jours |
 
 **Gate** : 15+ variantes fitness > 0.6, toutes contract `maestro-assistant`, capabilities verifiees.
 
+**Plan detaille** : `docs/phases/PHASE-60/README.md`
+
 ---
 
-### Phase 59 : Choix assistant au setup + Catalog par contract
+### Phase 61 : Choix assistant au setup + Catalog par contract
 
 **But** : L'utilisateur voit les implementations du contract `maestro-assistant` compatibles avec son hardware, avec features actives/inactives, et choisit.
 
 | Sous-phase | Objectif | Effort |
 |------------|----------|--------|
-| 59-A | Filtrage compatibilite + feature gating UI | 1 jour |
-| 59-B | UI de choix au setup (par contract, features actives/inactives, recommended) | 1.5-2 jours |
-| 59-C | Catalog organise par contract + changement d'implementation | 1 jour |
-| 59-D | Dogfooding complet | 0.5 jour |
+| 61-A | Filtrage compatibilite + feature gating UI | 1 jour |
+| 61-B | UI de choix au setup (par contract, features actives/inactives, recommended) | 1.5-2 jours |
+| 61-C | Catalog organise par contract + changement d'implementation | 1 jour |
+| 61-D | Dogfooding complet | 0.5 jour |
 
 **Gate** : L'utilisateur comprend ce qu'il gagne/perd avec chaque choix.
 
 ---
 
-### Phase 60 : Catalogue communautaire + Auth
+### Phase 62 : Catalogue communautaire + Auth
 
 **But** : Publier et importer des blocks. Catalogue organise par contract.
 
 | Sous-phase | Objectif | Effort |
 |------------|----------|--------|
-| 60-A | Auth + comptes utilisateurs (JWT, SQLite) | 3-5 jours |
-| 60-B | Catalogue backend (publish/search/import par contract + capabilities) | 3-5 jours |
-| 60-C | TUI integration (local + community, par contract, filtrage hardware) | 2-3 jours |
+| 62-A | Auth + comptes utilisateurs (JWT, SQLite) | 3-5 jours |
+| 62-B | Catalogue backend (publish/search/import par contract + capabilities) | 3-5 jours |
+| 62-C | TUI integration (local + community, par contract, filtrage hardware) | 2-3 jours |
 
 ---
 
-### Phase 61 : Premiere version deployable
+### Phase 63 : Premiere version deployable
 
 **But** : `npm install -g @maestro/cli && maestro init && maestro code`.
 
 | Sous-phase | Objectif | Effort |
 |------------|----------|--------|
-| 61-A | Packaging npm, commande globale, sidecar auto-start | 3-4 jours |
-| 61-B | `maestro init` + onboarding (provider + choix assistant par contract) | 2-3 jours |
-| 61-C | Documentation : README, Getting Started, 3 exemples | 2-3 jours |
-| 61-D | Beta testing (3-5 testeurs) | 3-5 jours |
+| 63-A | Packaging npm, commande globale, sidecar auto-start | 3-4 jours |
+| 63-B | `maestro init` + onboarding (provider + choix assistant par contract) | 2-3 jours |
+| 63-C | Documentation : README, Getting Started, 3 exemples | 2-3 jours |
+| 63-D | Beta testing (3-5 testeurs) | 3-5 jours |
 
 **Gate** : 3 testeurs externes installent, choisissent leur assistant par contract, et accomplissent des taches reelles.
 
 ---
 
-### Phase 62+ : Self-Improvement — Maestro s'ameliore lui-meme
+### Phase 64+ : Self-Improvement — Maestro s'ameliore lui-meme
 
 **But** : Research Team observe les metriques par contract/capability → `/adapt` cree des variantes ameliorees → Workspace Orchestrator gere la promotion. L'Agent Creator s'ameliore lui-meme.
 
@@ -284,14 +330,17 @@
          └→ 53 Agent = Multi-Node Blocks (DONE)
              └→ 54 Re-verification Phase 52 (FitnessScore, tests dans contract) (DONE)
                  └→ 53-B Decomposition NodeExecutionEngine (DONE)
-                     └→ 55 Agent agent-creator (cree block, teste, itere) (NEXT)
-                         └→ 56 Workflow block-forge + /create-agent TUI/CLI
-                             └→ 57 /adapt = block-forge + contractRef
-                                 └→ 58 Production ~30 variantes
-                                     └→ 59 Choix au setup par contract
-                                         └→ 60 Catalogue communautaire
-                                             └→ 61 Premiere version deployable
-                                                 └→ 62+ Self-improvement loop
+                     └→ 53-C INodeHandler + DispatchNodeAsync (DONE)
+                         └→ 55 Block Dependency Resolution (manifest, validation) ✓
+                             └→ 56 Metrics Pipeline — Fitness Accuracy ✓
+                                 └→ 57 Agent agent-creator (cree block, teste, itere) ✓
+                                     └→ 58 Workflow block-forge + /create-agent TUI/CLI
+                                         └→ 59 /adapt = block-forge + contractRef
+                                             └→ 60 Production ~30 variantes
+                                                 └→ 61 Choix au setup par contract
+                                                     └→ 62 Catalogue communautaire
+                                                         └→ 63 Premiere version deployable
+                                                             └→ 64+ Self-improvement loop
 ```
 
 ## Features planifiees (TODOS)
@@ -307,16 +356,19 @@
 | Agent = Multi-Node Blocks (response-parser, tool-dispatcher, agent-loop) | 53 | COMPLETE |
 | Re-verification Phase 52 (FitnessScore, tests dans contract) | 54 | COMPLETE |
 | Decomposition NodeExecutionEngine (2431 → 1815 lignes) | 53-B | COMPLETE |
-| Agent agent-creator (boucle create-test-fix) | 55 | Planifie |
-| Workflow block-forge + /create-agent TUI/CLI | 56 | Planifie |
-| /adapt + contractRef dans workflows | 57 | Planifie |
-| Production ~30 variantes pre-testees | 58 | Planifie |
-| Fitness display dans le TUI (score par feature, +/- features) | 59 | Planifie |
-| Backend contract filter `GET /api/blocks?contract=X` | 59 | Planifie |
-| Choix assistant au setup par contract | 59 | Planifie |
-| Catalogue communautaire par contract | 60 | Planifie |
-| Premiere version deployable (npm) | 61 | Planifie |
-| Self-improvement loop | 62+ | Vision |
+| INodeHandler extraction + DispatchNodeAsync (1792 → 786 lignes) | 53-C | COMPLETE |
+| Block Dependency Resolution (manifest, validation, reverse lookup) | 55 | COMPLETE |
+| Metrics Pipeline — chaine de cout, ModelProfile, fitness reel | 56 | COMPLETE |
+| Agent agent-creator (boucle create-test-fix) | 57 | COMPLETE |
+| Workflow block-forge + /create-agent TUI/CLI | 58 | Planifie |
+| /adapt + contractRef dans workflows | 59 | Planifie |
+| Production ~30 variantes pre-testees | 60 | Planifie |
+| Fitness display dans le TUI (score par feature, +/- features) | 61 | Planifie |
+| Backend contract filter `GET /api/blocks?contract=X` | 61 | Planifie |
+| Choix assistant au setup par contract | 61 | Planifie |
+| Catalogue communautaire par contract | 62 | Planifie |
+| Premiere version deployable (npm) | 63 | Planifie |
+| Self-improvement loop | 64+ | Vision |
 
 ## Principes
 

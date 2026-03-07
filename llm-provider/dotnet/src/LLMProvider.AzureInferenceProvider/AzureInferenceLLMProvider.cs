@@ -93,7 +93,8 @@ public sealed class AzureInferenceLLMProvider : ILLMProvider
             outputTokenPrice: m.OutputTokenPrice,
             description: $"Azure AI Inference deployment: {m.DeploymentName} ({m.ModelFamily ?? "unknown"})",
             capabilities: m.Capabilities,
-            isAvailable: true
+            isAvailable: true,
+            parametersBillions: m.ParametersBillions
         )).ToList().AsReadOnly();
 
         return Task.FromResult<IReadOnlyList<DomainModelInfo>>(models);

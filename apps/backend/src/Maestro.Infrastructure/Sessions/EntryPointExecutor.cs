@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Maestro.Application.Interfaces;
+using Maestro.Application.DTOs;
 using Maestro.Domain.ValueObjects;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -44,25 +45,29 @@ public class EntryPointExecutor
 
         _ = Task.Run(async () =>
         {
-            // Create a new DI scope so all scoped services (engine, executors, repositories)
-            // live for the entire background execution, not just the HTTP request.
-            using var scope = _scopeFactory.CreateScope();
-            var repository = scope.ServiceProvider.GetRequiredService<IProjectSessionRepository>();
-            var blockDiscovery = scope.ServiceProvider.GetRequiredService<IBlockDiscoveryService>();
-            var engine = scope.ServiceProvider.GetRequiredService<NodeExecutionEngine>();
-            var stateManager = scope.ServiceProvider.GetRequiredService<ISessionStateManager>();
-            var executorRegistry = scope.ServiceProvider.GetService<BlockExecutors.BlockExecutorRegistry>();
-
             try
             {
+                // Create a new DI scope so all scoped services (engine, executors, repositories)
+                // live for the entire background execution, not just the HTTP request.
+                using var scope = _scopeFactory.CreateScope();
+                var repository = scope.ServiceProvider.GetRequiredService<IProjectSessionRepository>();
+                var blockDiscovery = scope.ServiceProvider.GetRequiredService<IBlockDiscoveryService>();
+                var engine = scope.ServiceProvider.GetRequiredService<NodeExecutionEngine>();
+                var stateManager = scope.ServiceProvider.GetRequiredService<ISessionStateManager>();
+                var executorRegistry = scope.ServiceProvider.GetService<BlockExecutors.BlockExecutorRegistry>();
+                var dependencyService = scope.ServiceProvider.GetService<IBlockDependencyService>();
+
                 await ExecuteWorkflowAsync(sessionId, entryPoint, workflowId, invocationId, inputs,
-                    repository, blockDiscovery, engine, stateManager, executorRegistry);
+                    repository, blockDiscovery, engine, stateManager, executorRegistry, dependencyService);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Entry point execution failed: {EntryPoint} on session {SessionId}", entryPoint, sessionId.Value);
                 try
                 {
+                    using var errorScope = _scopeFactory.CreateScope();
+                    var repository = errorScope.ServiceProvider.GetRequiredService<IProjectSessionRepository>();
+                    var stateManager = errorScope.ServiceProvider.GetRequiredService<ISessionStateManager>();
                     var failedSession = await repository.GetByIdAsync(sessionId);
                     if (failedSession != null)
                     {
@@ -95,7 +100,8 @@ public class EntryPointExecutor
         IBlockDiscoveryService blockDiscovery,
         NodeExecutionEngine engine,
         ISessionStateManager stateManager,
-        BlockExecutors.BlockExecutorRegistry? executorRegistry)
+        BlockExecutors.BlockExecutorRegistry? executorRegistry,
+        IBlockDependencyService? dependencyService)
     {
         _logger.LogInformation("Starting workflow execution: {WorkflowId} for entry point {EntryPoint} on session {SessionId}",
             workflowId, entryPoint, sessionId.Value);
@@ -111,6 +117,37 @@ public class EntryPointExecutor
         if (workflowBlock == null)
         {
             _logger.LogWarning("Workflow block not found: {BlockId}. Using minimal execution.", blockId);
+        }
+
+        // 1b. Pre-execution dependency validation (WARNING only — never blocks execution)
+        // Some blockRefs are dynamic (template variables like {{selectedBlock}}) and can't be resolved statically.
+        if (workflowBlock != null && dependencyService != null)
+        {
+            try
+            {
+                var validation = await dependencyService.ValidateAsync(blockId);
+                if (!validation.IsValid)
+                {
+                    foreach (var missing in validation.MissingBlocks)
+                    {
+                        var msg = $"Missing dependency: blockRef '{missing.BlockRef}' referenced by '{missing.ReferencedBy}' node '{missing.NodeId}'";
+                        _logger.LogWarning(msg);
+                        stateManager.AppendExecutionLog(session, "warning", msg);
+                    }
+                    foreach (var circular in validation.CircularReferences)
+                    {
+                        var msg = $"Circular dependency detected: {circular}";
+                        _logger.LogWarning(msg);
+                        stateManager.AppendExecutionLog(session, "warning", msg);
+                    }
+                    await repository.SaveAsync(session);
+                }
+            }
+            catch (Exception ex)
+            {
+                // Validation itself should never block execution
+                _logger.LogWarning(ex, "Dependency validation failed for block {BlockId}, continuing execution", blockId);
+            }
         }
 
         // 2. Initialize runtime state via SessionStateManager

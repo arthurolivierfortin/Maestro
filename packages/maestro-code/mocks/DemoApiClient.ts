@@ -388,6 +388,68 @@ class DemoApiClient implements IMaestroCodeApiClient {
     return {};
   }
 
+  // ── Contract methods ──────────────────────────────────────
+
+  async listContracts() {
+    return Object.values(DEMO_CONTRACTS);
+  }
+
+  async getContract(id: string) {
+    return DEMO_CONTRACTS[id] || null;
+  }
+
+  async testContract(contractId: string, blockId: string) {
+    const contract = DEMO_CONTRACTS[contractId];
+    if (!contract) throw new Error(`Contract not found: ${contractId}`);
+
+    // Simulate a delay (real tests take 30-60s)
+    await new Promise(r => setTimeout(r, 200));
+
+    const featureIds = Object.keys(contract.features || {});
+    const features = featureIds.map(fid => ({
+      featureId: fid,
+      description: contract.features[fid]?.description || '',
+      active: true,
+      score: 0.95 + Math.random() * 0.05,
+      weight: 1.0,
+      minimumScore: 0.7,
+      meetsThreshold: true,
+      testsPassed: 5,
+      testsTotal: 5,
+    }));
+
+    const totalTests = features.length * 5;
+    return {
+      contractId,
+      contractVersion: '2.0.0',
+      blockId,
+      fitness: 0.15,
+      performanceScore: 0.95,
+      passed: true,
+      meetsRequiredCapabilities: true,
+      features,
+      testResults: [] as any[],
+      totalTests,
+      passedTests: totalTests,
+      failedTests: 0,
+      skippedTests: 0,
+      durationMs: 45200,
+      estimatedCostUsd: 0.42,
+      failureReasons: [] as string[],
+      fitnessBreakdown: {
+        performance: 0.95,
+        specialization: 0.48,
+        composability: 1.0,
+        economicCost: 2.3,
+        computeCost: 11.0,
+        hardwareCost: 1.0,
+        totalFitness: 0.15,
+        numerator: 0.81,
+        combinedCost: 4.1,
+      },
+    };
+  }
+
   async createSession(_opts: CreateSessionOptions) {
     this.startTime = Date.now();
     return { id: DEMO_SESSION_ID };

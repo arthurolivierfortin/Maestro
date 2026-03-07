@@ -69,4 +69,7 @@ public sealed class ClaudeModelConfig
 
     /// <summary>Model capabilities (chat, code, reasoning, etc.).</summary>
     public List<string> Capabilities { get; set; } = [];
+
+    /// <summary>Estimated number of parameters in billions (e.g., 70 for a 70B model). Null when unknown.</summary>
+    public double? ParametersBillions { get; set; }
 }

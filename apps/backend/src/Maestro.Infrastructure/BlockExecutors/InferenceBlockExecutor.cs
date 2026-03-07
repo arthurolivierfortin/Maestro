@@ -17,8 +17,8 @@ namespace Maestro.Infrastructure.BlockExecutors;
 /// </summary>
 public class InferenceBlockExecutor : LLMBlockExecutorBase
 {
-    public InferenceBlockExecutor(ILLMGateway llmGateway, IExecutionMonitor? monitor = null)
-        : base(llmGateway, monitor) { }
+    public InferenceBlockExecutor(ILLMGateway llmGateway, IExecutionMonitor? monitor = null, IModelPricingService? pricingService = null)
+        : base(llmGateway, monitor, pricingService) { }
 
     public override string SupportedType => "inference";
 
@@ -117,7 +117,7 @@ public class InferenceBlockExecutor : LLMBlockExecutorBase
             result.PromptTokens = response.PromptTokens;
             result.CompletionTokens = response.CompletionTokens;
             result.TotalTokens = response.TotalTokens;
-            result.EstimatedCostUsd = EstimateCost(response.Model ?? modelId, response.PromptTokens, response.CompletionTokens);
+            result.EstimatedCostUsd = await EstimateCostAsync(response.Model ?? modelId, response.PromptTokens, response.CompletionTokens);
             result.Logs.Add($"Tokens: {response.TotalTokens} (prompt={response.PromptTokens}, completion={response.CompletionTokens}), cost=${result.EstimatedCostUsd:F6}");
         }
         else

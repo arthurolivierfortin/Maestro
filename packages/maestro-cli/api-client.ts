@@ -63,6 +63,10 @@ class MaestroApiClient {
   async searchBlocks(query: string) { return this._client.blocks.search(query); }
   async getBlocksByType(type: string) { return this._client.blocks.byType(type); }
   async getBlocksByCapability(cap: string) { return this._client.blocks.byCapability(cap); }
+  async getBlockManifest(id: string) { return this._client.blocks.manifest(id); }
+  async getBlockManifestModels(id: string) { return this._client.blocks.manifestModels(id); }
+  async validateBlock(id: string) { return this._client.blocks.validate(id); }
+  async getBlockDependents(id: string) { return this._client.blocks.dependents(id); }
 
   // ── Sessions ──
   async listSessions(filter: any = {}) { return this._client.sessions.list(filter); }
@@ -189,6 +193,11 @@ class MaestroApiClient {
   // ── Filesystem ──
   async listDirectory(path?: string) { return this._client.filesystem.list(path); }
   async getCommonDirectories() { return this._client.filesystem.commonDirectories(); }
+
+  // ── Contracts ──
+  async listContracts() { return this._client.contracts.list(); }
+  async getContract(id: string) { return this._client.contracts.get(id); }
+  async testContract(contractId: string, blockId: string) { return this._client.contracts.test(contractId, blockId); }
 }
 
 export { MaestroApiClient, ApiError };

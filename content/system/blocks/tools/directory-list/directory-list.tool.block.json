@@ -1,0 +1,54 @@
+{
+  "id": "directory-list",
+  "name": "Directory List",
+  "blockType": "tool",
+  "version": "1.1.0",
+  "isAtomic": true,
+  "description": "Lists files and directories in a given path.",
+
+  "inputs": [
+    {
+      "id": "path",
+      "name": "Directory Path",
+      "type": "string",
+      "required": true,
+      "description": "The directory path to list"
+    },
+    {
+      "id": "workingDir",
+      "name": "Working Directory",
+      "type": "string",
+      "required": false,
+      "description": "Base directory for relative paths"
+    }
+  ],
+
+  "outputs": [
+    {
+      "id": "content",
+      "name": "Directory Listing",
+      "type": "string",
+      "description": "The directory listing as newline-separated file names"
+    },
+    {
+      "id": "exists",
+      "name": "Directory Exists",
+      "type": "boolean",
+      "description": "Whether the directory exists"
+    }
+  ],
+
+  "config": {
+    "toolType": "filesystem",
+    "operation": "list",
+    "maxDepth": 1
+  },
+
+  "metadata": {
+    "category": "filesystem",
+    "tags": ["directory", "list", "explore", "structure"],
+    "author": "maestro-team"
+  },
+
+  "capabilities": ["filesystem", "read"]
+}

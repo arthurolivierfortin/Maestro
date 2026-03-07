@@ -161,7 +161,8 @@ public sealed class ClaudeCodeLLMProvider : ILLMProvider, IDisposable
             provider: ProviderType.Anthropic,
             contextLength: m.ContextLength,
             description: $"Claude model via CLI ({m.Alias})",
-            capabilities: m.Capabilities
+            capabilities: m.Capabilities,
+            parametersBillions: m.ParametersBillions
         )).ToList();
 
         return Task.FromResult<IReadOnlyList<ModelInfo>>(models);

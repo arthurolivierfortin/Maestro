@@ -144,24 +144,19 @@ const QueuePanel = ({ queue }: QueuePanelProps) => {
 
 interface ModelStatusPanelProps {
   health: Record<string, any> | null;
-  llmStatus: Record<string, any> | null;
   tick?: number;
 }
 
-const ModelStatusPanel = ({ health, llmStatus, tick = 0 }: ModelStatusPanelProps) => {
+const ModelStatusPanel = ({ health, tick = 0 }: ModelStatusPanelProps) => {
   const isLoading = health === null || health === undefined;
   const isHealthy = health && !health.error;
   const healthColor = isLoading ? theme.text.muted : (isHealthy ? theme.status.success : theme.status.error);
   const healthIcon = isLoading ? '...' : (isHealthy ? breathingDot(tick) : icons.failed);
 
   // Extract info from health response
-  const activeModel = health?.activeModel || '-';
-  const backend = health?.backend || health?.framework || '-';
   const device = health?.device || '-';
-
-  // Extract info from llmStatus
-  const maxTokens = llmStatus?.maxTokens || llmStatus?.max_tokens || '-';
-  const temperature = llmStatus?.temperature ?? '-';
+  const modelsLoaded = health?.modelsLoaded ?? '-';
+  const providerCount = health?.providers ? Object.keys(health.providers).length : (health?.providerCount ?? '-');
 
   return h(Box, { flexDirection: 'column', paddingLeft: 1 },
     h(Box, { flexDirection: 'row', gap: 1 },
@@ -172,25 +167,16 @@ const ModelStatusPanel = ({ health, llmStatus, tick = 0 }: ModelStatusPanelProps
     ),
     h(Text, null, ''),
     h(Box, { flexDirection: 'row' },
-      muted('Active Model: '),
-      primary(String(activeModel)),
+      muted('Providers:    '),
+      primary(String(providerCount)),
     ),
     h(Box, { flexDirection: 'row' },
-      muted('Backend:      '),
-      primary(String(backend)),
+      muted('Models:       '),
+      primary(String(modelsLoaded)),
     ),
     h(Box, { flexDirection: 'row' },
       muted('Device:       '),
       primary(String(device)),
-    ),
-    h(Text, null, ''),
-    h(Box, { flexDirection: 'row' },
-      muted('Max Tokens:   '),
-      primary(String(maxTokens)),
-    ),
-    h(Box, { flexDirection: 'row' },
-      muted('Temperature:  '),
-      primary(String(temperature)),
     ),
   );
 };
@@ -204,7 +190,12 @@ interface ModelCardProps {
 }
 
 const ModelCard = ({ model, isSelected, isActive }: ModelCardProps) => {
-  const name = model.name || model.modelId || 'Unknown';
+  const displayName = model.name || model.modelId || 'Unknown';
+  const modelId = model.modelId || '';
+  // Show "DisplayName (model-id)" when both exist and differ, otherwise just the name/id
+  const name = (displayName && modelId && displayName !== modelId)
+    ? `${displayName} (${modelId})`
+    : displayName;
   const category = model.category || '';
   const selector = isSelected ? icons.arrow : ' ';
   const activeIcon = isActive ? icons.done : ' ';
@@ -215,7 +206,7 @@ const ModelCard = ({ model, isSelected, isActive }: ModelCardProps) => {
     h(Text, null, ' '),
     h(Text, { color: isActive ? theme.status.success : theme.text.muted }, activeIcon),
     h(Text, null, ' '),
-    h(Text, { color: nameColor }, name.length > 35 ? name.substring(0, 35) : name.padEnd(35)),
+    h(Text, { color: nameColor }, name.length > 50 ? name.substring(0, 50) : name.padEnd(50)),
     category
       ? h(Text, null, ' ', muted(category))
       : null,
@@ -308,15 +299,12 @@ const ModelsScreen = ({ apiClient, onNavigate, onModelSelect, onQuit, initialSta
     5000
   );
 
-  // Fetch models list
-  const { data: models } = useApiData(
-    useCallback((): Promise<any[]> => apiClient.listLLMModels().catch((): any[] => []), [apiClient]),
-    10000
-  );
-
-  // Fetch LLM status
-  const { data: llmStatus } = useApiData(
-    useCallback((): Promise<any> => apiClient.getLLMStatus().catch((): null => null), [apiClient]),
+  // Fetch models list — let errors propagate to useApiData for visibility
+  const { data: models, error: modelsError } = useApiData(
+    useCallback((): Promise<any[]> => {
+      if (!apiClient) return Promise.reject(new Error('Backend not connected'));
+      return apiClient.listLLMModels();
+    }, [apiClient]),
     10000
   );
 
@@ -389,7 +377,7 @@ const ModelsScreen = ({ apiClient, onNavigate, onModelSelect, onQuit, initialSta
     // Row 1: Status | Metrics | Queue
     h(Box, { flexDirection: 'row', width: '100%' },
       h(Panel, { title: 'MODEL STATUS', width: '34%' },
-        h(ModelStatusPanel, { health: llmHealth, llmStatus, tick }),
+        h(ModelStatusPanel, { health: llmHealth, tick }),
       ),
       h(Panel, { title: 'METRICS', width: '34%' },
         h(MetricsPanel, { stats: llmStats as Record<string, any> | null }),
@@ -414,7 +402,9 @@ const ModelsScreen = ({ apiClient, onNavigate, onModelSelect, onQuit, initialSta
             ? h(Box, { flexDirection: 'column', paddingLeft: 2 },
                 muted('No models found'),
                 h(Text, null, ''),
-                muted('Is the LLM provider running?'),
+                modelsError
+                  ? h(Text, { color: 'red', dimColor: true }, `Error: ${modelsError}`)
+                  : muted('Is the LLM provider running?'),
               )
             : h(Box, { flexDirection: 'column' },
                 ...modelList.map((model, i) => {

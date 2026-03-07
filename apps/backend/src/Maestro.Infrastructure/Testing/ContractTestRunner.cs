@@ -23,6 +23,7 @@ public class ContractTestRunner
     private readonly BlockExecutorRegistry _executorRegistry;
     private readonly ILLMGateway _llmGateway;
     private readonly IProjectSessionRepository _sessionRepository;
+    private readonly IModelPricingService _pricingService;
     private readonly ILogger<ContractTestRunner> _logger;
 
     public ContractTestRunner(
@@ -30,12 +31,14 @@ public class ContractTestRunner
         BlockExecutorRegistry executorRegistry,
         ILLMGateway llmGateway,
         IProjectSessionRepository sessionRepository,
+        IModelPricingService pricingService,
         ILogger<ContractTestRunner> logger)
     {
         _blockDiscovery = blockDiscovery;
         _executorRegistry = executorRegistry;
         _llmGateway = llmGateway;
         _sessionRepository = sessionRepository;
+        _pricingService = pricingService;
         _logger = logger;
     }
 
@@ -120,6 +123,11 @@ public class ContractTestRunner
         double totalWeightedScore = 0;
         double totalWeight = 0;
 
+        // Cost accumulators
+        decimal totalCost = 0;
+        int totalPromptTokens = 0;
+        int totalCompletionTokens = 0;
+
         foreach (var featureProp in featuresEl.EnumerateObject())
         {
             var featureId = featureProp.Name;
@@ -163,8 +171,16 @@ public class ContractTestRunner
             int passed = 0;
             foreach (var test in tests)
             {
-                var testResult = await ExecuteTestAsync(test, block, featureId, ct);
+                var (testResult, blockResult) = await ExecuteTestAsync(test, block, featureId, ct);
                 result.TestResults.Add(testResult);
+
+                // Accumulate costs from block execution
+                if (blockResult != null)
+                {
+                    totalCost += blockResult.EstimatedCostUsd;
+                    totalPromptTokens += blockResult.PromptTokens;
+                    totalCompletionTokens += blockResult.CompletionTokens;
+                }
 
                 if (testResult.Skipped)
                 {
@@ -201,10 +217,31 @@ public class ContractTestRunner
         }
 
         result.TotalTests = result.PassedTests + result.FailedTests + result.SkippedTests;
+        result.EstimatedCostUsd = totalCost;
 
         // Raw performance score (P) — weighted average of feature pass rates
         var rawPerformance = totalWeight > 0 ? totalWeightedScore / totalWeight : 0.0;
         result.PerformanceScore = rawPerformance;
+
+        // Resolve model ID from block config or fallback
+        var modelId = "unknown";
+        if (block.Config != null && block.Config.TryGetValue("model", out var modelObj))
+            modelId = modelObj?.ToString() ?? "unknown";
+
+        // Build enriched model profile using pricing service
+        var pricing = await _pricingService.GetPricingAsync(modelId, ct);
+        var isLocal = modelId.ToLowerInvariant() is var mid
+            && (mid.Contains("qwen") || mid.Contains("llama") || mid.Contains("smollm")
+                || mid.Contains("local") || mid.Contains("mistral") || mid.Contains("mixtral")
+                || mid.Contains("phi") || mid.Contains("gemma") || mid.Contains("deepseek"));
+        var profile = pricing != null
+            ? ModelProfile.CreateGeneric(modelId, "unknown", isLocal) with
+            {
+                CostPerMillionInputTokens = pricing.InputPricePerMillion,
+                CostPerMillionOutputTokens = pricing.OutputPricePerMillion,
+                ParametersBillions = pricing.ParametersBillions ?? (isLocal ? 7 : 100)
+            }
+            : ModelProfile.CreateGeneric(modelId, "unknown", isLocal);
 
         // Build inputs for FitnessScore.Calculate()
         var metrics = new WorkflowExecutionMetrics
@@ -216,15 +253,11 @@ public class ContractTestRunner
             BlocksTotal = result.TotalTests,
             BlocksSucceeded = result.PassedTests,
             TotalRetries = 0, // Contract tests don't retry
-            TotalCostUsd = result.EstimatedCostUsd
+            TotalCostUsd = totalCost,
+            TotalInputTokens = totalPromptTokens,
+            TotalOutputTokens = totalCompletionTokens
         };
 
-        // Get model info from the block's config
-        var modelId = "unknown";
-        if (block.Config != null && block.Config.TryGetValue("model", out var modelObj))
-            modelId = modelObj?.ToString() ?? "unknown";
-
-        var profile = ModelProfile.CreateGeneric(modelId, "unknown");
         var entropy = TaskEntropy.FromFeatureCount(result.Features.Count(f => f.Active));
         var config = FitnessConfig.Default;
 
@@ -249,7 +282,7 @@ public class ContractTestRunner
         return result;
     }
 
-    private async Task<SingleTestResult> ExecuteTestAsync(
+    private async Task<(SingleTestResult test, BlockExecutionResult? block)> ExecuteTestAsync(
         JsonElement test, BlockDefinition block, string featureId, CancellationToken ct)
     {
         var testId = test.TryGetProperty("id", out var idEl) ? idEl.GetString() ?? "" : "";
@@ -263,18 +296,21 @@ public class ContractTestRunner
             Description = description
         };
 
+        BlockExecutionResult? lastBlockResult = null;
+
         try
         {
             // Determine if single-turn or multi-turn
             if (test.TryGetProperty("turns", out var turnsEl) && turnsEl.ValueKind == JsonValueKind.Array)
             {
-                await ExecuteMultiTurnTestAsync(testResult, turnsEl, test, block, ct);
+                lastBlockResult = await ExecuteMultiTurnTestAsync(testResult, turnsEl, test, block, ct);
             }
             else if (test.TryGetProperty("prompt", out var promptEl))
             {
                 var prompt = promptEl.GetString() ?? "";
                 var check = test.TryGetProperty("check", out var checkEl) ? checkEl : (JsonElement?)null;
                 var execResult = await SendPromptToBlockAsync(block, prompt, ct);
+                lastBlockResult = execResult;
                 var response = ExtractResponseText(execResult);
                 testResult.Response = Truncate(response, 500);
 
@@ -306,10 +342,10 @@ public class ContractTestRunner
 
         testSw.Stop();
         testResult.DurationMs = testSw.ElapsedMilliseconds;
-        return testResult;
+        return (testResult, lastBlockResult);
     }
 
-    private async Task ExecuteMultiTurnTestAsync(
+    private async Task<BlockExecutionResult?> ExecuteMultiTurnTestAsync(
         SingleTestResult testResult, JsonElement turns, JsonElement test,
         BlockDefinition block, CancellationToken ct)
     {
@@ -319,6 +355,7 @@ public class ContractTestRunner
         bool allChecksPassed = true;
         string? lastCheckType = null;
         string? lastFailure = null;
+        BlockExecutionResult? lastExecResult = null;
 
         foreach (var turn in turns.EnumerateArray())
         {
@@ -327,6 +364,7 @@ public class ContractTestRunner
             // Build a combined prompt with conversation history for context
             var fullPrompt = BuildMultiTurnPrompt(conversationHistory, prompt);
             var execResult = await SendPromptToBlockAsync(block, fullPrompt, ct);
+            lastExecResult = execResult;
             var response = ExtractResponseText(execResult);
             lastResponse = response;
 
@@ -350,6 +388,7 @@ public class ContractTestRunner
         testResult.Response = Truncate(lastResponse, 500);
         testResult.CheckType = lastCheckType;
         testResult.FailureReason = lastFailure;
+        return lastExecResult;
     }
 
     private string BuildMultiTurnPrompt(List<(string role, string content)> history, string currentPrompt)
@@ -386,10 +425,18 @@ public class ContractTestRunner
             context.Variables["sessionId"] = _tempSessionId;
 
         // For agent/inference blocks, the prompt goes as "prompt" or "message" input
+        // conversationHistory is required by AgentBlockExecutor (agents called through workflows
+        // get it from the workflow; in contract tests we build it from the prompt)
+        var conversationHistory = JsonSerializer.Serialize(new[]
+        {
+            new { role = "user", content = prompt }
+        });
+
         var inputs = new Dictionary<string, object>
         {
             ["prompt"] = prompt,
-            ["message"] = prompt
+            ["message"] = prompt,
+            ["conversationHistory"] = conversationHistory
         };
 
         return await executor.ExecuteAsync(block, context, inputs, ct);

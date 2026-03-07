@@ -589,6 +589,95 @@ async function getBlockChildren(id, recursive = true) {
   }
 }
 
+async function blockDepsCmd(id, options = {}) {
+  try {
+    const manifest = await client.getBlockManifest(id);
+
+    // --json: output raw manifest
+    if (options.json) {
+      console.log(JSON.stringify(manifest, null, 2));
+      return;
+    }
+
+    const modelsMap = await client.getBlockManifestModels(id);
+    const validation = await client.validateBlock(id);
+
+    // --models: output only models map
+    if (options.models) {
+      console.log(JSON.stringify(modelsMap, null, 2));
+      return;
+    }
+
+    // Count total blocks in tree
+    function countBlocks(node) {
+      let count = 1;
+      for (const child of (node.children || [])) {
+        count += countBlocks(child);
+      }
+      return count;
+    }
+    const totalBlocks = countBlocks(manifest);
+    const uniqueModels = Object.keys(modelsMap);
+
+    // Header
+    console.log(`\n${c.bold('Block:')} ${manifest.blockId} (${manifest.blockType})`);
+    if (manifest.model) console.log(`${c.bold('Model:')} ${manifest.model}`);
+    if (manifest.planningModel) console.log(`${c.bold('Planning:')} ${manifest.planningModel}`);
+
+    // Tree
+    console.log(`\n${c.bold(`Dependencies (${totalBlocks} blocks, ${uniqueModels.length} models):`)}`);
+    function printTree(node, prefix, isLast) {
+      const connector = prefix === '' ? '  ' : (isLast ? '+-- ' : '|-- ');
+      const modelSuffix = node.model ? ` -> ${node.model}` : '';
+      console.log(`${prefix}${connector}${node.blockId} (${node.blockType})${modelSuffix}`);
+
+      const children = node.children || [];
+      for (let i = 0; i < children.length; i++) {
+        const childPrefix = prefix === '' ? '  ' : prefix + (isLast ? '    ' : '|   ');
+        printTree(children[i], childPrefix, i === children.length - 1);
+      }
+    }
+    printTree(manifest, '', true);
+
+    // Models required
+    if (uniqueModels.length > 0) {
+      console.log(`\n${c.bold('Models required:')}`);
+      for (const [model, blockIds] of Object.entries(modelsMap)) {
+        console.log(`  ${model}  -> ${blockIds.length} blocks (${blockIds.join(', ')})`);
+      }
+    }
+
+    // Validation
+    if (validation.isValid) {
+      console.log(`\n${c.bold('Validation:')} ${c.ok(`OK (all ${totalBlocks} blockRefs resolved)`)}`);
+    } else {
+      const issues = [];
+      if (validation.missingBlocks.length > 0) {
+        issues.push(`${validation.missingBlocks.length} missing`);
+      }
+      if (validation.circularReferences.length > 0) {
+        issues.push(`${validation.circularReferences.length} circular refs`);
+      }
+      console.log(`\n${c.bold('Validation:')} ${c.fail(issues.join(', '))}`);
+      for (const missing of validation.missingBlocks) {
+        console.log(`  ${c.fail('MISSING')} ${missing.blockRef} (referenced by ${missing.referencedBy}, node ${missing.nodeId})`);
+      }
+      for (const circ of validation.circularReferences) {
+        console.log(`  ${c.fail('CIRCULAR')} ${circ}`);
+      }
+    }
+
+    console.log('');
+  } catch (error) {
+    if (error.status === 404) {
+      console.error(c.fail(`Block not found: ${id}`));
+    } else {
+      console.error(c.fail(`Error retrieving block dependencies: ${error.message}`));
+    }
+    process.exit(1);
+  }
+}
+
 async function checkHealth(options = {}) {
   formatter.setCommand('health');
   try {
@@ -4905,6 +4994,7 @@ ${c.bold('Read Commands:')}
   top                 Top blocks by score
   search <query>      Search blocks by name/description
   children <id>       Show block hierarchy [--recursive]
+  deps <id>           Show dependency tree, models, validation [--json] [--models]
   content <id> <path> Read a file within a block
 
 ${c.bold('Write Commands:')}
@@ -6041,7 +6131,7 @@ async function executeWithArgv(argv) {
       'docs', 'training', 'fitness', 'experiment', 'research', 'foundry', 'test',
       'approval', 'approvals', 'auth', 'init', 'aliases', 'system', 'orchestrator', 'metrics',
       'runs', 'config', 'schema', 'search', 'catalog', 'children', 'info', 'chat',
-      'setup', 'tools', 'agents', 'workflows', 'prompts', 'sandbox', 'adapt', 'optimize',
+      'setup', 'tools', 'agents', 'workflows', 'prompts', 'sandbox', 'adapt', 'optimize', 'contract',
     ]);
 
     if (cmd && !BUILTIN_COMMANDS.has(cmd)) {
@@ -6242,8 +6332,15 @@ async function executeWithArgv(argv) {
         return await listBlockDocs(id);
       }
 
+      // Phase 55-C: block deps <blockId> [--json] [--models]
+      if (subCmd === 'deps') {
+        const id = argv._[2];
+        if (!id) { console.error('Block ID required'); process.exit(1); }
+        return await blockDepsCmd(id, { json: argv.json, models: argv.models });
+      }
+
       console.error(`Unknown block subcommand: ${subCmd}`);
-      console.error('   Available: list, info, metrics, top, designate, publish, approve, reject, create, update, delete, content, children, search, docs');
+      console.error('   Available: list, info, metrics, top, designate, publish, approve, reject, create, update, delete, content, children, search, docs, deps');
       process.exit(1);
     }
     // Phase 18: Standalone block shortcuts (compatibility aliases)
@@ -8440,6 +8537,144 @@ ${c.bold('Examples:')}
       }
 
       console.error(`Unknown test subcommand: ${subCmd}`);
+      process.exit(1);
+    }
+
+    // Contract commands (Phase 56-B)
+    if (cmd === 'contract') {
+      const subCmd = argv._[1];
+
+      if (!subCmd) {
+        console.log('Usage: maestro contract <command>');
+        console.log('  list                          List all contracts');
+        console.log('  test <id> --block <blockId>   Run contract tests against a block');
+        console.log('');
+        console.log('Options for test:');
+        console.log('  --json   Output raw JSON result');
+        return;
+      }
+
+      if (subCmd === 'list') {
+        try {
+          const contracts = await client.listContracts();
+          if (!contracts || contracts.length === 0) {
+            console.log('No contracts found.');
+            return;
+          }
+          console.log('\nContracts:');
+          for (const contract of contracts) {
+            const features = contract.features ? Object.keys(contract.features) : [];
+            const featureCount = features.length;
+            let testCount = 0;
+            for (const fKey of features) {
+              const f = contract.features[fKey];
+              if (f && f.tests) testCount += f.tests.length;
+            }
+            const version = contract.version || '?';
+            const id = (contract.id || '').padEnd(24);
+            console.log(`  ${id} v${version}  ${featureCount} features, ${testCount} tests`);
+          }
+          console.log('');
+        } catch (error) {
+          handleApiError(error, 'listing contracts');
+          process.exit(1);
+        }
+        return;
+      }
+
+      if (subCmd === 'test') {
+        const contractId = argv._[2];
+        if (!contractId) {
+          console.error('Contract ID required. Usage: maestro contract test <contractId> --block <blockId>');
+          process.exit(1);
+        }
+        const blockId = argv.block;
+        if (!blockId) {
+          console.error('--block <blockId> is required');
+          process.exit(1);
+        }
+
+        // Show progress spinner since test can take 30-60s
+        console.log(`\nTesting ${contractId} against ${blockId}...`);
+        const spinner = ['', '.', '..', '...'];
+        let spinIdx = 0;
+        const progressTimer = setInterval(() => {
+          process.stdout.write(`\r  Running tests${spinner[spinIdx++ % spinner.length]}   `);
+        }, 500);
+
+        try {
+          const result = await client.testContract(contractId, blockId);
+          clearInterval(progressTimer);
+          process.stdout.write('\r                              \r');
+
+          // JSON output mode
+          if (argv.json) {
+            console.log(JSON.stringify(result, null, 2));
+            return;
+          }
+
+          // Human-readable output
+          if (result.features && result.features.length > 0) {
+            console.log('\nFeatures:');
+            for (const f of result.features) {
+              const pct = f.testsTotal > 0 ? Math.round((f.testsPassed / f.testsTotal) * 100) : 0;
+              const barLen = 12;
+              const filled = Math.round((pct / 100) * barLen);
+              const bar = '\u2588'.repeat(filled) + ' '.repeat(barLen - filled);
+              const status = f.meetsThreshold ? c.green('PASS') : c.red('FAIL');
+              const label = (f.featureId || '').padEnd(18);
+              console.log(`  ${label} ${f.testsPassed}/${f.testsTotal}   [${bar}] ${pct}%  ${status}`);
+            }
+          }
+
+          console.log('');
+          console.log(`Results: ${result.passedTests}/${result.totalTests} tests passed`);
+          if (result.performanceScore !== undefined)
+            console.log(`Performance: ${result.performanceScore.toFixed(2)}`);
+          if (result.fitness !== undefined)
+            console.log(`Fitness:     ${result.fitness.toFixed(2)}`);
+          if (result.estimatedCostUsd !== undefined)
+            console.log(`Cost:        $${result.estimatedCostUsd.toFixed(2)}`);
+          if (result.durationMs !== undefined)
+            console.log(`Duration:    ${(result.durationMs / 1000).toFixed(1)}s`);
+
+          if (result.fitnessBreakdown) {
+            const bd = result.fitnessBreakdown;
+            console.log('');
+            console.log('Breakdown:');
+            if (bd.performance !== undefined) console.log(`  P (Performance):     ${bd.performance.toFixed(2)}`);
+            if (bd.specialization !== undefined) console.log(`  S (Specialization):  ${bd.specialization.toFixed(2)}`);
+            if (bd.composability !== undefined) console.log(`  W (Composability):   ${bd.composability.toFixed(2)}`);
+            if (bd.economicCost !== undefined) console.log(`  C_norm (Economic):   ${bd.economicCost.toFixed(2)}`);
+            if (bd.computeCost !== undefined) console.log(`  C_compute:          ${bd.computeCost.toFixed(2)}`);
+            if (bd.hardwareCost !== undefined) console.log(`  C_hw (Hardware):     ${bd.hardwareCost.toFixed(2)}`);
+          }
+
+          if (result.failureReasons && result.failureReasons.length > 0) {
+            console.log('');
+            console.log(c.red('Failures:'));
+            for (const reason of result.failureReasons) {
+              console.log(`  - ${reason}`);
+            }
+          }
+
+          console.log('');
+          if (result.passed) {
+            console.log(c.green('PASSED'));
+          } else {
+            console.log(c.red('FAILED'));
+          }
+        } catch (error) {
+          clearInterval(progressTimer);
+          process.stdout.write('\r                              \r');
+          handleApiError(error, 'running contract test');
+          process.exit(1);
+        }
+        return;
+      }
+
+      console.error(`Unknown contract subcommand: ${subCmd}`);
+      console.error('   Available commands: list, test');
       process.exit(1);
     }
 

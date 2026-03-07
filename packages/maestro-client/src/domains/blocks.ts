@@ -5,6 +5,8 @@ import type {
   BlockMetrics,
   BlockRunData,
   TopBlocksOptions,
+  BlockDependencyManifest,
+  DependencyValidationResult,
 } from '../types.js';
 
 function buildQuery(params: Record<string, string | number | undefined>): string {
@@ -59,5 +61,17 @@ export function blockDomain(http: HttpTransport) {
 
     byCapability: (capability: string) =>
       http.get<BlockDefinition[]>(`/api/discovery/blocks/by-capability/${encodeURIComponent(capability)}`),
+
+    manifest: (id: string) =>
+      http.get<BlockDependencyManifest>(`/api/blocks/${id}/manifest`),
+
+    manifestModels: (id: string) =>
+      http.get<Record<string, string[]>>(`/api/blocks/${id}/manifest/models`),
+
+    validate: (id: string) =>
+      http.get<DependencyValidationResult>(`/api/blocks/${id}/manifest/validate`),
+
+    dependents: (id: string) =>
+      http.get<string[]>(`/api/blocks/${id}/dependents`),
   };
 }

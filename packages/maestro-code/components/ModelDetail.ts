@@ -234,8 +234,11 @@ const ModelDetail = ({ modelId, apiClient, onExit, onQuit, onNavigate }: ModelDe
   );
 
   // Fetch models list to get this model's detail
-  const { data: models } = useApiData(
-    useCallback((): Promise<any[]> => apiClient.listLLMModels().catch((): any[] => []), [apiClient]),
+  const { data: models, error: modelsError } = useApiData(
+    useCallback((): Promise<any[]> => {
+      if (!apiClient) return Promise.reject(new Error('Backend not connected'));
+      return apiClient.listLLMModels();
+    }, [apiClient]),
     10000
   );
 

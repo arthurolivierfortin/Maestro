@@ -158,7 +158,10 @@ public class LLMProviderService : ILLMProviderService
                     Description = m.Description,
                     Category = m.Provider,
                     ContextLength = m.ContextLength,
-                    Capabilities = m.Capabilities ?? new List<string>()
+                    Capabilities = m.Capabilities ?? new List<string>(),
+                    ParametersB = m.ParametersBillions ?? 0,
+                    InputTokenPricePerMillion = m.InputTokenPrice.HasValue ? m.InputTokenPrice.Value * 1000 : null,
+                    OutputTokenPricePerMillion = m.OutputTokenPrice.HasValue ? m.OutputTokenPrice.Value * 1000 : null
                 }).ToList()
             };
         }
@@ -443,4 +446,7 @@ internal class ProviderModelInfo
     public string? Description { get; set; }
     public List<string>? Capabilities { get; set; }
     public bool IsAvailable { get; set; }
+    public decimal? InputTokenPrice { get; set; }   // per 1000 tokens
+    public decimal? OutputTokenPrice { get; set; }   // per 1000 tokens
+    public double? ParametersBillions { get; set; }
 }

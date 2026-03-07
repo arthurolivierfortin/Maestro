@@ -1,53 +1,86 @@
-# Phase 57 : /adapt = Workflow Agent Creator + Contract Resolution
+# Phase 57 : Agent agent-creator — Implementation du contract agent-creator
 
-**Statut** : Planifie
-**Prerequis** : Phase 56 COMPLETE (workflow block-forge, /create-agent TUI/CLI)
-**Objectif** : `/adapt` utilise Agent Creator pour creer des variantes d'un block optimisees pour un modele/hardware donne. La variante implemente le **meme contract** que l'original. Les workflows peuvent utiliser `contractRef` au lieu de `blockRef` pour resoudre au runtime vers le block choisi par l'utilisateur.
-**Duree estimee** : 4-6 jours
+**Statut** : EN COURS
+**Prerequis** : Phase 56 COMPLETE (Metrics Pipeline — fitness reel)
+**Objectif** : Creer l'agent `agent-creator` qui cree des blocks agents, les teste contre un contract, et itere jusqu'a ce que les tests passent. C'est le coeur du systeme de creation automatisee.
+**Duree estimee** : 4-5 jours
 
 ---
 
-## Contexte
+## ATTENTION — Misconceptions a eviter
 
-### /adapt avec contracts
+### Un agent Maestro N'EST PAS un inference block
+
+Un agent (`blockType: "agent"`) est un block **non-atomique** qui peut contenir des child blocks. Il a une **boucle agentique** : message → outil → resultat → decision → outil → ... → step-complete.
+
+L'agent-creator ne "genere pas un JSON en un shot". Il :
+1. Lit le contract cible et les tests
+2. Cree un premier brouillon du block (file-write)
+3. Valide la structure (json-validator)
+4. Si invalide → corrige et re-valide
+5. Lance les tests d'acceptance (contract-test)
+6. Lit les resultats
+7. Si des tests echouent → modifie le prompt ou la config
+8. Re-teste
+9. Repete jusqu'a ce que les tests passent ou maxIterations atteint
+10. step-complete avec le resultat
+
+C'est une **boucle create-test-fix**, pas un template filler.
+
+---
+
+## Le contract agent-creator (reference — defini en Phase 51)
+
+Fichier : `content/system/contracts/agent-creator.contract.json`
 
 ```
-/adapt maestro-assistant-workflow --target-model mistral-7b
-
-1. Lit le block source → contract: "maestro-assistant"
-2. Lit le contract definition → features + capabilities requises
-3. Appelle Agent Creator :
-   "Cree un block qui implemente le contract maestro-assistant
-    optimise pour Mistral 7B.
-    Le modele supporte tool-calling mais pas structured-output.
-    Adapte les prompts en consequence."
-4. Agent Creator genere le block :
-   - contract: "maestro-assistant"
-   - capabilities: ["conversation", "orchestration", "tool-calling"]
-   - (structured-output absent → features json-config desactivee)
-5. Test fitness → publish comme block utilisateur
+Contract: agent-creator
+├─ Feature: "Block Generation" (weight: 0.30)
+│    requires: [structured-output]
+│    tests: cree un block.json valide avec tous les champs requis
+│
+├─ Feature: "Prompt Writing" (weight: 0.25)
+│    requires: [conversation]
+│    tests: ecrit un system-prompt.md adapte au role et au modele
+│
+├─ Feature: "Iterative Improvement" (weight: 0.25)
+│    requires: [conversation, structured-output]
+│    tests: lit les resultats de test, identifie les problemes, corrige
+│
+├─ Feature: "Model Adaptation" (weight: 0.20)
+│    requires: [conversation, structured-output]
+│    tests: adapte le prompt pour differents tiers (large/medium/small)
 ```
 
-### contractRef dans les workflows
+---
 
-Aujourd'hui un workflow fait `blockRef: "maestro-assistant-claude"` — hardcode.
-Avec `contractRef`, le workflow fait `contractRef: "maestro-assistant"` et le systeme resout au runtime vers le block que l'utilisateur a choisi pour ce contract.
+## Outils accessibles par l'agent
 
-```json
-{
-  "config": {
-    "nodes": [
-      {
-        "id": "assistant",
-        "contractRef": "maestro-assistant",
-        "requiredCapabilities": ["orchestration", "tool-calling"]
-      }
-    ]
-  }
-}
-```
+| Outil | Block ID | Usage |
+|-------|----------|-------|
+| `file-read` | `file-read` | Lire contracts, blocks existants, tests |
+| `file-write` | `file-write` | Ecrire block.json, system-prompt.md |
+| `directory-list` | `directory-list` | Explorer les blocks/contracts existants |
+| `json-validator` | `json-validator` | Valider le JSON genere |
+| `contract-test` | `contract-test` | Lancer les tests du contract et obtenir le fitness |
+| `shell-execute` | `shell-execute` | Commandes systeme |
+| `step-complete` | (response-parser) | Signaler la fin du travail |
 
-Si le block choisi pour ce contract n'a pas les `requiredCapabilities`, erreur claire au lieu d'un echec silencieux.
+**Note** : `block-create` n'est PAS necessaire — ecrire les fichiers sur disque via `file-write` suffit, le `FileSystemBlockDiscoveryService` les decouvre automatiquement.
+
+### Inputs / Outputs
+
+**Inputs** :
+- `description` (string, required) — Ce que l'agent doit faire
+- `contractId` (string, optional) — Contract cible
+- `targetModel` (string, optional) — Modele cible pour adaptation
+- `baseBlockId` (string, optional) — Block existant a adapter (pour /adapt)
+
+**Outputs** :
+- `blockId` (string) — ID du block cree
+- `blockPath` (string) — Chemin du block sur le filesystem
+- `testResults` (string) — JSON des resultats de tests
+- `fitness` (number) — Score de fitness
 
 ---
 
@@ -55,118 +88,107 @@ Si le block choisi pour ce contract n'a pas les `requiredCapabilities`, erreur c
 
 | Phase | Titre | Effort |
 |-------|-------|--------|
-| 55-A | Workflow `/adapt` (Agent Creator + contract) | 2-3 jours |
-| 55-B | `contractRef` dans les workflows (resolution runtime) | 1-2 jours |
-| 55-C | Integration TUI + Catalog | 1 jour |
+| 57-A | Block definition (JSON + config.nodes) + publication directory-list | 0.5 jour |
+| 57-B | System prompt (LE gros livrable — 9 sections) | 1.5 jours |
+| 57-C | Build, verification, test invocation, iteration du prompt | 2 jours |
 
 ---
 
-## 55-A : Workflow /adapt
-
-### Lecture obligatoire
-- `content/system/blocks/workflows/` (workflows existants)
-- Le block `system:agent-creator` (Phase 55)
-- `content/system/contracts/` (contract definitions)
-- `packages/maestro-cli/adapt-optimize.ts` (module adapt nettoye Phase 50)
-- `packages/maestro-code/services/contract-resolver.ts` (Phase 50)
-- `packages/maestro-code/services/hardware-detect.ts`
+## 57-A : Block definition + prerequis
 
 ### Taches
 
-1. **Creer le workflow `system:adapt-workflow`** :
+1. **Publier `directory-list`** : deplacer de `_drafts/tools/` vers `tools/directory-list/`
+2. **Creer `agent-creator.agent.block.json`** :
+   - Copier le pattern de config.nodes du `test-designer` (while loop, llm-call, parse-response, tool-dispatch)
+   - `blockType: "agent"`
+   - `config.model: "claude-sonnet-4-6"`
+   - `config.maxIterations: 25`
+   - `contract: "agent-creator"`
+   - `capabilities: ["conversation", "structured-output", "tool-calling"]`
+   - Inputs : description, contractId, targetModel, baseBlockId
+   - Outputs : blockId, blockPath, testResults, fitness
+
+### Verification
+```bash
+python -m json.tool content/system/blocks/agents/agent-creator/agent-creator.agent.block.json
+dotnet build apps/backend/src/Maestro.Infrastructure/Maestro.Infrastructure.csproj -o /tmp/phase57-build
+```
+
+---
+
+## 57-B : System prompt
+
+### Lecture obligatoire (pour l'agent)
+- `content/system/contracts/agent-creator.contract.json`
+- `content/system/blocks/agents/test-designer/system-prompt.md` (reference prompt)
+- `content/system/blocks/system/maestro-assistant/system-prompt.md` (prompt avance)
+- `content/system/blocks/agents/test-designer/test-designer.agent.block.json` (reference block)
+- `docs/system/architecture/contracts.md` (hierarchie contract > feature > capability > test)
+
+### Taches
+
+1. **Ecrire `system-prompt.md`** — 9 sections :
+   - Section 1 : Role ("Tu crees des agents Maestro qui passent leur contract")
+   - Section 2 : Anatomie d'un block.json — TOUS les champs, avec example complet
+   - Section 3 : Conventions system prompt Maestro (JSON only, step-complete, tool format)
+   - Section 4 : Adaptation par tier de modele (large/medium/small)
+   - Section 5 : La boucle create-test-fix (etapes detaillees)
+   - Section 6 : Mode adaptation (quand baseBlockId est fourni)
+   - Section 7 : Outils disponibles (format JSON exact)
+   - Section 8 : Anti-patterns
+   - Section 9 : Exemples (description → block genere → prompt genere)
+
+---
+
+## 57-C : Verification et test de la boucle
+
+### Taches
+
+1. **Build + verification decouverte** :
+   ```bash
+   cd apps/backend && dotnet build
+   curl http://localhost:5000/api/blocks | grep agent-creator
    ```
-   adapt-workflow (composite)
-     |-- analyze-source
-     |   Lit le block source, son contract, ses capabilities
-     |   Identifie le modele cible (specifie ou detecte via hardware)
-     |   Determine quelles capabilities le modele cible supporte
-     |
-     |-- create-variant (appelle Agent Creator)
-     |   Contraintes :
-     |     - Meme contract que l'original
-     |     - Prompts adaptes pour le modele cible
-     |     - Capabilities = intersection(contract.features, model.capabilities)
-     |     - Temperature, max_tokens, tool-calling adaptes
-     |
-     |-- test-variant
-     |   Mesure fitness
-     |   Verifie les capabilities declarees
-     |
-     +-- publish-or-iterate
-         fitness >= seuil → publish comme block utilisateur
-         sinon → iterate (max 3)
+
+2. **Test manuel** : invoquer l'agent pour creer un simple agent
+   ```bash
+   cd packages/maestro-cli
+   node index.js session create --type project --name "Agent Creator Test" --repo C:\Meastro --start
+   node index.js session invoke <id> default \
+     --input description="An agent that reviews code quality" \
+     --input contractId=code-reviewer
    ```
 
-2. **Le resultat** :
-   - Block utilisateur dans `content/user/blocks/`
-   - Meme contract que l'original
-   - Capabilities verifiees (pas juste declarees)
-   - Metadata : `adaptedFrom`, `targetModel`, `fitness`
+3. **Verifier la boucle** :
+   - L'agent cree-t-il un block.json valide ?
+   - L'agent ecrit-il un system-prompt.md ?
+   - L'agent lance-t-il les tests (contract-test) ?
+   - Quand un test echoue, l'agent corrige-t-il ?
+   - L'agent finit-il avec step-complete ?
 
-3. **CLI** : `maestro adapt <block-id> [--target-model <model>] [--target-tier <tier>]`
+4. **Valider contre son propre contract** :
+   ```bash
+   node index.js contract test agent-creator agent-creator
+   ```
 
----
-
-## 55-B : contractRef dans les workflows
-
-### Lecture obligatoire
-- `apps/backend/src/Maestro.Infrastructure/Sessions/EntryPointExecutor.cs`
-- `apps/backend/src/Maestro.Infrastructure/BlockStore/FileSystemBlockDiscoveryService.cs`
-- `apps/backend/src/Maestro.Domain/Entities/BlockDefinition.cs`
-
-### Taches
-
-1. **Ajouter `contractRef` comme alternative a `blockRef`** dans les nodes de workflow :
-   - Si `contractRef` present → resoudre via config utilisateur
-   - Si `blockRef` present → resolution directe (existant)
-   - Si les deux → erreur
-
-2. **Resolution** :
-   - Lire `~/.maestro/config.json` → `contracts["maestro-assistant"]` → block ID
-   - Fallback : si pas de config, utiliser le block par defaut du contract
-   - Si `requiredCapabilities` sur le node → verifier que le block choisi les a
-   - Si capability manquante → erreur claire : "Block X doesn't support Y required by this workflow"
-
-3. **Tests** :
-   - Test : contractRef resout vers le block configure
-   - Test : contractRef sans config → fallback defaut
-   - Test : requiredCapabilities manquante → erreur
-   - Test : blockRef continue de fonctionner (backward compatible)
-
----
-
-## 55-C : Integration TUI + Catalog
-
-### Taches
-
-1. **Slash command `/adapt`** dans AgentPanel :
-   - `/adapt` → adapte le block du contract actif au hardware
-   - `/adapt <block-id>` → adapte un block specifique
-   - `/adapt <block-id> --model <model>` → pour un modele specifique
-   - Progression dans le ConversationLog
-
-2. **Touche `[A]` dans CatalogScreen** sur un block → lance /adapt pour ce block
-
-3. **DemoApiClient** : mock pour adapt
-
-4. **HelpOverlay** : ajouter `/adapt`
+5. **Iterer le prompt** si necessaire
 
 ---
 
 ## Definition of Done
 
-> **OBLIGATOIRE** : Lire `docs/system/TESTING-PROTOCOL.md` et executer TOUTES les couches de test applicables (voir la matrice) avant de declarer DONE. Copier la checklist de fin de phase dans `checkpoint.md`.
-
-- [ ] Workflow `system:adapt-workflow` fonctionnel
-- [ ] La variante creee implemente le meme contract que l'original
-- [ ] Les capabilities sont verifiees, pas juste declarees
-- [ ] `contractRef` fonctionne dans les workflows
-- [ ] Resolution runtime avec fallback + verification capabilities
-- [ ] `/adapt` et `[A]` fonctionnent dans le TUI
-- [ ] CLI `maestro adapt` fonctionnel
-- [ ] Tous les tests passent
-- [ ] E2E dogfooding score >= 3.5/5
+- [ ] `directory-list` publie (hors _drafts)
+- [ ] `agent-creator.agent.block.json` cree et decouvert par l'API
+- [ ] `system-prompt.md` complet (9 sections, exemples, anti-patterns)
+- [ ] L'agent cree un block valide a partir d'une description
+- [ ] L'agent ecrit un system prompt adapte au role
+- [ ] La boucle create-test-fix fonctionne (au moins 1 correction observee)
+- [ ] Le mode adaptation fonctionne (baseBlockId → variante)
+- [ ] Tous les tests existants passent (dotnet build + tsc)
 
 ### NOT in scope
-- Production des ~30 variantes (Phase 58)
-- Catalogue communautaire (Phase 60)
+- Workflow block-forge (Phase 58)
+- TUI /create-agent (Phase 58)
+- /adapt comme commande (Phase 59)
+- Production de variantes en batch (Phase 60)

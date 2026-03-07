@@ -104,6 +104,8 @@ public record CompatibleModel
     public string? QuantizationRequired { get; init; }
     public double VramRequired { get; init; }
     public bool IsLocal { get; init; }
+    public decimal? InputTokenPricePerMillion { get; init; }
+    public decimal? OutputTokenPricePerMillion { get; init; }
 }
 
 // ═══ LOCAL MODELS ═══

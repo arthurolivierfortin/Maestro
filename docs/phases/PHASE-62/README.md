@@ -1,88 +1,123 @@
-# Phase 62+ : Self-Improvement — Maestro s'ameliore lui-meme
+# Phase 62 : Catalogue communautaire + Auth
 
-**Statut** : Vision
-**Prerequis** : Phase 61 COMPLETE (V1 deployee, utilisateurs reels, metriques)
-**Objectif** : Maestro utilise ses propres agents pour ameliorer ses propres agents. La boucle : observer les metriques → identifier les faiblesses par contract/capability → creer des variantes ameliorees → tester → publier.
-
----
-
-## La vision
-
-### Research Team Workflow
-
-```
-RESEARCH TEAM (workflow composite, runs continuously)
-
-  1. Researcher Agent
-     Observe les metriques de fitness par contract
-     "Le contract maestro-assistant a 30 implementations.
-      Les variantes tier light ont un fitness moyen de 0.55.
-      La capability tool-calling echoue dans 40% des cas
-      sur les modeles < 7B."
-
-  2. Trainer Agent
-     Utilise /adapt (Phase 52) pour creer des variantes ameliorees
-     Cible les capabilities faibles
-     "Creer une variante de maestro-assistant-phi3
-      avec des prompts optimises pour le tool-calling"
-
-  3. Tester Agent
-     Verifie les capabilities reellement supportees
-     Mesure fitness multi-dimensionnel
-     Compare avec la version precedente
-
-  4. Publisher
-     fitness >= 0.75 → publie dans le catalogue
-     Met a jour les metadata : capabilities verifiees, fitness
-
-  5. Monitor
-     Apres publication : surveille les metriques en production
-     Si regression > 10% → rollback automatique
-```
-
-### Workspace Orchestrator
-
-```
-Research Workspace → Staging Workspace → Production
-     (creer)           (valider)          (deployer)
-
-Regles par contract :
-  fitness > 0.70 → promote to staging
-  fitness > 0.85 → promote to production
-  capability regression → block promotion
-```
+**Statut** : Planifie
+**Prerequis** : Phase 61 COMPLETE (choix par contract au setup, Catalog organise)
+**Objectif** : Les utilisateurs peuvent publier et importer des blocks. Le catalogue est organise par **contract** : on cherche "un code-reviewer" et on voit toutes les implementations disponibles avec leurs capabilities et compatibilite hardware. Systeme d'auth pour identification.
+**Duree estimee** : 8-13 jours
 
 ---
 
-## Sous-phases potentielles
+## Contexte
 
-| Phase | Titre |
-|-------|-------|
-| 57-A | Researcher Agent (metriques par contract + capability) |
-| 57-B | Trainer Agent (utilise /adapt pour ameliorer) |
-| 57-C | Workspace Orchestrator (pipeline automatise) |
-| 57-D | Self-referential (Agent Creator s'ameliore lui-meme) |
-| 58+ | Multi-domain (au-dela du code) |
+### Le catalogue enrichi par les contracts
+
+Le catalogue n'est plus une liste plate de blocks. C'est un **marche organise par contracts** :
+
+```
+Catalogue communautaire
+│
+├── maestro-assistant (contract)
+│   ├── maestro-assistant-claude (5/5 features, cloud, fitness 0.95) [official]
+│   ├── maestro-assistant-mistral7b (3/5 features, local, fitness 0.82) [official]
+│   ├── maestro-assistant-phi3-community (2/5 features, light, fitness 0.68) [community]
+│   └── ...
+│
+├── code-reviewer (contract)
+│   ├── code-reviewer-claude (cloud, fitness 0.90) [official]
+│   ├── code-reviewer-deepseek (local, fitness 0.75) [community]
+│   └── ...
+│
+├── agent-creator (contract)
+│   └── agent-creator-opus (cloud, fitness 0.88) [official]
+│
+└── doc-writer (contract)
+    ├── doc-writer-claude (cloud) [official]
+    └── doc-writer-llama (local) [community]
+```
+
+L'utilisateur cherche par role (contract), filtre par hardware, compare les capabilities.
 
 ---
 
-## La dimension auto-referentielle
+## Sous-phases
 
-L'Agent Creator implemente le contract `agent-creator`. Il peut creer une variante de lui-meme :
-1. Agent Creator v1 (Phase 51, manuel)
-2. v1 cree des agents, on observe les patterns qui marchent
-3. `/adapt agent-creator --target-model ...` → Agent Creator v2
-4. v2 est meilleur pour creer des agents → les agents qu'il cree sont meilleurs
-5. Repeat
-
-Le fitness gate + validation humaine restent obligatoires. L'automatisation complete est un objectif a tres long terme.
+| Phase | Titre | Effort |
+|-------|-------|--------|
+| 58-A | Auth + comptes utilisateurs | 3-5 jours |
+| 58-B | Catalogue backend (publish/search/import par contract) | 3-5 jours |
+| 58-C | TUI integration (local + community, par contract) | 2-3 jours |
 
 ---
 
-## Pourquoi c'est le differenciateur
+## 58-A : Auth + comptes utilisateurs
 
-- Claude Code = un agent statique
-- Cursor = un editeur avec IA
-- **Maestro = un systeme de contracts, capabilities, et agents interchangeables qui s'ameliorent**
+### Taches
 
-La valeur n'est pas dans les agents livres, mais dans le pipeline : contracts definissent les roles, capabilities definissent les competences, /adapt cree des variantes, le fitness mesure la qualite, le catalogue partage, et le self-improvement boucle.
+1. **Auth** : locale d'abord (bcrypt), OAuth GitHub en stretch goal, JWT + refresh tokens
+2. **Comptes** : profil, blocks publies, tiers (Free/Creator/Pro), SQLite
+3. **CLI** : `maestro login`, `maestro logout`, `maestro whoami`
+4. **TUI** : login optionnel dans setup, indicateur dans NavBar, `/login` `/logout`
+
+---
+
+## 58-B : Catalogue backend
+
+### Taches
+
+1. **API** :
+   ```
+   POST /api/catalog/publish         — publie un block + contract + capabilities + fitness
+   GET  /api/catalog/search          — recherche par contract, capabilities, tier, hardware
+   GET  /api/catalog/contracts       — liste les contracts disponibles
+   GET  /api/catalog/contracts/:id   — implementations d'un contract
+   GET  /api/catalog/blocks/:id      — detail d'un block
+   POST /api/catalog/import/:id      — importe dans l'espace utilisateur
+   ```
+
+2. **Recherche par contract** :
+   - "Je cherche un code-reviewer compatible avec mon GPU 8GB"
+   - Filtre par : contract, capabilities, hardware, fitness minimum
+   - Trie par : fitness, popularite, date
+
+3. **Publication** :
+   - Block + contract declaration + capabilities verifiees + fitness
+   - Si le contract n'existe pas dans le catalogue → le creer
+   - Validation : fitness >= 0.7, capabilities verifiees
+
+4. **Stockage** : filesystem local V1, API distante future
+
+---
+
+## 58-C : TUI integration
+
+### Taches
+
+1. **Catalog enrichi** :
+   - Onglets : Local | Community | All
+   - Vue par contract (groupes) ou vue plate (liste)
+   - Recherche, filtrage hardware, filtrage par capabilities
+   - `[I]` Import, `[P]` Publish
+
+2. **Slash commands** : `/publish`, `/import`, `/search`
+
+3. **Import intelligent** :
+   - Importer un block → il s'ajoute aux implementations du contract
+   - L'utilisateur peut le choisir comme actif pour ce contract
+
+---
+
+## Definition of Done
+
+> **OBLIGATOIRE** : Lire `docs/system/TESTING-PROTOCOL.md` et executer TOUTES les couches de test applicables (voir la matrice) avant de declarer DONE. Copier la checklist de fin de phase dans `checkpoint.md`.
+
+- [ ] Auth fonctionnel
+- [ ] API catalogue avec recherche par contract + capabilities + hardware
+- [ ] Catalogue organise par contracts
+- [ ] Publication avec contract + capabilities verifiees
+- [ ] Import + activation pour un contract
+- [ ] 5+ blocks publies par nous
+- [ ] Tous les tests passent
+- [ ] E2E dogfooding score >= 3.5/5
+
+### NOT in scope
+- Hosting cloud, paiements, reviews/ratings, marketplace (futur)

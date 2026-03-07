@@ -95,6 +95,13 @@ public class ConversationBlockExecutor : IBlockExecutor
         var content = GetString(inputs, "content", "")
             ?? throw new ArgumentException("content is required for add-message");
 
+        // Auto-recreate conversation if it was lost (e.g., process restart with in-memory storage)
+        if (_conversationManager.GetState(conversationId) == null)
+        {
+            _conversationManager.CreateConversation(null, conversationId);
+            result.Logs.Add($"Conversation '{conversationId}' was missing — recreated (process restart?)");
+        }
+
         _conversationManager.AddMessage(conversationId, role, content);
 
         result.Outputs["conversationId"] = conversationId;
@@ -127,6 +134,13 @@ public class ConversationBlockExecutor : IBlockExecutor
     {
         var conversationId = GetString(inputs, "conversationId", null)
             ?? throw new ArgumentException("conversationId is required for get-messages");
+
+        // If conversation was lost (e.g., process restart), return empty list instead of throwing
+        if (_conversationManager.GetState(conversationId) == null)
+        {
+            _conversationManager.CreateConversation(null, conversationId);
+            result.Logs.Add($"Conversation '{conversationId}' was missing — recreated (process restart?)");
+        }
 
         var messages = _conversationManager.GetMessages(conversationId);
 

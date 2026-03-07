@@ -59,9 +59,9 @@ const BlockRow = ({ block, isSelected, isExpanded }: BlockRowProps) => {
             ? h(Text, { color: theme.text.muted }, truncate(block.description, 70))
             : null,
           h(Box, { flexDirection: 'row', gap: 2 },
-            block.version ? h(Text, null, muted('v'), primary(block.version)) : null,
+            block.version ? h(Box, { flexDirection: 'row' }, muted('v'), primary(block.version)) : null,
             block.isAtomic !== undefined
-              ? h(Text, null, muted('atomic: '), primary(block.isAtomic ? 'yes' : 'no'))
+              ? h(Box, { flexDirection: 'row' }, muted('atomic: '), primary(block.isAtomic ? 'yes' : 'no'))
               : null,
           ),
         )

@@ -87,4 +87,9 @@ public sealed class DeploymentConfig
     /// Model capabilities.
     /// </summary>
     public List<string> Capabilities { get; init; } = ["chat"];
+
+    /// <summary>
+    /// Estimated number of parameters in billions (e.g., 70 for a 70B model). Null when unknown.
+    /// </summary>
+    public double? ParametersBillions { get; init; }
 }

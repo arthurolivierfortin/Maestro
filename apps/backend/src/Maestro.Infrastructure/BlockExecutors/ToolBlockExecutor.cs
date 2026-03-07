@@ -69,9 +69,15 @@ public class ToolBlockExecutor : MultiNodeBlockExecutor
                 outputs[kv.Key] = kv.Value;
         }
 
+        var (cost, promptTokens, completionTokens) = GetAccumulatedCosts(context);
+
         return Task.FromResult(new BlockExecutionResult
         {
             Success = true,
+            EstimatedCostUsd = cost,
+            PromptTokens = promptTokens,
+            CompletionTokens = completionTokens,
+            TotalTokens = promptTokens + completionTokens,
             Outputs = outputs
         });
     }

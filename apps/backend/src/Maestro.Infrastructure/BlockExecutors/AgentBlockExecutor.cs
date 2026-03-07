@@ -1,9 +1,10 @@
 using System.IO;
+using System.Text.Json;
 using Maestro.Application.DTOs;
 using Maestro.Application.Interfaces;
 using Maestro.Domain.Entities;
-using Maestro.Infrastructure.Context;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using ExecutionContext = Maestro.Domain.Entities.ExecutionContext;
 
 namespace Maestro.Infrastructure.BlockExecutors;
@@ -24,8 +25,12 @@ namespace Maestro.Infrastructure.BlockExecutors;
 
 /// <summary>
 /// Executor for agent blocks. Thin wrapper around MultiNodeBlockExecutor that handles:
-/// - Conversation setup (create/reuse persistent conversation with system prompt)
-/// - I/O contract: prompt/messages in → text out (same interface as inference blocks)
+/// - Conversation setup from workflow-provided history (PrepareExecutionAsync)
+/// - I/O contract: prompt/messages in → text out (ExtractResultAsync)
+///
+/// Conversation persistence is managed by the CALLING WORKFLOW via blocks
+/// ("everything is a block" principle). The agent receives conversationHistory
+/// as input and creates a fresh conversation for its agentic loop.
 ///
 /// All agent behavior (agentic loop, tool dispatch, response parsing) is defined
 /// in config.nodes of the agent's block.json, executed by the base class.
@@ -33,12 +38,13 @@ namespace Maestro.Infrastructure.BlockExecutors;
 public class AgentBlockExecutor : MultiNodeBlockExecutor
 {
     private readonly IConversationManager _conversationManager;
+    private readonly ILogger<AgentBlockExecutor>? _logger;
 
     public AgentBlockExecutor(IServiceProvider serviceProvider)
         : base(serviceProvider)
     {
-        _conversationManager = serviceProvider.GetService<IConversationManager>()
-            ?? new InMemoryConversationManager();
+        _conversationManager = serviceProvider.GetRequiredService<IConversationManager>();
+        _logger = serviceProvider.GetService<ILogger<AgentBlockExecutor>>();
     }
 
     public override string SupportedType => "agent";
@@ -49,36 +55,36 @@ public class AgentBlockExecutor : MultiNodeBlockExecutor
         BlockDefinition block, ExecutionContext context,
         Dictionary<string, object> inputs, CancellationToken ct)
     {
-        // Conversation setup: create or reuse a persistent conversation
-        var sessionId = context.Variables.ContainsKey("sessionId")
-            ? context.Variables["sessionId"]?.ToString()
-            : null;
-        var persistentId = sessionId != null ? $"{sessionId}:{block.Id}" : null;
+        var systemPrompt = await LoadSystemPrompt(block, ct) ?? "";
 
-        string conversationId;
-        if (persistentId != null)
+        // Fresh conversation for this invocation, seeded with workflow history.
+        // Conversation persistence is the workflow's responsibility via blocks.
+        var conversationId = _conversationManager.CreateConversation(systemPrompt);
+
+        if (!inputs.TryGetValue("conversationHistory", out var histObj) || histObj == null
+            || string.IsNullOrEmpty(histObj.ToString()))
         {
-            try
-            {
-                _conversationManager.GetMessages(persistentId);
-                conversationId = _conversationManager.CreateOrGetConversation(persistentId,
-                    await LoadSystemPrompt(block, ct) ?? "");
-            }
-            catch (InvalidOperationException)
-            {
-                conversationId = _conversationManager.CreateOrGetConversation(persistentId,
-                    await LoadSystemPrompt(block, ct) ?? "");
-            }
-        }
-        else
-        {
-            conversationId = _conversationManager.CreateConversation(
-                await LoadSystemPrompt(block, ct) ?? "");
+            throw new InvalidOperationException(
+                $"Agent '{block.Id}' requires conversationHistory input. " +
+                "Agents must be called through a workflow that manages conversation persistence via blocks.");
         }
 
-        // Add user prompt to conversation
-        if (inputs.TryGetValue("prompt", out var prompt) && prompt != null)
-            _conversationManager.AddMessage(conversationId, "user", prompt.ToString()!);
+        var histStr = histObj.ToString()!;
+        var messages = JsonSerializer.Deserialize<List<ChatMessage>>(histStr,
+            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+        if (messages != null)
+        {
+            foreach (var msg in messages)
+            {
+                if (!string.Equals(msg.Role, "system", StringComparison.OrdinalIgnoreCase))
+                    _conversationManager.AddMessage(conversationId, msg.Role, msg.Content);
+            }
+        }
+
+        _logger?.LogInformation(
+            "Agent '{BlockId}' conversation '{ConversationId}': seeded with {Count} history messages",
+            block.Id, conversationId, messages?.Count ?? 0);
 
         inputs["_conversationId"] = conversationId;
         return inputs;
@@ -91,9 +97,15 @@ public class AgentBlockExecutor : MultiNodeBlockExecutor
             ? context.Variables["_agentResult"]?.ToString() ?? ""
             : "";
 
+        var (cost, promptTokens, completionTokens) = GetAccumulatedCosts(context);
+
         return Task.FromResult(new BlockExecutionResult
         {
             Success = true,
+            EstimatedCostUsd = cost,
+            PromptTokens = promptTokens,
+            CompletionTokens = completionTokens,
+            TotalTokens = promptTokens + completionTokens,
             Outputs = new Dictionary<string, object>
             {
                 ["content"] = agentResult,

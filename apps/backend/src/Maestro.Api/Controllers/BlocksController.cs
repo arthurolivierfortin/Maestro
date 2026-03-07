@@ -23,19 +23,22 @@ namespace Maestro.Api.Controllers
         private readonly Maestro.Application.Interfaces.IBlockValidator _validator;
         private readonly BlockExecutorRegistry _executorRegistry;
         private readonly RunTracker _runTracker;
+        private readonly IBlockDependencyService _dependencyService;
 
         public BlocksController(
             IBlockDiscoveryService discovery,
             IBlockRepository repository,
             Maestro.Application.Interfaces.IBlockValidator validator,
             BlockExecutorRegistry executorRegistry,
-            RunTracker runTracker)
+            RunTracker runTracker,
+            IBlockDependencyService dependencyService)
         {
             _discovery = discovery;
             _repository = repository;
             _validator = validator;
             _executorRegistry = executorRegistry;
             _runTracker = runTracker;
+            _dependencyService = dependencyService;
         }
 
         /// <summary>
@@ -280,12 +283,25 @@ namespace Maestro.Api.Controllers
                         var blockRef = node.TryGetProperty("blockRef", out var refProp) ? refProp.GetString() : null;
                         var nodeType = node.TryGetProperty("type", out var typeProp) ? typeProp.GetString() : null;
 
+                        // Extract model overrides from node.config
+                        string? nodeModel = null;
+                        string? nodePlanningModel = null;
+                        if (node.TryGetProperty("config", out var nodeConfig) && nodeConfig.ValueKind == System.Text.Json.JsonValueKind.Object)
+                        {
+                            if (nodeConfig.TryGetProperty("model", out var modelProp) && modelProp.ValueKind == System.Text.Json.JsonValueKind.String)
+                                nodeModel = modelProp.GetString();
+                            if (nodeConfig.TryGetProperty("planningModel", out var planModelProp) && planModelProp.ValueKind == System.Text.Json.JsonValueKind.String)
+                                nodePlanningModel = planModelProp.GetString();
+                        }
+
                         var childInfo = new BlockChildInfo
                         {
                             NodeId = nodeId ?? "unknown",
                             NodeName = nodeName ?? "unknown",
                             BlockRef = blockRef,
-                            NodeType = nodeType ?? (blockRef != null ? "block-reference" : "inline")
+                            NodeType = nodeType ?? (blockRef != null ? "block-reference" : "inline"),
+                            Model = nodeModel,
+                            PlanningModel = nodePlanningModel
                         };
 
                         // If it's a block reference, try to resolve it
@@ -676,6 +692,65 @@ namespace Maestro.Api.Controllers
             var docs = block.Docs ?? new Dictionary<string, string>();
             return Ok(new { blockId = id, docs });
         }
+
+        // ── Phase 55: Manifest / dependency endpoints ──
+
+        /// <summary>
+        /// Get the full recursive dependency manifest for a block.
+        /// Walks config.nodes to resolve blockRefs and inline model overrides.
+        /// </summary>
+        [HttpGet("{id}/manifest")]
+        public async Task<ActionResult<BlockDependencyManifest>> GetManifest(string id)
+        {
+            var block = await _discovery.GetByIdAsync(id);
+            if (block == null)
+                return NotFound(new { error = $"Block '{id}' not found" });
+
+            var manifest = await _dependencyService.GetManifestAsync(id);
+            return Ok(manifest);
+        }
+
+        /// <summary>
+        /// Get a flat map of model → blockIds for all models required by a block tree.
+        /// </summary>
+        [HttpGet("{id}/manifest/models")]
+        public async Task<ActionResult<Dictionary<string, List<string>>>> GetManifestModels(string id)
+        {
+            var block = await _discovery.GetByIdAsync(id);
+            if (block == null)
+                return NotFound(new { error = $"Block '{id}' not found" });
+
+            var models = await _dependencyService.GetRequiredModelsAsync(id);
+            return Ok(models);
+        }
+
+        /// <summary>
+        /// Validate a block's dependency tree: check for missing blocks and circular references.
+        /// </summary>
+        [HttpGet("{id}/manifest/validate")]
+        public async Task<ActionResult<DependencyValidationResult>> ValidateManifest(string id)
+        {
+            var block = await _discovery.GetByIdAsync(id);
+            if (block == null)
+                return NotFound(new { error = $"Block '{id}' not found" });
+
+            var result = await _dependencyService.ValidateAsync(id);
+            return Ok(result);
+        }
+
+        /// <summary>
+        /// Get all blocks that reference this block in their config.nodes (reverse dependencies).
+        /// </summary>
+        [HttpGet("{id}/dependents")]
+        public async Task<ActionResult<List<string>>> GetDependents(string id)
+        {
+            var block = await _discovery.GetByIdAsync(id);
+            if (block == null)
+                return NotFound(new { error = $"Block '{id}' not found" });
+
+            var dependents = await _dependencyService.GetDependentsAsync(id);
+            return Ok(dependents);
+        }
     }
 
     /// <summary>
@@ -734,6 +809,8 @@ namespace Maestro.Api.Controllers
         public string? ResolvedBlockName { get; set; }
         public string? ResolvedBlockType { get; set; }
         public bool IsAtomic { get; set; } = true;
+        public string? Model { get; set; }
+        public string? PlanningModel { get; set; }
         public List<BlockChildInfo>? Children { get; set; }
     }
 

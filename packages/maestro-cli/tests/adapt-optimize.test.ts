@@ -1,8 +1,8 @@
 // @ts-nocheck
 /**
- * Unit tests for adapt-optimize module (Phase 39).
+ * Unit tests for adapt-optimize module (Phase 39, updated Phase 55-C).
  *
- * Tests manifest extraction, model detection, block variant helper,
+ * Tests modelMapToModelBlocks, model detection, block variant helper,
  * and strategy logic. Does NOT require backend/LLM-Provider running.
  *
  * Run: cd packages/maestro-cli && npx vitest run tests/adapt-optimize.test.ts
@@ -11,9 +11,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const {
-  extractManifest,
-  flattenModels,
-  collectModelBlocks,
+  modelMapToModelBlocks,
   detectModels,
   withBlockVariant,
   STRATEGIES,
@@ -29,6 +27,18 @@ function createMockClient(blocks: Record<string, any> = {}, models: any[] = []) 
       if (createdBlocks[id]) return createdBlocks[id];
       if (blocks[id]) return blocks[id];
       throw new Error(`Block not found: ${id}`);
+    },
+    getBlockManifest: async (id: string) => {
+      if (!blocks[id]) throw new Error(`Block not found: ${id}`);
+      // Return a simplified manifest structure for testing
+      return { blockId: id, blockType: blocks[id].blockType, model: blocks[id].config?.model || null, planningModel: null, isAtomic: true, children: [] };
+    },
+    getBlockManifestModels: async (id: string) => {
+      if (!blocks[id]) throw new Error(`Block not found: ${id}`);
+      return {};
+    },
+    validateBlock: async (id: string) => {
+      return { isValid: true, missingBlocks: [], circularReferences: [] };
     },
     createBlock: async (block: any) => {
       createdBlocks[block.id] = block;
@@ -133,121 +143,57 @@ const TEST_BLOCKS: Record<string, any> = {
 
 // ── Tests ───────────────────────────────────────────────────────
 
-describe('extractManifest', () => {
-  it('should extract model from a simple agent', async () => {
-    const client = createMockClient(TEST_BLOCKS);
-    const manifest = await extractManifest('simple-agent', client);
-
-    expect(manifest.blockId).toBe('simple-agent');
-    expect(manifest.model).toBe('claude-sonnet-4-6');
-    expect(manifest.planningModel).toBeNull();
-    expect(manifest.childBlocks).toHaveLength(0);
-  });
-
-  it('should extract models from a composite agent with config.nodes', async () => {
-    const client = createMockClient(TEST_BLOCKS);
-    const manifest = await extractManifest('composite-agent', client);
-
-    expect(manifest.blockId).toBe('composite-agent');
-    expect(manifest.model).toBeNull(); // No top-level model
-    expect(manifest.childBlocks.length).toBeGreaterThan(0);
-
-    // Should find the inline node model
-    const nodeChild = manifest.childBlocks.find(c => c.model === 'claude-sonnet-4-6');
-    expect(nodeChild).toBeDefined();
-  });
-
-  it('should recursively extract from a workflow with nested nodes', async () => {
-    const client = createMockClient(TEST_BLOCKS);
-    const manifest = await extractManifest('test-workflow', client);
-
-    expect(manifest.blockId).toBe('test-workflow');
-    expect(manifest.blockType).toBe('workflow');
-
-    // Flatten to check all discovered models
-    const flat = flattenModels(manifest);
-    expect(Object.keys(flat)).toContain('claude-sonnet-4-6');
-    expect(Object.keys(flat)).toContain('claude-haiku-4-5-20251001');
-  });
-
-  it('should handle circular references gracefully', async () => {
-    const blocks = {
-      'block-a': { id: 'block-a', blockType: 'workflow', config: { nodes: [{ blockRef: 'block-b' }] } },
-      'block-b': { id: 'block-b', blockType: 'workflow', config: { nodes: [{ blockRef: 'block-a' }] } },
+describe('modelMapToModelBlocks', () => {
+  it('should convert model map to array of { blockId, model } pairs', () => {
+    const modelMap = {
+      'claude-sonnet-4-6': ['simple-agent', 'committer-block'],
+      'claude-haiku-4-5-20251001': ['haiku-agent'],
     };
-    const client = createMockClient(blocks);
-    const manifest = await extractManifest('block-a', client);
+    const result = modelMapToModelBlocks(modelMap);
 
-    // Should not infinite loop
-    expect(manifest.blockId).toBe('block-a');
-  });
-
-  it('should handle missing blocks gracefully', async () => {
-    const client = createMockClient({});
-    const manifest = await extractManifest('nonexistent', client);
-
-    expect(manifest.blockId).toBe('nonexistent');
-    expect(manifest.blockType).toBe('unknown');
-    expect(manifest.model).toBeNull();
-  });
-});
-
-describe('flattenModels', () => {
-  it('should flatten a manifest tree into model → blocks map', async () => {
-    const client = createMockClient(TEST_BLOCKS);
-    const manifest = await extractManifest('test-workflow', client);
-    const flat = flattenModels(manifest);
-
-    expect(flat['claude-sonnet-4-6']).toBeDefined();
-    expect(flat['claude-sonnet-4-6']).toContain('simple-agent');
-    expect(flat['claude-sonnet-4-6']).toContain('committer-block');
-    expect(flat['claude-haiku-4-5-20251001']).toContain('haiku-agent');
-  });
-
-  it('should include planning models', async () => {
-    const client = createMockClient(TEST_BLOCKS);
-    const manifest = await extractManifest('composite-agent', client);
-    const flat = flattenModels(manifest);
-
-    expect(flat['claude-opus-4-6']).toBeDefined();
-    expect(flat['claude-opus-4-6'].some(b => b.includes('planning'))).toBe(true);
-  });
-});
-
-describe('collectModelBlocks', () => {
-  it('should collect unique blocks with direct model references', async () => {
-    const client = createMockClient(TEST_BLOCKS);
-    const manifest = await extractManifest('test-workflow', client);
-    const blocks = collectModelBlocks(manifest);
-
-    expect(blocks.length).toBeGreaterThan(0);
-    const blockIds = blocks.map(b => b.blockId);
+    expect(result.length).toBe(3);
+    const blockIds = result.map(b => b.blockId);
     expect(blockIds).toContain('simple-agent');
-    expect(blockIds).toContain('haiku-agent');
     expect(blockIds).toContain('committer-block');
-
-    // Should not include blocks without models (validator, tool)
-    expect(blockIds).not.toContain('validator-block');
-    expect(blockIds).not.toContain('fallback-block');
+    expect(blockIds).toContain('haiku-agent');
   });
 
-  it('should deduplicate blocks', async () => {
-    const blocks = {
-      'wf': {
-        id: 'wf', blockType: 'workflow', config: {
-          nodes: [
-            { blockRef: 'simple-agent' },
-            { blockRef: 'simple-agent' }, // duplicate
-          ],
-        },
-      },
-      ...TEST_BLOCKS,
+  it('should skip planning model entries', () => {
+    const modelMap = {
+      'claude-sonnet-4-6': ['simple-agent'],
+      'claude-opus-4-6': ['composite-agent (planning)'],
     };
-    const client = createMockClient(blocks);
-    const manifest = await extractManifest('wf', client);
-    const collected = collectModelBlocks(manifest);
-    const ids = collected.map(b => b.blockId);
-    expect(ids.filter(id => id === 'simple-agent')).toHaveLength(1);
+    const result = modelMapToModelBlocks(modelMap);
+
+    expect(result.length).toBe(1);
+    expect(result[0].blockId).toBe('simple-agent');
+    expect(result[0].model).toBe('claude-sonnet-4-6');
+  });
+
+  it('should deduplicate blocks across models', () => {
+    // If the same blockId appears under multiple models (shouldn't happen in practice,
+    // but tests the dedup logic)
+    const modelMap = {
+      'model-a': ['block-1', 'block-2'],
+      'model-b': ['block-1'], // duplicate
+    };
+    const result = modelMapToModelBlocks(modelMap);
+
+    const ids = result.map(b => b.blockId);
+    expect(ids.filter(id => id === 'block-1')).toHaveLength(1);
+  });
+
+  it('should return empty array for empty model map', () => {
+    const result = modelMapToModelBlocks({});
+    expect(result).toEqual([]);
+  });
+
+  it('should handle model map with only planning entries', () => {
+    const modelMap = {
+      'claude-opus-4-6': ['agent-a (planning)', 'agent-b (planning)'],
+    };
+    const result = modelMapToModelBlocks(modelMap);
+    expect(result).toEqual([]);
   });
 });
 

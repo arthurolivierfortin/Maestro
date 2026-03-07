@@ -1,0 +1,138 @@
+{
+  "id": "agent-creator",
+  "name": "Agent Creator",
+  "blockType": "agent",
+  "version": "1.0.0",
+  "isAtomic": true,
+  "description": "Creates new block definitions (block.json + system-prompt.md) from a description and contract. Uses a create-test-fix loop: generates a block, runs contract tests, identifies failures, fixes, and iterates until the block passes its target contract.",
+  "contract": "agent-creator",
+  "capabilities": ["conversation", "structured-output", "tool-calling"],
+  "inputs": [
+    { "id": "description", "type": "string", "required": true, "description": "What the agent should do" },
+    { "id": "contractId", "type": "string", "required": false, "description": "Contract ID to test against (e.g. 'code-reviewer')" },
+    { "id": "targetModel", "type": "string", "required": false, "description": "Target LLM model for the generated block (e.g. 'claude-haiku-4-5-20251001')" },
+    { "id": "baseBlockId", "type": "string", "required": false, "description": "Existing block ID to adapt (for variant creation)" }
+  ],
+  "outputs": [
+    { "id": "blockId", "type": "string", "description": "ID of the created block" },
+    { "id": "blockPath", "type": "string", "description": "Filesystem path to the created block" },
+    { "id": "testResults", "type": "string", "description": "JSON results from contract tests" },
+    { "id": "fitness", "type": "number", "description": "Fitness score from contract tests (0.0-1.0)" }
+  ],
+  "config": {
+    "model": "claude-sonnet-4-6",
+    "maxIterations": 25,
+    "wallClockTimeoutSeconds": 900,
+    "systemPromptFile": "system-prompt.md",
+    "context": {
+      "strategy": "sliding-window",
+      "maxTokens": 16384,
+      "keepSystemPrompt": true,
+      "keepLastN": 20
+    },
+    "nodes": [
+      {
+        "id": "init",
+        "type": "set-variable",
+        "variable": "_agentDone",
+        "value": "false"
+      },
+      {
+        "id": "agent-while",
+        "type": "while",
+        "condition": "{{_agentDone}} != true",
+        "maxIterations": "{{maxIterations}}",
+        "nodes": [
+          {
+            "id": "read-conversation",
+            "blockRef": "conversation-read",
+            "inputs": { "conversationId": "{{_conversationId}}" }
+          },
+          {
+            "id": "llm-call",
+            "blockRef": "inference",
+            "config": {
+              "model": "claude-sonnet-4-6",
+              "maxTokens": 4096,
+              "temperature": 0
+            },
+            "inputs": { "messages": "{{_nodeResult_read-conversation.messages}}" }
+          },
+          {
+            "id": "append-assistant",
+            "blockRef": "conversation-append",
+            "inputs": {
+              "conversationId": "{{_conversationId}}",
+              "role": "assistant",
+              "content": "{{_nodeResult_llm-call.content}}"
+            }
+          },
+          {
+            "id": "parse-response",
+            "blockRef": "response-parser",
+            "inputs": { "rawResponse": "{{_nodeResult_llm-call.content}}" }
+          },
+          {
+            "id": "route-response",
+            "type": "conditional",
+            "condition": "{{_nodeResult_parse-response.type}}",
+            "branches": {
+              "tool-call": {
+                "nodes": [
+                  {
+                    "id": "dispatch-tool",
+                    "blockRef": "tool-dispatcher",
+                    "inputs": {
+                      "toolId": "{{_nodeResult_parse-response.toolId}}",
+                      "args": "{{_nodeResult_parse-response.args}}"
+                    }
+                  },
+                  {
+                    "id": "append-tool-result",
+                    "blockRef": "conversation-append",
+                    "inputs": {
+                      "conversationId": "{{_conversationId}}",
+                      "role": "user",
+                      "content": "{{_nodeResult_dispatch-tool.result}}"
+                    }
+                  }
+                ]
+              },
+              "step-complete": {
+                "nodes": [
+                  { "id": "set-done", "type": "set-variable", "variable": "_agentDone", "value": "true" },
+                  { "id": "set-result", "type": "set-variable", "variable": "_agentResult", "value": "{{_nodeResult_parse-response.summary}}" }
+                ]
+              },
+              "text": {
+                "nodes": [
+                  { "id": "set-text-result", "type": "set-variable", "variable": "_agentResult", "value": "{{_nodeResult_parse-response.text}}" },
+                  { "id": "set-text-done", "type": "set-variable", "variable": "_agentDone", "value": "true" }
+                ]
+              },
+              "retry": {
+                "nodes": [
+                  {
+                    "id": "nudge-agent",
+                    "blockRef": "conversation-append",
+                    "inputs": {
+                      "conversationId": "{{_conversationId}}",
+                      "role": "user",
+                      "content": "Your last response was empty or malformed. Respond with a JSON tool call. If done, call step-complete."
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "metadata": {
+    "category": "creation",
+    "designation": "agent",
+    "tags": ["creation", "blocks", "contracts", "automation", "agent-creator"],
+    "tier": 1
+  }
+}

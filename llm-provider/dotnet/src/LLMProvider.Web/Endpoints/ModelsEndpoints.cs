@@ -51,7 +51,8 @@ public static class ModelsEndpoints
             OutputTokenPrice = m.OutputTokenPrice,
             Description = m.Description,
             Capabilities = m.Capabilities.ToList(),
-            IsAvailable = m.IsAvailable
+            IsAvailable = m.IsAvailable,
+            ParametersBillions = m.ParametersBillions
         });
 
         return Results.Ok(new { models = response });
@@ -80,7 +81,8 @@ public static class ModelsEndpoints
             OutputTokenPrice = m.OutputTokenPrice,
             Description = m.Description,
             Capabilities = m.Capabilities.ToList(),
-            IsAvailable = m.IsAvailable
+            IsAvailable = m.IsAvailable,
+            ParametersBillions = m.ParametersBillions
         });
 
         return Results.Ok(new { models = response });
@@ -109,7 +111,8 @@ public static class ModelsEndpoints
             OutputTokenPrice = model.OutputTokenPrice,
             Description = model.Description,
             Capabilities = model.Capabilities.ToList(),
-            IsAvailable = model.IsAvailable
+            IsAvailable = model.IsAvailable,
+            ParametersBillions = model.ParametersBillions
         };
 
         return Results.Ok(response);
@@ -136,4 +139,5 @@ public record ModelResponse
     public string? Description { get; init; }
     public required List<string> Capabilities { get; init; }
     public required bool IsAvailable { get; init; }
+    public double? ParametersBillions { get; init; }
 }

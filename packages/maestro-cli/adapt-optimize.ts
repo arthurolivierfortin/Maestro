@@ -6,6 +6,8 @@
  */
 
 /* eslint-disable @typescript-eslint/no-var-requires */
+import type { BlockDependencyManifest, DependencyValidationResult } from '@maestro/client';
+
 const fs = require('fs');
 const path = require('path');
 const { SandboxManager } = require('./sandbox-manager.ts');
@@ -34,6 +36,9 @@ interface SandboxManagerInstance {
 /** Minimal API client interface used by adapt-optimize functions. */
 interface AdaptClient {
   getBlock(id: string): Promise<Record<string, unknown>>;
+  getBlockManifest(id: string): Promise<BlockDependencyManifest>;
+  getBlockManifestModels(id: string): Promise<Record<string, string[]>>;
+  validateBlock(id: string): Promise<DependencyValidationResult>;
   listLLMModels(): Promise<{ models?: LLMModelInfo[] } | LLMModelInfo[]>;
   executeWorkflow(id: string, opts: { inputs: Record<string, unknown>; workingDirectory: string }): Promise<ExecutionResult>;
   _fetch(method: string, path: string, options?: { body?: unknown }): Promise<Record<string, unknown>>;
@@ -77,14 +82,6 @@ interface StrategyOptions {
 
 // ── Types ───────────────────────────────────────────────────────
 
-interface BlockManifest {
-  blockId: string;
-  blockType: string;
-  model: string | null;
-  planningModel: string | null;
-  childBlocks: BlockManifest[];
-}
-
 interface FlatModelMap {
   [model: string]: string[]; // model → [blockId, blockId, ...]
 }
@@ -109,7 +106,7 @@ interface SubstitutionResult {
 
 interface AdaptResult {
   workflowId: string;
-  manifest: BlockManifest;
+  manifest: BlockDependencyManifest;
   availability: ModelAvailability[];
   substitutions: SubstitutionResult[];
   globalFitness: number;
@@ -134,156 +131,25 @@ interface OptimizationResult {
   bestCandidate: OptimizationCandidate | null;
 }
 
-// ── Manifest Extraction ─────────────────────────────────────────
+// ── Manifest Helpers (backed by backend API via AdaptClient) ────
 
 /**
- * Recursively extract model requirements from a block and its children.
- * Handles both atomic agents (config.model) and composite agents/workflows (config.nodes[].config.model + blockRef).
+ * Derive a list of { blockId, model } pairs from the manifestModels endpoint.
+ * Inverts the model→blockIds map, excluding planning model entries.
  */
-async function extractManifest(blockId: string, client: AdaptClient, visited = new Set<string>()): Promise<BlockManifest> {
-  if (visited.has(blockId)) {
-    return { blockId, blockType: 'ref', model: null, planningModel: null, childBlocks: [] };
-  }
-  visited.add(blockId);
-
-  let block;
-  try {
-    block = await client.getBlock(blockId);
-  } catch {
-    return { blockId, blockType: 'unknown', model: null, planningModel: null, childBlocks: [] };
-  }
-
-  const config = (block.config || {}) as Record<string, any>;
-  const model = config.model || null;
-  const planningModel = config.planningModel || null;
-  const childBlocks: BlockManifest[] = [];
-
-  // Composite: walk config.nodes for inline models and blockRefs
-  const nodes: Record<string, any>[] = config.nodes || [];
-  for (const node of nodes) {
-    const nodeConfig = (node.config || {}) as Record<string, any>;
-    if (nodeConfig.model || nodeConfig.planningModel) {
-      // Inline model override in a node
-      childBlocks.push({
-        blockId: node.blockRef || node.id || 'inline',
-        blockType: 'node',
-        model: nodeConfig.model || null,
-        planningModel: nodeConfig.planningModel || null,
-        childBlocks: [],
-      });
-    }
-    // Recurse into blockRef
-    if (node.blockRef && !visited.has(node.blockRef)) {
-      const childManifest = await extractManifest(node.blockRef, client, visited);
-      childBlocks.push(childManifest);
-    }
-    // Recurse into nested nodes (while, conditional, for-each)
-    if (node.nodes) {
-      for (const subNode of node.nodes) {
-        if (subNode.blockRef && !visited.has(subNode.blockRef)) {
-          childBlocks.push(await extractManifest(subNode.blockRef, client, visited));
-        }
-        // Handle conditional then/else
-        if (subNode.then?.nodes) {
-          for (const thenNode of subNode.then.nodes) {
-            if (thenNode.blockRef && !visited.has(thenNode.blockRef)) {
-              childBlocks.push(await extractManifest(thenNode.blockRef, client, visited));
-            }
-          }
-        }
-        if (subNode.else?.nodes) {
-          for (const elseNode of subNode.else.nodes) {
-            if (elseNode.blockRef && !visited.has(elseNode.blockRef)) {
-              childBlocks.push(await extractManifest(elseNode.blockRef, client, visited));
-            }
-          }
-        }
-        // Nested sub-nodes (for-each, while bodies)
-        if (subNode.nodes) {
-          for (const deep of subNode.nodes) {
-            if (deep.blockRef && !visited.has(deep.blockRef)) {
-              childBlocks.push(await extractManifest(deep.blockRef, client, visited));
-            }
-          }
-        }
-      }
-    }
-    // Handle then/else at top level node
-    if (node.then) {
-      if (node.then.blockRef && !visited.has(node.then.blockRef)) {
-        childBlocks.push(await extractManifest(node.then.blockRef, client, visited));
-      }
-      if (node.then.nodes) {
-        for (const thenNode of node.then.nodes) {
-          if (thenNode.blockRef && !visited.has(thenNode.blockRef)) {
-            childBlocks.push(await extractManifest(thenNode.blockRef, client, visited));
-          }
-        }
-      }
-    }
-    if (node.else) {
-      if (node.else.blockRef && !visited.has(node.else.blockRef)) {
-        childBlocks.push(await extractManifest(node.else.blockRef, client, visited));
-      }
-      if (node.else.nodes) {
-        for (const elseNode of node.else.nodes) {
-          if (elseNode.blockRef && !visited.has(elseNode.blockRef)) {
-            childBlocks.push(await extractManifest(elseNode.blockRef, client, visited));
-          }
-        }
-      }
-    }
-  }
-
-  return {
-    blockId,
-    blockType: block.blockType || 'unknown',
-    model,
-    planningModel,
-    childBlocks,
-  };
-}
-
-/**
- * Flatten a manifest tree into a map of model → [blockIds].
- */
-function flattenModels(manifest: BlockManifest): FlatModelMap {
-  const map: FlatModelMap = {};
-
-  function walk(m: BlockManifest) {
-    if (m.model) {
-      if (!map[m.model]) map[m.model] = [];
-      if (!map[m.model].includes(m.blockId)) map[m.model].push(m.blockId);
-    }
-    if (m.planningModel) {
-      if (!map[m.planningModel]) map[m.planningModel] = [];
-      if (!map[m.planningModel].includes(m.blockId + ' (planning)')) map[m.planningModel].push(m.blockId + ' (planning)');
-    }
-    for (const child of m.childBlocks) {
-      walk(child);
-    }
-  }
-
-  walk(manifest);
-  return map;
-}
-
-/**
- * Collect all unique block IDs that have a direct model reference (leaf blocks to test).
- */
-function collectModelBlocks(manifest: BlockManifest): Array<{ blockId: string; model: string }> {
+function modelMapToModelBlocks(modelMap: FlatModelMap): Array<{ blockId: string; model: string }> {
   const results: Array<{ blockId: string; model: string }> = [];
   const seen = new Set<string>();
-
-  function walk(m: BlockManifest) {
-    if (m.model && !seen.has(m.blockId) && m.blockType !== 'node') {
-      seen.add(m.blockId);
-      results.push({ blockId: m.blockId, model: m.model });
+  for (const [model, blockIds] of Object.entries(modelMap)) {
+    for (const bid of blockIds) {
+      // Skip planning model entries (e.g. "block-id (planning)")
+      if (bid.endsWith(' (planning)')) continue;
+      if (!seen.has(bid)) {
+        seen.add(bid);
+        results.push({ blockId: bid, model });
+      }
     }
-    for (const child of m.childBlocks) walk(child);
   }
-
-  walk(manifest);
   return results;
 }
 
@@ -598,8 +464,8 @@ async function maestroAdapt(
   console.log('');
 
   process.stdout.write(`  ${c.gray('Extracting manifest...')} `);
-  const manifest = await extractManifest(workflowId, client);
-  const modelMap = flattenModels(manifest);
+  const manifest = await client.getBlockManifest(workflowId);
+  const modelMap = await client.getBlockManifestModels(workflowId);
   const requiredModels = Object.keys(modelMap);
   console.log(c.ok('done'));
 
@@ -629,7 +495,7 @@ async function maestroAdapt(
   }
 
   // Step 4: Test substitutions
-  const modelBlocks = collectModelBlocks(manifest);
+  const modelBlocks = modelMapToModelBlocks(modelMap);
   const substitutions: SubstitutionResult[] = [];
 
   if (modelBlocks.length === 0) {
@@ -1004,9 +870,9 @@ async function maestroOptimize(
   const results: OptimizationResult[] = [];
 
   if (options.recursive) {
-    // Recursive: extract manifest, sort bottom-up, optimize each
-    const manifest = await extractManifest(blockId, client);
-    const modelBlocks = collectModelBlocks(manifest);
+    // Recursive: get model map from backend, derive model blocks
+    const modelMap = await client.getBlockManifestModels(blockId);
+    const modelBlocks = modelMapToModelBlocks(modelMap);
 
     if (modelBlocks.length === 0) {
       console.log(`  ${c.gray('No blocks with model references to optimize.')}\n`);
@@ -1067,9 +933,7 @@ async function maestroOptimize(
 // ── Exports ─────────────────────────────────────────────────────
 
 module.exports = {
-  extractManifest,
-  flattenModels,
-  collectModelBlocks,
+  modelMapToModelBlocks,
   detectModels,
   getAllAvailableModels,
   withBlockVariant,

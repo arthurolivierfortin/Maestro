@@ -93,4 +93,9 @@ public sealed class AzureInferenceModelConfig
     /// The model family (e.g., "llama", "mistral", "phi", "cohere").
     /// </summary>
     public string? ModelFamily { get; init; }
+
+    /// <summary>
+    /// Estimated number of parameters in billions (e.g., 70 for a 70B model). Null when unknown.
+    /// </summary>
+    public double? ParametersBillions { get; init; }
 }

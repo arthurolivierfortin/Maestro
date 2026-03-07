@@ -359,7 +359,7 @@ const App = ({ apiClient: clientProp, sessionManager: smProp, demoMode, repoPath
       setShowHelp(false);
       return;
     }
-    if (!inputFocused && input === '/') {
+    if (!inputFocused && input === '/' && currentPageRef.current === 'agent') {
       setInputFocused(true);
       return;
     }

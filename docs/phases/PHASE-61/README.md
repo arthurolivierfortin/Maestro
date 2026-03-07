@@ -1,34 +1,56 @@
-# Phase 61 : Premiere version deployable
+# Phase 61 : Choix assistant au setup + Catalog par contract
 
 **Statut** : Planifie
-**Prerequis** : Phase 60 COMPLETE (catalogue, auth, contenu)
-**Objectif** : `npm install -g @maestro/cli && maestro init && maestro code` fonctionne. L'utilisateur installe, voit les assistants compatibles avec son hardware et leurs features actives, choisit, et commence a travailler. C'est la V1 publique.
-**Duree estimee** : 10-15 jours
+**Prerequis** : Phase 60 COMPLETE (~30 variantes pre-testees avec contracts et capabilities)
+**Objectif** : Au premier lancement, l'utilisateur voit tous les blocks qui implementent le contract `maestro-assistant`, avec leurs capabilities et features actives/inactives. Il choisit celui qu'il veut. Le Catalog est organise par contract et permet de changer a tout moment.
+**Duree estimee** : 3-5 jours
 
 ---
 
-## Ce que l'utilisateur recoit
+## Contexte
+
+### Le flow utilisateur
 
 ```
-$ npm install -g @maestro/cli
-$ maestro init
-  > Detecting hardware... RTX 3060 (12GB VRAM), 32GB RAM
-  > Choose provider: [1] Local [2] Cloud [3] Hybrid
-  >
-  > Available assistants for contract "maestro-assistant":
-  >   ★ maestro-assistant-mistral7b — 3/5 features (recommended)
-  >     maestro-assistant-codellama13b — 4/5 features
-  >     maestro-assistant-claude — 5/5 features (cloud, paid)
-  >     maestro-assistant-phi3 — 2/5 features (fast, limited)
-  >
-  > Select [1-4]: 1
-  > Ready! Run `maestro code` to start.
-
-$ maestro code
-  > Welcome to Maestro Code.
-  > Assistant: maestro-assistant-mistral7b (3/5 features)
-  > Type a message or /help for commands.
+┌─ CHOOSE YOUR ASSISTANT ─────────────────────────────────────────┐
+│                                                                   │
+│  Your hardware: RTX 3060 (12GB VRAM), 32GB RAM                   │
+│  Contract: maestro-assistant                                      │
+│                                                                   │
+│  Compatible implementations (5):                                  │
+│                                                                   │
+│  > maestro-assistant-mistral7b     ★ Recommended                  │
+│    Fitness: 0.82 | Model: Mistral 7B | Tier: standard            │
+│    Features: 3/5 active                                           │
+│      ✓ conversation  ✓ orchestration  ✓ tool-execution           │
+│      ✗ json-config (needs structured-output)                     │
+│      ✗ multi-step-plans (needs long-context)                     │
+│                                                                   │
+│    maestro-assistant-codellama13b                                  │
+│    Fitness: 0.78 | Model: CodeLlama 13B | Tier: heavy            │
+│    Features: 4/5 active                                           │
+│      ✓ conversation  ✓ orchestration  ✓ tool-execution           │
+│      ✓ multi-step-plans                                          │
+│      ✗ json-config (needs structured-output)                     │
+│                                                                   │
+│    maestro-assistant-claude                                        │
+│    Fitness: 0.95 | Model: Claude (cloud) | Tier: cloud-paid      │
+│    Features: 5/5 active — ALL FEATURES                           │
+│                                                                   │
+│    maestro-assistant-phi3                                          │
+│    Fitness: 0.55 | Model: Phi-3 Mini | Tier: light               │
+│    Features: 2/5 active                                           │
+│      ✓ conversation  ✓ tool-execution                            │
+│                                                                   │
+│  Not compatible with your hardware (3):                           │
+│    maestro-assistant-mixtral (needs 24GB VRAM)                    │
+│    ...                                                            │
+│                                                                   │
+│  [j/k] Navigate  [Enter] Select  [Space] Details                 │
+└───────────────────────────────────────────────────────────────────┘
 ```
+
+L'utilisateur voit **exactement** ce qu'il gagne et perd avec chaque choix.
 
 ---
 
@@ -36,48 +58,101 @@ $ maestro code
 
 | Phase | Titre | Effort |
 |-------|-------|--------|
-| 59-A | Packaging npm + commande globale + sidecar auto-start | 3-4 jours |
-| 59-B | `maestro init` + onboarding complet (contracts, choix assistant) | 2-3 jours |
-| 59-C | Documentation : README, Getting Started, exemples | 2-3 jours |
-| 59-D | Beta testing (3-5 testeurs externes) | 3-5 jours |
+| 57-A | Filtrage compatibilite + feature gating UI | 1 jour |
+| 57-B | UI de choix dans le setup flow | 1.5-2 jours |
+| 57-C | Catalog organise par contract + changement | 1 jour |
+| 57-D | Dogfooding complet | 0.5 jour |
 
 ---
 
-## 59-A : Packaging npm
+## 57-A : Filtrage compatibilite + feature gating UI
+
+### Lecture obligatoire
+- `packages/maestro-code/services/contract-resolver.ts` (Phase 50)
+- `packages/maestro-code/services/hardware-detect.ts`
+- `content/system/contracts/maestro-assistant.contract.json`
+- `content/system/contracts/maestro-assistant-variants.json` (index Phase 58)
 
 ### Taches
-1. Package npm `@maestro/cli` avec bin global
-2. Sidecar embarque (backend + LLM-Provider)
-3. Auto-start, health check, cleanup
-4. Cross-platform (Windows, macOS, Linux)
-5. `maestro --version`
+
+1. **Enrichir le contract resolver** :
+   - `getImplementations(contractId, hardware?)` → compatible + incompatible, tries par fitness
+   - Pour chaque block : calculer les features actives/inactives via `getActiveFeatures(block, contract)`
+   - Pour les incompatibles : raison (ex: "needs 24GB VRAM, you have 12GB")
+   - Output :
+     ```typescript
+     interface ContractImplementation {
+       block: BlockDefinition;
+       fitness: number;
+       activeFeatures: string[];       // features actives
+       inactiveFeatures: FeatureGap[]; // features desactivees + raison
+       isRecommended: boolean;
+       incompatibleReason?: string;
+     }
+     interface FeatureGap {
+       feature: string;
+       missingCapability: string;
+       description: string;  // "needs structured-output"
+     }
+     ```
+
+2. **Tests** :
+   - Test : block avec toutes les capabilities → 5/5 features actives
+   - Test : block avec capabilities partielles → features filtrees + raisons
+   - Test : tri par fitness, recommended = meilleur compatible
+   - Test : incompatibles avec raisons
 
 ---
 
-## 59-B : maestro init
+## 57-B : UI de choix dans le setup flow
 
 ### Taches
-1. `maestro init` : cree `~/.maestro/`, detecte hardware, config provider, choix assistant par contract
-2. `maestro init` dans un projet : cree `.maestro/`, permissions, workspace
-3. Idempotent : relancer ne casse rien
+
+1. **Composant `ContractChooser`** :
+   - Affiche hardware + contract en haut
+   - Liste les implementations compatibles avec j/k navigation
+   - Chaque block montre : nom, fitness, modele, tier, features X/Y actives
+   - Le recommended est marque avec une etoile
+   - `[Space]` pour details : liste complete features ✓/✗ avec raisons
+   - Section "Not compatible" en bas (grisee)
+   - `[Enter]` pour selectionner
+
+2. **Sauvegarde** : `~/.maestro/config.json` → `contracts.maestro-assistant: "<block-id>"`
+
+3. **Message post-selection** : "You can change this anytime from the Catalog."
 
 ---
 
-## 59-C : Documentation
+## 57-C : Catalog organise par contract + changement
+
+### Lecture obligatoire
+- `packages/maestro-code/components/CatalogScreen.ts`
 
 ### Taches
-1. **README.md** : installation, screenshot, liens
-2. **Getting Started** : install → first launch → first conversation → create agent → explore catalog
-3. **3 exemples** : dev agent React, doc writer API, adapt for local GPU
+
+1. **Groupement par contract dans le Catalog** :
+   - Les blocks qui partagent un contract sont groupes visuellement
+   - Header : "maestro-assistant (3 implementations)" avec features du contract
+   - Sous le header : les blocks avec leurs capabilities
+
+2. **Badges** :
+   - `[active]` sur le block actuellement choisi pour ce contract
+   - `[recommended]` sur le meilleur pour ce hardware
+   - `[X/Y features]` indiquant les features actives
+
+3. **Changer de block pour un contract** :
+   - `[Enter]` sur un block compatible → "Switch to this for maestro-assistant? [Y/N]"
+   - Met a jour la config, recharge
+
+4. **Filtre par contract** : onglet ou touche pour "Show by contract"
 
 ---
 
-## 59-D : Beta testing
+## 57-D : Dogfooding
 
-### Taches
-1. 3-5 testeurs developpeurs
-2. Protocole : installer, Getting Started, 3 taches, questionnaire
-3. Iterer : fixes critiques uniquement, pas de nouvelles features
+- Fresh install (supprimer `~/.maestro/`)
+- Verifier le flow complet : setup → choix → utilisation → changement via Catalog
+- 3 profils hardware : CPU-only, GPU moyen, cloud-only
 
 ---
 
@@ -85,13 +160,18 @@ $ maestro code
 
 > **OBLIGATOIRE** : Lire `docs/system/TESTING-PROTOCOL.md` et executer TOUTES les couches de test applicables (voir la matrice) avant de declarer DONE. Copier la checklist de fin de phase dans `checkpoint.md`.
 
-- [ ] `npm install -g @maestro/cli` fonctionne cross-platform
-- [ ] `maestro init` configure tout (hardware, provider, assistant par contract)
-- [ ] `maestro code` demarre sans intervention manuelle
-- [ ] L'utilisateur comprend ses options (features actives/inactives par contract)
-- [ ] Le catalogue est accessible avec du contenu
-- [ ] Documentation complete
-- [ ] 3 testeurs externes reussissent sur leur projet
+- [ ] Le setup affiche tous les blocks par contract avec features actives/inactives
+- [ ] L'utilisateur choisit en comprenant les tradeoffs
+- [ ] Features desactivees montrent la raison (capability manquante)
+- [ ] Le Catalog est organise par contract
+- [ ] Changement de block possible depuis le Catalog
+- [ ] 3 profils hardware testes
+- [ ] Tous les tests passent
+- [ ] E2E dogfooding score >= 3.5/5
 
 ### Gate
-3 testeurs externes installent, choisissent leur assistant, et accomplissent des taches reelles.
+L'utilisateur comprend ce qu'il gagne et perd avec chaque choix.
+
+### NOT in scope
+- Catalogue communautaire (Phase 60)
+- Premiere version deployable (Phase 63)

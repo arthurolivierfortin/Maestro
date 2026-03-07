@@ -240,35 +240,45 @@ Workflows define their structure in `config.nodes`:
 
 ## Node Dispatch Pattern
 
-### Current Implementation (Pragmatic)
+### DispatchNodeAsync — Single Dispatch Point (Phase 53-C)
 
-Dispatch uses pattern matching on node IDs:
+All node dispatch goes through `NodeExecutionEngine.DispatchNodeAsync()`. Both `ExecuteConfigNodesAsync` (sequential) and `ExecuteParallelNodeAsync` (concurrent) delegate to it. The dispatch order:
 
 ```csharp
-private async Task ExecuteNodeAsync(ExecutionNode node, ...)
+private async Task<string?> DispatchNodeAsync(
+    JsonElement configNode, string nodeId, string? nodeType,
+    NodeExecutionContext context, string? previousOutput)
 {
-    if (node.Id.Contains("evaluate"))
+    // 1. Registered INodeHandler (for-each, set-variable, etc.)
+    if (nodeType != null && _handlers.TryGetValue(nodeType, out var handler))
+        return await handler.ExecuteAsync(configNode, context, this, previousOutput);
+
+    // 2. Built-in control flow
+    switch (nodeType)
     {
-        await ExecuteEvaluateStepAsync(...);
+        case "while":       return await ExecuteWhileNodeAsync(...);
+        case "conditional":  return await ExecuteConditionalNodeAsync(...);
+        case "sequence":     return await ExecuteSequenceNodeAsync(...);
+        case "parallel":     return await ExecuteParallelNodeAsync(...);
+        case "phase":        return await ExecutePhaseNodeAsync(...);
     }
-    else if (node.Id.Contains("generate"))
-    {
-        await ExecuteGenerateStepAsync(...);
-    }
-    // ...
+
+    // 3. BlockRef dispatch (null type or has blockRef property)
+    if (_handlers.TryGetValue(null, out var blockRefHandler))
+        return await blockRefHandler.ExecuteAsync(...);
+
+    // 4. Guard: orphan nodes (no type, no blockRef) → warning + skip
+    // 5. Passthrough (return previousOutput)
 }
 ```
 
-This is **temporary** - better than routing by workflow ID, but not fully generic.
+### Extensibility
 
-### Future Implementation (Fully Generic)
+New node types require zero engine changes:
 
-Connect to existing infrastructure:
-1. Use `BlockExecutorRegistry` to dispatch each node
-2. Each node executed by its `IBlockExecutor`
-3. No pattern matching needed
-
-This requires bridging `ExecutionContext` and session variables.
+1. Create `MyHandler : INodeHandler` with `NodeType => "my-type"`
+2. Register in Program.cs: `builder.Services.AddScoped<INodeHandler>(sp => new MyHandler(...))`
+3. Engine picks it up from `IEnumerable<INodeHandler>` at construction time
 
 ---
 

@@ -78,7 +78,18 @@ var llmBaseUrl = builder.Configuration.GetSection(LLMProviderSettings.SectionNam
 Console.WriteLine($"[Maestro] LLM Gateway: LLM-Provider ({llmBaseUrl})");
 
 // LLM Provider admin service (health, models, hardware — separate from inference gateway)
-builder.Services.AddHttpClient<ILLMProviderService, LLMProviderService>();
+builder.Services.AddHttpClient<ILLMProviderService, LLMProviderService>((sp, client) =>
+{
+    var settings = sp.GetRequiredService<IOptions<LLMProviderSettings>>().Value;
+    client.BaseAddress = new Uri(settings.BaseUrl);
+    client.Timeout = TimeSpan.FromSeconds(30);
+});
+
+// Phase 56-A: Model Pricing Service (caches prices from LLM-Provider, 5min TTL)
+builder.Services.AddSingleton<IModelPricingService>(sp =>
+    new Maestro.Infrastructure.Pricing.ModelPricingService(
+        sp.GetRequiredService<ILLMProviderService>(),
+        sp.GetService<ILogger<Maestro.Infrastructure.Pricing.ModelPricingService>>()));
 
 // Phase 34-E-PRE: Conversation Manager (singleton — conversations live in memory across scopes)
 builder.Services.AddSingleton<IConversationManager, InMemoryConversationManager>();
@@ -102,7 +113,8 @@ builder.Services.AddScoped<Maestro.Application.Interfaces.IBlockExecutor, Maestr
 builder.Services.AddScoped<Maestro.Application.Interfaces.IBlockExecutor>(sp =>
     new Maestro.Infrastructure.BlockExecutors.InferenceBlockExecutor(
         sp.GetRequiredService<Maestro.Application.Interfaces.ILLMGateway>(),
-        sp.GetService<Maestro.Application.Interfaces.IExecutionMonitor>()));
+        sp.GetService<Maestro.Application.Interfaces.IExecutionMonitor>(),
+        sp.GetRequiredService<Maestro.Application.Interfaces.IModelPricingService>()));
 // ToolBlockExecutor now needs IServiceProvider for CLI bridge support
 builder.Services.AddScoped<Maestro.Infrastructure.BlockExecutors.ToolBlockExecutor>(sp =>
     new Maestro.Infrastructure.BlockExecutors.ToolBlockExecutor(sp));
@@ -223,6 +235,9 @@ builder.Services.AddScoped<IBlockRepository>(sp =>
 });
 
 builder.Services.AddScoped<Maestro.Application.Interfaces.IBlockValidator, Maestro.Infrastructure.BlockStore.JsonSchemaBlockValidator>();
+
+// Phase 55: Block dependency service (manifest, model map, validation, reverse lookup)
+builder.Services.AddScoped<Maestro.Application.Interfaces.IBlockDependencyService, Maestro.Infrastructure.BlockStore.BlockDependencyService>();
 
 // Register project repository (Phase 7B)
 builder.Services.AddSingleton<IProjectRepository>(sp =>
@@ -377,8 +392,9 @@ builder.Services.AddScoped<Maestro.Infrastructure.Testing.ContractTestRunner>(sp
     var executorRegistry = sp.GetRequiredService<Maestro.Infrastructure.BlockExecutors.BlockExecutorRegistry>();
     var llmGateway = sp.GetRequiredService<ILLMGateway>();
     var sessionRepository = sp.GetRequiredService<IProjectSessionRepository>();
+    var pricingService = sp.GetRequiredService<IModelPricingService>();
     var logger = sp.GetService<ILogger<Maestro.Infrastructure.Testing.ContractTestRunner>>();
-    return new Maestro.Infrastructure.Testing.ContractTestRunner(blockDiscovery, executorRegistry, llmGateway, sessionRepository, logger!);
+    return new Maestro.Infrastructure.Testing.ContractTestRunner(blockDiscovery, executorRegistry, llmGateway, sessionRepository, pricingService, logger!);
 });
 
 // Phase 9: Register quality evaluators

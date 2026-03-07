@@ -28,9 +28,15 @@ public class WorkflowBlockExecutor : MultiNodeBlockExecutor
     protected override Task<BlockExecutionResult> ExtractResultAsync(
         BlockDefinition block, ExecutionContext context, CancellationToken ct)
     {
+        var (cost, promptTokens, completionTokens) = GetAccumulatedCosts(context);
+
         return Task.FromResult(new BlockExecutionResult
         {
             Success = true,
+            EstimatedCostUsd = cost,
+            PromptTokens = promptTokens,
+            CompletionTokens = completionTokens,
+            TotalTokens = promptTokens + completionTokens,
             Outputs = new Dictionary<string, object>(context.Variables)
         });
     }

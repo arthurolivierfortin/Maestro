@@ -16,11 +16,10 @@ public interface IConversationManager
     string CreateConversation(string? systemPrompt = null);
 
     /// <summary>
-    /// Returns an existing conversation by ID, or creates a new one if it doesn't exist.
-    /// Used for persistent conversations that survive across invocations (e.g., agent sessions).
-    /// If the conversation already exists, the systemPrompt parameter is ignored.
+    /// Creates a conversation with a specific ID. Used to recreate conversations
+    /// lost due to process restart (in-memory storage).
     /// </summary>
-    string CreateOrGetConversation(string conversationId, string? systemPrompt = null);
+    string CreateConversation(string? systemPrompt, string conversationId);
 
     /// <summary>
     /// Adds a message to an existing conversation.

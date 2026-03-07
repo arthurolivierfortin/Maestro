@@ -75,6 +75,26 @@ public abstract class MultiNodeBlockExecutor : IBlockExecutor
     protected abstract Task<BlockExecutionResult> ExtractResultAsync(
         BlockDefinition block, ExecutionContext context, CancellationToken ct);
 
+    /// <summary>
+    /// Reads accumulated costs from execution context variables.
+    /// These are populated by BlockRefHandler during config.nodes execution.
+    /// </summary>
+    protected (decimal cost, int promptTokens, int completionTokens) GetAccumulatedCosts(ExecutionContext context)
+    {
+        var cost = decimal.TryParse(
+            context.Variables.GetValueOrDefault("_accumulatedCost")?.ToString(),
+            System.Globalization.NumberStyles.Any,
+            System.Globalization.CultureInfo.InvariantCulture,
+            out var c) ? c : 0m;
+        var prompt = int.TryParse(
+            context.Variables.GetValueOrDefault("_accumulatedPromptTokens")?.ToString(),
+            out var p) ? p : 0;
+        var completion = int.TryParse(
+            context.Variables.GetValueOrDefault("_accumulatedCompletionTokens")?.ToString(),
+            out var cp) ? cp : 0;
+        return (cost, prompt, completion);
+    }
+
     protected bool HasConfigNodes(BlockDefinition block)
     {
         if (block.Config == null) return false;
