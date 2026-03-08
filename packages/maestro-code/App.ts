@@ -677,8 +677,12 @@ const App = ({ apiClient: clientProp, sessionManager: smProp, demoMode, repoPath
           const session = await (apiClient as IMaestroCodeApiClient).createSession(createOpts);
 
           // Import block-forge template and start
-          await (apiClient as IMaestroCodeApiClient)._fetch('POST', `/api/sessions/${session.id}/import-template/block-forge`);
-          await (apiClient as IMaestroCodeApiClient)._fetch('POST', `/api/sessions/${session.id}/start`);
+          if (!importSessionTemplate) {
+            addLine({ text: 'Error: importSessionTemplate not available (demo mode?)', color: 'red', timestamp: ts() });
+            return;
+          }
+          await importSessionTemplate(session.id, 'block-forge', { quiet: true });
+          await (apiClient as IMaestroCodeApiClient).startSession(session.id);
 
           // Invoke the default entry point
           await (apiClient as IMaestroCodeApiClient)._fetch('POST', `/api/sessions/${session.id}/invoke/default`, {

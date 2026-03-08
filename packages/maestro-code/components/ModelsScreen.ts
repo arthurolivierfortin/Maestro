@@ -145,9 +145,10 @@ const QueuePanel = ({ queue }: QueuePanelProps) => {
 interface ModelStatusPanelProps {
   health: Record<string, any> | null;
   tick?: number;
+  providerCount?: number | string;
 }
 
-const ModelStatusPanel = ({ health, tick = 0 }: ModelStatusPanelProps) => {
+const ModelStatusPanel = ({ health, tick = 0, providerCount: providerCountProp }: ModelStatusPanelProps) => {
   const isLoading = health === null || health === undefined;
   const isHealthy = health && !health.error;
   const healthColor = isLoading ? theme.text.muted : (isHealthy ? theme.status.success : theme.status.error);
@@ -156,7 +157,7 @@ const ModelStatusPanel = ({ health, tick = 0 }: ModelStatusPanelProps) => {
   // Extract info from health response
   const device = health?.device || '-';
   const modelsLoaded = health?.modelsLoaded ?? '-';
-  const providerCount = health?.providers ? Object.keys(health.providers).length : (health?.providerCount ?? '-');
+  const providerCount = providerCountProp ?? (health?.providers ? Object.keys(health.providers).length : '-');
 
   return h(Box, { flexDirection: 'column', paddingLeft: 1 },
     h(Box, { flexDirection: 'row', gap: 1 },
@@ -377,7 +378,7 @@ const ModelsScreen = ({ apiClient, onNavigate, onModelSelect, onQuit, initialSta
     // Row 1: Status | Metrics | Queue
     h(Box, { flexDirection: 'row', width: '100%' },
       h(Panel, { title: 'MODEL STATUS', width: '34%' },
-        h(ModelStatusPanel, { health: llmHealth, tick }),
+        h(ModelStatusPanel, { health: llmHealth, tick, providerCount: providers ? Object.keys(providers).length : undefined }),
       ),
       h(Panel, { title: 'METRICS', width: '34%' },
         h(MetricsPanel, { stats: llmStats as Record<string, any> | null }),

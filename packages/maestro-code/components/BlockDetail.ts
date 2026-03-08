@@ -66,7 +66,7 @@ const InfoContent = ({ block }: InfoContentProps): ReactNode => {
     ),
     h(Box, { flexDirection: 'row' },
       muted('Type:    '),
-      h(TypeBadge, { type: block.type || 'unknown' }),
+      h(TypeBadge, { type: block.blockType || block.type || 'unknown' }),
     ),
     h(Box, { flexDirection: 'row' },
       muted('Atomic:  '),
@@ -80,6 +80,25 @@ const InfoContent = ({ block }: InfoContentProps): ReactNode => {
       muted('Author:  '),
       primary(block.author || '-'),
     ),
+    block.contract
+      ? h(Box, { flexDirection: 'row' },
+          muted('Contract:'),
+          h(Text, null, ' '),
+          primary(block.contract),
+        )
+      : null,
+    block.capabilities && block.capabilities.length > 0
+      ? h(Box, { flexDirection: 'row' },
+          muted('Caps:    '),
+          primary(block.capabilities.join(', ')),
+        )
+      : null,
+    block.tags && block.tags.length > 0
+      ? h(Box, { flexDirection: 'row' },
+          muted('Tags:    '),
+          dim(block.tags.join(', ')),
+        )
+      : null,
 
     // Children list for composite blocks
     children.length > 0
@@ -312,7 +331,7 @@ const BlockDetail = ({ blockId, apiClient, onExit, onQuit, onNavigate, onSession
     h(Panel, { title: 'BLOCK', width: '100%' },
       h(Box, { flexDirection: 'column', paddingLeft: 1 },
         h(Box, { flexDirection: 'row' },
-          h(TypeBadge, { type: b.type || 'unknown' }),
+          h(TypeBadge, { type: b.blockType || b.type || 'unknown' }),
           h(Text, null, ' '),
           bold(b.name || blockId),
           h(Text, null, '  '),
