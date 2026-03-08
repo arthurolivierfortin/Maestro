@@ -1,0 +1,122 @@
+{
+  "id": "test-generator",
+  "name": "Test Generator",
+  "version": "1.0.0",
+  "description": "Contract for agents that generate test suites for source code. The agent must analyze code, identify testable units, produce well-structured tests with assertions, and assess coverage gaps.",
+
+  "requiredCapabilities": ["conversation", "tool-calling", "structured-output"],
+  "minimumFitness": 0.5,
+
+  "features": {
+    "test-writing": {
+      "description": "Generate correct, runnable test code for given source functions",
+      "requires": ["conversation", "tool-calling"],
+      "weight": 0.40,
+      "minimumScore": 0.7,
+      "tests": [
+        {
+          "id": "unit-test-basic",
+          "description": "Generates a unit test for a simple function",
+          "prompt": "Write unit tests for this function:\n\nfunction add(a: number, b: number): number {\n  return a + b;\n}\n\nUse a standard test framework (jest, vitest, or mocha).",
+          "check": {
+            "type": "contains-all",
+            "values": ["test", "expect", "add"]
+          }
+        },
+        {
+          "id": "edge-cases",
+          "description": "Includes edge case tests, not just happy path",
+          "prompt": "Write tests for this function, including edge cases:\n\nfunction safeDivide(a: number, b: number): number | null {\n  if (b === 0) return null;\n  return a / b;\n}\n\nInclude tests for: normal division, division by zero, negative numbers, and decimal results.",
+          "check": {
+            "type": "contains-all",
+            "values": ["0", "null", "expect"]
+          }
+        },
+        {
+          "id": "async-test",
+          "description": "Correctly tests an async function",
+          "prompt": "Write tests for this async function:\n\nasync function fetchData(url: string): Promise<{ status: number; data: any }> {\n  const response = await fetch(url);\n  const data = await response.json();\n  return { status: response.status, data };\n}\n\nMock the fetch call appropriately.",
+          "check": {
+            "type": "contains-any",
+            "values": ["async", "await", "mock", "Mock", "spy", "jest.fn", "vi.fn"]
+          }
+        },
+        {
+          "id": "test-structure",
+          "description": "Tests follow describe/it or test block structure",
+          "prompt": "Write well-structured tests for:\n\nclass Calculator {\n  add(a: number, b: number) { return a + b; }\n  subtract(a: number, b: number) { return a - b; }\n  multiply(a: number, b: number) { return a * b; }\n}",
+          "check": {
+            "type": "contains-any",
+            "values": ["describe", "it(", "test("]
+          }
+        }
+      ]
+    },
+    "coverage-analysis": {
+      "description": "Identify what is and is not covered by existing tests",
+      "requires": ["conversation"],
+      "weight": 0.30,
+      "minimumScore": 0.6,
+      "tests": [
+        {
+          "id": "identify-gaps",
+          "description": "Identifies untested code paths",
+          "prompt": "This function has tests for the happy path only. What is NOT tested?\n\nfunction parseConfig(input: string): Config {\n  if (!input) throw new Error('Empty input');\n  try {\n    const parsed = JSON.parse(input);\n    if (!parsed.version) throw new Error('Missing version');\n    if (parsed.version < 1) throw new Error('Invalid version');\n    return { ...defaults, ...parsed };\n  } catch (e) {\n    if (e instanceof SyntaxError) throw new Error('Invalid JSON');\n    throw e;\n  }\n}\n\nExisting test: parseConfig('{\"version\": 1, \"name\": \"test\"}') returns correctly.\n\nWhat test cases are missing?",
+          "check": {
+            "type": "contains-any",
+            "values": ["empty", "null", "JSON", "SyntaxError", "version", "invalid", "throw", "error", "missing"]
+          }
+        },
+        {
+          "id": "coverage-report",
+          "description": "Produces a coverage summary",
+          "prompt": "Analyze the test coverage for this module and list covered vs uncovered paths:\n\nModule: UserValidator\n- validateEmail(email): checks format, length, domain\n- validatePassword(pwd): checks length, complexity, common passwords\n- validateAge(age): checks range 0-150, integer\n\nExisting tests: validateEmail with valid email, validatePassword with valid password.\n\nSummarize what is covered and what is not.",
+          "check": {
+            "type": "contains-all",
+            "values": ["validateAge", "cover"]
+          }
+        }
+      ]
+    },
+    "structured-results": {
+      "description": "Output test results and test plans in structured, parseable format",
+      "requires": ["structured-output"],
+      "weight": 0.30,
+      "minimumScore": 0.5,
+      "tests": [
+        {
+          "id": "json-test-plan",
+          "description": "Produces a JSON-structured test plan",
+          "prompt": "Create a test plan in JSON format for a UserService with methods: createUser, getUser, deleteUser, updateUser. Each test case should have: id, description, method, input, expectedOutcome.",
+          "check": {
+            "type": "contains-all",
+            "values": ["createUser", "getUser", "deleteUser", "description"]
+          }
+        },
+        {
+          "id": "non-empty-output",
+          "description": "Test generation output is substantive",
+          "prompt": "Generate a complete test file for:\n\nexport function slugify(text: string): string {\n  return text.toLowerCase().replace(/\\s+/g, '-').replace(/[^a-z0-9-]/g, '');\n}",
+          "check": {
+            "type": "non-empty",
+            "minLength": 150
+          }
+        },
+        {
+          "id": "assertion-variety",
+          "description": "Uses appropriate assertion types, not just equality checks",
+          "prompt": "Write tests for a function that returns an array of search results. Use different assertion types (equality, contains, length, type checks, etc.).",
+          "check": {
+            "type": "contains-any",
+            "values": ["toEqual", "toContain", "toHaveLength", "toBe", "toMatch", "toThrow", "toBeDefined", "expect"]
+          }
+        }
+      ]
+    }
+  },
+
+  "scoring": {
+    "method": "weighted-average",
+    "description": "Score = sum(feature.weight * feature.score). Test generator must reliably produce correct tests with good coverage, handle edge cases, and output structured results."
+  }
+}

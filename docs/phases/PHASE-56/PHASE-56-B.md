@@ -1,6 +1,6 @@
 # Phase 56-B : SDK + CLI + LLM-Provider enrichissement
 
-**Statut** : A FAIRE
+**Statut** : DONE (2026-03-06)
 **Effort estime** : 0.5 jour (fondations SDK/CLI existent deja)
 **Prerequis** : Phase 56-A COMPLETE
 

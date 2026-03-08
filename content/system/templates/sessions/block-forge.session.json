@@ -1,0 +1,125 @@
+{
+  "id": "block-forge",
+  "name": "Block Forge Session",
+  "description": "Session for automated block creation. Orchestrates test-designer and agent-creator to produce a block from a description, test it against a contract, iterate until it passes, and report results.",
+
+  "type": "project",
+  "authority": {
+    "type": "human",
+    "identifier": "default",
+    "displayName": "Block Forge User"
+  },
+
+  "permissions": {
+    "allowedCommands": ["*"],
+    "allowedTools": ["*"],
+    "allowedBlocks": ["*"],
+    "canCreateBlocks": true,
+    "canCreateSessions": false,
+    "canAccessNetwork": true,
+    "canAccessFilesystem": true
+  },
+
+  "entryPoints": {
+    "default": "block-forge",
+    "create": "block-forge",
+    "analyze": "request-analyzer"
+  },
+
+  "variables": {
+    "sessionMode": "block-forge",
+    "targetFitness": 0.5,
+    "outputDir": "/tmp/block-forge",
+    "currentFitness": 0,
+    "blockId": "",
+    "contractId": "",
+    "published": false,
+
+    "_phases": [
+      { "id": "analyze", "name": "1. Analyze Request", "status": "pending", "description": "Parse description and identify contract, capabilities, model tier" },
+      { "id": "design-tests", "name": "2. Design Tests", "status": "pending", "description": "Generate test suite from contract using test-designer" },
+      { "id": "create-block", "name": "3. Create Block", "status": "pending", "description": "Generate block definition using agent-creator" },
+      { "id": "evaluate", "name": "4. Evaluate Fitness", "status": "pending", "description": "Check fitness score against threshold" },
+      { "id": "report", "name": "5. Report Results", "status": "pending", "description": "Consolidate and report final results" }
+    ],
+
+    "_blockOutputs": {},
+    "_llmActivity": [],
+    "_executionLog": [],
+    "_executionTree": [],
+
+    "_monitorDescriptor": {
+      "layout": {
+        "mode": "phased-v2",
+        "zones": {
+          "header-left": { "width": "60%", "height": 7, "components": ["header"] },
+          "header-right": { "width": "40%", "height": 7, "components": ["session-metrics"] },
+          "left": { "width": "55%", "height": "75%", "components": ["phase-workflow"] },
+          "right": { "width": "45%", "height": "75%", "components": ["llm-activity"] },
+          "bottom": { "width": "100%", "height": "25%", "components": ["execution-log"] }
+        }
+      },
+      "components": [
+        { "id": "phase-workflow", "type": "phase-workflow", "data": ["$.variables._phases", "$.variables._executionTree"] },
+        { "id": "llm-activity", "type": "llm-activity", "data": "$.variables._llmActivity" },
+        { "id": "execution-log", "type": "execution-log", "data": "$.variables._executionLog" },
+        { "id": "session-metrics", "type": "widgets", "data": "$.monitorWidgets" }
+      ]
+    }
+  },
+
+  "monitorWidgets": [
+    {
+      "id": "fitness-progress",
+      "type": "progress-bar",
+      "zone": "custom",
+      "config": {
+        "label": "Fitness Score",
+        "current": "$.variables.currentFitness",
+        "max": 1.0,
+        "showPercentage": true
+      }
+    },
+    {
+      "id": "target-fitness",
+      "type": "counter",
+      "zone": "custom",
+      "config": {
+        "label": "Target Fitness",
+        "value": "$.variables.targetFitness"
+      }
+    },
+    {
+      "id": "block-id",
+      "type": "counter",
+      "zone": "custom",
+      "config": {
+        "label": "Block ID",
+        "value": "$.variables.blockId"
+      }
+    },
+    {
+      "id": "published-status",
+      "type": "counter",
+      "zone": "custom",
+      "config": {
+        "label": "Published",
+        "value": "$.variables.published"
+      }
+    }
+  ],
+
+  "config": {
+    "maxIterations": 100,
+    "timeout": 3600000,
+    "autoSave": true,
+    "saveInterval": 15000
+  },
+
+  "metadata": {
+    "category": "creation",
+    "priority": "high",
+    "version": "1.0.0",
+    "author": "maestro"
+  }
+}

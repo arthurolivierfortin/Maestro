@@ -44,6 +44,35 @@ import { SessionManager, ts } from './services/SessionManager.ts';
 import type { LogLine, Widget } from './services/SessionManager.ts';
 import { useInputHistory } from './hooks/useInputHistory.ts';
 
+// ── Create-agent argument parser ────────────────────────────────
+
+export function parseCreateAgent(input: string): { description: string; contract: string; model: string } | null {
+  const raw = input.trim();
+  if (!raw) return null;
+
+  const tokens = raw.split(/\s+/);
+  let description = '';
+  let contract = '';
+  let model = '';
+
+  let i = 0;
+  while (i < tokens.length) {
+    if (tokens[i] === '--contract' && i + 1 < tokens.length) {
+      contract = tokens[i + 1];
+      i += 2;
+    } else if (tokens[i] === '--model' && i + 1 < tokens.length) {
+      model = tokens[i + 1];
+      i += 2;
+    } else {
+      description += (description ? ' ' : '') + tokens[i];
+      i++;
+    }
+  }
+
+  if (!description) return null;
+  return { description, contract, model };
+}
+
 // ── FullscreenBox ──────────────────────────────────────────────
 
 const FullscreenBox = ({ children }: { children: any }) => {
@@ -517,8 +546,9 @@ const App = ({ apiClient: clientProp, sessionManager: smProp, demoMode, repoPath
       addLine({ text: '  /clear   — Clear conversation and start fresh', color: 'white' });
       addLine({ text: '  /stop    — Cancel the current task', color: 'white' });
       addLine({ text: '  /purge   — Delete all idle/completed sessions', color: 'white' });
-      addLine({ text: '  /agent   — Show or switch active agent (/agent compact)', color: 'white' });
-      addLine({ text: '  /quit    — Quit Maestro Code', color: 'white' });
+      addLine({ text: '  /agent        — Show or switch active agent (/agent compact)', color: 'white' });
+      addLine({ text: '  /create-agent — Create an agent via block-forge workflow', color: 'white' });
+      addLine({ text: '  /quit         — Quit Maestro Code', color: 'white' });
       addLine({ text: '' });
       addLine({ text: 'Keyboard:', color: 'cyan', bold: true });
       addLine({ text: '  /        — Focus input bar', color: 'white' });
@@ -616,7 +646,77 @@ const App = ({ apiClient: clientProp, sessionManager: smProp, demoMode, repoPath
     const cmd = slashCommands[trimmed];
     if (cmd) { cmd(); return; }
 
-    // Parametric slash commands (e.g. /agent compact)
+    // Parametric slash commands
+
+    // /create-agent — must be checked BEFORE /agent
+    if (trimmed.startsWith('/create-agent')) {
+      const rawArg = input.trim().slice('/create-agent'.length).trim();
+      const parsed = parseCreateAgent(rawArg);
+      if (!parsed) {
+        addLine({ text: '' });
+        addLine({ text: 'Usage: /create-agent <description> [--contract <id>] [--model <id>]', color: 'yellow', timestamp: ts() });
+        addLine({ text: '  Example: /create-agent An agent that reviews TypeScript code --contract code-reviewer', color: 'gray' });
+        addLine({ text: '' });
+        return;
+      }
+      const { description, contract, model } = parsed;
+      addLine({ text: '' });
+      addLine({ text: 'Creating agent via block-forge workflow...', color: 'cyan', bold: true, timestamp: ts() });
+      addLine({ text: `  Description: ${description}`, color: 'white' });
+      if (contract) addLine({ text: `  Contract:    ${contract}`, color: 'white' });
+      if (model) addLine({ text: `  Model:       ${model}`, color: 'white' });
+      addLine({ text: '' });
+
+      (async () => {
+        try {
+          const createOpts = {
+            repositoryPath: sessionManager?.getRepoPath() || 'C:\\Meastro',
+            authority: 'human',
+            name: `Block Forge - ${description.slice(0, 40)}`,
+          };
+          const session = await (apiClient as IMaestroCodeApiClient).createSession(createOpts);
+
+          // Import block-forge template and start
+          await (apiClient as IMaestroCodeApiClient)._fetch('POST', `/api/sessions/${session.id}/import-template/block-forge`);
+          await (apiClient as IMaestroCodeApiClient)._fetch('POST', `/api/sessions/${session.id}/start`);
+
+          // Invoke the default entry point
+          await (apiClient as IMaestroCodeApiClient)._fetch('POST', `/api/sessions/${session.id}/invoke/default`, {
+            body: { inputs: { description, contractId: contract, targetModel: model } },
+          });
+
+          addLine({ text: `Block-forge session started (${session.id.slice(0, 8)})`, color: 'green', timestamp: ts() });
+          addLine({ text: '  Polling for completion...', color: 'gray' });
+
+          // Poll for completion
+          const poll = setInterval(async () => {
+            try {
+              const s = await (apiClient as IMaestroCodeApiClient).getSession(session.id);
+              const status = ((s as any).status || '').toLowerCase();
+              if (status === 'completed' || status === 'idle' || status === 'error') {
+                clearInterval(poll);
+                const vars = (s as any).variables || {};
+                const fitness = vars.fitness || 'N/A';
+                const blockId = vars.blockId || 'N/A';
+                const published = vars.published || 'false';
+                addLine({ text: '' });
+                addLine({ text: 'Block Forge Complete', color: 'cyan', bold: true, timestamp: ts() });
+                addLine({ text: `  Block:     ${blockId}`, color: 'white' });
+                addLine({ text: `  Fitness:   ${fitness}`, color: published === 'true' ? 'green' : 'yellow' });
+                addLine({ text: `  Published: ${published === 'true' ? 'Yes' : 'No (below threshold)'}`, color: published === 'true' ? 'green' : 'red' });
+                addLine({ text: '' });
+              }
+            } catch { /* polling error — ignore */ }
+          }, 3000);
+          // Timeout after 15 minutes
+          setTimeout(() => clearInterval(poll), 15 * 60 * 1000);
+        } catch (err: any) {
+          addLine({ text: `Error: ${err.message || err}`, color: 'red', timestamp: ts() });
+        }
+      })();
+      return;
+    }
+
     if (trimmed.startsWith('/agent')) {
       const arg = input.trim().slice(6).trim(); // preserve original case for block IDs
       if (!arg) {

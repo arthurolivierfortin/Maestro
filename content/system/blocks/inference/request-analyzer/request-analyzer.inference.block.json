@@ -1,0 +1,27 @@
+{
+  "id": "request-analyzer",
+  "name": "Request Analyzer",
+  "blockType": "inference",
+  "version": "1.0.0",
+  "isAtomic": true,
+  "description": "Analyzes a natural language description of a desired block and produces structured JSON output identifying the block's role, suggested contract, required capabilities, and recommended model tier. Used by block-forge to understand what needs to be built before orchestrating creation.",
+  "inputs": [
+    { "id": "description", "type": "string", "required": true, "description": "Natural language description of the block to create" },
+    { "id": "availableContracts", "type": "string", "required": false, "description": "JSON array of available contract IDs for matching" }
+  ],
+  "outputs": [
+    { "id": "response", "type": "string", "description": "JSON: {role, suggestedContractId, capabilities, modelTier, reasoning}" }
+  ],
+  "config": {
+    "model": "claude-sonnet-4-6",
+    "maxTokens": 2048,
+    "temperature": 0,
+    "systemPromptFile": "system-prompt.md"
+  },
+  "metadata": {
+    "category": "analysis",
+    "designation": "inference",
+    "tags": ["analysis", "block-forge", "classification", "planning"],
+    "tier": 1
+  }
+}

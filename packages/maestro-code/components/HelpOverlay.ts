@@ -65,8 +65,9 @@ const SHORTCUTS: Record<string, ShortcutItem[]> = {
     { key: '/new',    label: 'New conversation' },
     { key: '/clear',  label: 'Clear conversation' },
     { key: '/stop',   label: 'Cancel current task' },
-    { key: '/purge',  label: 'Delete idle sessions' },
-    { key: '/quit',   label: 'Quit' },
+    { key: '/purge',        label: 'Delete idle sessions' },
+    { key: '/create-agent', label: 'Create an agent via block-forge' },
+    { key: '/quit',         label: 'Quit' },
   ],
 };
 

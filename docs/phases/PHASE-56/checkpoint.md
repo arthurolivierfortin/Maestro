@@ -142,11 +142,12 @@ All 7 pass. Total maestro-code: 148 tests (146 pass + 2 pre-existing PTY failure
 
 ## Status: COMPLETE
 
-All 4 sub-phases delivered:
+All 5 sub-phases:
 - **56-A**: Cost chain repair (IModelPricingService, accumulation, propagation) — DONE
 - **56-B**: SDK contracts domain, CLI `contract list/test`, LLM-Provider ParametersBillions — DONE
 - **56-C**: TUI [T] test shortcut, breakdown display, real-demo-check — DONE
 - **56-T**: 5 backend unit tests + 7 TUI tests + 4 integration tests — DONE
+- **56-F**: Dogfooding fixes — 6/7 DONE (F1,F3,F4,F5,F6,F7). F2 (conversation persistence) needs E2E verification.
 
 ### Verification summary
 - `dotnet build` (backend): 0 errors

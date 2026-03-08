@@ -4932,7 +4932,7 @@ async function main() {
   } else {
     argv = minimist(process.argv.slice(2), {
       boolean: ['mock', 'help', 'h', 'force', 'push', 'run-tests', 'run-linter', 'keep-changes', 'pending-approval', 'monitor', 'list', 'no-back', 'debug', 'knowledge', 'metrics', 'full', 'start', 'json-output', 'verbose'],
-      string: ['api-url', 'u', 'name', 'path', 'description', 'runtime', 'image', 'work-dir', 'block-paths', 'model', 'lines', 'since', 'working-dir', 'workdir', 'workflow', 'iterations', 'parallel', 'delay', 'goal', 'tags', 'inputs', 'config', 'from', 'to', 'limit', 'block', 'category', 'version', 'author', 'capabilities', 'tools', 'agents', 'type', 'project', 'task', 'context', 'access', 'test-command', 'linter-command', 'max-steps', 'timeout', 'message', 'branch', 'scope', 'authority', 'allowed-paths', 'denied-paths', 'filter', 'offset', 'command', 'from-session', 'template', 'reason', 'repo-path', 'status', 'recent', 'json-value'],
+      string: ['api-url', 'u', 'name', 'path', 'description', 'runtime', 'image', 'work-dir', 'block-paths', 'model', 'lines', 'since', 'working-dir', 'workdir', 'workflow', 'iterations', 'parallel', 'delay', 'goal', 'tags', 'inputs', 'config', 'from', 'to', 'limit', 'block', 'category', 'version', 'author', 'capabilities', 'tools', 'agents', 'type', 'project', 'task', 'context', 'access', 'test-command', 'linter-command', 'max-steps', 'timeout', 'message', 'branch', 'scope', 'authority', 'allowed-paths', 'denied-paths', 'filter', 'offset', 'command', 'from-session', 'template', 'reason', 'repo-path', 'status', 'recent', 'json-value', 'contract'],
       alias: { 'json-output': 'json' }
     });
   }
@@ -4963,7 +4963,7 @@ async function main() {
       // Create a new argv-like object for the command
       const innerArgv = minimist(args, {
         boolean: ['mock', 'help', 'h', 'force', 'push', 'run-tests', 'run-linter', 'keep-changes', 'pending-approval', 'monitor', 'list', 'no-back', 'debug', 'knowledge', 'metrics', 'full', 'start', 'json-output', 'verbose'],
-        string: ['api-url', 'u', 'name', 'path', 'description', 'runtime', 'image', 'work-dir', 'block-paths', 'model', 'lines', 'since', 'working-dir', 'workdir', 'workflow', 'iterations', 'parallel', 'delay', 'goal', 'tags', 'inputs', 'config', 'from', 'to', 'limit', 'block', 'category', 'version', 'author', 'capabilities', 'tools', 'agents', 'type', 'project', 'task', 'context', 'access', 'test-command', 'linter-command', 'max-steps', 'timeout', 'message', 'branch', 'scope', 'authority', 'allowed-paths', 'denied-paths', 'filter', 'offset', 'command', 'from-session', 'template', 'reason', 'repo-path', 'status', 'recent', 'json-value'],
+        string: ['api-url', 'u', 'name', 'path', 'description', 'runtime', 'image', 'work-dir', 'block-paths', 'model', 'lines', 'since', 'working-dir', 'workdir', 'workflow', 'iterations', 'parallel', 'delay', 'goal', 'tags', 'inputs', 'config', 'from', 'to', 'limit', 'block', 'category', 'version', 'author', 'capabilities', 'tools', 'agents', 'type', 'project', 'task', 'context', 'access', 'test-command', 'linter-command', 'max-steps', 'timeout', 'message', 'branch', 'scope', 'authority', 'allowed-paths', 'denied-paths', 'filter', 'offset', 'command', 'from-session', 'template', 'reason', 'repo-path', 'status', 'recent', 'json-value', 'contract'],
         alias: { 'json-output': 'json' }
       });
       await executeWithArgv(innerArgv);
@@ -6132,6 +6132,7 @@ async function executeWithArgv(argv) {
       'approval', 'approvals', 'auth', 'init', 'aliases', 'system', 'orchestrator', 'metrics',
       'runs', 'config', 'schema', 'search', 'catalog', 'children', 'info', 'chat',
       'setup', 'tools', 'agents', 'workflows', 'prompts', 'sandbox', 'adapt', 'optimize', 'contract',
+      'create-agent',
     ]);
 
     if (cmd && !BUILTIN_COMMANDS.has(cmd)) {
@@ -8676,6 +8677,74 @@ ${c.bold('Examples:')}
       console.error(`Unknown contract subcommand: ${subCmd}`);
       console.error('   Available commands: list, test');
       process.exit(1);
+    }
+
+    // Create-agent command (Phase 58-B) — create an agent via block-forge workflow
+    if (cmd === 'create-agent') {
+      const description = argv.description || argv._.slice(1).join(' ');
+      if (!description) {
+        console.error('Description required. Usage: maestro create-agent --description "..." [--contract <id>] [--model <id>]');
+        console.error('  Example: maestro create-agent --description "An agent that reviews TypeScript code" --contract code-reviewer');
+        process.exit(1);
+      }
+      const contractId = argv.contract || '';
+      const targetModel = argv.model || '';
+      const jsonOutput = argv.json;
+
+      console.log(`\nCreating agent via block-forge...`);
+      console.log(`  Description: ${description}`);
+      if (contractId) console.log(`  Contract:    ${contractId}`);
+      if (targetModel) console.log(`  Model:       ${targetModel}`);
+      console.log('');
+
+      try {
+        // Create session
+        const session = await client.createSession({
+          repositoryPath: process.cwd(),
+          authority: 'human',
+          name: `Block Forge - ${description.slice(0, 40)}`,
+        });
+
+        // Import block-forge template and start
+        await client._fetch('POST', `/api/sessions/${session.id}/import-template/block-forge`);
+        await client.startSession(session.id);
+
+        // Invoke entry point
+        await client._fetch('POST', `/api/sessions/${session.id}/invoke/default`, {
+          body: { inputs: { description, contractId, targetModel } }
+        });
+
+        // Poll for completion
+        console.log('Workflow started. Polling for results...');
+        let pollCount = 0;
+        const maxPolls = 300; // 15 minutes at 3s intervals
+        while (pollCount < maxPolls) {
+          await new Promise(r => setTimeout(r, 3000));
+          const s = await client.getSession(session.id);
+          const status = (s.status || '').toLowerCase();
+          process.stdout.write('.');
+          if (status === 'completed' || status === 'idle' || status === 'error') {
+            console.log('\n');
+            const vars = s.variables || {};
+            if (jsonOutput) {
+              console.log(JSON.stringify(vars, null, 2));
+            } else {
+              console.log('Block Forge Results:');
+              console.log(`  Block:     ${vars.blockId || 'N/A'}`);
+              console.log(`  Contract:  ${vars.contractId || contractId}`);
+              console.log(`  Fitness:   ${vars.fitness || 'N/A'}`);
+              console.log(`  Published: ${vars.published === 'true' ? 'Yes' : 'No'}`);
+            }
+            process.exit(vars.published === 'true' ? 0 : 1);
+          }
+          pollCount++;
+        }
+        console.log('\nTimeout: workflow did not complete within 15 minutes.');
+        process.exit(1);
+      } catch (error) {
+        handleApiError(error, 'creating agent');
+      }
+      return;
     }
 
     // Experiment commands (Phase 7 - Training Strategies)

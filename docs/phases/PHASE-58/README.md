@@ -58,13 +58,13 @@ block-forge (workflow)
 
 | Phase | Titre | Effort |
 |-------|-------|--------|
-| 54-A | Workflow block-forge + contracts supplementaires | 1.5 jours |
-| 54-B | Integration TUI /create-agent + CLI maestro create-agent | 1.5 jours |
-| 54-C | Dogfooding complet | 1 jour |
+| 58-A | Workflow block-forge + contracts supplementaires | 1.5 jours |
+| 58-B | Integration TUI /create-agent + CLI maestro create-agent | 1.5 jours |
+| 58-C | Dogfooding complet | 1 jour |
 
 ---
 
-## 54-A : Workflow block-forge
+## 58-A : Workflow block-forge
 
 ### Lecture obligatoire
 - `content/system/blocks/workflows/autonomous-development.workflow.block.json` (workflow avance)
@@ -112,7 +112,7 @@ node index.js session invoke <id> default --input description="An agent that rev
 
 ---
 
-## 54-B : Integration TUI + CLI
+## 58-B : Integration TUI + CLI
 
 ### Taches
 
@@ -149,7 +149,7 @@ cd packages/maestro-code && node tests/real-demo-check.cjs
 
 ---
 
-## 54-C : Dogfooding
+## 58-C : Dogfooding
 
 ### Taches
 

@@ -1,0 +1,139 @@
+{
+  "id": "code-reviewer",
+  "name": "Code Reviewer",
+  "version": "1.0.0",
+  "description": "Contract for agents that review code for bugs, style issues, security vulnerabilities, and suggest improvements. The agent must be able to read files, analyze code quality, and produce structured review reports.",
+
+  "requiredCapabilities": ["conversation", "tool-calling"],
+  "minimumFitness": 0.5,
+
+  "features": {
+    "code-reading": {
+      "description": "Read and understand source code files using filesystem tools",
+      "requires": ["tool-calling"],
+      "weight": 0.30,
+      "minimumScore": 0.7,
+      "tests": [
+        {
+          "id": "read-single-file",
+          "description": "Reads a source file and identifies its language and purpose",
+          "prompt": "Read the file at /tmp/test-review/utils.ts and describe what it does. The file contains a TypeScript utility module with 3 exported functions.",
+          "check": {
+            "type": "contains-any",
+            "values": ["function", "export", "TypeScript", "utility", "module"]
+          }
+        },
+        {
+          "id": "identify-bug",
+          "description": "Identifies an obvious bug in code",
+          "prompt": "Review this code and find the bug:\n\nfunction divide(a: number, b: number): number {\n  return a / b;\n}\n\nfunction average(numbers: number[]): number {\n  let sum = 0;\n  for (const n of numbers) { sum += n; }\n  return divide(sum, numbers.length);\n}",
+          "check": {
+            "type": "contains-any",
+            "values": ["empty", "zero", "division", "length", "0", "undefined", "NaN"]
+          }
+        },
+        {
+          "id": "identify-language",
+          "description": "Correctly identifies the programming language",
+          "prompt": "What language is this code written in?\n\ndefmodule MyApp.Router do\n  use Plug.Router\n  plug :match\n  plug :dispatch\n  get \"/\" do send_resp(conn, 200, \"ok\") end\nend",
+          "check": {
+            "type": "contains-any",
+            "values": ["Elixir", "elixir"]
+          }
+        }
+      ]
+    },
+    "review-feedback": {
+      "description": "Provide actionable review feedback with specific suggestions",
+      "requires": ["conversation"],
+      "weight": 0.30,
+      "minimumScore": 0.6,
+      "tests": [
+        {
+          "id": "actionable-suggestion",
+          "description": "Provides a concrete suggestion, not just a vague comment",
+          "prompt": "Review this function and suggest improvements:\n\nfunction processData(d: any): any {\n  let r = [];\n  for (let i = 0; i < d.length; i++) {\n    if (d[i].active == true) {\n      r.push({name: d[i].name, val: d[i].value * 2});\n    }\n  }\n  return r;\n}",
+          "check": {
+            "type": "contains-any",
+            "values": ["type", "typing", "===", "filter", "map", "rename", "descriptive", "any"]
+          }
+        },
+        {
+          "id": "severity-levels",
+          "description": "Distinguishes between critical issues and minor suggestions",
+          "prompt": "Review this code and categorize your findings by severity:\n\nconst password = \"admin123\";\nconst db = require('mysql').createConnection({host: 'localhost', user: 'root', password: password});\n\napp.get('/user/:id', (req, res) => {\n  db.query(`SELECT * FROM users WHERE id = ${req.params.id}`, (err, rows) => {\n    res.json(rows);\n  });\n});",
+          "check": {
+            "type": "contains-all",
+            "values": ["SQL injection", "password"]
+          }
+        },
+        {
+          "id": "positive-feedback",
+          "description": "Acknowledges well-written code, not just problems",
+          "prompt": "Review this code:\n\ninterface Config {\n  readonly host: string;\n  readonly port: number;\n  readonly timeout: number;\n}\n\nfunction createConfig(overrides: Partial<Config> = {}): Config {\n  return Object.freeze({\n    host: 'localhost',\n    port: 3000,\n    timeout: 5000,\n    ...overrides,\n  });\n}\n\nMention what is done well, not just what could be improved.",
+          "check": {
+            "type": "contains-any",
+            "values": ["good", "well", "clean", "immutab", "readonly", "freeze", "solid", "nice", "correct"]
+          }
+        }
+      ]
+    },
+    "structured-report": {
+      "description": "Produce a structured review report with consistent formatting",
+      "requires": ["structured-output"],
+      "weight": 0.20,
+      "minimumScore": 0.5,
+      "tests": [
+        {
+          "id": "report-format",
+          "description": "Produces a review with clear sections",
+          "prompt": "Produce a structured code review report for this function. Use clear sections (Summary, Issues, Suggestions):\n\nfunction fetchUser(id) {\n  return fetch('/api/users/' + id)\n    .then(r => r.json())\n}",
+          "check": {
+            "type": "contains-any",
+            "values": ["Summary", "Issue", "Suggestion", "##", "###", "1.", "-"]
+          }
+        },
+        {
+          "id": "non-empty-report",
+          "description": "Report is substantive, not a one-liner",
+          "prompt": "Write a full code review for:\n\nclass UserService {\n  constructor(private db: Database) {}\n  async getUser(id: string) { return this.db.query('SELECT * FROM users WHERE id = ?', [id]); }\n  async deleteUser(id: string) { return this.db.query('DELETE FROM users WHERE id = ?', [id]); }\n}",
+          "check": {
+            "type": "non-empty",
+            "minLength": 100
+          }
+        }
+      ]
+    },
+    "multi-file-review": {
+      "description": "Handle reviews spanning multiple files and detect cross-file issues",
+      "requires": ["tool-calling"],
+      "weight": 0.20,
+      "minimumScore": 0.5,
+      "tests": [
+        {
+          "id": "cross-file-issue",
+          "description": "Detects an issue that spans two files",
+          "prompt": "Review these two files together:\n\nFile 1 (types.ts):\nexport interface User { id: string; name: string; email: string; }\n\nFile 2 (api.ts):\nimport { User } from './types';\nfunction createUser(data: any): User {\n  return { id: data.id, name: data.name, email: data.mail };\n}\n\nFind the cross-file issue.",
+          "check": {
+            "type": "contains-any",
+            "values": ["mail", "email", "mismatch", "property", "field", "typo"]
+          }
+        },
+        {
+          "id": "consistency-check",
+          "description": "Identifies inconsistent patterns across files",
+          "prompt": "Review for consistency:\n\nFile A uses: async/await, camelCase, named exports\nFile B uses: .then() chains, snake_case, default exports\n\nAre there consistency issues?",
+          "check": {
+            "type": "contains-any",
+            "values": ["inconsisten", "convention", "style", "mixed", "camelCase", "snake_case", "async"]
+          }
+        }
+      ]
+    }
+  },
+
+  "scoring": {
+    "method": "weighted-average",
+    "description": "Score = sum(feature.weight * feature.score). Code reviewer must reliably read code, identify issues of varying severity, provide actionable suggestions, and produce structured reports."
+  }
+}

@@ -1,6 +1,6 @@
 # Phase 56-F : Corrections Dogfooding
 
-**Statut** : A FAIRE
+**Statut** : MOSTLY DONE (F1,F3,F4,F5,F6,F7 done — F2 needs E2E verification)
 **Effort estime** : 1-1.5 jours
 **Prerequis** : Phase 56-T COMPLETE
 **Source** : `dogfooding/reports/dogfood-2026-03-06-17-31-03.md`

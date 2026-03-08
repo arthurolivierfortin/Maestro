@@ -1,0 +1,137 @@
+{
+  "id": "block-forge",
+  "name": "Block Forge Workflow",
+  "blockType": "workflow",
+  "version": "1.0.0",
+  "isAtomic": false,
+  "description": "End-to-end pipeline that creates a block from a description. Orchestrates test-designer (to generate tests from a contract) and agent-creator (to create the block and iterate until it passes). Checks fitness against a threshold and consolidates results.",
+  "contract": "block-forge",
+  "capabilities": ["orchestration", "tool-calling"],
+  "inputs": [
+    { "id": "description", "type": "string", "required": true, "description": "Natural language description of the block to create" },
+    { "id": "contractId", "type": "string", "required": false, "description": "Contract ID to test against (e.g. 'code-reviewer')" },
+    { "id": "targetModel", "type": "string", "required": false, "description": "Target LLM model for the generated block (e.g. 'claude-haiku-4-5-20251001')" },
+    { "id": "baseBlockId", "type": "string", "required": false, "description": "Existing block ID to adapt (for variant creation)" },
+    { "id": "targetFitness", "type": "number", "required": false, "description": "Minimum fitness score to consider the block acceptable (default 0.5)" }
+  ],
+  "outputs": [
+    { "id": "blockId", "type": "string", "description": "ID of the created block" },
+    { "id": "contractId", "type": "string", "description": "Contract ID that was used for testing" },
+    { "id": "fitness", "type": "number", "description": "Final fitness score (0.0-1.0)" },
+    { "id": "published", "type": "boolean", "description": "Whether the block met the fitness threshold" },
+    { "id": "testResults", "type": "string", "description": "JSON results from contract tests" }
+  ],
+  "config": {
+    "nodes": [
+      {
+        "id": "set-default-fitness",
+        "type": "conditional",
+        "condition": "{{targetFitness}} != \"\"",
+        "else": {
+          "nodes": [
+            {
+              "id": "default-fitness",
+              "type": "set-variable",
+              "variable": "targetFitness",
+              "value": "0.5"
+            }
+          ]
+        }
+      },
+      {
+        "id": "construct-td-message",
+        "type": "set-variable",
+        "variable": "_tdConversationHistory",
+        "value": "[{\"role\":\"user\",\"content\":\"Design a comprehensive test suite for the contract '{{contractId}}'. Read the contract definition, analyze its features and requirements, then generate test configurations (prompt + check pairs) that thoroughly verify whether a block meets the contract. Write the test suite files to the output directory.\"}]"
+      },
+      {
+        "id": "call-test-designer",
+        "blockRef": "test-designer",
+        "inputs": {
+          "contractId": "{{contractId}}",
+          "outputDir": "/tmp/block-forge/{{_sessionId}}",
+          "conversationHistory": "{{_tdConversationHistory}}"
+        }
+      },
+      {
+        "id": "construct-ac-message",
+        "type": "set-variable",
+        "variable": "_acConversationHistory",
+        "value": "[{\"role\":\"user\",\"content\":\"Create a block that does the following: {{description}}. It should implement the '{{contractId}}' contract. Use the test results from the test designer to guide your implementation. Iterate until the block passes all contract tests.\"}]"
+      },
+      {
+        "id": "call-agent-creator",
+        "blockRef": "agent-creator",
+        "inputs": {
+          "description": "{{description}}",
+          "contractId": "{{contractId}}",
+          "targetModel": "{{targetModel}}",
+          "baseBlockId": "{{baseBlockId}}",
+          "conversationHistory": "{{_acConversationHistory}}"
+        }
+      },
+      {
+        "id": "check-fitness",
+        "type": "conditional",
+        "condition": "{{_nodeResult_call-agent-creator.fitness}} >= {{targetFitness}}",
+        "then": {
+          "nodes": [
+            {
+              "id": "set-published-true",
+              "type": "set-variable",
+              "variable": "_forgePublished",
+              "value": "true"
+            }
+          ]
+        },
+        "else": {
+          "nodes": [
+            {
+              "id": "set-published-false",
+              "type": "set-variable",
+              "variable": "_forgePublished",
+              "value": "false"
+            }
+          ]
+        }
+      },
+      {
+        "id": "set-result-blockId",
+        "type": "set-variable",
+        "variable": "blockId",
+        "value": "{{_nodeResult_call-agent-creator.blockId}}"
+      },
+      {
+        "id": "set-result-contractId",
+        "type": "set-variable",
+        "variable": "contractId",
+        "value": "{{contractId}}"
+      },
+      {
+        "id": "set-result-fitness",
+        "type": "set-variable",
+        "variable": "fitness",
+        "value": "{{_nodeResult_call-agent-creator.fitness}}"
+      },
+      {
+        "id": "set-result-published",
+        "type": "set-variable",
+        "variable": "published",
+        "value": "{{_forgePublished}}"
+      },
+      {
+        "id": "set-result-testResults",
+        "type": "set-variable",
+        "variable": "testResults",
+        "value": "{{_nodeResult_call-agent-creator.testResults}}"
+      }
+    ]
+  },
+  "metadata": {
+    "category": "creation",
+    "designation": "workflow",
+    "tags": ["block-forge", "creation", "orchestration", "automation"],
+    "tier": 1,
+    "author": "maestro"
+  }
+}

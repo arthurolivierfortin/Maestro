@@ -1,6 +1,6 @@
 # Phase 56-C : TUI + Validation E2E
 
-**Statut** : A FAIRE
+**Statut** : DONE (2026-03-06)
 **Effort estime** : 1 jour
 **Prerequis** : Phase 56-B COMPLETE
 
