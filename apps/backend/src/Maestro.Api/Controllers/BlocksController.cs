@@ -89,8 +89,8 @@ namespace Maestro.Api.Controllers
             if (!string.IsNullOrEmpty(search))
             {
                 blocks = blocks.Where(b =>
-                    b.Name.Contains(search, System.StringComparison.OrdinalIgnoreCase) ||
-                    b.Description.Contains(search, System.StringComparison.OrdinalIgnoreCase));
+                    (b.Name ?? "").Contains(search, System.StringComparison.OrdinalIgnoreCase) ||
+                    (b.Description ?? "").Contains(search, System.StringComparison.OrdinalIgnoreCase));
             }
 
             var dtos = new List<BlockDto>();

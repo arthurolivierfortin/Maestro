@@ -669,47 +669,74 @@ const App = ({ apiClient: clientProp, sessionManager: smProp, demoMode, repoPath
 
       (async () => {
         try {
+          // Step 1: Create session
+          addLine({ text: '  [1/4] Creating session...', color: 'gray' });
           const createOpts = {
             repositoryPath: sessionManager?.getRepoPath() || 'C:\\Meastro',
             authority: 'human',
             name: `Block Forge - ${description.slice(0, 40)}`,
           };
           const session = await (apiClient as IMaestroCodeApiClient).createSession(createOpts);
+          addLine({ text: `  [1/4] Session created (${session.id.slice(0, 8)})`, color: 'gray' });
 
-          // Import block-forge template and start
+          // Step 2: Import block-forge template
           if (!importSessionTemplate) {
             addLine({ text: 'Error: importSessionTemplate not available (demo mode?)', color: 'red', timestamp: ts() });
             return;
           }
+          addLine({ text: '  [2/4] Importing block-forge template...', color: 'gray' });
           await importSessionTemplate(session.id, 'block-forge', { quiet: true });
+
+          // Step 3: Start session
+          addLine({ text: '  [3/4] Starting session...', color: 'gray' });
           await (apiClient as IMaestroCodeApiClient).startSession(session.id);
 
-          // Invoke the default entry point
+          // Step 4: Invoke the default entry point
+          addLine({ text: '  [4/4] Invoking block-forge workflow...', color: 'gray' });
           await (apiClient as IMaestroCodeApiClient)._fetch('POST', `/api/sessions/${session.id}/invoke/default`, {
             body: { inputs: { description, contractId: contract, targetModel: model } },
           });
 
-          addLine({ text: `Block-forge session started (${session.id.slice(0, 8)})`, color: 'green', timestamp: ts() });
+          addLine({ text: `  Block-forge session started (${session.id.slice(0, 8)})`, color: 'green', timestamp: ts() });
           addLine({ text: '  Polling for completion...', color: 'gray' });
 
-          // Poll for completion
+          // Poll for completion — check _activeWorkflow to know if workflow is still running
+          // (session status stays "idle" during background execution)
+          let pollCount = 0;
           const poll = setInterval(async () => {
             try {
+              pollCount++;
               const s = await (apiClient as IMaestroCodeApiClient).getSession(session.id);
+              const vars = (s as any).variables || {};
+              const activeWorkflow = vars._activeWorkflow || '';
               const status = ((s as any).status || '').toLowerCase();
-              if (status === 'completed' || status === 'idle' || status === 'error') {
-                clearInterval(poll);
-                const vars = (s as any).variables || {};
-                const fitness = vars.fitness || 'N/A';
-                const blockId = vars.blockId || 'N/A';
-                const published = vars.published || 'false';
+
+              // Workflow still running — _activeWorkflow is non-empty
+              if (activeWorkflow && status !== 'error') {
+                if (pollCount % 10 === 0) {
+                  addLine({ text: `  Still running... (${Math.round(pollCount * 3 / 60)}min)`, color: 'gray' });
+                }
+                return;
+              }
+
+              // Workflow completed (or errored)
+              clearInterval(poll);
+              const fitness = vars.fitness || 'N/A';
+              const blockId = vars.blockId || 'N/A';
+              const published = vars.published || 'false';
+
+              if (status === 'error') {
+                addLine({ text: '' });
+                addLine({ text: 'Block Forge Failed', color: 'red', bold: true, timestamp: ts() });
+                addLine({ text: `  Error: ${(s as any).errorMessage || 'Unknown error'}`, color: 'red' });
+              } else {
                 addLine({ text: '' });
                 addLine({ text: 'Block Forge Complete', color: 'cyan', bold: true, timestamp: ts() });
                 addLine({ text: `  Block:     ${blockId}`, color: 'white' });
                 addLine({ text: `  Fitness:   ${fitness}`, color: published === 'true' ? 'green' : 'yellow' });
                 addLine({ text: `  Published: ${published === 'true' ? 'Yes' : 'No (below threshold)'}`, color: published === 'true' ? 'green' : 'red' });
-                addLine({ text: '' });
               }
+              addLine({ text: '' });
             } catch { /* polling error — ignore */ }
           }, 3000);
           // Timeout after 15 minutes

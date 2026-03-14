@@ -50,18 +50,41 @@
 
 ---
 
-## 58-C : Dogfooding
-**Statut** : A FAIRE
+## 58-C : Dogfooding + Deblocage
+**Statut** : EN COURS (repris 2026-03-14)
+**Bloqueur** : `/create-agent` retourne 404 "Not Found" a l'invocation backend
+
+### Rapport dogfooding 2026-03-08
+- Score : 4.0/5 (4.2 moyenne par categorie)
+- 7/8 tests PASS, 1 PARTIAL (create-agent execution)
+- UI `/create-agent` fonctionne (parsing, progression OK)
+- Backend refuse l'invocation → 404
+
+### Plan de deblocage (2026-03-14)
+1. Diagnostic 404 : decouverte blocks, template, entry points, logs backend
+2. Fix + validation E2E
+3. Creer 2 agents (code-reviewer, test-generator) via `/create-agent`
+4. Verifier fitness > 0.5
+5. Resoudre F2 (conversation persistence) en parallele
+
+### Issues cosmetiques identifiees
+- BlockDetail Type: `[unknown]`
+- ModelsScreen Providers: `-`
+- Catalog search Escape behavior
+- BlockDetail INFO panel incomplet
 
 ---
 
 # Phase 58 — Overall Status
 
-## Status: IN PROGRESS (58-A + 58-B DONE, 58-C pending)
+## Status: IN PROGRESS (58-A + 58-B DONE, 58-C en cours)
 
-### Verification summary
+### Verification summary (58-A/B)
 - `dotnet build` backend: 0 errors
 - `npx tsc --noEmit` (maestro-code): 0 errors
 - `npx tsc --noEmit` (maestro-cli): 0 new errors
 - `npx vitest run` (maestro-code): 154/156 passed (8 new, 2 pre-existing PTY)
 - All JSON files valid
+
+### Analyse complete
+Voir `analysis-2026-03-14.md` pour l'analyse profonde de situation.

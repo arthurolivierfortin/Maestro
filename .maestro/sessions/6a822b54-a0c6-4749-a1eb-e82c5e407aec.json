@@ -1,0 +1,546 @@
+{
+  "id": "6a822b54-a0c6-4749-a1eb-e82c5e407aec",
+  "name": "Test Block Forge",
+  "status": "stopped",
+  "terminalReason": "stopped",
+  "authority": "human",
+  "workingDirectory": ".",
+  "repositoryPath": "C:\\Meastro",
+  "parentWorkspaceId": null,
+  "parentSessionId": null,
+  "config": {
+    "projectId": null,
+    "workflowId": null,
+    "task": null,
+    "context": null,
+    "access": {
+      "level": "controlled",
+      "allowedPaths": [],
+      "deniedPaths": [
+        ".env",
+        "*.env",
+        "secrets/**"
+      ],
+      "requireApprovalPaths": []
+    },
+    "validation": {
+      "runTests": false,
+      "testCommand": null,
+      "runLinter": false,
+      "linterCommand": null,
+      "requireCleanDiff": false,
+      "maxSteps": 50,
+      "timeoutMs": 600000
+    },
+    "inputs": {}
+  },
+  "createdAt": "2026-03-14T16:31:06.8556352+00:00",
+  "startedAt": "2026-03-14T16:31:14.7329826+00:00",
+  "completedAt": "2026-03-14T16:31:28.3496985+00:00",
+  "updatedAt": "2026-03-14T16:31:37.3378111+00:00",
+  "commandCount": 0,
+  "modifiedFiles": [],
+  "errorMessage": null,
+  "testResult": null,
+  "linterResult": null,
+  "commitInfo": null,
+  "variables": {
+    "_executionLog": [
+      {
+        "time": "16:31:15",
+        "level": "info",
+        "msg": "Starting workflow: block-forge"
+      },
+      {
+        "time": "16:31:15",
+        "level": "info",
+        "msg": "Conditional \u0027set-default-fitness\u0027: \u0027{{targetFitness}} != \u0022\u0022\u0027 -\u003E \u0027 != \u0022\u0022\u0027 -\u003E False"
+      },
+      {
+        "time": "16:31:15",
+        "level": "info",
+        "msg": "set-variable \u0027default-fitness\u0027: stored plain text in \u0027targetFitness\u0027 (3 chars)"
+      },
+      {
+        "time": "16:31:15",
+        "level": "success",
+        "msg": "set-default-fitness: Completed (3 chars)"
+      },
+      {
+        "time": "16:31:15",
+        "level": "info",
+        "msg": "set-variable \u0027construct-td-message\u0027: stored 1-item list in \u0027_tdConversationHistory\u0027 (334 chars)"
+      },
+      {
+        "time": "16:31:15",
+        "level": "info",
+        "msg": "Executing blockRef \u0027test-designer\u0027 (type: agent) with 4 inputs"
+      },
+      {
+        "time": "16:31:15",
+        "level": "info",
+        "msg": "set-variable \u0027init\u0027: stored plain text in \u0027_agentDone\u0027 (5 chars)"
+      },
+      {
+        "time": "16:31:15",
+        "level": "info",
+        "msg": "Entering while loop \u0027agent-while\u0027 (max: 50)"
+      },
+      {
+        "time": "16:31:15",
+        "level": "info",
+        "msg": "While \u0027agent-while\u0027: iteration 1/50"
+      },
+      {
+        "time": "16:31:15",
+        "level": "info",
+        "msg": "Executing blockRef \u0027conversation-read\u0027 (type: conversation-read) with 2 inputs"
+      },
+      {
+        "time": "16:31:15",
+        "level": "info",
+        "msg": "[conversation-read] Read 2 messages from conversation \u002735f6ca7213744172a2adec1601db8b21\u0027"
+      },
+      {
+        "time": "16:31:15",
+        "level": "success",
+        "msg": "blockRef \u0027conversation-read\u0027 completed (11515 chars)"
+      },
+      {
+        "time": "16:31:15",
+        "level": "info",
+        "msg": "Executing blockRef \u0027inference\u0027 (type: inference) with 2 inputs"
+      },
+      {
+        "time": "16:31:27",
+        "level": "info",
+        "msg": "[inference] Tokens: 78 (prompt=3, completion=75), cost=$0.001140"
+      },
+      {
+        "time": "16:31:27",
+        "level": "success",
+        "msg": "blockRef \u0027inference\u0027 completed (80 chars)"
+      },
+      {
+        "time": "16:31:27",
+        "level": "info",
+        "msg": "Executing blockRef \u0027conversation-append\u0027 (type: conversation-append) with 4 inputs"
+      },
+      {
+        "time": "16:31:27",
+        "level": "info",
+        "msg": "[conversation-append] Appended assistant message to conversation \u002735f6ca7213744172a2adec1601db8b21\u0027 (now 3 messages)"
+      },
+      {
+        "time": "16:31:27",
+        "level": "success",
+        "msg": "blockRef \u0027conversation-append\u0027 completed (1 chars)"
+      },
+      {
+        "time": "16:31:28",
+        "level": "info",
+        "msg": "Executing blockRef \u0027response-parser\u0027 (type: response-parser) with 2 inputs"
+      },
+      {
+        "time": "16:31:28",
+        "level": "info",
+        "msg": "[response-parser] Tool call: directory-list"
+      },
+      {
+        "time": "16:31:28",
+        "level": "success",
+        "msg": "blockRef \u0027response-parser\u0027 completed (279 chars)"
+      },
+      {
+        "time": "16:31:28",
+        "level": "info",
+        "msg": "Conditional \u0027route-response\u0027: \u0027{{_nodeResult_parse-response.type}}\u0027 -\u003E \u0027tool-call\u0027 -\u003E True"
+      },
+      {
+        "time": "16:31:28",
+        "level": "info",
+        "msg": "Conditional \u0027route-response\u0027: multi-way branch, key=\u0027tool-call\u0027"
+      },
+      {
+        "time": "16:31:28",
+        "level": "info",
+        "msg": "Executing blockRef \u0027tool-dispatcher\u0027 (type: tool-dispatcher) with 3 inputs"
+      },
+      {
+        "time": "16:31:28",
+        "level": "info",
+        "msg": "[tool-dispatcher] Dispatching to block \u0027directory-list\u0027 (type: tool) with 2 inputs"
+      },
+      {
+        "time": "16:31:28",
+        "level": "info",
+        "msg": "[tool-dispatcher] Tool dispatch failed: Block \u0027directory-list\u0027 (type: tool) has no config.nodes. All tool blocks must define config.nodes. See docs/phases/PHASE-53/ADR-AGENT-AS-WORKFLOW.md."
+      },
+      {
+        "time": "16:31:28",
+        "level": "error",
+        "msg": "blockRef \u0027tool-dispatcher\u0027 error: Block \u0027tool-dispatcher\u0027 failed: {\u0022result\u0022:\u0022Error: Block \\u0027directory-list\\u0027 (type: tool) has no config.nodes. All tool blocks must define config.nodes. See docs/phases/PHASE-53/ADR-AGENT-AS-WORKFLOW.md.\u0022,\u0022success\u0022:false}"
+      },
+      {
+        "time": "16:31:28",
+        "level": "error",
+        "msg": "dispatch-tool: Block \u0027tool-dispatcher\u0027 failed: {\u0022result\u0022:\u0022Error: Block \\u0027directory-list\\u0027 (type: tool) has no config.nodes. All tool blocks must define config.nodes. See docs/phases/PHASE-53/ADR-AGENT-AS-WORKFLOW.md.\u0022,\u0022success\u0022:false}"
+      },
+      {
+        "time": "16:31:28",
+        "level": "warning",
+        "msg": "Stopping sequence: node \u0027dispatch-tool\u0027 failed"
+      },
+      {
+        "time": "16:31:28",
+        "level": "success",
+        "msg": "route-response: Completed (279 chars)"
+      },
+      {
+        "time": "16:31:28",
+        "level": "info",
+        "msg": "Iteration 1 complete. Fitness: 0.00"
+      },
+      {
+        "time": "16:31:29",
+        "level": "info",
+        "msg": "While \u0027agent-while\u0027: iteration 2/50"
+      },
+      {
+        "time": "16:31:29",
+        "level": "info",
+        "msg": "Executing blockRef \u0027conversation-read\u0027 (type: conversation-read) with 2 inputs"
+      },
+      {
+        "time": "16:31:29",
+        "level": "info",
+        "msg": "[conversation-read] Read 3 messages from conversation \u002735f6ca7213744172a2adec1601db8b21\u0027"
+      },
+      {
+        "time": "16:31:29",
+        "level": "success",
+        "msg": "blockRef \u0027conversation-read\u0027 completed (11687 chars)"
+      },
+      {
+        "time": "16:31:29",
+        "level": "info",
+        "msg": "Executing blockRef \u0027inference\u0027 (type: inference) with 2 inputs"
+      },
+      {
+        "time": "16:31:34",
+        "level": "info",
+        "msg": "[inference] Tokens: 71 (prompt=3, completion=68), cost=$0.001035"
+      },
+      {
+        "time": "16:31:34",
+        "level": "success",
+        "msg": "blockRef \u0027inference\u0027 completed (80 chars)"
+      },
+      {
+        "time": "16:31:35",
+        "level": "info",
+        "msg": "Executing blockRef \u0027conversation-append\u0027 (type: conversation-append) with 4 inputs"
+      },
+      {
+        "time": "16:31:35",
+        "level": "info",
+        "msg": "[conversation-append] Appended assistant message to conversation \u002735f6ca7213744172a2adec1601db8b21\u0027 (now 4 messages)"
+      },
+      {
+        "time": "16:31:35",
+        "level": "success",
+        "msg": "blockRef \u0027conversation-append\u0027 completed (1 chars)"
+      },
+      {
+        "time": "16:31:36",
+        "level": "info",
+        "msg": "Executing blockRef \u0027response-parser\u0027 (type: response-parser) with 2 inputs"
+      },
+      {
+        "time": "16:31:36",
+        "level": "info",
+        "msg": "[response-parser] Tool call: directory-list"
+      },
+      {
+        "time": "16:31:36",
+        "level": "success",
+        "msg": "blockRef \u0027response-parser\u0027 completed (279 chars)"
+      },
+      {
+        "time": "16:31:36",
+        "level": "info",
+        "msg": "Conditional \u0027route-response\u0027: \u0027{{_nodeResult_parse-response.type}}\u0027 -\u003E \u0027tool-call\u0027 -\u003E True"
+      },
+      {
+        "time": "16:31:36",
+        "level": "info",
+        "msg": "Conditional \u0027route-response\u0027: multi-way branch, key=\u0027tool-call\u0027"
+      },
+      {
+        "time": "16:31:36",
+        "level": "info",
+        "msg": "Executing blockRef \u0027tool-dispatcher\u0027 (type: tool-dispatcher) with 3 inputs"
+      },
+      {
+        "time": "16:31:36",
+        "level": "info",
+        "msg": "[tool-dispatcher] Dispatching to block \u0027directory-list\u0027 (type: tool) with 2 inputs"
+      },
+      {
+        "time": "16:31:36",
+        "level": "info",
+        "msg": "[tool-dispatcher] Tool dispatch failed: Block \u0027directory-list\u0027 (type: tool) has no config.nodes. All tool blocks must define config.nodes. See docs/phases/PHASE-53/ADR-AGENT-AS-WORKFLOW.md."
+      },
+      {
+        "time": "16:31:36",
+        "level": "error",
+        "msg": "blockRef \u0027tool-dispatcher\u0027 error: Block \u0027tool-dispatcher\u0027 failed: {\u0022result\u0022:\u0022Error: Block \\u0027directory-list\\u0027 (type: tool) has no config.nodes. All tool blocks must define config.nodes. See docs/phases/PHASE-53/ADR-AGENT-AS-WORKFLOW.md.\u0022,\u0022success\u0022:false}"
+      },
+      {
+        "time": "16:31:36",
+        "level": "error",
+        "msg": "dispatch-tool: Block \u0027tool-dispatcher\u0027 failed: {\u0022result\u0022:\u0022Error: Block \\u0027directory-list\\u0027 (type: tool) has no config.nodes. All tool blocks must define config.nodes. See docs/phases/PHASE-53/ADR-AGENT-AS-WORKFLOW.md.\u0022,\u0022success\u0022:false}"
+      },
+      {
+        "time": "16:31:36",
+        "level": "warning",
+        "msg": "Stopping sequence: node \u0027dispatch-tool\u0027 failed"
+      },
+      {
+        "time": "16:31:36",
+        "level": "success",
+        "msg": "route-response: Completed (279 chars)"
+      },
+      {
+        "time": "16:31:36",
+        "level": "info",
+        "msg": "Iteration 2 complete. Fitness: 0.00"
+      },
+      {
+        "time": "16:31:36",
+        "level": "info",
+        "msg": "While \u0027agent-while\u0027: iteration 3/50"
+      },
+      {
+        "time": "16:31:36",
+        "level": "info",
+        "msg": "Executing blockRef \u0027conversation-read\u0027 (type: conversation-read) with 2 inputs"
+      },
+      {
+        "time": "16:31:36",
+        "level": "info",
+        "msg": "[conversation-read] Read 4 messages from conversation \u002735f6ca7213744172a2adec1601db8b21\u0027"
+      },
+      {
+        "time": "16:31:36",
+        "level": "success",
+        "msg": "blockRef \u0027conversation-read\u0027 completed (11859 chars)"
+      },
+      {
+        "time": "16:31:37",
+        "level": "info",
+        "msg": "Executing blockRef \u0027inference\u0027 (type: inference) with 2 inputs"
+      }
+    ],
+    "_artifacts": [],
+    "_blockOutputs": {
+      "set-default-fitness": {
+        "type": "conditional",
+        "output": "0.5",
+        "timestamp": "16:31:15"
+      },
+      "read-conversation": {
+        "type": "block",
+        "output": "{\u0022messages\u0022:[{\u0022Role\u0022:\u0022system\u0022,\u0022Content\u0022:\u0022# Test Designer Agent\\r\\n\\r\\nYou are a test designer for Maestro contracts. Your job is to read a contract definition and produce a comprehensive test suite that verifies whether a block meets the contract\\u0027s requirements.\\r\\n\\r\\n## 1. Your Role\\r\\n\\r\\nYou analyze contract definitions and generate **acceptance tests** \\u2014 concrete prompt/check pairs that can be executed against a block to measure its fitness for a contract. You do NOT execute tests yourself. You design them.\\r\\n\\r\\nYour output is a JSON test suite file that the test runner will use to evaluate blocks.\\r\\n\\r\\n## 2. What is a Contract\\r\\n\\r\\nA contract defines a **verifiable role** that a block can fulfill. It has this hierarchy:\\r\\n\\r\\n\\u0060\\u0060\\u0060\\r\\nCONTRACT\\r\\n  id, name, version, description\\r\\n  requiredCapabilities: [...] \\u2014 minimum capabilities to even attempt\\r\\n  minimumFitness: 0.0-1.0 \\u2014 global threshold\\r\\n  features:\\r\\n    feature-id:\\r\\n      description: what this feature does\\r\\n      requires: [...] \\u2014 capabilities needed\\r\\n      weight: 0.0-1.0 \\u2014 importance in global score\\r\\n      minimumScore: 0.0-1.0 \\u2014 minimum test pass rate\\r\\n      tests: [...] \\u2014 existing tests (you will ADD to these)\\r\\n  scoring:\\r\\n    method: \\u0022weighted-average\\u0022\\r\\n\\u0060\\u0060\\u0060\\r\\n\\r\\nA block **passes** a contract if:\\r\\n1. It has all \\u0060requiredCapabilities\\u0060\\r\\n2. Each active feature\\u0027s test pass rate \\u003E= \\u0060minimumScore\\u0060\\r\\n3. Global weighted average \\u003E= \\u0060minimumFitness\\u0060\\r\\n\\r\\n## 3. Test Format\\r\\n\\r\\nEach test is either **single-turn** or **multi-turn**.\\r\\n\\r\\n### Single-turn test\\r\\n\\u0060\\u0060\\u0060json\\r\\n{\\r\\n  \\u0022id\\u0022: \\u0022unique-test-id\\u0022,\\r\\n  \\u0022description\\u0022: \\u0022What this test verifies\\u0022,\\r\\n  \\u0022prompt\\u0022: \\u0022The message sent to the block\\u0022,\\r\\n  \\u0022check\\u0022: {\\r\\n    \\u0022type\\u0022: \\u0022contains\\u0022,\\r\\n    \\u0022value\\u0022: \\u0022expected substring\\u0022\\r\\n  }\\r\\n}\\r\\n\\u0060\\u0060\\u0060\\r\\n\\r\\n### Multi-turn test\\r\\n\\u0060\\u0060\\u0060json\\r\\n{\\r\\n  \\u0022id\\u0022: \\u0022unique-test-id\\u0022,\\r\\n  \\u0022description\\u0022: \\u0022What this test verifies\\u0022,\\r\\n  \\u0022turns\\u0022: [\\r\\n    { \\u0022prompt\\u0022: \\u0022First message\\u0022 },\\r\\n    { \\u0022prompt\\u0022: \\u0022Second message\\u0022, \\u0022check\\u0022: { \\u0022type\\u0022: \\u0022contains\\u0022, \\u0022value\\u0022: \\u0022expected\\u0022 } }\\r\\n  ]\\r\\n}\\r\\n\\u0060\\u0060\\u0060\\r\\n\\r\\nOnly the last turn (or specific turns) need a \\u0060check\\u0060. Earlier turns set up context.\\r\\n\\r\\n## 4. Check Types\\r\\n\\r\\nUse the most specific check type that verifies the behavior:\\r\\n\\r\\n| Type | Parameters | Use when |\\r\\n|------|-----------|----------|\\r\\n| \\u0060non-empty\\u0060 | \\u0060minLength?\\u0060 | Response must exist and be substantive |\\r\\n| \\u0060contains\\u0060 | \\u0060value\\u0060 | Response must include a specific substring |\\r\\n| \\u0060contains-all\\u0060 | \\u0060values: [...]\\u0060 | Response must include ALL substrings |\\r\\n| \\u0060contains-any\\u0060 | \\u0060values: [...]\\u0060 | Response must include at least ONE substring |\\r\\n| \\u0060does-not-contain\\u0060 | \\u0060values: [...]\\u0060 | Response must NOT include any substring (for safety/constraint tests) |\\r\\n| \\u0060tool-call\\u0060 | \\u0060toolName\\u0060, \\u0060requiredArgs?: [...]\\u0060 | Block must call a specific tool |\\r\\n| \\u0060json-parseable\\u0060 | \\u2014 | Response must contain valid JSON |\\r\\n| \\u0060regex\\u0060 | \\u0060pattern\\u0060, \\u0060flags?\\u0060 | Response must match a regex pattern |\\r\\n\\r\\n### Check Selection Guidelines\\r\\n\\r\\n- **\\u0060non-empty\\u0060**: Use sparingly \\u2014 only when ANY response is acceptable. Prefer \\u0060contains\\u0060 or \\u0060contains-any\\u0060.\\r\\n- **\\u0060contains\\u0060**: Best for verifying specific knowledge or behavior.\\r\\n- **\\u0060contains-all\\u0060**: When the response must cover multiple aspects.\\r\\n- **\\u0060contains-any\\u0060**: When there are multiple valid ways to express something.\\r\\n- **\\u0060does-not-contain\\u0060**: For constraint tests \\u2014 \\u0022the agent must NOT do X without Y\\u0022.\\r\\n- **\\u0060tool-call\\u0060**: When the test verifies that the block uses the right tool.\\r\\n- **\\u0060json-parseable\\u0060**: When the block should produce structured output.\\r\\n- **\\u0060regex\\u0060**: When the format matters (e.g., version numbers, IDs).\\r\\n\\r\\n## 5. Workflow\\r\\n\\r\\nFollow these steps exactly:\\r\\n\\r\\n1. **Read the contract** using \\u0060file-read\\u0060 to get the contract JSON\\r\\n2. **Analyze each feature**: understand what it does, what capabilities it requires, what existing tests cover\\r\\n3. **For each feature, generate 2-4 tests** that:\\r\\n   - Cover the happy path (basic functionality)\\r\\n   - Test edge cases (unusual inputs, boundary conditions)\\r\\n   - Test constraints (what the agent should NOT do)\\r\\n   - Use varied check types (not all \\u0060non-empty\\u0060)\\r\\n4. **Write the test suite** using \\u0060file-write\\u0060 to the output directory\\r\\n5. **Validate** the JSON using \\u0060json-validator\\u0060\\r\\n6. **Call \\u0060step-complete\\u0060** with a summary\\r\\n\\r\\n### Test Suite Output Format\\r\\n\\r\\nWrite a single file: \\u0060{outputDir}/{contractId}.test-suite.json\\u0060\\r\\n\\r\\n\\u0060\\u0060\\u0060json\\r\\n{\\r\\n  \\u0022contractId\\u0022: \\u0022maestro-assistant\\u0022,\\r\\n  \\u0022contractVersion\\u0022: \\u00222.0.0\\u0022,\\r\\n  \\u0022generatedAt\\u0022: \\u00222026-03-05T12:00:00Z\\u0022,\\r\\n  \\u0022generator\\u0022: \\u0022test-designer\\u0022,\\r\\n  \\u0022features\\u0022: {\\r\\n    \\u0022conversation\\u0022: {\\r\\n      \\u0022tests\\u0022: [\\r\\n        { \\u0022id\\u0022: \\u0022...\\u0022, \\u0022description\\u0022: \\u0022...\\u0022, \\u0022prompt\\u0022: \\u0022...\\u0022, \\u0022check\\u0022: { ... } },\\r\\n        ...\\r\\n      ]\\r\\n    },\\r\\n    \\u0022maestro-operations\\u0022: {\\r\\n      \\u0022tests\\u0022: [ ... ]\\r\\n    }\\r\\n  },\\r\\n  \\u0022totalTests\\u0022: 12,\\r\\n  \\u0022summary\\u0022: \\u0022Generated 12 tests across 4 features\\u0022\\r\\n}\\r\\n\\u0060\\u0060\\u0060\\r\\n\\r\\n## 6. Example: Contract to Tests\\r\\n\\r\\nGiven this contract feature:\\r\\n\\u0060\\u0060\\u0060json\\r\\n{\\r\\n  \\u0022conversation\\u0022: {\\r\\n    \\u0022description\\u0022: \\u0022Basic conversational interaction\\u0022,\\r\\n    \\u0022requires\\u0022: [\\u0022conversation\\u0022],\\r\\n    \\u0022weight\\u0022: 0.25,\\r\\n    \\u0022minimumScore\\u0022: 0.8,\\r\\n    \\u0022tests\\u0022: [\\r\\n      { \\u0022id\\u0022: \\u0022basic-response\\u0022, \\u0022prompt\\u0022: \\u0022Hello\\u0022, \\u0022check\\u0022: { \\u0022type\\u0022: \\u0022non-empty\\u0022, \\u0022minLength\\u0022: 20 } }\\r\\n    ]\\r\\n  }\\r\\n}\\r\\n\\u0060\\u0060\\u0060\\r\\n\\r\\nYou would generate additional tests like:\\r\\n\\u0060\\u0060\\u0060json\\r\\n[\\r\\n  {\\r\\n    \\u0022id\\u0022: \\u0022conversation-handles-question\\u0022,\\r\\n    \\u0022description\\u0022: \\u0022Agent answers a direct question coherently\\u0022,\\r\\n    \\u0022prompt\\u0022: \\u0022What is the difference between a block and a workflow in Maestro?\\u0022,\\r\\n    \\u0022check\\u0022: { \\u0022type\\u0022: \\u0022contains-all\\u0022, \\u0022values\\u0022: [\\u0022block\\u0022, \\u0022workflow\\u0022] }\\r\\n  },\\r\\n  {\\r\\n    \\u0022id\\u0022: \\u0022conversation-handles-ambiguity\\u0022,\\r\\n    \\u0022description\\u0022: \\u0022Agent asks for clarification when request is vague\\u0022,\\r\\n    \\u0022prompt\\u0022: \\u0022Fix it\\u0022,\\r\\n    \\u0022check\\u0022: { \\u0022type\\u0022: \\u0022contains-any\\u0022, \\u0022values\\u0022: [\\u0022what\\u0022, \\u0022which\\u0022, \\u0022could you\\u0022, \\u0022clarify\\u0022, \\u0022?\\u0022] }\\r\\n  },\\r\\n  {\\r\\n    \\u0022id\\u0022: \\u0022conversation-multi-turn-coherence\\u0022,\\r\\n    \\u0022description\\u0022: \\u0022Agent maintains coherence across turns\\u0022,\\r\\n    \\u0022turns\\u0022: [\\r\\n      { \\u0022prompt\\u0022: \\u0022I\\u0027m working on a music player app called Cantante\\u0022 },\\r\\n      { \\u0022prompt\\u0022: \\u0022What app am I working on?\\u0022, \\u0022check\\u0022: { \\u0022type\\u0022: \\u0022contains\\u0022, \\u0022value\\u0022: \\u0022Cantante\\u0022 } }\\r\\n    ]\\r\\n  }\\r\\n]\\r\\n\\u0060\\u0060\\u0060\\r\\n\\r\\n## 7. Anti-Patterns \\u2014 DO NOT generate these\\r\\n\\r\\n| Anti-pattern | Why it\\u0027s bad | Do instead |\\r\\n|---|---|---|\\r\\n| \\u0060\\u0022prompt\\u0022: \\u0022Hello\\u0022\\u0060 with \\u0060\\u0022check\\u0022: {\\u0022type\\u0022: \\u0022non-empty\\u0022}\\u0060 | Trivial \\u2014 any LLM passes this | Use a specific check: \\u0060contains-any\\u0060 with expected keywords |\\r\\n| Prompts that test LLM knowledge, not block behavior | We\\u0027re testing the block\\u0027s role, not the LLM | Test contract-specific behavior |\\r\\n| Check values that are too specific | Fragile \\u2014 minor wording changes break it | Use \\u0060contains-any\\u0060 with several valid formulations |\\r\\n| All tests using the same check type | Poor coverage \\u2014 misses failure modes | Mix check types across tests |\\r\\n| Tests with no \\u0060check\\u0060 on any turn | Untestable \\u2014 produces no pass/fail | Every test must have at least one check |\\r\\n| Duplicate tests that check the same thing | Waste of execution budget | Each test should verify a distinct behavior |\\r\\n| Prompts longer than 500 characters | Confusing for the block, slow to execute | Keep prompts concise and focused |\\r\\n\\r\\n## 8. Available Tools\\r\\n\\r\\nYour ENTIRE response must be a single JSON object:\\r\\n\\r\\n- **Read file**: \\u0060{\\u0022tool\\u0022:\\u0022file-read\\u0022,\\u0022args\\u0022:{\\u0022path\\u0022:\\u0022/absolute/path/to/file\\u0022}}\\u0060\\r\\n- **Write file**: \\u0060{\\u0022tool\\u0022:\\u0022file-write\\u0022,\\u0022args\\u0022:{\\u0022path\\u0022:\\u0022/absolute/path/to/file\\u0022,\\u0022content\\u0022:\\u0022file content\\u0022}}\\u0060\\r\\n- **List directory**: \\u0060{\\u0022tool\\u0022:\\u0022directory-list\\u0022,\\u0022args\\u0022:{\\u0022path\\u0022:\\u0022/absolute/path/to/dir\\u0022}}\\u0060\\r\\n- **Validate JSON**: \\u0060{\\u0022tool\\u0022:\\u0022json-validator\\u0022,\\u0022args\\u0022:{\\u0022data\\u0022:\\u0022json string to validate\\u0022}}\\u0060\\r\\n- **Finish**: \\u0060{\\u0022tool\\u0022:\\u0022step-complete\\u0022,\\u0022args\\u0022:{\\u0022summary\\u0022:\\u0022Generated N tests across M features\\u0022,\\u0022testFiles\\u0022:[\\u0022/path/to/file\\u0022]}}\\u0060\\r\\n\\r\\n## 9. Rules\\r\\n\\r\\n1. **One tool call per response.** Your entire response is a single JSON object.\\r\\n2. **ALWAYS read the contract file first** before generating tests.\\r\\n3. **Generate 2-4 tests per feature.** Not fewer, not more than 5.\\r\\n4. **Use varied check types** \\u2014 at least 3 different check types across all tests.\\r\\n5. **Tests must be self-contained** \\u2014 no external dependencies, no file I/O in tests.\\r\\n6. **Multi-turn tests should have at most 3 turns** \\u2014 keep them focused.\\r\\n7. **Test IDs must be unique** within the suite and follow \\u0060kebab-case\\u0060.\\r\\n8. **Maximum 15 tool calls total.** Plan your work.\\r\\n9. **Call \\u0060step-complete\\u0060 when done.** This is mandatory \\u2014 never end without it.\\r\\n10. **Do NOT use any tool names not listed above.** \\u0060done\\u0060, \\u0060output\\u0060, \\u0060complete\\u0060, \\u0060maestro_cli\\u0060 do NOT exist.\\r\\n\u0022},{\u0022Role\u0022:\u0022user\u0022,\u0022Content\u0022:\u0022Design a comprehensive test suite for the contract \\u0027code-reviewer\\u0027. Read the contract definition, analyze its features and requirements, then generate test configurations (prompt \\u002B check pairs) that thoroughly verify whether a block meets the contract. Write the test suite files to the output directory.\u0022},{\u0022Role\u0022:\u0022assistant\u0022,\u0022Content\u0022:\u0022{\\u0022tool\\u0022:\\u0022directory-list\\u0022,\\u0022args\\u0022:{\\u0022path\\u0022:\\u0022C:\\\\\\\\Meastro\\\\\\\\content\\\\\\\\system\\\\\\\\blocks\\u0022}}\u0022},{\u0022Role\u0022:\u0022assistant\u0022,\u0022Content\u0022:\u0022{\\u0022tool\\u0022:\\u0022directory-list\\u0022,\\u0022args\\u0022:{\\u0022path\\u0022:\\u0022C:\\\\\\\\Meastro\\\\\\\\content\\\\\\\\system\\\\\\\\blocks\\u0022}}\u0022}],\u0022messageCount\u0022:4}",
+        "timestamp": "16:31:36"
+      },
+      "llm-call": {
+        "type": "block",
+        "output": "{\u0022tool\u0022:\u0022directory-list\u0022,\u0022args\u0022:{\u0022path\u0022:\u0022C:\\\\Meastro\\\\content\\\\system\\\\blocks\u0022}}",
+        "timestamp": "16:31:34"
+      },
+      "append-assistant": {
+        "type": "block",
+        "output": "4",
+        "timestamp": "16:31:35"
+      },
+      "parse-response": {
+        "type": "block",
+        "output": "{\u0022type\u0022:\u0022tool-call\u0022,\u0022toolId\u0022:\u0022directory-list\u0022,\u0022args\u0022:\u0022{\\u0022path\\u0022:\\u0022C:\\\\\\\\Meastro\\\\\\\\content\\\\\\\\system\\\\\\\\blocks\\u0022}\u0022,\u0022text\u0022:\u0022{\\u0022tool\\u0022:\\u0022directory-list\\u0022,\\u0022args\\u0022:{\\u0022path\\u0022:\\u0022C:\\\\\\\\Meastro\\\\\\\\content\\\\\\\\system\\\\\\\\blocks\\u0022}}\u0022}",
+        "timestamp": "16:31:36"
+      },
+      "route-response": {
+        "type": "conditional",
+        "output": "{\u0022type\u0022:\u0022tool-call\u0022,\u0022toolId\u0022:\u0022directory-list\u0022,\u0022args\u0022:\u0022{\\u0022path\\u0022:\\u0022C:\\\\\\\\Meastro\\\\\\\\content\\\\\\\\system\\\\\\\\blocks\\u0022}\u0022,\u0022text\u0022:\u0022{\\u0022tool\\u0022:\\u0022directory-list\\u0022,\\u0022args\\u0022:{\\u0022path\\u0022:\\u0022C:\\\\\\\\Meastro\\\\\\\\content\\\\\\\\system\\\\\\\\blocks\\u0022}}\u0022}",
+        "timestamp": "16:31:36"
+      }
+    },
+    "_llmActivity": [
+      {
+        "type": "inference",
+        "blockRef": "inference",
+        "response": "{\u0022tool\u0022:\u0022directory-list\u0022,\u0022args\u0022:{\u0022path\u0022:\u0022C:\\\\Meastro\\\\content\\\\system\\\\blocks\u0022}}",
+        "timestamp": "2026-03-14T16:31:27.2369354Z",
+        "toolCalls": "",
+        "tokens": 78
+      },
+      {
+        "type": "tool-dispatcher",
+        "blockRef": "tool-dispatcher",
+        "response": "Error: Block \u0027directory-list\u0027 (type: tool) has no config.nodes. All tool blocks must define config.nodes. See docs/phases/PHASE-53/ADR-AGENT-AS-WORKFLOW.md.",
+        "timestamp": "2026-03-14T16:31:28.9292260Z",
+        "toolCalls": "",
+        "tokens": 0
+      },
+      {
+        "type": "inference",
+        "blockRef": "inference",
+        "response": "{\u0022tool\u0022:\u0022directory-list\u0022,\u0022args\u0022:{\u0022path\u0022:\u0022C:\\\\Meastro\\\\content\\\\system\\\\blocks\u0022}}",
+        "timestamp": "2026-03-14T16:31:34.9560563Z",
+        "toolCalls": "",
+        "tokens": 71
+      },
+      {
+        "type": "tool-dispatcher",
+        "blockRef": "tool-dispatcher",
+        "response": "Error: Block \u0027directory-list\u0027 (type: tool) has no config.nodes. All tool blocks must define config.nodes. See docs/phases/PHASE-53/ADR-AGENT-AS-WORKFLOW.md.",
+        "timestamp": "2026-03-14T16:31:36.6247356Z",
+        "toolCalls": "",
+        "tokens": 0
+      }
+    ],
+    "_phaseMetrics": {},
+    "_executionTree": [
+      {
+        "id": "init",
+        "name": "Init",
+        "status": "pending",
+        "children": []
+      },
+      {
+        "id": "agent-while",
+        "name": "Agent While",
+        "status": "running",
+        "children": [
+          {
+            "id": "read-conversation",
+            "name": "Read Conversation",
+            "status": "done",
+            "children": [],
+            "output": "{\u0022messages\u0022:[{\u0022Role\u0022:\u0022system\u0022,\u0022Content\u0022:\u0022# Test Designer Agent\\r\\n\\r\\nYou are a test designer for Maestro contracts. Your job is to read a contract definition and produce a comprehensive test suite that verifies whether a block meets the contract\\u0027s requirements.\\r\\n\\r\\n## 1. Your Role\\r\\n\\r\\nYou analyze contract definitions and generate **acceptance tests** \\u2014 concrete prompt/check pairs that can be executed against a block to measure its fitness for a contract. You do NOT execute tests..."
+          },
+          {
+            "id": "llm-call",
+            "name": "Llm Call",
+            "status": "running",
+            "children": [],
+            "output": "Executing inference..."
+          },
+          {
+            "id": "append-assistant",
+            "name": "Append Assistant",
+            "status": "pending",
+            "children": []
+          },
+          {
+            "id": "parse-response",
+            "name": "Parse Response",
+            "status": "pending",
+            "children": []
+          },
+          {
+            "id": "route-response",
+            "name": "Route Response",
+            "status": "pending",
+            "children": []
+          }
+        ],
+        "output": "Iteration 3/50"
+      }
+    ],
+    "_activeWorkflow": "block-forge",
+    "description": "An agent that reviews code",
+    "contractId": "code-reviewer",
+    "repoPath": "C:\\Meastro",
+    "_activeBlock": {
+      "id": "llm-call",
+      "name": "Llm Call",
+      "type": "block",
+      "status": "running",
+      "startedAt": "2026-03-14T16:31:37.3346316\u002B00:00",
+      "logs": [],
+      "metadata": {}
+    },
+    "targetFitness": "0.5",
+    "_workflowCheckpoint": [
+      {
+        "nodeId": "default-fitness",
+        "status": "completed",
+        "timestamp": "2026-03-14T16:31:15.0890880Z",
+        "previousOutput": "0.5"
+      },
+      {
+        "nodeId": "set-default-fitness",
+        "status": "completed",
+        "timestamp": "2026-03-14T16:31:15.1057059Z",
+        "previousOutput": "0.5"
+      },
+      {
+        "nodeId": "construct-td-message",
+        "status": "completed",
+        "timestamp": "2026-03-14T16:31:15.1107623Z",
+        "previousOutput": "[{\u0022role\u0022:\u0022user\u0022,\u0022content\u0022:\u0022Design a comprehensive test suite for the contract \u0027code-reviewer\u0027. Read the contract definition, analyze its features and requirements, then generate test configurations (prompt \u002B check pairs) that thoroughly verify whether a block meets the contract. Write the test suite files to the output directory.\u0022}]"
+      },
+      {
+        "nodeId": "init",
+        "status": "completed",
+        "timestamp": "2026-03-14T16:31:15.1868254Z",
+        "previousOutput": "false"
+      },
+      {
+        "nodeId": "read-conversation",
+        "status": "completed",
+        "timestamp": "2026-03-14T16:31:37.3344976Z",
+        "previousOutput": "{\u0022messages\u0022:[{\u0022Role\u0022:\u0022system\u0022,\u0022Content\u0022:\u0022# Test Designer Agent\\r\\n\\r\\nYou are a test designer for Maestro contracts. Your job is to read a contract definition and produce a comprehensive test suite that verifies whether a block meets the contract\\u0027s requirements.\\r\\n\\r\\n## 1. Your Role\\r\\n\\r\\nYou analyze contract definitions and generate **acceptance tests** \\u2014 concrete prompt/check pairs that can be executed against a block to measure its fitness for a contract. You do NOT execute tests yourself. You design them.\\r\\n\\r\\nYour output is a JSON test suite file that the test runner will use to evaluate blocks.\\r\\n\\r\\n## 2. What is a Contract\\r\\n\\r\\nA contract defines a **verifiable role** that a block can fulfill. It has this hierarchy:\\r\\n\\r\\n\\u0060\\u0060\\u0060\\r\\nCONTRACT\\r\\n  id, name, version, description\\r\\n  requiredCapabilities: [...] \\u2014 minimum capabilities to even attempt\\r\\n  minimumFitness: 0.0-1.0 \\u2014 global threshold\\r\\n  features:\\r\\n    feature-id:\\r\\n      description: what this feature does\\r\\n      requires: [...] \\u2014 capabilities needed\\r\\n      weight: 0.0-1.0 \\u2014 importance in global score\\r\\n      minimumScore: 0.0-1.0 \\u2014 minimum test pass rate\\r\\n      tests: [...] \\u2014 existing tests (you will ADD to these)\\r\\n  scoring:\\r\\n    method: \\u0022weighted-average\\u0022\\r\\n\\u0060\\u0060\\u0060\\r\\n\\r\\nA block **passes** a contract if:\\r\\n1. It has all \\u0060requiredCapabilities\\u0060\\r\\n2. Each active feature\\u0027s test pass rate \\u003E= \\u0060minimumScore\\u0060\\r\\n3. Global weighted average \\u003E= \\u0060minimumFitness\\u0060\\r\\n\\r\\n## 3. Test Format\\r\\n\\r\\nEach test is either **single-turn** or **multi-turn**.\\r\\n\\r\\n### Single-turn test\\r\\n\\u0060\\u0060\\u0060json\\r\\n{\\r\\n  \\u0022id\\u0022: \\u0022unique-test-id\\u0022,\\r\\n  \\u0022description\\u0022: \\u0022What this test verifies\\u0022,\\r\\n  \\u0022prompt\\u0022: \\u0022The message sent to the block\\u0022,\\r\\n  \\u0022check\\u0022: {\\r\\n    \\u0022type\\u0022: \\u0022contains\\u0022,\\r\\n    \\u0022value\\u0022: \\u0022expected substring\\u0022\\r\\n  }\\r\\n}\\r\\n\\u0060\\u0060\\u0060\\r\\n\\r\\n### Multi-turn test\\r\\n\\u0060\\u0060\\u0060json\\r\\n{\\r\\n  \\u0022id\\u0022: \\u0022unique-test-id\\u0022,\\r\\n  \\u0022description\\u0022: \\u0022What this test verifies\\u0022,\\r\\n  \\u0022turns\\u0022: [\\r\\n    { \\u0022prompt\\u0022: \\u0022First message\\u0022 },\\r\\n    { \\u0022prompt\\u0022: \\u0022Second message\\u0022, \\u0022check\\u0022: { \\u0022type\\u0022: \\u0022contains\\u0022, \\u0022value\\u0022: \\u0022expected\\u0022 } }\\r\\n  ]\\r\\n}\\r\\n\\u0060\\u0060\\u0060\\r\\n\\r\\nOnly the last turn (or specific turns) need a \\u0060check\\u0060. Earlier turns set up context.\\r\\n\\r\\n## 4. Check Types\\r\\n\\r\\nUse the most specific check type that verifies the behavior:\\r\\n\\r\\n| Type | Parameters | Use when |\\r\\n|------|-----------|----------|\\r\\n| \\u0060non-empty\\u0060 | \\u0060minLength?\\u0060 | Response must exist and be substantive |\\r\\n| \\u0060contains\\u0060 | \\u0060value\\u0060 | Response must include a specific substring |\\r\\n| \\u0060contains-all\\u0060 | \\u0060values: [...]\\u0060 | Response must include ALL substrings |\\r\\n| \\u0060contains-any\\u0060 | \\u0060values: [...]\\u0060 | Response must include at least ONE substring |\\r\\n| \\u0060does-not-contain\\u0060 | \\u0060values: [...]\\u0060 | Response must NOT include any substring (for safety/constraint tests) |\\r\\n| \\u0060tool-call\\u0060 | \\u0060toolName\\u0060, \\u0060requiredArgs?: [...]\\u0060 | Block must call a specific tool |\\r\\n| \\u0060json-parseable\\u0060 | \\u2014 | Response must contain valid JSON |\\r\\n| \\u0060regex\\u0060 | \\u0060pattern\\u0060, \\u0060flags?\\u0060 | Response must match a regex pattern |\\r\\n\\r\\n### Check Selection Guidelines\\r\\n\\r\\n- **\\u0060non-empty\\u0060**: Use sparingly \\u2014 only when ANY response is acceptable. Prefer \\u0060contains\\u0060 or \\u0060contains-any\\u0060.\\r\\n- **\\u0060contains\\u0060**: Best for verifying specific knowledge or behavior.\\r\\n- **\\u0060contains-all\\u0060**: When the response must cover multiple aspects.\\r\\n- **\\u0060contains-any\\u0060**: When there are multiple valid ways to express something.\\r\\n- **\\u0060does-not-contain\\u0060**: For constraint tests \\u2014 \\u0022the agent must NOT do X without Y\\u0022.\\r\\n- **\\u0060tool-call\\u0060**: When the test verifies that the block uses the right tool.\\r\\n- **\\u0060json-parseable\\u0060**: When the block should produce structured output.\\r\\n- **\\u0060regex\\u0060**: When the format matters (e.g., version numbers, IDs).\\r\\n\\r\\n## 5. Workflow\\r\\n\\r\\nFollow these steps exactly:\\r\\n\\r\\n1. **Read the contract** using \\u0060file-read\\u0060 to get the contract JSON\\r\\n2. **Analyze each feature**: understand what it does, what capabilities it requires, what existing tests cover\\r\\n3. **For each feature, generate 2-4 tests** that:\\r\\n   - Cover the happy path (basic functionality)\\r\\n   - Test edge cases (unusual inputs, boundary conditions)\\r\\n   - Test constraints (what the agent should NOT do)\\r\\n   - Use varied check types (not all \\u0060non-empty\\u0060)\\r\\n4. **Write the test suite** using \\u0060file-write\\u0060 to the output directory\\r\\n5. **Validate** the JSON using \\u0060json-validator\\u0060\\r\\n6. **Call \\u0060step-complete\\u0060** with a summary\\r\\n\\r\\n### Test Suite Output Format\\r\\n\\r\\nWrite a single file: \\u0060{outputDir}/{contractId}.test-suite.json\\u0060\\r\\n\\r\\n\\u0060\\u0060\\u0060json\\r\\n{\\r\\n  \\u0022contractId\\u0022: \\u0022maestro-assistant\\u0022,\\r\\n  \\u0022contractVersion\\u0022: \\u00222.0.0\\u0022,\\r\\n  \\u0022generatedAt\\u0022: \\u00222026-03-05T12:00:00Z\\u0022,\\r\\n  \\u0022generator\\u0022: \\u0022test-designer\\u0022,\\r\\n  \\u0022features\\u0022: {\\r\\n    \\u0022conversation\\u0022: {\\r\\n      \\u0022tests\\u0022: [\\r\\n        { \\u0022id\\u0022: \\u0022...\\u0022, \\u0022description\\u0022: \\u0022...\\u0022, \\u0022prompt\\u0022: \\u0022...\\u0022, \\u0022check\\u0022: { ... } },\\r\\n        ...\\r\\n      ]\\r\\n    },\\r\\n    \\u0022maestro-operations\\u0022: {\\r\\n      \\u0022tests\\u0022: [ ... ]\\r\\n    }\\r\\n  },\\r\\n  \\u0022totalTests\\u0022: 12,\\r\\n  \\u0022summary\\u0022: \\u0022Generated 12 tests across 4 features\\u0022\\r\\n}\\r\\n\\u0060\\u0060\\u0060\\r\\n\\r\\n## 6. Example: Contract to Tests\\r\\n\\r\\nGiven this contract feature:\\r\\n\\u0060\\u0060\\u0060json\\r\\n{\\r\\n  \\u0022conversation\\u0022: {\\r\\n    \\u0022description\\u0022: \\u0022Basic conversational interaction\\u0022,\\r\\n    \\u0022requires\\u0022: [\\u0022conversation\\u0022],\\r\\n    \\u0022weight\\u0022: 0.25,\\r\\n    \\u0022minimumScore\\u0022: 0.8,\\r\\n    \\u0022tests\\u0022: [\\r\\n      { \\u0022id\\u0022: \\u0022basic-response\\u0022, \\u0022prompt\\u0022: \\u0022Hello\\u0022, \\u0022check\\u0022: { \\u0022type\\u0022: \\u0022non-empty\\u0022, \\u0022minLength\\u0022: 20 } }\\r\\n    ]\\r\\n  }\\r\\n}\\r\\n\\u0060\\u0060\\u0060\\r\\n\\r\\nYou would generate additional tests like:\\r\\n\\u0060\\u0060\\u0060json\\r\\n[\\r\\n  {\\r\\n    \\u0022id\\u0022: \\u0022conversation-handles-question\\u0022,\\r\\n    \\u0022description\\u0022: \\u0022Agent answers a direct question coherently\\u0022,\\r\\n    \\u0022prompt\\u0022: \\u0022What is the difference between a block and a workflow in Maestro?\\u0022,\\r\\n    \\u0022check\\u0022: { \\u0022type\\u0022: \\u0022contains-all\\u0022, \\u0022values\\u0022: [\\u0022block\\u0022, \\u0022workflow\\u0022] }\\r\\n  },\\r\\n  {\\r\\n    \\u0022id\\u0022: \\u0022conversation-handles-ambiguity\\u0022,\\r\\n    \\u0022description\\u0022: \\u0022Agent asks for clarification when request is vague\\u0022,\\r\\n    \\u0022prompt\\u0022: \\u0022Fix it\\u0022,\\r\\n    \\u0022check\\u0022: { \\u0022type\\u0022: \\u0022contains-any\\u0022, \\u0022values\\u0022: [\\u0022what\\u0022, \\u0022which\\u0022, \\u0022could you\\u0022, \\u0022clarify\\u0022, \\u0022?\\u0022] }\\r\\n  },\\r\\n  {\\r\\n    \\u0022id\\u0022: \\u0022conversation-multi-turn-coherence\\u0022,\\r\\n    \\u0022description\\u0022: \\u0022Agent maintains coherence across turns\\u0022,\\r\\n    \\u0022turns\\u0022: [\\r\\n      { \\u0022prompt\\u0022: \\u0022I\\u0027m working on a music player app called Cantante\\u0022 },\\r\\n      { \\u0022prompt\\u0022: \\u0022What app am I working on?\\u0022, \\u0022check\\u0022: { \\u0022type\\u0022: \\u0022contains\\u0022, \\u0022value\\u0022: \\u0022Cantante\\u0022 } }\\r\\n    ]\\r\\n  }\\r\\n]\\r\\n\\u0060\\u0060\\u0060\\r\\n\\r\\n## 7. Anti-Patterns \\u2014 DO NOT generate these\\r\\n\\r\\n| Anti-pattern | Why it\\u0027s bad | Do instead |\\r\\n|---|---|---|\\r\\n| \\u0060\\u0022prompt\\u0022: \\u0022Hello\\u0022\\u0060 with \\u0060\\u0022check\\u0022: {\\u0022type\\u0022: \\u0022non-empty\\u0022}\\u0060 | Trivial \\u2014 any LLM passes this | Use a specific check: \\u0060contains-any\\u0060 with expected keywords |\\r\\n| Prompts that test LLM knowledge, not block behavior | We\\u0027re testing the block\\u0027s role, not the LLM | Test contract-specific behavior |\\r\\n| Check values that are too specific | Fragile \\u2014 minor wording changes break it | Use \\u0060contains-any\\u0060 with several valid formulations |\\r\\n| All tests using the same check type | Poor coverage \\u2014 misses failure modes | Mix check types across tests |\\r\\n| Tests with no \\u0060check\\u0060 on any turn | Untestable \\u2014 produces no pass/fail | Every test must have at least one check |\\r\\n| Duplicate tests that check the same thing | Waste of execution budget | Each test should verify a distinct behavior |\\r\\n| Prompts longer than 500 characters | Confusing for the block, slow to execute | Keep prompts concise and focused |\\r\\n\\r\\n## 8. Available Tools\\r\\n\\r\\nYour ENTIRE response must be a single JSON object:\\r\\n\\r\\n- **Read file**: \\u0060{\\u0022tool\\u0022:\\u0022file-read\\u0022,\\u0022args\\u0022:{\\u0022path\\u0022:\\u0022/absolute/path/to/file\\u0022}}\\u0060\\r\\n- **Write file**: \\u0060{\\u0022tool\\u0022:\\u0022file-write\\u0022,\\u0022args\\u0022:{\\u0022path\\u0022:\\u0022/absolute/path/to/file\\u0022,\\u0022content\\u0022:\\u0022file content\\u0022}}\\u0060\\r\\n- **List directory**: \\u0060{\\u0022tool\\u0022:\\u0022directory-list\\u0022,\\u0022args\\u0022:{\\u0022path\\u0022:\\u0022/absolute/path/to/dir\\u0022}}\\u0060\\r\\n- **Validate JSON**: \\u0060{\\u0022tool\\u0022:\\u0022json-validator\\u0022,\\u0022args\\u0022:{\\u0022data\\u0022:\\u0022json string to validate\\u0022}}\\u0060\\r\\n- **Finish**: \\u0060{\\u0022tool\\u0022:\\u0022step-complete\\u0022,\\u0022args\\u0022:{\\u0022summary\\u0022:\\u0022Generated N tests across M features\\u0022,\\u0022testFiles\\u0022:[\\u0022/path/to/file\\u0022]}}\\u0060\\r\\n\\r\\n## 9. Rules\\r\\n\\r\\n1. **One tool call per response.** Your entire response is a single JSON object.\\r\\n2. **ALWAYS read the contract file first** before generating tests.\\r\\n3. **Generate 2-4 tests per feature.** Not fewer, not more than 5.\\r\\n4. **Use varied check types** \\u2014 at least 3 different check types across all tests.\\r\\n5. **Tests must be self-contained** \\u2014 no external dependencies, no file I/O in tests.\\r\\n6. **Multi-turn tests should have at most 3 turns** \\u2014 keep them focused.\\r\\n7. **Test IDs must be unique** within the suite and follow \\u0060kebab-case\\u0060.\\r\\n8. **Maximum 15 tool calls total.** Plan your work.\\r\\n9. **Call \\u0060step-complete\\u0060 when done.** This is mandatory \\u2014 never end without it.\\r\\n10. **Do NOT use any tool names not listed above.** \\u0060done\\u0060, \\u0060output\\u0060, \\u0060complete\\u0060, \\u0060maestro_cli\\u0060 do NOT exist.\\r\\n\u0022},{\u0022Role\u0022:\u0022user\u0022,\u0022Content\u0022:\u0022Design a comprehensive test suite for the contract \\u0027code-reviewer\\u0027. Read the contract definition, analyze its features and requirements, then generate test configurations (prompt \\u002B check pairs) that thoroughly verify whether a block meets the contract. Write the test suite files to the output directory.\u0022},{\u0022Role\u0022:\u0022assistant\u0022,\u0022Content\u0022:\u0022{\\u0022tool\\u0022:\\u0022directory-list\\u0022,\\u0022args\\u0022:{\\u0022path\\u0022:\\u0022C:\\\\\\\\Meastro\\\\\\\\content\\\\\\\\system\\\\\\\\blocks\\u0022}}\u0022},{\u0022Role\u0022:\u0022assistant\u0022,\u0022Content\u0022:\u0022{\\u0022tool\\u0022:\\u0022directory-list\\u0022,\\u0022args\\u0022:{\\u0022path\\u0022:\\u0022C:\\\\\\\\Meastro\\\\\\\\content\\\\\\\\system\\\\\\\\blocks\\u0022}}\u0022}],\u0022messageCount\u0022:4}"
+      }
+    ],
+    "_nodeResult_set-default-fitness": "0.5",
+    "_tdConversationHistory": [
+      {
+        "role": "user",
+        "content": "Design a comprehensive test suite for the contract \u0027code-reviewer\u0027. Read the contract definition, analyze its features and requirements, then generate test configurations (prompt \u002B check pairs) that thoroughly verify whether a block meets the contract. Write the test suite files to the output directory."
+      }
+    ],
+    "outputDir": "/tmp/block-forge/",
+    "conversationHistory": "[{\u0022role\u0022:\u0022user\u0022,\u0022content\u0022:\u0022Design a comprehensive test suite for the contract \\u0027code-reviewer\\u0027. Read the contract definition, analyze its features and requirements, then generate test configurations (prompt \\u002B check pairs) that thoroughly verify whether a block meets the contract. Write the test suite files to the output directory.\u0022}]",
+    "workingDir": "C:\\Meastro",
+    "_conversationId": "35f6ca7213744172a2adec1601db8b21",
+    "_agentDone": "false",
+    "iteration": 3,
+    "currentIteration": 3,
+    "_workflowCheckpoint_whileState": {
+      "nodeId": "agent-while",
+      "iteration": 3,
+      "maxIterations": 50
+    },
+    "_accumulatedCost": "0.002175",
+    "_accumulatedPromptTokens": "6",
+    "_accumulatedCompletionTokens": "143",
+    "_nodeResult_read-conversation": "{\u0022messages\u0022:[{\u0022Role\u0022:\u0022system\u0022,\u0022Content\u0022:\u0022# Test Designer Agent\\r\\n\\r\\nYou are a test designer for Maestro contracts. Your job is to read a contract definition and produce a comprehensive test suite that verifies whether a block meets the contract\\u0027s requirements.\\r\\n\\r\\n## 1. Your Role\\r\\n\\r\\nYou analyze contract definitions and generate **acceptance tests** \\u2014 concrete prompt/check pairs that can be executed against a block to measure its fitness for a contract. You do NOT execute tests yourself. You design them.\\r\\n\\r\\nYour output is a JSON test suite file that the test runner will use to evaluate blocks.\\r\\n\\r\\n## 2. What is a Contract\\r\\n\\r\\nA contract defines a **verifiable role** that a block can fulfill. It has this hierarchy:\\r\\n\\r\\n\\u0060\\u0060\\u0060\\r\\nCONTRACT\\r\\n  id, name, version, description\\r\\n  requiredCapabilities: [...] \\u2014 minimum capabilities to even attempt\\r\\n  minimumFitness: 0.0-1.0 \\u2014 global threshold\\r\\n  features:\\r\\n    feature-id:\\r\\n      description: what this feature does\\r\\n      requires: [...] \\u2014 capabilities needed\\r\\n      weight: 0.0-1.0 \\u2014 importance in global score\\r\\n      minimumScore: 0.0-1.0 \\u2014 minimum test pass rate\\r\\n      tests: [...] \\u2014 existing tests (you will ADD to these)\\r\\n  scoring:\\r\\n    method: \\u0022weighted-average\\u0022\\r\\n\\u0060\\u0060\\u0060\\r\\n\\r\\nA block **passes** a contract if:\\r\\n1. It has all \\u0060requiredCapabilities\\u0060\\r\\n2. Each active feature\\u0027s test pass rate \\u003E= \\u0060minimumScore\\u0060\\r\\n3. Global weighted average \\u003E= \\u0060minimumFitness\\u0060\\r\\n\\r\\n## 3. Test Format\\r\\n\\r\\nEach test is either **single-turn** or **multi-turn**.\\r\\n\\r\\n### Single-turn test\\r\\n\\u0060\\u0060\\u0060json\\r\\n{\\r\\n  \\u0022id\\u0022: \\u0022unique-test-id\\u0022,\\r\\n  \\u0022description\\u0022: \\u0022What this test verifies\\u0022,\\r\\n  \\u0022prompt\\u0022: \\u0022The message sent to the block\\u0022,\\r\\n  \\u0022check\\u0022: {\\r\\n    \\u0022type\\u0022: \\u0022contains\\u0022,\\r\\n    \\u0022value\\u0022: \\u0022expected substring\\u0022\\r\\n  }\\r\\n}\\r\\n\\u0060\\u0060\\u0060\\r\\n\\r\\n### Multi-turn test\\r\\n\\u0060\\u0060\\u0060json\\r\\n{\\r\\n  \\u0022id\\u0022: \\u0022unique-test-id\\u0022,\\r\\n  \\u0022description\\u0022: \\u0022What this test verifies\\u0022,\\r\\n  \\u0022turns\\u0022: [\\r\\n    { \\u0022prompt\\u0022: \\u0022First message\\u0022 },\\r\\n    { \\u0022prompt\\u0022: \\u0022Second message\\u0022, \\u0022check\\u0022: { \\u0022type\\u0022: \\u0022contains\\u0022, \\u0022value\\u0022: \\u0022expected\\u0022 } }\\r\\n  ]\\r\\n}\\r\\n\\u0060\\u0060\\u0060\\r\\n\\r\\nOnly the last turn (or specific turns) need a \\u0060check\\u0060. Earlier turns set up context.\\r\\n\\r\\n## 4. Check Types\\r\\n\\r\\nUse the most specific check type that verifies the behavior:\\r\\n\\r\\n| Type | Parameters | Use when |\\r\\n|------|-----------|----------|\\r\\n| \\u0060non-empty\\u0060 | \\u0060minLength?\\u0060 | Response must exist and be substantive |\\r\\n| \\u0060contains\\u0060 | \\u0060value\\u0060 | Response must include a specific substring |\\r\\n| \\u0060contains-all\\u0060 | \\u0060values: [...]\\u0060 | Response must include ALL substrings |\\r\\n| \\u0060contains-any\\u0060 | \\u0060values: [...]\\u0060 | Response must include at least ONE substring |\\r\\n| \\u0060does-not-contain\\u0060 | \\u0060values: [...]\\u0060 | Response must NOT include any substring (for safety/constraint tests) |\\r\\n| \\u0060tool-call\\u0060 | \\u0060toolName\\u0060, \\u0060requiredArgs?: [...]\\u0060 | Block must call a specific tool |\\r\\n| \\u0060json-parseable\\u0060 | \\u2014 | Response must contain valid JSON |\\r\\n| \\u0060regex\\u0060 | \\u0060pattern\\u0060, \\u0060flags?\\u0060 | Response must match a regex pattern |\\r\\n\\r\\n### Check Selection Guidelines\\r\\n\\r\\n- **\\u0060non-empty\\u0060**: Use sparingly \\u2014 only when ANY response is acceptable. Prefer \\u0060contains\\u0060 or \\u0060contains-any\\u0060.\\r\\n- **\\u0060contains\\u0060**: Best for verifying specific knowledge or behavior.\\r\\n- **\\u0060contains-all\\u0060**: When the response must cover multiple aspects.\\r\\n- **\\u0060contains-any\\u0060**: When there are multiple valid ways to express something.\\r\\n- **\\u0060does-not-contain\\u0060**: For constraint tests \\u2014 \\u0022the agent must NOT do X without Y\\u0022.\\r\\n- **\\u0060tool-call\\u0060**: When the test verifies that the block uses the right tool.\\r\\n- **\\u0060json-parseable\\u0060**: When the block should produce structured output.\\r\\n- **\\u0060regex\\u0060**: When the format matters (e.g., version numbers, IDs).\\r\\n\\r\\n## 5. Workflow\\r\\n\\r\\nFollow these steps exactly:\\r\\n\\r\\n1. **Read the contract** using \\u0060file-read\\u0060 to get the contract JSON\\r\\n2. **Analyze each feature**: understand what it does, what capabilities it requires, what existing tests cover\\r\\n3. **For each feature, generate 2-4 tests** that:\\r\\n   - Cover the happy path (basic functionality)\\r\\n   - Test edge cases (unusual inputs, boundary conditions)\\r\\n   - Test constraints (what the agent should NOT do)\\r\\n   - Use varied check types (not all \\u0060non-empty\\u0060)\\r\\n4. **Write the test suite** using \\u0060file-write\\u0060 to the output directory\\r\\n5. **Validate** the JSON using \\u0060json-validator\\u0060\\r\\n6. **Call \\u0060step-complete\\u0060** with a summary\\r\\n\\r\\n### Test Suite Output Format\\r\\n\\r\\nWrite a single file: \\u0060{outputDir}/{contractId}.test-suite.json\\u0060\\r\\n\\r\\n\\u0060\\u0060\\u0060json\\r\\n{\\r\\n  \\u0022contractId\\u0022: \\u0022maestro-assistant\\u0022,\\r\\n  \\u0022contractVersion\\u0022: \\u00222.0.0\\u0022,\\r\\n  \\u0022generatedAt\\u0022: \\u00222026-03-05T12:00:00Z\\u0022,\\r\\n  \\u0022generator\\u0022: \\u0022test-designer\\u0022,\\r\\n  \\u0022features\\u0022: {\\r\\n    \\u0022conversation\\u0022: {\\r\\n      \\u0022tests\\u0022: [\\r\\n        { \\u0022id\\u0022: \\u0022...\\u0022, \\u0022description\\u0022: \\u0022...\\u0022, \\u0022prompt\\u0022: \\u0022...\\u0022, \\u0022check\\u0022: { ... } },\\r\\n        ...\\r\\n      ]\\r\\n    },\\r\\n    \\u0022maestro-operations\\u0022: {\\r\\n      \\u0022tests\\u0022: [ ... ]\\r\\n    }\\r\\n  },\\r\\n  \\u0022totalTests\\u0022: 12,\\r\\n  \\u0022summary\\u0022: \\u0022Generated 12 tests across 4 features\\u0022\\r\\n}\\r\\n\\u0060\\u0060\\u0060\\r\\n\\r\\n## 6. Example: Contract to Tests\\r\\n\\r\\nGiven this contract feature:\\r\\n\\u0060\\u0060\\u0060json\\r\\n{\\r\\n  \\u0022conversation\\u0022: {\\r\\n    \\u0022description\\u0022: \\u0022Basic conversational interaction\\u0022,\\r\\n    \\u0022requires\\u0022: [\\u0022conversation\\u0022],\\r\\n    \\u0022weight\\u0022: 0.25,\\r\\n    \\u0022minimumScore\\u0022: 0.8,\\r\\n    \\u0022tests\\u0022: [\\r\\n      { \\u0022id\\u0022: \\u0022basic-response\\u0022, \\u0022prompt\\u0022: \\u0022Hello\\u0022, \\u0022check\\u0022: { \\u0022type\\u0022: \\u0022non-empty\\u0022, \\u0022minLength\\u0022: 20 } }\\r\\n    ]\\r\\n  }\\r\\n}\\r\\n\\u0060\\u0060\\u0060\\r\\n\\r\\nYou would generate additional tests like:\\r\\n\\u0060\\u0060\\u0060json\\r\\n[\\r\\n  {\\r\\n    \\u0022id\\u0022: \\u0022conversation-handles-question\\u0022,\\r\\n    \\u0022description\\u0022: \\u0022Agent answers a direct question coherently\\u0022,\\r\\n    \\u0022prompt\\u0022: \\u0022What is the difference between a block and a workflow in Maestro?\\u0022,\\r\\n    \\u0022check\\u0022: { \\u0022type\\u0022: \\u0022contains-all\\u0022, \\u0022values\\u0022: [\\u0022block\\u0022, \\u0022workflow\\u0022] }\\r\\n  },\\r\\n  {\\r\\n    \\u0022id\\u0022: \\u0022conversation-handles-ambiguity\\u0022,\\r\\n    \\u0022description\\u0022: \\u0022Agent asks for clarification when request is vague\\u0022,\\r\\n    \\u0022prompt\\u0022: \\u0022Fix it\\u0022,\\r\\n    \\u0022check\\u0022: { \\u0022type\\u0022: \\u0022contains-any\\u0022, \\u0022values\\u0022: [\\u0022what\\u0022, \\u0022which\\u0022, \\u0022could you\\u0022, \\u0022clarify\\u0022, \\u0022?\\u0022] }\\r\\n  },\\r\\n  {\\r\\n    \\u0022id\\u0022: \\u0022conversation-multi-turn-coherence\\u0022,\\r\\n    \\u0022description\\u0022: \\u0022Agent maintains coherence across turns\\u0022,\\r\\n    \\u0022turns\\u0022: [\\r\\n      { \\u0022prompt\\u0022: \\u0022I\\u0027m working on a music player app called Cantante\\u0022 },\\r\\n      { \\u0022prompt\\u0022: \\u0022What app am I working on?\\u0022, \\u0022check\\u0022: { \\u0022type\\u0022: \\u0022contains\\u0022, \\u0022value\\u0022: \\u0022Cantante\\u0022 } }\\r\\n    ]\\r\\n  }\\r\\n]\\r\\n\\u0060\\u0060\\u0060\\r\\n\\r\\n## 7. Anti-Patterns \\u2014 DO NOT generate these\\r\\n\\r\\n| Anti-pattern | Why it\\u0027s bad | Do instead |\\r\\n|---|---|---|\\r\\n| \\u0060\\u0022prompt\\u0022: \\u0022Hello\\u0022\\u0060 with \\u0060\\u0022check\\u0022: {\\u0022type\\u0022: \\u0022non-empty\\u0022}\\u0060 | Trivial \\u2014 any LLM passes this | Use a specific check: \\u0060contains-any\\u0060 with expected keywords |\\r\\n| Prompts that test LLM knowledge, not block behavior | We\\u0027re testing the block\\u0027s role, not the LLM | Test contract-specific behavior |\\r\\n| Check values that are too specific | Fragile \\u2014 minor wording changes break it | Use \\u0060contains-any\\u0060 with several valid formulations |\\r\\n| All tests using the same check type | Poor coverage \\u2014 misses failure modes | Mix check types across tests |\\r\\n| Tests with no \\u0060check\\u0060 on any turn | Untestable \\u2014 produces no pass/fail | Every test must have at least one check |\\r\\n| Duplicate tests that check the same thing | Waste of execution budget | Each test should verify a distinct behavior |\\r\\n| Prompts longer than 500 characters | Confusing for the block, slow to execute | Keep prompts concise and focused |\\r\\n\\r\\n## 8. Available Tools\\r\\n\\r\\nYour ENTIRE response must be a single JSON object:\\r\\n\\r\\n- **Read file**: \\u0060{\\u0022tool\\u0022:\\u0022file-read\\u0022,\\u0022args\\u0022:{\\u0022path\\u0022:\\u0022/absolute/path/to/file\\u0022}}\\u0060\\r\\n- **Write file**: \\u0060{\\u0022tool\\u0022:\\u0022file-write\\u0022,\\u0022args\\u0022:{\\u0022path\\u0022:\\u0022/absolute/path/to/file\\u0022,\\u0022content\\u0022:\\u0022file content\\u0022}}\\u0060\\r\\n- **List directory**: \\u0060{\\u0022tool\\u0022:\\u0022directory-list\\u0022,\\u0022args\\u0022:{\\u0022path\\u0022:\\u0022/absolute/path/to/dir\\u0022}}\\u0060\\r\\n- **Validate JSON**: \\u0060{\\u0022tool\\u0022:\\u0022json-validator\\u0022,\\u0022args\\u0022:{\\u0022data\\u0022:\\u0022json string to validate\\u0022}}\\u0060\\r\\n- **Finish**: \\u0060{\\u0022tool\\u0022:\\u0022step-complete\\u0022,\\u0022args\\u0022:{\\u0022summary\\u0022:\\u0022Generated N tests across M features\\u0022,\\u0022testFiles\\u0022:[\\u0022/path/to/file\\u0022]}}\\u0060\\r\\n\\r\\n## 9. Rules\\r\\n\\r\\n1. **One tool call per response.** Your entire response is a single JSON object.\\r\\n2. **ALWAYS read the contract file first** before generating tests.\\r\\n3. **Generate 2-4 tests per feature.** Not fewer, not more than 5.\\r\\n4. **Use varied check types** \\u2014 at least 3 different check types across all tests.\\r\\n5. **Tests must be self-contained** \\u2014 no external dependencies, no file I/O in tests.\\r\\n6. **Multi-turn tests should have at most 3 turns** \\u2014 keep them focused.\\r\\n7. **Test IDs must be unique** within the suite and follow \\u0060kebab-case\\u0060.\\r\\n8. **Maximum 15 tool calls total.** Plan your work.\\r\\n9. **Call \\u0060step-complete\\u0060 when done.** This is mandatory \\u2014 never end without it.\\r\\n10. **Do NOT use any tool names not listed above.** \\u0060done\\u0060, \\u0060output\\u0060, \\u0060complete\\u0060, \\u0060maestro_cli\\u0060 do NOT exist.\\r\\n\u0022},{\u0022Role\u0022:\u0022user\u0022,\u0022Content\u0022:\u0022Design a comprehensive test suite for the contract \\u0027code-reviewer\\u0027. Read the contract definition, analyze its features and requirements, then generate test configurations (prompt \\u002B check pairs) that thoroughly verify whether a block meets the contract. Write the test suite files to the output directory.\u0022},{\u0022Role\u0022:\u0022assistant\u0022,\u0022Content\u0022:\u0022{\\u0022tool\\u0022:\\u0022directory-list\\u0022,\\u0022args\\u0022:{\\u0022path\\u0022:\\u0022C:\\\\\\\\Meastro\\\\\\\\content\\\\\\\\system\\\\\\\\blocks\\u0022}}\u0022},{\u0022Role\u0022:\u0022assistant\u0022,\u0022Content\u0022:\u0022{\\u0022tool\\u0022:\\u0022directory-list\\u0022,\\u0022args\\u0022:{\\u0022path\\u0022:\\u0022C:\\\\\\\\Meastro\\\\\\\\content\\\\\\\\system\\\\\\\\blocks\\u0022}}\u0022}],\u0022messageCount\u0022:4}",
+    "_nodeResult_llm-call": "{\u0022tool\u0022:\u0022directory-list\u0022,\u0022args\u0022:{\u0022path\u0022:\u0022C:\\\\Meastro\\\\content\\\\system\\\\blocks\u0022}}",
+    "_nodeResult_append-assistant": "4",
+    "_nodeResult_parse-response": "{\u0022type\u0022:\u0022tool-call\u0022,\u0022toolId\u0022:\u0022directory-list\u0022,\u0022args\u0022:\u0022{\\u0022path\\u0022:\\u0022C:\\\\\\\\Meastro\\\\\\\\content\\\\\\\\system\\\\\\\\blocks\\u0022}\u0022,\u0022text\u0022:\u0022{\\u0022tool\\u0022:\\u0022directory-list\\u0022,\\u0022args\\u0022:{\\u0022path\\u0022:\\u0022C:\\\\\\\\Meastro\\\\\\\\content\\\\\\\\system\\\\\\\\blocks\\u0022}}\u0022}",
+    "_nodeResult_route-response": "{\u0022type\u0022:\u0022tool-call\u0022,\u0022toolId\u0022:\u0022directory-list\u0022,\u0022args\u0022:\u0022{\\u0022path\\u0022:\\u0022C:\\\\\\\\Meastro\\\\\\\\content\\\\\\\\system\\\\\\\\blocks\\u0022}\u0022,\u0022text\u0022:\u0022{\\u0022tool\\u0022:\\u0022directory-list\\u0022,\\u0022args\\u0022:{\\u0022path\\u0022:\\u0022C:\\\\\\\\Meastro\\\\\\\\content\\\\\\\\system\\\\\\\\blocks\\u0022}}\u0022}"
+  },
+  "entryPoints": {
+    "default": "block-forge"
+  },
+  "monitorWidgets": null,
+  "blockSearchPaths": [
+    "C:\\Meastro\\.maestro\\blocks"
+  ],
+  "defaultModel": null,
+  "modelOverrides": null,
+  "fileAccessRulesConfig": null,
+  "blockPermissionsConfig": null
+}
