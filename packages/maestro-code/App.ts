@@ -667,84 +667,184 @@ const App = ({ apiClient: clientProp, sessionManager: smProp, demoMode, repoPath
       if (model) addLine({ text: `  Model:       ${model}`, color: 'white' });
       addLine({ text: '' });
 
-      (async () => {
+      // Use setTimeout to decouple from React's synchronous commit phase
+      setTimeout(async () => {
         try {
-          // Step 1: Create session
-          addLine({ text: '  [1/4] Creating session...', color: 'gray' });
-          const createOpts = {
-            repositoryPath: sessionManager?.getRepoPath() || 'C:\\Meastro',
-            authority: 'human',
-            name: `Block Forge - ${description.slice(0, 40)}`,
-          };
-          const session = await (apiClient as IMaestroCodeApiClient).createSession(createOpts);
-          addLine({ text: `  [1/4] Session created (${session.id.slice(0, 8)})`, color: 'gray' });
-
-          // Step 2: Import block-forge template
+          // Pre-flight: verify apiClient is available
+          const client = apiClient as IMaestroCodeApiClient;
+          if (!client || typeof client.createSession !== 'function') {
+            addLine({ text: 'Error: Backend not connected. Wait for connection or restart.', color: 'red', timestamp: ts() });
+            return;
+          }
           if (!importSessionTemplate) {
             addLine({ text: 'Error: importSessionTemplate not available (demo mode?)', color: 'red', timestamp: ts() });
             return;
           }
+
+          // Helper: yield a full event-loop tick so Ink can flush renders.
+          // Without this, calling addLine() then fetch() blocks the event loop
+          // because Ink's synchronous stdout.write races with undici's microtasks.
+          const tick = () => new Promise<void>(resolve => globalThis.setTimeout(resolve, 10));
+          const baseUrl = (await client.getApiUrl?.()) || 'http://localhost:5000';
+
+          // Use node:http instead of undici (globalThis.fetch) — undici blocks
+          // the event loop for write requests inside Ink's render cycle.
+          const { request: httpReq } = await import('node:http');
+          const httpCall = (method: string, path: string, body?: Record<string, unknown> | unknown) =>
+            new Promise<{ status: number; data: any }>((resolve, reject) => {
+              const payload = body != null ? JSON.stringify(body) : '';
+              const url = new URL(path, baseUrl);
+              const req = httpReq(
+                { hostname: url.hostname, port: url.port, path: url.pathname, method,
+                  headers: body != null ? { 'Content-Type': 'application/json', 'Content-Length': String(Buffer.byteLength(payload)) } : {} },
+                (res) => {
+                  let data = '';
+                  res.on('data', (chunk: Buffer) => { data += chunk; });
+                  res.on('end', () => {
+                    try { resolve({ status: res.statusCode || 0, data: data ? JSON.parse(data) : null }); }
+                    catch { resolve({ status: res.statusCode || 0, data }); }
+                  });
+                },
+              );
+              req.on('error', reject);
+              if (payload) req.write(payload);
+              req.end();
+            });
+
+          // Step 1: Create session
+          addLine({ text: '  [1/4] Creating session...', color: 'gray' });
+          await tick();
+          const r1 = await httpCall('POST', '/api/sessions', {
+            repositoryPath: sessionManager?.getRepoPath() || process.cwd(),
+            authority: 'human',
+            name: `Block Forge - ${description.slice(0, 40)}`,
+          });
+          if (r1.status >= 400) throw new Error(`createSession: ${r1.status}`);
+          const session = r1.data as { id: string };
+          addLine({ text: `  [1/4] Session created (${session.id.slice(0, 8)})`, color: 'gray' });
+          await tick();
+
+          // Step 2: Import block-forge template — inline to avoid SDK/fetch calls
           addLine({ text: '  [2/4] Importing block-forge template...', color: 'gray' });
-          await importSessionTemplate(session.id, 'block-forge', { quiet: true });
+          await tick();
+          {
+            const fs = await import('node:fs');
+            const nodePath = await import('node:path');
+            const contentBase = process.env.MAESTRO_CONTENT_PATH
+              || nodePath.default.join(process.env.MAESTRO_ROOT || 'C:\\Meastro', 'content', 'system');
+            const tplPath = nodePath.default.join(contentBase, 'templates', 'sessions', 'block-forge.session.json');
+            const tpl = JSON.parse(fs.default.readFileSync(tplPath, 'utf8'));
+            // Import variables
+            if (tpl.variables) {
+              for (const [key, value] of Object.entries(tpl.variables)) {
+                if (value == null) continue;
+                await httpCall('PUT', `/api/sessions/${session.id}/variables/${key}`, { value });
+                await tick();
+              }
+            }
+            // Import entry points
+            if (tpl.entryPoints) {
+              for (const [name, workflowId] of Object.entries(tpl.entryPoints)) {
+                await httpCall('PUT', `/api/sessions/${session.id}/entry-points/${encodeURIComponent(name)}`, { workflowId });
+                await tick();
+              }
+            }
+            // Import widgets
+            if (tpl.monitorWidgets) {
+              for (const widget of tpl.monitorWidgets as any[]) {
+                await httpCall('POST', `/api/sessions/${session.id}/widgets`, widget);
+                await tick();
+              }
+            }
+          }
+          addLine({ text: '  [2/4] Template imported', color: 'gray' });
+          await tick();
 
           // Step 3: Start session
           addLine({ text: '  [3/4] Starting session...', color: 'gray' });
-          await (apiClient as IMaestroCodeApiClient).startSession(session.id);
+          await tick();
+          await httpCall('POST', `/api/sessions/${session.id}/start`);
 
           // Step 4: Invoke the default entry point
           addLine({ text: '  [4/4] Invoking block-forge workflow...', color: 'gray' });
-          await (apiClient as IMaestroCodeApiClient)._fetch('POST', `/api/sessions/${session.id}/invoke/default`, {
-            body: { inputs: { description, contractId: contract, targetModel: model } },
+          await tick();
+          await httpCall('POST', `/api/sessions/${session.id}/invoke/default`, {
+            inputs: { description, contractId: contract, targetModel: model },
           });
 
           addLine({ text: `  Block-forge session started (${session.id.slice(0, 8)})`, color: 'green', timestamp: ts() });
           addLine({ text: '  Polling for completion...', color: 'gray' });
 
           // Poll for completion — check _activeWorkflow to know if workflow is still running
-          // (session status stays "idle" during background execution)
           let pollCount = 0;
+          let lastStep = '';
           const poll = setInterval(async () => {
             try {
               pollCount++;
-              const s = await (apiClient as IMaestroCodeApiClient).getSession(session.id);
+              const pr = await httpCall('GET', `/api/sessions/${session.id}`);
+              const s = pr.data as any;
               const vars = (s as any).variables || {};
               const activeWorkflow = vars._activeWorkflow || '';
               const status = ((s as any).status || '').toLowerCase();
 
-              // Workflow still running — _activeWorkflow is non-empty
+              // Workflow still running — show progress with current step + cost
               if (activeWorkflow && status !== 'error') {
                 if (pollCount % 10 === 0) {
-                  addLine({ text: `  Still running... (${Math.round(pollCount * 3 / 60)}min)`, color: 'gray' });
+                  const mins = Math.round(pollCount * 3 / 60);
+                  const cost = vars._accumulatedCost ? `$${Number(vars._accumulatedCost).toFixed(3)}` : '';
+                  // Show current step if changed
+                  let stepInfo = '';
+                  try {
+                    const ab = typeof vars._activeBlock === 'string' ? JSON.parse(vars._activeBlock) : vars._activeBlock;
+                    if (ab?.name && ab.name !== lastStep) {
+                      lastStep = ab.name;
+                      stepInfo = ` — ${ab.name}`;
+                    }
+                  } catch { /* ignore parse errors */ }
+                  addLine({ text: `  ${mins}min${stepInfo}${cost ? ` (${cost})` : ''}`, color: 'gray' });
                 }
                 return;
               }
 
               // Workflow completed (or errored)
               clearInterval(poll);
-              const fitness = vars.fitness || 'N/A';
-              const blockId = vars.blockId || 'N/A';
-              const published = vars.published || 'false';
+              const published = vars._forgePublished || vars.published || 'false';
+              const cost = vars._accumulatedCost ? `$${Number(vars._accumulatedCost).toFixed(4)}` : 'N/A';
+              // blockId/fitness may contain raw LLM text (>100 chars) if agent output extraction failed
+              const rawBlockId = vars.blockId || '';
+              const rawFitness = vars.fitness || '';
+              const blockId = rawBlockId.length > 80 ? '(see session details)' : (rawBlockId || 'N/A');
+              const fitness = rawFitness.length > 20 ? 'N/A' : (rawFitness || 'N/A');
 
               if (status === 'error') {
                 addLine({ text: '' });
                 addLine({ text: 'Block Forge Failed', color: 'red', bold: true, timestamp: ts() });
                 addLine({ text: `  Error: ${(s as any).errorMessage || 'Unknown error'}`, color: 'red' });
+                addLine({ text: `  Cost:  ${cost}`, color: 'gray' });
               } else {
                 addLine({ text: '' });
                 addLine({ text: 'Block Forge Complete', color: 'cyan', bold: true, timestamp: ts() });
                 addLine({ text: `  Block:     ${blockId}`, color: 'white' });
                 addLine({ text: `  Fitness:   ${fitness}`, color: published === 'true' ? 'green' : 'yellow' });
                 addLine({ text: `  Published: ${published === 'true' ? 'Yes' : 'No (below threshold)'}`, color: published === 'true' ? 'green' : 'red' });
+                addLine({ text: `  Cost:      ${cost}`, color: 'gray' });
+                addLine({ text: `  Session:   ${session.id.slice(0, 8)} (view in Spaces [S])`, color: 'gray' });
               }
               addLine({ text: '' });
             } catch { /* polling error — ignore */ }
           }, 3000);
-          // Timeout after 15 minutes
-          setTimeout(() => clearInterval(poll), 15 * 60 * 1000);
+          // Timeout after 15 minutes — notify user instead of silent stop
+          setTimeout(() => {
+            clearInterval(poll);
+            addLine({ text: '' });
+            addLine({ text: 'Polling timed out (15 min). Workflow may still be running.', color: 'yellow', timestamp: ts() });
+            addLine({ text: `  Check session ${session.id.slice(0, 8)} in Spaces [S] for results.`, color: 'gray' });
+            addLine({ text: '' });
+          }, 15 * 60 * 1000);
         } catch (err: any) {
-          addLine({ text: `Error: ${err.message || err}`, color: 'red', timestamp: ts() });
+          addLine({ text: `Error: ${err?.message || String(err)}`, color: 'red', timestamp: ts() });
         }
-      })();
+      }, 0);
       return;
     }
 

@@ -1,0 +1,100 @@
+{
+  "contractId": "code-reviewer",
+  "contractVersion": "1.0.0",
+  "generatedAt": "2026-03-14T00:00:00Z",
+  "generator": "test-designer",
+  "features": {
+    "bug-detection": {
+      "tests": [
+        {
+          "id": "bug-off-by-one",
+          "description": "Identifies an off-by-one error in a loop that causes an IndexError on the last iteration",
+          "prompt": "Review this code:\n```python\ndef sum_elements(arr):\n    total = 0\n    for i in range(len(arr) + 1):\n        total += arr[i]\n    return total\n```\nAny bugs?",
+          "check": { "type": "contains-any", "values": ["off-by-one", "IndexError", "out of bounds", "range(len(arr))", "index"] }
+        },
+        {
+          "id": "bug-inverted-condition",
+          "description": "Catches an inverted boolean condition where the member discount is applied to non-members instead",
+          "prompt": "Review this code:\n```python\ndef apply_discount(price, is_member):\n    if not is_member:\n        return price * 0.9  # 10% member discount\n    return price\n```\nIs there a bug?",
+          "check": { "type": "contains-any", "values": ["inverted", "logic", "wrong", "backwards", "not is_member", "should be is_member", "incorrect"] }
+        },
+        {
+          "id": "bug-resource-leak",
+          "description": "Identifies a file handle opened but never closed, risking a resource leak",
+          "prompt": "Review this code:\n```python\ndef read_config(path):\n    f = open(path)\n    data = f.read()\n    return data\n```\nAny issues?",
+          "check": { "type": "contains-any", "values": ["close", "leak", "with open", "context manager", "finally", "not closed"] }
+        }
+      ]
+    },
+    "security-analysis": {
+      "tests": [
+        {
+          "id": "security-hardcoded-secret",
+          "description": "Identifies a hardcoded API key as a security risk that must be externalized to environment variables",
+          "prompt": "Review this code for security issues:\n```python\nAPI_KEY = \"sk-abc123def456\"\ndef call_api(data):\n    headers = {\"Authorization\": f\"Bearer {API_KEY}\"}\n    return requests.post(API_URL, headers=headers, json=data)\n```",
+          "check": { "type": "contains-any", "values": ["hardcoded", "secret", "exposed", "environment variable", "credentials", "plaintext", "env"] }
+        },
+        {
+          "id": "security-xss-innerhtml",
+          "description": "Identifies a cross-site scripting (XSS) vulnerability from assigning unsanitized user input directly to innerHTML",
+          "prompt": "Review this JavaScript for security issues:\n```javascript\nfunction displayComment(comment) {\n    document.getElementById('comments').innerHTML = comment;\n}\n```",
+          "check": { "type": "contains-any", "values": ["XSS", "cross-site scripting", "injection", "sanitize", "escape", "unsafe", "innerHTML"] }
+        },
+        {
+          "id": "security-no-false-positive",
+          "description": "Does NOT invent security vulnerabilities for trivially safe, pure arithmetic code",
+          "prompt": "Review this code for security vulnerabilities:\n```python\ndef add(a: int, b: int) -> int:\n    return a + b\n```",
+          "check": { "type": "does-not-contain", "values": ["SQL injection", "XSS", "buffer overflow", "remote code execution", "critical vulnerability"] }
+        }
+      ]
+    },
+    "code-quality": {
+      "tests": [
+        {
+          "id": "quality-magic-numbers",
+          "description": "Flags unexplained numeric literals that reduce readability and should be named constants",
+          "prompt": "Review this code for quality:\n```python\ndef apply_pricing(price):\n    if price > 1000:\n        return price * 0.85\n    return price * 0.95\n```",
+          "check": { "type": "contains-any", "values": ["magic number", "constant", "named constant", "hardcoded", "meaningful name"] }
+        },
+        {
+          "id": "quality-dry-violation",
+          "description": "Identifies repetitive field normalizations that violate the DRY principle and should use a loop",
+          "prompt": "Review this code for quality:\n```python\ndef normalize_user(user):\n    user['name'] = user['name'].strip().lower()\n    user['email'] = user['email'].strip().lower()\n    user['phone'] = user['phone'].strip().lower()\n    return user\n```",
+          "check": { "type": "contains-any", "values": ["duplicate", "repetition", "DRY", "refactor", "loop", "repeated"] }
+        },
+        {
+          "id": "quality-deep-nesting",
+          "description": "Flags four levels of nested conditionals as a readability and maintainability problem",
+          "prompt": "Review this code for quality:\n```python\ndef process(data):\n    if data:\n        if data.get('type') == 'A':\n            if data.get('value') > 0:\n                if data.get('active'):\n                    return True\n    return False\n```",
+          "check": { "type": "contains-any", "values": ["nested", "complexity", "simplify", "readability", "flatten", "guard clause", "early return"] }
+        }
+      ]
+    },
+    "improvement-suggestions": {
+      "tests": [
+        {
+          "id": "suggestion-concrete-fix",
+          "description": "Provides concrete corrected code (not just a description) when asked to fix an unsafe list access",
+          "prompt": "Review this code and show me the corrected version:\n```python\ndef get_first(lst):\n    return lst[0]\n```",
+          "check": { "type": "contains-any", "values": ["if", "try", "len(", "except", "IndexError", "empty"] }
+        },
+        {
+          "id": "suggestion-multi-issue",
+          "description": "Identifies multiple distinct issues (var vs const, missing semicolons) when code has several independent problems",
+          "prompt": "Review this JavaScript and list all improvements:\n```javascript\nvar x = 1\nvar y = 2\nvar result = x+y\nconsole.log(result)\n```",
+          "check": { "type": "contains-all", "values": ["var", "const"] }
+        },
+        {
+          "id": "suggestion-multi-turn-followup",
+          "description": "Produces an improved code version when explicitly requested in a follow-up turn after the initial review",
+          "turns": [
+            { "prompt": "Review this code:\n```python\ndef save_data(data):\n    open('data.txt', 'w').write(data)\n```" },
+            { "prompt": "Show me the improved version of that code.", "check": { "type": "contains-any", "values": ["with open", "context manager", "try", "finally", "close()"] } }
+          ]
+        }
+      ]
+    }
+  },
+  "totalTests": 12,
+  "summary": "Generated 12 tests across 4 features: bug-detection (3), security-analysis (3), code-quality (3), improvement-suggestions (3). Uses contains-any (9), does-not-contain (1 constraint test), contains-all (1 multi-aspect test), and multi-turn (1 follow-up test)."
+}

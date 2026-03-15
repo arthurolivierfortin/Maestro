@@ -123,6 +123,25 @@ public class ResponseParserBlockExecutor : IBlockExecutor
                     result.Outputs["text"] = summary;
                     result.Outputs["toolId"] = "step-complete";
                     result.Outputs["args"] = args.ValueKind == JsonValueKind.Object ? args.ToString() : "{}";
+
+                    // Extract structured fields from step-complete args so agents
+                    // can capture them via set-variable nodes in their config.nodes.
+                    if (args.ValueKind == JsonValueKind.Object)
+                    {
+                        if (args.TryGetProperty("blockId", out var bid))
+                            result.Outputs["blockId"] = bid.GetString() ?? "";
+                        if (args.TryGetProperty("fitness", out var fit))
+                            result.Outputs["fitness"] = fit.ValueKind == JsonValueKind.Number
+                                ? fit.GetDouble().ToString("F2")
+                                : fit.GetString() ?? "";
+                        if (args.TryGetProperty("blockPath", out var bp))
+                            result.Outputs["blockPath"] = bp.GetString() ?? "";
+                        if (args.TryGetProperty("testResults", out var tr))
+                            result.Outputs["testResults"] = tr.ValueKind == JsonValueKind.String
+                                ? tr.GetString() ?? ""
+                                : tr.ToString();
+                    }
+
                     result.Logs.Add($"step-complete: {summary}");
                     return Task.FromResult(result);
                 }

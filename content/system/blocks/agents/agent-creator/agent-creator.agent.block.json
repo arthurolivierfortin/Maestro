@@ -101,7 +101,10 @@
               "step-complete": {
                 "nodes": [
                   { "id": "set-done", "type": "set-variable", "variable": "_agentDone", "value": "true" },
-                  { "id": "set-result", "type": "set-variable", "variable": "_agentResult", "value": "{{_nodeResult_parse-response.summary}}" }
+                  { "id": "set-result", "type": "set-variable", "variable": "_agentResult", "value": "{{_nodeResult_parse-response.summary}}" },
+                  { "id": "set-blockId", "type": "set-variable", "variable": "_agentBlockId", "value": "{{_nodeResult_parse-response.blockId}}" },
+                  { "id": "set-fitness", "type": "set-variable", "variable": "_agentFitness", "value": "{{_nodeResult_parse-response.fitness}}" },
+                  { "id": "set-blockPath", "type": "set-variable", "variable": "_agentBlockPath", "value": "{{_nodeResult_parse-response.blockPath}}" }
                 ]
               },
               "text": {

@@ -1,0 +1,83 @@
+{
+  "contractId": "test-generator",
+  "contractVersion": "1.0.0",
+  "generatedAt": "2026-03-14T00:00:00Z",
+  "generator": "test-designer",
+  "features": {
+    "test-creation": {
+      "tests": [
+        {
+          "id": "test-creation-class-methods",
+          "description": "Generates tests covering all methods of a multi-method class",
+          "prompt": "Generate unit tests for this JavaScript class:\n\nclass Stack {\n  constructor() { this.items = []; }\n  push(item) { this.items.push(item); }\n  pop() { return this.items.pop(); }\n  isEmpty() { return this.items.length === 0; }\n}",
+          "check": { "type": "contains-all", "values": ["push", "pop", "isEmpty"] }
+        },
+        {
+          "id": "test-creation-async-handling",
+          "description": "Generates appropriate tests for async functions including promise resolution and rejection",
+          "prompt": "Write unit tests for this async function:\n\nasync function fetchUser(id) {\n  const res = await fetch('/api/users/' + id);\n  if (!res.ok) throw new Error('Not found');\n  return res.json();\n}",
+          "check": { "type": "contains-any", "values": ["async", "await", "Promise", "mock", "stub", "resolve", "reject"] }
+        },
+        {
+          "id": "test-creation-multi-turn-context",
+          "description": "Generates tests based on function context established in a prior turn",
+          "turns": [
+            {
+              "prompt": "Here is the function I need tests for:\n\nfunction formatCurrency(amount, currency) {\n  return currency + amount.toFixed(2);\n}"
+            },
+            {
+              "prompt": "Now generate unit tests for it.",
+              "check": { "type": "contains-any", "values": ["formatCurrency", "toFixed", "test(", "it(", "expect(", "assert"] }
+            }
+          ]
+        }
+      ]
+    },
+    "edge-case-coverage": {
+      "tests": [
+        {
+          "id": "edge-case-null-undefined",
+          "description": "Identifies null and undefined edge cases for a function operating on an object parameter",
+          "prompt": "What edge cases should be tested for a function that takes a user object and returns their full name by combining firstName and lastName?",
+          "check": { "type": "contains-any", "values": ["null", "undefined", "missing", "empty", "no first", "no last"] }
+        },
+        {
+          "id": "edge-case-boundary-conditions",
+          "description": "Generates tests that cover exact min and max boundary values for a range-clamping function",
+          "prompt": "Generate tests covering all boundary conditions for:\n\nfunction clamp(value, min, max) {\n  return Math.min(Math.max(value, min), max);\n}",
+          "check": { "type": "contains-all", "values": ["min", "max"] }
+        },
+        {
+          "id": "edge-case-invalid-inputs",
+          "description": "Identifies invalid and non-numeric inputs for a string-to-integer parser",
+          "prompt": "What edge cases should be tested for a function that parses a string input into an integer?",
+          "check": { "type": "contains-any", "values": ["NaN", "empty", "null", "undefined", "float", "decimal", "non-numeric", "invalid", "letter"] }
+        }
+      ]
+    },
+    "test-quality": {
+      "tests": [
+        {
+          "id": "test-quality-descriptive-names",
+          "description": "Tests use descriptive, behavior-expressing names rather than generic labels like 'test1'",
+          "prompt": "Generate unit tests with descriptive test names for:\n\nfunction divide(a, b) {\n  if (b === 0) throw new Error('Division by zero');\n  return a / b;\n}",
+          "check": { "type": "contains-any", "values": ["should", "throws", "when", "returns", "given", "divides"] }
+        },
+        {
+          "id": "test-quality-error-path-coverage",
+          "description": "Generated test suite covers both the happy path and the error/exception throwing path",
+          "prompt": "Generate a complete test suite for:\n\nfunction factorial(n) {\n  if (n < 0) throw new Error('Negative input');\n  if (n === 0) return 1;\n  return n * factorial(n - 1);\n}",
+          "check": { "type": "contains-any", "values": ["throw", "Error", "toThrow", "rejects", "throws", "exception"] }
+        },
+        {
+          "id": "test-quality-dependency-isolation",
+          "description": "Tests for classes with external dependencies apply mocking to isolate the unit under test",
+          "prompt": "Generate unit tests for a UserService class that depends on a UserRepository to fetch users. Show how to properly isolate the tests from the real repository.",
+          "check": { "type": "contains-any", "values": ["mock", "stub", "spy", "fake", "jest.fn", "sinon", "vi.fn", "inject"] }
+        }
+      ]
+    }
+  },
+  "totalTests": 9,
+  "summary": "Generated 9 tests across 3 features: 3 for test-creation, 3 for edge-case-coverage, 3 for test-quality"
+}

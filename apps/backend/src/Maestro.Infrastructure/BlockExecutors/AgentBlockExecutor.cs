@@ -99,6 +99,29 @@ public class AgentBlockExecutor : MultiNodeBlockExecutor
 
         var (cost, promptTokens, completionTokens) = GetAccumulatedCosts(context);
 
+        var outputs = new Dictionary<string, object>
+        {
+            ["content"] = agentResult,
+            ["_agentResult"] = agentResult
+        };
+
+        // Forward structured outputs from step-complete (stored by set-variable
+        // nodes in the agent's config.nodes step-complete branch as _agent* vars).
+        // Convention: _agentBlockId → blockId, _agentFitness → fitness, etc.
+        // This allows workflows to read e.g. {{_nodeResult_call-agent.blockId}}.
+        foreach (var (key, val) in context.Variables)
+        {
+            if (key.StartsWith("_agent") && key.Length > 6
+                && key != "_agentDone" && key != "_agentResult"
+                && val != null)
+            {
+                var outputKey = char.ToLower(key[6]) + key.Substring(7);
+                var strVal = val.ToString() ?? "";
+                if (!string.IsNullOrEmpty(strVal))
+                    outputs[outputKey] = strVal;
+            }
+        }
+
         return Task.FromResult(new BlockExecutionResult
         {
             Success = true,
@@ -106,11 +129,7 @@ public class AgentBlockExecutor : MultiNodeBlockExecutor
             PromptTokens = promptTokens,
             CompletionTokens = completionTokens,
             TotalTokens = promptTokens + completionTokens,
-            Outputs = new Dictionary<string, object>
-            {
-                ["content"] = agentResult,
-                ["_agentResult"] = agentResult
-            }
+            Outputs = outputs
         });
     }
 
