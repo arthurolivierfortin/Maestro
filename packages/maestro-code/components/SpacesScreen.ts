@@ -5,6 +5,9 @@
  * Has 3 tabs switchable via number keys 1-3.
  * Supports scrolling when items exceed visible area.
  *
+ * Sessions with parentSessionId are grouped under their parent with
+ * tree connectors. Parents can be collapsed/expanded.
+ *
  * Props:
  *   apiClient        API client instance
  *   onNavigate       (page: string) => void
@@ -12,7 +15,7 @@
  *   onQuit           () => void
  */
 
-import { createElement as h, useState, useEffect, useCallback, useRef } from 'react';
+import { createElement as h, useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Box, Text, useStdout } from 'ink';
 import {
   theme, icons,
@@ -84,17 +87,43 @@ const StatusFilter = ({ activeFilter }: StatusFilterProps) => {
   );
 };
 
+// ── Tree display item types ─────────────────────────────────
+
+interface DisplayItem {
+  session: Record<string, any>;
+  isChild: boolean;
+  /** Tree connector prefix for child rows */
+  treePrefix: string;
+  /** The parent session ID if this is a child */
+  parentId?: string;
+  /** Whether this parent is expanded to show children */
+  isParentExpanded?: boolean;
+  /** Number of children (for parents only) */
+  childCount?: number;
+  /** Child session names (for detail view) */
+  childNames?: string[];
+  /** Parent name (for child detail view) */
+  parentName?: string;
+}
+
 // ── Generic list row ─────────────────────────────────────────
 
 interface SessionRowProps {
   session: Record<string, any>;
   isSelected: boolean;
   isExpanded: boolean;
+  isChild?: boolean;
+  treePrefix?: string;
+  isParentExpanded?: boolean;
+  childCount?: number;
+  childNames?: string[];
+  parentName?: string;
+  parentId?: string;
 }
 
 const STATUS_COL_WIDTH = 10;
 
-const SessionRow = ({ session, isSelected, isExpanded }: SessionRowProps) => {
+const SessionRow = ({ session, isSelected, isExpanded, isChild, treePrefix, isParentExpanded, childCount, childNames, parentName, parentId }: SessionRowProps) => {
   const rawStatus = (session.status || 'unknown').toLowerCase();
   const vars = session.variables || {};
   const costLimitExceeded = vars._costLimitExceeded === true || vars._costLimitExceeded === 'true';
@@ -105,8 +134,6 @@ const SessionRow = ({ session, isSelected, isExpanded }: SessionRowProps) => {
   const sIcon = statusIcon(status);
   const name = session.name || 'Unnamed';
   const shortId = session.id ? session.id.substring(0, 8) : '--------';
-  const selector = isSelected ? icons.arrow : ' ';
-  const expandIcon = isExpanded ? icons.expanded : (isSelected ? icons.collapsed : ' ');
   const fitness = vars.currentFitness !== undefined ? vars.currentFitness : vars.fitness;
   const hasFitness = fitness !== undefined && fitness !== null;
   const fitnessStr = hasFitness ? `${Math.round(fitness * 100)}%` : '';
@@ -119,16 +146,42 @@ const SessionRow = ({ session, isSelected, isExpanded }: SessionRowProps) => {
   // Fixed-width status column
   const statusText = status.padEnd(STATUS_COL_WIDTH);
 
+  // Determine selector and expand icon
+  const selector = isSelected ? icons.arrow : ' ';
+
+  // For parents with children: show collapse/expand triangle
+  // For children: no expand icon (tree prefix handles it)
+  // For regular sessions (no children): normal expand icon
+  let expandIcon: string;
+  if (isChild) {
+    expandIcon = ' ';
+  } else if (childCount !== undefined && childCount > 0) {
+    expandIcon = isParentExpanded ? icons.expanded : icons.collapsed;
+  } else {
+    expandIcon = isExpanded ? icons.expanded : (isSelected ? icons.collapsed : ' ');
+  }
+
+  // Display name — truncated at 30 chars
+  const displayName = name.length > 30 ? name.substring(0, 30) : name.padEnd(30);
+
   return h(Box, { flexDirection: 'column' },
-    h(Box, { flexDirection: 'row', paddingLeft: 1, overflow: 'hidden' },
-      h(Text, { color: isSelected ? theme.panel.borderFocused : undefined }, selector),
-      h(Text, null, ' '),
-      h(Text, { color: 'gray' }, expandIcon),
-      h(Text, null, ' '),
+    h(Box, { flexDirection: 'row', paddingLeft: isChild ? 0 : 1, overflow: 'hidden' },
+      // Tree prefix for children (replaces selector + expand icon)
+      isChild
+        ? h(Text, null,
+            h(Text, { color: 'gray' }, '      '),
+            h(Text, { color: 'gray' }, treePrefix || ''),
+            h(Text, null, ' '),
+          )
+        : h(Text, null,
+            h(Text, { color: isSelected ? theme.panel.borderFocused : undefined }, selector),
+            h(Text, null, ' '),
+            h(Text, { color: 'gray' }, expandIcon),
+            h(Text, null, ' '),
+          ),
       T(sColor, sIcon),
       h(Text, null, ' '),
-      h(Text, { color: isSelected ? 'cyan' : 'white' },
-        name.length > 30 ? name.substring(0, 30) : name.padEnd(30)),
+      h(Text, { color: isChild ? 'gray' : (isSelected ? 'cyan' : 'white') }, displayName),
       h(Text, null, ' '),
       muted(shortId),
       h(Text, null, '  '),
@@ -148,6 +201,23 @@ const SessionRow = ({ session, isSelected, isExpanded }: SessionRowProps) => {
           h(Box, { flexDirection: 'row', gap: 2 },
             h(Text, null, muted('id: '), primary(session.id || '-')),
           ),
+          // Parent/child relationship info
+          childCount !== undefined && childCount > 0
+            ? h(Box, { flexDirection: 'row' },
+                muted('children: '),
+                h(Text, { color: 'white' }, `${childCount} session(s)`),
+                childNames && childNames.length > 0
+                  ? h(Text, { color: 'gray' }, ` (${childNames.join(', ')})`)
+                  : null,
+              )
+            : null,
+          parentId
+            ? h(Box, { flexDirection: 'row' },
+                muted('parent: '),
+                h(Text, { color: 'white' }, parentId.substring(0, 8)),
+                parentName ? h(Text, { color: 'gray' }, ` (${parentName})`) : null,
+              )
+            : null,
           // Fitness bar
           fitnessNum !== null
             ? h(Box, { flexDirection: 'row' },
@@ -285,6 +355,64 @@ const DeleteConfirmation = ({ sessionName, onConfirm, onCancel }: DeleteConfirma
   );
 };
 
+// ── Helper: build tree display list from flat sessions ───────
+
+function buildSessionDisplayList(
+  sessions: Record<string, any>[],
+  collapsedParents: Set<string>,
+): DisplayItem[] {
+  // Build parent->children map
+  const childrenMap = new Map<string, Record<string, any>[]>();
+  const childIds = new Set<string>();
+  const sessionById = new Map<string, Record<string, any>>();
+
+  for (const s of sessions) {
+    sessionById.set(s.id, s);
+    const pid = s.parentSessionId;
+    if (pid) {
+      childIds.add(s.id);
+      if (!childrenMap.has(pid)) childrenMap.set(pid, []);
+      childrenMap.get(pid)!.push(s);
+    }
+  }
+
+  const result: DisplayItem[] = [];
+
+  for (const s of sessions) {
+    // Skip children — they'll be placed under their parent
+    if (childIds.has(s.id)) continue;
+
+    const children = childrenMap.get(s.id) || [];
+    const isCollapsed = collapsedParents.has(s.id);
+
+    result.push({
+      session: s,
+      isChild: false,
+      treePrefix: '',
+      isParentExpanded: children.length > 0 ? !isCollapsed : undefined,
+      childCount: children.length > 0 ? children.length : undefined,
+      childNames: children.length > 0 ? children.map(c => c.name || 'Unnamed') : undefined,
+    });
+
+    // Add children if parent is expanded
+    if (children.length > 0 && !isCollapsed) {
+      for (let ci = 0; ci < children.length; ci++) {
+        const isLast = ci === children.length - 1;
+        const parent = sessionById.get(s.id);
+        result.push({
+          session: children[ci],
+          isChild: true,
+          treePrefix: isLast ? '\u2514\u2500' : '\u251C\u2500',
+          parentId: s.id,
+          parentName: parent?.name || 'Unknown',
+        });
+      }
+    }
+  }
+
+  return result;
+}
+
 // ── SpacesScreen component ───────────────────────────────────
 
 interface SpacesScreenProps {
@@ -306,6 +434,7 @@ const SpacesScreen = ({ apiClient, onNavigate, onSessionSelect, onWorkspaceSelec
   const [selectedIndex, setSelectedIndex] = useState(initialState?.selectedIndex ?? 0);
   const [statusFilter, setStatusFilter] = useState(initialState?.statusFilter ?? 'all');
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
+  const [collapsedParents, setCollapsedParents] = useState<Set<string>>(new Set());
 
   // Terminal rows for scroll calculation
   // NavBar(3) + TabHeader(3) + PanelBorder(2) + title(1) + spacer(1) + headerLines(2) + StatusBar(3) = 15 fixed
@@ -340,9 +469,16 @@ const SpacesScreen = ({ apiClient, onNavigate, onSessionSelect, onWorkspaceSelec
     ? sessionList
     : sessionList.filter(s => (s.status || '').toLowerCase() === statusFilter);
 
+  // Build tree display list for sessions tab
+  const sessionDisplayList = useMemo(
+    () => buildSessionDisplayList(filteredSessions, collapsedParents),
+    [filteredSessions, collapsedParents]
+  );
+
   // Current items based on active tab
+  // For sessions, we use the display list length for navigation
   const currentItems =
-    activeTab === 'sessions' ? filteredSessions
+    activeTab === 'sessions' ? sessionDisplayList
     : activeTab === 'repos' ? projectList
     : workspaceList;
 
@@ -371,6 +507,19 @@ const SpacesScreen = ({ apiClient, onNavigate, onSessionSelect, onWorkspaceSelec
   const canScrollUp = scrollStart > 0;
   const canScrollDown = scrollStart + visibleItems < currentItems.length;
 
+  // Toggle parent collapse/expand
+  const toggleParent = useCallback((parentId: string) => {
+    setCollapsedParents(prev => {
+      const next = new Set(prev);
+      if (next.has(parentId)) {
+        next.delete(parentId);
+      } else {
+        next.add(parentId);
+      }
+      return next;
+    });
+  }, []);
+
   // Keyboard
   useKeyboard({
     up: () => setSelectedIndex((i: number) => Math.max(0, i - 1)),
@@ -384,9 +533,16 @@ const SpacesScreen = ({ apiClient, onNavigate, onSessionSelect, onWorkspaceSelec
     } : {}),
     enter: () => {
       const state = { selectedIndex, activeTab, statusFilter };
-      if (activeTab === 'sessions' && filteredSessions.length > 0) {
-        const session = filteredSessions[selectedIndex];
-        if (session) onSessionSelect(session.id, state);
+      if (activeTab === 'sessions' && sessionDisplayList.length > 0) {
+        const displayItem = sessionDisplayList[selectedIndex] as DisplayItem | undefined;
+        if (displayItem) {
+          // If this is a parent with children, toggle collapse/expand
+          if (!displayItem.isChild && displayItem.childCount && displayItem.childCount > 0) {
+            toggleParent(displayItem.session.id);
+            return;
+          }
+          onSessionSelect(displayItem.session.id, state);
+        }
       } else if (activeTab === 'workspaces' && workspaceList.length > 0 && onWorkspaceSelect) {
         const ws = workspaceList[selectedIndex];
         if (ws) onWorkspaceSelect(ws.id, state);
@@ -402,9 +558,9 @@ const SpacesScreen = ({ apiClient, onNavigate, onSessionSelect, onWorkspaceSelec
     },
     r: () => setStatusFilter((f: string) => f === 'running' ? 'all' : 'running'),
     d: () => {
-      if (activeTab === 'sessions' && filteredSessions.length > 0) {
-        const session = filteredSessions[selectedIndex];
-        if (session) setDeleteConfirm({ id: session.id, name: session.name || 'Unnamed' });
+      if (activeTab === 'sessions' && sessionDisplayList.length > 0) {
+        const displayItem = sessionDisplayList[selectedIndex] as DisplayItem | undefined;
+        if (displayItem) setDeleteConfirm({ id: displayItem.session.id, name: displayItem.session.name || 'Unnamed' });
       }
     },
     ...(showChrome ? {
@@ -431,11 +587,24 @@ const SpacesScreen = ({ apiClient, onNavigate, onSessionSelect, onWorkspaceSelec
   }, [deleteConfirm, apiClient]);
 
   // Build rows for current tab
-  const rows = visibleSlice.map((item, vi) => {
+  const rows = visibleSlice.map((item: any, vi: number) => {
     const realIndex = scrollStart + vi;
     const isSelected = realIndex === selectedIndex;
     if (activeTab === 'sessions') {
-      return h(SessionRow, { key: item.id || `s-${realIndex}`, session: item, isSelected, isExpanded: isSelected });
+      const displayItem = item as DisplayItem;
+      return h(SessionRow, {
+        key: displayItem.session.id || `s-${realIndex}`,
+        session: displayItem.session,
+        isSelected,
+        isExpanded: isSelected && !displayItem.isChild,
+        isChild: displayItem.isChild,
+        treePrefix: displayItem.treePrefix,
+        isParentExpanded: displayItem.isParentExpanded,
+        childCount: displayItem.childCount,
+        childNames: displayItem.childNames,
+        parentName: displayItem.parentName,
+        parentId: displayItem.parentId,
+      });
     } else if (activeTab === 'repos') {
       return h(RepoRow, { key: item.id || `r-${realIndex}`, project: item, isSelected });
     } else {
@@ -447,6 +616,9 @@ const SpacesScreen = ({ apiClient, onNavigate, onSessionSelect, onWorkspaceSelec
     : activeTab === 'workspaces' ? 'WORKSPACES'
     : 'SESSIONS';
 
+  // Session count for display — use total (not display list which includes children inline)
+  const sessionCount = activeTab === 'sessions' ? filteredSessions.length : currentItems.length;
+
   // Header inside content panel (with spacing from panel title)
   const headerLines: any[] = [
     h(Box, { key: 'spacer', height: 1 }),  // breathing room after panel title
@@ -456,7 +628,7 @@ const SpacesScreen = ({ apiClient, onNavigate, onSessionSelect, onWorkspaceSelec
   }
   headerLines.push(
     h(Box, { key: 'count', paddingLeft: 2 },
-      muted(`${currentItems.length} ${activeTab === 'repos' ? 'repo(s)' : activeTab === 'workspaces' ? 'workspace(s)' : 'session(s)'}`),
+      muted(`${sessionCount} ${activeTab === 'repos' ? 'repo(s)' : activeTab === 'workspaces' ? 'workspace(s)' : 'session(s)'}`),
       canScrollUp || canScrollDown
         ? h(Text, null,
             muted('  '),
@@ -507,4 +679,4 @@ const SpacesScreen = ({ apiClient, onNavigate, onSessionSelect, onWorkspaceSelec
   );
 };
 
-export { SpacesScreen };
+export { SpacesScreen, buildSessionDisplayList };

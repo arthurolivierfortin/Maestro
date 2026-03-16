@@ -31,6 +31,7 @@ public record ProjectSessionDto
     public List<MonitorWidgetConfigDto> MonitorWidgets { get; init; } = new();
     public string? RepositoryPath { get; init; }
     public bool IsBoundToRepository { get; init; }
+    public string? ParentSessionId { get; init; }
 
     public static ProjectSessionDto FromDomain(ProjectSession session)
     {
@@ -62,7 +63,8 @@ public record ProjectSessionDto
                 Config = new Dictionary<string, object>(w.Config)
             }).ToList(),
             RepositoryPath = session.RepositoryPath,
-            IsBoundToRepository = session.IsBoundToRepository
+            IsBoundToRepository = session.IsBoundToRepository,
+            ParentSessionId = session.ParentSessionId
         };
     }
 }

@@ -156,6 +156,7 @@ export interface SessionFilter {
   status?: string;
   projectId?: string;
   limit?: number;
+  parentId?: string;
 }
 
 export interface SessionCreateRequest {

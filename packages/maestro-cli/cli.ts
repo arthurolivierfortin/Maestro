@@ -1381,7 +1381,7 @@ function handleApiError(error, action) {
 
 // ============= Interactive Session Commands (Session Server Architecture) =============
 
-async function listSessions(filter = {}) {
+async function listSessions(filter = {}, options = { tree: false }) {
   formatter.setCommand('session.list');
   try {
     const sessions = await client.listSessions(filter);
@@ -1390,16 +1390,54 @@ async function listSessions(filter = {}) {
       return;
     }
 
-    const rows = sessions.map(s => ({
-      'ID': s.id.substring(0, 12) + '...',
-      'Name': s.name || '-',
-      'Status': s.status,
-      'Authority': s.authority || 'human',
-      'Project': s.config?.projectId ? s.config.projectId.substring(0, 8) + '...' : '—',
-      'Commands': s.commandCount || 0,
-      'Created': formatDate(s.createdAt)
-    }));
-    formatter.table(rows, '\n' + c.bold('Interactive Sessions:') + c.gray(` (${sessions.length})`) + '\n');
+    if (options.tree) {
+      // Tree mode: group children under parents with indentation
+      const childrenMap = new Map();
+      const childIds = new Set();
+      for (const s of sessions) {
+        if (s.parentSessionId) {
+          childIds.add(s.id);
+          if (!childrenMap.has(s.parentSessionId)) childrenMap.set(s.parentSessionId, []);
+          childrenMap.get(s.parentSessionId).push(s);
+        }
+      }
+
+      console.log('\n' + c.bold('Interactive Sessions:') + c.gray(` (${sessions.length})`) + '\n');
+      for (const s of sessions) {
+        if (childIds.has(s.id)) continue; // Skip children — rendered under parent
+        const shortId = s.id.substring(0, 8);
+        const name = (s.name || '-').padEnd(35);
+        const status = (s.status || 'unknown').padEnd(10);
+        const vars = s.variables || {};
+        const rawCost = vars._accumulatedCost;
+        const cost = typeof rawCost === 'number' ? `$${rawCost.toFixed(2)}` : '$0.00';
+        console.log(`  ${shortId}  ${name}  ${status}  ${cost}`);
+
+        // Show children indented
+        const children = childrenMap.get(s.id) || [];
+        for (const child of children) {
+          const cShortId = child.id.substring(0, 8);
+          const cName = (child.name || '-').padEnd(33);
+          const cStatus = (child.status || 'unknown').padEnd(10);
+          const cVars = child.variables || {};
+          const cRawCost = cVars._accumulatedCost;
+          const cCost = typeof cRawCost === 'number' ? `$${cRawCost.toFixed(2)}` : '$0.00';
+          console.log(`    ${cShortId}  ${cName}  ${cStatus}  ${cCost}`);
+        }
+      }
+      console.log('');
+    } else {
+      const rows = sessions.map(s => ({
+        'ID': s.id.substring(0, 12) + '...',
+        'Name': s.name || '-',
+        'Status': s.status,
+        'Authority': s.authority || 'human',
+        'Project': s.config?.projectId ? s.config.projectId.substring(0, 8) + '...' : '—',
+        'Commands': s.commandCount || 0,
+        'Created': formatDate(s.createdAt)
+      }));
+      formatter.table(rows, '\n' + c.bold('Interactive Sessions:') + c.gray(` (${sessions.length})`) + '\n');
+    }
   } catch (error) {
     handleApiError(error, 'listing sessions');
     process.exit(1);
@@ -4931,7 +4969,7 @@ async function main() {
     }
   } else {
     argv = minimist(process.argv.slice(2), {
-      boolean: ['mock', 'help', 'h', 'force', 'push', 'run-tests', 'run-linter', 'keep-changes', 'pending-approval', 'monitor', 'list', 'no-back', 'debug', 'knowledge', 'metrics', 'full', 'start', 'json-output', 'verbose'],
+      boolean: ['mock', 'help', 'h', 'force', 'push', 'run-tests', 'run-linter', 'keep-changes', 'pending-approval', 'monitor', 'list', 'no-back', 'debug', 'knowledge', 'metrics', 'full', 'start', 'json-output', 'verbose', 'tree'],
       string: ['api-url', 'u', 'name', 'path', 'description', 'runtime', 'image', 'work-dir', 'block-paths', 'model', 'lines', 'since', 'working-dir', 'workdir', 'workflow', 'iterations', 'parallel', 'delay', 'goal', 'tags', 'inputs', 'config', 'from', 'to', 'limit', 'block', 'category', 'version', 'author', 'capabilities', 'tools', 'agents', 'type', 'project', 'task', 'context', 'access', 'test-command', 'linter-command', 'max-steps', 'timeout', 'message', 'branch', 'scope', 'authority', 'allowed-paths', 'denied-paths', 'filter', 'offset', 'command', 'from-session', 'template', 'reason', 'repo-path', 'status', 'recent', 'json-value', 'contract'],
       alias: { 'json-output': 'json' }
     });
@@ -4962,7 +5000,7 @@ async function main() {
     const shell = new MaestroShell(async (args) => {
       // Create a new argv-like object for the command
       const innerArgv = minimist(args, {
-        boolean: ['mock', 'help', 'h', 'force', 'push', 'run-tests', 'run-linter', 'keep-changes', 'pending-approval', 'monitor', 'list', 'no-back', 'debug', 'knowledge', 'metrics', 'full', 'start', 'json-output', 'verbose'],
+        boolean: ['mock', 'help', 'h', 'force', 'push', 'run-tests', 'run-linter', 'keep-changes', 'pending-approval', 'monitor', 'list', 'no-back', 'debug', 'knowledge', 'metrics', 'full', 'start', 'json-output', 'verbose', 'tree'],
         string: ['api-url', 'u', 'name', 'path', 'description', 'runtime', 'image', 'work-dir', 'block-paths', 'model', 'lines', 'since', 'working-dir', 'workdir', 'workflow', 'iterations', 'parallel', 'delay', 'goal', 'tags', 'inputs', 'config', 'from', 'to', 'limit', 'block', 'category', 'version', 'author', 'capabilities', 'tools', 'agents', 'type', 'project', 'task', 'context', 'access', 'test-command', 'linter-command', 'max-steps', 'timeout', 'message', 'branch', 'scope', 'authority', 'allowed-paths', 'denied-paths', 'filter', 'offset', 'command', 'from-session', 'template', 'reason', 'repo-path', 'status', 'recent', 'json-value', 'contract'],
         alias: { 'json-output': 'json' }
       });
@@ -5091,7 +5129,7 @@ ${c.bold('Interactive:')}
 ${c.bold('Sessions:')}
   session              Session management (--help for details)
   session create       Create (--project, --template, --start)
-  session list         List sessions (--status, --recent)
+  session list         List sessions (--status, --recent, --tree)
   session last         Show most recent session
   session info <id>    Session details
   session invoke <id>  Invoke entry point
@@ -6796,7 +6834,7 @@ ${c.bold('Quick Start:')}
           status: argv.status,
           projectId: argv.project ? await resolveId(argv.project, 'project') : undefined,
           limit: recent || (argv.limit ? parseInt(argv.limit) : undefined)
-        });
+        }, { tree: argv.tree });
       }
 
       // P3-31: Session last command

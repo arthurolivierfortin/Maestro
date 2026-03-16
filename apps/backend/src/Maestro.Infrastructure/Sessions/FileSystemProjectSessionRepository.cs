@@ -196,7 +196,20 @@ public class FileSystemProjectSessionRepository : IProjectSessionRepository
 
         var sessionPath = Path.Combine(sessionsFolder, $"{session.Id}.json");
         var json = SerializeSession(session);
-        await File.WriteAllTextAsync(sessionPath, json, ct);
+
+        // Retry on file lock conflicts (concurrent read/write from NodeExecutionEngine)
+        for (var attempt = 0; attempt < 5; attempt++)
+        {
+            try
+            {
+                await File.WriteAllTextAsync(sessionPath, json, ct);
+                break;
+            }
+            catch (IOException) when (attempt < 4)
+            {
+                await Task.Delay(100 * (attempt + 1), ct);
+            }
+        }
 
         // Update cache
         _cache[session.Id] = session;
@@ -315,8 +328,21 @@ public class FileSystemProjectSessionRepository : IProjectSessionRepository
     {
         if (!File.Exists(path)) return null;
 
-        var json = await File.ReadAllTextAsync(path, ct);
-        return DeserializeSession(json);
+        // Retry on file lock conflicts (concurrent write from SaveAsync)
+        for (var attempt = 0; attempt < 5; attempt++)
+        {
+            try
+            {
+                var json = await File.ReadAllTextAsync(path, ct);
+                return DeserializeSession(json);
+            }
+            catch (IOException) when (attempt < 4)
+            {
+                await Task.Delay(100 * (attempt + 1), ct);
+            }
+        }
+
+        return null;
     }
 
     private static string GetSessionsFolderPath(string projectRootPath)

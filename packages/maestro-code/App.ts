@@ -724,6 +724,33 @@ const App = ({ apiClient: clientProp, sessionManager: smProp, demoMode, repoPath
             const convId = session?.variables?._activeConversation;
             addLine({ text: `  Status:   ${status}`, color: 'white' });
             addLine({ text: `  Conversation: ${convId || 'None'}`, color: 'white' });
+            // Show children if this session has any
+            try {
+              const allSessions = await apiClient.listSessions();
+              const children = (allSessions || []).filter((s: any) => s.parentSessionId === sid);
+              if (children.length > 0) {
+                addLine({ text: '  Children:', color: 'white' });
+                for (const child of children) {
+                  const childVars = child.variables || {};
+                  const childCost = typeof childVars._accumulatedCost === 'number'
+                    ? `$${childVars._accumulatedCost.toFixed(2)}`
+                    : '$0.00';
+                  // Simple duration formatting
+                  let childDur = '0s';
+                  if (child.startedAt) {
+                    const startMs = new Date(child.startedAt).getTime();
+                    const endMs = child.completedAt ? new Date(child.completedAt).getTime() : Date.now();
+                    const secs = Math.round((endMs - startMs) / 1000);
+                    childDur = secs >= 60 ? `${Math.floor(secs / 60)}m ${secs % 60}s` : `${secs}s`;
+                  }
+                  const childId = child.id ? child.id.substring(0, 8) : '--------';
+                  const childName = child.name || 'Unnamed';
+                  addLine({ text: `    ${childId} — ${childName} (${childCost}, ${childDur})`, color: 'gray' });
+                }
+              }
+            } catch {
+              // Non-fatal — can't list children
+            }
           } catch {
             addLine({ text: `  Status:   (could not fetch)`, color: 'yellow' });
           }

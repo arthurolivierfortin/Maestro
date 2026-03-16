@@ -161,4 +161,5 @@ export interface Session {
   commandHistory?: CommandHistoryEntry[];
   variables?: SessionVariables;
   monitorWidgets?: Widget[];
+  parentSessionId?: string | null;
 }

@@ -36,7 +36,8 @@ public class SessionsController : ControllerBase
     public async Task<ActionResult<List<ProjectSessionDto>>> GetSessions(
         [FromQuery] string? status = null,
         [FromQuery] string? projectId = null,
-        [FromQuery] int? limit = null)
+        [FromQuery] int? limit = null,
+        [FromQuery] string? parentId = null)
     {
         SessionStatus? statusFilter = null;
         if (!string.IsNullOrEmpty(status) && Enum.TryParse<SessionStatus>(status, ignoreCase: true, out var parsed))
@@ -45,6 +46,13 @@ public class SessionsController : ControllerBase
         }
 
         var sessions = await _sessionServer.GetAllAsync(statusFilter, projectId, limit);
+
+        // Filter by parentId if specified
+        if (!string.IsNullOrEmpty(parentId))
+        {
+            sessions = sessions.Where(s => s.ParentSessionId == parentId).ToList();
+        }
+
         var dtos = sessions.Select(s => ProjectSessionDto.FromDomain(s)).ToList();
         return Ok(dtos);
     }
