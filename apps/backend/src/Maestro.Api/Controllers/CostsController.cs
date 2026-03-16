@@ -51,17 +51,26 @@ public class CostsController : ControllerBase
     /// Mixed format is also supported.
     /// </summary>
     [HttpPut("limits")]
-    public async Task<ActionResult> SetLimits([FromBody] JsonElement body)
+    public async Task<ActionResult> SetLimits()
     {
         try
         {
+            // Read the raw request body as a string. We cannot use [FromBody] JsonElement
+            // because the API is configured with Newtonsoft (.AddNewtonsoftJson()), and
+            // JsonElement is a System.Text.Json type — Newtonsoft cannot bind it, causing
+            // "Operation is not valid" when GetRawText() is called on a default JsonElement.
+            using var reader = new StreamReader(Request.Body);
+            var rawJson = await reader.ReadToEndAsync();
+            if (string.IsNullOrWhiteSpace(rawJson))
+                return BadRequest(new { error = "Request body is empty" });
+
             // Use System.Text.Json with our custom converter to handle both formats
             var opts = new JsonSerializerOptions
             {
                 PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
                 PropertyNameCaseInsensitive = true
             };
-            var limits = JsonSerializer.Deserialize<CostLimitsDto>(body.GetRawText(), opts);
+            var limits = JsonSerializer.Deserialize<CostLimitsDto>(rawJson, opts);
             if (limits == null)
                 return BadRequest(new { error = "Invalid limits format" });
 
@@ -71,6 +80,10 @@ public class CostsController : ControllerBase
         catch (JsonException ex)
         {
             return BadRequest(new { error = $"Invalid JSON format: {ex.Message}" });
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { error = "invalid_operation", message = ex.Message, status = 400 });
         }
     }
 

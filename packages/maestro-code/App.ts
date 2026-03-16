@@ -780,8 +780,14 @@ const App = ({ apiClient: clientProp, sessionManager: smProp, demoMode, repoPath
             addLine({ text: `  This month: $${(month.totalCost ?? 0).toFixed(2)}  (${month.requestCount ?? 0} requests)`, color: 'white' });
             addLine({ text: '' });
             addLine({ text: 'Limits', color: 'cyan', bold: true });
-            const fmtLimit = (val: number | null | undefined) => val != null ? `$${Number(val).toFixed(2)}` : 'not set';
-            const remaining = (val: number | null | undefined, spent: number) => val != null ? `  (remaining: $${Math.max(0, Number(val) - spent).toFixed(2)})` : '';
+            const getLimitValue = (limit: any): number | null => {
+              if (limit == null) return null;
+              if (typeof limit === 'number') return limit;
+              if (typeof limit === 'object' && limit.value != null) return Number(limit.value);
+              return null;
+            };
+            const fmtLimit = (val: any) => { const n = getLimitValue(val); return n != null ? `$${n.toFixed(2)}` : 'not set'; };
+            const remaining = (val: any, spent: number) => { const n = getLimitValue(val); return n != null ? `  (remaining: $${Math.max(0, n - spent).toFixed(2)})` : ''; };
             addLine({ text: `  Per session: ${fmtLimit(limits?.maxPerSession)}`, color: 'white' });
             addLine({ text: `  Per day:     ${fmtLimit(limits?.maxPerDay)}${remaining(limits?.maxPerDay, today.totalCost ?? 0)}`, color: 'white' });
             addLine({ text: `  Per week:    ${fmtLimit(limits?.maxPerWeek)}${remaining(limits?.maxPerWeek, week.totalCost ?? 0)}`, color: 'white' });
@@ -803,7 +809,13 @@ const App = ({ apiClient: clientProp, sessionManager: smProp, demoMode, repoPath
             const limits = await apiClient.getCostsLimits();
             addLine({ text: '' });
             addLine({ text: 'Cost Limits', color: 'cyan', bold: true, timestamp: ts() });
-            const fmtLimit = (val: number | null | undefined) => val != null ? `$${Number(val).toFixed(2)}` : 'not set';
+            const getLimitValue = (limit: any): number | null => {
+              if (limit == null) return null;
+              if (typeof limit === 'number') return limit;
+              if (typeof limit === 'object' && limit.value != null) return Number(limit.value);
+              return null;
+            };
+            const fmtLimit = (val: any) => { const n = getLimitValue(val); return n != null ? `$${n.toFixed(2)}` : 'not set'; };
             addLine({ text: `  Per session: ${fmtLimit(limits?.maxPerSession)}`, color: 'white' });
             addLine({ text: `  Per day:     ${fmtLimit(limits?.maxPerDay)}`, color: 'white' });
             addLine({ text: `  Per week:    ${fmtLimit(limits?.maxPerWeek)}`, color: 'white' });

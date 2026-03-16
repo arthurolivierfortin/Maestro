@@ -1,0 +1,112 @@
+# ===================================
+# Claude Code Ignore — Token Optimization
+# ===================================
+# .gitignore handles git tracking; this file prevents Claude
+# from reading large/irrelevant directories during analysis.
+
+# --- Security ---
+.env
+.env.*
+**/secrets.json
+**/appsettings.Secrets.json
+**/appsettings.Local.json
+*.key
+*.pem
+
+# --- Dependencies (biggest token sink) ---
+node_modules/
+.npm/
+.yarn/
+
+# --- Build outputs ---
+dist/
+dist-ssr/
+build/
+[Bb]in/
+[Oo]bj/
+[Dd]ebug/
+[Rr]elease/
+artifacts/
+.build-staging/
+*.tsbuildinfo
+*.js.map
+*.css.map
+*.nupkg
+*.snupkg
+
+# --- .NET build ---
+llm-provider/dotnet/**/bin/
+llm-provider/dotnet/**/obj/
+apps/backend/**/bin/
+apps/backend/**/obj/
+TestResults/
+
+# --- Test repos (not our source code) ---
+test-repos/
+
+# --- Runtime / session data ---
+.maestro/sessions/
+.maestro/logs/
+.maestro/cache/
+.maestro/temp/
+content/user/training/
+content/user/testing/
+content/user/fitness/
+content/user/experiments/
+
+# --- Coverage & test artifacts ---
+coverage/
+*.lcov
+.nyc_output/
+
+# --- Logs ---
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# --- Temp files ---
+tmp/
+temp/
+*.tmp
+*.temp
+temp-*.json
+
+# --- Lock files (large, not useful for analysis) ---
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# --- IDE / Editor ---
+.vscode/
+.idea/
+.vs/
+*.suo
+*.user
+*.code-workspace
+
+# --- OS files ---
+.DS_Store
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# --- Electron / Desktop build ---
+apps/desktop/dist/
+apps/desktop/node_modules/
+
+# --- Git internals ---
+.git/
+
+# --- Benchmark / profiling ---
+BenchmarkDotNet.Artifacts/
+
+# --- CLI distribution artifacts ---
+packages/maestro-cli/content/
+packages/maestro-cli/*.tgz
+
+# --- LLM Provider Python venvs ---
+llm-provider/api/.venv/
+llm-provider/api/__pycache__/
+llm-provider/src/__pycache__/

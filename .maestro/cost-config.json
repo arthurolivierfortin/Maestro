@@ -1,14 +1,26 @@
 {
   "limits": {
-    "maxPerSession": 1.0,
-    "maxPerDay": 5.0,
+    "maxPerSession": {
+      "value": 1,
+      "enforcement": "block",
+      "autoResume": false
+    },
+    "maxPerDay": {
+      "value": 5,
+      "enforcement": "block",
+      "autoResume": false
+    },
     "maxPerWeek": null,
-    "maxPerMonth": 50.0
+    "maxPerMonth": null
   },
   "costOverrides": {
     "deepseek-ai/deepseek-coder-1.3b-instruct": {
       "inputPricePerMillion": 3.0,
       "outputPricePerMillion": 15.0
+    },
+    "Meta-Llama-3.1-8B-Instruct": {
+      "inputPricePerMillion": 0.18,
+      "outputPricePerMillion": 0.18
     }
   }
 }

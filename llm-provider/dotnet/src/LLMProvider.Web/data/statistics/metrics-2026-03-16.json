@@ -1,5 +1,5 @@
 {
-  "totalRequests": 2,
+  "totalRequests": 1,
   "latency": {
     "p50": 0,
     "p95": 0,
@@ -7,9 +7,9 @@
     "average": 0
   },
   "totalTokens": {
-    "promptTokens": 40,
-    "completionTokens": 685,
-    "totalTokens": 725
+    "promptTokens": 3,
+    "completionTokens": 402,
+    "totalTokens": 405
   },
   "modelStats": [
     {
@@ -18,34 +18,15 @@
       },
       "requestCount": 1,
       "latency": {
-        "p50": 22034,
-        "p95": 22034,
-        "p99": 22034,
-        "average": 22034
+        "p50": 23325,
+        "p95": 23325,
+        "p99": 23325,
+        "average": 23325
       },
       "totalTokens": {
         "promptTokens": 3,
-        "completionTokens": 675,
-        "totalTokens": 678
-      },
-      "requestsPerMinute": 0,
-      "errorRate": 0
-    },
-    {
-      "modelId": {
-        "value": "Meta-Llama-3.1-8B-Instruct"
-      },
-      "requestCount": 1,
-      "latency": {
-        "p50": 3429,
-        "p95": 3429,
-        "p99": 3429,
-        "average": 3429
-      },
-      "totalTokens": {
-        "promptTokens": 37,
-        "completionTokens": 10,
-        "totalTokens": 47
+        "completionTokens": 402,
+        "totalTokens": 405
       },
       "requestsPerMinute": 0,
       "errorRate": 0
@@ -77,7 +58,7 @@
         "p99": 0,
         "average": 0
       },
-      "tokensTotal": 725
+      "tokensTotal": 405
     },
     {
       "windowName": "5m",
@@ -90,7 +71,7 @@
         "p99": 0,
         "average": 0
       },
-      "tokensTotal": 725
+      "tokensTotal": 405
     },
     {
       "windowName": "15m",
@@ -103,8 +84,8 @@
         "p99": 0,
         "average": 0
       },
-      "tokensTotal": 725
+      "tokensTotal": 405
     }
   ],
-  "generatedAt": "2026-03-16T15:14:17.1769138+00:00"
+  "generatedAt": "2026-03-16T16:36:54.9586171+00:00"
 }

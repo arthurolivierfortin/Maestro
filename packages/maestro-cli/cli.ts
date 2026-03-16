@@ -8785,11 +8785,21 @@ ${c.bold('Examples:')}
           }
 
           if (summary.limits) {
+            const getLimitValue = (limit) => {
+              if (limit == null) return null;
+              if (typeof limit === 'number') return limit;
+              if (typeof limit === 'object' && limit.value != null) return Number(limit.value);
+              return null;
+            };
             console.log('\n  Limits:');
-            if (summary.limits.maxPerSession != null) console.log(`    Per session: $${summary.limits.maxPerSession.toFixed(2)}`);
-            if (summary.limits.maxPerDay != null) console.log(`    Per day:     $${summary.limits.maxPerDay.toFixed(2)}`);
-            if (summary.limits.maxPerWeek != null) console.log(`    Per week:    $${summary.limits.maxPerWeek.toFixed(2)}`);
-            if (summary.limits.maxPerMonth != null) console.log(`    Per month:   $${summary.limits.maxPerMonth.toFixed(2)}`);
+            const lSession = getLimitValue(summary.limits.maxPerSession);
+            const lDay = getLimitValue(summary.limits.maxPerDay);
+            const lWeek = getLimitValue(summary.limits.maxPerWeek);
+            const lMonth = getLimitValue(summary.limits.maxPerMonth);
+            if (lSession != null) console.log(`    Per session: $${lSession.toFixed(2)}`);
+            if (lDay != null) console.log(`    Per day:     $${lDay.toFixed(2)}`);
+            if (lWeek != null) console.log(`    Per week:    $${lWeek.toFixed(2)}`);
+            if (lMonth != null) console.log(`    Per month:   $${lMonth.toFixed(2)}`);
           }
           console.log('');
         } catch (error) {
@@ -8808,7 +8818,13 @@ ${c.bold('Examples:')}
           }
           console.log('\nCost Limits');
           console.log('─'.repeat(40));
-          const show = (label, val) => console.log(`  ${label.padEnd(14)} ${val != null ? '$' + val.toFixed(2) : '(not set)'}`);
+          const getLimitValue = (limit) => {
+            if (limit == null) return null;
+            if (typeof limit === 'number') return limit;
+            if (typeof limit === 'object' && limit.value != null) return Number(limit.value);
+            return null;
+          };
+          const show = (label, val) => { const n = getLimitValue(val); console.log(`  ${label.padEnd(14)} ${n != null ? '$' + n.toFixed(2) : '(not set)'}`); };
           show('Per session:', limits.maxPerSession);
           show('Per day:', limits.maxPerDay);
           show('Per week:', limits.maxPerWeek);

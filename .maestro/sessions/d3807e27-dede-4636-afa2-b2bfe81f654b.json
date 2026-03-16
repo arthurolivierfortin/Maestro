@@ -1,0 +1,133 @@
+{
+  "id": "d3807e27-dede-4636-afa2-b2bfe81f654b",
+  "name": "Cost Visual Test",
+  "status": "idle",
+  "terminalReason": "none",
+  "authority": "human",
+  "workingDirectory": ".",
+  "repositoryPath": "C:\\Meastro",
+  "parentWorkspaceId": null,
+  "parentSessionId": null,
+  "config": {
+    "projectId": null,
+    "workflowId": null,
+    "task": null,
+    "context": null,
+    "access": {
+      "level": "controlled",
+      "allowedPaths": [],
+      "deniedPaths": [
+        ".env",
+        "*.env",
+        "secrets/**"
+      ],
+      "requireApprovalPaths": []
+    },
+    "validation": {
+      "runTests": false,
+      "testCommand": null,
+      "runLinter": false,
+      "linterCommand": null,
+      "requireCleanDiff": false,
+      "maxSteps": 50,
+      "timeoutMs": 600000
+    },
+    "inputs": {}
+  },
+  "createdAt": "2026-03-16T16:03:57.8192999+00:00",
+  "startedAt": "2026-03-16T16:03:58.1026237+00:00",
+  "completedAt": null,
+  "updatedAt": "2026-03-16T16:04:14.9749349+00:00",
+  "commandCount": 0,
+  "modifiedFiles": [],
+  "errorMessage": null,
+  "testResult": null,
+  "linterResult": null,
+  "commitInfo": null,
+  "variables": {
+    "_executionLog": [
+      {
+        "time": "16:03:58",
+        "level": "info",
+        "msg": "Starting workflow: request-analyzer"
+      },
+      {
+        "time": "16:03:58",
+        "level": "info",
+        "msg": "Executing block \u0027request-analyzer\u0027 directly (type: inference)"
+      },
+      {
+        "time": "16:03:58",
+        "level": "info",
+        "msg": "Executing blockRef \u0027request-analyzer\u0027 (type: inference) with 2 inputs"
+      },
+      {
+        "time": "16:04:14",
+        "level": "info",
+        "msg": "[request-analyzer] Tokens: 406 (prompt=3, completion=403), cost=$0.006060"
+      },
+      {
+        "time": "16:04:14",
+        "level": "success",
+        "msg": "blockRef \u0027request-analyzer\u0027 completed (668 chars)"
+      },
+      {
+        "time": "16:04:14",
+        "level": "success",
+        "msg": "blockRef \u0027request-analyzer\u0027 completed (668 chars)"
+      }
+    ],
+    "_artifacts": [],
+    "_blockOutputs": {
+      "execute": {
+        "type": "inference",
+        "output": "\u0060\u0060\u0060json\n{\n  \u0022role\u0022: \u0022agent\u0022,\n  \u0022suggestedContractId\u0022: \u0022test-generator\u0022,\n  \u0022capabilities\u0022: [\u0022conversation\u0022, \u0022tool-calling\u0022, \u0022testing\u0022],\n  \u0022modelTier\u0022: \u0022medium\u0022,\n  \u0022reasoning\u0022: \u0022The description \u0027test\u0027 most closely maps to a testing task. Testing typically requires reading source files, running checks, and iterating on results \u2014 making an agent role appropriate over a single-inference block. The test-generator contract is the closest match. Sonnet-class model is sufficient for test writing tasks. Note: the description is extremely minimal; a more specific description (e.g. \u0027write unit tests for a TypeScript module\u0027) would allow more precise classification.\u0022\n}\n\u0060\u0060\u0060",
+        "timestamp": "16:04:14"
+      }
+    },
+    "_llmActivity": [
+      {
+        "type": "inference",
+        "blockRef": "request-analyzer",
+        "response": "\u0060\u0060\u0060json\n{\n  \u0022role\u0022: \u0022agent\u0022,\n  \u0022suggestedContractId\u0022: \u0022test-generator\u0022,\n  \u0022capabilities\u0022: [\u0022conversation\u0022, \u0022tool-calling\u0022, \u0022testing\u0022],\n  \u0022modelTier\u0022: \u0022medium\u0022,\n  \u0022reasoning\u0022: \u0022The description \u0027test\u0027 most closely maps to a testing task. Testing typically requires reading source files, running checks, and iterating on results \u2014 making an agent role appropriate over a single-inference block. The test-generator contract is the closest match. Sonnet-class model is sufficient for test writing tasks. N...",
+        "timestamp": "2026-03-16T16:04:14.9732051Z",
+        "toolCalls": "",
+        "tokens": 406
+      }
+    ],
+    "_phaseMetrics": {},
+    "_executionTree": [
+      {
+        "id": "execute",
+        "name": "Request Analyzer",
+        "status": "done",
+        "children": [],
+        "output": "\u0060\u0060\u0060json\n{\n  \u0022role\u0022: \u0022agent\u0022,\n  \u0022suggestedContractId\u0022: \u0022test-generator\u0022,\n  \u0022capabilities\u0022: [\u0022conversation\u0022, \u0022tool-calling\u0022, \u0022testing\u0022],\n  \u0022modelTier\u0022: \u0022medium\u0022,\n  \u0022reasoning\u0022: \u0022The description \u0027test\u0027 most closely maps to a testing task. Testing typically requires reading source files, running checks, and iterating on results \u2014 making an agent role appropriate over a single-inference block. The test-generator contract is the closest match. Sonnet-class model is sufficient for test writing tasks. N..."
+      }
+    ],
+    "_activeWorkflow": "",
+    "description": "test",
+    "repoPath": "C:\\Meastro",
+    "_accumulatedCost": "0.006060",
+    "_accumulatedPromptTokens": "3",
+    "_accumulatedCompletionTokens": "403",
+    "_costLimitExceeded": "true",
+    "_costLimitMessage": "Session limit of $0.01 exceeded (current: $0.01). Enforcement: block.",
+    "_nodeResult_execute": "\u0060\u0060\u0060json\n{\n  \u0022role\u0022: \u0022agent\u0022,\n  \u0022suggestedContractId\u0022: \u0022test-generator\u0022,\n  \u0022capabilities\u0022: [\u0022conversation\u0022, \u0022tool-calling\u0022, \u0022testing\u0022],\n  \u0022modelTier\u0022: \u0022medium\u0022,\n  \u0022reasoning\u0022: \u0022The description \u0027test\u0027 most closely maps to a testing task. Testing typically requires reading source files, running checks, and iterating on results \u2014 making an agent role appropriate over a single-inference block. The test-generator contract is the closest match. Sonnet-class model is sufficient for test writing tasks. Note: the description is extremely minimal; a more specific description (e.g. \u0027write unit tests for a TypeScript module\u0027) would allow more precise classification.\u0022\n}\n\u0060\u0060\u0060",
+    "_workflowCheckpoint": null,
+    "_workflowCheckpoint_whileState": null,
+    "_workflowCheckpoint_foreachIndex": null,
+    "_activeBlock": null
+  },
+  "entryPoints": {
+    "test": "request-analyzer"
+  },
+  "monitorWidgets": null,
+  "blockSearchPaths": [
+    "C:\\Meastro\\.maestro\\blocks"
+  ],
+  "defaultModel": null,
+  "modelOverrides": null,
+  "fileAccessRulesConfig": null,
+  "blockPermissionsConfig": null
+}

@@ -47,6 +47,9 @@ function Write-Header {
     Write-Host ""
 }
 
+# Window title prefix for all Maestro service windows (used for cleanup)
+$WindowTitlePrefix = "Maestro-Dev"
+
 # Close previous Maestro service windows and kill processes on our ports
 function Stop-PreviousServices {
     Write-Status "Cleaning up previous services..." "Gray"
@@ -58,13 +61,12 @@ function Stop-PreviousServices {
         }
     }
 
-    # Close orphan PowerShell windows with Maestro-related titles
-    Get-Process powershell -ErrorAction SilentlyContinue | Where-Object {
-        try {
-            $_.MainWindowTitle -match 'LLM-Provider|Maestro Backend|Maestro Frontend|dotnet run'
-        } catch { $false }
+    # Kill PowerShell windows we previously launched (matched by title prefix)
+    Get-Process -Name powershell, pwsh -ErrorAction SilentlyContinue | Where-Object {
+        try { $_.MainWindowTitle -like "Maestro-Dev*" } catch { $false }
     } | ForEach-Object {
-        try { $_.CloseMainWindow() | Out-Null } catch {}
+        Write-Status "  Closing window: $($_.MainWindowTitle) (PID $($_.Id))" "Gray"
+        Stop-Process -Id $_.Id -Force -ErrorAction SilentlyContinue
     }
 
     Start-Sleep -Seconds 2
@@ -179,6 +181,7 @@ function Start-LLMProviderLocal {
 
     # Start the .NET API in a new window (.env is loaded by DotEnvLoader in C#)
     $script = @"
+`$Host.UI.RawUI.WindowTitle = 'Maestro-Dev LLM-Provider'
 Set-Location '$LLMProviderDotnet\src\LLMProvider.Web'
 `$env:MAESTRO_ROOT = '$MaestroRoot'
 Write-Host 'LLM-Provider .NET API starting on port 5010' -ForegroundColor Cyan
@@ -205,6 +208,7 @@ function Start-BackendLocal {
 
     # Start backend in a new window (.env is loaded by DotEnvLoader in C#)
     $script = @"
+`$Host.UI.RawUI.WindowTitle = 'Maestro-Dev Backend'
 Set-Location '$MaestroRoot\apps\backend\src\Maestro.Api'
 `$env:MAESTRO_ROOT = '$MaestroRoot'
 `$env:MAESTRO_GLOBAL_BLOCKS_PATH = '$MaestroRoot\content\system\blocks'
@@ -232,6 +236,7 @@ function Start-FrontendLocal {
     }
 
     $script = @"
+`$Host.UI.RawUI.WindowTitle = 'Maestro-Dev Frontend'
 Set-Location '$MaestroRoot\apps\desktop'
 `$env:VITE_API_BASE_URL = 'http://localhost:5000'
 `$env:VITE_USE_MOCK_BACKEND = 'false'
