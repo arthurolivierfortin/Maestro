@@ -1,34 +1,34 @@
 {
-  "totalRequests": 3,
+  "totalRequests": 56,
   "latency": {
-    "p50": 1788,
-    "p95": 1905,
-    "p99": 1915.3999999999999,
-    "average": 1716.3333333333333
+    "p50": 0,
+    "p95": 0,
+    "p99": 0,
+    "average": 0
   },
   "totalTokens": {
-    "promptTokens": 7064,
-    "completionTokens": 96,
-    "totalTokens": 7160
+    "promptTokens": 186193,
+    "completionTokens": 2027,
+    "totalTokens": 188220
   },
   "modelStats": [
     {
       "modelId": {
         "value": "gpt-4o"
       },
-      "requestCount": 3,
+      "requestCount": 56,
       "latency": {
-        "p50": 1788,
-        "p95": 1905,
-        "p99": 1915.3999999999999,
-        "average": 1716.3333333333333
+        "p50": 1318.5,
+        "p95": 5636.75,
+        "p99": 8854.400000000005,
+        "average": 2115.160714285714
       },
       "totalTokens": {
-        "promptTokens": 7064,
-        "completionTokens": 96,
-        "totalTokens": 7160
+        "promptTokens": 186193,
+        "completionTokens": 2027,
+        "totalTokens": 188220
       },
-      "requestsPerMinute": 17.42294542674688,
+      "requestsPerMinute": 3.056908750700621,
       "errorRate": 0
     }
   ],
@@ -58,7 +58,7 @@
         "p99": 0,
         "average": 0
       },
-      "tokensTotal": 7160
+      "tokensTotal": 188220
     },
     {
       "windowName": "5m",
@@ -71,21 +71,21 @@
         "p99": 0,
         "average": 0
       },
-      "tokensTotal": 7160
+      "tokensTotal": 188220
     },
     {
       "windowName": "15m",
       "windowSeconds": 900,
-      "requestCount": 3,
-      "requestsPerMinute": 0.2,
+      "requestCount": 0,
+      "requestsPerMinute": 0,
       "latency": {
-        "p50": 1788,
-        "p95": 1905,
-        "p99": 1915.3999999999999,
-        "average": 1716.3333333333333
+        "p50": 0,
+        "p95": 0,
+        "p99": 0,
+        "average": 0
       },
-      "tokensTotal": 7160
+      "tokensTotal": 188220
     }
   ],
-  "generatedAt": "2026-03-16T20:51:44.3239749+00:00"
+  "generatedAt": "2026-03-16T21:49:44.3493477+00:00"
 }

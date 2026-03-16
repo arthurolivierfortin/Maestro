@@ -49,7 +49,8 @@ Chaque blockRef de type agent cree une **session enfant** temporaire :
 | 59-A | Sessions enfants pour chaque blockRef agent | 1-2 jours |
 | 59-B | I/O controle + _workflowCheckpoint cleanup entre agents | 1 jour |
 | 59-C | Enforcement FileAccessRule + BlockPermission + GetParentContext() | 1-2 jours |
-| 59-D | TUI : visibilite complete de l'isolation (Spaces tree, /status, CLI --tree) | 1 jour |
+| 59-D | TUI : visibilite complete de l'isolation (/status, CLI --tree, API parentSessionId) | 1 jour |
+| 59-E | SpacesScreen refonte : enfants dans detail view, liste plate, badge [+N] | 0.5 jour |
 | 59-T | Tests : 2+ agents sequentiels, isolation verifiee | 0.5 jour |
 
 ---

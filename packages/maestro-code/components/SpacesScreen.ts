@@ -1,12 +1,9 @@
 /**
  * SpacesScreen — Repos / Workspaces / Sessions browser.
  *
- * Replaces GlobalMonitor as the main session/workspace/project browser.
- * Has 3 tabs switchable via number keys 1-3.
- * Supports scrolling when items exceed visible area.
- *
- * Sessions with parentSessionId are grouped under their parent with
- * tree connectors. Parents can be collapsed/expanded.
+ * Flat session list: only top-level sessions (no parentSessionId) appear
+ * in the navigable list. Parents show a [+N] badge. Children and fitness
+ * appear only in the expanded detail view.
  *
  * Props:
  *   apiClient        API client instance
@@ -20,7 +17,7 @@ import { Box, Text, useStdout } from 'ink';
 import {
   theme, icons,
   T, muted, primary,
-  statusColor, statusIcon, TypeBadge,
+  statusColor, statusIcon,
   formatDuration, truncate,
   progressBar, progressColor,
   prevPage, nextPage,
@@ -87,175 +84,166 @@ const StatusFilter = ({ activeFilter }: StatusFilterProps) => {
   );
 };
 
-// ── Tree display item types ─────────────────────────────────
-
-interface DisplayItem {
-  session: Record<string, any>;
-  isChild: boolean;
-  /** Tree connector prefix for child rows */
-  treePrefix: string;
-  /** The parent session ID if this is a child */
-  parentId?: string;
-  /** Whether this parent is expanded to show children */
-  isParentExpanded?: boolean;
-  /** Number of children (for parents only) */
-  childCount?: number;
-  /** Child session names (for detail view) */
-  childNames?: string[];
-  /** Parent name (for child detail view) */
-  parentName?: string;
-}
-
-// ── Generic list row ─────────────────────────────────────────
+// ── Session row ─────────────────────────────────────────────
 
 interface SessionRowProps {
   session: Record<string, any>;
   isSelected: boolean;
   isExpanded: boolean;
-  isChild?: boolean;
-  treePrefix?: string;
-  isParentExpanded?: boolean;
-  childCount?: number;
-  childNames?: string[];
-  parentName?: string;
-  parentId?: string;
+  /** Full session list (all sessions, unfiltered by parent) for child counting */
+  allSessions: Record<string, any>[];
 }
 
 const STATUS_COL_WIDTH = 10;
 
-const SessionRow = ({ session, isSelected, isExpanded, isChild, treePrefix, isParentExpanded, childCount, childNames, parentName, parentId }: SessionRowProps) => {
+const SessionRow = ({ session, isSelected, isExpanded, allSessions }: SessionRowProps) => {
   const rawStatus = (session.status || 'unknown').toLowerCase();
   const vars = session.variables || {};
   const costLimitExceeded = vars._costLimitExceeded === true || vars._costLimitExceeded === 'true';
 
-  // When cost limit exceeded, REPLACE status with "paused"
   const status = costLimitExceeded ? 'paused' : rawStatus;
   const sColor = statusColor(status);
   const sIcon = statusIcon(status);
   const name = session.name || 'Unnamed';
   const shortId = session.id ? session.id.substring(0, 8) : '--------';
-  const fitness = vars.currentFitness !== undefined ? vars.currentFitness : vars.fitness;
-  const hasFitness = fitness !== undefined && fitness !== null;
-  const fitnessStr = hasFitness ? `${Math.round(fitness * 100)}%` : '';
-  const fitnessNum = hasFitness ? fitness * 100 : null;
   const duration = formatDuration(session.startedAt, session.completedAt);
   const rawCost = vars._accumulatedCost;
   const costNum = typeof rawCost === 'number' ? rawCost : (typeof rawCost === 'string' ? parseFloat(rawCost) : 0);
   const costStr = (isNaN(costNum) ? 0 : costNum).toFixed(2);
-
-  // Fixed-width status column
   const statusText = status.padEnd(STATUS_COL_WIDTH);
 
-  // Determine selector and expand icon
+  // Count children from full session list
+  const children = allSessions.filter(s => s.parentSessionId === session.id);
+  const childCount = children.length;
+
+  // Selector and expand icon
   const selector = isSelected ? icons.arrow : ' ';
+  const expandIcon = isExpanded ? icons.expanded : (isSelected ? icons.collapsed : ' ');
 
-  // For parents with children: show collapse/expand triangle
-  // For children: no expand icon (tree prefix handles it)
-  // For regular sessions (no children): normal expand icon
-  let expandIcon: string;
-  if (isChild) {
-    expandIcon = ' ';
-  } else if (childCount !== undefined && childCount > 0) {
-    expandIcon = isParentExpanded ? icons.expanded : icons.collapsed;
-  } else {
-    expandIcon = isExpanded ? icons.expanded : (isSelected ? icons.collapsed : ' ');
-  }
+  // Display name + badge in fixed width (36 chars total)
+  const NAME_COL = 36;
+  const badge = childCount > 0 ? ` [+${childCount}]` : '';
+  const maxNameLen = NAME_COL - badge.length;
+  const truncName = name.length > maxNameLen ? name.substring(0, maxNameLen) : name;
+  const nameWithBadge = (truncName + badge).padEnd(NAME_COL);
 
-  // Display name — truncated at 30 chars
-  const displayName = name.length > 30 ? name.substring(0, 30) : name.padEnd(30);
+  // ── Row: [selector] [expandIcon] [statusIcon] [nameWithBadge] [shortId] [status] [$cost] [duration]
+  const mainRow = h(Box, { flexDirection: 'row', paddingLeft: 1, overflow: 'hidden' },
+    h(Text, { color: isSelected ? theme.panel.borderFocused : undefined }, selector),
+    h(Text, null, ' '),
+    h(Text, { color: 'gray' }, expandIcon),
+    h(Text, null, ' '),
+    T(sColor, sIcon),
+    h(Text, null, ' '),
+    h(Text, null,
+      h(Text, { color: isSelected ? 'cyan' : 'white' }, truncName),
+      badge ? h(Text, { color: 'gray' }, badge) : null,
+      h(Text, null, ''.padEnd(NAME_COL - truncName.length - badge.length)),
+    ),
+    h(Text, null, ' '),
+    muted(shortId),
+    h(Text, null, '  '),
+    T(sColor, statusText),
+    h(Text, null, '  '),
+    muted('$'),
+    h(Text, { color: costNum > 0 ? 'yellow' : 'gray' }, costStr),
+    h(Text, null, '  '),
+    muted(duration),
+  );
 
-  return h(Box, { flexDirection: 'column' },
-    h(Box, { flexDirection: 'row', paddingLeft: isChild ? 0 : 1, overflow: 'hidden' },
-      // Tree prefix for children (replaces selector + expand icon)
-      isChild
-        ? h(Text, null,
-            h(Text, { color: 'gray' }, '      '),
-            h(Text, { color: 'gray' }, treePrefix || ''),
-            h(Text, null, ' '),
-          )
-        : h(Text, null,
-            h(Text, { color: isSelected ? theme.panel.borderFocused : undefined }, selector),
-            h(Text, null, ' '),
-            h(Text, { color: 'gray' }, expandIcon),
-            h(Text, null, ' '),
-          ),
-      T(sColor, sIcon),
-      h(Text, null, ' '),
-      h(Text, { color: isChild ? 'gray' : (isSelected ? 'cyan' : 'white') }, displayName),
-      h(Text, null, ' '),
-      muted(shortId),
+  if (!isExpanded) return mainRow;
+
+  // ── Detail view (expanded) ───────────────────────────────
+
+  // Fitness (only in detail view)
+  const fitness = vars.currentFitness !== undefined ? vars.currentFitness : vars.fitness;
+  const hasFitness = fitness !== undefined && fitness !== null;
+  const fitnessNum = hasFitness ? fitness * 100 : null;
+  const fitnessStr = hasFitness ? `${Math.round(fitness * 100)}%` : '';
+
+  // Build child detail lines
+  const childLines = children.map((child: Record<string, any>) => {
+    const cStatus = (child.status || 'unknown').toLowerCase();
+    const cVars = child.variables || {};
+    const cCostLimitExceeded = cVars._costLimitExceeded === true || cVars._costLimitExceeded === 'true';
+    const cEffectiveStatus = cCostLimitExceeded ? 'paused' : cStatus;
+    const cName = child.name || 'Unnamed';
+    // Short name: show only part after last ' / '
+    const cShortName = cName.includes(' / ')
+      ? cName.split(' / ').pop() || cName
+      : cName;
+    const cShortId = child.id ? child.id.substring(0, 8) : '--------';
+    const cRawCost = cVars._accumulatedCost;
+    const cCostNum = typeof cRawCost === 'number' ? cRawCost : (typeof cRawCost === 'string' ? parseFloat(cRawCost) : 0);
+    const cCostStr = (isNaN(cCostNum) ? 0 : cCostNum).toFixed(2);
+    const cDuration = formatDuration(child.startedAt, child.completedAt);
+
+    return h(Box, { key: child.id, flexDirection: 'row' },
       h(Text, null, '  '),
-      T(sColor, statusText),
+      T(statusColor(cEffectiveStatus), statusIcon(cEffectiveStatus)),
       h(Text, null, ' '),
-      hasFitness ? muted('fit:') : null,
-      hasFitness ? T(sColor, fitnessStr.padStart(4)) : h(Text, null, '        '),
+      h(Text, { color: 'gray' }, truncate(cShortName, 20).padEnd(20)),
+      h(Text, null, '  '),
+      muted(cShortId),
+      h(Text, null, '  '),
+      T(statusColor(cEffectiveStatus), cEffectiveStatus.padEnd(8)),
       h(Text, null, '  '),
       muted('$'),
-      h(Text, { color: costNum > 0 ? 'yellow' : 'gray' }, costStr),
+      h(Text, { color: cCostNum > 0 ? 'yellow' : 'gray' }, cCostStr),
       h(Text, null, '  '),
-      muted(duration),
+      muted(cDuration),
+    );
+  });
+
+  return h(Box, { flexDirection: 'column' },
+    mainRow,
+    h(Box, { flexDirection: 'column', paddingLeft: 6 },
+      // Full ID
+      h(Box, { key: 'detail-id', flexDirection: 'row' },
+        muted('id: '), primary(session.id || '-'),
+      ),
+      // Children header + lines
+      ...(childCount > 0 ? [
+        h(Box, { key: 'ch-label', flexDirection: 'row' }, muted('children:')),
+        ...childLines,
+      ] : []),
+      // Fitness bar (only in detail view)
+      fitnessNum !== null
+        ? h(Box, { key: 'detail-fitness', flexDirection: 'row' },
+            muted('fitness: '),
+            T(progressColor(fitnessNum), progressBar(fitnessNum, 12)),
+            h(Text, null, ' '),
+            T(progressColor(fitnessNum), fitnessStr),
+          )
+        : null,
+      // Phases summary
+      vars._phases && Array.isArray(vars._phases)
+        ? h(Box, { key: 'detail-phases', flexDirection: 'row' },
+            muted('phases: '),
+            ...vars._phases.map((p: any, pi: number) => {
+              const ps = (p.status || 'pending').toLowerCase();
+              return h(Text, { key: `ph-${pi}` },
+                T(statusColor(ps), statusIcon(ps)),
+                h(Text, { color: 'gray' }, pi < vars._phases.length - 1 ? ' ' : ''),
+              );
+            }),
+          )
+        : null,
+      // Active workflow
+      vars._activeWorkflow
+        ? h(Box, { key: 'detail-wf', flexDirection: 'row' },
+            muted('workflow: '),
+            primary(truncate(vars._activeWorkflow, 50)),
+          )
+        : null,
+      // Entry points
+      session.entryPoints && Object.keys(session.entryPoints).length > 0
+        ? h(Box, { key: 'detail-entry', flexDirection: 'row' },
+            muted('entry: '),
+            muted(Object.keys(session.entryPoints).join(', ')),
+          )
+        : null,
     ),
-    isExpanded
-      ? h(Box, { flexDirection: 'column', paddingLeft: 6, marginBottom: 1 },
-          // Full ID
-          h(Box, { flexDirection: 'row', gap: 2 },
-            h(Text, null, muted('id: '), primary(session.id || '-')),
-          ),
-          // Parent/child relationship info
-          childCount !== undefined && childCount > 0
-            ? h(Box, { flexDirection: 'row' },
-                muted('children: '),
-                h(Text, { color: 'white' }, `${childCount} session(s)`),
-                childNames && childNames.length > 0
-                  ? h(Text, { color: 'gray' }, ` (${childNames.join(', ')})`)
-                  : null,
-              )
-            : null,
-          parentId
-            ? h(Box, { flexDirection: 'row' },
-                muted('parent: '),
-                h(Text, { color: 'white' }, parentId.substring(0, 8)),
-                parentName ? h(Text, { color: 'gray' }, ` (${parentName})`) : null,
-              )
-            : null,
-          // Fitness bar
-          fitnessNum !== null
-            ? h(Box, { flexDirection: 'row' },
-                muted('fitness: '),
-                T(progressColor(fitnessNum), progressBar(fitnessNum, 12)),
-                h(Text, null, ' '),
-                T(progressColor(fitnessNum), fitnessStr),
-              )
-            : null,
-          // Phases summary
-          vars._phases && Array.isArray(vars._phases)
-            ? h(Box, { flexDirection: 'row' },
-                muted('phases: '),
-                ...vars._phases.map((p: any, pi: number) => {
-                  const ps = (p.status || 'pending').toLowerCase();
-                  return h(Text, { key: `ph-${pi}` },
-                    T(statusColor(ps), statusIcon(ps)),
-                    h(Text, { color: 'gray' }, pi < vars._phases.length - 1 ? ' ' : ''),
-                  );
-                }),
-              )
-            : null,
-          // Active workflow
-          vars._activeWorkflow
-            ? h(Box, { flexDirection: 'row' },
-                muted('workflow: '),
-                primary(truncate(vars._activeWorkflow, 50)),
-              )
-            : null,
-          // Entry points
-          session.entryPoints && Object.keys(session.entryPoints).length > 0
-            ? h(Box, { flexDirection: 'row' },
-                muted('entry: '),
-                muted(Object.keys(session.entryPoints).join(', ')),
-              )
-            : null,
-        )
-      : null,
   );
 };
 
@@ -355,64 +343,6 @@ const DeleteConfirmation = ({ sessionName, onConfirm, onCancel }: DeleteConfirma
   );
 };
 
-// ── Helper: build tree display list from flat sessions ───────
-
-function buildSessionDisplayList(
-  sessions: Record<string, any>[],
-  collapsedParents: Set<string>,
-): DisplayItem[] {
-  // Build parent->children map
-  const childrenMap = new Map<string, Record<string, any>[]>();
-  const childIds = new Set<string>();
-  const sessionById = new Map<string, Record<string, any>>();
-
-  for (const s of sessions) {
-    sessionById.set(s.id, s);
-    const pid = s.parentSessionId;
-    if (pid) {
-      childIds.add(s.id);
-      if (!childrenMap.has(pid)) childrenMap.set(pid, []);
-      childrenMap.get(pid)!.push(s);
-    }
-  }
-
-  const result: DisplayItem[] = [];
-
-  for (const s of sessions) {
-    // Skip children — they'll be placed under their parent
-    if (childIds.has(s.id)) continue;
-
-    const children = childrenMap.get(s.id) || [];
-    const isCollapsed = collapsedParents.has(s.id);
-
-    result.push({
-      session: s,
-      isChild: false,
-      treePrefix: '',
-      isParentExpanded: children.length > 0 ? !isCollapsed : undefined,
-      childCount: children.length > 0 ? children.length : undefined,
-      childNames: children.length > 0 ? children.map(c => c.name || 'Unnamed') : undefined,
-    });
-
-    // Add children if parent is expanded
-    if (children.length > 0 && !isCollapsed) {
-      for (let ci = 0; ci < children.length; ci++) {
-        const isLast = ci === children.length - 1;
-        const parent = sessionById.get(s.id);
-        result.push({
-          session: children[ci],
-          isChild: true,
-          treePrefix: isLast ? '\u2514\u2500' : '\u251C\u2500',
-          parentId: s.id,
-          parentName: parent?.name || 'Unknown',
-        });
-      }
-    }
-  }
-
-  return result;
-}
-
 // ── SpacesScreen component ───────────────────────────────────
 
 interface SpacesScreenProps {
@@ -434,10 +364,8 @@ const SpacesScreen = ({ apiClient, onNavigate, onSessionSelect, onWorkspaceSelec
   const [selectedIndex, setSelectedIndex] = useState(initialState?.selectedIndex ?? 0);
   const [statusFilter, setStatusFilter] = useState(initialState?.statusFilter ?? 'all');
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
-  const [collapsedParents, setCollapsedParents] = useState<Set<string>>(new Set());
 
   // Terminal rows for scroll calculation
-  // NavBar(3) + TabHeader(3) + PanelBorder(2) + title(1) + spacer(1) + headerLines(2) + StatusBar(3) = 15 fixed
   const termRows = stdout.rows || 40;
   const visibleItems = Math.max(3, termRows - 15);
 
@@ -469,16 +397,15 @@ const SpacesScreen = ({ apiClient, onNavigate, onSessionSelect, onWorkspaceSelec
     ? sessionList
     : sessionList.filter(s => (s.status || '').toLowerCase() === statusFilter);
 
-  // Build tree display list for sessions tab
-  const sessionDisplayList = useMemo(
-    () => buildSessionDisplayList(filteredSessions, collapsedParents),
-    [filteredSessions, collapsedParents]
+  // Flat list: only top-level sessions (no parentSessionId)
+  const topLevelSessions = useMemo(
+    () => filteredSessions.filter(s => !s.parentSessionId),
+    [filteredSessions]
   );
 
   // Current items based on active tab
-  // For sessions, we use the display list length for navigation
   const currentItems =
-    activeTab === 'sessions' ? sessionDisplayList
+    activeTab === 'sessions' ? topLevelSessions
     : activeTab === 'repos' ? projectList
     : workspaceList;
 
@@ -503,22 +430,10 @@ const SpacesScreen = ({ apiClient, onNavigate, onSessionSelect, onWorkspaceSelec
   const scrollStart = Math.max(0,
     Math.min(selectedIndex - Math.floor(visibleItems / 2), currentItems.length - visibleItems)
   );
+
   const visibleSlice = currentItems.slice(scrollStart, scrollStart + visibleItems);
   const canScrollUp = scrollStart > 0;
   const canScrollDown = scrollStart + visibleItems < currentItems.length;
-
-  // Toggle parent collapse/expand
-  const toggleParent = useCallback((parentId: string) => {
-    setCollapsedParents(prev => {
-      const next = new Set(prev);
-      if (next.has(parentId)) {
-        next.delete(parentId);
-      } else {
-        next.add(parentId);
-      }
-      return next;
-    });
-  }, []);
 
   // Keyboard
   useKeyboard({
@@ -533,15 +448,10 @@ const SpacesScreen = ({ apiClient, onNavigate, onSessionSelect, onWorkspaceSelec
     } : {}),
     enter: () => {
       const state = { selectedIndex, activeTab, statusFilter };
-      if (activeTab === 'sessions' && sessionDisplayList.length > 0) {
-        const displayItem = sessionDisplayList[selectedIndex] as DisplayItem | undefined;
-        if (displayItem) {
-          // If this is a parent with children, toggle collapse/expand
-          if (!displayItem.isChild && displayItem.childCount && displayItem.childCount > 0) {
-            toggleParent(displayItem.session.id);
-            return;
-          }
-          onSessionSelect(displayItem.session.id, state);
+      if (activeTab === 'sessions' && topLevelSessions.length > 0) {
+        const session = topLevelSessions[selectedIndex];
+        if (session) {
+          onSessionSelect(session.id, state);
         }
       } else if (activeTab === 'workspaces' && workspaceList.length > 0 && onWorkspaceSelect) {
         const ws = workspaceList[selectedIndex];
@@ -558,9 +468,9 @@ const SpacesScreen = ({ apiClient, onNavigate, onSessionSelect, onWorkspaceSelec
     },
     r: () => setStatusFilter((f: string) => f === 'running' ? 'all' : 'running'),
     d: () => {
-      if (activeTab === 'sessions' && sessionDisplayList.length > 0) {
-        const displayItem = sessionDisplayList[selectedIndex] as DisplayItem | undefined;
-        if (displayItem) setDeleteConfirm({ id: displayItem.session.id, name: displayItem.session.name || 'Unnamed' });
+      if (activeTab === 'sessions' && topLevelSessions.length > 0) {
+        const session = topLevelSessions[selectedIndex];
+        if (session) setDeleteConfirm({ id: session.id, name: session.name || 'Unnamed' });
       }
     },
     ...(showChrome ? {
@@ -591,19 +501,12 @@ const SpacesScreen = ({ apiClient, onNavigate, onSessionSelect, onWorkspaceSelec
     const realIndex = scrollStart + vi;
     const isSelected = realIndex === selectedIndex;
     if (activeTab === 'sessions') {
-      const displayItem = item as DisplayItem;
       return h(SessionRow, {
-        key: displayItem.session.id || `s-${realIndex}`,
-        session: displayItem.session,
+        key: item.id || `s-${realIndex}`,
+        session: item,
         isSelected,
-        isExpanded: isSelected && !displayItem.isChild,
-        isChild: displayItem.isChild,
-        treePrefix: displayItem.treePrefix,
-        isParentExpanded: displayItem.isParentExpanded,
-        childCount: displayItem.childCount,
-        childNames: displayItem.childNames,
-        parentName: displayItem.parentName,
-        parentId: displayItem.parentId,
+        isExpanded: isSelected,
+        allSessions: sessionList,
       });
     } else if (activeTab === 'repos') {
       return h(RepoRow, { key: item.id || `r-${realIndex}`, project: item, isSelected });
@@ -616,8 +519,8 @@ const SpacesScreen = ({ apiClient, onNavigate, onSessionSelect, onWorkspaceSelec
     : activeTab === 'workspaces' ? 'WORKSPACES'
     : 'SESSIONS';
 
-  // Session count for display — use total (not display list which includes children inline)
-  const sessionCount = activeTab === 'sessions' ? filteredSessions.length : currentItems.length;
+  // Session count: show top-level count for sessions tab
+  const sessionCount = activeTab === 'sessions' ? topLevelSessions.length : currentItems.length;
 
   // Header inside content panel (with spacing from panel title)
   const headerLines: any[] = [
@@ -679,4 +582,4 @@ const SpacesScreen = ({ apiClient, onNavigate, onSessionSelect, onWorkspaceSelec
   );
 };
 
-export { SpacesScreen, buildSessionDisplayList };
+export { SpacesScreen };
