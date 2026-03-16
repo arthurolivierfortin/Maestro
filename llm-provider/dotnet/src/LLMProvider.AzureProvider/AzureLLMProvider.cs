@@ -20,7 +20,7 @@ namespace LLMProvider.AzureProvider;
 public sealed class AzureLLMProvider : ILLMProvider
 {
     private readonly AzureProviderOptions _options;
-    private readonly AzureOpenAIClient _client;
+    private readonly AzureOpenAIClient? _client;
     private readonly ILogger<AzureLLMProvider> _logger;
 
     public AzureLLMProvider(
@@ -29,6 +29,12 @@ public sealed class AzureLLMProvider : ILLMProvider
     {
         _options = options.Value;
         _logger = logger;
+
+        if (string.IsNullOrWhiteSpace(_options.Endpoint))
+        {
+            _logger.LogDebug("Azure OpenAI provider not configured — no endpoint");
+            return;
+        }
 
         var endpoint = new Uri(_options.Endpoint);
 
@@ -47,8 +53,9 @@ public sealed class AzureLLMProvider : ILLMProvider
         }
         else
         {
-            throw new InvalidOperationException(
-                "Azure authentication not configured. Either provide an ApiKey or set UseDefaultCredential to true.");
+            _logger.LogDebug(
+                "Azure OpenAI provider not configured — endpoint set but no credentials (ApiKey or UseDefaultCredential)");
+            // _client stays null → IsAvailableAsync returns false
         }
     }
 
@@ -61,6 +68,11 @@ public sealed class AzureLLMProvider : ILLMProvider
     /// <inheritdoc />
     public async Task<bool> IsAvailableAsync(CancellationToken cancellationToken = default)
     {
+        if (_client is null)
+        {
+            return false;
+        }
+
         try
         {
             // Try to get a chat client for the default deployment
@@ -85,6 +97,11 @@ public sealed class AzureLLMProvider : ILLMProvider
     /// <inheritdoc />
     public Task<IReadOnlyList<ModelInfo>> GetAvailableModelsAsync(CancellationToken cancellationToken = default)
     {
+        if (_client is null)
+        {
+            return Task.FromResult<IReadOnlyList<ModelInfo>>(Array.Empty<ModelInfo>());
+        }
+
         var models = _options.Deployments.Select(d => new ModelInfo(
             id: new ModelId(d.ModelId),
             name: d.ModelId,
@@ -108,6 +125,10 @@ public sealed class AzureLLMProvider : ILLMProvider
         IReadOnlyList<Message>? conversationHistory = null,
         CancellationToken cancellationToken = default)
     {
+        if (_client is null)
+        {
+            throw new InvalidOperationException("Azure OpenAI provider not configured.");
+        }
         var deployment = GetDeploymentForModel(request.ModelId);
         var chatClient = _client.GetChatClient(deployment.DeploymentName);
 
@@ -142,6 +163,10 @@ public sealed class AzureLLMProvider : ILLMProvider
         IReadOnlyList<Message>? conversationHistory = null,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
+        if (_client is null)
+        {
+            throw new InvalidOperationException("Azure OpenAI provider not configured.");
+        }
         var deployment = GetDeploymentForModel(request.ModelId);
         var chatClient = _client.GetChatClient(deployment.DeploymentName);
 

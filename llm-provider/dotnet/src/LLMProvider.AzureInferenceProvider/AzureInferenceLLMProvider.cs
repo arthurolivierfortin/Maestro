@@ -21,7 +21,7 @@ public sealed class AzureInferenceLLMProvider : ILLMProvider
 {
     private readonly AzureInferenceProviderOptions _options;
     private readonly ILogger<AzureInferenceLLMProvider> _logger;
-    private readonly Uri _endpoint;
+    private readonly Uri? _endpoint;
     private readonly AzureKeyCredential? _apiKeyCredential;
     private readonly DefaultAzureCredential? _tokenCredential;
 
@@ -31,6 +31,13 @@ public sealed class AzureInferenceLLMProvider : ILLMProvider
     {
         _options = options.Value;
         _logger = logger;
+
+        if (string.IsNullOrWhiteSpace(_options.Endpoint))
+        {
+            _logger.LogDebug("Azure AI Inference provider not configured — no endpoint");
+            return;
+        }
+
         _endpoint = new Uri(_options.Endpoint);
 
         // Priority: Explicit API Key > DefaultAzureCredential
@@ -46,8 +53,9 @@ public sealed class AzureInferenceLLMProvider : ILLMProvider
         }
         else
         {
-            throw new InvalidOperationException(
-                "Azure AI Inference authentication not configured. Either provide an ApiKey or set UseDefaultCredential to true.");
+            _logger.LogDebug(
+                "Azure AI Inference provider not configured — endpoint set but no credentials (ApiKey or UseDefaultCredential)");
+            _endpoint = null; // Reset so IsAvailableAsync returns false
         }
     }
 
@@ -60,6 +68,11 @@ public sealed class AzureInferenceLLMProvider : ILLMProvider
     /// <inheritdoc />
     public async Task<bool> IsAvailableAsync(CancellationToken cancellationToken = default)
     {
+        if (_endpoint == null)
+        {
+            return false;
+        }
+
         try
         {
             var modelConfig = _options.Models.FirstOrDefault();
@@ -83,6 +96,11 @@ public sealed class AzureInferenceLLMProvider : ILLMProvider
     /// <inheritdoc />
     public Task<IReadOnlyList<DomainModelInfo>> GetAvailableModelsAsync(CancellationToken cancellationToken = default)
     {
+        if (_endpoint is null)
+        {
+            return Task.FromResult<IReadOnlyList<DomainModelInfo>>(Array.Empty<DomainModelInfo>());
+        }
+
         var models = _options.Models.Select(m => new DomainModelInfo(
             id: new ModelId(m.ModelId),
             name: m.ModelId,
@@ -236,6 +254,10 @@ public sealed class AzureInferenceLLMProvider : ILLMProvider
 
     private ChatCompletionsClient CreateChatClient(AzureInferenceModelConfig modelConfig)
     {
+        if (_endpoint is null)
+        {
+            throw new InvalidOperationException("Azure AI Inference provider not configured.");
+        }
         // Build the full endpoint URL with the deployment name
         var deploymentEndpoint = new Uri(_endpoint, $"models/{modelConfig.DeploymentName}");
 

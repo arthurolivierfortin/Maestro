@@ -43,6 +43,12 @@ public sealed class AnthropicLLMProvider : ILLMProvider
         _logger = logger;
         _httpClient = httpClientFactory.CreateClient("Anthropic");
 
+        if (string.IsNullOrWhiteSpace(_options.ApiKey))
+        {
+            _logger.LogDebug("Anthropic provider not configured — no API key");
+            return;
+        }
+
         _httpClient.BaseAddress = new Uri(_options.BaseUrl);
         _httpClient.Timeout = TimeSpan.FromSeconds(_options.TimeoutSeconds);
         _httpClient.DefaultRequestHeaders.Add("x-api-key", _options.ApiKey);
@@ -142,6 +148,11 @@ public sealed class AnthropicLLMProvider : ILLMProvider
         IReadOnlyList<DomainMessage>? conversationHistory = null,
         CancellationToken cancellationToken = default)
     {
+        if (string.IsNullOrWhiteSpace(_options.ApiKey))
+        {
+            throw new InvalidOperationException("Anthropic provider not configured — no API key.");
+        }
+
         var modelConfig = GetModelConfig(request.ModelId);
         var body = BuildRequestBody(request, modelConfig, conversationHistory);
         var json = JsonSerializer.Serialize(body, JsonOptions);

@@ -21,6 +21,8 @@ public sealed class LocalLLMProvider : ILLMProvider, IModelSwitchable
     private readonly HttpClient _httpClient;
     private readonly ILogger<LocalLLMProvider> _logger;
 
+    private readonly bool _isConfigured;
+
     public LocalLLMProvider(
         IOptions<LocalProviderOptions> options,
         HttpClient httpClient,
@@ -30,8 +32,24 @@ public sealed class LocalLLMProvider : ILLMProvider, IModelSwitchable
         _httpClient = httpClient;
         _logger = logger;
 
-        _httpClient.BaseAddress = new Uri(_options.BaseUrl);
-        _httpClient.Timeout = TimeSpan.FromSeconds(_options.TimeoutSeconds);
+        if (string.IsNullOrWhiteSpace(_options.BaseUrl))
+        {
+            _logger.LogDebug("Local LLM provider not configured — no base URL");
+            _isConfigured = false;
+            return;
+        }
+
+        try
+        {
+            _httpClient.BaseAddress = new Uri(_options.BaseUrl);
+            _httpClient.Timeout = TimeSpan.FromSeconds(_options.TimeoutSeconds);
+            _isConfigured = true;
+        }
+        catch (UriFormatException ex)
+        {
+            _logger.LogDebug(ex, "Local LLM provider not configured — invalid base URL: {BaseUrl}", _options.BaseUrl);
+            _isConfigured = false;
+        }
     }
 
     /// <inheritdoc />
@@ -44,7 +62,7 @@ public sealed class LocalLLMProvider : ILLMProvider, IModelSwitchable
     public AuthStatus GetAuthStatus()
     {
         return new AuthStatus(
-            IsConfigured: true,
+            IsConfigured: _isConfigured,
             Method: "none",
             MaskedCredential: null
         );
@@ -53,6 +71,11 @@ public sealed class LocalLLMProvider : ILLMProvider, IModelSwitchable
     /// <inheritdoc />
     public async Task<bool> IsAvailableAsync(CancellationToken cancellationToken = default)
     {
+        if (!_isConfigured)
+        {
+            return false;
+        }
+
         try
         {
             var response = await _httpClient.GetAsync("/health", cancellationToken);
@@ -74,6 +97,11 @@ public sealed class LocalLLMProvider : ILLMProvider, IModelSwitchable
     /// <inheritdoc />
     public async Task<IReadOnlyList<ModelInfo>> GetAvailableModelsAsync(CancellationToken cancellationToken = default)
     {
+        if (!_isConfigured)
+        {
+            return [];
+        }
+
         try
         {
             var response = await _httpClient.GetFromJsonAsync<ModelsResponse>(
@@ -112,6 +140,11 @@ public sealed class LocalLLMProvider : ILLMProvider, IModelSwitchable
         IReadOnlyList<Message>? conversationHistory = null,
         CancellationToken cancellationToken = default)
     {
+        if (!_isConfigured)
+        {
+            throw new InvalidOperationException("Local LLM provider not configured.");
+        }
+
         // Build the request with messages if we have history
         var generateRequest = BuildGenerateRequest(request, conversationHistory);
 

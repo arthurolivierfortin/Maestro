@@ -20,7 +20,7 @@
     { "id": "fitness", "type": "number", "description": "Fitness score from contract tests (0.0-1.0)" }
   ],
   "config": {
-    "model": "claude-sonnet-4-6",
+    "model": "gpt-4o",
     "maxIterations": 12,
     "wallClockTimeoutSeconds": 480,
     "systemPromptFile": "system-prompt.md",
@@ -52,7 +52,7 @@
             "id": "llm-call",
             "blockRef": "inference",
             "config": {
-              "model": "claude-sonnet-4-6",
+              "model": "gpt-4o",
               "maxTokens": 4096,
               "temperature": 0
             },

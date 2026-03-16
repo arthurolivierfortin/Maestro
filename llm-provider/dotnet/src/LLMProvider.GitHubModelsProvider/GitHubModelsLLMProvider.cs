@@ -41,6 +41,12 @@ public sealed class GitHubModelsLLMProvider : ILLMProvider
         _logger = logger;
         _httpClient = httpClientFactory.CreateClient("GitHubModels");
 
+        if (string.IsNullOrWhiteSpace(_options.Token))
+        {
+            _logger.LogDebug("GitHub Models provider not configured — no token");
+            return;
+        }
+
         _httpClient.BaseAddress = new Uri(_options.Endpoint.TrimEnd('/'));
         _httpClient.Timeout = TimeSpan.FromSeconds(_options.TimeoutSeconds);
         _httpClient.DefaultRequestHeaders.Authorization =
@@ -114,6 +120,11 @@ public sealed class GitHubModelsLLMProvider : ILLMProvider
         IReadOnlyList<DomainMessage>? conversationHistory = null,
         CancellationToken cancellationToken = default)
     {
+        if (string.IsNullOrWhiteSpace(_options.Token))
+        {
+            throw new InvalidOperationException("GitHub Models provider not configured — no token.");
+        }
+
         var modelConfig = GetModelConfig(request.ModelId);
         var body = BuildRequestBody(request, modelConfig, conversationHistory);
         var json = JsonSerializer.Serialize(body, JsonOptions);

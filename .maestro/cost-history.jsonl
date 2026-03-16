@@ -1,1 +1,5 @@
-{"sessionId":"4c147c39-8597-45ad-9a3d-1279403bd30a","blockId":"request-analyzer","modelId":"claude-sonnet-4-6","providerId":"","promptTokens":3,"completionTokens":402,"costUsd":0.006045,"timestamp":"2026-03-16T16:21:11.2836418Z"}
+{"sessionId":"5124a069-a234-45f3-a838-0e88827da411","blockId":"inference","modelId":"gpt-4o","providerId":"","promptTokens":2298,"completionTokens":23,"costUsd":0.005975,"timestamp":"2026-03-16T18:28:48.6838377Z"}
+{"sessionId":"5124a069-a234-45f3-a838-0e88827da411","blockId":"inference","modelId":"gpt-4o","providerId":"","promptTokens":3243,"completionTokens":818,"costUsd":0.0162875,"timestamp":"2026-03-16T18:29:00.1852293Z"}
+{"sessionId":"5124a069-a234-45f3-a838-0e88827da411","blockId":"inference","modelId":"gpt-4o","providerId":"","promptTokens":4628,"completionTokens":60,"costUsd":0.01217,"timestamp":"2026-03-16T18:29:05.9209449Z"}
+{"sessionId":"5124a069-a234-45f3-a838-0e88827da411","blockId":"test-designer","modelId":"gpt-4o","providerId":"","promptTokens":10169,"completionTokens":901,"costUsd":0.0344325,"timestamp":"2026-03-16T18:29:07.7108996Z"}
+{"sessionId":"5124a069-a234-45f3-a838-0e88827da411","blockId":"agent-creator","modelId":"gpt-4o","providerId":"","promptTokens":20338,"completionTokens":1802,"costUsd":0.0688650,"timestamp":"2026-03-16T18:29:08.3143977Z"}
