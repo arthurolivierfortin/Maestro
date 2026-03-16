@@ -1,0 +1,110 @@
+{
+  "totalRequests": 2,
+  "latency": {
+    "p50": 0,
+    "p95": 0,
+    "p99": 0,
+    "average": 0
+  },
+  "totalTokens": {
+    "promptTokens": 40,
+    "completionTokens": 685,
+    "totalTokens": 725
+  },
+  "modelStats": [
+    {
+      "modelId": {
+        "value": "sonnet"
+      },
+      "requestCount": 1,
+      "latency": {
+        "p50": 22034,
+        "p95": 22034,
+        "p99": 22034,
+        "average": 22034
+      },
+      "totalTokens": {
+        "promptTokens": 3,
+        "completionTokens": 675,
+        "totalTokens": 678
+      },
+      "requestsPerMinute": 0,
+      "errorRate": 0
+    },
+    {
+      "modelId": {
+        "value": "Meta-Llama-3.1-8B-Instruct"
+      },
+      "requestCount": 1,
+      "latency": {
+        "p50": 3429,
+        "p95": 3429,
+        "p99": 3429,
+        "average": 3429
+      },
+      "totalTokens": {
+        "promptTokens": 37,
+        "completionTokens": 10,
+        "totalTokens": 47
+      },
+      "requestsPerMinute": 0,
+      "errorRate": 0
+    }
+  ],
+  "queue": {
+    "currentDepth": 0,
+    "depthByModel": {},
+    "currentModel": null,
+    "avgWaitTimeMs": 0,
+    "totalEnqueued": 0,
+    "totalProcessed": 0
+  },
+  "switching": {
+    "totalSwitches": 0,
+    "switchesAvoided": 0,
+    "avgSwitchDuration": "00:00:00",
+    "recentDecisions": []
+  },
+  "timeWindows": [
+    {
+      "windowName": "1m",
+      "windowSeconds": 60,
+      "requestCount": 0,
+      "requestsPerMinute": 0,
+      "latency": {
+        "p50": 0,
+        "p95": 0,
+        "p99": 0,
+        "average": 0
+      },
+      "tokensTotal": 725
+    },
+    {
+      "windowName": "5m",
+      "windowSeconds": 300,
+      "requestCount": 0,
+      "requestsPerMinute": 0,
+      "latency": {
+        "p50": 0,
+        "p95": 0,
+        "p99": 0,
+        "average": 0
+      },
+      "tokensTotal": 725
+    },
+    {
+      "windowName": "15m",
+      "windowSeconds": 900,
+      "requestCount": 0,
+      "requestsPerMinute": 0,
+      "latency": {
+        "p50": 0,
+        "p95": 0,
+        "p99": 0,
+        "average": 0
+      },
+      "tokensTotal": 725
+    }
+  ],
+  "generatedAt": "2026-03-16T14:44:17.1530794+00:00"
+}

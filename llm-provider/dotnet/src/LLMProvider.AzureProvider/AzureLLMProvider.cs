@@ -198,6 +198,44 @@ public sealed class AzureLLMProvider : ILLMProvider
         };
     }
 
+    /// <inheritdoc />
+    public AuthStatus GetAuthStatus()
+    {
+        if (!string.IsNullOrWhiteSpace(_options.ApiKey))
+        {
+            return new AuthStatus(
+                IsConfigured: true,
+                Method: "api-key",
+                MaskedCredential: MaskCredential(_options.ApiKey)
+            );
+        }
+
+        if (_options.UseDefaultCredential)
+        {
+            return new AuthStatus(
+                IsConfigured: true,
+                Method: "managed-identity",
+                MaskedCredential: null
+            );
+        }
+
+        return new AuthStatus(
+            IsConfigured: false,
+            Method: "none",
+            MaskedCredential: null
+        );
+    }
+
+    private static string? MaskCredential(string? value)
+    {
+        if (string.IsNullOrEmpty(value) || value.Length < 8)
+        {
+            return null;
+        }
+
+        return $"****{value[^4..]}";
+    }
+
     private DeploymentConfig GetDeploymentForModel(ModelId modelId)
     {
         var deployment = _options.Deployments.FirstOrDefault(d =>

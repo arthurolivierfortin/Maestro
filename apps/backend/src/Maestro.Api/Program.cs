@@ -28,6 +28,10 @@ using System.IO;
 using System;
 using Microsoft.Extensions.Options;
 
+// Load .env file BEFORE builder creation so env vars are available to IConfiguration
+var maestroRoot = Environment.GetEnvironmentVariable("MAESTRO_ROOT") ?? Directory.GetCurrentDirectory();
+Maestro.Api.DotEnvLoader.Load(Path.Combine(maestroRoot, ".env"));
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Phase 20: Configure Kestrel binding based on AllowRemote setting
@@ -85,11 +89,20 @@ builder.Services.AddHttpClient<ILLMProviderService, LLMProviderService>((sp, cli
     client.Timeout = TimeSpan.FromSeconds(30);
 });
 
+// Phase 59-PRE-A: Cost Tracking Service (JSONL history + config limits/overrides)
+builder.Services.AddSingleton<Maestro.Infrastructure.Pricing.CostTrackingService>(sp =>
+    new Maestro.Infrastructure.Pricing.CostTrackingService(
+        sp.GetService<ILogger<Maestro.Infrastructure.Pricing.CostTrackingService>>()));
+builder.Services.AddSingleton<ICostTrackingService>(sp =>
+    sp.GetRequiredService<Maestro.Infrastructure.Pricing.CostTrackingService>());
+
 // Phase 56-A: Model Pricing Service (caches prices from LLM-Provider, 5min TTL)
+// Phase 59-PRE-A: Now receives CostTrackingService for pricing overrides
 builder.Services.AddSingleton<IModelPricingService>(sp =>
     new Maestro.Infrastructure.Pricing.ModelPricingService(
         sp.GetRequiredService<ILLMProviderService>(),
-        sp.GetService<ILogger<Maestro.Infrastructure.Pricing.ModelPricingService>>()));
+        sp.GetService<ILogger<Maestro.Infrastructure.Pricing.ModelPricingService>>(),
+        sp.GetRequiredService<Maestro.Infrastructure.Pricing.CostTrackingService>()));
 
 // Phase 34-E-PRE: Conversation Manager (singleton — conversations live in memory across scopes)
 builder.Services.AddSingleton<IConversationManager, InMemoryConversationManager>();
@@ -303,7 +316,8 @@ builder.Services.AddScoped<INodeHandler>(sp =>
         sp.GetRequiredService<Maestro.Infrastructure.BlockExecutors.BlockExecutorRegistry>(),
         sp.GetRequiredService<ISessionStateManager>(),
         sp.GetRequiredService<IProjectSessionRepository>(),
-        sp.GetRequiredService<ILogger<Maestro.Infrastructure.Sessions.NodeHandlers.BlockRefHandler>>()));
+        sp.GetRequiredService<ILogger<Maestro.Infrastructure.Sessions.NodeHandlers.BlockRefHandler>>(),
+        sp.GetService<ICostTrackingService>()));
 
 // Phase 53-C: Register NodeExecutionEngine (control flow engine with handler dispatch)
 builder.Services.AddScoped<Maestro.Infrastructure.Sessions.NodeExecutionEngine>(sp =>

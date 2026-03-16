@@ -21,5 +21,8 @@ public enum ProviderType
     Ollama = 5,
 
     /// <summary>Azure AI Inference (Llama, Mistral, Phi, Cohere, etc.).</summary>
-    AzureInference = 6
+    AzureInference = 6,
+
+    /// <summary>GitHub Models (free tier, OpenAI-compatible API).</summary>
+    GitHubModels = 7
 }

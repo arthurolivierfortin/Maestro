@@ -106,6 +106,9 @@ const SessionRow = ({ session, isSelected, isExpanded }: SessionRowProps) => {
     ? `${Math.round(fitness * 100)}%` : '-';
   const fitnessNum = fitness !== undefined && fitness !== null ? fitness * 100 : null;
   const duration = formatDuration(session.startedAt, session.completedAt);
+  const rawCost = vars._accumulatedCost;
+  const costNum = typeof rawCost === 'number' ? rawCost : (typeof rawCost === 'string' ? parseFloat(rawCost) : 0);
+  const costStr = (isNaN(costNum) ? 0 : costNum).toFixed(2);
 
   return h(Box, { flexDirection: 'column' },
     h(Box, { flexDirection: 'row', paddingLeft: 1, overflow: 'hidden' },
@@ -124,6 +127,9 @@ const SessionRow = ({ session, isSelected, isExpanded }: SessionRowProps) => {
       h(Text, null, ' '),
       muted('fit:'),
       T(sColor, fitnessStr.padStart(4)),
+      h(Text, null, '  '),
+      muted('$'),
+      h(Text, { color: costNum > 0 ? 'yellow' : 'gray' }, costStr),
       h(Text, null, '  '),
       muted(duration),
     ),

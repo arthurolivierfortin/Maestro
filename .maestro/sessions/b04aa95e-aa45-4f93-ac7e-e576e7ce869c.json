@@ -1,0 +1,113 @@
+{
+  "id": "b04aa95e-aa45-4f93-ac7e-e576e7ce869c",
+  "name": "Cost Chain E2E",
+  "status": "stopped",
+  "terminalReason": "stopped",
+  "authority": "human",
+  "workingDirectory": ".",
+  "repositoryPath": "C:\\Meastro",
+  "parentWorkspaceId": null,
+  "parentSessionId": null,
+  "config": {
+    "projectId": null,
+    "workflowId": null,
+    "task": null,
+    "context": null,
+    "access": {
+      "level": "controlled",
+      "allowedPaths": [],
+      "deniedPaths": [
+        ".env",
+        "*.env",
+        "secrets/**"
+      ],
+      "requireApprovalPaths": []
+    },
+    "validation": {
+      "runTests": false,
+      "testCommand": null,
+      "runLinter": false,
+      "linterCommand": null,
+      "requireCleanDiff": false,
+      "maxSteps": 50,
+      "timeoutMs": 600000
+    },
+    "inputs": {}
+  },
+  "createdAt": "2026-03-15T22:08:25.6604477+00:00",
+  "startedAt": "2026-03-15T22:08:32.3017807+00:00",
+  "completedAt": "2026-03-15T22:11:03.0945941+00:00",
+  "updatedAt": "2026-03-15T22:14:01.8463804+00:00",
+  "commandCount": 0,
+  "modifiedFiles": [],
+  "errorMessage": null,
+  "testResult": null,
+  "linterResult": null,
+  "commitInfo": null,
+  "variables": {
+    "_executionLog": [
+      {
+        "time": "22:08:38",
+        "level": "info",
+        "msg": "Starting workflow: cost-test-workflow"
+      },
+      {
+        "time": "22:08:38",
+        "level": "info",
+        "msg": "Executing blockRef \u0027inference\u0027 (type: inference) with 4 inputs"
+      },
+      {
+        "time": "22:14:01",
+        "level": "error",
+        "msg": "blockRef \u0027inference\u0027 error: LLM-Provider returned BadRequest: {\u0022error\u0022:\u0022No provider found that supports model \u0027deepseek-ai/deepseek-coder-1.3b-instruct\u0027.\u0022}"
+      },
+      {
+        "time": "22:14:01",
+        "level": "error",
+        "msg": "infer: LLM-Provider returned BadRequest: {\u0022error\u0022:\u0022No provider found that supports model \u0027deepseek-ai/deepseek-coder-1.3b-instruct\u0027.\u0022}"
+      },
+      {
+        "time": "22:14:01",
+        "level": "warning",
+        "msg": "Stopping sequence: node \u0027infer\u0027 failed"
+      }
+    ],
+    "_artifacts": [],
+    "_blockOutputs": {},
+    "_llmActivity": [],
+    "_phaseMetrics": {},
+    "_executionTree": [
+      {
+        "id": "infer",
+        "name": "Infer",
+        "status": "error",
+        "children": [],
+        "output": "(error: LLM-Provider returned BadRequest: {\u0022error\u0022:\u0022No provider found that supports model \u0027deepseek-ai/deepseek-coder-1.3b-instruct\u0027.\u0022})"
+      },
+      {
+        "id": "output",
+        "name": "Output",
+        "status": "pending",
+        "children": []
+      }
+    ],
+    "_activeWorkflow": "",
+    "prompt": "Hi",
+    "repoPath": "C:\\Meastro",
+    "_activeBlock": null,
+    "_workflowCheckpoint": null,
+    "_workflowCheckpoint_whileState": null,
+    "_workflowCheckpoint_foreachIndex": null
+  },
+  "entryPoints": {
+    "test-infer": "cost-test-workflow"
+  },
+  "monitorWidgets": null,
+  "blockSearchPaths": [
+    "C:\\Meastro\\.maestro\\blocks"
+  ],
+  "defaultModel": null,
+  "modelOverrides": null,
+  "fileAccessRulesConfig": null,
+  "blockPermissionsConfig": null
+}

@@ -6132,7 +6132,7 @@ async function executeWithArgv(argv) {
       'approval', 'approvals', 'auth', 'init', 'aliases', 'system', 'orchestrator', 'metrics',
       'runs', 'config', 'schema', 'search', 'catalog', 'children', 'info', 'chat',
       'setup', 'tools', 'agents', 'workflows', 'prompts', 'sandbox', 'adapt', 'optimize', 'contract',
-      'create-agent',
+      'create-agent', 'costs',
     ]);
 
     if (cmd && !BUILTIN_COMMANDS.has(cmd)) {
@@ -8745,6 +8745,119 @@ ${c.bold('Examples:')}
         handleApiError(error, 'creating agent');
       }
       return;
+    }
+
+    // Cost governance commands (Phase 59-PRE-B)
+    if (cmd === 'costs') {
+      const subCmd = argv._[1];
+
+      if (!subCmd) {
+        console.log('Usage: maestro costs <command>');
+        console.log('  summary                                   Show cost summary (today/week/month/allTime)');
+        console.log('  limits                                    Show current cost limits');
+        console.log('  set-limit [--per-session X] [--per-day X] [--per-week X] [--per-month X]  Set cost limits');
+        console.log('');
+        console.log('Options:');
+        console.log('  --json   Output raw JSON');
+        return;
+      }
+
+      if (subCmd === 'summary') {
+        try {
+          const summary = await client.getCostsSummary();
+          if (argv.json) {
+            console.log(JSON.stringify(summary, null, 2));
+            return;
+          }
+          console.log('\nCost Summary');
+          console.log('─'.repeat(50));
+          const fmt = (p) => `$${(p.totalCost || 0).toFixed(2).padStart(8)}  ${String(p.totalTokens || 0).padStart(10)} tokens  ${String(p.requestCount || 0).padStart(5)} reqs`;
+          console.log(`  Today:      ${fmt(summary.today || {})}`);
+          console.log(`  This week:  ${fmt(summary.thisWeek || {})}`);
+          console.log(`  This month: ${fmt(summary.thisMonth || {})}`);
+          console.log(`  All time:   ${fmt(summary.allTime || {})}`);
+
+          if (summary.byProvider && Object.keys(summary.byProvider).length > 0) {
+            console.log('\n  By Provider:');
+            for (const [name, info] of Object.entries(summary.byProvider)) {
+              console.log(`    ${name.padEnd(20)} $${((info || {}).totalCost || 0).toFixed(2).padStart(8)}  ${String((info || {}).totalTokens || 0).padStart(10)} tokens`);
+            }
+          }
+
+          if (summary.limits) {
+            console.log('\n  Limits:');
+            if (summary.limits.maxPerSession != null) console.log(`    Per session: $${summary.limits.maxPerSession.toFixed(2)}`);
+            if (summary.limits.maxPerDay != null) console.log(`    Per day:     $${summary.limits.maxPerDay.toFixed(2)}`);
+            if (summary.limits.maxPerWeek != null) console.log(`    Per week:    $${summary.limits.maxPerWeek.toFixed(2)}`);
+            if (summary.limits.maxPerMonth != null) console.log(`    Per month:   $${summary.limits.maxPerMonth.toFixed(2)}`);
+          }
+          console.log('');
+        } catch (error) {
+          handleApiError(error, 'fetching cost summary');
+          process.exit(1);
+        }
+        return;
+      }
+
+      if (subCmd === 'limits') {
+        try {
+          const limits = await client.getCostsLimits();
+          if (argv.json) {
+            console.log(JSON.stringify(limits, null, 2));
+            return;
+          }
+          console.log('\nCost Limits');
+          console.log('─'.repeat(40));
+          const show = (label, val) => console.log(`  ${label.padEnd(14)} ${val != null ? '$' + val.toFixed(2) : '(not set)'}`);
+          show('Per session:', limits.maxPerSession);
+          show('Per day:', limits.maxPerDay);
+          show('Per week:', limits.maxPerWeek);
+          show('Per month:', limits.maxPerMonth);
+          console.log('');
+        } catch (error) {
+          handleApiError(error, 'fetching cost limits');
+          process.exit(1);
+        }
+        return;
+      }
+
+      if (subCmd === 'set-limit') {
+        const updates = {};
+        if (argv['per-session'] !== undefined) updates.maxPerSession = parseFloat(argv['per-session']);
+        if (argv['per-day'] !== undefined) updates.maxPerDay = parseFloat(argv['per-day']);
+        if (argv['per-week'] !== undefined) updates.maxPerWeek = parseFloat(argv['per-week']);
+        if (argv['per-month'] !== undefined) updates.maxPerMonth = parseFloat(argv['per-month']);
+
+        if (Object.keys(updates).length === 0) {
+          console.error('At least one limit required. Usage: maestro costs set-limit --per-day 5.00');
+          process.exit(1);
+        }
+
+        try {
+          // Merge with existing limits so we don't lose unspecified fields
+          const existing = await client.getCostsLimits();
+          const newLimits = { ...existing, ...updates };
+          await client.setCostsLimits(newLimits);
+          if (argv.json) {
+            console.log(JSON.stringify(newLimits, null, 2));
+            return;
+          }
+          console.log('\nLimits updated:');
+          for (const [k, v] of Object.entries(updates)) {
+            const label = k.replace('maxPer', 'Per ').replace(/([A-Z])/g, ' $1').toLowerCase().trim();
+            console.log(`  ${label}: $${v.toFixed(2)}`);
+          }
+          console.log('');
+        } catch (error) {
+          handleApiError(error, 'setting cost limits');
+          process.exit(1);
+        }
+        return;
+      }
+
+      console.error(`Unknown costs subcommand: ${subCmd}`);
+      console.error('   Available commands: summary, limits, set-limit');
+      process.exit(1);
     }
 
     // Experiment commands (Phase 7 - Training Strategies)

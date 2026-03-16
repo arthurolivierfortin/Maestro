@@ -1,0 +1,987 @@
+{
+  "id": "fbaeb25b-f70b-47f5-bac7-dfd33c94db37",
+  "name": "Cost Chain E2E Final",
+  "status": "idle",
+  "terminalReason": "none",
+  "authority": "human",
+  "workingDirectory": ".",
+  "repositoryPath": "C:\\Meastro",
+  "parentWorkspaceId": null,
+  "parentSessionId": null,
+  "config": {
+    "projectId": null,
+    "workflowId": null,
+    "task": null,
+    "context": null,
+    "access": {
+      "level": "controlled",
+      "allowedPaths": [],
+      "deniedPaths": [
+        ".env",
+        "*.env",
+        "secrets/**"
+      ],
+      "requireApprovalPaths": []
+    },
+    "validation": {
+      "runTests": false,
+      "testCommand": null,
+      "runLinter": false,
+      "linterCommand": null,
+      "requireCleanDiff": false,
+      "maxSteps": 50,
+      "timeoutMs": 600000
+    },
+    "inputs": {}
+  },
+  "createdAt": "2026-03-15T22:18:30.7043735+00:00",
+  "startedAt": "2026-03-15T22:18:31.1034234+00:00",
+  "completedAt": null,
+  "updatedAt": "2026-03-15T22:24:41.7517097+00:00",
+  "commandCount": 0,
+  "modifiedFiles": [],
+  "errorMessage": null,
+  "testResult": null,
+  "linterResult": null,
+  "commitInfo": null,
+  "variables": {
+    "_executionLog": [
+      {
+        "time": "22:18:31",
+        "level": "info",
+        "msg": "Starting workflow: cost-test-workflow"
+      },
+      {
+        "time": "22:18:31",
+        "level": "info",
+        "msg": "Executing blockRef \u0027local-inference\u0027 (type: inference) with 2 inputs"
+      },
+      {
+        "time": "22:18:37",
+        "level": "info",
+        "msg": "[local-inference] Tokens: 35 (prompt=15, completion=20), cost=$0.000345"
+      },
+      {
+        "time": "22:18:37",
+        "level": "success",
+        "msg": "blockRef \u0027local-inference\u0027 completed (45 chars)"
+      },
+      {
+        "time": "22:18:37",
+        "level": "info",
+        "msg": "set-variable \u0027output\u0027: stored plain text in \u0027result\u0027 (0 chars)"
+      },
+      {
+        "time": "22:19:11",
+        "level": "info",
+        "msg": "Starting workflow: cost-test-workflow"
+      },
+      {
+        "time": "22:19:11",
+        "level": "info",
+        "msg": "Executing blockRef \u0027local-inference\u0027 (type: inference) with 2 inputs"
+      },
+      {
+        "time": "22:19:15",
+        "level": "info",
+        "msg": "[local-inference] Tokens: 40 (prompt=20, completion=20), cost=$0.000360"
+      },
+      {
+        "time": "22:19:15",
+        "level": "success",
+        "msg": "blockRef \u0027local-inference\u0027 completed (48 chars)"
+      },
+      {
+        "time": "22:19:15",
+        "level": "info",
+        "msg": "set-variable \u0027output\u0027: stored plain text in \u0027result\u0027 (0 chars)"
+      },
+      {
+        "time": "22:19:42",
+        "level": "info",
+        "msg": "Starting workflow: cost-test-workflow"
+      },
+      {
+        "time": "22:19:42",
+        "level": "info",
+        "msg": "Executing blockRef \u0027local-inference\u0027 (type: inference) with 2 inputs"
+      },
+      {
+        "time": "22:19:45",
+        "level": "info",
+        "msg": "[local-inference] Tokens: 37 (prompt=17, completion=20), cost=$0.000351"
+      },
+      {
+        "time": "22:19:45",
+        "level": "success",
+        "msg": "blockRef \u0027local-inference\u0027 completed (59 chars)"
+      },
+      {
+        "time": "22:19:46",
+        "level": "info",
+        "msg": "set-variable \u0027output\u0027: stored plain text in \u0027result\u0027 (0 chars)"
+      },
+      {
+        "time": "22:19:53",
+        "level": "info",
+        "msg": "Starting workflow: cost-test-workflow"
+      },
+      {
+        "time": "22:19:53",
+        "level": "info",
+        "msg": "Executing blockRef \u0027local-inference\u0027 (type: inference) with 2 inputs"
+      },
+      {
+        "time": "22:19:57",
+        "level": "info",
+        "msg": "[local-inference] Tokens: 37 (prompt=17, completion=20), cost=$0.000351"
+      },
+      {
+        "time": "22:19:57",
+        "level": "success",
+        "msg": "blockRef \u0027local-inference\u0027 completed (42 chars)"
+      },
+      {
+        "time": "22:19:57",
+        "level": "info",
+        "msg": "set-variable \u0027output\u0027: stored plain text in \u0027result\u0027 (0 chars)"
+      },
+      {
+        "time": "22:20:04",
+        "level": "info",
+        "msg": "Starting workflow: cost-test-workflow"
+      },
+      {
+        "time": "22:20:04",
+        "level": "info",
+        "msg": "Executing blockRef \u0027local-inference\u0027 (type: inference) with 2 inputs"
+      },
+      {
+        "time": "22:20:08",
+        "level": "info",
+        "msg": "[local-inference] Tokens: 37 (prompt=17, completion=20), cost=$0.000351"
+      },
+      {
+        "time": "22:20:08",
+        "level": "success",
+        "msg": "blockRef \u0027local-inference\u0027 completed (34 chars)"
+      },
+      {
+        "time": "22:20:08",
+        "level": "info",
+        "msg": "set-variable \u0027output\u0027: stored plain text in \u0027result\u0027 (0 chars)"
+      },
+      {
+        "time": "22:20:15",
+        "level": "info",
+        "msg": "Starting workflow: cost-test-workflow"
+      },
+      {
+        "time": "22:20:15",
+        "level": "info",
+        "msg": "Executing blockRef \u0027local-inference\u0027 (type: inference) with 2 inputs"
+      },
+      {
+        "time": "22:20:21",
+        "level": "info",
+        "msg": "[local-inference] Tokens: 37 (prompt=17, completion=20), cost=$0.000351"
+      },
+      {
+        "time": "22:20:21",
+        "level": "success",
+        "msg": "blockRef \u0027local-inference\u0027 completed (1 chars)"
+      },
+      {
+        "time": "22:20:21",
+        "level": "info",
+        "msg": "set-variable \u0027output\u0027: stored plain text in \u0027result\u0027 (0 chars)"
+      },
+      {
+        "time": "22:20:26",
+        "level": "info",
+        "msg": "Starting workflow: cost-test-workflow"
+      },
+      {
+        "time": "22:20:26",
+        "level": "info",
+        "msg": "Executing blockRef \u0027local-inference\u0027 (type: inference) with 2 inputs"
+      },
+      {
+        "time": "22:20:30",
+        "level": "info",
+        "msg": "[local-inference] Tokens: 37 (prompt=17, completion=20), cost=$0.000351"
+      },
+      {
+        "time": "22:20:30",
+        "level": "success",
+        "msg": "blockRef \u0027local-inference\u0027 completed (46 chars)"
+      },
+      {
+        "time": "22:20:30",
+        "level": "info",
+        "msg": "set-variable \u0027output\u0027: stored plain text in \u0027result\u0027 (0 chars)"
+      },
+      {
+        "time": "22:20:37",
+        "level": "info",
+        "msg": "Starting workflow: cost-test-workflow"
+      },
+      {
+        "time": "22:20:37",
+        "level": "info",
+        "msg": "Executing blockRef \u0027local-inference\u0027 (type: inference) with 2 inputs"
+      },
+      {
+        "time": "22:20:41",
+        "level": "info",
+        "msg": "[local-inference] Tokens: 37 (prompt=17, completion=20), cost=$0.000351"
+      },
+      {
+        "time": "22:20:41",
+        "level": "success",
+        "msg": "blockRef \u0027local-inference\u0027 completed (34 chars)"
+      },
+      {
+        "time": "22:20:42",
+        "level": "info",
+        "msg": "set-variable \u0027output\u0027: stored plain text in \u0027result\u0027 (0 chars)"
+      },
+      {
+        "time": "22:20:49",
+        "level": "info",
+        "msg": "Starting workflow: cost-test-workflow"
+      },
+      {
+        "time": "22:20:49",
+        "level": "info",
+        "msg": "Executing blockRef \u0027local-inference\u0027 (type: inference) with 2 inputs"
+      },
+      {
+        "time": "22:20:52",
+        "level": "info",
+        "msg": "[local-inference] Tokens: 37 (prompt=17, completion=20), cost=$0.000351"
+      },
+      {
+        "time": "22:20:52",
+        "level": "success",
+        "msg": "blockRef \u0027local-inference\u0027 completed (44 chars)"
+      },
+      {
+        "time": "22:20:53",
+        "level": "info",
+        "msg": "set-variable \u0027output\u0027: stored plain text in \u0027result\u0027 (0 chars)"
+      },
+      {
+        "time": "22:21:00",
+        "level": "info",
+        "msg": "Starting workflow: cost-test-workflow"
+      },
+      {
+        "time": "22:21:00",
+        "level": "info",
+        "msg": "Executing blockRef \u0027local-inference\u0027 (type: inference) with 2 inputs"
+      },
+      {
+        "time": "22:21:04",
+        "level": "info",
+        "msg": "[local-inference] Tokens: 37 (prompt=17, completion=20), cost=$0.000351"
+      },
+      {
+        "time": "22:21:04",
+        "level": "success",
+        "msg": "blockRef \u0027local-inference\u0027 completed (48 chars)"
+      },
+      {
+        "time": "22:21:04",
+        "level": "info",
+        "msg": "set-variable \u0027output\u0027: stored plain text in \u0027result\u0027 (0 chars)"
+      },
+      {
+        "time": "22:21:11",
+        "level": "info",
+        "msg": "Starting workflow: cost-test-workflow"
+      },
+      {
+        "time": "22:21:11",
+        "level": "info",
+        "msg": "Executing blockRef \u0027local-inference\u0027 (type: inference) with 2 inputs"
+      },
+      {
+        "time": "22:21:15",
+        "level": "info",
+        "msg": "[local-inference] Tokens: 37 (prompt=17, completion=20), cost=$0.000351"
+      },
+      {
+        "time": "22:21:15",
+        "level": "success",
+        "msg": "blockRef \u0027local-inference\u0027 completed (40 chars)"
+      },
+      {
+        "time": "22:21:15",
+        "level": "info",
+        "msg": "set-variable \u0027output\u0027: stored plain text in \u0027result\u0027 (0 chars)"
+      },
+      {
+        "time": "22:21:22",
+        "level": "info",
+        "msg": "Starting workflow: cost-test-workflow"
+      },
+      {
+        "time": "22:21:22",
+        "level": "info",
+        "msg": "Executing blockRef \u0027local-inference\u0027 (type: inference) with 2 inputs"
+      },
+      {
+        "time": "22:21:26",
+        "level": "info",
+        "msg": "[local-inference] Tokens: 38 (prompt=18, completion=20), cost=$0.000354"
+      },
+      {
+        "time": "22:21:26",
+        "level": "success",
+        "msg": "blockRef \u0027local-inference\u0027 completed (53 chars)"
+      },
+      {
+        "time": "22:21:26",
+        "level": "info",
+        "msg": "set-variable \u0027output\u0027: stored plain text in \u0027result\u0027 (0 chars)"
+      },
+      {
+        "time": "22:21:41",
+        "level": "info",
+        "msg": "Starting workflow: cost-test-workflow"
+      },
+      {
+        "time": "22:21:41",
+        "level": "info",
+        "msg": "Executing blockRef \u0027local-inference\u0027 (type: inference) with 2 inputs"
+      },
+      {
+        "time": "22:21:45",
+        "level": "info",
+        "msg": "[local-inference] Tokens: 37 (prompt=17, completion=20), cost=$0.000351"
+      },
+      {
+        "time": "22:21:45",
+        "level": "success",
+        "msg": "blockRef \u0027local-inference\u0027 completed (41 chars)"
+      },
+      {
+        "time": "22:21:45",
+        "level": "info",
+        "msg": "set-variable \u0027output\u0027: stored plain text in \u0027result\u0027 (0 chars)"
+      },
+      {
+        "time": "22:21:52",
+        "level": "info",
+        "msg": "Starting workflow: cost-test-workflow"
+      },
+      {
+        "time": "22:21:52",
+        "level": "info",
+        "msg": "Executing blockRef \u0027local-inference\u0027 (type: inference) with 2 inputs"
+      },
+      {
+        "time": "22:21:56",
+        "level": "info",
+        "msg": "[local-inference] Tokens: 37 (prompt=17, completion=20), cost=$0.000351"
+      },
+      {
+        "time": "22:21:56",
+        "level": "success",
+        "msg": "blockRef \u0027local-inference\u0027 completed (54 chars)"
+      },
+      {
+        "time": "22:21:57",
+        "level": "info",
+        "msg": "set-variable \u0027output\u0027: stored plain text in \u0027result\u0027 (0 chars)"
+      },
+      {
+        "time": "22:22:03",
+        "level": "info",
+        "msg": "Starting workflow: cost-test-workflow"
+      },
+      {
+        "time": "22:22:04",
+        "level": "info",
+        "msg": "Executing blockRef \u0027local-inference\u0027 (type: inference) with 2 inputs"
+      },
+      {
+        "time": "22:22:07",
+        "level": "info",
+        "msg": "[local-inference] Tokens: 37 (prompt=17, completion=20), cost=$0.000351"
+      },
+      {
+        "time": "22:22:07",
+        "level": "success",
+        "msg": "blockRef \u0027local-inference\u0027 completed (53 chars)"
+      },
+      {
+        "time": "22:22:08",
+        "level": "info",
+        "msg": "set-variable \u0027output\u0027: stored plain text in \u0027result\u0027 (0 chars)"
+      },
+      {
+        "time": "22:22:14",
+        "level": "info",
+        "msg": "Starting workflow: cost-test-workflow"
+      },
+      {
+        "time": "22:22:14",
+        "level": "info",
+        "msg": "Executing blockRef \u0027local-inference\u0027 (type: inference) with 2 inputs"
+      },
+      {
+        "time": "22:22:18",
+        "level": "info",
+        "msg": "[local-inference] Tokens: 37 (prompt=17, completion=20), cost=$0.000351"
+      },
+      {
+        "time": "22:22:18",
+        "level": "success",
+        "msg": "blockRef \u0027local-inference\u0027 completed (44 chars)"
+      },
+      {
+        "time": "22:22:18",
+        "level": "info",
+        "msg": "set-variable \u0027output\u0027: stored plain text in \u0027result\u0027 (0 chars)"
+      },
+      {
+        "time": "22:22:25",
+        "level": "info",
+        "msg": "Starting workflow: cost-test-workflow"
+      },
+      {
+        "time": "22:22:25",
+        "level": "info",
+        "msg": "Executing blockRef \u0027local-inference\u0027 (type: inference) with 2 inputs"
+      },
+      {
+        "time": "22:22:31",
+        "level": "info",
+        "msg": "[local-inference] Tokens: 37 (prompt=17, completion=20), cost=$0.000351"
+      },
+      {
+        "time": "22:22:31",
+        "level": "success",
+        "msg": "blockRef \u0027local-inference\u0027 completed (41 chars)"
+      },
+      {
+        "time": "22:22:32",
+        "level": "info",
+        "msg": "set-variable \u0027output\u0027: stored plain text in \u0027result\u0027 (0 chars)"
+      },
+      {
+        "time": "22:22:36",
+        "level": "info",
+        "msg": "Starting workflow: cost-test-workflow"
+      },
+      {
+        "time": "22:22:36",
+        "level": "info",
+        "msg": "Executing blockRef \u0027local-inference\u0027 (type: inference) with 2 inputs"
+      },
+      {
+        "time": "22:22:40",
+        "level": "info",
+        "msg": "[local-inference] Tokens: 37 (prompt=17, completion=20), cost=$0.000351"
+      },
+      {
+        "time": "22:22:40",
+        "level": "success",
+        "msg": "blockRef \u0027local-inference\u0027 completed (26 chars)"
+      },
+      {
+        "time": "22:22:41",
+        "level": "info",
+        "msg": "set-variable \u0027output\u0027: stored plain text in \u0027result\u0027 (0 chars)"
+      },
+      {
+        "time": "22:22:47",
+        "level": "info",
+        "msg": "Starting workflow: cost-test-workflow"
+      },
+      {
+        "time": "22:22:47",
+        "level": "info",
+        "msg": "Executing blockRef \u0027local-inference\u0027 (type: inference) with 2 inputs"
+      },
+      {
+        "time": "22:22:51",
+        "level": "info",
+        "msg": "[local-inference] Tokens: 37 (prompt=17, completion=20), cost=$0.000351"
+      },
+      {
+        "time": "22:22:51",
+        "level": "success",
+        "msg": "blockRef \u0027local-inference\u0027 completed (55 chars)"
+      },
+      {
+        "time": "22:22:52",
+        "level": "info",
+        "msg": "set-variable \u0027output\u0027: stored plain text in \u0027result\u0027 (0 chars)"
+      },
+      {
+        "time": "22:22:58",
+        "level": "info",
+        "msg": "Starting workflow: cost-test-workflow"
+      },
+      {
+        "time": "22:22:58",
+        "level": "info",
+        "msg": "Executing blockRef \u0027local-inference\u0027 (type: inference) with 2 inputs"
+      },
+      {
+        "time": "22:23:02",
+        "level": "info",
+        "msg": "[local-inference] Tokens: 37 (prompt=17, completion=20), cost=$0.000351"
+      },
+      {
+        "time": "22:23:02",
+        "level": "success",
+        "msg": "blockRef \u0027local-inference\u0027 completed (26 chars)"
+      },
+      {
+        "time": "22:23:03",
+        "level": "info",
+        "msg": "set-variable \u0027output\u0027: stored plain text in \u0027result\u0027 (0 chars)"
+      },
+      {
+        "time": "22:23:10",
+        "level": "info",
+        "msg": "Starting workflow: cost-test-workflow"
+      },
+      {
+        "time": "22:23:10",
+        "level": "info",
+        "msg": "Executing blockRef \u0027local-inference\u0027 (type: inference) with 2 inputs"
+      },
+      {
+        "time": "22:23:13",
+        "level": "info",
+        "msg": "[local-inference] Tokens: 37 (prompt=17, completion=20), cost=$0.000351"
+      },
+      {
+        "time": "22:23:13",
+        "level": "success",
+        "msg": "blockRef \u0027local-inference\u0027 completed (46 chars)"
+      },
+      {
+        "time": "22:23:14",
+        "level": "info",
+        "msg": "set-variable \u0027output\u0027: stored plain text in \u0027result\u0027 (0 chars)"
+      },
+      {
+        "time": "22:23:20",
+        "level": "info",
+        "msg": "Starting workflow: cost-test-workflow"
+      },
+      {
+        "time": "22:23:20",
+        "level": "info",
+        "msg": "Executing blockRef \u0027local-inference\u0027 (type: inference) with 2 inputs"
+      },
+      {
+        "time": "22:23:24",
+        "level": "info",
+        "msg": "[local-inference] Tokens: 37 (prompt=17, completion=20), cost=$0.000351"
+      },
+      {
+        "time": "22:23:24",
+        "level": "success",
+        "msg": "blockRef \u0027local-inference\u0027 completed (38 chars)"
+      },
+      {
+        "time": "22:23:25",
+        "level": "info",
+        "msg": "set-variable \u0027output\u0027: stored plain text in \u0027result\u0027 (0 chars)"
+      },
+      {
+        "time": "22:23:31",
+        "level": "info",
+        "msg": "Starting workflow: cost-test-workflow"
+      },
+      {
+        "time": "22:23:31",
+        "level": "info",
+        "msg": "Executing blockRef \u0027local-inference\u0027 (type: inference) with 2 inputs"
+      },
+      {
+        "time": "22:23:35",
+        "level": "info",
+        "msg": "[local-inference] Tokens: 37 (prompt=17, completion=20), cost=$0.000351"
+      },
+      {
+        "time": "22:23:35",
+        "level": "success",
+        "msg": "blockRef \u0027local-inference\u0027 completed (42 chars)"
+      },
+      {
+        "time": "22:23:36",
+        "level": "info",
+        "msg": "set-variable \u0027output\u0027: stored plain text in \u0027result\u0027 (0 chars)"
+      },
+      {
+        "time": "22:23:42",
+        "level": "info",
+        "msg": "Starting workflow: cost-test-workflow"
+      },
+      {
+        "time": "22:23:42",
+        "level": "info",
+        "msg": "Executing blockRef \u0027local-inference\u0027 (type: inference) with 2 inputs"
+      },
+      {
+        "time": "22:23:46",
+        "level": "info",
+        "msg": "[local-inference] Tokens: 37 (prompt=17, completion=20), cost=$0.000351"
+      },
+      {
+        "time": "22:23:46",
+        "level": "success",
+        "msg": "blockRef \u0027local-inference\u0027 completed (44 chars)"
+      },
+      {
+        "time": "22:23:47",
+        "level": "info",
+        "msg": "set-variable \u0027output\u0027: stored plain text in \u0027result\u0027 (0 chars)"
+      },
+      {
+        "time": "22:23:53",
+        "level": "info",
+        "msg": "Starting workflow: cost-test-workflow"
+      },
+      {
+        "time": "22:23:53",
+        "level": "info",
+        "msg": "Executing blockRef \u0027local-inference\u0027 (type: inference) with 2 inputs"
+      },
+      {
+        "time": "22:23:57",
+        "level": "info",
+        "msg": "[local-inference] Tokens: 37 (prompt=17, completion=20), cost=$0.000351"
+      },
+      {
+        "time": "22:23:57",
+        "level": "success",
+        "msg": "blockRef \u0027local-inference\u0027 completed (11 chars)"
+      },
+      {
+        "time": "22:23:58",
+        "level": "info",
+        "msg": "set-variable \u0027output\u0027: stored plain text in \u0027result\u0027 (0 chars)"
+      },
+      {
+        "time": "22:24:04",
+        "level": "info",
+        "msg": "Starting workflow: cost-test-workflow"
+      },
+      {
+        "time": "22:24:04",
+        "level": "info",
+        "msg": "Executing blockRef \u0027local-inference\u0027 (type: inference) with 2 inputs"
+      },
+      {
+        "time": "22:24:08",
+        "level": "info",
+        "msg": "[local-inference] Tokens: 37 (prompt=17, completion=20), cost=$0.000351"
+      },
+      {
+        "time": "22:24:08",
+        "level": "success",
+        "msg": "blockRef \u0027local-inference\u0027 completed (34 chars)"
+      },
+      {
+        "time": "22:24:09",
+        "level": "info",
+        "msg": "set-variable \u0027output\u0027: stored plain text in \u0027result\u0027 (0 chars)"
+      },
+      {
+        "time": "22:24:15",
+        "level": "info",
+        "msg": "Starting workflow: cost-test-workflow"
+      },
+      {
+        "time": "22:24:15",
+        "level": "info",
+        "msg": "Executing blockRef \u0027local-inference\u0027 (type: inference) with 2 inputs"
+      },
+      {
+        "time": "22:24:19",
+        "level": "info",
+        "msg": "[local-inference] Tokens: 37 (prompt=17, completion=20), cost=$0.000351"
+      },
+      {
+        "time": "22:24:19",
+        "level": "success",
+        "msg": "blockRef \u0027local-inference\u0027 completed (6 chars)"
+      },
+      {
+        "time": "22:24:19",
+        "level": "info",
+        "msg": "set-variable \u0027output\u0027: stored plain text in \u0027result\u0027 (0 chars)"
+      },
+      {
+        "time": "22:24:26",
+        "level": "info",
+        "msg": "Starting workflow: cost-test-workflow"
+      },
+      {
+        "time": "22:24:26",
+        "level": "info",
+        "msg": "Executing blockRef \u0027local-inference\u0027 (type: inference) with 2 inputs"
+      },
+      {
+        "time": "22:24:32",
+        "level": "info",
+        "msg": "[local-inference] Tokens: 37 (prompt=17, completion=20), cost=$0.000351"
+      },
+      {
+        "time": "22:24:32",
+        "level": "success",
+        "msg": "blockRef \u0027local-inference\u0027 completed (6 chars)"
+      },
+      {
+        "time": "22:24:32",
+        "level": "info",
+        "msg": "set-variable \u0027output\u0027: stored plain text in \u0027result\u0027 (0 chars)"
+      },
+      {
+        "time": "22:24:37",
+        "level": "info",
+        "msg": "Starting workflow: cost-test-workflow"
+      },
+      {
+        "time": "22:24:37",
+        "level": "info",
+        "msg": "Executing blockRef \u0027local-inference\u0027 (type: inference) with 2 inputs"
+      },
+      {
+        "time": "22:24:41",
+        "level": "info",
+        "msg": "[local-inference] Tokens: 37 (prompt=17, completion=20), cost=$0.000351"
+      },
+      {
+        "time": "22:24:41",
+        "level": "success",
+        "msg": "blockRef \u0027local-inference\u0027 completed (32 chars)"
+      },
+      {
+        "time": "22:24:41",
+        "level": "info",
+        "msg": "set-variable \u0027output\u0027: stored plain text in \u0027result\u0027 (0 chars)"
+      }
+    ],
+    "_artifacts": [],
+    "_blockOutputs": {
+      "infer": {
+        "type": "block",
+        "output": "_F\\Meastro_F\\Meastro_F\\Meastro_F",
+        "timestamp": "22:24:41"
+      }
+    },
+    "_llmActivity": [
+      {
+        "type": "inference",
+        "blockRef": "local-inference",
+        "response": "\\Projects\\Meastro\\Meastro.Server\\Meastro.Server.",
+        "timestamp": "2026-03-15T22:21:04.0162137Z",
+        "toolCalls": "",
+        "tokens": 37
+      },
+      {
+        "type": "inference",
+        "blockRef": "local-inference",
+        "response": "\\meastro\\Meastro\\Meastro\\Meastro\\Meastro",
+        "timestamp": "2026-03-15T22:21:15.1147581Z",
+        "toolCalls": "",
+        "tokens": 37
+      },
+      {
+        "type": "inference",
+        "blockRef": "local-inference",
+        "response": "workingDir: C:\\Meastro\\scripts\nworkingDir: C:\\Meastro",
+        "timestamp": "2026-03-15T22:21:26.2858065Z",
+        "toolCalls": "",
+        "tokens": 38
+      },
+      {
+        "type": "inference",
+        "blockRef": "local-inference",
+        "response": "_dev\\C#\\Meastro\\Meastro.Api\\Controllers\\V",
+        "timestamp": "2026-03-15T22:21:45.5015462Z",
+        "toolCalls": "",
+        "tokens": 37
+      },
+      {
+        "type": "inference",
+        "blockRef": "local-inference",
+        "response": "\\WorkingDir\nworkingDirPath: C:\\Meastro\\WorkingDir\nname",
+        "timestamp": "2026-03-15T22:21:56.5015721Z",
+        "toolCalls": "",
+        "tokens": 37
+      },
+      {
+        "type": "inference",
+        "blockRef": "local-inference",
+        "response": "\\Sources\\Ruby\\Meastro\\Tests\\Integration\noutputFormat:",
+        "timestamp": "2026-03-15T22:22:07.6967640Z",
+        "toolCalls": "",
+        "tokens": 37
+      },
+      {
+        "type": "inference",
+        "blockRef": "local-inference",
+        "response": "\\MeastroApp\\\n\nworkingDir: C:\\Meastro\\Meastro",
+        "timestamp": "2026-03-15T22:22:18.4784864Z",
+        "toolCalls": "",
+        "tokens": 37
+      },
+      {
+        "type": "inference",
+        "blockRef": "local-inference",
+        "response": "\\Demo\\\n\n# @author: Marco Bonilla\n# @since",
+        "timestamp": "2026-03-15T22:22:31.6899797Z",
+        "toolCalls": "",
+        "tokens": 37
+      },
+      {
+        "type": "inference",
+        "blockRef": "local-inference",
+        "response": "\\\n\\\n\\\n \\\n \\\n \\\n \\\n \\\n \\\n \\",
+        "timestamp": "2026-03-15T22:22:40.5023801Z",
+        "toolCalls": "",
+        "tokens": 37
+      },
+      {
+        "type": "inference",
+        "blockRef": "local-inference",
+        "response": "\\workingDir\nworkingDir: C:\\Meastro\\workingDir: C:\\Meast",
+        "timestamp": "2026-03-15T22:22:51.8563458Z",
+        "toolCalls": "",
+        "tokens": 37
+      },
+      {
+        "type": "inference",
+        "blockRef": "local-inference",
+        "response": "\\Meastro_Suite_16.0.0.3501",
+        "timestamp": "2026-03-15T22:23:02.5694272Z",
+        "toolCalls": "",
+        "tokens": 37
+      },
+      {
+        "type": "inference",
+        "blockRef": "local-inference",
+        "response": "\\Cargo\\Farm\\Farm\\Build\\19\ntitle: Building Farm",
+        "timestamp": "2026-03-15T22:23:13.7787409Z",
+        "toolCalls": "",
+        "tokens": 37
+      },
+      {
+        "type": "inference",
+        "blockRef": "local-inference",
+        "response": "\\Beta\\MXF_2000\\Beta\nworkingDirRelative",
+        "timestamp": "2026-03-15T22:23:24.5021498Z",
+        "toolCalls": "",
+        "tokens": 37
+      },
+      {
+        "type": "inference",
+        "blockRef": "local-inference",
+        "response": "\\\n\\Meastro\\Meastro\\\nworkspaceDir: C:\\Meast",
+        "timestamp": "2026-03-15T22:23:35.5945303Z",
+        "toolCalls": "",
+        "tokens": 37
+      },
+      {
+        "type": "inference",
+        "blockRef": "local-inference",
+        "response": "\\Meastro\\Build\\Workspace\\Teste_PDV_PDV\nbuild",
+        "timestamp": "2026-03-15T22:23:46.6118799Z",
+        "toolCalls": "",
+        "tokens": 37
+      },
+      {
+        "type": "inference",
+        "blockRef": "local-inference",
+        "response": "\\test_repo\\",
+        "timestamp": "2026-03-15T22:23:57.5722512Z",
+        "toolCalls": "",
+        "tokens": 37
+      },
+      {
+        "type": "inference",
+        "blockRef": "local-inference",
+        "response": "\\test\\\n\r\n---\nname: \u0027Ryan\u0027\nimage: \u0027",
+        "timestamp": "2026-03-15T22:24:08.5709871Z",
+        "toolCalls": "",
+        "tokens": 37
+      },
+      {
+        "type": "inference",
+        "blockRef": "local-inference",
+        "response": "\\Bulk\\",
+        "timestamp": "2026-03-15T22:24:19.4589077Z",
+        "toolCalls": "",
+        "tokens": 37
+      },
+      {
+        "type": "inference",
+        "blockRef": "local-inference",
+        "response": "\\Pics\\",
+        "timestamp": "2026-03-15T22:24:32.1157116Z",
+        "toolCalls": "",
+        "tokens": 37
+      },
+      {
+        "type": "inference",
+        "blockRef": "local-inference",
+        "response": "_F\\Meastro_F\\Meastro_F\\Meastro_F",
+        "timestamp": "2026-03-15T22:24:41.2493097Z",
+        "toolCalls": "",
+        "tokens": 37
+      }
+    ],
+    "_phaseMetrics": {},
+    "_executionTree": [
+      {
+        "id": "infer",
+        "name": "Infer",
+        "status": "done",
+        "children": [],
+        "output": "_F\\Meastro_F\\Meastro_F\\Meastro_F"
+      },
+      {
+        "id": "output",
+        "name": "Output",
+        "status": "pending",
+        "children": []
+      }
+    ],
+    "_activeWorkflow": "",
+    "prompt": "Number 27",
+    "repoPath": "C:\\Meastro",
+    "_activeBlock": null,
+    "_accumulatedCost": "0.010185",
+    "_accumulatedPromptTokens": "495",
+    "_accumulatedCompletionTokens": "580",
+    "_nodeResult_infer": "_F\\Meastro_F\\Meastro_F\\Meastro_F",
+    "_workflowCheckpoint": null,
+    "result": "",
+    "_workflowCheckpoint_whileState": null,
+    "_workflowCheckpoint_foreachIndex": null,
+    "_costLimitExceeded": "true",
+    "_costLimitMessage": "Session limit of $0.01 exceeded (current: $0.01)"
+  },
+  "entryPoints": {
+    "test-infer": "cost-test-workflow"
+  },
+  "monitorWidgets": null,
+  "blockSearchPaths": [
+    "C:\\Meastro\\.maestro\\blocks"
+  ],
+  "defaultModel": null,
+  "modelOverrides": null,
+  "fileAccessRulesConfig": null,
+  "blockPermissionsConfig": null
+}

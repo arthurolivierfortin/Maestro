@@ -18,8 +18,8 @@
   ],
   "config": {
     "model": "claude-sonnet-4-6",
-    "maxIterations": 15,
-    "wallClockTimeoutSeconds": 600,
+    "maxIterations": 10,
+    "wallClockTimeoutSeconds": 360,
     "systemPromptFile": "system-prompt.md",
     "context": {
       "strategy": "sliding-window",

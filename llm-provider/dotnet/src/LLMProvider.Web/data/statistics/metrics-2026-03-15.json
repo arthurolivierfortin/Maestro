@@ -1,5 +1,5 @@
 {
-  "totalRequests": 13,
+  "totalRequests": 40,
   "latency": {
     "p50": 0,
     "p95": 0,
@@ -7,44 +7,500 @@
     "average": 0
   },
   "totalTokens": {
-    "promptTokens": 39,
-    "completionTokens": 41781,
-    "totalTokens": 41820
+    "promptTokens": 616,
+    "completionTokens": 974,
+    "totalTokens": 1590
   },
   "modelStats": [
     {
       "modelId": {
-        "value": "sonnet"
+        "value": "deepseek-ai/deepseek-coder-1.3b-instruct"
       },
-      "requestCount": 13,
+      "requestCount": 40,
       "latency": {
-        "p50": 8670,
-        "p95": 106799.39999999998,
-        "p99": 112749.47999999998,
-        "average": 37894.153846153844
+        "p50": 863.5,
+        "p95": 8067.949999999977,
+        "p99": 23806.499999999993,
+        "average": 2143.8
       },
       "totalTokens": {
-        "promptTokens": 39,
-        "completionTokens": 41781,
-        "totalTokens": 41820
+        "promptTokens": 616,
+        "completionTokens": 974,
+        "totalTokens": 1590
       },
-      "requestsPerMinute": 0.08082168814342801,
+      "requestsPerMinute": 1.5814327230145102,
       "errorRate": 0
     }
   ],
   "queue": {
     "currentDepth": 0,
     "depthByModel": {},
-    "currentModel": null,
-    "avgWaitTimeMs": 0,
+    "currentModel": "deepseek-ai/deepseek-coder-1.3b-instruct",
+    "avgWaitTimeMs": 18258.025,
     "totalEnqueued": 0,
-    "totalProcessed": 0
+    "totalProcessed": 40
   },
   "switching": {
-    "totalSwitches": 0,
-    "switchesAvoided": 0,
-    "avgSwitchDuration": "00:00:00",
-    "recentDecisions": []
+    "totalSwitches": 1,
+    "switchesAvoided": 34,
+    "avgSwitchDuration": "00:00:00.0300000",
+    "recentDecisions": [
+      {
+        "from": {
+          "value": "deepseek-ai/deepseek-coder-1.3b-instruct"
+        },
+        "to": {
+          "value": "deepseek-ai/deepseek-coder-1.3b-instruct"
+        },
+        "decision": 2,
+        "score": 1,
+        "reason": "No current model or 0 pending for current; 1 pending for deepseek-ai/deepseek-coder-1.3b-instruct",
+        "duration": "00:00:00.0306638",
+        "timestamp": "2026-03-15T21:59:15.9565946+00:00"
+      },
+      {
+        "from": {
+          "value": "deepseek-ai/deepseek-coder-1.3b-instruct"
+        },
+        "to": {
+          "value": "deepseek-ai/deepseek-coder-1.3b-instruct"
+        },
+        "decision": 1,
+        "score": -1.7976931348623157E+308,
+        "reason": "",
+        "duration": "00:00:00",
+        "timestamp": "2026-03-15T21:59:45.9654181+00:00"
+      },
+      {
+        "from": {
+          "value": "deepseek-ai/deepseek-coder-1.3b-instruct"
+        },
+        "to": {
+          "value": "deepseek-ai/deepseek-coder-1.3b-instruct"
+        },
+        "decision": 1,
+        "score": -1.7976931348623157E+308,
+        "reason": "",
+        "duration": "00:00:00",
+        "timestamp": "2026-03-15T22:02:25.4018403+00:00"
+      },
+      {
+        "from": {
+          "value": "deepseek-ai/deepseek-coder-1.3b-instruct"
+        },
+        "to": {
+          "value": "deepseek-ai/deepseek-coder-1.3b-instruct"
+        },
+        "decision": 1,
+        "score": -1.7976931348623157E+308,
+        "reason": "",
+        "duration": "00:00:00",
+        "timestamp": "2026-03-15T22:08:04.039257+00:00"
+      },
+      {
+        "from": {
+          "value": "deepseek-ai/deepseek-coder-1.3b-instruct"
+        },
+        "to": {
+          "value": "deepseek-ai/deepseek-coder-1.3b-instruct"
+        },
+        "decision": 1,
+        "score": -1.7976931348623157E+308,
+        "reason": "",
+        "duration": "00:00:00",
+        "timestamp": "2026-03-15T22:08:42.753453+00:00"
+      },
+      {
+        "from": {
+          "value": "deepseek-ai/deepseek-coder-1.3b-instruct"
+        },
+        "to": {
+          "value": "deepseek-ai/deepseek-coder-1.3b-instruct"
+        },
+        "decision": 1,
+        "score": -1.7976931348623157E+308,
+        "reason": "",
+        "duration": "00:00:00",
+        "timestamp": "2026-03-15T22:18:05.7940783+00:00"
+      },
+      {
+        "from": {
+          "value": "deepseek-ai/deepseek-coder-1.3b-instruct"
+        },
+        "to": {
+          "value": "deepseek-ai/deepseek-coder-1.3b-instruct"
+        },
+        "decision": 1,
+        "score": -1.7976931348623157E+308,
+        "reason": "",
+        "duration": "00:00:00",
+        "timestamp": "2026-03-15T22:18:36.4103399+00:00"
+      },
+      {
+        "from": {
+          "value": "deepseek-ai/deepseek-coder-1.3b-instruct"
+        },
+        "to": {
+          "value": "deepseek-ai/deepseek-coder-1.3b-instruct"
+        },
+        "decision": 1,
+        "score": -1.7976931348623157E+308,
+        "reason": "",
+        "duration": "00:00:00",
+        "timestamp": "2026-03-15T22:19:13.8779489+00:00"
+      },
+      {
+        "from": {
+          "value": "deepseek-ai/deepseek-coder-1.3b-instruct"
+        },
+        "to": {
+          "value": "deepseek-ai/deepseek-coder-1.3b-instruct"
+        },
+        "decision": 1,
+        "score": -1.7976931348623157E+308,
+        "reason": "",
+        "duration": "00:00:00",
+        "timestamp": "2026-03-15T22:19:44.9403169+00:00"
+      },
+      {
+        "from": {
+          "value": "deepseek-ai/deepseek-coder-1.3b-instruct"
+        },
+        "to": {
+          "value": "deepseek-ai/deepseek-coder-1.3b-instruct"
+        },
+        "decision": 1,
+        "score": -1.7976931348623157E+308,
+        "reason": "",
+        "duration": "00:00:00",
+        "timestamp": "2026-03-15T22:19:56.1251176+00:00"
+      },
+      {
+        "from": {
+          "value": "deepseek-ai/deepseek-coder-1.3b-instruct"
+        },
+        "to": {
+          "value": "deepseek-ai/deepseek-coder-1.3b-instruct"
+        },
+        "decision": 1,
+        "score": -1.7976931348623157E+308,
+        "reason": "",
+        "duration": "00:00:00",
+        "timestamp": "2026-03-15T22:20:07.2326509+00:00"
+      },
+      {
+        "from": {
+          "value": "deepseek-ai/deepseek-coder-1.3b-instruct"
+        },
+        "to": {
+          "value": "deepseek-ai/deepseek-coder-1.3b-instruct"
+        },
+        "decision": 1,
+        "score": -1.7976931348623157E+308,
+        "reason": "",
+        "duration": "00:00:00",
+        "timestamp": "2026-03-15T22:20:20.390969+00:00"
+      },
+      {
+        "from": {
+          "value": "deepseek-ai/deepseek-coder-1.3b-instruct"
+        },
+        "to": {
+          "value": "deepseek-ai/deepseek-coder-1.3b-instruct"
+        },
+        "decision": 1,
+        "score": -1.7976931348623157E+308,
+        "reason": "",
+        "duration": "00:00:00",
+        "timestamp": "2026-03-15T22:20:29.538809+00:00"
+      },
+      {
+        "from": {
+          "value": "deepseek-ai/deepseek-coder-1.3b-instruct"
+        },
+        "to": {
+          "value": "deepseek-ai/deepseek-coder-1.3b-instruct"
+        },
+        "decision": 1,
+        "score": -1.7976931348623157E+308,
+        "reason": "",
+        "duration": "00:00:00",
+        "timestamp": "2026-03-15T22:20:40.6993915+00:00"
+      },
+      {
+        "from": {
+          "value": "deepseek-ai/deepseek-coder-1.3b-instruct"
+        },
+        "to": {
+          "value": "deepseek-ai/deepseek-coder-1.3b-instruct"
+        },
+        "decision": 1,
+        "score": -1.7976931348623157E+308,
+        "reason": "",
+        "duration": "00:00:00",
+        "timestamp": "2026-03-15T22:20:51.7770769+00:00"
+      },
+      {
+        "from": {
+          "value": "deepseek-ai/deepseek-coder-1.3b-instruct"
+        },
+        "to": {
+          "value": "deepseek-ai/deepseek-coder-1.3b-instruct"
+        },
+        "decision": 1,
+        "score": -1.7976931348623157E+308,
+        "reason": "",
+        "duration": "00:00:00",
+        "timestamp": "2026-03-15T22:21:03.0307178+00:00"
+      },
+      {
+        "from": {
+          "value": "deepseek-ai/deepseek-coder-1.3b-instruct"
+        },
+        "to": {
+          "value": "deepseek-ai/deepseek-coder-1.3b-instruct"
+        },
+        "decision": 1,
+        "score": -1.7976931348623157E+308,
+        "reason": "",
+        "duration": "00:00:00",
+        "timestamp": "2026-03-15T22:21:14.2828568+00:00"
+      },
+      {
+        "from": {
+          "value": "deepseek-ai/deepseek-coder-1.3b-instruct"
+        },
+        "to": {
+          "value": "deepseek-ai/deepseek-coder-1.3b-instruct"
+        },
+        "decision": 1,
+        "score": -1.7976931348623157E+308,
+        "reason": "",
+        "duration": "00:00:00",
+        "timestamp": "2026-03-15T22:21:25.5253982+00:00"
+      },
+      {
+        "from": {
+          "value": "deepseek-ai/deepseek-coder-1.3b-instruct"
+        },
+        "to": {
+          "value": "deepseek-ai/deepseek-coder-1.3b-instruct"
+        },
+        "decision": 1,
+        "score": -1.7976931348623157E+308,
+        "reason": "",
+        "duration": "00:00:00",
+        "timestamp": "2026-03-15T22:21:44.6932933+00:00"
+      },
+      {
+        "from": {
+          "value": "deepseek-ai/deepseek-coder-1.3b-instruct"
+        },
+        "to": {
+          "value": "deepseek-ai/deepseek-coder-1.3b-instruct"
+        },
+        "decision": 1,
+        "score": -1.7976931348623157E+308,
+        "reason": "",
+        "duration": "00:00:00",
+        "timestamp": "2026-03-15T22:21:55.7283466+00:00"
+      },
+      {
+        "from": {
+          "value": "deepseek-ai/deepseek-coder-1.3b-instruct"
+        },
+        "to": {
+          "value": "deepseek-ai/deepseek-coder-1.3b-instruct"
+        },
+        "decision": 1,
+        "score": -1.7976931348623157E+308,
+        "reason": "",
+        "duration": "00:00:00",
+        "timestamp": "2026-03-15T22:22:06.7828487+00:00"
+      },
+      {
+        "from": {
+          "value": "deepseek-ai/deepseek-coder-1.3b-instruct"
+        },
+        "to": {
+          "value": "deepseek-ai/deepseek-coder-1.3b-instruct"
+        },
+        "decision": 1,
+        "score": -1.7976931348623157E+308,
+        "reason": "",
+        "duration": "00:00:00",
+        "timestamp": "2026-03-15T22:22:17.7394425+00:00"
+      },
+      {
+        "from": {
+          "value": "deepseek-ai/deepseek-coder-1.3b-instruct"
+        },
+        "to": {
+          "value": "deepseek-ai/deepseek-coder-1.3b-instruct"
+        },
+        "decision": 1,
+        "score": -1.7976931348623157E+308,
+        "reason": "",
+        "duration": "00:00:00",
+        "timestamp": "2026-03-15T22:22:30.7816499+00:00"
+      },
+      {
+        "from": {
+          "value": "deepseek-ai/deepseek-coder-1.3b-instruct"
+        },
+        "to": {
+          "value": "deepseek-ai/deepseek-coder-1.3b-instruct"
+        },
+        "decision": 1,
+        "score": -1.7976931348623157E+308,
+        "reason": "",
+        "duration": "00:00:00",
+        "timestamp": "2026-03-15T22:22:39.6233373+00:00"
+      },
+      {
+        "from": {
+          "value": "deepseek-ai/deepseek-coder-1.3b-instruct"
+        },
+        "to": {
+          "value": "deepseek-ai/deepseek-coder-1.3b-instruct"
+        },
+        "decision": 1,
+        "score": -1.7976931348623157E+308,
+        "reason": "",
+        "duration": "00:00:00",
+        "timestamp": "2026-03-15T22:22:50.7763236+00:00"
+      },
+      {
+        "from": {
+          "value": "deepseek-ai/deepseek-coder-1.3b-instruct"
+        },
+        "to": {
+          "value": "deepseek-ai/deepseek-coder-1.3b-instruct"
+        },
+        "decision": 1,
+        "score": -1.7976931348623157E+308,
+        "reason": "",
+        "duration": "00:00:00",
+        "timestamp": "2026-03-15T22:23:01.6752153+00:00"
+      },
+      {
+        "from": {
+          "value": "deepseek-ai/deepseek-coder-1.3b-instruct"
+        },
+        "to": {
+          "value": "deepseek-ai/deepseek-coder-1.3b-instruct"
+        },
+        "decision": 1,
+        "score": -1.7976931348623157E+308,
+        "reason": "",
+        "duration": "00:00:00",
+        "timestamp": "2026-03-15T22:23:12.8129351+00:00"
+      },
+      {
+        "from": {
+          "value": "deepseek-ai/deepseek-coder-1.3b-instruct"
+        },
+        "to": {
+          "value": "deepseek-ai/deepseek-coder-1.3b-instruct"
+        },
+        "decision": 1,
+        "score": -1.7976931348623157E+308,
+        "reason": "",
+        "duration": "00:00:00",
+        "timestamp": "2026-03-15T22:23:23.7290795+00:00"
+      },
+      {
+        "from": {
+          "value": "deepseek-ai/deepseek-coder-1.3b-instruct"
+        },
+        "to": {
+          "value": "deepseek-ai/deepseek-coder-1.3b-instruct"
+        },
+        "decision": 1,
+        "score": -1.7976931348623157E+308,
+        "reason": "",
+        "duration": "00:00:00",
+        "timestamp": "2026-03-15T22:23:34.6942282+00:00"
+      },
+      {
+        "from": {
+          "value": "deepseek-ai/deepseek-coder-1.3b-instruct"
+        },
+        "to": {
+          "value": "deepseek-ai/deepseek-coder-1.3b-instruct"
+        },
+        "decision": 1,
+        "score": -1.7976931348623157E+308,
+        "reason": "",
+        "duration": "00:00:00",
+        "timestamp": "2026-03-15T22:23:45.7092565+00:00"
+      },
+      {
+        "from": {
+          "value": "deepseek-ai/deepseek-coder-1.3b-instruct"
+        },
+        "to": {
+          "value": "deepseek-ai/deepseek-coder-1.3b-instruct"
+        },
+        "decision": 1,
+        "score": -1.7976931348623157E+308,
+        "reason": "",
+        "duration": "00:00:00",
+        "timestamp": "2026-03-15T22:23:56.5972822+00:00"
+      },
+      {
+        "from": {
+          "value": "deepseek-ai/deepseek-coder-1.3b-instruct"
+        },
+        "to": {
+          "value": "deepseek-ai/deepseek-coder-1.3b-instruct"
+        },
+        "decision": 1,
+        "score": -1.7976931348623157E+308,
+        "reason": "",
+        "duration": "00:00:00",
+        "timestamp": "2026-03-15T22:24:07.5515016+00:00"
+      },
+      {
+        "from": {
+          "value": "deepseek-ai/deepseek-coder-1.3b-instruct"
+        },
+        "to": {
+          "value": "deepseek-ai/deepseek-coder-1.3b-instruct"
+        },
+        "decision": 1,
+        "score": -1.7976931348623157E+308,
+        "reason": "",
+        "duration": "00:00:00",
+        "timestamp": "2026-03-15T22:24:18.5650622+00:00"
+      },
+      {
+        "from": {
+          "value": "deepseek-ai/deepseek-coder-1.3b-instruct"
+        },
+        "to": {
+          "value": "deepseek-ai/deepseek-coder-1.3b-instruct"
+        },
+        "decision": 1,
+        "score": -1.7976931348623157E+308,
+        "reason": "",
+        "duration": "00:00:00",
+        "timestamp": "2026-03-15T22:24:31.5260888+00:00"
+      },
+      {
+        "from": {
+          "value": "deepseek-ai/deepseek-coder-1.3b-instruct"
+        },
+        "to": {
+          "value": "deepseek-ai/deepseek-coder-1.3b-instruct"
+        },
+        "decision": 1,
+        "score": -1.7976931348623157E+308,
+        "reason": "",
+        "duration": "00:00:00",
+        "timestamp": "2026-03-15T22:24:40.4852406+00:00"
+      }
+    ]
   },
   "timeWindows": [
     {
@@ -58,7 +514,7 @@
         "p99": 0,
         "average": 0
       },
-      "tokensTotal": 41820
+      "tokensTotal": 1590
     },
     {
       "windowName": "5m",
@@ -71,7 +527,7 @@
         "p99": 0,
         "average": 0
       },
-      "tokensTotal": 41820
+      "tokensTotal": 1590
     },
     {
       "windowName": "15m",
@@ -84,8 +540,8 @@
         "p99": 0,
         "average": 0
       },
-      "tokensTotal": 41820
+      "tokensTotal": 1590
     }
   ],
-  "generatedAt": "2026-03-15T04:28:44.3006808+00:00"
+  "generatedAt": "2026-03-15T23:59:51.7130794+00:00"
 }

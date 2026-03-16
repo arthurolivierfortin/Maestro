@@ -20,6 +20,7 @@ public class BlockRefHandler : INodeHandler
     private readonly BlockExecutors.BlockExecutorRegistry _executorRegistry;
     private readonly ISessionStateManager _stateManager;
     private readonly IProjectSessionRepository _repository;
+    private readonly ICostTrackingService? _costTracking;
     private readonly ILogger<BlockRefHandler> _logger;
 
     public string? NodeType => null; // Default handler for blockRef nodes
@@ -29,13 +30,15 @@ public class BlockRefHandler : INodeHandler
         BlockExecutors.BlockExecutorRegistry executorRegistry,
         ISessionStateManager stateManager,
         IProjectSessionRepository repository,
-        ILogger<BlockRefHandler> logger)
+        ILogger<BlockRefHandler> logger,
+        ICostTrackingService? costTracking = null)
     {
         _blockDiscovery = blockDiscovery;
         _executorRegistry = executorRegistry;
         _stateManager = stateManager;
         _repository = repository;
         _logger = logger;
+        _costTracking = costTracking;
     }
 
     public async Task<string?> ExecuteAsync(
@@ -105,6 +108,9 @@ public class BlockRefHandler : INodeHandler
 
             // Accumulate costs in session variables for parent block cost propagation
             AccumulateCosts(session, result);
+
+            // Phase 59-PRE-A: Record cost entry and check limits
+            await RecordAndCheckCosts(session, result, blockRefId, block);
 
             if (result.Logs is { Count: > 0 })
             {
@@ -268,6 +274,60 @@ public class BlockRefHandler : INodeHandler
 
         var currentCompletionTokens = int.TryParse(session.GetVariable("_accumulatedCompletionTokens")?.ToString(), out var cpt) ? cpt : 0;
         session.SetVariable("_accumulatedCompletionTokens", (currentCompletionTokens + result.CompletionTokens).ToString());
+    }
+
+    /// <summary>
+    /// Records cost entry to JSONL history and checks cost limits.
+    /// If a limit is exceeded, sets _costLimitExceeded and _costLimitMessage on the session.
+    /// Does NOT throw — the workflow can read the variable and decide what to do.
+    /// </summary>
+    private async Task RecordAndCheckCosts(ProjectSession session, BlockExecutionResult result, string blockRefId, BlockDefinition block)
+    {
+        if (_costTracking == null || result.EstimatedCostUsd == 0m)
+            return;
+
+        try
+        {
+            // Extract modelId from block config (best-effort)
+            var modelId = block.Config != null && block.Config.TryGetValue("model", out var m) && m != null
+                ? m.ToString() ?? "unknown"
+                : "unknown";
+
+            var entry = new CostEntryDto
+            {
+                SessionId = session.Id,
+                BlockId = blockRefId,
+                ModelId = modelId!,
+                ProviderId = "", // Provider not available at this level
+                PromptTokens = result.PromptTokens,
+                CompletionTokens = result.CompletionTokens,
+                CostUsd = result.EstimatedCostUsd,
+                Timestamp = DateTime.UtcNow
+            };
+
+            await _costTracking.RecordCostAsync(entry);
+
+            // Read current accumulated session cost
+            var sessionCost = decimal.TryParse(
+                session.GetVariable("_accumulatedCost")?.ToString(),
+                System.Globalization.NumberStyles.Any,
+                System.Globalization.CultureInfo.InvariantCulture,
+                out var sc) ? sc : 0m;
+
+            var check = await _costTracking.CheckLimitAsync(session.Id, sessionCost);
+            if (check.Exceeded)
+            {
+                session.SetVariable("_costLimitExceeded", "true");
+                session.SetVariable("_costLimitMessage",
+                    $"{char.ToUpper(check.LimitType[0])}{check.LimitType[1..]} limit of ${check.MaxValue:F2} exceeded (current: ${check.CurrentValue:F2})");
+                _logger.LogWarning("Cost limit exceeded for session {SessionId}: {LimitType} limit ${Max} (current: ${Current})",
+                    session.Id, check.LimitType, check.MaxValue, check.CurrentValue);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to record/check costs for blockRef '{BlockRef}'", blockRefId);
+        }
     }
 
     private void LogBlockLLMActivity(

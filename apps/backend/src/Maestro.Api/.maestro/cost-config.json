@@ -1,0 +1,14 @@
+{
+  "limits": {
+    "maxPerSession": 0.05,
+    "maxPerDay": 5,
+    "maxPerWeek": null,
+    "maxPerMonth": null
+  },
+  "costOverrides": {
+    "deepseek-ai/deepseek-coder-1.3b-instruct": {
+      "inputPricePerMillion": 3.0,
+      "outputPricePerMillion": 15.0
+    }
+  }
+}

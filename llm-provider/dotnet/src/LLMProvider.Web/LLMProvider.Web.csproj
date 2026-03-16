@@ -13,6 +13,8 @@
     <ProjectReference Include="..\LLMProvider.AzureInferenceProvider\LLMProvider.AzureInferenceProvider.csproj" />
     <ProjectReference Include="..\LLMProvider.LocalProvider\LLMProvider.LocalProvider.csproj" />
     <ProjectReference Include="..\LLMProvider.ClaudeCodeProvider\LLMProvider.ClaudeCodeProvider.csproj" />
+    <ProjectReference Include="..\LLMProvider.AnthropicProvider\LLMProvider.AnthropicProvider.csproj" />
+    <ProjectReference Include="..\LLMProvider.GitHubModelsProvider\LLMProvider.GitHubModelsProvider.csproj" />
   </ItemGroup>
 
   <ItemGroup>

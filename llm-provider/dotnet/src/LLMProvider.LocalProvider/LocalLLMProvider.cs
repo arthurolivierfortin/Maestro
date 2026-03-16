@@ -41,6 +41,16 @@ public sealed class LocalLLMProvider : ILLMProvider, IModelSwitchable
     public string Name => "Local LLM (Python)";
 
     /// <inheritdoc />
+    public AuthStatus GetAuthStatus()
+    {
+        return new AuthStatus(
+            IsConfigured: true,
+            Method: "none",
+            MaskedCredential: null
+        );
+    }
+
+    /// <inheritdoc />
     public async Task<bool> IsAvailableAsync(CancellationToken cancellationToken = default)
     {
         try

@@ -42,9 +42,11 @@ interface ProviderSetupScreenProps {
 
 const PROVIDERS: ProviderEntry[] = [
   { key: '1', id: 'claudeCode',     label: 'Claude Code (CLI)',                 desc: 'Uses the Claude CLI on your machine' },
-  { key: '2', id: 'azure',          label: 'Azure OpenAI',                      desc: 'Azure-hosted OpenAI models' },
-  { key: '3', id: 'azureInference', label: 'Azure AI Inference / GitHub Models', desc: 'Azure AI or GitHub Models' },
-  { key: '4', id: 'local',          label: 'Local (Python FastAPI)',             desc: 'Local GPU inference server' },
+  { key: '2', id: 'anthropic',      label: 'Anthropic API (direct)',            desc: 'Direct API calls to Claude models' },
+  { key: '3', id: 'azure',          label: 'Azure OpenAI',                      desc: 'Azure-hosted OpenAI models' },
+  { key: '4', id: 'azureInference', label: 'Azure AI Inference / GitHub Models', desc: 'Azure AI or GitHub Models' },
+  { key: '5', id: 'local',          label: 'Local (Python FastAPI)',             desc: 'Local GPU inference server' },
+  { key: '6', id: 'githubModels',   label: 'GitHub Models (free tier)',          desc: 'Free models via GitHub personal access token' },
 ];
 
 // ── Field definitions per provider ───────────────────────────
@@ -59,6 +61,9 @@ interface FieldDef {
 
 const PROVIDER_FIELDS: Record<string, FieldDef[]> = {
   claudeCode: [], // Auto-detected, no fields needed
+  anthropic: [
+    { key: 'apiKey', label: 'Anthropic API Key', placeholder: 'sk-ant-api03-...', required: true },
+  ],
   azure: [
     { key: 'endpoint', label: 'Endpoint URL', placeholder: 'https://my-resource.openai.azure.com', required: true },
     { key: 'apiKey', label: 'API Key', placeholder: 'your-api-key', required: true },
@@ -71,6 +76,9 @@ const PROVIDER_FIELDS: Record<string, FieldDef[]> = {
   ],
   local: [
     { key: 'url', label: 'Server URL', placeholder: 'http://localhost:8000', defaultValue: 'http://localhost:8000' },
+  ],
+  githubModels: [
+    { key: 'token', label: 'GitHub Personal Access Token', placeholder: 'ghp_...', required: true },
   ],
 };
 

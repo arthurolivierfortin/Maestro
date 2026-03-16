@@ -574,23 +574,23 @@ The `summary` should include:
 
 ### Iteration Budget Planning
 
-With `maxIterations: 25`, plan your work:
+With `maxIterations: 12`, plan your work efficiently:
 
 | Step | Iterations |
 |------|-----------|
 | Read contract | 1 |
-| Read base block (if adapting) | 2 |
-| Write block.json | 1 |
+| Read base block (if adapting) | 1 |
+| Write block.json + system-prompt.md | 1 |
 | Validate JSON | 1 |
-| Write system-prompt.md | 1 |
 | Run contract tests | 1 |
-| **Subtotal (creation)** | **5-7** |
-| Fix + re-test cycle 1 | 3 |
-| Fix + re-test cycle 2 | 3 |
-| Fix + re-test cycle 3 | 3 |
-| **Subtotal (fixing)** | **9** |
+| **Subtotal (creation)** | **4-5** |
+| Fix + re-test cycle 1 | 2 |
+| Fix + re-test cycle 2 | 2 |
+| **Subtotal (fixing)** | **4** |
 | step-complete | 1 |
-| **Buffer** | **~8** |
+| **Buffer** | **~2** |
+
+**Be efficient.** Combine file writes when possible. Call step-complete as soon as you have acceptable results — do not keep iterating for marginal improvements.
 
 You have room for roughly 3 fix-and-retest cycles. Use them wisely:
 - Fix the highest-impact issue first (the one that affects the most tests)

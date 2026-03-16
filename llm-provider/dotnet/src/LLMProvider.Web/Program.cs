@@ -1,4 +1,6 @@
 using Azure.Identity;
+using LLMProvider.AnthropicProvider;
+using LLMProvider.GitHubModelsProvider;
 using LLMProvider.AzureProvider;
 using LLMProvider.AzureInferenceProvider;
 using LLMProvider.ClaudeCodeProvider;
@@ -9,6 +11,10 @@ using LLMProvider.Web.Middleware;
 using LLMProvider.Web.Services;
 using Microsoft.OpenApi.Models;
 using Serilog;
+
+// Load .env file BEFORE builder creation so env vars are available to IConfiguration
+var maestroRoot = Environment.GetEnvironmentVariable("MAESTRO_ROOT") ?? Directory.GetCurrentDirectory();
+LLMProvider.Web.DotEnvLoader.Load(Path.Combine(maestroRoot, ".env"));
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -119,6 +125,8 @@ builder.Services.AddAzureProvider(builder.Configuration);
 builder.Services.AddAzureInferenceProvider(builder.Configuration);
 builder.Services.AddLocalProvider(builder.Configuration);
 builder.Services.AddClaudeCodeProvider(builder.Configuration);
+builder.Services.AddAnthropicProvider(builder.Configuration);
+builder.Services.AddGitHubModelsProvider(builder.Configuration);
 
 // Add named HttpClient for image generation proxy (same Python server)
 builder.Services.AddHttpClient("LocalPython", (sp, client) =>

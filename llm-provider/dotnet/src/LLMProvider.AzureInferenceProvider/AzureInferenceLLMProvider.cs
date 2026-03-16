@@ -196,6 +196,44 @@ public sealed class AzureInferenceLLMProvider : ILLMProvider
         };
     }
 
+    /// <inheritdoc />
+    public AuthStatus GetAuthStatus()
+    {
+        if (_apiKeyCredential is not null)
+        {
+            return new AuthStatus(
+                IsConfigured: true,
+                Method: "api-key",
+                MaskedCredential: MaskCredential(_options.ApiKey)
+            );
+        }
+
+        if (_tokenCredential is not null)
+        {
+            return new AuthStatus(
+                IsConfigured: true,
+                Method: "managed-identity",
+                MaskedCredential: null
+            );
+        }
+
+        return new AuthStatus(
+            IsConfigured: false,
+            Method: "none",
+            MaskedCredential: null
+        );
+    }
+
+    private static string? MaskCredential(string? value)
+    {
+        if (string.IsNullOrEmpty(value) || value.Length < 8)
+        {
+            return null;
+        }
+
+        return $"****{value[^4..]}";
+    }
+
     private ChatCompletionsClient CreateChatClient(AzureInferenceModelConfig modelConfig)
     {
         // Build the full endpoint URL with the deployment name

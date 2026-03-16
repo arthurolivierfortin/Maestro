@@ -47,6 +47,11 @@ export interface IApiClient {
   // Workspaces
   getWorkspace(id: string): Promise<Workspace>;
 
+  // Costs
+  getCostsSummary(): Promise<any>;
+  getCostsLimits(): Promise<any>;
+  setCostsLimits(limits: any): Promise<any>;
+
   // Generic
   get(path: string): Promise<unknown>;
 

@@ -5,9 +5,11 @@ const os = require('os');
 
 export interface ProviderConfigs {
   claudeCode?: { cliPath: string };
+  anthropic?: { apiKey: string };
   azure?: { endpoint: string; apiKey: string; deployment: string };
   azureInference?: { endpoint: string; apiKey: string; model: string };
   local?: { url: string };
+  githubModels?: { token: string };
 }
 
 export interface MaestroConfig {
@@ -118,7 +120,7 @@ export function hasConfiguredProviders(config?: MaestroConfig): boolean {
   const c = config || readConfig();
   const p = c.providers;
   if (!p) return false;
-  return !!(p.claudeCode || p.azure || p.azureInference || p.local);
+  return !!(p.claudeCode || p.anthropic || p.azure || p.azureInference || p.local || p.githubModels);
 }
 
 /**
@@ -140,6 +142,10 @@ export function getProviderEnvVars(config: MaestroConfig): Record<string, string
     env.Providers__ClaudeCode__CliPath = providers.claudeCode.cliPath;
   }
 
+  if (providers.anthropic) {
+    env.Providers__Anthropic__ApiKey = providers.anthropic.apiKey;
+  }
+
   if (providers.azure) {
     env.Providers__Azure__ApiKey = providers.azure.apiKey;
     env.Providers__Azure__Endpoint = providers.azure.endpoint;
@@ -153,6 +159,10 @@ export function getProviderEnvVars(config: MaestroConfig): Record<string, string
 
   if (providers.local) {
     env.Providers__Local__BaseUrl = providers.local.url;
+  }
+
+  if (providers.githubModels) {
+    env.Providers__GitHubModels__Token = providers.githubModels.token;
   }
 
   return env;

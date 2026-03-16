@@ -17,6 +17,7 @@
  *   zoomedPanel       string | null
  *   currentPage       string | null
  *   isDetailView      boolean
+ *   dailyCost         number | null  (cost in USD for today, shown as "$X.XX today")
  */
 
 import { createElement as h } from 'react';
@@ -104,6 +105,7 @@ const StatusBar = ({
   zoomedPanel = null,
   currentPage = null,
   isDetailView: isDetailViewProp = false,
+  dailyCost = null,
 }) => {
   const tick = useAnimationTick(120);
 
@@ -181,6 +183,14 @@ const StatusBar = ({
       dim(icons.dot),
       h(Text, null, '  '),
       muted(timeStr),
+      dailyCost != null && dailyCost >= 0
+        ? h(Box, { flexDirection: 'row' },
+            h(Text, null, '  '),
+            dim(icons.dot),
+            h(Text, null, '  '),
+            h(Text, { color: dailyCost > 0 ? 'yellow' : theme.text.muted }, `$${dailyCost.toFixed(2)} today`),
+          )
+        : null,
     ),
 
     // Center: focus / zoom info

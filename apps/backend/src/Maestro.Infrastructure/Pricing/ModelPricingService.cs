@@ -6,32 +6,44 @@ namespace Maestro.Infrastructure.Pricing;
 
 /// <summary>
 /// Provides model pricing by fetching from LLM-Provider and caching in memory.
-/// Cache TTL: 5 minutes. Fallback: $5/$15 per million (cloud), $0/$0 (local).
+/// Priority: cost overrides (from .maestro/cost-config.json) > LLM-Provider cache > fallback.
+/// Cache TTL: 5 minutes.
 /// </summary>
 public class ModelPricingService : IModelPricingService
 {
     private readonly ILLMProviderService _providerService;
+    private readonly CostTrackingService? _costTrackingService;
     private readonly ILogger<ModelPricingService>? _logger;
 
     private readonly ConcurrentDictionary<string, ModelPricing> _cache = new(StringComparer.OrdinalIgnoreCase);
     private DateTimeOffset _cacheExpiry = DateTimeOffset.MinValue;
     private readonly SemaphoreSlim _refreshLock = new(1, 1);
 
+    // Cached overrides (refreshed with same TTL as pricing cache)
+    private Dictionary<string, CostOverrideEntry> _overrides = new();
+    private DateTimeOffset _overridesExpiry = DateTimeOffset.MinValue;
+
     private static readonly TimeSpan CacheTtl = TimeSpan.FromMinutes(5);
 
     // Known local model name fragments
     private static readonly string[] LocalModelFragments = { "qwen", "llama", "smollm", "local", "mistral", "mixtral", "phi", "gemma", "deepseek" };
 
-    public ModelPricingService(ILLMProviderService providerService, ILogger<ModelPricingService>? logger = null)
+    public ModelPricingService(ILLMProviderService providerService, ILogger<ModelPricingService>? logger = null, CostTrackingService? costTrackingService = null)
     {
         _providerService = providerService ?? throw new ArgumentNullException(nameof(providerService));
         _logger = logger;
+        _costTrackingService = costTrackingService;
     }
 
     public async Task<ModelPricing?> GetPricingAsync(string modelId, CancellationToken ct = default)
     {
         if (string.IsNullOrEmpty(modelId))
             return null;
+
+        // Check overrides first (highest priority)
+        RefreshOverridesIfNeeded();
+        if (_overrides.TryGetValue(modelId, out var ov))
+            return new ModelPricing(ov.InputPricePerMillion, ov.OutputPricePerMillion, null);
 
         await EnsureCacheAsync(ct);
 
@@ -53,6 +65,24 @@ public class ModelPricingService : IModelPricingService
 
         return (promptTokens * pricing.InputPricePerMillion / 1_000_000m)
              + (completionTokens * pricing.OutputPricePerMillion / 1_000_000m);
+    }
+
+    private void RefreshOverridesIfNeeded()
+    {
+        if (DateTimeOffset.UtcNow < _overridesExpiry || _costTrackingService == null)
+            return;
+        try
+        {
+            _overrides = _costTrackingService.GetPricingOverrides();
+            _overridesExpiry = DateTimeOffset.UtcNow + CacheTtl;
+            if (_overrides.Count > 0)
+                _logger?.LogDebug("Loaded {Count} pricing overrides from cost-config.json", _overrides.Count);
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogWarning(ex, "Failed to load pricing overrides");
+            _overridesExpiry = DateTimeOffset.UtcNow + TimeSpan.FromMinutes(1);
+        }
     }
 
     private async Task EnsureCacheAsync(CancellationToken ct)

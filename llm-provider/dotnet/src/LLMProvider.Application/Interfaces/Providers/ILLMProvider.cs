@@ -64,4 +64,10 @@ public interface ILLMProvider
         LLMRequest request,
         IReadOnlyList<Message>? conversationHistory = null,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Returns the current authentication status of this provider.
+    /// This is a sync method — auth status is known at construction time.
+    /// </summary>
+    AuthStatus GetAuthStatus();
 }

@@ -198,6 +198,12 @@ class MaestroApiClient {
   async listContracts() { return this._client.contracts.list(); }
   async getContract(id: string) { return this._client.contracts.get(id); }
   async testContract(contractId: string, blockId: string) { return this._client.contracts.test(contractId, blockId); }
+
+  // ── Costs ──
+  async getCostsSummary() { return this._client.costs.summary(); }
+  async getCostsLimits() { return this._client.costs.limits(); }
+  async setCostsLimits(limits: any) { return this._client.costs.setLimits(limits); }
+  async getSessionCosts(id: string) { return this._client.costs.sessionCosts(id); }
 }
 
 export { MaestroApiClient, ApiError };

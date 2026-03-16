@@ -73,6 +73,55 @@ export function parseCreateAgent(input: string): { description: string; contract
   return { description, contract, model };
 }
 
+// ── Costs command parser ───────────────────────────────────────
+
+export function parseCostsCommand(input: string): { action: string; limits?: Record<string, number> } | null {
+  const trimmed = input.trim();
+  if (!trimmed.startsWith('/costs')) return null;
+  const rest = trimmed.slice('/costs'.length).trim();
+
+  // /costs or /costs summary
+  if (!rest || rest === 'summary') return { action: 'summary' };
+
+  // /costs limits
+  if (rest === 'limits') return { action: 'limits' };
+
+  // /costs clear
+  if (rest === 'clear') return { action: 'clear' };
+
+  // /costs set --per-day 5.00 --per-session 1 ...
+  if (rest.startsWith('set')) {
+    const setArgs = rest.slice('set'.length).trim();
+    if (!setArgs) return null; // /costs set with no flags → error
+
+    const tokens = setArgs.split(/\s+/);
+    const limits: Record<string, number> = {};
+    let i = 0;
+    while (i < tokens.length) {
+      if (tokens[i] === '--per-day' && i + 1 < tokens.length) {
+        limits.perDay = parseFloat(tokens[i + 1]);
+        i += 2;
+      } else if (tokens[i] === '--per-session' && i + 1 < tokens.length) {
+        limits.perSession = parseFloat(tokens[i + 1]);
+        i += 2;
+      } else if (tokens[i] === '--per-week' && i + 1 < tokens.length) {
+        limits.perWeek = parseFloat(tokens[i + 1]);
+        i += 2;
+      } else if (tokens[i] === '--per-month' && i + 1 < tokens.length) {
+        limits.perMonth = parseFloat(tokens[i + 1]);
+        i += 2;
+      } else {
+        return null; // unknown flag
+      }
+    }
+    if (Object.keys(limits).length === 0) return null;
+    return { action: 'set', limits };
+  }
+
+  // Unknown subcommand
+  return null;
+}
+
 // ── FullscreenBox ──────────────────────────────────────────────
 
 const FullscreenBox = ({ children }: { children: any }) => {
@@ -326,6 +375,25 @@ const App = ({ apiClient: clientProp, sessionManager: smProp, demoMode, repoPath
     return () => clearInterval(timer);
   }, [demoMode, apiClient]);
 
+  // ── Daily cost polling (every 60s) ──
+  const [dailyCost, setDailyCost] = useState<number | null>(null);
+  useEffect(() => {
+    if (!apiClient) return;
+    const fetchCost = async () => {
+      try {
+        const summary = await (apiClient as any).getCostsSummary();
+        if (summary && typeof summary.today?.totalCost === 'number') {
+          setDailyCost(summary.today.totalCost);
+        }
+      } catch {
+        // Silently ignore — don't show errors in status bar
+      }
+    };
+    fetchCost();
+    const timer = setInterval(fetchCost, 60000);
+    return () => clearInterval(timer);
+  }, [apiClient]);
+
   // ── Monitor-style navigation (from monitor App.ts) ──
   const [navStack, setNavStack] = useState<(NavStackEntry | PageNavEntry)[]>([]);
   const [detailView, setDetailView] = useState<DetailView | null>(null);
@@ -546,6 +614,7 @@ const App = ({ apiClient: clientProp, sessionManager: smProp, demoMode, repoPath
       addLine({ text: '  /clear   — Clear conversation and start fresh', color: 'white' });
       addLine({ text: '  /stop    — Cancel the current task', color: 'white' });
       addLine({ text: '  /purge   — Delete all idle/completed sessions', color: 'white' });
+      addLine({ text: '  /costs        — View/set cost limits', color: 'white' });
       addLine({ text: '  /agent        — Show or switch active agent (/agent compact)', color: 'white' });
       addLine({ text: '  /create-agent — Create an agent via block-forge workflow', color: 'white' });
       addLine({ text: '  /quit         — Quit Maestro Code', color: 'white' });
@@ -647,6 +716,121 @@ const App = ({ apiClient: clientProp, sessionManager: smProp, demoMode, repoPath
     if (cmd) { cmd(); return; }
 
     // Parametric slash commands
+
+    // /costs — view and configure cost limits
+    if (trimmed === '/costs' || trimmed.startsWith('/costs ')) {
+      const parsed = parseCostsCommand(trimmed);
+      if (!parsed) {
+        addLine({ text: '' });
+        addLine({ text: 'Usage: /costs [summary|limits|set|clear]', color: 'yellow', timestamp: ts() });
+        addLine({ text: '  /costs                    Show cost summary + limits', color: 'gray' });
+        addLine({ text: '  /costs set --per-day 5    Set daily limit to $5', color: 'gray' });
+        addLine({ text: '  /costs clear              Remove all limits', color: 'gray' });
+        addLine({ text: '' });
+        return;
+      }
+
+      if (parsed.action === 'summary') {
+        addLine({ text: '' });
+        addLine({ text: 'Fetching cost summary...', color: 'cyan', timestamp: ts() });
+        setTimeout(async () => {
+          try {
+            const summary = await apiClient.getCostsSummary();
+            const limits = await apiClient.getCostsLimits();
+            addLine({ text: '' });
+            addLine({ text: 'Cost Summary', color: 'cyan', bold: true, timestamp: ts() });
+            const today = summary?.today || {};
+            const week = summary?.thisWeek || {};
+            const month = summary?.thisMonth || {};
+            addLine({ text: `  Today:      $${(today.totalCost ?? 0).toFixed(2)}  (${today.requestCount ?? 0} requests)`, color: 'white' });
+            addLine({ text: `  This week:  $${(week.totalCost ?? 0).toFixed(2)}  (${week.requestCount ?? 0} requests)`, color: 'white' });
+            addLine({ text: `  This month: $${(month.totalCost ?? 0).toFixed(2)}  (${month.requestCount ?? 0} requests)`, color: 'white' });
+            addLine({ text: '' });
+            addLine({ text: 'Limits', color: 'cyan', bold: true });
+            const fmtLimit = (val: number | null | undefined) => val != null ? `$${Number(val).toFixed(2)}` : 'not set';
+            const remaining = (val: number | null | undefined, spent: number) => val != null ? `  (remaining: $${Math.max(0, Number(val) - spent).toFixed(2)})` : '';
+            addLine({ text: `  Per session: ${fmtLimit(limits?.maxPerSession)}`, color: 'white' });
+            addLine({ text: `  Per day:     ${fmtLimit(limits?.maxPerDay)}${remaining(limits?.maxPerDay, today.totalCost ?? 0)}`, color: 'white' });
+            addLine({ text: `  Per week:    ${fmtLimit(limits?.maxPerWeek)}${remaining(limits?.maxPerWeek, week.totalCost ?? 0)}`, color: 'white' });
+            addLine({ text: `  Per month:   ${fmtLimit(limits?.maxPerMonth)}${remaining(limits?.maxPerMonth, month.totalCost ?? 0)}`, color: 'white' });
+            addLine({ text: '' });
+          } catch (err: any) {
+            addLine({ text: `Error: ${err?.message || 'Backend not connected'}`, color: 'red', timestamp: ts() });
+            addLine({ text: '' });
+          }
+        }, 0);
+        return;
+      }
+
+      if (parsed.action === 'limits') {
+        addLine({ text: '' });
+        addLine({ text: 'Fetching cost limits...', color: 'cyan', timestamp: ts() });
+        setTimeout(async () => {
+          try {
+            const limits = await apiClient.getCostsLimits();
+            addLine({ text: '' });
+            addLine({ text: 'Cost Limits', color: 'cyan', bold: true, timestamp: ts() });
+            const fmtLimit = (val: number | null | undefined) => val != null ? `$${Number(val).toFixed(2)}` : 'not set';
+            addLine({ text: `  Per session: ${fmtLimit(limits?.maxPerSession)}`, color: 'white' });
+            addLine({ text: `  Per day:     ${fmtLimit(limits?.maxPerDay)}`, color: 'white' });
+            addLine({ text: `  Per week:    ${fmtLimit(limits?.maxPerWeek)}`, color: 'white' });
+            addLine({ text: `  Per month:   ${fmtLimit(limits?.maxPerMonth)}`, color: 'white' });
+            addLine({ text: '' });
+          } catch (err: any) {
+            addLine({ text: `Error: ${err?.message || 'Backend not connected'}`, color: 'red', timestamp: ts() });
+            addLine({ text: '' });
+          }
+        }, 0);
+        return;
+      }
+
+      if (parsed.action === 'set' && parsed.limits) {
+        addLine({ text: '' });
+        addLine({ text: 'Updating cost limits...', color: 'cyan', timestamp: ts() });
+        setTimeout(async () => {
+          try {
+            const existing = await apiClient.getCostsLimits();
+            const merged = { ...existing };
+            if (parsed.limits!.perSession !== undefined) merged.maxPerSession = parsed.limits!.perSession;
+            if (parsed.limits!.perDay !== undefined) merged.maxPerDay = parsed.limits!.perDay;
+            if (parsed.limits!.perWeek !== undefined) merged.maxPerWeek = parsed.limits!.perWeek;
+            if (parsed.limits!.perMonth !== undefined) merged.maxPerMonth = parsed.limits!.perMonth;
+            await apiClient.setCostsLimits(merged);
+            addLine({ text: '' });
+            const parts: string[] = [];
+            if (parsed.limits!.perSession !== undefined) parts.push(`per-session = $${parsed.limits!.perSession.toFixed(2)}`);
+            if (parsed.limits!.perDay !== undefined) parts.push(`per-day = $${parsed.limits!.perDay.toFixed(2)}`);
+            if (parsed.limits!.perWeek !== undefined) parts.push(`per-week = $${parsed.limits!.perWeek.toFixed(2)}`);
+            if (parsed.limits!.perMonth !== undefined) parts.push(`per-month = $${parsed.limits!.perMonth.toFixed(2)}`);
+            addLine({ text: `Cost limits updated: ${parts.join(', ')}`, color: 'green', bold: true, timestamp: ts() });
+            addLine({ text: '' });
+          } catch (err: any) {
+            addLine({ text: `Error: ${err?.message || 'Backend not connected'}`, color: 'red', timestamp: ts() });
+            addLine({ text: '' });
+          }
+        }, 0);
+        return;
+      }
+
+      if (parsed.action === 'clear') {
+        addLine({ text: '' });
+        addLine({ text: 'Clearing cost limits...', color: 'cyan', timestamp: ts() });
+        setTimeout(async () => {
+          try {
+            await apiClient.setCostsLimits({ maxPerSession: null, maxPerDay: null, maxPerWeek: null, maxPerMonth: null });
+            addLine({ text: '' });
+            addLine({ text: 'All cost limits cleared.', color: 'green', bold: true, timestamp: ts() });
+            addLine({ text: '' });
+          } catch (err: any) {
+            addLine({ text: `Error: ${err?.message || 'Backend not connected'}`, color: 'red', timestamp: ts() });
+            addLine({ text: '' });
+          }
+        }, 0);
+        return;
+      }
+
+      return;
+    }
 
     // /create-agent — must be checked BEFORE /agent
     if (trimmed.startsWith('/create-agent')) {
@@ -1098,7 +1282,7 @@ const App = ({ apiClient: clientProp, sessionManager: smProp, demoMode, repoPath
           captureInput: inputFocused,
         })
       : null,
-    h(StatusBar, { currentPage, connectionStatus, latency: connLatency, lastRefresh }),
+    h(StatusBar, { currentPage, connectionStatus, latency: connLatency, lastRefresh, dailyCost }),
   );
 };
 

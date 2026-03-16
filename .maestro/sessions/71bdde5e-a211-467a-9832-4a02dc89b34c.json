@@ -1,0 +1,148 @@
+{
+  "id": "71bdde5e-a211-467a-9832-4a02dc89b34c",
+  "name": "Cost Limit Test",
+  "status": "stopped",
+  "terminalReason": "stopped",
+  "authority": "human",
+  "workingDirectory": ".",
+  "repositoryPath": "C:\\Meastro",
+  "parentWorkspaceId": null,
+  "parentSessionId": null,
+  "config": {
+    "projectId": null,
+    "workflowId": null,
+    "task": null,
+    "context": null,
+    "access": {
+      "level": "controlled",
+      "allowedPaths": [],
+      "deniedPaths": [
+        ".env",
+        "*.env",
+        "secrets/**"
+      ],
+      "requireApprovalPaths": []
+    },
+    "validation": {
+      "runTests": false,
+      "testCommand": null,
+      "runLinter": false,
+      "linterCommand": null,
+      "requireCleanDiff": false,
+      "maxSteps": 50,
+      "timeoutMs": 600000
+    },
+    "inputs": {}
+  },
+  "createdAt": "2026-03-15T21:57:16.5633836+00:00",
+  "startedAt": "2026-03-15T21:57:21.1057303+00:00",
+  "completedAt": "2026-03-15T22:05:41.0452045+00:00",
+  "updatedAt": "2026-03-15T22:07:47.4492534+00:00",
+  "commandCount": 0,
+  "modifiedFiles": [],
+  "errorMessage": null,
+  "testResult": null,
+  "linterResult": null,
+  "commitInfo": null,
+  "variables": {
+    "_executionLog": [
+      {
+        "time": "22:01:27",
+        "level": "info",
+        "msg": "Starting workflow: cost-test-workflow"
+      },
+      {
+        "time": "22:01:27",
+        "level": "error",
+        "msg": "infer: The requested operation requires an element of type \u0027String\u0027, but the target element has type \u0027Number\u0027."
+      },
+      {
+        "time": "22:01:27",
+        "level": "warning",
+        "msg": "Stopping sequence: node \u0027infer\u0027 failed"
+      },
+      {
+        "time": "22:02:20",
+        "level": "info",
+        "msg": "Starting workflow: cost-test-workflow"
+      },
+      {
+        "time": "22:02:20",
+        "level": "info",
+        "msg": "Executing blockRef \u0027inference\u0027 (type: inference) with 4 inputs"
+      },
+      {
+        "time": "22:07:46",
+        "level": "info",
+        "msg": "[inference] Tokens: 112 (prompt=56, completion=56), cost=$0.001008"
+      },
+      {
+        "time": "22:07:46",
+        "level": "success",
+        "msg": "blockRef \u0027inference\u0027 completed (106 chars)"
+      },
+      {
+        "time": "22:07:47",
+        "level": "info",
+        "msg": "set-variable \u0027output\u0027: stored plain text in \u0027result\u0027 (0 chars)"
+      }
+    ],
+    "_artifacts": [],
+    "_blockOutputs": {
+      "infer": {
+        "type": "block",
+        "output": "\\Deepseek\\Deepseek-coder-1.3b-instruct\\\nstderr: True\ntimeout: 300\n\u0060\u0060\u0060\n\n\u0060\u0060\u0060python\nprint(2\u002B2)\n\u0060\u0060\u0060\n\n\u0060\u0060\u0060\n5\n\u0060\u0060\u0060",
+        "timestamp": "22:07:46"
+      }
+    },
+    "_llmActivity": [
+      {
+        "type": "inference",
+        "blockRef": "inference",
+        "response": "\\Deepseek\\Deepseek-coder-1.3b-instruct\\\nstderr: True\ntimeout: 300\n\u0060\u0060\u0060\n\n\u0060\u0060\u0060python\nprint(2\u002B2)\n\u0060\u0060\u0060\n\n\u0060\u0060\u0060\n5\n\u0060\u0060\u0060",
+        "timestamp": "2026-03-15T22:07:46.9296947Z",
+        "toolCalls": "",
+        "tokens": 112
+      }
+    ],
+    "_phaseMetrics": {},
+    "_executionTree": [
+      {
+        "id": "infer",
+        "name": "Infer",
+        "status": "done",
+        "children": [],
+        "output": "\\Deepseek\\Deepseek-coder-1.3b-instruct\\\nstderr: True\ntimeout: 300\n\u0060\u0060\u0060\n\n\u0060\u0060\u0060python\nprint(2\u002B2)\n\u0060\u0060\u0060\n\n\u0060\u0060\u0060\n5\n\u0060\u0060\u0060"
+      },
+      {
+        "id": "output",
+        "name": "Output",
+        "status": "pending",
+        "children": []
+      }
+    ],
+    "_activeWorkflow": "",
+    "prompt": "What is 2\u002B2? Answer with just the number.",
+    "repoPath": "C:\\Meastro",
+    "_activeBlock": null,
+    "_workflowCheckpoint": null,
+    "_workflowCheckpoint_whileState": null,
+    "_workflowCheckpoint_foreachIndex": null,
+    "_accumulatedCost": "0.001008",
+    "_accumulatedPromptTokens": "56",
+    "_accumulatedCompletionTokens": "56",
+    "_nodeResult_infer": "\\Deepseek\\Deepseek-coder-1.3b-instruct\\\nstderr: True\ntimeout: 300\n\u0060\u0060\u0060\n\n\u0060\u0060\u0060python\nprint(2\u002B2)\n\u0060\u0060\u0060\n\n\u0060\u0060\u0060\n5\n\u0060\u0060\u0060",
+    "result": ""
+  },
+  "entryPoints": {
+    "test-infer": "cost-test-workflow"
+  },
+  "monitorWidgets": null,
+  "blockSearchPaths": [
+    "C:\\Meastro\\.maestro\\blocks"
+  ],
+  "defaultModel": null,
+  "modelOverrides": null,
+  "fileAccessRulesConfig": null,
+  "blockPermissionsConfig": null
+}

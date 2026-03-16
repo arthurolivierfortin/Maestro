@@ -97,6 +97,7 @@
 6. Metrics Pipeline — Fitness Accuracy (chaine de cout, ModelProfile)  ← Phase 56 ✓
 7. Agent agent-creator (cree un block, teste, itere)                   ← Phase 57 ✓
 8. Workflow block-forge + /create-agent TUI/CLI                        ← Phase 58
+8b. Gouvernance couts + Providers API + Cost Enforcement               ← Phase 59-PRE
 9. /adapt = workflow block-forge avec baseBlockId                      ← Phase 59
 10. Production ~30 variantes pre-testees avec /adapt                   ← Phase 60
 11. Choix assistant au setup + Catalog par contract                    ← Phase 61

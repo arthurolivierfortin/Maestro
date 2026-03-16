@@ -450,6 +450,28 @@ class DemoApiClient implements IMaestroCodeApiClient {
     };
   }
 
+  // ── Cost methods ──────────────────────────────────────────
+
+  async getCostsSummary() {
+    return {
+      today: { totalCost: 1.42, totalTokens: 45000, requestCount: 28 },
+      thisWeek: { totalCost: 8.75, totalTokens: 280000, requestCount: 142 },
+      thisMonth: { totalCost: 23.50, totalTokens: 750000, requestCount: 380 },
+      allTime: { totalCost: 67.20, totalTokens: 2100000, requestCount: 1050 },
+      byProvider: { 'Anthropic': { totalCost: 45.00, totalTokens: 1400000 }, 'Local': { totalCost: 22.20, totalTokens: 700000 } },
+      byModel: {},
+      limits: { maxPerDay: 10.00, maxPerMonth: 100.00 },
+    };
+  }
+
+  async getCostsLimits() {
+    return { maxPerSession: null as number | null, maxPerDay: 10.00, maxPerWeek: null as number | null, maxPerMonth: 100.00 };
+  }
+
+  async setCostsLimits(limits: any) {
+    return limits;
+  }
+
   async createSession(_opts: CreateSessionOptions) {
     this.startTime = Date.now();
     return { id: DEMO_SESSION_ID };

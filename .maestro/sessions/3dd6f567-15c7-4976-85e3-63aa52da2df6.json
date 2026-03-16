@@ -1,0 +1,134 @@
+{
+  "id": "3dd6f567-15c7-4976-85e3-63aa52da2df6",
+  "name": "Cost Limit Test",
+  "status": "idle",
+  "terminalReason": "none",
+  "authority": "human",
+  "workingDirectory": ".",
+  "repositoryPath": "C:\\Meastro",
+  "parentWorkspaceId": null,
+  "parentSessionId": null,
+  "config": {
+    "projectId": null,
+    "workflowId": null,
+    "task": null,
+    "context": null,
+    "access": {
+      "level": "controlled",
+      "allowedPaths": [],
+      "deniedPaths": [
+        ".env",
+        "*.env",
+        "secrets/**"
+      ],
+      "requireApprovalPaths": []
+    },
+    "validation": {
+      "runTests": false,
+      "testCommand": null,
+      "runLinter": false,
+      "linterCommand": null,
+      "requireCleanDiff": false,
+      "maxSteps": 50,
+      "timeoutMs": 600000
+    },
+    "inputs": {}
+  },
+  "createdAt": "2026-03-16T14:21:39.3036922+00:00",
+  "startedAt": "2026-03-16T14:22:09.3605128+00:00",
+  "completedAt": null,
+  "updatedAt": "2026-03-16T14:22:39.3544401+00:00",
+  "commandCount": 0,
+  "modifiedFiles": [],
+  "errorMessage": null,
+  "testResult": null,
+  "linterResult": null,
+  "commitInfo": null,
+  "variables": {
+    "targetModel": "Meta-Llama-3.1-8B-Instruct",
+    "_executionLog": [
+      {
+        "time": "14:22:10",
+        "level": "info",
+        "msg": "Starting workflow: request-analyzer"
+      },
+      {
+        "time": "14:22:10",
+        "level": "info",
+        "msg": "Executing block \u0027request-analyzer\u0027 directly (type: inference)"
+      },
+      {
+        "time": "14:22:10",
+        "level": "info",
+        "msg": "Executing blockRef \u0027request-analyzer\u0027 (type: inference) with 2 inputs"
+      },
+      {
+        "time": "14:22:39",
+        "level": "info",
+        "msg": "[request-analyzer] Tokens: 678 (prompt=3, completion=675), cost=$0.010140"
+      },
+      {
+        "time": "14:22:39",
+        "level": "success",
+        "msg": "blockRef \u0027request-analyzer\u0027 completed (477 chars)"
+      },
+      {
+        "time": "14:22:39",
+        "level": "success",
+        "msg": "blockRef \u0027request-analyzer\u0027 completed (477 chars)"
+      }
+    ],
+    "_artifacts": [],
+    "_blockOutputs": {
+      "execute": {
+        "type": "inference",
+        "output": "\u0060\u0060\u0060json\n{\n  \u0022role\u0022: \u0022agent\u0022,\n  \u0022suggestedContractId\u0022: null,\n  \u0022capabilities\u0022: [\u0022conversation\u0022],\n  \u0022modelTier\u0022: \u0022small\u0022,\n  \u0022reasoning\u0022: \u0022The description explicitly requests an agent, though \u0027hello world\u0027 implies minimal complexity. A basic conversational agent with no tool use or iteration is the closest match \u2014 single-turn greeting behavior. No existing contract matches a hello-world use case. Haiku-class model is more than sufficient for a simple greeting response.\u0022\n}\n\u0060\u0060\u0060",
+        "timestamp": "14:22:39"
+      }
+    },
+    "_llmActivity": [
+      {
+        "type": "inference",
+        "blockRef": "request-analyzer",
+        "response": "\u0060\u0060\u0060json\n{\n  \u0022role\u0022: \u0022agent\u0022,\n  \u0022suggestedContractId\u0022: null,\n  \u0022capabilities\u0022: [\u0022conversation\u0022],\n  \u0022modelTier\u0022: \u0022small\u0022,\n  \u0022reasoning\u0022: \u0022The description explicitly requests an agent, though \u0027hello world\u0027 implies minimal complexity. A basic conversational agent with no tool use or iteration is the closest match \u2014 single-turn greeting behavior. No existing contract matches a hello-world use case. Haiku-class model is more than sufficient for a simple greeting response.\u0022\n}\n\u0060\u0060\u0060",
+        "timestamp": "2026-03-16T14:22:39.3475907Z",
+        "toolCalls": "",
+        "tokens": 678
+      }
+    ],
+    "_phaseMetrics": {},
+    "_executionTree": [
+      {
+        "id": "execute",
+        "name": "Request Analyzer",
+        "status": "done",
+        "children": [],
+        "output": "\u0060\u0060\u0060json\n{\n  \u0022role\u0022: \u0022agent\u0022,\n  \u0022suggestedContractId\u0022: null,\n  \u0022capabilities\u0022: [\u0022conversation\u0022],\n  \u0022modelTier\u0022: \u0022small\u0022,\n  \u0022reasoning\u0022: \u0022The description explicitly requests an agent, though \u0027hello world\u0027 implies minimal complexity. A basic conversational agent with no tool use or iteration is the closest match \u2014 single-turn greeting behavior. No existing contract matches a hello-world use case. Haiku-class model is more than sufficient for a simple greeting response.\u0022\n}\n\u0060\u0060\u0060"
+      }
+    ],
+    "_activeWorkflow": "",
+    "description": "A simple hello world agent",
+    "repoPath": "C:\\Meastro",
+    "_accumulatedCost": "0.010140",
+    "_accumulatedPromptTokens": "3",
+    "_accumulatedCompletionTokens": "675",
+    "_costLimitExceeded": "true",
+    "_costLimitMessage": "Session limit of $0.01 exceeded (current: $0.01)",
+    "_nodeResult_execute": "\u0060\u0060\u0060json\n{\n  \u0022role\u0022: \u0022agent\u0022,\n  \u0022suggestedContractId\u0022: null,\n  \u0022capabilities\u0022: [\u0022conversation\u0022],\n  \u0022modelTier\u0022: \u0022small\u0022,\n  \u0022reasoning\u0022: \u0022The description explicitly requests an agent, though \u0027hello world\u0027 implies minimal complexity. A basic conversational agent with no tool use or iteration is the closest match \u2014 single-turn greeting behavior. No existing contract matches a hello-world use case. Haiku-class model is more than sufficient for a simple greeting response.\u0022\n}\n\u0060\u0060\u0060",
+    "_workflowCheckpoint": null,
+    "_workflowCheckpoint_whileState": null,
+    "_workflowCheckpoint_foreachIndex": null,
+    "_activeBlock": null
+  },
+  "entryPoints": {
+    "test": "request-analyzer"
+  },
+  "monitorWidgets": null,
+  "blockSearchPaths": [
+    "C:\\Meastro\\.maestro\\blocks"
+  ],
+  "defaultModel": null,
+  "modelOverrides": null,
+  "fileAccessRulesConfig": null,
+  "blockPermissionsConfig": null
+}

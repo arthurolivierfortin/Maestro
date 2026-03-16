@@ -48,8 +48,8 @@ describe('ProviderSetupScreen — Local Setup', () => {
 
     await delay(100);
 
-    // Select local provider (key 4)
-    stdin.write('4');
+    // Select local provider (key 5)
+    stdin.write('5');
     await delay(100);
 
     // Confirm selection
@@ -73,7 +73,7 @@ describe('ProviderSetupScreen — Local Setup', () => {
     }));
 
     await delay(100);
-    stdin.write('4');
+    stdin.write('5');
     await delay(100);
     stdin.write('\r');
     await delay(200);
@@ -96,7 +96,7 @@ describe('ProviderSetupScreen — Local Setup', () => {
     }));
 
     await delay(100);
-    stdin.write('4');
+    stdin.write('5');
     await delay(100);
     stdin.write('\r');
     await delay(200);
@@ -118,7 +118,7 @@ describe('ProviderSetupScreen — Local Setup', () => {
     }));
 
     await delay(100);
-    stdin.write('4');
+    stdin.write('5');
     await delay(100);
     stdin.write('\r'); // Confirm provider selection
     await delay(200);
@@ -145,7 +145,7 @@ describe('ProviderSetupScreen — Local Setup', () => {
     }));
 
     await delay(100);
-    stdin.write('4');
+    stdin.write('5');
     await delay(100);
     stdin.write('\r');
     await delay(200);

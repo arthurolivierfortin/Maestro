@@ -50,6 +50,40 @@ public sealed class ClaudeCodeLLMProvider : ILLMProvider, IDisposable
             TimeSpan.FromMinutes(10), TimeSpan.FromMinutes(10));
     }
 
+    /// <inheritdoc />
+    public AuthStatus GetAuthStatus()
+    {
+        // Check if the claude executable can be found
+        bool cliExists;
+        try
+        {
+            using var proc = new Process();
+            proc.StartInfo = new ProcessStartInfo
+            {
+                FileName = _options.CliPath,
+                Arguments = "--version",
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+            proc.StartInfo.Environment.Remove("CLAUDECODE");
+            proc.Start();
+            proc.WaitForExit(5000);
+            cliExists = proc.ExitCode == 0;
+        }
+        catch
+        {
+            cliExists = false;
+        }
+
+        return new AuthStatus(
+            IsConfigured: cliExists,
+            Method: "cli",
+            MaskedCredential: null
+        );
+    }
+
     public async Task<bool> IsAvailableAsync(CancellationToken cancellationToken = default)
     {
         try

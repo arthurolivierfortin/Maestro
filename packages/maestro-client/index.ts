@@ -67,6 +67,14 @@ export type {
 } from './src/types.js';
 
 export type {
+  CostPeriod,
+  CostBreakdown,
+  CostLimits,
+  CostSummary,
+  CostEntry,
+} from './src/domains/costs.js';
+
+export type {
   BlockUpdatedEvent,
   ExecutionUpdatedEvent,
   SessionUpdatedEvent,

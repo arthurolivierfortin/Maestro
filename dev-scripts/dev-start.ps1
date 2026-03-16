@@ -22,6 +22,9 @@ $ErrorActionPreference = "Continue"
 $MaestroRoot = Split-Path -Parent $PSScriptRoot
 $LLMProviderRoot = "$MaestroRoot\llm-provider"
 
+# .env loading is handled by the C# apps themselves (DotEnvLoader).
+# No env var propagation needed from this script.
+
 # Port configuration
 $Ports = @{
     LLMProvider = 5010
@@ -42,6 +45,29 @@ function Write-Header {
     Write-Host "  $Title" -ForegroundColor Cyan
     Write-Host "=============================================" -ForegroundColor Cyan
     Write-Host ""
+}
+
+# Close previous Maestro service windows and kill processes on our ports
+function Stop-PreviousServices {
+    Write-Status "Cleaning up previous services..." "Gray"
+
+    # Kill processes on our ports
+    foreach ($port in @($Ports.LLMProvider, $Ports.Backend, $Ports.Frontend)) {
+        if (Test-Port $port) {
+            Stop-ProcessOnPort $port
+        }
+    }
+
+    # Close orphan PowerShell windows with Maestro-related titles
+    Get-Process powershell -ErrorAction SilentlyContinue | Where-Object {
+        try {
+            $_.MainWindowTitle -match 'LLM-Provider|Maestro Backend|Maestro Frontend|dotnet run'
+        } catch { $false }
+    } | ForEach-Object {
+        try { $_.CloseMainWindow() | Out-Null } catch {}
+    }
+
+    Start-Sleep -Seconds 2
 }
 
 # Check if a port is in use
@@ -140,8 +166,9 @@ function Start-LLMProviderLocal {
     Write-Status "[1/3] Starting LLM-Provider .NET API..." "Yellow"
 
     if (Test-Port $Ports.LLMProvider) {
-        Write-Status "  LLM-Provider already running on port $($Ports.LLMProvider)" "Green"
-        return
+        Write-Status "  Stopping existing LLM-Provider on port $($Ports.LLMProvider)..." "Yellow"
+        Stop-ProcessOnPort $Ports.LLMProvider
+        Start-Sleep -Seconds 2
     }
 
     $LLMProviderDotnet = "$LLMProviderRoot\dotnet"
@@ -150,9 +177,10 @@ function Start-LLMProviderLocal {
         return
     }
 
-    # Start the .NET API in a new window
+    # Start the .NET API in a new window (.env is loaded by DotEnvLoader in C#)
     $script = @"
 Set-Location '$LLMProviderDotnet\src\LLMProvider.Web'
+`$env:MAESTRO_ROOT = '$MaestroRoot'
 Write-Host 'LLM-Provider .NET API starting on port 5010' -ForegroundColor Cyan
 dotnet run --urls=http://localhost:5010
 "@
@@ -166,16 +194,19 @@ function Start-BackendLocal {
     Write-Status "[2/3] Starting Maestro Backend..." "Yellow"
 
     if (Test-Port $Ports.Backend) {
-        Write-Status "  Backend already running on port $($Ports.Backend)" "Green"
-        return
+        Write-Status "  Stopping existing Backend on port $($Ports.Backend)..." "Yellow"
+        Stop-ProcessOnPort $Ports.Backend
+        Start-Sleep -Seconds 2
     }
 
     # Kill any zombie processes
     Stop-ProcessOnPort $Ports.Backend
     Start-Sleep -Seconds 2
 
+    # Start backend in a new window (.env is loaded by DotEnvLoader in C#)
     $script = @"
 Set-Location '$MaestroRoot\apps\backend\src\Maestro.Api'
+`$env:MAESTRO_ROOT = '$MaestroRoot'
 `$env:MAESTRO_GLOBAL_BLOCKS_PATH = '$MaestroRoot\content\system\blocks'
 `$env:MAESTRO_REPO_ROOT = '$MaestroRoot'
 `$env:LLMProvider__BaseUrl = 'http://localhost:5010'
@@ -195,8 +226,9 @@ function Start-FrontendLocal {
     Write-Status "[3/3] Starting Maestro Frontend..." "Yellow"
 
     if (Test-Port $Ports.Frontend) {
-        Write-Status "  Frontend already running on port $($Ports.Frontend)" "Green"
-        return
+        Write-Status "  Stopping existing Frontend on port $($Ports.Frontend)..." "Yellow"
+        Stop-ProcessOnPort $Ports.Frontend
+        Start-Sleep -Seconds 2
     }
 
     $script = @"
@@ -317,22 +349,8 @@ if ($Stop) {
 
 Write-Header "Maestro Development Startup ($Mode mode)"
 
-# Check existing services (skip if already running)
-Write-Status "Checking for existing services..." "Gray"
-$allRunning = $true
-foreach ($service in $Ports.Keys) {
-    $port = $Ports[$service]
-    if (Test-Port $port) {
-        Write-Status "  $service already running on port $port" "Green"
-    } else {
-        $allRunning = $false
-    }
-}
-if ($allRunning -and -not $Rebuild) {
-    Write-Status "All services already running. Use -Stop to restart." "Green"
-    Show-Summary
-    exit 0
-}
+# Always clean up previous services before starting fresh
+Stop-PreviousServices
 
 if ($Mode -eq "docker") {
     Start-Docker
