@@ -2,6 +2,7 @@ using System.Text.Json;
 using Maestro.Application.Interfaces;
 using Maestro.Application.DTOs;
 using Maestro.Domain.Entities;
+using Maestro.Infrastructure.BlockExecutors;
 using Microsoft.Extensions.Logging;
 
 namespace Maestro.Infrastructure.Sessions.NodeHandlers;
@@ -46,6 +47,37 @@ public class BlockRefHandler : INodeHandler
         _costTracking = costTracking;
     }
 
+    // === Phase 59-B: System variables blacklist ===
+    // These variables must NEVER cross session boundaries (parent → child or child → parent).
+    // They are internal to a session's execution state and leaking them causes:
+    // - Checkpoint contamination (_workflowCheckpoint*): second agent skips nodes
+    // - Agent loop contamination (_agentDone/Result/Iteration): second agent exits immediately
+    // - Display/tracking corruption (_executionTree, _llmActivity, _activeWorkflow, etc.)
+    private static readonly HashSet<string> SystemVariableBlacklist = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "_workflowCheckpoint",
+        "_workflowCheckpoint_whileState",
+        "_workflowCheckpoint_foreachIndex",
+        "_agentDone",
+        "_agentResult",
+        "_agentIteration",
+        "_conversationId",
+        "_activeWorkflow",
+        "_activeBlock",
+        "_activeBlockStatus",
+        "_activeBlockOutput",
+        "_executionLog",
+        "_executionTree",
+        "_llmActivity",
+        "_phases",
+        "_phaseMetrics",
+        "_artifacts",
+        "_blockOutputs",
+        "_accumulatedCost",
+        "_accumulatedPromptTokens",
+        "_accumulatedCompletionTokens"
+    };
+
     public async Task<string?> ExecuteAsync(
         JsonElement node,
         NodeExecutionContext context,
@@ -74,6 +106,17 @@ public class BlockRefHandler : INodeHandler
                 $"Block not found: '{blockRefId}'. " +
                 $"Referenced by node '{nodeId}'. " +
                 $"Run 'maestro block deps <parent-block>' to see all dependencies.");
+
+        // === Phase 59-C: BlockPermission enforcement ===
+        // Check if the block is allowed by the session's BlockPermissions.
+        // This check is centralized here — BlockRefHandler is the single dispatch point for blockRef nodes.
+        var blockPermission = CheckBlockPermission(session, blockRefId);
+        if (blockPermission == Domain.ValueObjects.BlockPermissionLevel.Denied)
+            throw new InvalidOperationException(
+                $"Block '{blockRefId}' is denied by session permissions.");
+        if (blockPermission == Domain.ValueObjects.BlockPermissionLevel.RequiresApproval)
+            throw new InvalidOperationException(
+                $"Block '{blockRefId}' requires approval. Approval workflow not yet implemented.");
 
         var executor = _executorRegistry.Get(block.BlockType);
         if (executor == null)
@@ -109,14 +152,50 @@ public class BlockRefHandler : INodeHandler
             }
         }
 
-        // Standard executor dispatch
-        var execContext = BuildExecutionContext(session, workingDir, blockRefId);
+        // === Phase 59-A: Child session for agent blocks ===
+        // Agent blocks execute in an isolated child session to prevent variable pollution.
+        // Non-agent blocks (inference, workflow, tool) continue using the parent session.
+        ProjectSession? childSession = null;
+        var executionSession = session; // The session the executor will use
+
+        if (string.Equals(block.BlockType, "agent", StringComparison.OrdinalIgnoreCase))
+        {
+            childSession = ProjectSession.CreateAsChild(
+                $"{session.Name} / {blockRefId}",
+                session);
+
+            // Set declared inputs from the blockRef node as variables on the child session.
+            // Phase 59-B: Filter out any system variables that must never cross session boundaries.
+            foreach (var kv in inputs)
+            {
+                if (SystemVariableBlacklist.Contains(kv.Key))
+                {
+                    _logger.LogWarning(
+                        "Blocked system variable '{Key}' from crossing to child session '{ChildId}' (blockRef '{BlockRef}')",
+                        kv.Key, childSession.Id, blockRefId);
+                    continue;
+                }
+                childSession.SetVariable(kv.Key, kv.Value);
+            }
+
+            await _repository.SaveAsync(childSession);
+            executionSession = childSession;
+
+            _stateManager.AppendExecutionLog(session, "info",
+                $"Created child session '{childSession.Id}' for agent blockRef '{blockRefId}'");
+            _logger.LogInformation(
+                "Created child session {ChildSessionId} (parent: {ParentSessionId}) for agent blockRef '{BlockRef}'",
+                childSession.Id, session.Id, blockRefId);
+        }
+
+        // Standard executor dispatch (uses child session for agents, parent for others)
+        var execContext = BuildExecutionContext(executionSession, workingDir, blockRefId);
 
         try
         {
             var result = await executor.ExecuteAsync(block, execContext, inputs);
 
-            // Accumulate costs in session variables for parent block cost propagation
+            // Accumulate costs on the PARENT session (cost tracking is always at parent level)
             AccumulateCosts(session, result);
 
             // Phase 59-PRE-A: Record cost entry and check limits (post-execution, for tracking)
@@ -137,6 +216,14 @@ public class BlockRefHandler : INodeHandler
 
             if (!result.Success)
                 throw new InvalidOperationException($"Block '{blockRefId}' failed: {output}");
+
+            // Phase 59-A: Store child session ID on parent for traceability
+            if (childSession != null)
+            {
+                session.SetVariable($"_childSession_{nodeId}", childSession.Id);
+                _stateManager.AppendExecutionLog(session, "info",
+                    $"Agent blockRef '{blockRefId}' completed in child session '{childSession.Id}'");
+            }
 
             _stateManager.AppendExecutionLog(session, "success", $"blockRef '{blockRefId}' completed ({output.Length} chars)");
             return output;
@@ -440,6 +527,15 @@ public class BlockRefHandler : INodeHandler
         execContext.Variables["agentId"] = blockRefId;
         var effectivePermissions = session.GetEffectivePermissions();
         execContext.Variables["_permissions_allowedPaths"] = effectivePermissions.AllowedPaths;
+
+        // Phase 59-C: Pass FileAccessRules through execution context for enforcement
+        // in file operation executors (file-read, file-write, file-edit).
+        if (session.FileAccessRules.Count > 0)
+        {
+            execContext.Variables[FileAccessChecker.FileAccessRulesKey] =
+                FileAccessChecker.SerializeRules(session.FileAccessRules);
+        }
+
         return execContext;
     }
 
@@ -537,6 +633,29 @@ public class BlockRefHandler : INodeHandler
         {
             _logger.LogWarning(ex, "Failed to record/check costs for blockRef '{BlockRef}'", blockRefId);
         }
+    }
+
+    // ===== Phase 59-C: BlockPermission Check =====
+
+    /// <summary>
+    /// Checks if a block is allowed by the session's BlockPermissions.
+    /// Walks the BlockPermissions list (first match wins).
+    /// Returns Allowed if no rule matches (default permissive).
+    /// </summary>
+    internal static Domain.ValueObjects.BlockPermissionLevel CheckBlockPermission(
+        ProjectSession session, string blockRefId)
+    {
+        var permissions = session.BlockPermissions;
+        if (permissions == null || permissions.Count == 0)
+            return Domain.ValueObjects.BlockPermissionLevel.Allowed;
+
+        foreach (var rule in permissions)
+        {
+            if (rule.Matches(blockRefId))
+                return rule.Permission;
+        }
+
+        return Domain.ValueObjects.BlockPermissionLevel.Allowed; // No rule matched — allow
     }
 
     private void LogBlockLLMActivity(

@@ -39,6 +39,18 @@ public class FileEditBlockExecutor : IBlockExecutor
             path = Path.Combine(workingDir, path);
         }
 
+        // Phase 59-C: Check FileAccessRule before editing (edit = write operation)
+        var accessCheckDir = context.Variables.TryGetValue("workingDir", out var wdCheck)
+            ? wdCheck?.ToString() ?? "" : "";
+        var editDenied = FileAccessChecker.CheckWriteAccess(context, path, accessCheckDir);
+        if (editDenied != null)
+        {
+            result.Success = false;
+            result.Outputs["error"] = editDenied;
+            result.Logs.Add($"File access denied (edit): {path}");
+            return result;
+        }
+
         if (!File.Exists(path))
         {
             result.Success = false;

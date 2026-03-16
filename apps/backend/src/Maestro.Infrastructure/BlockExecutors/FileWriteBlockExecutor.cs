@@ -38,6 +38,18 @@ public class FileWriteBlockExecutor : IBlockExecutor
             path = Path.Combine(workingDir, path);
         }
 
+        // Phase 59-C: Check FileAccessRule before writing
+        var accessCheckDir = context.Variables.TryGetValue("workingDir", out var wdCheck)
+            ? wdCheck?.ToString() ?? "" : "";
+        var writeDenied = FileAccessChecker.CheckWriteAccess(context, path, accessCheckDir);
+        if (writeDenied != null)
+        {
+            result.Success = false;
+            result.Outputs["error"] = writeDenied;
+            result.Logs.Add($"File access denied (write): {path}");
+            return result;
+        }
+
         try
         {
             var dir = Path.GetDirectoryName(path);

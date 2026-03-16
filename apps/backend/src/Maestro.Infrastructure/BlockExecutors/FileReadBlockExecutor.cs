@@ -40,6 +40,18 @@ public class FileReadBlockExecutor : IBlockExecutor
             path = Path.Combine(workingDir, path);
         }
 
+        // Phase 59-C: Check FileAccessRule before reading
+        var accessCheckDir = context.Variables.TryGetValue("workingDir", out var wdCheck)
+            ? wdCheck?.ToString() ?? "" : "";
+        var readDenied = FileAccessChecker.CheckReadAccess(context, path, accessCheckDir);
+        if (readDenied != null)
+        {
+            // For Hidden/Excluded files, return "not found" to avoid leaking existence
+            result.Outputs["content"] = $"(file not found: {path})";
+            result.Logs.Add($"File access denied (read): {path}");
+            return result;
+        }
+
         if (!File.Exists(path))
         {
             result.Outputs["content"] = $"(file not found: {path})";

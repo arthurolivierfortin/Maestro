@@ -55,6 +55,16 @@ public class AgentBlockExecutor : MultiNodeBlockExecutor
         BlockDefinition block, ExecutionContext context,
         Dictionary<string, object> inputs, CancellationToken ct)
     {
+        // Phase 59-B: Clear agent state from any previous execution.
+        // Without this, a second agent in a workflow sees _agentDone="true" from the first
+        // agent and exits its while loop immediately. With child sessions (59-A) this is
+        // less critical since the child starts empty, but it's a safety net for:
+        // - Cases where the child session somehow inherits state
+        // - Any agent that re-executes in the same session (e.g., retry scenarios)
+        context.Variables.Remove("_agentDone");
+        context.Variables.Remove("_agentResult");
+        context.Variables.Remove("_agentIteration");
+
         var systemPrompt = await LoadSystemPrompt(block, ct) ?? "";
 
         // Fresh conversation for this invocation, seeded with workflow history.

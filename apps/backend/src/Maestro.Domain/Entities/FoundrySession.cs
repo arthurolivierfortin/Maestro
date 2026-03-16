@@ -16,6 +16,12 @@ public class FoundrySession : Session
     private readonly List<FoundryIteration> _iterations = new();
     private readonly List<ImprovementSuggestion> _improvements = new();
 
+    /// <summary>
+    /// Transient reference to the parent session (not serialized).
+    /// Used by GetParentContext() for permission inheritance chain.
+    /// </summary>
+    private ContainerSession? _parentSession;
+
     // ===== Foundry-Specific Properties =====
 
     /// <summary>
@@ -62,13 +68,21 @@ public class FoundrySession : Session
 
     /// <summary>
     /// Returns the parent context for permission inheritance.
-    /// Note: Full implementation with workspace lookup is done in the service layer.
+    /// Returns the transient _parentSession reference if set (via SetParentSession),
+    /// otherwise null (root session or parent not yet loaded).
     /// </summary>
     public override ContainerSession? GetParentContext()
     {
-        // The parent workspace lookup is done at the service layer
-        // because it requires repository access
-        return null;
+        return _parentSession;
+    }
+
+    /// <summary>
+    /// Sets the transient parent session reference for permission inheritance.
+    /// Called after repository load when ParentSessionId is set.
+    /// </summary>
+    public void SetParentSession(ContainerSession parent)
+    {
+        _parentSession = parent;
     }
 
     // ===== Constructor =====

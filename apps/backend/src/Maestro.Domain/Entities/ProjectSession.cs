@@ -15,6 +15,13 @@ public class ProjectSession : Session
 {
     private readonly Dictionary<string, AgentExecution> _runningAgents = new();
 
+    /// <summary>
+    /// Transient reference to the parent session (not serialized).
+    /// Set by CreateAsChild() at creation time, or by SetParentSession() after repository load.
+    /// Used by GetParentContext() for permission inheritance chain.
+    /// </summary>
+    private ContainerSession? _parentSession;
+
     // ===== Project-Specific Properties =====
 
     /// <summary>
@@ -61,13 +68,22 @@ public class ProjectSession : Session
 
     /// <summary>
     /// Returns the parent context for permission inheritance.
-    /// Note: Full implementation with workspace lookup is done in the service layer.
+    /// Returns the transient _parentSession reference if set (via CreateAsChild or SetParentSession),
+    /// otherwise null (root session or parent not yet loaded).
     /// </summary>
     public override ContainerSession? GetParentContext()
     {
-        // The parent workspace lookup is done at the service layer
-        // because it requires repository access
-        return null;
+        return _parentSession;
+    }
+
+    /// <summary>
+    /// Sets the transient parent session reference for permission inheritance.
+    /// Called after repository load when ParentSessionId is set, to enable
+    /// GetEffectivePermissions() to walk the inheritance chain.
+    /// </summary>
+    public void SetParentSession(ContainerSession parent)
+    {
+        _parentSession = parent;
     }
 
     // ===== Constructor =====
@@ -109,6 +125,49 @@ public class ProjectSession : Session
         }
 
         session.EmitEvent(SessionEvent.Info(session.Id, $"Session created with authority: {authority}"));
+        return session;
+    }
+
+    /// <summary>
+    /// Creates a child session for isolated agent execution within a workflow.
+    /// The child inherits configuration from the parent (permissions, search paths,
+    /// model config, file/block rules) but starts with EMPTY variables for isolation.
+    /// Status is Active (immediately usable by the executor).
+    /// </summary>
+    public static ProjectSession CreateAsChild(
+        string name,
+        ProjectSession parent,
+        string? repositoryPath = null)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+        ArgumentNullException.ThrowIfNull(parent);
+
+        var session = new ProjectSession
+        {
+            Id = Guid.NewGuid().ToString(),
+            Name = name,
+            Authority = parent.Authority,
+            Config = parent.Config,
+            Status = ContainerSessionStatus.Active, // Immediately usable
+            Permissions = parent.GetEffectivePermissions(),
+            Binding = parent.Binding,
+            CreatedAt = DateTimeOffset.UtcNow,
+            ParentSessionId = parent.Id,
+            ParentWorkspaceId = parent.ParentWorkspaceId,
+            RepositoryPath = repositoryPath ?? parent.RepositoryPath,
+            Variables = new Dictionary<string, object>() // EMPTY — isolation
+        };
+
+        // Inherit configuration from parent
+        session.SetBlockSearchPaths(parent.BlockSearchPaths);
+        session.SetDefaultModel(parent.DefaultModel);
+        session.SetModelOverrides(parent.ModelOverrides);
+        session.SetFileAccessRules(parent.FileAccessRules);
+        session.SetBlockPermissions(parent.BlockPermissions);
+
+        // Set transient parent reference for permission inheritance chain
+        session._parentSession = parent;
+
         return session;
     }
 

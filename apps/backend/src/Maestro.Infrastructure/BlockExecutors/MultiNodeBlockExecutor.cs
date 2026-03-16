@@ -135,6 +135,19 @@ public abstract class MultiNodeBlockExecutor : IBlockExecutor
         if (session == null)
             throw new InvalidOperationException($"Session not found: {sessionId}");
 
+        // Phase 59-C: Reconstitute parent reference for permission inheritance.
+        // After loading from repository, _parentSession is null (not persisted).
+        // If this is a child session, load the parent and set the transient reference
+        // so that GetEffectivePermissions() can walk the inheritance chain.
+        if (!string.IsNullOrEmpty(session.ParentSessionId) && session.GetParentContext() == null)
+        {
+            var parentSession = await Repository.GetByIdAsync(SessionId.From(session.ParentSessionId));
+            if (parentSession != null)
+            {
+                session.SetParentSession(parentSession);
+            }
+        }
+
         // Convert config.nodes to JsonElement
         var nodesObj = block.Config!["nodes"];
         JsonElement configNodes;
@@ -154,6 +167,16 @@ public abstract class MultiNodeBlockExecutor : IBlockExecutor
             using var doc = JsonDocument.Parse(serialized);
             configNodes = doc.RootElement.Clone();
         }
+
+        // Phase 59-B: Clear workflow checkpoint state before executing config.nodes.
+        // Each config.nodes execution must start fresh — without this, a second agent
+        // in the same session would skip nodes because the checkpoint from the first agent
+        // contains the same nodeIds (agent templates share nodeIds like "inference", "parse-response", etc.).
+        // With child sessions (59-A) this is naturally solved for agents, but non-agent blocks
+        // sharing the parent session still need this cleanup.
+        session.RemoveVariable("_workflowCheckpoint");
+        session.RemoveVariable("_workflowCheckpoint_whileState");
+        session.RemoveVariable("_workflowCheckpoint_foreachIndex");
 
         // Set input variables on session for template resolution in nodes
         foreach (var kv in inputs)
