@@ -58,6 +58,7 @@ const SHORTCUTS: Record<string, ShortcutItem[]> = {
   models: [
     { key: 'Up/Down', label: 'Navigate models' },
     { key: 'Enter',   label: 'Open model detail' },
+    { key: 'T',       label: 'Test model (playground)' },
   ],
   commands: [
     { key: '/help',   label: 'Show available commands' },
@@ -68,6 +69,7 @@ const SHORTCUTS: Record<string, ShortcutItem[]> = {
     { key: '/purge',        label: 'Delete idle sessions' },
     { key: '/costs',        label: 'View/set cost limits' },
     { key: '/create-agent', label: 'Create an agent via block-forge' },
+    { key: '/playground',   label: 'Open model playground' },
     { key: '/quit',         label: 'Quit' },
   ],
 };

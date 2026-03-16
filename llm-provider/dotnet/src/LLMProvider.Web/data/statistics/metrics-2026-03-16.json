@@ -1,5 +1,5 @@
 {
-  "totalRequests": 56,
+  "totalRequests": 2,
   "latency": {
     "p50": 0,
     "p95": 0,
@@ -7,28 +7,28 @@
     "average": 0
   },
   "totalTokens": {
-    "promptTokens": 186193,
-    "completionTokens": 2027,
-    "totalTokens": 188220
+    "promptTokens": 124,
+    "completionTokens": 43,
+    "totalTokens": 167
   },
   "modelStats": [
     {
       "modelId": {
         "value": "gpt-4o"
       },
-      "requestCount": 56,
+      "requestCount": 2,
       "latency": {
-        "p50": 1318.5,
-        "p95": 5636.75,
-        "p99": 8854.400000000005,
-        "average": 2115.160714285714
+        "p50": 1634,
+        "p95": 1886.9,
+        "p99": 1909.3799999999999,
+        "average": 1634
       },
       "totalTokens": {
-        "promptTokens": 186193,
-        "completionTokens": 2027,
-        "totalTokens": 188220
+        "promptTokens": 124,
+        "completionTokens": 43,
+        "totalTokens": 167
       },
-      "requestsPerMinute": 3.056908750700621,
+      "requestsPerMinute": 6.311529822207203,
       "errorRate": 0
     }
   ],
@@ -58,7 +58,7 @@
         "p99": 0,
         "average": 0
       },
-      "tokensTotal": 188220
+      "tokensTotal": 167
     },
     {
       "windowName": "5m",
@@ -71,7 +71,7 @@
         "p99": 0,
         "average": 0
       },
-      "tokensTotal": 188220
+      "tokensTotal": 167
     },
     {
       "windowName": "15m",
@@ -84,8 +84,8 @@
         "p99": 0,
         "average": 0
       },
-      "tokensTotal": 188220
+      "tokensTotal": 167
     }
   ],
-  "generatedAt": "2026-03-16T21:49:44.3493477+00:00"
+  "generatedAt": "2026-03-16T23:44:19.7787992+00:00"
 }

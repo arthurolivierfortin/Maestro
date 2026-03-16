@@ -210,4 +210,98 @@ describe('ModelsScreen', () => {
     expect(frame).toContain('PROVIDERS');
     expect(frame).toContain('Claude Code (CLI)');
   });
+
+  it('shows provider name in model card', async () => {
+    const { ModelsScreen } = await import('../components/ModelsScreen.ts');
+    const api = createMockApiClient({
+      models: [
+        { modelId: 'gpt-4o', name: 'GPT-4o', category: 'Azure' },
+        { modelId: 'claude-sonnet', name: 'Claude Sonnet', category: 'Anthropic' },
+        { modelId: 'qwen-7b', name: 'Qwen 7B', category: 'Local' },
+      ],
+    });
+
+    const { lastFrame } = render(h(ModelsScreen, {
+      apiClient: api,
+      onNavigate: vi.fn(),
+      onQuit: vi.fn(),
+      chrome: false,
+    }));
+
+    await delay(200);
+    const frame = stripAnsi(lastFrame() || '');
+    expect(frame).toContain('3 model(s) available');
+    expect(frame).toContain('GPT-4o');
+    expect(frame).toContain('Azure');
+    expect(frame).toContain('Claude Sonnet');
+    expect(frame).toContain('Anthropic');
+    expect(frame).toContain('Qwen 7B');
+    expect(frame).toContain('Local');
+  });
+
+  it('shows footer shortcuts when models are loaded', async () => {
+    const { ModelsScreen } = await import('../components/ModelsScreen.ts');
+    const api = createMockApiClient({
+      models: [
+        { modelId: 'test-model', name: 'Test Model', category: 'Test' },
+      ],
+    });
+
+    const { lastFrame } = render(h(ModelsScreen, {
+      apiClient: api,
+      onNavigate: vi.fn(),
+      onQuit: vi.fn(),
+      chrome: false,
+    }));
+
+    await delay(200);
+    const frame = stripAnsi(lastFrame() || '');
+    expect(frame).toContain('Navigate');
+    expect(frame).toContain('Details');
+    expect(frame).toContain('Test');
+    expect(frame).toContain('Back');
+  });
+
+  it('shows active model name in status panel', async () => {
+    const { ModelsScreen } = await import('../components/ModelsScreen.ts');
+    const api = createMockApiClient({
+      health: { status: 'ok', activeModel: 'claude-opus-4-6', device: 'cloud' },
+    });
+
+    const { lastFrame } = render(h(ModelsScreen, {
+      apiClient: api,
+      onNavigate: vi.fn(),
+      onQuit: vi.fn(),
+      chrome: false,
+    }));
+
+    await delay(200);
+    const frame = stripAnsi(lastFrame() || '');
+    expect(frame).toContain('Active:');
+    expect(frame).toContain('claude-opus-4-6');
+  });
+
+  it('marks active model in the list', async () => {
+    const { ModelsScreen } = await import('../components/ModelsScreen.ts');
+    const api = createMockApiClient({
+      health: { status: 'ok', activeModel: 'model-a', device: 'cpu' },
+      models: [
+        { modelId: 'model-a', name: 'Model A', category: 'Cloud' },
+        { modelId: 'model-b', name: 'Model B', category: 'Local' },
+      ],
+    });
+
+    const { lastFrame } = render(h(ModelsScreen, {
+      apiClient: api,
+      onNavigate: vi.fn(),
+      onQuit: vi.fn(),
+      chrome: false,
+    }));
+
+    await delay(200);
+    const frame = stripAnsi(lastFrame() || '');
+    expect(frame).toContain('(active)');
+    expect(frame).toContain('Model A');
+    expect(frame).toContain('Model B');
+  });
 });

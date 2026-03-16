@@ -136,9 +136,13 @@ function mapDemoModels() {
     modelId: m.id,
     name: m.name,
     size: m.provider === 'Local' ? '7B' : undefined,
-    category: m.provider === 'Local' ? 'local' : 'cloud',
+    category: m.provider,
     isLocal: m.provider === 'Local',
     recommended: m.status === 'available',
+    contextLength: m.contextLength,
+    capabilities: m.capabilities,
+    inputTokenPricePerMillion: m.inputPrice,
+    outputTokenPricePerMillion: m.outputPrice,
   }));
 }
 
@@ -478,6 +482,53 @@ class DemoApiClient implements IMaestroCodeApiClient {
 
   async setCostsLimits(limits: any) {
     return limits;
+  }
+
+  // ── Playground methods ──────────────────────────────────────
+
+  async playgroundSend(request: any) {
+    await new Promise(r => setTimeout(r, 300));
+    const isJson = request.systemPrompt?.toLowerCase().includes('json');
+    const content = isJson
+      ? '{"name":"Alex","age":25,"hobbies":["coding","hiking","reading"]}'
+      : `This is a demo response to: "${request.prompt}"\n\nThe model ${request.modelId} would normally process this prompt and return a real response. In demo mode, this placeholder is shown instead.`;
+    return {
+      content,
+      modelId: request.modelId || 'demo-model',
+      provider: 'Demo',
+      promptTokens: 45,
+      completionTokens: 32,
+      totalTokens: 77,
+      costUsd: 0.0003,
+      latencyMs: 280,
+    };
+  }
+
+  async playgroundListTests() {
+    return [
+      { id: 'structured-output', name: 'Structured Output', description: 'Tests JSON generation capability', category: 'format' },
+      { id: 'tool-calling', name: 'Tool Calling', description: 'Tests function calling capability', category: 'tools' },
+      { id: 'long-context', name: 'Long Context', description: 'Tests handling of long input context', category: 'context' },
+      { id: 'code-generation', name: 'Code Generation', description: 'Tests code writing ability', category: 'code' },
+      { id: 'instruction-following', name: 'Instruction Following', description: 'Tests precise instruction adherence', category: 'instruction' },
+      { id: 'multi-lang', name: 'Multi-Language', description: 'Tests multilingual capability', category: 'language' },
+    ];
+  }
+
+  async playgroundRunTest(request: any) {
+    await new Promise(r => setTimeout(r, 500));
+    const passed = Math.random() > 0.15;
+    return {
+      testId: request.testId,
+      testName: request.testId.split('-').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' '),
+      passed,
+      content: passed ? 'Test output matches expected format.' : 'Output did not conform to expected schema.',
+      validationDetails: passed ? 'All validation checks passed.' : 'Missing required field: "name"',
+      promptTokens: 52,
+      completionTokens: 18,
+      costUsd: 0.0003,
+      latencyMs: 420,
+    };
   }
 
   async createSession(_opts: CreateSessionOptions) {

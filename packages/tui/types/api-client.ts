@@ -52,6 +52,11 @@ export interface IApiClient {
   getCostsLimits(): Promise<any>;
   setCostsLimits(limits: any): Promise<any>;
 
+  // Playground
+  playgroundSend(request: any): Promise<any>;
+  playgroundListTests(): Promise<any[]>;
+  playgroundRunTest(request: any): Promise<any>;
+
   // Generic
   get(path: string): Promise<unknown>;
 

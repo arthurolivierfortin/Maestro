@@ -48,12 +48,12 @@ export const DEMO_SESSIONS = [
 // ── Models: 6 models ────────────────────────────────────────
 
 export const DEMO_MODELS = [
-  { id: 'claude-sonnet-4-6', name: 'Claude Sonnet 4.6', provider: 'Anthropic', status: 'available', latency: 850, tokensPerSec: 42 },
-  { id: 'claude-opus-4-6', name: 'Claude Opus 4.6', provider: 'Anthropic', status: 'available', latency: 2100, tokensPerSec: 18 },
-  { id: 'gpt-4o', name: 'GPT-4o', provider: 'Azure', status: 'available', latency: 1200, tokensPerSec: 35 },
-  { id: 'qwen-2.5-coder', name: 'Qwen 2.5 Coder 7B', provider: 'Local', status: 'available', latency: 320, tokensPerSec: 65 },
-  { id: 'smollm2-1.7b', name: 'SmolLM2 1.7B', provider: 'Local', status: 'offline', latency: 0, tokensPerSec: 0 },
-  { id: 'deepseek-coder', name: 'DeepSeek Coder V2', provider: 'Azure', status: 'rate-limited', latency: 1800, tokensPerSec: 28 },
+  { id: 'claude-sonnet-4-6', name: 'Claude Sonnet 4.6', provider: 'Anthropic', status: 'available', latency: 850, tokensPerSec: 42, contextLength: 200000, capabilities: ['chat', 'function_calling', 'structured-output'], inputPrice: 3.00, outputPrice: 15.00 },
+  { id: 'claude-opus-4-6', name: 'Claude Opus 4.6', provider: 'Anthropic', status: 'available', latency: 2100, tokensPerSec: 18, contextLength: 200000, capabilities: ['chat', 'function_calling', 'structured-output'], inputPrice: 15.00, outputPrice: 75.00 },
+  { id: 'gpt-4o', name: 'GPT-4o', provider: 'Azure', status: 'available', latency: 1200, tokensPerSec: 35, contextLength: 128000, capabilities: ['chat', 'function_calling', 'structured-output'], inputPrice: 2.50, outputPrice: 10.00 },
+  { id: 'qwen-2.5-coder', name: 'Qwen 2.5 Coder 7B', provider: 'Local', status: 'available', latency: 320, tokensPerSec: 65, contextLength: 32768, capabilities: ['chat', 'code-generation'], inputPrice: null, outputPrice: null },
+  { id: 'smollm2-1.7b', name: 'SmolLM2 1.7B', provider: 'Local', status: 'offline', latency: 0, tokensPerSec: 0, contextLength: 8192, capabilities: ['chat'], inputPrice: null, outputPrice: null },
+  { id: 'deepseek-coder', name: 'DeepSeek Coder V2', provider: 'Azure', status: 'available', latency: 1800, tokensPerSec: 28, contextLength: 128000, capabilities: ['chat', 'code-generation'], inputPrice: 0.14, outputPrice: 0.28 },
 ];
 
 /**

@@ -204,6 +204,11 @@ class MaestroApiClient {
   async getCostsLimits() { return this._client.costs.limits(); }
   async setCostsLimits(limits: any) { return this._client.costs.setLimits(limits); }
   async getSessionCosts(id: string) { return this._client.costs.sessionCosts(id); }
+
+  // ── Playground ──
+  async playgroundSend(request: any) { return this._client.playground.send(request); }
+  async playgroundListTests() { return this._client.playground.listTests(); }
+  async playgroundRunTest(request: any) { return this._client.playground.runTest(request); }
 }
 
 export { MaestroApiClient, ApiError };

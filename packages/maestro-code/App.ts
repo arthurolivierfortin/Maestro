@@ -73,6 +73,23 @@ export function parseCreateAgent(input: string): { description: string; contract
   return { description, contract, model };
 }
 
+// ── Playground command parser ──────────────────────────────────
+
+export interface PlaygroundParsed {
+  action: 'select-model' | 'playground';
+  modelId?: string;
+}
+
+export function parsePlayground(input: string): PlaygroundParsed | null {
+  const trimmed = input.trim();
+  if (!trimmed.startsWith('/playground')) return null;
+  // Reject flag-like args (e.g. /playground --invalid)
+  const rest = trimmed.slice('/playground'.length).trim();
+  if (rest.startsWith('-')) return null;
+  if (!rest) return { action: 'select-model' };
+  return { action: 'playground', modelId: rest };
+}
+
 // ── Costs command parser ───────────────────────────────────────
 
 export function parseCostsCommand(input: string): { action: string; limits?: Record<string, number>; enforcement?: string; autoResume?: boolean } | null {
@@ -648,6 +665,7 @@ const App = ({ apiClient: clientProp, sessionManager: smProp, demoMode, repoPath
       addLine({ text: '  /costs        — View/set cost limits', color: 'white' });
       addLine({ text: '  /agent        — Show or switch active agent (/agent compact)', color: 'white' });
       addLine({ text: '  /create-agent — Create an agent via block-forge workflow', color: 'white' });
+      addLine({ text: '  /playground   — Open model playground (/playground <modelId>)', color: 'white' });
       addLine({ text: '  /quit         — Quit Maestro Code', color: 'white' });
       addLine({ text: '' });
       addLine({ text: 'Keyboard:', color: 'cyan', bold: true });
@@ -1160,6 +1178,29 @@ const App = ({ apiClient: clientProp, sessionManager: smProp, demoMode, repoPath
           addLine({ text: `Error: ${err?.message || String(err)}`, color: 'red', timestamp: ts() });
         }
       }, 0);
+      return;
+    }
+
+    // /playground — open model playground
+    if (trimmed === '/playground' || trimmed.startsWith('/playground ')) {
+      const arg = input.trim().slice('/playground'.length).trim();
+      if (arg) {
+        // /playground <modelId> — go to Models page and open that model's detail + playground
+        setCurrentPage('models');
+        setNavStack([]);
+        // Navigate directly to model detail — the detail view will be rendered with playground support
+        setDetailView({ type: 'model', id: arg });
+        setRestoredState(null);
+      } else {
+        // /playground — navigate to Models page so user can select a model
+        setCurrentPage('models');
+        setNavStack([]);
+        setDetailView(null);
+        setRestoredState(null);
+        addLine({ text: '' });
+        addLine({ text: 'Navigate to a model and press Enter, then [T] to open the playground.', color: 'cyan', timestamp: ts() });
+        addLine({ text: '' });
+      }
       return;
     }
 

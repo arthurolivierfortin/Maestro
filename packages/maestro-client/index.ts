@@ -75,6 +75,14 @@ export type {
 } from './src/domains/costs.js';
 
 export type {
+  PlaygroundRequest,
+  PlaygroundResponse,
+  CapabilityTest,
+  CapabilityTestRequest,
+  CapabilityTestResult,
+} from './src/domains/playground.js';
+
+export type {
   BlockUpdatedEvent,
   ExecutionUpdatedEvent,
   SessionUpdatedEvent,

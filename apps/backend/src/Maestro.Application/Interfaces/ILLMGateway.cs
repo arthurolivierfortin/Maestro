@@ -89,4 +89,5 @@ public class LLMResponse
     public int CompletionTokens { get; init; }
     public int TotalTokens { get; init; }
     public string? Model { get; init; }
+    public string? Provider { get; init; }
 }

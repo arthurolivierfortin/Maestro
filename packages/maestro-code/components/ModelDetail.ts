@@ -11,7 +11,7 @@
  *   onQuit     () => void — quit app
  */
 
-import { createElement as h, useCallback } from 'react';
+import { createElement as h, useState, useCallback } from 'react';
 import type { ReactNode } from 'react';
 import { Box, Text } from 'ink';
 import {
@@ -22,9 +22,10 @@ import {
   sparkline,
 } from '../theme.ts';
 import { useApiData } from '@maestro/tui/hooks';
-import { useActionKeyboard } from '../hooks/useKeyboard.ts';
+import { useKeyboard } from '../hooks/useKeyboard.ts';
 import { Panel } from './Panel.ts';
 import { StatusBar } from './StatusBar.ts';
+import { PlaygroundView } from './PlaygroundView.ts';
 
 // ── Types ────────────────────────────────────────────────────
 
@@ -216,6 +217,8 @@ const PerformanceContent = ({ perf }: PerformanceContentProps): ReactNode => {
 // ── ModelDetail component ────────────────────────────────────
 
 const ModelDetail = ({ modelId, apiClient, onExit, onQuit, onNavigate }: ModelDetailProps): ReactNode => {
+  const [showPlayground, setShowPlayground] = useState(false);
+
   // Fetch LLM health
   const {
     data: llmHealth,
@@ -257,16 +260,30 @@ const ModelDetail = ({ modelId, apiClient, onExit, onQuit, onNavigate }: ModelDe
   const statusLabel = isActive ? 'active' : 'available';
   const statusCol = isActive ? theme.status.success : theme.status.pending;
 
-  // Keyboard (Schema A: detail context)
-  useActionKeyboard({
-    'back': onExit,
-    'quit': onQuit,
-    'page.home': () => { if (onNavigate) onNavigate('home'); },
-    'page.spaces': () => { if (onNavigate) onNavigate('spaces'); },
-    'page.foundry': () => { if (onNavigate) onNavigate('foundry'); },
-    'page.catalog': () => { if (onNavigate) onNavigate('catalog'); },
-    'page.models': () => { if (onNavigate) onNavigate('models'); },
-  }, 'detail');
+  // Derive display name from model info
+  const displayName = modelInfo?.name || modelId;
+
+  // Keyboard — disabled when playground is shown
+  useKeyboard({
+    escape: onExit,
+    q: onQuit,
+    t: () => setShowPlayground(true),
+    h: () => { if (onNavigate) onNavigate('home'); },
+    s: () => { if (onNavigate) onNavigate('spaces'); },
+    f: () => { if (onNavigate) onNavigate('foundry'); },
+    c: () => { if (onNavigate) onNavigate('catalog'); },
+    m: () => { if (onNavigate) onNavigate('models'); },
+  }, { isActive: !showPlayground });
+
+  // Render PlaygroundView when [T] is pressed
+  if (showPlayground) {
+    return h(PlaygroundView, {
+      modelId,
+      modelName: displayName,
+      apiClient,
+      onBack: () => setShowPlayground(false),
+    });
+  }
 
   return h(Box, { flexDirection: 'column', width: '100%', flexGrow: 1 },
     // Header
@@ -314,6 +331,19 @@ const ModelDetail = ({ modelId, apiClient, onExit, onQuit, onNavigate }: ModelDe
       h(Panel, { title: 'PERFORMANCE', flexGrow: 1 },
         h(PerformanceContent, { perf }),
       ),
+    ),
+
+    // Footer: [T] Test this model  [Esc] Back
+    h(Box, { flexDirection: 'row', paddingLeft: 1, paddingY: 0 },
+      h(Text, { color: theme.shortcut.bracket, dimColor: true }, '['),
+      h(Text, { color: theme.shortcut.key }, 'T'),
+      h(Text, { color: theme.shortcut.bracket, dimColor: true }, '] '),
+      muted('Test this model'),
+      h(Text, null, '  '),
+      h(Text, { color: theme.shortcut.bracket, dimColor: true }, '['),
+      h(Text, { color: theme.shortcut.key }, 'Esc'),
+      h(Text, { color: theme.shortcut.bracket, dimColor: true }, '] '),
+      muted('Back'),
     ),
 
     // Status bar

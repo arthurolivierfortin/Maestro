@@ -11,10 +11,18 @@ export interface LLMHealth {
 }
 
 export interface LLMModel {
-  id: string;
+  modelId: string;
   name: string;
+  description?: string;
+  category?: string;
   size?: string;
-  loaded: boolean;
+  parametersB?: number;
+  contextLength?: number;
+  capabilities?: string[];
+  recommended?: boolean;
+  isLocal?: boolean;
+  inputTokenPricePerMillion?: number | null;
+  outputTokenPricePerMillion?: number | null;
 }
 
 export interface LLMStatus {

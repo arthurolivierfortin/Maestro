@@ -6170,7 +6170,7 @@ async function executeWithArgv(argv) {
       'approval', 'approvals', 'auth', 'init', 'aliases', 'system', 'orchestrator', 'metrics',
       'runs', 'config', 'schema', 'search', 'catalog', 'children', 'info', 'chat',
       'setup', 'tools', 'agents', 'workflows', 'prompts', 'sandbox', 'adapt', 'optimize', 'contract',
-      'create-agent', 'costs',
+      'create-agent', 'costs', 'playground',
     ]);
 
     if (cmd && !BUILTIN_COMMANDS.has(cmd)) {
@@ -9538,6 +9538,175 @@ ${c.bold('Examples:')}
 
       formatter.error(`Unknown auth subcommand: ${subCmd}. Available: status, setup, create-key, list-keys, revoke`, 'UNKNOWN_COMMAND');
       process.exit(EXIT.USER_ERROR);
+    }
+
+    // Playground command (Phase 60-C) — send prompts / run capability tests on models
+    if (cmd === 'playground') {
+      const modelId = argv.model || argv.m;
+      const prompt = argv.prompt || argv.p;
+      const testId = argv.test || argv.t;
+      const testAll = argv['test-all'];
+      const listTests = argv['list-tests'];
+      const systemPrompt = argv.system || argv.s;
+      const maxTokens = argv['max-tokens'];
+      const temperature = argv.temperature;
+      const jsonOutput = argv.json;
+
+      // --list-tests: list available capability tests
+      if (listTests) {
+        try {
+          const tests = await client.playgroundListTests();
+          if (jsonOutput) {
+            console.log(JSON.stringify(tests, null, 2));
+            return;
+          }
+          console.log('\nAvailable capability tests:');
+          for (const t of tests) {
+            console.log(`  ${c.cyan(t.id.padEnd(24))} ${t.name}`);
+          }
+          console.log('');
+        } catch (error) {
+          handleApiError(error, 'listing playground tests');
+          process.exit(1);
+        }
+        return;
+      }
+
+      // All other modes require --model
+      if (!modelId) {
+        console.log('Usage: maestro playground [options]');
+        console.log('');
+        console.log('Modes:');
+        console.log('  --model <id> --prompt <text>      Send a custom prompt to a model');
+        console.log('  --model <id> --test <testId>      Run a single capability test');
+        console.log('  --model <id> --test-all           Run all capability tests');
+        console.log('  --list-tests                      List available capability tests');
+        console.log('  --model <id>                      Interactive mode (prompt via stdin)');
+        console.log('');
+        console.log('Options:');
+        console.log('  --system <text>      System prompt (for --prompt mode)');
+        console.log('  --max-tokens <n>     Max tokens');
+        console.log('  --temperature <n>    Temperature');
+        console.log('  --json               Output raw JSON');
+        return;
+      }
+
+      // --test-all: run all 6 capability tests sequentially
+      if (testAll) {
+        try {
+          const tests = await client.playgroundListTests();
+          if (jsonOutput) {
+            const results = [];
+            for (const t of tests) {
+              const result = await client.playgroundRunTest({ modelId, testId: t.id });
+              results.push(result);
+            }
+            console.log(JSON.stringify(results, null, 2));
+            return;
+          }
+          console.log(`\nModel: ${c.bold(modelId)}`);
+          console.log(`Running ${tests.length} capability tests...\n`);
+          let passed = 0;
+          let totalCost = 0;
+          let totalTime = 0;
+          for (const t of tests) {
+            const result = await client.playgroundRunTest({ modelId, testId: t.id });
+            const icon = result.passed ? c.green('\u2713') : c.red('\u2717');
+            const status = result.passed ? c.green('PASS') : c.red('FAIL');
+            const timeSec = (result.latencyMs / 1000).toFixed(1) + 's';
+            const cost = '$' + (result.costUsd || 0).toFixed(4);
+            const detail = !result.passed && result.validationDetails ? ' - ' + result.validationDetails : '';
+            console.log(`  ${icon} ${(result.testName || t.name).padEnd(24)} ${timeSec.padStart(5)}  ${cost.padStart(8)}  ${status}${detail}`);
+            if (result.passed) passed++;
+            totalCost += result.costUsd || 0;
+            totalTime += result.latencyMs || 0;
+          }
+          const totalTimeSec = (totalTime / 1000).toFixed(1) + 's';
+          const pct = Math.round((passed / tests.length) * 100);
+          console.log(`\nScore: ${passed}/${tests.length} (${pct}%)  |  Total cost: $${totalCost.toFixed(4)}  |  Total time: ${totalTimeSec}`);
+          console.log('');
+        } catch (error) {
+          handleApiError(error, 'running playground tests');
+          process.exit(1);
+        }
+        return;
+      }
+
+      // --test <testId>: run a single capability test
+      if (testId) {
+        try {
+          const result = await client.playgroundRunTest({ modelId, testId });
+          if (jsonOutput) {
+            console.log(JSON.stringify(result, null, 2));
+            return;
+          }
+          const statusStr = result.passed ? c.green('\u2713 PASS') : c.red('\u2717 FAIL');
+          const tokens = `${result.promptTokens || 0} + ${result.completionTokens || 0} = ${(result.promptTokens || 0) + (result.completionTokens || 0)}`;
+          const timeSec = (result.latencyMs / 1000).toFixed(1) + 's';
+          const cost = '$' + (result.costUsd || 0).toFixed(4);
+          console.log(`\nModel: ${c.bold(modelId)}`);
+          console.log(`Test: ${result.testName || testId}`);
+          console.log(`Result: ${statusStr}`);
+          if (result.validationDetails) {
+            console.log(`Details: ${result.validationDetails}`);
+          }
+          console.log(`Tokens: ${tokens}  |  Cost: ${cost}  |  Time: ${timeSec}`);
+          console.log('');
+        } catch (error) {
+          handleApiError(error, 'running playground test');
+          process.exit(1);
+        }
+        return;
+      }
+
+      // --prompt <text>: send a custom prompt
+      let promptText = prompt;
+      if (!promptText) {
+        // Interactive mode: read from stdin
+        const readline = require('readline');
+        const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+        promptText = await new Promise((resolve) => {
+          rl.question('Prompt: ', (answer) => {
+            rl.close();
+            resolve(answer);
+          });
+        });
+        if (!promptText || !promptText.trim()) {
+          console.error('Prompt is required.');
+          process.exit(1);
+        }
+      }
+
+      try {
+        const request: any = { modelId, prompt: promptText };
+        if (systemPrompt) request.systemPrompt = systemPrompt;
+        if (maxTokens !== undefined) request.maxTokens = parseInt(maxTokens, 10);
+        if (temperature !== undefined) request.temperature = parseFloat(temperature);
+
+        const result = await client.playgroundSend(request);
+        if (jsonOutput) {
+          console.log(JSON.stringify(result, null, 2));
+          return;
+        }
+        const tokens = `${result.promptTokens || 0} + ${result.completionTokens || 0} = ${result.totalTokens || 0}`;
+        const timeSec = (result.latencyMs / 1000).toFixed(1) + 's';
+        const cost = '$' + (result.costUsd || 0).toFixed(4);
+        console.log(`\nModel: ${c.bold(result.modelId || modelId)}${result.provider ? ` (${result.provider})` : ''}`);
+        console.log('');
+        console.log('Response:');
+        // Indent each line of the response
+        const lines = (result.content || '').split('\n');
+        for (const line of lines) {
+          console.log(`  ${line}`);
+        }
+        console.log('');
+        console.log(`Tokens: ${tokens}  |  Cost: ${cost}  |  Time: ${timeSec}`);
+        console.log('');
+      } catch (error) {
+        handleApiError(error, 'sending playground prompt');
+        process.exit(1);
+      }
+      return;
     }
 
     // "Did you mean...?" suggestion

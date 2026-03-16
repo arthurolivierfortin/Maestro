@@ -57,3 +57,5 @@
 {"sessionId":"79a1153a-b833-4ec7-a965-c7c8dee08052","blockId":"inference","modelId":"gpt-4o","providerId":"","promptTokens":3243,"completionTokens":898,"costUsd":0.0170875,"timestamp":"2026-03-16T21:04:41.3559756Z"}
 {"sessionId":"79a1153a-b833-4ec7-a965-c7c8dee08052","blockId":"inference","modelId":"gpt-4o","providerId":"","promptTokens":4788,"completionTokens":60,"costUsd":0.01257,"timestamp":"2026-03-16T21:04:47.6849933Z"}
 {"sessionId":"69ff99a4-19fa-46f0-a267-54e46863e73f","blockId":"test-designer","modelId":"gpt-4o","providerId":"","promptTokens":10329,"completionTokens":981,"costUsd":0.0356325,"timestamp":"2026-03-16T21:04:49.438616Z"}
+{"sessionId":"playground","blockId":"playground","modelId":"gpt-4o","providerId":"GitHubModels","promptTokens":30,"completionTokens":3,"costUsd":0.000105,"timestamp":"2026-03-16T22:41:14.4912106Z"}
+{"sessionId":"playground","blockId":"capability-test:structured-output","modelId":"gpt-4o","providerId":"GitHubModels","promptTokens":94,"completionTokens":40,"costUsd":0.000635,"timestamp":"2026-03-16T22:41:32.7063468Z"}

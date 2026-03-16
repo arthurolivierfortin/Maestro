@@ -104,7 +104,8 @@ public class LLMProviderGateway : ILLMGateway, IDisposable
             PromptTokens = response?.TokenUsage?.PromptTokens ?? 0,
             CompletionTokens = response?.TokenUsage?.CompletionTokens ?? 0,
             TotalTokens = response?.TokenUsage?.TotalTokens ?? 0,
-            Model = response?.Model
+            Model = response?.Model,
+            Provider = response?.Provider
         };
     }
 

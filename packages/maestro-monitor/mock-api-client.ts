@@ -284,10 +284,10 @@ const MOCK_LLM_HEALTH: LLMHealth = {
 };
 
 const MOCK_LLM_MODELS: LLMModel[] = [
-  { id: 'SmolLM2-1.7B-Instruct', name: 'SmolLM2 1.7B Instruct', size: '1.7B', loaded: true },
-  { id: 'Qwen2.5-Coder-1.5B-Instruct', name: 'Qwen 2.5 Coder 1.5B', size: '1.5B', loaded: false },
-  { id: 'SmolLM2-360M-Instruct', name: 'SmolLM2 360M Instruct', size: '360M', loaded: false },
-  { id: 'Phi-3-mini-4k-instruct', name: 'Phi-3 Mini 4K', size: '3.8B', loaded: false },
+  { modelId: 'SmolLM2-1.7B-Instruct', name: 'SmolLM2 1.7B Instruct', size: '1.7B', category: 'Local', isLocal: true },
+  { modelId: 'Qwen2.5-Coder-1.5B-Instruct', name: 'Qwen 2.5 Coder 1.5B', size: '1.5B', category: 'Local', isLocal: true },
+  { modelId: 'SmolLM2-360M-Instruct', name: 'SmolLM2 360M Instruct', size: '360M', category: 'Local', isLocal: true },
+  { modelId: 'Phi-3-mini-4k-instruct', name: 'Phi-3 Mini 4K', size: '3.8B', category: 'Local', isLocal: true },
 ];
 
 const MOCK_LLM_STATUS: LLMStatus = {

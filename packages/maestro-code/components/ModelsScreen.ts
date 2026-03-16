@@ -23,6 +23,7 @@ import { useKeyboard } from '../hooks/useKeyboard.ts';
 import { useAnimationTick } from '../hooks/useAnimationTick.ts';
 import { NavBar } from './NavBar.ts';
 import { Panel } from './Panel.ts';
+import { PlaygroundView } from './PlaygroundView.ts';
 
 // ── Metrics Panel ────────────────────────────────────────────
 
@@ -157,6 +158,7 @@ const ModelStatusPanel = ({ health, tick = 0, providerCount: providerCountProp }
   // Extract info from health response
   const device = health?.device || '-';
   const modelsLoaded = health?.modelsLoaded ?? '-';
+  const activeModel = health?.activeModel || '';
   const providerCount = providerCountProp ?? (health?.providers ? Object.keys(health.providers).length : '-');
 
   return h(Box, { flexDirection: 'column', paddingLeft: 1 },
@@ -166,6 +168,12 @@ const ModelStatusPanel = ({ health, tick = 0, providerCount: providerCountProp }
       muted('Status: '),
       T(healthColor, isLoading ? 'Loading...' : (isHealthy ? 'Online' : 'Offline')),
     ),
+    activeModel
+      ? h(Box, { flexDirection: 'row' },
+          muted('Active:       '),
+          primary(String(activeModel)),
+        )
+      : null,
     h(Text, null, ''),
     h(Box, { flexDirection: 'row' },
       muted('Providers:    '),
@@ -192,27 +200,24 @@ interface ModelCardProps {
 
 const ModelCard = ({ model, isSelected, isActive }: ModelCardProps) => {
   const displayName = model.name || model.modelId || 'Unknown';
-  const modelId = model.modelId || '';
-  // Show "DisplayName (model-id)" when both exist and differ, otherwise just the name/id
-  const name = (displayName && modelId && displayName !== modelId)
-    ? `${displayName} (${modelId})`
-    : displayName;
-  const category = model.category || '';
+  const provider = model.category || '';
   const selector = isSelected ? icons.arrow : ' ';
-  const activeIcon = isActive ? icons.done : ' ';
+  const statusIcon = isActive ? icons.done : (model.recommended !== false ? icons.done : icons.failed);
+  const statusColor = isActive ? theme.status.success : (model.recommended !== false ? theme.status.success : theme.status.error);
   const nameColor = isActive ? theme.status.success : (isSelected ? theme.panel.borderFocused : theme.text.primary);
+  const truncatedName = displayName.length > 30 ? displayName.substring(0, 30) : displayName.padEnd(30);
+  const truncatedProvider = provider.length > 16 ? provider.substring(0, 16) : provider.padEnd(16);
 
   return h(Box, { flexDirection: 'row', paddingLeft: 1 },
     h(Text, { color: isSelected ? theme.panel.borderFocused : undefined }, selector),
     h(Text, null, ' '),
-    h(Text, { color: isActive ? theme.status.success : theme.text.muted }, activeIcon),
+    h(Text, { color: nameColor }, truncatedName),
     h(Text, null, ' '),
-    h(Text, { color: nameColor }, name.length > 50 ? name.substring(0, 50) : name.padEnd(50)),
-    category
-      ? h(Text, null, ' ', muted(category))
-      : null,
+    muted(truncatedProvider),
+    h(Text, null, ' '),
+    h(Text, { color: statusColor }, statusIcon),
     isActive
-      ? h(Text, { color: theme.status.success }, '  (active)')
+      ? h(Text, { color: theme.status.success }, ' (active)')
       : null,
   );
 };
@@ -292,6 +297,8 @@ interface ModelsScreenProps {
 const ModelsScreen = ({ apiClient, onNavigate, onModelSelect, onQuit, initialState, chrome, keyboardActive, providers, onReconfigure }: ModelsScreenProps) => {
   const showChrome = chrome !== false;
   const [selectedIndex, setSelectedIndex] = useState(initialState?.selectedIndex ?? 0);
+  const [playgroundModelId, setPlaygroundModelId] = useState<string | null>(null);
+  const [playgroundModelName, setPlaygroundModelName] = useState<string | null>(null);
   const tick = useAnimationTick(150);
 
   // Fetch LLM health
@@ -342,7 +349,18 @@ const ModelsScreen = ({ apiClient, onNavigate, onModelSelect, onQuit, initialSta
     }
   }, [modelList.length]);
 
-  // Keyboard
+  // Open playground for the currently selected model
+  const openPlayground = useCallback(() => {
+    if (modelList.length > 0) {
+      const model = modelList[selectedIndex];
+      if (model?.modelId) {
+        setPlaygroundModelId(model.modelId);
+        setPlaygroundModelName(model.name || model.modelId);
+      }
+    }
+  }, [modelList, selectedIndex]);
+
+  // Keyboard — disabled when playground is shown
   useKeyboard({
     up: () => setSelectedIndex((i: number) => Math.max(0, i - 1)),
     down: () => setSelectedIndex((i: number) => Math.min(modelList.length - 1, i + 1)),
@@ -359,6 +377,7 @@ const ModelsScreen = ({ apiClient, onNavigate, onModelSelect, onQuit, initialSta
         if (model?.modelId) onModelSelect(model.modelId, { selectedIndex });
       }
     },
+    t: openPlayground,
     ...(showChrome ? {
       h: () => onNavigate('home'),
       a: () => onNavigate('agent'),
@@ -370,7 +389,18 @@ const ModelsScreen = ({ apiClient, onNavigate, onModelSelect, onQuit, initialSta
     r: () => { if (onReconfigure) onReconfigure(); },
     escape: showChrome ? () => onNavigate('home') : undefined,
     q: onQuit,
-  }, { isActive: keyboardActive !== false });
+  }, { isActive: keyboardActive !== false && !playgroundModelId });
+
+  // Render PlaygroundView when [T] is pressed
+  if (playgroundModelId) {
+    return h(PlaygroundView, {
+      modelId: playgroundModelId,
+      modelName: playgroundModelName || playgroundModelId,
+      apiClient,
+      onBack: () => { setPlaygroundModelId(null); setPlaygroundModelName(null); },
+      keyboardActive: keyboardActive !== false,
+    });
+  }
 
   return h(Box, { flexDirection: 'column', width: '100%', flexGrow: 1 },
     showChrome ? h(NavBar, { currentPage: 'models', sessionCount: sessionList.length, runningCount }) : null,
@@ -418,6 +448,30 @@ const ModelsScreen = ({ apiClient, onNavigate, onModelSelect, onQuit, initialSta
                   });
                 }),
               ),
+          // Footer shortcuts inside model panel
+          modelList.length > 0
+            ? h(Box, { flexDirection: 'row', paddingLeft: 2, marginTop: 1 },
+                h(Text, { color: theme.shortcut.bracket, dimColor: true }, '['),
+                h(Text, { color: theme.shortcut.key }, 'j/k'),
+                h(Text, { color: theme.shortcut.bracket, dimColor: true }, '] '),
+                muted('Navigate'),
+                h(Text, null, '  '),
+                h(Text, { color: theme.shortcut.bracket, dimColor: true }, '['),
+                h(Text, { color: theme.shortcut.key }, 'Enter'),
+                h(Text, { color: theme.shortcut.bracket, dimColor: true }, '] '),
+                muted('Details'),
+                h(Text, null, '  '),
+                h(Text, { color: theme.shortcut.bracket, dimColor: true }, '['),
+                h(Text, { color: theme.shortcut.key }, 'T'),
+                h(Text, { color: theme.shortcut.bracket, dimColor: true }, '] '),
+                muted('Test'),
+                h(Text, null, '  '),
+                h(Text, { color: theme.shortcut.bracket, dimColor: true }, '['),
+                h(Text, { color: theme.shortcut.key }, 'Esc'),
+                h(Text, { color: theme.shortcut.bracket, dimColor: true }, '] '),
+                muted('Back'),
+              )
+            : null,
         ),
       ),
     ),
