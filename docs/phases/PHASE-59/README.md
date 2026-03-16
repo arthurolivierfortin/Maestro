@@ -1,53 +1,44 @@
-# Phase 59 : /adapt = Workflow Agent Creator + Contract Resolution
+# Phase 59 : Agent Isolation — Sessions enfants, I/O controle, permissions enforcement
 
-**Statut** : Planifie
-**Prerequis** : Phase 58 COMPLETE (workflow block-forge, /create-agent TUI/CLI)
-**Objectif** : `/adapt` utilise Agent Creator pour creer des variantes d'un block optimisees pour un modele/hardware donne. La variante implemente le **meme contract** que l'original. Les workflows peuvent utiliser `contractRef` au lieu de `blockRef` pour resoudre au runtime vers le block choisi par l'utilisateur.
-**Duree estimee** : 4-6 jours
+**Statut** : A faire
+**Prerequis** : Phase 59-PRE-2 COMPLETE (cost enforcement, graceful shutdown)
+**Objectif** : Isoler chaque agent (blockRef) dans une session enfant avec I/O controle strict et permissions enforces, pour que les workflows multi-agents (block-forge, /adapt) fonctionnent de facon fiable.
+**Duree estimee** : 3-5 jours
+
+---
+
+## Regles pour l'agent executant
+
+1. **Lire `docs/system/AGENT-PROTOCOL.md`** avant de commencer
+2. **Lire les fichiers obligatoires** avant chaque sous-phase
+3. **Ecrire dans `PHASE-59/checkpoint.md`** apres chaque sous-phase
+4. **Ne PAS casser les workflows existants** — les agents sans isolation doivent continuer a fonctionner (fallback)
+5. **Ne PAS ajouter de logique dans AgentBlockExecutor** — l'isolation est dans l'infrastructure (NodeExecutionEngine / BlockRefHandler)
 
 ---
 
 ## Contexte
 
-### /adapt avec contracts
+### Le probleme
 
-```
-/adapt maestro-assistant-workflow --target-model mistral-7b
+Quand un workflow execute 2+ agents sequentiellement (ex: test-designer puis agent-creator dans block-forge), les agents partagent la meme session. Consequences :
+- Les variables d'un agent polluent le suivant (`_workflowCheckpoint`, conversation history)
+- Les permissions ne sont pas enforces (un agent peut lire/ecrire n'importe ou)
+- `GetParentContext()` ne fonctionne pas E2E
+- Le premier agent laisse des artefacts qui perturbent le second
 
-1. Lit le block source → contract: "maestro-assistant"
-2. Lit le contract definition → features + capabilities requises
-3. Appelle Agent Creator :
-   "Cree un block qui implemente le contract maestro-assistant
-    optimise pour Mistral 7B.
-    Le modele supporte tool-calling mais pas structured-output.
-    Adapte les prompts en consequence."
-4. Agent Creator genere le block :
-   - contract: "maestro-assistant"
-   - capabilities: ["conversation", "orchestration", "tool-calling"]
-   - (structured-output absent → features json-config desactivee)
-5. Test fitness → publish comme block utilisateur
-```
+### La solution
 
-### contractRef dans les workflows
+Chaque blockRef de type agent cree une **session enfant** temporaire :
+- I/O defini : le workflow passe des inputs, l'agent retourne des outputs, rien d'autre ne traverse
+- Permissions enforces : `FileAccessRule` et `BlockPermission` respectes
+- Etat nettoye : `_workflowCheckpoint` et conversation remis a zero entre agents
+- `GetParentContext()` retourne le contexte du workflow parent
 
-Aujourd'hui un workflow fait `blockRef: "maestro-assistant-claude"` — hardcode.
-Avec `contractRef`, le workflow fait `contractRef: "maestro-assistant"` et le systeme resout au runtime vers le block que l'utilisateur a choisi pour ce contract.
+### Sources
 
-```json
-{
-  "config": {
-    "nodes": [
-      {
-        "id": "assistant",
-        "contractRef": "maestro-assistant",
-        "requiredCapabilities": ["orchestration", "tool-calling"]
-      }
-    ]
-  }
-}
-```
-
-Si le block choisi pour ce contract n'a pas les `requiredCapabilities`, erreur claire au lieu d'un echec silencieux.
+- `docs/phases/PHASE-59-PRE-2/cost-enforcement-analysis.md` — analyse des limites de couts (pattern similar d'interception dans BlockRefHandler)
+- `docs/system/design-decisions/ADR-PROVIDER-ROUTING.md` — pattern de resolution dynamique
 
 ---
 
@@ -55,118 +46,129 @@ Si le block choisi pour ce contract n'a pas les `requiredCapabilities`, erreur c
 
 | Phase | Titre | Effort |
 |-------|-------|--------|
-| 55-A | Workflow `/adapt` (Agent Creator + contract) | 2-3 jours |
-| 55-B | `contractRef` dans les workflows (resolution runtime) | 1-2 jours |
-| 55-C | Integration TUI + Catalog | 1 jour |
+| 59-A | Sessions enfants pour chaque blockRef agent | 1-2 jours |
+| 59-B | I/O controle + _workflowCheckpoint cleanup entre agents | 1 jour |
+| 59-C | Enforcement FileAccessRule + BlockPermission + GetParentContext() | 1-2 jours |
+| 59-T | Tests : 2+ agents sequentiels, isolation verifiee | 0.5 jour |
 
 ---
 
-## 55-A : Workflow /adapt
+## 59-A : Sessions enfants pour blockRef agents
 
-### Lecture obligatoire
-- `content/system/blocks/workflows/` (workflows existants)
-- Le block `system:agent-creator` (Phase 55)
-- `content/system/contracts/` (contract definitions)
-- `packages/maestro-cli/adapt-optimize.ts` (module adapt nettoye Phase 50)
-- `packages/maestro-code/services/contract-resolver.ts` (Phase 50)
-- `packages/maestro-code/services/hardware-detect.ts`
+### Fichiers cibles
 
-### Taches
+| Fichier | Action |
+|---------|--------|
+| `apps/backend/src/Maestro.Infrastructure/Sessions/NodeHandlers/BlockRefHandler.cs` | Modifier — creer une session enfant quand le block est de type agent |
+| `apps/backend/src/Maestro.Domain/Entities/Session.cs` | Modifier — ajouter `parentSessionId` + relation parent/enfant |
+| `apps/backend/src/Maestro.Infrastructure/Sessions/SessionManager.cs` | Modifier — methode `CreateChildSession()` |
+| `apps/backend/src/Maestro.Infrastructure/Sessions/SessionStateManager.cs` | Modifier — propager le cleanup de sessions enfants |
 
-1. **Creer le workflow `system:adapt-workflow`** :
-   ```
-   adapt-workflow (composite)
-     |-- analyze-source
-     |   Lit le block source, son contract, ses capabilities
-     |   Identifie le modele cible (specifie ou detecte via hardware)
-     |   Determine quelles capabilities le modele cible supporte
-     |
-     |-- create-variant (appelle Agent Creator)
-     |   Contraintes :
-     |     - Meme contract que l'original
-     |     - Prompts adaptes pour le modele cible
-     |     - Capabilities = intersection(contract.features, model.capabilities)
-     |     - Temperature, max_tokens, tool-calling adaptes
-     |
-     |-- test-variant
-     |   Mesure fitness
-     |   Verifie les capabilities declarees
-     |
-     +-- publish-or-iterate
-         fitness >= seuil → publish comme block utilisateur
-         sinon → iterate (max 3)
-   ```
+### Verification
 
-2. **Le resultat** :
-   - Block utilisateur dans `content/user/blocks/`
-   - Meme contract que l'original
-   - Capabilities verifiees (pas juste declarees)
-   - Metadata : `adaptedFrom`, `targetModel`, `fitness`
+```bash
+# 1. Build backend
+dotnet build apps/backend/src/Maestro.Api/Maestro.Api.csproj
+# Resultat : 0 erreurs
 
-3. **CLI** : `maestro adapt <block-id> [--target-model <model>] [--target-tier <tier>]`
+# 2. Workflow avec 2 agents
+# Invoquer block-forge → verifier que test-designer et agent-creator ont chacun une session enfant
+curl http://localhost:5000/api/sessions/{parent-id}
+# Resultat : variables contiennent les IDs des sessions enfants
+```
 
 ---
 
-## 55-B : contractRef dans les workflows
+## 59-B : I/O controle + cleanup
 
-### Lecture obligatoire
-- `apps/backend/src/Maestro.Infrastructure/Sessions/EntryPointExecutor.cs`
-- `apps/backend/src/Maestro.Infrastructure/BlockStore/FileSystemBlockDiscoveryService.cs`
-- `apps/backend/src/Maestro.Domain/Entities/BlockDefinition.cs`
+### Fichiers cibles
 
-### Taches
+| Fichier | Action |
+|---------|--------|
+| `apps/backend/src/Maestro.Infrastructure/Sessions/NodeHandlers/BlockRefHandler.cs` | Modifier — passer uniquement les inputs declares, recuperer uniquement les outputs |
+| `apps/backend/src/Maestro.Infrastructure/Sessions/NodeExecutionEngine.cs` | Modifier — clear _workflowCheckpoint entre blockRef agents |
 
-1. **Ajouter `contractRef` comme alternative a `blockRef`** dans les nodes de workflow :
-   - Si `contractRef` present → resoudre via config utilisateur
-   - Si `blockRef` present → resolution directe (existant)
-   - Si les deux → erreur
+### Verification
 
-2. **Resolution** :
-   - Lire `~/.maestro/config.json` → `contracts["maestro-assistant"]` → block ID
-   - Fallback : si pas de config, utiliser le block par defaut du contract
-   - Si `requiredCapabilities` sur le node → verifier que le block choisi les a
-   - Si capability manquante → erreur claire : "Block X doesn't support Y required by this workflow"
-
-3. **Tests** :
-   - Test : contractRef resout vers le block configure
-   - Test : contractRef sans config → fallback defaut
-   - Test : requiredCapabilities manquante → erreur
-   - Test : blockRef continue de fonctionner (backward compatible)
+```bash
+# Verifier que les variables de l'agent 1 ne sont pas visibles par l'agent 2
+# Agent 1 set _myVar = "test" → agent 2 ne doit pas avoir _myVar
+curl http://localhost:5000/api/sessions/{child-2-id}/variables
+# Resultat : pas de _myVar
+```
 
 ---
 
-## 55-C : Integration TUI + Catalog
+## 59-C : Enforcement permissions + GetParentContext()
 
-### Taches
+### Fichiers cibles
 
-1. **Slash command `/adapt`** dans AgentPanel :
-   - `/adapt` → adapte le block du contract actif au hardware
-   - `/adapt <block-id>` → adapte un block specifique
-   - `/adapt <block-id> --model <model>` → pour un modele specifique
-   - Progression dans le ConversationLog
+| Fichier | Action |
+|---------|--------|
+| `apps/backend/src/Maestro.Infrastructure/BlockExecutors/AgentBlockExecutor.cs` | Modifier — propager les permissions de la session enfant, pas du parent |
+| `apps/backend/src/Maestro.Infrastructure/Sessions/EntryPointExecutor.cs` | Modifier — GetParentContext() retourne le contexte du workflow parent |
+| `apps/backend/src/Maestro.Domain/Entities/FileAccessRule.cs` | Verifier — enforcement dans le contexte session enfant |
 
-2. **Touche `[A]` dans CatalogScreen** sur un block → lance /adapt pour ce block
+### Verification
 
-3. **DemoApiClient** : mock pour adapt
+```bash
+# GetParentContext() retourne le parent
+curl http://localhost:5000/api/sessions/{child-id}/context
+# Resultat : parentSessionId = ID du workflow
 
-4. **HelpOverlay** : ajouter `/adapt`
+# Permissions enforces
+# Agent enfant ne peut pas lire hors de son workingDir sans permission explicite
+```
+
+---
+
+## 59-T : Tests
+
+### Couches applicables
+
+| Couche | Quand obligatoire |
+|--------|-------------------|
+| C1 — Type Check | Toujours |
+| C2 — Tests unitaires | BlockRefHandler session enfant, I/O controle |
+| C5 — Tests d'integration | Workflow 2+ agents sequentiels |
+| C6 — E2E | Block-forge avec isolation |
+
+### Scenarios de test
+
+1. **2 agents sequentiels** : test-designer → agent-creator, chacun isole
+2. **Variable isolation** : agent 1 set une variable, agent 2 ne la voit pas
+3. **_workflowCheckpoint cleanup** : clear entre agents
+4. **Permissions** : agent enfant respecte ses FileAccessRules
+5. **GetParentContext()** : retourne le workflow parent
+6. **Fallback** : blocks non-agents continuent a fonctionner normalement (pas de session enfant)
 
 ---
 
 ## Definition of Done
 
-> **OBLIGATOIRE** : Lire `docs/system/TESTING-PROTOCOL.md` et executer TOUTES les couches de test applicables (voir la matrice) avant de declarer DONE. Copier la checklist de fin de phase dans `checkpoint.md`.
-
-- [ ] Workflow `system:adapt-workflow` fonctionnel
-- [ ] La variante creee implemente le meme contract que l'original
-- [ ] Les capabilities sont verifiees, pas juste declarees
-- [ ] `contractRef` fonctionne dans les workflows
-- [ ] Resolution runtime avec fallback + verification capabilities
-- [ ] `/adapt` et `[A]` fonctionnent dans le TUI
-- [ ] CLI `maestro adapt` fonctionnel
-- [ ] Tous les tests passent
-- [ ] E2E dogfooding score >= 3.5/5
+- [ ] Chaque blockRef agent cree une session enfant
+- [ ] I/O controle : seuls les inputs/outputs declares traversent
+- [ ] _workflowCheckpoint nettoye entre agents
+- [ ] FileAccessRule + BlockPermission enforces dans la session enfant
+- [ ] GetParentContext() retourne le contexte du workflow parent
+- [ ] 2+ agents sequentiels fonctionnent correctement dans block-forge
+- [ ] Tests passent (unit + integration)
+- [ ] 0 regression sur workflows existants
 
 ### NOT in scope
-- Production des ~30 variantes (Phase 58)
-- Catalogue communautaire (Phase 60)
+
+- Refactoring de AgentBlockExecutor (Phase 53 l'a deja fait)
+- Parallelisme inter-agents (un seul agent a la fois dans V1)
+- Model Playground (Phase 60)
+- Modification de block-forge (Phase 61)
+
+---
+
+## Gestion de la memoire
+
+### Checkpoint global
+Fichier `docs/phases/PHASE-59/checkpoint.md`
+
+### Mise a jour MEMORY.md apres completion
+- Ajouter : "Phase 59 : Agent Isolation (sessions enfants, I/O controle, permissions enforcement)"
+- Mettre a jour : "Current Project State"

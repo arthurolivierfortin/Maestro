@@ -1,56 +1,39 @@
-# Phase 61 : Choix assistant au setup + Catalog par contract
+# Phase 61 : Block-Forge V2 — Provider rapide, agents fonctionnels E2E
 
-**Statut** : Planifie
-**Prerequis** : Phase 60 COMPLETE (~30 variantes pre-testees avec contracts et capabilities)
-**Objectif** : Au premier lancement, l'utilisateur voit tous les blocks qui implementent le contract `maestro-assistant`, avec leurs capabilities et features actives/inactives. Il choisit celui qu'il veut. Le Catalog est organise par contract et permet de changer a tout moment.
+**Statut** : A faire
+**Prerequis** : Phase 59 COMPLETE (agent isolation), Phase 60 optionnel (playground utile pour debug)
+**Objectif** : Rendre block-forge utilisable en production. Utiliser un provider rapide (Anthropic API / GitHub Models au lieu de Claude Code CLI), corriger les outputs structures (blockId, fitness), et creer 2 agents fonctionnels (code-reviewer, test-generator) avec fitness > 0.5.
 **Duree estimee** : 3-5 jours
+
+---
+
+## Regles pour l'agent executant
+
+1. **Lire `docs/system/AGENT-PROTOCOL.md`** avant de commencer
+2. **Lire les fichiers obligatoires** avant chaque sous-phase
+3. **Ecrire dans `PHASE-61/checkpoint.md`** apres chaque sous-phase
+4. **Ne PAS modifier l'architecture des blocks** — cette phase utilise l'infrastructure existante, pas la refactore
+5. **Ne PAS ignorer les couts** — configurer des limites avant chaque test (Phase 59-PRE/59-PRE-2)
+6. **Ne PAS declarer un agent "fonctionnel" sans fitness > 0.5 verifie** par le contract test runner
 
 ---
 
 ## Contexte
 
-### Le flow utilisateur
+### Le probleme (identifie en Phase 58-C)
 
-```
-┌─ CHOOSE YOUR ASSISTANT ─────────────────────────────────────────┐
-│                                                                   │
-│  Your hardware: RTX 3060 (12GB VRAM), 32GB RAM                   │
-│  Contract: maestro-assistant                                      │
-│                                                                   │
-│  Compatible implementations (5):                                  │
-│                                                                   │
-│  > maestro-assistant-mistral7b     ★ Recommended                  │
-│    Fitness: 0.82 | Model: Mistral 7B | Tier: standard            │
-│    Features: 3/5 active                                           │
-│      ✓ conversation  ✓ orchestration  ✓ tool-execution           │
-│      ✗ json-config (needs structured-output)                     │
-│      ✗ multi-step-plans (needs long-context)                     │
-│                                                                   │
-│    maestro-assistant-codellama13b                                  │
-│    Fitness: 0.78 | Model: CodeLlama 13B | Tier: heavy            │
-│    Features: 4/5 active                                           │
-│      ✓ conversation  ✓ orchestration  ✓ tool-execution           │
-│      ✓ multi-step-plans                                          │
-│      ✗ json-config (needs structured-output)                     │
-│                                                                   │
-│    maestro-assistant-claude                                        │
-│    Fitness: 0.95 | Model: Claude (cloud) | Tier: cloud-paid      │
-│    Features: 5/5 active — ALL FEATURES                           │
-│                                                                   │
-│    maestro-assistant-phi3                                          │
-│    Fitness: 0.55 | Model: Phi-3 Mini | Tier: light               │
-│    Features: 2/5 active                                           │
-│      ✓ conversation  ✓ tool-execution                            │
-│                                                                   │
-│  Not compatible with your hardware (3):                           │
-│    maestro-assistant-mixtral (needs 24GB VRAM)                    │
-│    ...                                                            │
-│                                                                   │
-│  [j/k] Navigate  [Enter] Select  [Space] Details                 │
-└───────────────────────────────────────────────────────────────────┘
-```
+Block-forge fonctionne architecturalement mais n'est pas utilisable en production :
+- **Trop lent** : 15+ minutes via Claude Code CLI (chaque appel LLM = 30-60s de round-trip)
+- **Outputs casses** : blockId et fitness sont des textes bruts au lieu de valeurs structurees
+- **Agents non isoles** : les variables du test-designer polluent l'agent-creator (corrige par Phase 59)
+- **Cout invisible** : $0.000 car le tracking etait casse dans ce contexte (corrige par Phase 59-PRE)
 
-L'utilisateur voit **exactement** ce qu'il gagne et perd avec chaque choix.
+### La solution
+
+1. **Provider rapide** : utiliser Anthropic API directement (ou GitHub Models) au lieu de Claude Code CLI. Latence attendue : 2-5s par appel au lieu de 30-60s. Workflow total < 5 min.
+2. **Outputs structures** : valider que ResponseParserBlockExecutor extrait correctement blockId, fitness, blockPath des arguments step-complete.
+3. **Isolation** (Phase 59) : chaque agent dans sa session enfant.
+4. **Benchmark** : comparer les resultats sur 2+ modeles par contract.
 
 ---
 
@@ -58,120 +41,133 @@ L'utilisateur voit **exactement** ce qu'il gagne et perd avec chaque choix.
 
 | Phase | Titre | Effort |
 |-------|-------|--------|
-| 57-A | Filtrage compatibilite + feature gating UI | 1 jour |
-| 57-B | UI de choix dans le setup flow | 1.5-2 jours |
-| 57-C | Catalog organise par contract + changement | 1 jour |
-| 57-D | Dogfooding complet | 0.5 jour |
+| 61-A | Provider rapide dans block-forge + correction outputs structures | 1-2 jours |
+| 61-B | Creer code-reviewer + test-generator agents avec fitness > 0.5 | 1-2 jours |
+| 61-C | Benchmark multi-modeles sur contracts + documentation resultats | 1 jour |
+| 61-T | Tests E2E : workflow complet avec outputs valides | 0.5 jour |
 
 ---
 
-## 57-A : Filtrage compatibilite + feature gating UI
+## 61-A : Provider rapide + outputs structures
 
-### Lecture obligatoire
-- `packages/maestro-code/services/contract-resolver.ts` (Phase 50)
-- `packages/maestro-code/services/hardware-detect.ts`
-- `content/system/contracts/maestro-assistant.contract.json`
-- `content/system/contracts/maestro-assistant-variants.json` (index Phase 58)
+### Fichiers cibles
+
+| Fichier | Action |
+|---------|--------|
+| `content/system/blocks/agents/agent-creator/agent-creator.agent.block.json` | Modifier — configurer model vers provider rapide (Anthropic API / GitHub Models) |
+| `content/system/blocks/agents/test-designer/test-designer.agent.block.json` | Modifier — idem |
+| `content/system/blocks/workflows/block-forge/block-forge.workflow.block.json` | Verifier — variables passees entre nodes |
+| `apps/backend/src/Maestro.Infrastructure/BlockExecutors/ResponseParserBlockExecutor.cs` | Verifier/corriger — extraction blockId, fitness des args step-complete |
+| `apps/backend/src/Maestro.Infrastructure/BlockExecutors/AgentBlockExecutor.cs` | Verifier — forward _agent* vars vers outputs |
+
+### Verification
+
+```bash
+dotnet build apps/backend/src/Maestro.Api/Maestro.Api.csproj
+
+# Lancer block-forge via CLI
+node packages/maestro-cli/index.js session create --type project --name "BF-V2 Test" --template block-forge --repo C:\Meastro --start
+node packages/maestro-cli/index.js session invoke <id> default --input description="An agent that reviews TypeScript code" --input contractId="code-reviewer"
+
+# Verifier : termine en < 5 min
+# Verifier : blockId est un ID valide (pas du texte)
+# Verifier : fitness est un nombre (0.XX)
+curl http://localhost:5000/api/sessions/<id>/variables
+```
+
+---
+
+## 61-B : Creer 2 agents avec fitness > 0.5
 
 ### Taches
 
-1. **Enrichir le contract resolver** :
-   - `getImplementations(contractId, hardware?)` → compatible + incompatible, tries par fitness
-   - Pour chaque block : calculer les features actives/inactives via `getActiveFeatures(block, contract)`
-   - Pour les incompatibles : raison (ex: "needs 24GB VRAM, you have 12GB")
-   - Output :
-     ```typescript
-     interface ContractImplementation {
-       block: BlockDefinition;
-       fitness: number;
-       activeFeatures: string[];       // features actives
-       inactiveFeatures: FeatureGap[]; // features desactivees + raison
-       isRecommended: boolean;
-       incompatibleReason?: string;
-     }
-     interface FeatureGap {
-       feature: string;
-       missingCapability: string;
-       description: string;  // "needs structured-output"
-     }
-     ```
+1. **code-reviewer** via `/create-agent` :
+   - Description : "An agent that reviews TypeScript/JavaScript code for bugs, style, and best practices"
+   - Contract : `code-reviewer`
+   - Verifier : fitness > 0.5 sur au moins 2/4 features
 
-2. **Tests** :
-   - Test : block avec toutes les capabilities → 5/5 features actives
-   - Test : block avec capabilities partielles → features filtrees + raisons
-   - Test : tri par fitness, recommended = meilleur compatible
-   - Test : incompatibles avec raisons
+2. **test-generator** via `/create-agent` :
+   - Description : "An agent that generates vitest unit tests for TypeScript functions"
+   - Contract : `test-generator`
+   - Verifier : fitness > 0.5 sur au moins 2/3 features
+
+3. **Iterer si necessaire** : relancer avec des descriptions differentes, tester avec differents modeles
+
+### Verification
+
+```bash
+# Verifier les blocks crees
+node packages/maestro-cli/index.js block list --contract code-reviewer
+node packages/maestro-cli/index.js block list --contract test-generator
+
+# Verifier le fitness
+curl http://localhost:5000/api/blocks/<block-id>/fitness
+# Resultat : fitness > 0.5
+```
 
 ---
 
-## 57-B : UI de choix dans le setup flow
+## 61-C : Benchmark multi-modeles
 
 ### Taches
 
-1. **Composant `ContractChooser`** :
-   - Affiche hardware + contract en haut
-   - Liste les implementations compatibles avec j/k navigation
-   - Chaque block montre : nom, fitness, modele, tier, features X/Y actives
-   - Le recommended est marque avec une etoile
-   - `[Space]` pour details : liste complete features ✓/✗ avec raisons
-   - Section "Not compatible" en bas (grisee)
-   - `[Enter]` pour selectionner
+1. **Comparer 2+ modeles** pour chaque contract :
+   - claude-sonnet-4-6 (Anthropic API)
+   - gpt-4o (GitHub Models)
+   - Optionnel : modele local si disponible
 
-2. **Sauvegarde** : `~/.maestro/config.json` → `contracts.maestro-assistant: "<block-id>"`
+2. **Documenter les resultats** :
+   - Tableau : modele, contract, fitness, cout, temps, features actives
+   - Identifier le meilleur modele par contract
 
-3. **Message post-selection** : "You can change this anytime from the Catalog."
+3. **Creer `docs/phases/PHASE-61/benchmark-results.md`**
 
 ---
 
-## 57-C : Catalog organise par contract + changement
+## 61-T : Tests
 
-### Lecture obligatoire
-- `packages/maestro-code/components/CatalogScreen.ts`
+### Couches applicables
 
-### Taches
+| Couche | Quand obligatoire |
+|--------|-------------------|
+| C1 — Type Check | Toujours |
+| C5 — Tests d'integration | Workflow block-forge E2E avec outputs valides |
+| C6 — E2E Dogfooding | 2 agents crees via /create-agent |
 
-1. **Groupement par contract dans le Catalog** :
-   - Les blocks qui partagent un contract sont groupes visuellement
-   - Header : "maestro-assistant (3 implementations)" avec features du contract
-   - Sous le header : les blocks avec leurs capabilities
+### Scenarios de test
 
-2. **Badges** :
-   - `[active]` sur le block actuellement choisi pour ce contract
-   - `[recommended]` sur le meilleur pour ce hardware
-   - `[X/Y features]` indiquant les features actives
-
-3. **Changer de block pour un contract** :
-   - `[Enter]` sur un block compatible → "Switch to this for maestro-assistant? [Y/N]"
-   - Met a jour la config, recharge
-
-4. **Filtre par contract** : onglet ou touche pour "Show by contract"
-
----
-
-## 57-D : Dogfooding
-
-- Fresh install (supprimer `~/.maestro/`)
-- Verifier le flow complet : setup → choix → utilisation → changement via Catalog
-- 3 profils hardware : CPU-only, GPU moyen, cloud-only
+1. **Workflow complet** : block-forge termine en < 5 min avec outputs structures valides
+2. **blockId valide** : le block cree existe dans le catalog
+3. **fitness valide** : nombre entre 0 et 1, > 0.5 pour au moins un agent
+4. **Couts reels** : `costs summary` montre un cout > $0 apres l'execution
+5. **Isolation** : les 2 agents du workflow (test-designer, agent-creator) ne partagent pas de variables
 
 ---
 
 ## Definition of Done
 
-> **OBLIGATOIRE** : Lire `docs/system/TESTING-PROTOCOL.md` et executer TOUTES les couches de test applicables (voir la matrice) avant de declarer DONE. Copier la checklist de fin de phase dans `checkpoint.md`.
-
-- [ ] Le setup affiche tous les blocks par contract avec features actives/inactives
-- [ ] L'utilisateur choisit en comprenant les tradeoffs
-- [ ] Features desactivees montrent la raison (capability manquante)
-- [ ] Le Catalog est organise par contract
-- [ ] Changement de block possible depuis le Catalog
-- [ ] 3 profils hardware testes
-- [ ] Tous les tests passent
-- [ ] E2E dogfooding score >= 3.5/5
-
-### Gate
-L'utilisateur comprend ce qu'il gagne et perd avec chaque choix.
+- [ ] Block-forge utilise un provider rapide (< 5 min pour un workflow complet)
+- [ ] Outputs structures (blockId, fitness) sont des valeurs valides, pas du texte brut
+- [ ] 2 agents crees : code-reviewer (fitness > 0.5) + test-generator (fitness > 0.5)
+- [ ] Benchmark documente pour 2+ modeles
+- [ ] Couts reels visibles apres execution
+- [ ] Tests E2E passent
+- [ ] 0 regression
 
 ### NOT in scope
-- Catalogue communautaire (Phase 60)
-- Premiere version deployable (Phase 63)
+
+- /adapt workflow (Phase 62)
+- Production de ~30 variantes (Phase 63)
+- Modification du contract system
+- Nouveaux contracts (utiliser code-reviewer et test-generator existants)
+
+---
+
+## Gestion de la memoire
+
+### Checkpoint global
+Fichier `docs/phases/PHASE-61/checkpoint.md`
+
+### Mise a jour MEMORY.md apres completion
+- Ajouter : "Phase 61 : Block-Forge V2 (provider rapide, 2 agents E2E, benchmark)"
+- Mettre a jour : "Current Project State"

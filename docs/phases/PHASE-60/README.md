@@ -1,29 +1,57 @@
-# Phase 60 : Production des variantes pre-testees
+# Phase 60 : Model Playground — Tester un modele directement dans le TUI
 
-**Statut** : Planifie
-**Prerequis** : Phase 59 COMPLETE (/adapt fonctionnel avec Agent Creator + contracts)
-**Objectif** : Utiliser `/adapt` nous-memes pour creer ~30 maestro-assistants couvrant les profils hardware courants. Chaque variante implemente le contract `maestro-assistant` avec des capabilities verifiees. Configurer les providers cloud opensource.
-**Duree estimee** : 6-10 jours
+**Statut** : A faire
+**Prerequis** : Phase 59 COMPLETE (agent isolation)
+**Objectif** : Ajouter `/playground` dans le TUI et `maestro playground` dans le CLI pour tester un modele directement — choisir un provider/modele, envoyer un prompt, voir la reponse + tokens + cout. Utile pour verifier qu'un provider fonctionne avant de lancer un workflow.
+**Duree estimee** : 2-3 jours
+
+---
+
+## Regles pour l'agent executant
+
+1. **Lire `docs/system/AGENT-PROTOCOL.md`** avant de commencer
+2. **Lire les fichiers obligatoires** avant chaque sous-phase
+3. **Ecrire dans `PHASE-60/checkpoint.md`** apres chaque sous-phase
+4. **Ne PAS creer une page TUI entiere** — c'est un slash command interactif dans l'AgentPanel
+5. **Ne PAS bypasser LLM-Provider** — toutes les requetes passent par le gateway (port 5010)
 
 ---
 
 ## Contexte
 
-### Pourquoi ~30 variantes
+### Le probleme
 
-L'objectif est que n'importe quel utilisateur recoit un assistant fonctionnel en < 30 secondes au setup. Le contract `maestro-assistant` definit les features, les capabilities determinent lesquelles sont actives :
+Quand un utilisateur configure un nouveau provider (Anthropic, GitHub Models, local), il n'a aucun moyen de verifier que ca marche avant de lancer un workflow long (block-forge, /adapt). Si le provider est mal configure, il decouvre l'erreur apres plusieurs minutes d'attente.
 
-| Tier | Modeles | Capabilities attendues | Features actives |
-|------|---------|----------------------|-----------------|
-| cpu-only | TinyLlama, Phi-2 | conversation | 1/5 |
-| light | Phi-3 Mini, StableLM | conversation, tool-calling | 2/5 |
-| standard | Mistral 7B, DeepSeek 6.7B | conversation, orchestration, tool-calling | 3/5 |
-| heavy | CodeLlama 13B, Llama-3 8B | conversation, orchestration, tool-calling, long-context | 4/5 |
-| cloud-free | Mistral API, Together.ai | conversation, orchestration, tool-calling, structured-output | 4-5/5 |
-| cloud-paid | Claude, GPT-4 | ALL | 5/5 |
-| hybrid | Local + cloud fallback | Varie selon le split | 3-5/5 |
+### La solution
 
-L'utilisateur voit clairement : "Cet assistant a 3/5 features actives. Si vous voulez les 5, choisissez la version cloud."
+`/playground` permet de tester un modele en < 30 secondes :
+1. Choisir un modele parmi ceux disponibles
+2. Taper un prompt
+3. Voir la reponse + tokens utilises + cout
+4. Iterer ou changer de modele
+
+```
+> /playground
+
+Available models:
+  1. claude-sonnet-4-6 (Anthropic) ✓
+  2. gpt-4o (GitHub Models) ✓
+  3. deepseek-coder-v2 (Local) ✓
+
+Choose model [1-3]: 1
+
+Prompt: Explain what a fibonacci sequence is in one sentence.
+
+Response: A Fibonacci sequence is a series of numbers where each number
+is the sum of the two preceding ones, starting from 0 and 1.
+
+Tokens: 42 prompt + 28 completion = 70 total
+Cost: $0.0003
+Time: 1.2s
+
+[Enter] New prompt  [M] Change model  [Q] Quit playground
+```
 
 ---
 
@@ -31,74 +59,107 @@ L'utilisateur voit clairement : "Cet assistant a 3/5 features actives. Si vous v
 
 | Phase | Titre | Effort |
 |-------|-------|--------|
-| 56-A | Configuration providers cloud opensource | 2-3 jours |
-| 56-B | Execution de /adapt par profil hardware | 3-5 jours |
-| 56-C | Validation, tri, integration dans content/system/ | 1-2 jours |
+| 60-A | Backend : endpoint playground (prompt → reponse + metriques) | 0.5 jour |
+| 60-B | TUI : `/playground` slash command + UI interactive | 1-1.5 jours |
+| 60-C | CLI : `maestro playground` + tests | 0.5 jour |
+| 60-T | Tests | 0.5 jour |
 
 ---
 
-## 56-A : Configuration providers cloud opensource
+## 60-A : Backend endpoint playground
 
-### Taches
+### Fichiers cibles
 
-1. **Ajouter des providers dans LLM-Provider .NET** :
-   - Mistral API (free tier ou bas cout)
-   - Together.ai (modeles open-source heberges)
-   - Groq (inference rapide)
-   - Chaque provider = nouveau projet dans `LLMProvider.Providers/`
+| Fichier | Action |
+|---------|--------|
+| `apps/backend/src/Maestro.Api/Controllers/PlaygroundController.cs` | Creer — POST /api/playground (modelId, prompt → response, tokens, cost, latency) |
+| `apps/backend/src/Maestro.Application/DTOs/PlaygroundDtos.cs` | Creer — PlaygroundRequestDto, PlaygroundResponseDto |
+| `apps/backend/src/Maestro.Api/Program.cs` | Modifier — DI registration |
 
-2. **Verifier chaque provider** : health check, completion, tool-calling
+### Verification
 
----
-
-## 56-B : Execution de /adapt
-
-### Taches
-
-1. **Pour chaque tier** :
-   - `maestro adapt maestro-assistant-workflow --target-model <model> --target-tier <tier>`
-   - Le workflow Agent Creator regenere les prompts pour le modele cible
-   - Les capabilities sont verifiees (pas juste declarees)
-
-2. **Documenter chaque variante** :
-   - Contract, capabilities verifiees, fitness, features actives/inactives
-   - Forces/faiblesses, temps de reponse
-
-3. **Iterer si fitness < 0.6** — relancer, essayer modele alternatif
+```bash
+dotnet build apps/backend/src/Maestro.Api/Maestro.Api.csproj
+curl -X POST http://localhost:5000/api/playground -H "Content-Type: application/json" \
+  -d '{"modelId": "claude-sonnet-4-6", "prompt": "Hello"}'
+# Resultat : JSON avec response, promptTokens, completionTokens, costUsd, latencyMs
+```
 
 ---
 
-## 56-C : Validation et integration
+## 60-B : TUI /playground
 
-### Taches
+### Fichiers cibles
 
-1. **Garder les variantes avec fitness > 0.6**
-2. **Copier dans `content/system/blocks/`** — livrees avec l'app
-3. **Mettre a jour demo data**
-4. **Creer l'index** : `content/system/contracts/maestro-assistant-variants.json`
-   - Pour chaque variante : capabilities verifiees, features actives, hardware profile, fitness
+| Fichier | Action |
+|---------|--------|
+| `packages/maestro-code/App.ts` | Modifier — parsePlayground() + /playground slash command handler |
+| `packages/maestro-code/components/HelpOverlay.ts` | Modifier — ajouter /playground dans l'aide |
+| `packages/maestro-client/src/domains/playground.ts` | Creer — SDK domain playground |
 
-### Gate
+### Verification
 
-- [ ] Au moins 15 variantes avec fitness > 0.6
-- [ ] Toutes declarent `contract: "maestro-assistant"` avec capabilities verifiees
-- [ ] Couverture : au moins 1 variante par tier
-- [ ] Les features actives/inactives sont correctes pour chaque variante
+```bash
+cd packages/maestro-code && npx tsc --noEmit
+cd packages/maestro-code && node tests/real-demo-check.cjs
+```
+
+---
+
+## 60-C : CLI + tests
+
+### Fichiers cibles
+
+| Fichier | Action |
+|---------|--------|
+| `packages/maestro-cli/cli.ts` | Modifier — commande `playground` |
+| `packages/maestro-code/tests/PlaygroundSlash.test.ts` | Creer — tests parsing + integration |
+
+### Verification
+
+```bash
+cd packages/maestro-code && npx vitest run
+node packages/maestro-cli/index.js playground --model claude-sonnet-4-6 --prompt "Hello"
+```
+
+---
+
+## 60-T : Tests
+
+### Couches applicables
+
+| Couche | Quand obligatoire |
+|--------|-------------------|
+| C1 — Type Check | Toujours |
+| C2 — Tests unitaires | Parsing /playground, SDK domain |
+| C4 — Real Demo Check | TUI /playground visible |
+| C5 — Tests d'integration | POST /api/playground retourne une reponse valide |
 
 ---
 
 ## Definition of Done
 
-> **OBLIGATOIRE** : Lire `docs/system/TESTING-PROTOCOL.md` et executer TOUTES les couches de test applicables (voir la matrice) avant de declarer DONE. Copier la checklist de fin de phase dans `checkpoint.md`.
-
-- [ ] 3+ providers cloud opensource configures
-- [ ] 15+ variantes avec fitness > 0.6 et contract `maestro-assistant`
-- [ ] Capabilities verifiees (pas juste declarees)
-- [ ] Features actives/inactives coherentes avec les capabilities
-- [ ] Variantes integrees dans `content/system/blocks/`
-- [ ] Index cree
-- [ ] Documentation des variantes
+- [ ] POST /api/playground fonctionne avec au moins 1 provider
+- [ ] `/playground` dans le TUI affiche modeles + prompt + reponse + tokens + cout
+- [ ] `maestro playground` dans le CLI fonctionne
+- [ ] L'utilisateur peut tester un modele en < 30s
+- [ ] Tests passent
+- [ ] 0 regression
 
 ### NOT in scope
-- UI de choix au setup (Phase 59)
-- Catalogue communautaire (Phase 60)
+
+- Conversation multi-tour dans le playground (un prompt → une reponse)
+- Streaming de la reponse (V1 = reponse complete)
+- Historique des prompts playground
+- Page TUI dediee (c'est un slash command)
+
+---
+
+## Gestion de la memoire
+
+### Checkpoint global
+Fichier `docs/phases/PHASE-60/checkpoint.md`
+
+### Mise a jour MEMORY.md apres completion
+- Ajouter : "Phase 60 : Model Playground (/playground TUI + CLI)"
+- Mettre a jour : "Current Project State"
