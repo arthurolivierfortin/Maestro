@@ -1,0 +1,116 @@
+{
+  "id": "44702719-1021-4e2b-8c9e-fc46a0fc9af6",
+  "name": "PAUSED Test",
+  "status": "idle",
+  "terminalReason": "none",
+  "authority": "human",
+  "workingDirectory": ".",
+  "repositoryPath": "C:\\Meastro",
+  "parentWorkspaceId": null,
+  "parentSessionId": null,
+  "config": {
+    "projectId": null,
+    "workflowId": null,
+    "task": null,
+    "context": null,
+    "access": {
+      "level": "controlled",
+      "allowedPaths": [],
+      "deniedPaths": [
+        ".env",
+        "*.env",
+        "secrets/**"
+      ],
+      "requireApprovalPaths": []
+    },
+    "validation": {
+      "runTests": false,
+      "testCommand": null,
+      "runLinter": false,
+      "linterCommand": null,
+      "requireCleanDiff": false,
+      "maxSteps": 50,
+      "timeoutMs": 600000
+    },
+    "inputs": {}
+  },
+  "createdAt": "2026-03-16T16:47:33.7654491+00:00",
+  "startedAt": "2026-03-16T16:47:34.0512096+00:00",
+  "completedAt": null,
+  "updatedAt": "2026-03-16T16:47:34.5977593+00:00",
+  "commandCount": 0,
+  "modifiedFiles": [],
+  "errorMessage": null,
+  "testResult": null,
+  "linterResult": null,
+  "commitInfo": null,
+  "variables": {
+    "_executionLog": [
+      {
+        "time": "16:47:34",
+        "level": "info",
+        "msg": "Starting workflow: request-analyzer"
+      },
+      {
+        "time": "16:47:34",
+        "level": "info",
+        "msg": "Executing block \u0027request-analyzer\u0027 directly (type: inference)"
+      },
+      {
+        "time": "16:47:34",
+        "level": "warning",
+        "msg": "Cost limit BLOCK: Daily limit of $0.00 exceeded (current: $0.01). Enforcement: block. \u2014 stopping before node \u0027execute\u0027 (blockRef \u0027request-analyzer\u0027)"
+      },
+      {
+        "time": "16:47:34",
+        "level": "success",
+        "msg": "blockRef \u0027request-analyzer\u0027 completed (88 chars)"
+      }
+    ],
+    "_artifacts": [],
+    "_blockOutputs": {
+      "execute": {
+        "type": "inference",
+        "output": "[COST-LIMIT-STOPPED] Daily limit of $0.00 exceeded (current: $0.01). Enforcement: block.",
+        "timestamp": "16:47:34"
+      }
+    },
+    "_llmActivity": [],
+    "_phaseMetrics": {},
+    "_executionTree": [
+      {
+        "id": "execute",
+        "name": "Request Analyzer",
+        "status": "done",
+        "children": [],
+        "output": "[COST-LIMIT-STOPPED] Daily limit of $0.00 exceeded (current: $0.01). Enforcement: block."
+      }
+    ],
+    "_activeWorkflow": "",
+    "description": "test",
+    "repoPath": "C:\\Meastro",
+    "_costLimitExceeded": "true",
+    "_costLimitType": "daily",
+    "_costLimitMessage": "Daily limit of $0.00 exceeded (current: $0.01). Enforcement: block.",
+    "_costStoppedAt": "2026-03-16T16:47:34.5741343Z",
+    "_costStoppedEntryPoint": "request-analyzer",
+    "_costStoppedNodeId": "execute",
+    "_costAutoResume": "false",
+    "_nodeResult_execute": "[COST-LIMIT-STOPPED] Daily limit of $0.00 exceeded (current: $0.01). Enforcement: block.",
+    "_workflowCheckpoint": null,
+    "_workflowCheckpoint_whileState": null,
+    "_workflowCheckpoint_foreachIndex": null,
+    "_activeBlock": null
+  },
+  "entryPoints": {
+    "test": "request-analyzer"
+  },
+  "monitorWidgets": null,
+  "blockSearchPaths": [
+    "C:\\Meastro\\.maestro\\blocks"
+  ],
+  "defaultModel": null,
+  "modelOverrides": null,
+  "fileAccessRulesConfig": null,
+  "blockPermissionsConfig": null
+}

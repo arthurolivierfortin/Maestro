@@ -1,12 +1,8 @@
 {
   "limits": {
-    "maxPerSession": {
-      "value": 1,
-      "enforcement": "block",
-      "autoResume": false
-    },
+    "maxPerSession": null,
     "maxPerDay": {
-      "value": 5,
+      "value": 0.001,
       "enforcement": "block",
       "autoResume": false
     },

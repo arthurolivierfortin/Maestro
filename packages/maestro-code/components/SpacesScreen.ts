@@ -92,25 +92,32 @@ interface SessionRowProps {
   isExpanded: boolean;
 }
 
+const STATUS_COL_WIDTH = 10;
+
 const SessionRow = ({ session, isSelected, isExpanded }: SessionRowProps) => {
-  const status = (session.status || 'unknown').toLowerCase();
+  const rawStatus = (session.status || 'unknown').toLowerCase();
+  const vars = session.variables || {};
+  const costLimitExceeded = vars._costLimitExceeded === true || vars._costLimitExceeded === 'true';
+
+  // When cost limit exceeded, REPLACE status with "paused"
+  const status = costLimitExceeded ? 'paused' : rawStatus;
   const sColor = statusColor(status);
   const sIcon = statusIcon(status);
   const name = session.name || 'Unnamed';
   const shortId = session.id ? session.id.substring(0, 8) : '--------';
   const selector = isSelected ? icons.arrow : ' ';
   const expandIcon = isExpanded ? icons.expanded : (isSelected ? icons.collapsed : ' ');
-  const vars = session.variables || {};
   const fitness = vars.currentFitness !== undefined ? vars.currentFitness : vars.fitness;
-  const fitnessStr = fitness !== undefined && fitness !== null
-    ? `${Math.round(fitness * 100)}%` : '-';
-  const fitnessNum = fitness !== undefined && fitness !== null ? fitness * 100 : null;
+  const hasFitness = fitness !== undefined && fitness !== null;
+  const fitnessStr = hasFitness ? `${Math.round(fitness * 100)}%` : '';
+  const fitnessNum = hasFitness ? fitness * 100 : null;
   const duration = formatDuration(session.startedAt, session.completedAt);
   const rawCost = vars._accumulatedCost;
   const costNum = typeof rawCost === 'number' ? rawCost : (typeof rawCost === 'string' ? parseFloat(rawCost) : 0);
   const costStr = (isNaN(costNum) ? 0 : costNum).toFixed(2);
 
-  const costLimitExceeded = vars._costLimitExceeded === true || vars._costLimitExceeded === 'true';
+  // Fixed-width status column
+  const statusText = status.padEnd(STATUS_COL_WIDTH);
 
   return h(Box, { flexDirection: 'column' },
     h(Box, { flexDirection: 'row', paddingLeft: 1, overflow: 'hidden' },
@@ -125,13 +132,10 @@ const SessionRow = ({ session, isSelected, isExpanded }: SessionRowProps) => {
       h(Text, null, ' '),
       muted(shortId),
       h(Text, null, '  '),
-      T(sColor, status.padEnd(10)),
-      costLimitExceeded
-        ? h(Text, { color: 'red', bold: true }, 'PAUSED ')
-        : null,
+      T(sColor, statusText),
       h(Text, null, ' '),
-      muted('fit:'),
-      T(sColor, fitnessStr.padStart(4)),
+      hasFitness ? muted('fit:') : null,
+      hasFitness ? T(sColor, fitnessStr.padStart(4)) : h(Text, null, '        '),
       h(Text, null, '  '),
       muted('$'),
       h(Text, { color: costNum > 0 ? 'yellow' : 'gray' }, costStr),
