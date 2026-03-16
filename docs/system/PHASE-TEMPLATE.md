@@ -32,8 +32,10 @@
 | XX-C | [Titre] | [Estimation] |
 | XX-T | Tests | [Estimation] |
 
-> **Regle 1** : Chaque sous-phase DOIT avoir son propre document `PHASE-XX-A.md`, `PHASE-XX-B.md`, etc. dans le dossier de la phase.
-> Le README.md contient la vue d'ensemble. Les sous-phase docs contiennent le detail complet (lecture obligatoire, actions, verification, anti-patterns, checkpoint).
+> **Regle 1 — UN FICHIER PAR SOUS-PHASE (OBLIGATOIRE)** : Chaque sous-phase DOIT avoir son propre document `PHASE-XX-A.md`, `PHASE-XX-B.md`, etc. dans le dossier de la phase.
+> Le README.md contient UNIQUEMENT la vue d'ensemble (tableau des sous-phases + Definition of Done + NOT in scope).
+> Tout le detail (lecture obligatoire, actions concretes, fichiers a modifier, verification, anti-patterns, checkpoint) va dans le fichier de la sous-phase, PAS dans le README.
+> **Un README qui contient le detail des sous-phases est invalide.** Extraire dans des fichiers separes avant de commencer.
 >
 > **Regle 2 — Sous-phase de tests OBLIGATOIRE** : Toute phase qui ajoute des fonctionnalites DOIT inclure une sous-phase dediee aux tests (generalement la derniere, nommee `XX-T`).
 > Cette sous-phase couvre **chaque couche applicable** du Testing Protocol (`docs/system/TESTING-PROTOCOL.md`) :

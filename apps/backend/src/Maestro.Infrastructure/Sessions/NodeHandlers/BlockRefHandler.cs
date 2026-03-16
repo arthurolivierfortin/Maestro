@@ -13,6 +13,11 @@ namespace Maestro.Infrastructure.Sessions.NodeHandlers;
 ///
 /// ARCHITECTURE (Phase 53-C): Extracted from NodeExecutionEngine.
 /// Block dispatch is a distinct concern from control flow orchestration.
+///
+/// ARCHITECTURE (Phase 59-PRE-2-A): Added pre-execution cost limit check.
+/// CheckCostBeforeExecutionAsync is called BEFORE block execution, not after.
+/// If a "block" enforcement limit is exceeded, returns a CostLimitStopped result
+/// instead of executing the block. "warn" limits set variables but continue.
 /// </summary>
 public class BlockRefHandler : INodeHandler
 {
@@ -56,6 +61,11 @@ public class BlockRefHandler : INodeHandler
 
         if (blockRefId == null)
             throw new InvalidOperationException($"BlockRefHandler called for node '{nodeId}' with no blockRef");
+
+        // === Pre-execution cost limit check (Phase 59-PRE-2-A) ===
+        var costCheck = await CheckCostBeforeExecutionAsync(session, nodeId, blockRefId);
+        if (costCheck != null)
+            return costCheck; // Cost limit stopped — return the stop message
 
         // Resolve the block definition
         var block = await _blockDiscovery.GetByIdAsync(SessionHelper.NormalizeBlockId(blockRefId), session.BlockSearchPaths);
@@ -109,7 +119,7 @@ public class BlockRefHandler : INodeHandler
             // Accumulate costs in session variables for parent block cost propagation
             AccumulateCosts(session, result);
 
-            // Phase 59-PRE-A: Record cost entry and check limits
+            // Phase 59-PRE-A: Record cost entry and check limits (post-execution, for tracking)
             await RecordAndCheckCosts(session, result, blockRefId, block);
 
             if (result.Logs is { Count: > 0 })
@@ -137,6 +147,204 @@ public class BlockRefHandler : INodeHandler
             _stateManager.AppendExecutionLog(session, "error", $"blockRef '{blockRefId}' error: {ex.Message}");
             throw;
         }
+    }
+
+    // ===== Pre-Execution Cost Limit Check (Phase 59-PRE-2-A) =====
+    // ===== Auto-Resume Detection (Phase 59-PRE-2-B) =====
+
+    /// <summary>
+    /// Checks cost limits BEFORE executing a block.
+    /// Phase 59-PRE-2-B: First checks if a previously stopped session can auto-resume
+    /// (temporal limit reset: day/week/month boundary crossed since _costStoppedAt).
+    /// If enforcement="block" and limit is exceeded:
+    ///   - Sets _costStopped* variables on the session
+    ///   - Returns a stop message (non-null = stopped)
+    /// If enforcement="warn" and limit is exceeded:
+    ///   - Sets _costLimitExceeded and _costLimitMessage variables
+    ///   - Returns null (continue execution)
+    /// If no limit exceeded: returns null (continue execution)
+    /// </summary>
+    internal async Task<string?> CheckCostBeforeExecutionAsync(ProjectSession session, string nodeId, string blockRefId)
+    {
+        if (_costTracking == null)
+            return null;
+
+        try
+        {
+            // Phase 59-PRE-2-B: Auto-resume detection
+            // If session was previously stopped and the quota period has reset, clear stop flags
+            await TryAutoResumeAsync(session);
+
+            var sessionCost = decimal.TryParse(
+                session.GetVariable("_accumulatedCost")?.ToString(),
+                System.Globalization.NumberStyles.Any,
+                System.Globalization.CultureInfo.InvariantCulture,
+                out var sc) ? sc : 0m;
+
+            var check = await _costTracking.CheckLimitAsync(session.Id, sessionCost);
+            if (!check.Exceeded)
+            {
+                // Not exceeded — if there were orphan stop flags from a previous period, clean them up
+                ClearCostStopFlags(session);
+                return null;
+            }
+
+            if (string.Equals(check.Enforcement, "block", StringComparison.OrdinalIgnoreCase))
+            {
+                // Hard stop: set variables and return stop signal
+                session.SetVariable("_costLimitExceeded", "true");
+                session.SetVariable("_costLimitType", check.LimitType);
+                session.SetVariable("_costLimitMessage", check.Message ?? $"{check.LimitType} limit exceeded");
+                session.SetVariable("_costStoppedAt", DateTime.UtcNow.ToString("o"));
+                session.SetVariable("_costStoppedEntryPoint", session.GetVariable("_activeWorkflow")?.ToString() ?? "");
+                session.SetVariable("_costStoppedNodeId", nodeId);
+                session.SetVariable("_costAutoResume", check.AutoResume ? "true" : "false");
+
+                _stateManager.AppendExecutionLog(session, "warning",
+                    $"Cost limit BLOCK: {check.Message} — stopping before node '{nodeId}' (blockRef '{blockRefId}')");
+                _logger.LogWarning(
+                    "Cost limit enforcement=block for session {SessionId}: {LimitType} ${Max} exceeded (current: ${Current}). Stopping before node '{NodeId}'.",
+                    session.Id, check.LimitType, check.MaxValue, check.CurrentValue, nodeId);
+
+                await _repository.SaveAsync(session);
+
+                // Return a non-null string as cost-stop signal (also used as the "output" for this node)
+                return $"[COST-LIMIT-STOPPED] {check.Message}";
+            }
+            else
+            {
+                // Warn: set variables but continue
+                session.SetVariable("_costLimitExceeded", "true");
+                session.SetVariable("_costLimitMessage", check.Message ?? $"{check.LimitType} limit exceeded (warning)");
+
+                _stateManager.AppendExecutionLog(session, "warning",
+                    $"Cost limit WARN: {check.Message} — continuing execution of node '{nodeId}'");
+                _logger.LogWarning(
+                    "Cost limit enforcement=warn for session {SessionId}: {LimitType} ${Max} exceeded (current: ${Current}). Continuing.",
+                    session.Id, check.LimitType, check.MaxValue, check.CurrentValue);
+
+                await _repository.SaveAsync(session);
+                return null; // Continue execution
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to check cost limits before execution of node '{NodeId}'", nodeId);
+            return null; // On error, don't block execution
+        }
+    }
+
+    // ===== Auto-Resume Detection (Phase 59-PRE-2-B) =====
+
+    /// <summary>
+    /// Checks if a previously cost-stopped session can auto-resume because
+    /// the temporal limit period has reset (day/week/month boundary crossed).
+    /// Does NOT auto-resume for session limits (no temporal reset).
+    /// Does NOT auto-resume if _costAutoResume != "true".
+    /// Clears stop flags if resume is appropriate — but CheckLimitAsync will still
+    /// verify the new period isn't already exceeded (other sessions may have spent).
+    /// </summary>
+    internal async Task TryAutoResumeAsync(ProjectSession session)
+    {
+        var autoResume = session.GetVariable("_costAutoResume")?.ToString();
+        if (!string.Equals(autoResume, "true", StringComparison.OrdinalIgnoreCase))
+            return; // Not configured for auto-resume
+
+        var limitType = session.GetVariable("_costLimitType")?.ToString();
+        if (string.IsNullOrEmpty(limitType))
+            return; // No limit type recorded
+
+        // Session limits have no temporal reset — never auto-resume
+        if (string.Equals(limitType, "session", StringComparison.OrdinalIgnoreCase))
+            return;
+
+        var stoppedAtStr = session.GetVariable("_costStoppedAt")?.ToString();
+        if (string.IsNullOrEmpty(stoppedAtStr))
+            return; // No stop timestamp
+
+        if (!DateTime.TryParse(stoppedAtStr, System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.RoundtripKind, out var stoppedAt))
+            return; // Invalid timestamp
+
+        // Ensure UTC
+        if (stoppedAt.Kind == DateTimeKind.Local)
+            stoppedAt = stoppedAt.ToUniversalTime();
+        else if (stoppedAt.Kind == DateTimeKind.Unspecified)
+            stoppedAt = DateTime.SpecifyKind(stoppedAt, DateTimeKind.Utc);
+
+        var now = DateTime.UtcNow;
+        var periodReset = HasPeriodReset(limitType, stoppedAt, now);
+
+        if (!periodReset)
+            return; // Still in the same period — no auto-resume
+
+        // Period has reset — clear all cost-stop flags
+        // Note: CheckLimitAsync will still run after this and verify the new period isn't already exceeded
+        ClearCostStopFlags(session);
+
+        _stateManager.AppendExecutionLog(session, "info",
+            $"Cost auto-resume: {limitType} period has reset since stop at {stoppedAtStr}. Flags cleared, re-checking limits.");
+        _logger.LogInformation(
+            "Cost auto-resume for session {SessionId}: {LimitType} period reset (stopped at {StoppedAt}). Clearing flags.",
+            session.Id, limitType, stoppedAtStr);
+
+        await _repository.SaveAsync(session);
+    }
+
+    /// <summary>
+    /// Determines if the temporal period has reset between stoppedAt and now.
+    /// Uses UTC for all comparisons.
+    /// - day: stoppedAt is before today 00:00 UTC
+    /// - weekly: stoppedAt is before this Monday 00:00 UTC (ISO 8601: Monday = start of week)
+    /// - month/monthly: stoppedAt is before the 1st of current month 00:00 UTC
+    /// </summary>
+    internal static bool HasPeriodReset(string limitType, DateTime stoppedAt, DateTime now)
+    {
+        switch (limitType.ToLowerInvariant())
+        {
+            case "day":
+            case "daily":
+                var startOfToday = now.Date;
+                return stoppedAt < startOfToday;
+
+            case "week":
+            case "weekly":
+                // Monday = start of week (ISO 8601)
+                var daysSinceMonday = ((int)now.DayOfWeek + 6) % 7; // Monday=0, Sunday=6
+                var startOfWeek = now.Date.AddDays(-daysSinceMonday);
+                return stoppedAt < startOfWeek;
+
+            case "month":
+            case "monthly":
+                var startOfMonth = new DateTime(now.Year, now.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+                return stoppedAt < startOfMonth;
+
+            default:
+                return false; // Unknown limit type — don't auto-resume
+        }
+    }
+
+    /// <summary>
+    /// Clears all cost-stop related session variables.
+    /// Called when auto-resuming after a period reset, or when execution succeeds
+    /// (no limit exceeded) to clean up orphan flags from previous stops.
+    /// Uses RemoveVariable to fully remove keys from the dictionary.
+    /// </summary>
+    internal static void ClearCostStopFlags(ProjectSession session)
+    {
+        // Only clear if there are actually flags to clear (avoid unnecessary writes)
+        var hasFlags = session.GetVariable("_costLimitExceeded") != null
+                    || session.GetVariable("_costStoppedAt") != null;
+        if (!hasFlags)
+            return;
+
+        session.RemoveVariable("_costLimitExceeded");
+        session.RemoveVariable("_costLimitMessage");
+        session.RemoveVariable("_costStoppedAt");
+        session.RemoveVariable("_costStoppedEntryPoint");
+        session.RemoveVariable("_costStoppedNodeId");
+        session.RemoveVariable("_costAutoResume");
+        session.RemoveVariable("_costLimitType");
     }
 
     // ===== Helpers (moved from NodeExecutionEngine) =====
@@ -277,9 +485,11 @@ public class BlockRefHandler : INodeHandler
     }
 
     /// <summary>
-    /// Records cost entry to JSONL history and checks cost limits.
+    /// Records cost entry to JSONL history and checks cost limits (post-execution tracking).
     /// If a limit is exceeded, sets _costLimitExceeded and _costLimitMessage on the session.
     /// Does NOT throw — the workflow can read the variable and decide what to do.
+    /// Note: The actual enforcement (blocking before execution) is in CheckCostBeforeExecutionAsync.
+    /// This method is for recording and post-execution awareness.
     /// </summary>
     private async Task RecordAndCheckCosts(ProjectSession session, BlockExecutionResult result, string blockRefId, BlockDefinition block)
     {
@@ -318,8 +528,7 @@ public class BlockRefHandler : INodeHandler
             if (check.Exceeded)
             {
                 session.SetVariable("_costLimitExceeded", "true");
-                session.SetVariable("_costLimitMessage",
-                    $"{char.ToUpper(check.LimitType[0])}{check.LimitType[1..]} limit of ${check.MaxValue:F2} exceeded (current: ${check.CurrentValue:F2})");
+                session.SetVariable("_costLimitMessage", check.Message ?? $"{check.LimitType} limit exceeded");
                 _logger.LogWarning("Cost limit exceeded for session {SessionId}: {LimitType} limit ${Max} (current: ${Current})",
                     session.Id, check.LimitType, check.MaxValue, check.CurrentValue);
             }

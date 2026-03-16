@@ -15,6 +15,15 @@ namespace Maestro.Infrastructure.Sessions;
 // No LLM calls, no file I/O, no shell commands here.
 // New node types = new INodeHandler class, zero engine changes.
 // ============================================================
+//
+// COST LIMIT ENFORCEMENT (Phase 59-PRE-2-A):
+// When BlockRefHandler detects a cost limit with enforcement="block",
+// it returns a string starting with COST_LIMIT_STOPPED_PREFIX.
+// The engine detects this signal and performs a graceful stop:
+// - Stops the node loop cleanly (no exception thrown)
+// - Clears _activeWorkflow (session becomes idle, NOT error)
+// - Preserves ALL session variables
+// ============================================================
 
 /// <summary>
 /// Pure control flow engine for workflow node execution.
@@ -27,6 +36,13 @@ namespace Maestro.Infrastructure.Sessions;
 /// </summary>
 public class NodeExecutionEngine : INodeExecutionCallback
 {
+    /// <summary>
+    /// Prefix used by BlockRefHandler to signal a cost-limit-stopped condition.
+    /// When DispatchNodeAsync returns a string starting with this prefix,
+    /// the engine performs a graceful stop instead of continuing to the next node.
+    /// </summary>
+    internal const string COST_LIMIT_STOPPED_PREFIX = "[COST-LIMIT-STOPPED]";
+
     private readonly IProjectSessionRepository _repository;
     private readonly ISessionStateManager _stateManager;
     private readonly ILogger<NodeExecutionEngine> _logger;
@@ -145,6 +161,23 @@ public class NodeExecutionEngine : INodeExecutionCallback
                 };
 
                 lastOutput = await DispatchNodeAsync(configNode, nodeId, nodeType, context, lastOutput);
+
+                // === Cost limit graceful stop (Phase 59-PRE-2-A) ===
+                // BlockRefHandler returns [COST-LIMIT-STOPPED] prefix when enforcement="block"
+                if (lastOutput != null && lastOutput.StartsWith(COST_LIMIT_STOPPED_PREFIX))
+                {
+                    _logger.LogInformation("Cost limit graceful stop at node '{NodeId}'. Stopping node loop cleanly.", nodeId);
+                    _stateManager.UpdateNodeById(displayTree, nodeId, "cost-limit-stopped", lastOutput);
+                    session.SetVariable("_executionTree", displayTree);
+
+                    // Graceful stop: clear _activeWorkflow so session becomes idle (NOT error)
+                    _stateManager.GracefulCostStop(session);
+
+                    _stateManager.AppendExecutionLog(session, "warning",
+                        $"Graceful cost stop at node '{nodeId}'. Session is idle (resumable).");
+                    await _repository.SaveAsync(session);
+                    break; // Exit the node loop cleanly
+                }
             }
             catch (Exception ex)
             {
@@ -274,6 +307,17 @@ public class NodeExecutionEngine : INodeExecutionCallback
             await _repository.SaveAsync(session);
 
             var output = await BlockRefHandler!.ExecuteAsync(configNode, context, this, previousOutput);
+
+            // If cost-limit-stopped, propagate the signal up without marking as "done"
+            if (output != null && output.StartsWith(COST_LIMIT_STOPPED_PREFIX))
+            {
+                _stateManager.UpdateNodeById(displayTree, nodeId, "cost-limit-stopped", output);
+                _stateManager.UpdateActiveBlockStatus(session, "cost-limit-stopped");
+                session.SetVariable("_executionTree", displayTree);
+                session.SetVariable($"_nodeResult_{nodeId}", output);
+                await _repository.SaveAsync(session);
+                return output; // Propagate signal to ExecuteConfigNodesAsync
+            }
 
             var truncated = output != null && output.Length > 500 ? output[..500] + "..." : output;
             _stateManager.UpdateNodeById(displayTree, nodeId, "done", truncated);

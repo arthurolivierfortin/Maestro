@@ -28,13 +28,13 @@
 | 59-PRE-E | Provider GitHub Models (standalone, HttpClient) | 0.5 jour | DONE |
 | 59-PRE-F | Slash command `/costs` — config limites dans le TUI | 0.5 jour | DONE |
 | 59-PRE-G | Auth provider en C# — .env loader + AuthStatus | 0.5 jour | DONE |
-| 59-PRE-H | **Cost Enforcement — Hard stop configurable + Graceful shutdown** | 1.5 jours | A FAIRE |
-| 59-PRE-T | Tests | inclus dans chaque sous-phase | EN COURS |
+| 59-PRE-T | Tests | inclus dans chaque sous-phase | DONE |
 
 > **59-PRE-E** : plan detaille dans `PHASE-59-PRE-E.md`
 > **59-PRE-F** : plan detaille dans `PHASE-59-PRE-F.md`
 > **59-PRE-G** : plan detaille dans `PHASE-59-PRE-G.md`
-> **59-PRE-H** : plan detaille dans `PHASE-59-PRE-H.md` — **CRITIQUE** : enforcement reel des limites + graceful shutdown + resume
+>
+> **Cost Enforcement** deplace vers **Phase 59-PRE-2** (phase separee) — voir `docs/phases/PHASE-59-PRE-2/README.md`
 
 ---
 

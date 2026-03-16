@@ -108,16 +108,15 @@ public class CostTrackingService : ICostTrackingService
     {
         var limits = ReadLimitsFromConfig();
 
+        // Collect all exceeded limits, separated by enforcement type
+        CostLimitCheckResult? firstBlock = null;
+        CostLimitCheckResult? firstWarn = null;
+
         // Check session limit
-        if (limits.MaxPerSession.HasValue && currentSessionCost > limits.MaxPerSession.Value)
+        if (limits.MaxPerSession?.Value != null && currentSessionCost > limits.MaxPerSession.Value.Value)
         {
-            return Task.FromResult(new CostLimitCheckResult
-            {
-                Exceeded = true,
-                LimitType = "session",
-                CurrentValue = currentSessionCost,
-                MaxValue = limits.MaxPerSession.Value
-            });
+            var result = BuildCheckResult("session", limits.MaxPerSession, currentSessionCost, limits.MaxPerSession.Value.Value);
+            CategorizeResult(result, ref firstBlock, ref firstWarn);
         }
 
         // For day/week/month limits, read history
@@ -125,54 +124,45 @@ public class CostTrackingService : ICostTrackingService
         var now = DateTime.UtcNow;
 
         // Daily limit
-        if (limits.MaxPerDay.HasValue)
+        if (limits.MaxPerDay?.Value != null)
         {
             var dayCost = entries.Where(e => e.Timestamp >= now.Date).Sum(e => e.CostUsd);
-            if (dayCost > limits.MaxPerDay.Value)
+            if (dayCost > limits.MaxPerDay.Value.Value)
             {
-                return Task.FromResult(new CostLimitCheckResult
-                {
-                    Exceeded = true,
-                    LimitType = "daily",
-                    CurrentValue = dayCost,
-                    MaxValue = limits.MaxPerDay.Value
-                });
+                var result = BuildCheckResult("daily", limits.MaxPerDay, dayCost, limits.MaxPerDay.Value.Value);
+                CategorizeResult(result, ref firstBlock, ref firstWarn);
             }
         }
 
         // Weekly limit
-        if (limits.MaxPerWeek.HasValue)
+        if (limits.MaxPerWeek?.Value != null)
         {
             var startOfWeek = now.Date.AddDays(-(int)now.DayOfWeek);
             var weekCost = entries.Where(e => e.Timestamp >= startOfWeek).Sum(e => e.CostUsd);
-            if (weekCost > limits.MaxPerWeek.Value)
+            if (weekCost > limits.MaxPerWeek.Value.Value)
             {
-                return Task.FromResult(new CostLimitCheckResult
-                {
-                    Exceeded = true,
-                    LimitType = "weekly",
-                    CurrentValue = weekCost,
-                    MaxValue = limits.MaxPerWeek.Value
-                });
+                var result = BuildCheckResult("weekly", limits.MaxPerWeek, weekCost, limits.MaxPerWeek.Value.Value);
+                CategorizeResult(result, ref firstBlock, ref firstWarn);
             }
         }
 
         // Monthly limit
-        if (limits.MaxPerMonth.HasValue)
+        if (limits.MaxPerMonth?.Value != null)
         {
             var startOfMonth = new DateTime(now.Year, now.Month, 1, 0, 0, 0, DateTimeKind.Utc);
             var monthCost = entries.Where(e => e.Timestamp >= startOfMonth).Sum(e => e.CostUsd);
-            if (monthCost > limits.MaxPerMonth.Value)
+            if (monthCost > limits.MaxPerMonth.Value.Value)
             {
-                return Task.FromResult(new CostLimitCheckResult
-                {
-                    Exceeded = true,
-                    LimitType = "monthly",
-                    CurrentValue = monthCost,
-                    MaxValue = limits.MaxPerMonth.Value
-                });
+                var result = BuildCheckResult("monthly", limits.MaxPerMonth, monthCost, limits.MaxPerMonth.Value.Value);
+                CategorizeResult(result, ref firstBlock, ref firstWarn);
             }
         }
+
+        // Return first "block" exceeded, or first "warn" exceeded, or Ok
+        if (firstBlock != null)
+            return Task.FromResult(firstBlock);
+        if (firstWarn != null)
+            return Task.FromResult(firstWarn);
 
         return Task.FromResult(CostLimitCheckResult.Ok());
     }
@@ -190,6 +180,34 @@ public class CostTrackingService : ICostTrackingService
     }
 
     // ===== Private helpers =====
+
+    private static CostLimitCheckResult BuildCheckResult(string limitType, CostLimitConfigDto config, decimal currentValue, decimal maxValue)
+    {
+        var enforcement = config.Enforcement ?? "block";
+        var autoResume = config.AutoResume;
+        return new CostLimitCheckResult
+        {
+            Exceeded = true,
+            LimitType = limitType,
+            Enforcement = enforcement,
+            AutoResume = autoResume,
+            CurrentValue = currentValue,
+            MaxValue = maxValue,
+            Message = $"{char.ToUpper(limitType[0])}{limitType[1..]} limit of ${maxValue:F2} exceeded (current: ${currentValue:F2}). Enforcement: {enforcement}."
+        };
+    }
+
+    private static void CategorizeResult(CostLimitCheckResult result, ref CostLimitCheckResult? firstBlock, ref CostLimitCheckResult? firstWarn)
+    {
+        if (string.Equals(result.Enforcement, "block", StringComparison.OrdinalIgnoreCase))
+        {
+            firstBlock ??= result;
+        }
+        else
+        {
+            firstWarn ??= result;
+        }
+    }
 
     private List<CostEntryDto> ReadAllEntries()
     {
@@ -266,13 +284,24 @@ public class CostTrackingService : ICostTrackingService
         try
         {
             var json = File.ReadAllText(ConfigPath);
-            return JsonSerializer.Deserialize<CostConfigFile>(json, JsonOpts) ?? new CostConfigFile();
+            return DeserializeConfig(json);
         }
         catch (Exception ex)
         {
             _logger?.LogWarning(ex, "Failed to read cost config from {Path}", ConfigPath);
             return new CostConfigFile();
         }
+    }
+
+    /// <summary>
+    /// Deserializes cost-config.json with backward compatibility.
+    /// The CostLimitConfigDtoConverter on CostLimitConfigDto handles both:
+    /// - Old format: "maxPerDay": 5.0 (plain number)
+    /// - New format: "maxPerDay": { "value": 5.0, "enforcement": "block", "autoResume": false }
+    /// </summary>
+    private static CostConfigFile DeserializeConfig(string json)
+    {
+        return JsonSerializer.Deserialize<CostConfigFile>(json, JsonOpts) ?? new CostConfigFile();
     }
 
     private void WriteConfig(CostConfigFile config)

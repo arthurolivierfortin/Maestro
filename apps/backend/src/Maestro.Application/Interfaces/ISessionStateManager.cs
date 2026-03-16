@@ -54,4 +54,14 @@ public interface ISessionStateManager
     void UpdateNodeById(List<object> tree, string nodeId, string status, string? output = null);
     void ResetNodeTree(List<object> nodes);
     Dictionary<string, object>? FindNodeById(List<object> tree, string nodeId);
+
+    // ===== Cost Limit Enforcement (Phase 59-PRE-2-A) =====
+
+    /// <summary>
+    /// Performs a graceful cost-limit stop on the session.
+    /// Clears _activeWorkflow so the session becomes idle (NOT error).
+    /// Preserves ALL session variables. Clears _activeBlock.
+    /// The session remains resumable — the user can increase the limit and re-invoke.
+    /// </summary>
+    void GracefulCostStop(ProjectSession session);
 }

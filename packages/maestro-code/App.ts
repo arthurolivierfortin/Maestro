@@ -75,7 +75,7 @@ export function parseCreateAgent(input: string): { description: string; contract
 
 // ── Costs command parser ───────────────────────────────────────
 
-export function parseCostsCommand(input: string): { action: string; limits?: Record<string, number> } | null {
+export function parseCostsCommand(input: string): { action: string; limits?: Record<string, number>; enforcement?: string; autoResume?: boolean } | null {
   const trimmed = input.trim();
   if (!trimmed.startsWith('/costs')) return null;
   const rest = trimmed.slice('/costs'.length).trim();
@@ -86,16 +86,21 @@ export function parseCostsCommand(input: string): { action: string; limits?: Rec
   // /costs limits
   if (rest === 'limits') return { action: 'limits' };
 
+  // /costs status
+  if (rest === 'status') return { action: 'status' };
+
   // /costs clear
   if (rest === 'clear') return { action: 'clear' };
 
-  // /costs set --per-day 5.00 --per-session 1 ...
+  // /costs set --per-day 5.00 --per-session 1 --enforcement block|warn --auto-resume
   if (rest.startsWith('set')) {
     const setArgs = rest.slice('set'.length).trim();
     if (!setArgs) return null; // /costs set with no flags → error
 
     const tokens = setArgs.split(/\s+/);
     const limits: Record<string, number> = {};
+    let enforcement: string | undefined;
+    let autoResume: boolean | undefined;
     let i = 0;
     while (i < tokens.length) {
       if (tokens[i] === '--per-day' && i + 1 < tokens.length) {
@@ -110,12 +115,23 @@ export function parseCostsCommand(input: string): { action: string; limits?: Rec
       } else if (tokens[i] === '--per-month' && i + 1 < tokens.length) {
         limits.perMonth = parseFloat(tokens[i + 1]);
         i += 2;
+      } else if (tokens[i] === '--enforcement' && i + 1 < tokens.length) {
+        const val = tokens[i + 1];
+        if (val !== 'block' && val !== 'warn') return null; // invalid enforcement value
+        enforcement = val;
+        i += 2;
+      } else if (tokens[i] === '--auto-resume') {
+        autoResume = true;
+        i += 1;
       } else {
         return null; // unknown flag
       }
     }
     if (Object.keys(limits).length === 0) return null;
-    return { action: 'set', limits };
+    const result: { action: string; limits: Record<string, number>; enforcement?: string; autoResume?: boolean } = { action: 'set', limits };
+    if (enforcement !== undefined) result.enforcement = enforcement;
+    if (autoResume !== undefined) result.autoResume = autoResume;
+    return result;
   }
 
   // Unknown subcommand
@@ -377,6 +393,7 @@ const App = ({ apiClient: clientProp, sessionManager: smProp, demoMode, repoPath
 
   // ── Daily cost polling (every 60s) ──
   const [dailyCost, setDailyCost] = useState<number | null>(null);
+  const [costLimitStatus, setCostLimitStatus] = useState<'block' | 'warn' | null>(null);
   useEffect(() => {
     if (!apiClient) return;
     const fetchCost = async () => {
@@ -384,6 +401,20 @@ const App = ({ apiClient: clientProp, sessionManager: smProp, demoMode, repoPath
         const summary = await (apiClient as any).getCostsSummary();
         if (summary && typeof summary.today?.totalCost === 'number') {
           setDailyCost(summary.today.totalCost);
+          // Check if daily limit is exceeded and determine enforcement type
+          const limitsObj = summary.limits;
+          if (limitsObj) {
+            const maxPerDay = typeof limitsObj.maxPerDay === 'object' && limitsObj.maxPerDay !== null
+              ? limitsObj.maxPerDay
+              : (typeof limitsObj.maxPerDay === 'number' ? { value: limitsObj.maxPerDay, enforcement: 'block' } : null);
+            if (maxPerDay && typeof maxPerDay.value === 'number' && summary.today.totalCost >= maxPerDay.value) {
+              setCostLimitStatus((maxPerDay.enforcement === 'warn' ? 'warn' : 'block') as 'block' | 'warn');
+            } else {
+              setCostLimitStatus(null);
+            }
+          } else {
+            setCostLimitStatus(null);
+          }
         }
       } catch {
         // Silently ignore — don't show errors in status bar
@@ -722,9 +753,11 @@ const App = ({ apiClient: clientProp, sessionManager: smProp, demoMode, repoPath
       const parsed = parseCostsCommand(trimmed);
       if (!parsed) {
         addLine({ text: '' });
-        addLine({ text: 'Usage: /costs [summary|limits|set|clear]', color: 'yellow', timestamp: ts() });
+        addLine({ text: 'Usage: /costs [summary|limits|status|set|clear]', color: 'yellow', timestamp: ts() });
         addLine({ text: '  /costs                    Show cost summary + limits', color: 'gray' });
+        addLine({ text: '  /costs status             Show limit status & exceeded warnings', color: 'gray' });
         addLine({ text: '  /costs set --per-day 5    Set daily limit to $5', color: 'gray' });
+        addLine({ text: '  /costs set --per-day 5 --enforcement warn --auto-resume', color: 'gray' });
         addLine({ text: '  /costs clear              Remove all limits', color: 'gray' });
         addLine({ text: '' });
         return;
@@ -784,6 +817,60 @@ const App = ({ apiClient: clientProp, sessionManager: smProp, demoMode, repoPath
         return;
       }
 
+      if (parsed.action === 'status') {
+        addLine({ text: '' });
+        addLine({ text: 'Fetching cost status...', color: 'cyan', timestamp: ts() });
+        setTimeout(async () => {
+          try {
+            const summary = await apiClient.getCostsSummary();
+            addLine({ text: '' });
+            addLine({ text: 'Cost Status', color: 'cyan', bold: true, timestamp: ts() });
+            const today = summary?.today || {};
+            const limitsObj = summary?.limits || {};
+            // Helper: extract limit value and enforcement from either format
+            const extractLimit = (raw: any): { value: number | null; enforcement: string; autoResume: boolean } => {
+              if (raw == null) return { value: null, enforcement: 'block', autoResume: false };
+              if (typeof raw === 'number') return { value: raw, enforcement: 'block', autoResume: false };
+              if (typeof raw === 'object') return { value: raw.value ?? null, enforcement: raw.enforcement || 'block', autoResume: raw.autoResume || false };
+              return { value: null, enforcement: 'block', autoResume: false };
+            };
+            const checks = [
+              { label: 'Daily', current: today.totalCost ?? 0, limit: extractLimit(limitsObj.maxPerDay) },
+              { label: 'Weekly', current: summary?.thisWeek?.totalCost ?? 0, limit: extractLimit(limitsObj.maxPerWeek) },
+              { label: 'Monthly', current: summary?.thisMonth?.totalCost ?? 0, limit: extractLimit(limitsObj.maxPerMonth) },
+            ];
+            let anyExceeded = false;
+            for (const c of checks) {
+              if (c.limit.value != null && c.current >= c.limit.value) {
+                anyExceeded = true;
+                const isBlock = c.limit.enforcement === 'block';
+                const statusMsg = isBlock ? 'Executions are STOPPED' : 'Executions continue with warning';
+                const color = isBlock ? 'red' : 'yellow';
+                addLine({ text: `  ${c.label} limit EXCEEDED: $${c.current.toFixed(2)} / $${c.limit.value.toFixed(2)} (enforcement: ${c.limit.enforcement})`, color });
+                addLine({ text: `    ${statusMsg}`, color });
+                if (c.limit.autoResume) {
+                  addLine({ text: `    Auto-resume: on`, color: 'gray' });
+                }
+              }
+            }
+            if (!anyExceeded) {
+              addLine({ text: '  No limits exceeded.', color: 'green' });
+              for (const c of checks) {
+                if (c.limit.value != null) {
+                  const remaining = Math.max(0, c.limit.value - c.current);
+                  addLine({ text: `  ${c.label}: $${c.current.toFixed(2)} / $${c.limit.value.toFixed(2)}  (remaining: $${remaining.toFixed(2)}, enforcement: ${c.limit.enforcement})`, color: 'white' });
+                }
+              }
+            }
+            addLine({ text: '' });
+          } catch (err: any) {
+            addLine({ text: `Error: ${err?.message || 'Backend not connected'}`, color: 'red', timestamp: ts() });
+            addLine({ text: '' });
+          }
+        }, 0);
+        return;
+      }
+
       if (parsed.action === 'set' && parsed.limits) {
         addLine({ text: '' });
         addLine({ text: 'Updating cost limits...', color: 'cyan', timestamp: ts() });
@@ -791,18 +878,23 @@ const App = ({ apiClient: clientProp, sessionManager: smProp, demoMode, repoPath
           try {
             const existing = await apiClient.getCostsLimits();
             const merged = { ...existing };
-            if (parsed.limits!.perSession !== undefined) merged.maxPerSession = parsed.limits!.perSession;
-            if (parsed.limits!.perDay !== undefined) merged.maxPerDay = parsed.limits!.perDay;
-            if (parsed.limits!.perWeek !== undefined) merged.maxPerWeek = parsed.limits!.perWeek;
-            if (parsed.limits!.perMonth !== undefined) merged.maxPerMonth = parsed.limits!.perMonth;
+            const enforcementVal = parsed.enforcement || 'block';
+            const autoResumeVal = parsed.autoResume || false;
+            // Build new-format limit objects with enforcement/autoResume
+            const buildLimitObj = (value: number) => ({ value, enforcement: enforcementVal, autoResume: autoResumeVal });
+            if (parsed.limits!.perSession !== undefined) merged.maxPerSession = buildLimitObj(parsed.limits!.perSession);
+            if (parsed.limits!.perDay !== undefined) merged.maxPerDay = buildLimitObj(parsed.limits!.perDay);
+            if (parsed.limits!.perWeek !== undefined) merged.maxPerWeek = buildLimitObj(parsed.limits!.perWeek);
+            if (parsed.limits!.perMonth !== undefined) merged.maxPerMonth = buildLimitObj(parsed.limits!.perMonth);
             await apiClient.setCostsLimits(merged);
             addLine({ text: '' });
             const parts: string[] = [];
+            const enforcementSuffix = ` (${enforcementVal}${autoResumeVal ? ', auto-resume' : ''})`;
             if (parsed.limits!.perSession !== undefined) parts.push(`per-session = $${parsed.limits!.perSession.toFixed(2)}`);
             if (parsed.limits!.perDay !== undefined) parts.push(`per-day = $${parsed.limits!.perDay.toFixed(2)}`);
             if (parsed.limits!.perWeek !== undefined) parts.push(`per-week = $${parsed.limits!.perWeek.toFixed(2)}`);
             if (parsed.limits!.perMonth !== undefined) parts.push(`per-month = $${parsed.limits!.perMonth.toFixed(2)}`);
-            addLine({ text: `Cost limits updated: ${parts.join(', ')}`, color: 'green', bold: true, timestamp: ts() });
+            addLine({ text: `Cost limits updated: ${parts.join(', ')}${enforcementSuffix}`, color: 'green', bold: true, timestamp: ts() });
             addLine({ text: '' });
           } catch (err: any) {
             addLine({ text: `Error: ${err?.message || 'Backend not connected'}`, color: 'red', timestamp: ts() });
@@ -1282,7 +1374,7 @@ const App = ({ apiClient: clientProp, sessionManager: smProp, demoMode, repoPath
           captureInput: inputFocused,
         })
       : null,
-    h(StatusBar, { currentPage, connectionStatus, latency: connLatency, lastRefresh, dailyCost }),
+    h(StatusBar, { currentPage, connectionStatus, latency: connLatency, lastRefresh, dailyCost, costLimitStatus }),
   );
 };
 

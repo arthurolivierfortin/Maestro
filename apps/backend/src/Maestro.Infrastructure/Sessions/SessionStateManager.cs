@@ -435,6 +435,31 @@ public class SessionStateManager : ISessionStateManager
         return null;
     }
 
+    // ===== Cost Limit Enforcement (Phase 59-PRE-2-A) =====
+
+    /// <inheritdoc/>
+    public void GracefulCostStop(ProjectSession session)
+    {
+        // Clear active workflow — makes the session "idle" (resumable)
+        session.SetVariable("_activeWorkflow", "");
+
+        // Clear active block display
+        ClearActiveBlock(session);
+
+        // Clean up workflow checkpoint state so re-invocation starts fresh
+        session.SetVariable("_workflowCheckpoint", null);
+        session.SetVariable("_workflowCheckpoint_whileState", null);
+        session.SetVariable("_workflowCheckpoint_foreachIndex", null);
+
+        // Note: ALL other session variables are PRESERVED:
+        // - _accumulatedCost, _costLimitExceeded, _costLimitMessage, etc.
+        // - _executionTree, _executionLog, _blockOutputs, etc.
+        // - All user/workflow variables
+        // The session is NOT in error state — it's idle and can be resumed.
+
+        _logger.LogInformation("Graceful cost stop: session {SessionId} is now idle (resumable)", session.Id);
+    }
+
     // ===== Static Helpers (used by NodeExecutionEngine and EntryPointExecutor) =====
 
     /// <summary>

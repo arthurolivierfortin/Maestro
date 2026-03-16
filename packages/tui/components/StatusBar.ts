@@ -106,6 +106,20 @@ const StatusBar = ({
   currentPage = null,
   isDetailView: isDetailViewProp = false,
   dailyCost = null,
+  costLimitStatus = null,
+}: {
+  connectionStatus?: string;
+  latency?: number;
+  lastRefresh?: any;
+  mode?: string;
+  visiblePanels?: Record<string, any>;
+  hasBackOption?: boolean;
+  focusedPanel?: string | null;
+  zoomedPanel?: string | null;
+  currentPage?: string | null;
+  isDetailView?: boolean;
+  dailyCost?: number | null;
+  costLimitStatus?: 'block' | 'warn' | null;
 }) => {
   const tick = useAnimationTick(120);
 
@@ -188,7 +202,11 @@ const StatusBar = ({
             h(Text, null, '  '),
             dim(icons.dot),
             h(Text, null, '  '),
-            h(Text, { color: dailyCost > 0 ? 'yellow' : theme.text.muted }, `$${dailyCost.toFixed(2)} today`),
+            costLimitStatus === 'block'
+              ? h(Text, { color: 'red', bold: true }, `$${dailyCost.toFixed(2)} today (LIMIT)`)
+              : costLimitStatus === 'warn'
+                ? h(Text, { color: 'yellow', bold: true }, `$${dailyCost.toFixed(2)} today (!)`)
+                : h(Text, { color: dailyCost > 0 ? 'yellow' : theme.text.muted }, `$${dailyCost.toFixed(2)} today`),
           )
         : null,
     ),

@@ -1,11 +1,14 @@
 using Microsoft.AspNetCore.Mvc;
 using Maestro.Application.Interfaces;
 using Maestro.Application.DTOs;
+using System.Text.Json;
 
 namespace Maestro.Api.Controllers;
 
 /// <summary>
 /// API controller for cost governance: summary, limits, session costs.
+/// Supports both old format (decimal values) and new format (CostLimitConfigDto objects)
+/// for backward compatibility.
 /// </summary>
 [ApiController]
 [Route("api/[controller]")]
@@ -40,12 +43,35 @@ public class CostsController : ControllerBase
 
     /// <summary>
     /// Set cost limits.
+    /// Accepts both old format (number values) and new format (objects with value/enforcement/autoResume).
+    /// The CostLimitConfigDtoConverter handles backward compatibility automatically.
+    ///
+    /// Old format example: { "maxPerDay": 5.0 }
+    /// New format example: { "maxPerDay": { "value": 5.0, "enforcement": "block", "autoResume": true } }
+    /// Mixed format is also supported.
     /// </summary>
     [HttpPut("limits")]
-    public async Task<ActionResult> SetLimits([FromBody] CostLimitsDto limits)
+    public async Task<ActionResult> SetLimits([FromBody] JsonElement body)
     {
-        await _costTracking.SetLimitsAsync(limits);
-        return Ok(new { message = "Limits updated" });
+        try
+        {
+            // Use System.Text.Json with our custom converter to handle both formats
+            var opts = new JsonSerializerOptions
+            {
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                PropertyNameCaseInsensitive = true
+            };
+            var limits = JsonSerializer.Deserialize<CostLimitsDto>(body.GetRawText(), opts);
+            if (limits == null)
+                return BadRequest(new { error = "Invalid limits format" });
+
+            await _costTracking.SetLimitsAsync(limits);
+            return Ok(new { message = "Limits updated" });
+        }
+        catch (JsonException ex)
+        {
+            return BadRequest(new { error = $"Invalid JSON format: {ex.Message}" });
+        }
     }
 
     /// <summary>

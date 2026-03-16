@@ -8755,7 +8755,7 @@ ${c.bold('Examples:')}
         console.log('Usage: maestro costs <command>');
         console.log('  summary                                   Show cost summary (today/week/month/allTime)');
         console.log('  limits                                    Show current cost limits');
-        console.log('  set-limit [--per-session X] [--per-day X] [--per-week X] [--per-month X]  Set cost limits');
+        console.log('  set-limit [--per-session X] [--per-day X] [--per-week X] [--per-month X] [--enforcement block|warn] [--auto-resume]  Set cost limits');
         console.log('');
         console.log('Options:');
         console.log('  --json   Output raw JSON');
@@ -8822,11 +8822,19 @@ ${c.bold('Examples:')}
       }
 
       if (subCmd === 'set-limit') {
+        const enforcementArg = argv['enforcement'] || 'block';
+        const autoResumeArg = !!argv['auto-resume'];
+        if (enforcementArg !== 'block' && enforcementArg !== 'warn') {
+          console.error(`Invalid enforcement value: "${enforcementArg}". Must be "block" or "warn".`);
+          process.exit(1);
+        }
+        const buildLimitObj = (value) => ({ value, enforcement: enforcementArg, autoResume: autoResumeArg });
+
         const updates = {};
-        if (argv['per-session'] !== undefined) updates.maxPerSession = parseFloat(argv['per-session']);
-        if (argv['per-day'] !== undefined) updates.maxPerDay = parseFloat(argv['per-day']);
-        if (argv['per-week'] !== undefined) updates.maxPerWeek = parseFloat(argv['per-week']);
-        if (argv['per-month'] !== undefined) updates.maxPerMonth = parseFloat(argv['per-month']);
+        if (argv['per-session'] !== undefined) updates.maxPerSession = buildLimitObj(parseFloat(argv['per-session']));
+        if (argv['per-day'] !== undefined) updates.maxPerDay = buildLimitObj(parseFloat(argv['per-day']));
+        if (argv['per-week'] !== undefined) updates.maxPerWeek = buildLimitObj(parseFloat(argv['per-week']));
+        if (argv['per-month'] !== undefined) updates.maxPerMonth = buildLimitObj(parseFloat(argv['per-month']));
 
         if (Object.keys(updates).length === 0) {
           console.error('At least one limit required. Usage: maestro costs set-limit --per-day 5.00');
@@ -8842,10 +8850,11 @@ ${c.bold('Examples:')}
             console.log(JSON.stringify(newLimits, null, 2));
             return;
           }
+          const enfSuffix = ` (${enforcementArg}${autoResumeArg ? ', auto-resume' : ''})`;
           console.log('\nLimits updated:');
           for (const [k, v] of Object.entries(updates)) {
             const label = k.replace('maxPer', 'Per ').replace(/([A-Z])/g, ' $1').toLowerCase().trim();
-            console.log(`  ${label}: $${v.toFixed(2)}`);
+            console.log(`  ${label}: $${v.value.toFixed(2)}${enfSuffix}`);
           }
           console.log('');
         } catch (error) {
