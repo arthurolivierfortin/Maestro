@@ -121,10 +121,11 @@ public abstract class MultiNodeBlockExecutor : IBlockExecutor
     /// <summary>
     /// Pre-flight check before executing config.nodes (Phase 61-B).
     /// Logs block configuration (model, maxIterations) for transparency.
-    /// Validates maxIterations is within a sane range (1-50).
-    /// Informational only — does not block execution.
+    /// BLOCKS execution if maxIterations cannot be resolved to a valid number
+    /// (and it's not a template variable pattern or "not set").
+    /// Logs warnings for high iteration counts and cost estimates.
     /// </summary>
-    private void PreFlightCheck(BlockDefinition block, Domain.Entities.ProjectSession session)
+    internal static void PreFlightCheck(BlockDefinition block, Domain.Entities.ProjectSession session, ISessionStateManager stateManager)
     {
         // Extract config values for logging
         var model = block.Config?.TryGetValue("model", out var modelObj) == true
@@ -141,28 +142,65 @@ public abstract class MultiNodeBlockExecutor : IBlockExecutor
             keepLastN = klnProp.ToString();
         }
 
-        StateManager.AppendExecutionLog(session, "info",
+        stateManager.AppendExecutionLog(session, "info",
             $"Pre-flight: block '{block.Id}' (type: {block.BlockType}), model={model}, maxIterations={maxIterStr}, keepLastN={keepLastN}");
 
-        // Validate maxIterations range
+        // Validate maxIterations — BLOCKING if not resolvable to a number
         if (int.TryParse(maxIterStr, out var maxIter))
         {
             if (maxIter <= 0)
             {
-                StateManager.AppendExecutionLog(session, "warning",
+                stateManager.AppendExecutionLog(session, "warning",
                     $"Pre-flight: maxIterations={maxIter} is invalid (must be > 0). Engine will use default (50).");
             }
             else if (maxIter > 50)
             {
-                StateManager.AppendExecutionLog(session, "warning",
+                stateManager.AppendExecutionLog(session, "warning",
                     $"Pre-flight: maxIterations={maxIter} exceeds recommended max (50). High iteration counts increase cost and risk of loops.");
             }
+
+            // Cost estimation (informational)
+            var estimatedCostPerIter = 0.14m; // ~$0.14/iter for Sonnet with 30K system prompt
+            var estimatedMaxCost = maxIter * estimatedCostPerIter;
+            stateManager.AppendExecutionLog(session, "info",
+                $"Pre-flight: estimated max cost: ${estimatedMaxCost:F2} ({maxIter} x ${estimatedCostPerIter:F3}/iter)");
+            if (estimatedMaxCost > 5.0m)
+            {
+                stateManager.AppendExecutionLog(session, "warning",
+                    $"Pre-flight: estimated cost ${estimatedMaxCost:F2} exceeds $5. Consider reducing maxIterations.");
+            }
         }
-        else if (maxIterStr != "not set" && !maxIterStr.Contains("{{"))
+        else if (maxIterStr == "not set")
         {
-            // Not a number and not a template variable — likely misconfigured
-            StateManager.AppendExecutionLog(session, "warning",
-                $"Pre-flight: maxIterations='{maxIterStr}' is not a valid number. Engine will use default (50).");
+            // No maxIterations configured — engine will use default (50). Informational only.
+            stateManager.AppendExecutionLog(session, "info",
+                "Pre-flight: maxIterations not set. Engine will use default (50).");
+        }
+        else if (maxIterStr.Contains("{{"))
+        {
+            // Template variable — check if session variable resolves it
+            var resolved = session.GetVariable("maxIterations")?.ToString();
+            if (!string.IsNullOrEmpty(resolved) && int.TryParse(resolved, out _))
+            {
+                // Template variable will be resolved at runtime — OK
+                stateManager.AppendExecutionLog(session, "info",
+                    $"Pre-flight: maxIterations='{maxIterStr}' will resolve from session variable ({resolved}).");
+            }
+            else
+            {
+                // Template variable but no valid session variable to resolve it — BLOCK
+                throw new InvalidOperationException(
+                    $"Pre-flight FAILED for block '{block.Id}': maxIterations='{maxIterStr}' is a template variable " +
+                    $"but session variable 'maxIterations' is not set or not a number (value='{resolved ?? "null"}'). " +
+                    "This would default to 50 iterations. Fix the config or set the variable.");
+            }
+        }
+        else
+        {
+            // Not a number, not "not set", not a template variable — misconfigured. BLOCK.
+            throw new InvalidOperationException(
+                $"Pre-flight FAILED for block '{block.Id}': maxIterations='{maxIterStr}' is not a valid number " +
+                "and not a template variable. Fix the block config.");
         }
     }
 
@@ -247,13 +285,19 @@ public abstract class MultiNodeBlockExecutor : IBlockExecutor
         foreach (var kv in inputs)
             session.SetVariable(kv.Key, kv.Value);
 
+        // Propagate _toolMapping from execution context to session so that
+        // ToolDispatcherBlockExecutor can find it when called from within config.nodes.
+        // Without this, tool mapping set by ContractTestRunner is lost.
+        if (context.Variables.TryGetValue("_toolMapping", out var toolMapping) && toolMapping != null)
+            session.SetVariable("_toolMapping", toolMapping);
+
         var workingDir = context.Variables.ContainsKey("workingDir")
             ? context.Variables["workingDir"]?.ToString() ?? Directory.GetCurrentDirectory()
             : Directory.GetCurrentDirectory();
 
         // === Pre-flight check (Phase 61-B) ===
-        // Log block configuration for transparency before execution.
-        PreFlightCheck(block, session);
+        // Log block configuration and BLOCK if maxIterations is misconfigured.
+        PreFlightCheck(block, session, StateManager);
 
         var displayTree = StateManager.BuildExecutionTree(block);
 

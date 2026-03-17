@@ -463,38 +463,38 @@ public class NodeExecutionEngine : INodeExecutionCallback
                 var toolId = TemplateResolver.ExtractJsonSubPath(parseResultVar, "toolId");
                 if (!string.IsNullOrEmpty(toolId))
                 {
-                    recentToolCalls.Add(toolId);
+                    // Create composite key for loop detection: same tool + same args = loop
+                    // Different args = different work, should not trigger loop detection
+                    var toolArgs = TemplateResolver.ExtractJsonSubPath(parseResultVar, "args");
+                    var loopKey = !string.IsNullOrEmpty(toolArgs)
+                        ? $"{toolId}:{toolArgs.GetHashCode()}"
+                        : toolId;
+                    recentToolCalls.Add(loopKey);
 
-                    // Check for stuck loop: 5 consecutive identical tool calls → force stop
-                    if (recentToolCalls.Count >= 5)
+                    // Use extracted loop detection helper
+                    var loopResult = DetectLoop(recentToolCalls);
+                    if (loopResult == LoopDetectionResult.ForceStop)
                     {
-                        var last5 = recentToolCalls.Skip(recentToolCalls.Count - 5).ToList();
-                        if (last5.All(t => t == last5[0]) && last5[0] != "step-complete")
-                        {
-                            _stateManager.AppendExecutionLog(session, "error",
-                                $"Agent stuck in loop: tool '{last5[0]}' called 5 times consecutively. Forcing stop.");
-                            _logger.LogWarning(
-                                "Agent stuck in loop in while '{NodeId}': tool '{ToolId}' called 5 times. Forcing stop.",
-                                nodeId, last5[0]);
-                            session.SetVariable("_agentDone", "true");
-                            session.SetVariable("_agentResult",
-                                $"Stopped: agent stuck in loop calling '{last5[0]}' repeatedly");
-                            await _repository.SaveAsync(session);
-                            break;
-                        }
+                        var loopingTool = ExtractToolIdFromLoopKey(GetLoopingToolId(recentToolCalls)!);
+                        _stateManager.AppendExecutionLog(session, "error",
+                            $"Agent stuck in loop: tool '{loopingTool}' called 5 times consecutively with same args. Forcing stop.");
+                        _logger.LogWarning(
+                            "Agent stuck in loop in while '{NodeId}': tool '{ToolId}' called 5 times with same args. Forcing stop.",
+                            nodeId, loopingTool);
+                        session.SetVariable("_agentDone", "true");
+                        session.SetVariable("_agentResult",
+                            $"Stopped: agent stuck in loop calling '{loopingTool}' repeatedly with same args");
+                        await _repository.SaveAsync(session);
+                        break;
                     }
-                    // Check for warning: 3 consecutive identical tool calls
-                    if (recentToolCalls.Count >= 3)
+                    else if (loopResult == LoopDetectionResult.Warning)
                     {
-                        var last3 = recentToolCalls.Skip(recentToolCalls.Count - 3).ToList();
-                        if (last3.All(t => t == last3[0]) && last3[0] != "step-complete")
-                        {
-                            _stateManager.AppendExecutionLog(session, "warning",
-                                $"Agent may be stuck: tool '{last3[0]}' called 3 times consecutively");
-                            _logger.LogWarning(
-                                "Potential loop in while '{NodeId}': tool '{ToolId}' called 3 times consecutively.",
-                                nodeId, last3[0]);
-                        }
+                        var loopingTool = ExtractToolIdFromLoopKey(GetLoopingToolId(recentToolCalls)!);
+                        _stateManager.AppendExecutionLog(session, "warning",
+                            $"Agent may be stuck: tool '{loopingTool}' called 3 times consecutively with same args");
+                        _logger.LogWarning(
+                            "Potential loop in while '{NodeId}': tool '{ToolId}' called 3 times consecutively with same args.",
+                            nodeId, loopingTool);
                     }
 
                     // === Progress detection (Phase 61-B) ===
@@ -849,6 +849,69 @@ public class NodeExecutionEngine : INodeExecutionCallback
         await _repository.SaveAsync(session);
 
         return lastOutput;
+    }
+
+    // ===== Loop Detection (Phase 61-B) =====
+
+    /// <summary>
+    /// Result of loop detection analysis on recent tool calls.
+    /// </summary>
+    internal enum LoopDetectionResult
+    {
+        /// <summary>No loop detected.</summary>
+        None,
+        /// <summary>Warning: 3 consecutive identical tool calls.</summary>
+        Warning,
+        /// <summary>Loop confirmed: 5 consecutive identical tool calls. Agent should be stopped.</summary>
+        ForceStop
+    }
+
+    /// <summary>
+    /// Analyzes recent tool calls for loop patterns.
+    /// Returns ForceStop if the last 5 calls are identical (and not step-complete).
+    /// Returns Warning if the last 3 calls are identical (and not step-complete).
+    /// Returns None otherwise.
+    /// </summary>
+    internal static LoopDetectionResult DetectLoop(IReadOnlyList<string> recentToolCalls)
+    {
+        if (recentToolCalls.Count >= 5)
+        {
+            var last5 = recentToolCalls.Skip(recentToolCalls.Count - 5).ToList();
+            if (last5.All(t => t == last5[0]) && ExtractToolIdFromLoopKey(last5[0]) != "step-complete")
+            {
+                return LoopDetectionResult.ForceStop;
+            }
+        }
+
+        if (recentToolCalls.Count >= 3)
+        {
+            var last3 = recentToolCalls.Skip(recentToolCalls.Count - 3).ToList();
+            if (last3.All(t => t == last3[0]) && ExtractToolIdFromLoopKey(last3[0]) != "step-complete")
+            {
+                return LoopDetectionResult.Warning;
+            }
+        }
+
+        return LoopDetectionResult.None;
+    }
+
+    /// <summary>
+    /// Gets the tool ID that caused the loop (for error messages).
+    /// Returns the last tool call in the list, or null if empty.
+    /// </summary>
+    internal static string? GetLoopingToolId(IReadOnlyList<string> recentToolCalls)
+    {
+        return recentToolCalls.Count > 0 ? recentToolCalls[recentToolCalls.Count - 1] : null;
+    }
+
+    /// <summary>
+    /// Extracts the tool ID from a composite loop key (format: "toolId:argsHash" or just "toolId").
+    /// Used for display messages and step-complete exclusion checks.
+    /// </summary>
+    internal static string ExtractToolIdFromLoopKey(string loopKey)
+    {
+        var colonIndex = loopKey.IndexOf(':');
+        return colonIndex >= 0 ? loopKey.Substring(0, colonIndex) : loopKey;
     }
 
     // ===== Private utilities =====

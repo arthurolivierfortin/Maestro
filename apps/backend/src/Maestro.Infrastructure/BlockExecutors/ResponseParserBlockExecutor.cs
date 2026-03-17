@@ -46,8 +46,23 @@ public class ResponseParserBlockExecutor : IBlockExecutor
             return Task.FromResult(result);
         }
 
-        // Try to extract JSON
-        var jsonContent = LLMBlockExecutorBase.ExtractJson(rawResponse);
+        // ReAct-style format: THINK: ... ACTION: {...}
+        // Try to extract JSON from ACTION: line first — more reliable than generic extraction
+        string? jsonContent = null;
+        var actionIdx = rawResponse.IndexOf("ACTION:", StringComparison.OrdinalIgnoreCase);
+        if (actionIdx >= 0)
+        {
+            var actionJson = rawResponse.Substring(actionIdx + 7).Trim();
+            var extracted = LLMBlockExecutorBase.ExtractJson(actionJson);
+            if (!string.IsNullOrEmpty(extracted))
+            {
+                jsonContent = extracted;
+                result.Logs.Add("Extracted JSON from THINK/ACTION format");
+            }
+        }
+
+        // Fallback: generic JSON extraction (backward-compatible with pure JSON responses)
+        jsonContent ??= LLMBlockExecutorBase.ExtractJson(rawResponse);
         if (string.IsNullOrEmpty(jsonContent))
         {
             // Non-JSON response → text or retry

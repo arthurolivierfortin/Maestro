@@ -410,6 +410,8 @@ public class ContractTestRunner
     /// <summary>
     /// Send a prompt to a block and get the full execution result.
     /// Uses the block's executor (agent, inference, tool) through the standard pipeline.
+    /// For agent blocks, creates a FRESH session per test to avoid state pollution
+    /// (_agentDone, _agentResult, conversation history from previous test).
     /// </summary>
     private async Task<BlockExecutionResult> SendPromptToBlockAsync(BlockDefinition block, string prompt, CancellationToken ct)
     {
@@ -417,29 +419,80 @@ public class ContractTestRunner
         if (executor == null)
             throw new InvalidOperationException($"No executor for block type '{block.BlockType}'");
 
-        var context = new ExecutionContext();
-        context.Variables["workingDir"] = Directory.GetCurrentDirectory();
-
-        // Required by MultiNodeBlockExecutor (agent, workflow, tool blocks)
-        if (_tempSessionId != null)
-            context.Variables["sessionId"] = _tempSessionId;
-
-        // For agent/inference blocks, the prompt goes as "prompt" or "message" input
-        // conversationHistory is required by AgentBlockExecutor (agents called through workflows
-        // get it from the workflow; in contract tests we build it from the prompt)
-        var conversationHistory = JsonSerializer.Serialize(new[]
+        // For agent blocks, create a FRESH session per test to avoid state pollution
+        string? perTestSessionId = null;
+        string sessionIdForTest;
+        if (string.Equals(block.BlockType, "agent", StringComparison.OrdinalIgnoreCase))
         {
-            new { role = "user", content = prompt }
-        });
-
-        var inputs = new Dictionary<string, object>
+            var perTestSession = ProjectSession.Create(
+                "contract-test-" + Guid.NewGuid().ToString("N")[..8],
+                Authority.Agent("contract-test-runner"),
+                new ProjectSessionConfig(),
+                Directory.GetCurrentDirectory());
+            await _sessionRepository.SaveAsync(perTestSession, ct);
+            perTestSessionId = perTestSession.Id;
+            sessionIdForTest = perTestSessionId;
+        }
+        else
         {
-            ["prompt"] = prompt,
-            ["message"] = prompt,
-            ["conversationHistory"] = conversationHistory
-        };
+            sessionIdForTest = _tempSessionId!;
+        }
 
-        return await executor.ExecuteAsync(block, context, inputs, ct);
+        try
+        {
+            var context = new ExecutionContext();
+            context.Variables["workingDir"] = Directory.GetCurrentDirectory();
+
+            // Required by MultiNodeBlockExecutor (agent, workflow, tool blocks)
+            context.Variables["sessionId"] = sessionIdForTest;
+
+            // Phase 62-A: Inject _toolMapping for agent blocks so tool calls are captured
+            // instead of executed. This lets contract tests verify what agents actually write.
+            if (string.Equals(block.BlockType, "agent", StringComparison.OrdinalIgnoreCase))
+            {
+                context.Variables["_toolMapping"] = JsonSerializer.Serialize(new Dictionary<string, string>
+                {
+                    ["file-write"] = "capture-file-write",
+                    ["file-read"] = "capture-file-read",
+                    ["shell-execute"] = "capture-shell-execute",
+                    ["file-edit"] = "capture-file-edit"
+                });
+            }
+
+            // For agent/inference blocks, the prompt goes as "prompt" or "message" input
+            // conversationHistory is required by AgentBlockExecutor (agents called through workflows
+            // get it from the workflow; in contract tests we build it from the prompt)
+            var conversationHistory = JsonSerializer.Serialize(new[]
+            {
+                new { role = "user", content = prompt }
+            });
+
+            var inputs = new Dictionary<string, object>
+            {
+                ["prompt"] = prompt,
+                ["message"] = prompt,
+                ["conversationHistory"] = conversationHistory
+            };
+
+            var execResult = await executor.ExecuteAsync(block, context, inputs, ct);
+
+            // Phase 62-A: Copy _capturedToolCalls from context to outputs so EvaluateCheck can read them
+            if (context.Variables.TryGetValue("_capturedToolCalls", out var capturedCalls) && capturedCalls != null)
+            {
+                execResult.Outputs["_capturedToolCalls"] = capturedCalls;
+            }
+
+            return execResult;
+        }
+        finally
+        {
+            // Clean up per-test session for agent blocks
+            if (perTestSessionId != null)
+            {
+                try { await _sessionRepository.DeleteAsync(SessionId.From(perTestSessionId), ct); }
+                catch { /* best-effort cleanup */ }
+            }
+        }
     }
 
     /// <summary>
@@ -518,6 +571,14 @@ public class ContractTestRunner
                 var toolName = check.GetProperty("toolName").GetString() ?? "";
                 // Check in the response text for tool call patterns
                 var passed = response.Contains(toolName, StringComparison.OrdinalIgnoreCase);
+
+                // Phase 62-A: Check captured tool calls from mock blocks (via _toolMapping)
+                if (!passed && blockOutputs != null &&
+                    blockOutputs.TryGetValue("_capturedToolCalls", out var captured))
+                {
+                    passed = captured?.ToString()?.Contains(toolName, StringComparison.OrdinalIgnoreCase) ?? false;
+                }
+
                 // Also check block outputs for tool call metadata
                 if (!passed && blockOutputs != null)
                 {

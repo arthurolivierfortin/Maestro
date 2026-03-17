@@ -43,6 +43,19 @@ public class ToolDispatcherBlockExecutor : IBlockExecutor
 
         var toolId = NormalizeToolId(toolIdObj.ToString() ?? "");
 
+        // Phase 62-A: Check for tool mapping in execution context.
+        // Allows contract tests and sandboxed execution to redirect tools to mock/capture blocks.
+        // The agent doesn't know it's talking to a mock — same interface, different implementation.
+        if (context.Variables.TryGetValue("_toolMapping", out var mappingObj) && mappingObj != null)
+        {
+            var mappedId = ResolveMappedToolId(mappingObj, toolId);
+            if (mappedId != null)
+            {
+                result.Logs.Add($"Tool '{toolId}' mapped to '{mappedId}' via _toolMapping");
+                toolId = mappedId;
+            }
+        }
+
         // Parse args
         JsonElement args = default;
         if (inputs.TryGetValue("args", out var argsObj) && argsObj != null)
@@ -159,6 +172,44 @@ public class ToolDispatcherBlockExecutor : IBlockExecutor
             result.Logs.Add($"Tool dispatch failed: {ex.Message}");
             return result;
         }
+    }
+
+    /// <summary>
+    /// Phase 62-A: Resolve a mapped tool ID from the _toolMapping variable.
+    /// Handles both Dictionary&lt;string, object&gt; and JSON string formats.
+    /// Returns null if no mapping exists for the given toolId.
+    /// </summary>
+    internal static string? ResolveMappedToolId(object mappingObj, string toolId)
+    {
+        // Case 1: Already a dictionary (from context.Variables set programmatically)
+        if (mappingObj is Dictionary<string, object> dictObj)
+        {
+            return dictObj.TryGetValue(toolId, out var mapped) ? mapped?.ToString() : null;
+        }
+        if (mappingObj is Dictionary<string, string> dictStr)
+        {
+            return dictStr.TryGetValue(toolId, out var mapped) ? mapped : null;
+        }
+
+        // Case 2: JSON string (from session variable serialization)
+        var str = mappingObj.ToString();
+        if (string.IsNullOrWhiteSpace(str)) return null;
+
+        try
+        {
+            using var doc = JsonDocument.Parse(str);
+            if (doc.RootElement.ValueKind == JsonValueKind.Object &&
+                doc.RootElement.TryGetProperty(toolId, out var val))
+            {
+                return val.GetString();
+            }
+        }
+        catch
+        {
+            // Not valid JSON — ignore
+        }
+
+        return null;
     }
 
     /// <summary>

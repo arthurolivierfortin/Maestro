@@ -23,9 +23,9 @@
     "systemPromptFile": "system-prompt.md",
     "context": {
       "strategy": "sliding-window",
-      "maxTokens": 4096,
+      "maxTokens": 16384,
       "keepSystemPrompt": true,
-      "keepLastN": 8
+      "keepLastN": 10
     },
     "nodes": [
       {
@@ -43,14 +43,14 @@
           {
             "id": "read-conversation",
             "blockRef": "conversation-read",
-            "inputs": { "conversationId": "{{_conversationId}}", "keepLastN": "8" }
+            "inputs": { "conversationId": "{{_conversationId}}", "keepLastN": "10" }
           },
           {
             "id": "llm-call",
             "blockRef": "inference",
             "config": {
               "model": "claude-sonnet-4-6",
-              "maxTokens": 4096,
+              "maxTokens": 8192,
               "temperature": 0
             },
             "inputs": { "messages": "{{_nodeResult_read-conversation.messages}}" }
@@ -90,7 +90,7 @@
                     "inputs": {
                       "conversationId": "{{_conversationId}}",
                       "role": "user",
-                      "content": "{{_nodeResult_dispatch-tool.result}}"
+                      "content": "[Tool result for {{_nodeResult_parse-response.toolId}}]:\n{{_nodeResult_dispatch-tool.result}}"
                     }
                   }
                 ]

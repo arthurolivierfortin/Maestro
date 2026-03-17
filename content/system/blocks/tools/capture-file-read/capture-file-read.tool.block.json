@@ -1,0 +1,32 @@
+{
+  "id": "capture-file-read",
+  "name": "Capture File Read",
+  "blockType": "capture-file-read",
+  "version": "1.0.0",
+  "isAtomic": true,
+  "description": "Mock block that reads from captured tool calls first, falling back to real disk read. Supports read-after-write patterns in contract tests.",
+  "inputs": [
+    {
+      "id": "path",
+      "name": "File Path",
+      "type": "string",
+      "required": true,
+      "description": "The file path to read"
+    }
+  ],
+  "outputs": [
+    {
+      "id": "content",
+      "type": "string",
+      "description": "File content (from capture or disk)"
+    }
+  ],
+  "config": {
+    "toolType": "capture-file-read"
+  },
+  "metadata": {
+    "category": "testing",
+    "tags": ["capture", "mock", "file-read", "contract-test"]
+  },
+  "capabilities": ["capture", "testing"]
+}

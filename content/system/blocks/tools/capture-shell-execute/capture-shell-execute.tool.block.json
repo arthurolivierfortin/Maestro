@@ -1,0 +1,39 @@
+{
+  "id": "capture-shell-execute",
+  "name": "Capture Shell Execute",
+  "blockType": "capture-shell-execute",
+  "version": "1.0.0",
+  "isAtomic": true,
+  "description": "Mock block that captures shell commands without executing them. Returns simulated terminal output for contract tests.",
+  "inputs": [
+    {
+      "id": "command",
+      "name": "Command",
+      "type": "string",
+      "required": true,
+      "description": "The shell command the agent intends to execute"
+    },
+    {
+      "id": "workingDir",
+      "name": "Working Directory",
+      "type": "string",
+      "required": false,
+      "description": "The working directory for the command"
+    }
+  ],
+  "outputs": [
+    {
+      "id": "result",
+      "type": "string",
+      "description": "Simulated terminal output"
+    }
+  ],
+  "config": {
+    "toolType": "capture-shell-execute"
+  },
+  "metadata": {
+    "category": "testing",
+    "tags": ["capture", "mock", "shell-execute", "contract-test"]
+  },
+  "capabilities": ["capture", "testing"]
+}

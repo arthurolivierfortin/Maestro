@@ -33,7 +33,7 @@
             "branches": {
               "tool-call": { "nodes": [
                 { "id": "dispatch-tool", "blockRef": "tool-dispatcher", "inputs": { "toolId": "{{_nodeResult_parse-response.toolId}}", "args": "{{_nodeResult_parse-response.args}}" } },
-                { "id": "append-tool-result", "blockRef": "conversation-append", "inputs": { "conversationId": "{{_conversationId}}", "role": "user", "content": "{{_nodeResult_dispatch-tool.result}}" } }
+                { "id": "append-tool-result", "blockRef": "conversation-append", "inputs": { "conversationId": "{{_conversationId}}", "role": "user", "content": "[Tool result for {{_nodeResult_parse-response.toolId}}]:\n{{_nodeResult_dispatch-tool.result}}" } }
               ]},
               "step-complete": { "nodes": [
                 { "id": "set-done", "type": "set-variable", "variable": "_agentDone", "value": "true" },

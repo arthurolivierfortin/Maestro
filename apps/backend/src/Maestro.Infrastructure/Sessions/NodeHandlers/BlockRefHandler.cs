@@ -198,6 +198,11 @@ public class BlockRefHandler : INodeHandler
             // Accumulate costs on the PARENT session (cost tracking is always at parent level)
             AccumulateCosts(session, result);
 
+            // Sync _capturedToolCalls back to session (capture blocks write to context,
+            // but we need it in session for the next iteration's BuildExecutionContext)
+            if (execContext.Variables.TryGetValue("_capturedToolCalls", out var updatedCaptures))
+                session.SetVariable("_capturedToolCalls", updatedCaptures);
+
             // Phase 59-PRE-A: Record cost entry and check limits (post-execution, for tracking)
             await RecordAndCheckCosts(session, result, blockRefId, block);
 
@@ -535,6 +540,17 @@ public class BlockRefHandler : INodeHandler
             execContext.Variables[FileAccessChecker.FileAccessRulesKey] =
                 FileAccessChecker.SerializeRules(session.FileAccessRules);
         }
+
+        // Phase 62-A: Propagate _toolMapping so ToolDispatcherBlockExecutor can redirect
+        // tools to capture/mock blocks during contract tests or sandboxed execution.
+        var toolMapping = session.GetVariable("_toolMapping");
+        if (toolMapping != null)
+            execContext.Variables["_toolMapping"] = toolMapping;
+
+        // Propagate _capturedToolCalls so capture blocks can read previous captures
+        var capturedCalls = session.GetVariable("_capturedToolCalls");
+        if (capturedCalls != null)
+            execContext.Variables["_capturedToolCalls"] = capturedCalls;
 
         return execContext;
     }

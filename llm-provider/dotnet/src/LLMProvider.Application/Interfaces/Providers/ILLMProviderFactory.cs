@@ -1,3 +1,4 @@
+using LLMProvider.Domain.Entities;
 using LLMProvider.Domain.Enums;
 using LLMProvider.Domain.ValueObjects;
 
@@ -26,8 +27,10 @@ public interface ILLMProviderFactory
 
     /// <summary>
     /// Gets the appropriate provider for a specific model.
+    /// Uses configured priority when multiple providers support the same model.
     /// </summary>
     /// <param name="modelId">The model ID.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The provider that supports the model.</returns>
     /// <exception cref="InvalidOperationException">Thrown when no provider supports the model.</exception>
     Task<ILLMProvider> GetProviderForModelAsync(ModelId modelId, CancellationToken cancellationToken = default);
@@ -44,4 +47,18 @@ public interface ILLMProviderFactory
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>Collection of available providers.</returns>
     Task<IReadOnlyList<ILLMProvider>> GetAvailableProvidersAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Detects models supported by multiple providers.
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>List of model conflicts with current preference info.</returns>
+    Task<IReadOnlyList<ModelConflict>> DetectModelConflictsAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Sets the preferred provider for a model. Persists to provider-priority.json.
+    /// </summary>
+    /// <param name="modelId">The model ID.</param>
+    /// <param name="preferredProvider">The preferred provider type.</param>
+    void SetModelPreference(string modelId, ProviderType preferredProvider);
 }

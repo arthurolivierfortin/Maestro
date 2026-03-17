@@ -133,7 +133,7 @@
                     "inputs": {
                       "conversationId": "{{_conversationId}}",
                       "role": "user",
-                      "content": "{{_nodeResult_dispatch-tool.result}}"
+                      "content": "[Tool result for {{_nodeResult_parse-response.toolId}}]:\n{{_nodeResult_dispatch-tool.result}}"
                     }
                   }
                 ]

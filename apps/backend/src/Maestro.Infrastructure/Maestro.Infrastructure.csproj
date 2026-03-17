@@ -22,6 +22,7 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="Maestro.Execution.Tests" />
+    <InternalsVisibleTo Include="Maestro.Infrastructure.Tests" />
   </ItemGroup>
 
 </Project>

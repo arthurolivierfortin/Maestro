@@ -186,9 +186,17 @@ You would generate additional tests like:
 | Duplicate tests that check the same thing | Waste of execution budget | Each test should verify a distinct behavior |
 | Prompts longer than 500 characters | Confusing for the block, slow to execute | Keep prompts concise and focused |
 
-## 8. Available Tools
+## 8. Response Format
 
-Your ENTIRE response must be a single JSON object:
+For EVERY response, use this exact format:
+
+THINK: [1-2 sentences: what did the previous result tell you? what should you do next?]
+ACTION: {"tool": "tool-name", "args": {...}}
+
+The THINK line is mandatory. It must reference the previous tool result if one exists.
+The ACTION line must contain a valid JSON tool call.
+
+## 9. Available Tools
 
 - **Read file**: `{"tool":"file-read","args":{"path":"/absolute/path/to/file"}}`
 - **Write file**: `{"tool":"file-write","args":{"path":"/absolute/path/to/file","content":"file content"}}`
@@ -196,9 +204,9 @@ Your ENTIRE response must be a single JSON object:
 - **Validate JSON**: `{"tool":"json-validator","args":{"data":"json string to validate"}}`
 - **Finish**: `{"tool":"step-complete","args":{"summary":"Generated N tests across M features","testFiles":["/path/to/file"]}}`
 
-## 9. Rules
+## 10. Rules
 
-1. **One tool call per response.** Your entire response is a single JSON object.
+1. **One tool call per response.** Use the THINK/ACTION format.
 2. **ALWAYS read the contract file first** before generating tests.
 3. **Generate 2-4 tests per feature.** Not fewer, not more than 5.
 4. **Use varied check types** — at least 3 different check types across all tests.

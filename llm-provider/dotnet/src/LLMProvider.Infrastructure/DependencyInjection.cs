@@ -39,6 +39,20 @@ public static class DependencyInjection
     }
 
     /// <summary>
+    /// Adds infrastructure services that require configuration.
+    /// </summary>
+    public static IServiceCollection AddInfrastructureWithConfiguration(
+        this IServiceCollection services,
+        IConfiguration configuration)
+    {
+        // Provider priority options (Providers:Priority section in config)
+        services.Configure<ProviderPriorityOptions>(
+            configuration.GetSection(ProviderPriorityOptions.SectionName));
+
+        return services;
+    }
+
+    /// <summary>
     /// Adds application services to the service collection.
     /// </summary>
     /// <param name="services">The service collection.</param>

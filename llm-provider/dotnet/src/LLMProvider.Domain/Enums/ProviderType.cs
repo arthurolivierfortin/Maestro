@@ -24,5 +24,8 @@ public enum ProviderType
     AzureInference = 6,
 
     /// <summary>GitHub Models (free tier, OpenAI-compatible API).</summary>
-    GitHubModels = 7
+    GitHubModels = 7,
+
+    /// <summary>Claude Code CLI wrapper (uses claude CLI binary, slower than direct API).</summary>
+    ClaudeCode = 8
 }

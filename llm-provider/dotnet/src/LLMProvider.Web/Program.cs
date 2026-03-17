@@ -118,9 +118,12 @@ builder.Services.AddSwaggerGen(options =>
 
 // Add infrastructure and application services
 builder.Services.AddInfrastructure();
+builder.Services.AddInfrastructureWithConfiguration(builder.Configuration);
 builder.Services.AddApplicationServices(builder.Configuration);
 
-// Add providers
+// Add providers — when multiple providers support the same model, the factory
+// uses the configured provider priority (Providers:Priority in config) to choose.
+// If no priority is configured and a conflict exists, the app should prompt the user.
 builder.Services.AddAzureProvider(builder.Configuration);
 builder.Services.AddAzureInferenceProvider(builder.Configuration);
 builder.Services.AddLocalProvider(builder.Configuration);
@@ -173,6 +176,7 @@ app.MapLLMEndpoints();
 app.MapHealthEndpoints();
 app.MapStatisticsEndpoints();
 app.MapImageEndpoints();
+app.MapProvidersEndpoints();
 
 // Root redirect to Swagger
 app.MapGet("/", () => Results.Redirect("/swagger"))

@@ -1,0 +1,39 @@
+{
+  "id": "capture-file-write",
+  "name": "Capture File Write",
+  "blockType": "capture-file-write",
+  "version": "1.0.0",
+  "isAtomic": true,
+  "description": "Mock block that captures file-write calls without writing to disk. Used by contract tests via _toolMapping to verify what agents write.",
+  "inputs": [
+    {
+      "id": "path",
+      "name": "File Path",
+      "type": "string",
+      "required": true,
+      "description": "The file path the agent intends to write to"
+    },
+    {
+      "id": "content",
+      "name": "Content",
+      "type": "string",
+      "required": true,
+      "description": "The content the agent intends to write"
+    }
+  ],
+  "outputs": [
+    {
+      "id": "result",
+      "type": "string",
+      "description": "Simulated success message matching real file-write output format"
+    }
+  ],
+  "config": {
+    "toolType": "capture-file-write"
+  },
+  "metadata": {
+    "category": "testing",
+    "tags": ["capture", "mock", "file-write", "contract-test"]
+  },
+  "capabilities": ["capture", "testing"]
+}

@@ -37,7 +37,7 @@ public sealed class ClaudeCodeLLMProvider : ILLMProvider, IDisposable
         ["claude-haiku-4-5"] = "haiku"
     };
 
-    public ProviderType ProviderType => ProviderType.Anthropic;
+    public ProviderType ProviderType => ProviderType.ClaudeCode;
     public string Name => "Claude Code";
 
     public ClaudeCodeLLMProvider(
@@ -201,7 +201,7 @@ public sealed class ClaudeCodeLLMProvider : ILLMProvider, IDisposable
         var models = _options.Models.Select(m => new ModelInfo(
             id: new ModelId(m.ModelId),
             name: $"Claude {m.Alias}",
-            provider: ProviderType.Anthropic,
+            provider: ProviderType.ClaudeCode,
             contextLength: m.ContextLength,
             description: $"Claude model via CLI ({m.Alias})",
             capabilities: m.Capabilities,
@@ -540,7 +540,7 @@ public sealed class ClaudeCodeLLMProvider : ILLMProvider, IDisposable
             {
                 Content = content,
                 ModelUsed = new ModelId(actualModel),
-                Provider = ProviderType.Anthropic,
+                Provider = ProviderType.ClaudeCode,
                 TokenUsage = new TokenUsage(promptTokens, completionTokens),
                 Duration = duration,
                 FinishReason = "stop"
@@ -553,7 +553,7 @@ public sealed class ClaudeCodeLLMProvider : ILLMProvider, IDisposable
             {
                 Content = stdout.Trim(),
                 ModelUsed = new ModelId(model),
-                Provider = ProviderType.Anthropic,
+                Provider = ProviderType.ClaudeCode,
                 TokenUsage = TokenUsage.Zero,
                 Duration = duration,
                 FinishReason = "stop"

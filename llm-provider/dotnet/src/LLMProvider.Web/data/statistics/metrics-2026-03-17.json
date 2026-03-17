@@ -1,5 +1,5 @@
 {
-  "totalRequests": 6,
+  "totalRequests": 38,
   "latency": {
     "p50": 0,
     "p95": 0,
@@ -7,47 +7,28 @@
     "average": 0
   },
   "totalTokens": {
-    "promptTokens": 2313,
-    "completionTokens": 260,
-    "totalTokens": 2573
+    "promptTokens": 150322,
+    "completionTokens": 30805,
+    "totalTokens": 181127
   },
   "modelStats": [
     {
       "modelId": {
-        "value": "gpt-4o"
+        "value": "claude-sonnet-4-6"
       },
-      "requestCount": 1,
+      "requestCount": 38,
       "latency": {
-        "p50": 3012,
-        "p95": 3012,
-        "p99": 3012,
-        "average": 3012
+        "p50": 10964,
+        "p95": 27322.449999999997,
+        "p99": 40042.680000000044,
+        "average": 15198.078947368422
       },
       "totalTokens": {
-        "promptTokens": 2298,
-        "completionTokens": 19,
-        "totalTokens": 2317
+        "promptTokens": 150322,
+        "completionTokens": 30805,
+        "totalTokens": 181127
       },
-      "requestsPerMinute": 0,
-      "errorRate": 0
-    },
-    {
-      "modelId": {
-        "value": "sonnet"
-      },
-      "requestCount": 5,
-      "latency": {
-        "p50": 8377,
-        "p95": 9034.2,
-        "p99": 9034.84,
-        "average": 8107.2
-      },
-      "totalTokens": {
-        "promptTokens": 15,
-        "completionTokens": 241,
-        "totalTokens": 256
-      },
-      "requestsPerMinute": 0.27181433392699594,
+      "requestsPerMinute": 0.4333624786136401,
       "errorRate": 0
     }
   ],
@@ -77,7 +58,7 @@
         "p99": 0,
         "average": 0
       },
-      "tokensTotal": 2573
+      "tokensTotal": 181127
     },
     {
       "windowName": "5m",
@@ -90,7 +71,7 @@
         "p99": 0,
         "average": 0
       },
-      "tokensTotal": 2573
+      "tokensTotal": 181127
     },
     {
       "windowName": "15m",
@@ -103,8 +84,8 @@
         "p99": 0,
         "average": 0
       },
-      "tokensTotal": 2573
+      "tokensTotal": 181127
     }
   ],
-  "generatedAt": "2026-03-17T12:26:22.2878449+00:00"
+  "generatedAt": "2026-03-17T18:36:01.6812676+00:00"
 }

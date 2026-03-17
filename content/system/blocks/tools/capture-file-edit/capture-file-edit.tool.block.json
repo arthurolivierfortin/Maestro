@@ -1,0 +1,46 @@
+{
+  "id": "capture-file-edit",
+  "name": "Capture File Edit",
+  "blockType": "capture-file-edit",
+  "version": "1.0.0",
+  "isAtomic": true,
+  "description": "Mock block that captures file-edit calls. Applies replacements on previously captured content if available.",
+  "inputs": [
+    {
+      "id": "path",
+      "name": "File Path",
+      "type": "string",
+      "required": true,
+      "description": "The file path the agent intends to edit"
+    },
+    {
+      "id": "old_string",
+      "name": "Old String",
+      "type": "string",
+      "required": false,
+      "description": "The string to replace"
+    },
+    {
+      "id": "new_string",
+      "name": "New String",
+      "type": "string",
+      "required": false,
+      "description": "The replacement string"
+    }
+  ],
+  "outputs": [
+    {
+      "id": "result",
+      "type": "string",
+      "description": "Simulated success message"
+    }
+  ],
+  "config": {
+    "toolType": "capture-file-edit"
+  },
+  "metadata": {
+    "category": "testing",
+    "tags": ["capture", "mock", "file-edit", "contract-test"]
+  },
+  "capabilities": ["capture", "testing"]
+}
