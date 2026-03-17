@@ -17,15 +17,15 @@
     { "id": "testFiles", "type": "string", "description": "JSON array of file paths written" }
   ],
   "config": {
-    "model": "gpt-4o",
+    "model": "claude-sonnet-4-6",
     "maxIterations": 10,
     "wallClockTimeoutSeconds": 360,
     "systemPromptFile": "system-prompt.md",
     "context": {
       "strategy": "sliding-window",
-      "maxTokens": 8192,
+      "maxTokens": 4096,
       "keepSystemPrompt": true,
-      "keepLastN": 15
+      "keepLastN": 8
     },
     "nodes": [
       {
@@ -43,13 +43,13 @@
           {
             "id": "read-conversation",
             "blockRef": "conversation-read",
-            "inputs": { "conversationId": "{{_conversationId}}" }
+            "inputs": { "conversationId": "{{_conversationId}}", "keepLastN": "8" }
           },
           {
             "id": "llm-call",
             "blockRef": "inference",
             "config": {
-              "model": "gpt-4o",
+              "model": "claude-sonnet-4-6",
               "maxTokens": 4096,
               "temperature": 0
             },

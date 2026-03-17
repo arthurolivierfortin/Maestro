@@ -1,173 +1,110 @@
-# Phase 61 : Block-Forge V2 — Provider rapide, agents fonctionnels E2E
+# Phase 61 : Block-Forge Fiable
 
-**Statut** : A faire
-**Prerequis** : Phase 59 COMPLETE (agent isolation), Phase 60 optionnel (playground utile pour debug)
-**Objectif** : Rendre block-forge utilisable en production. Utiliser un provider rapide (Anthropic API / GitHub Models au lieu de Claude Code CLI), corriger les outputs structures (blockId, fitness), et creer 2 agents fonctionnels (code-reviewer, test-generator) avec fitness > 0.5.
-**Duree estimee** : 3-5 jours
+**Statut** : En cours
+**Prerequis** : Phase 59 COMPLETE (agent isolation), Phase 60 COMPLETE (playground)
+**Objectif** : Rendre block-forge fiable en corrigeant les bugs bloquants, verifiant le provider, renforçant le pre-flight, et validant les contracts empiriquement. Aucun agent n'est cree dans cette phase — on s'assure que l'infrastructure est solide AVANT d'y injecter des modeles.
+**Duree estimee** : 2 jours
 
 ---
 
 ## Regles pour l'agent executant
 
 1. **Lire `docs/system/AGENT-PROTOCOL.md`** avant de commencer
-2. **Lire les fichiers obligatoires** avant chaque sous-phase
-3. **Ecrire dans `PHASE-61/checkpoint.md`** apres chaque sous-phase
-4. **Ne PAS modifier l'architecture des blocks** — cette phase utilise l'infrastructure existante, pas la refactore
-5. **Ne PAS ignorer les couts** — configurer des limites avant chaque test (Phase 59-PRE/59-PRE-2)
-6. **Ne PAS declarer un agent "fonctionnel" sans fitness > 0.5 verifie** par le contract test runner
+2. **Ecrire dans `PHASE-61/checkpoint.md`** apres chaque sous-phase
+3. **Lire `docs/phases/PHASE-61/phase-61-redesign-analysis.md`** — diagnostic complet
+4. **Ne PAS lancer de workflow LLM sans avoir verifie le provider** (etape 0 de 61-A)
+5. **Ne PAS condenser le system prompt** dans cette phase — attendre les resultats de 61-C
+6. **Ne PAS creer d'agents** — c'est le travail de la Phase 62
+7. **Ne PAS ignorer les couts** — configurer des limites avant chaque test LLM
+8. **Ne PAS augmenter maxIterations** — si l'agent echoue en 12, le system prompt est le probleme
 
 ---
 
-## Contexte
+## Contexte — Pourquoi cette phase existe
 
-### Le probleme (identifie en Phase 58-C)
+### Diagnostic (session de nuit 2026-03-16)
 
-Block-forge fonctionne architecturalement mais n'est pas utilisable en production :
-- **Trop lent** : 15+ minutes via Claude Code CLI (chaque appel LLM = 30-60s de round-trip)
-- **Outputs casses** : blockId et fitness sont des textes bruts au lieu de valeurs structurees
-- **Agents non isoles** : les variables du test-designer polluent l'agent-creator (corrige par Phase 59)
-- **Cout invisible** : $0.000 car le tracking etait casse dans ce contexte (corrige par Phase 59-PRE)
+L'agent precedent a tente 4 combinaisons modele/provider sans jamais verifier que l'infrastructure etait solide. Chaque echec avait une cause infrastructure, pas une cause "model trop bete" :
 
-### La solution
+| Tentative | Echec | Vraie cause |
+|-----------|-------|-------------|
+| Claude Code CLI | Timeout 15+ min | 30-60s/appel = infrastructure, pas le modele |
+| Llama 405B | Pas de step-complete | Limitation connue des modeles open source |
+| gpt-4o #1 | 413 context overflow | Bug ConversationReadBlockExecutor (pas de truncation) |
+| gpt-4o #2 | 429 rate limit | Free tier GitHub Models (15 appels max) |
 
-1. **Provider rapide** : utiliser Anthropic API directement (ou GitHub Models) au lieu de Claude Code CLI. Latence attendue : 2-5s par appel au lieu de 30-60s. Workflow total < 5 min.
-2. **Outputs structures** : valider que ResponseParserBlockExecutor extrait correctement blockId, fitness, blockPath des arguments step-complete.
-3. **Isolation** (Phase 59) : chaque agent dans sa session enfant.
-4. **Benchmark** : comparer les resultats sur 2+ modeles par contract.
+**Aucun de ces echecs n'etait un probleme de qualite de modele.** L'infrastructure etait cassee.
+
+### Fixes deja codes (session de nuit)
+
+| Fix | Fichier | Status |
+|-----|---------|--------|
+| `config.maxIterations` injecte en variable session | `MultiNodeBlockExecutor.cs:229-244` | Code ecrit, non verifie E2E |
+| `keepLastN` dans ConversationReadBlockExecutor | `ConversationReadBlockExecutor.cs:50-73` | Code ecrit, non verifie E2E |
+| Propagation couts sous-blocs | `ToolDispatcherBlockExecutor.cs:143-149` | Code ecrit, non verifie E2E |
+| Loop detection (warn@3, stop@5) | `NodeExecutionEngine.cs:402-518` | Code ecrit, non verifie E2E |
+| Pre-flight (informatif seulement) | `MultiNodeBlockExecutor.cs:127-167` | Code ecrit, TROP FAIBLE |
+
+**Le probleme** : tout est code, rien n'est verifie. Cette phase verifie et renforce.
 
 ---
 
 ## Sous-phases
 
-| Phase | Titre | Effort |
-|-------|-------|--------|
-| 61-A | Provider rapide dans block-forge + correction outputs structures | 1-2 jours |
-| 61-B | Creer code-reviewer + test-generator agents avec fitness > 0.5 | 1-2 jours |
-| 61-C | Benchmark multi-modeles sur contracts + documentation resultats | 1 jour |
-| 61-T | Tests E2E : workflow complet avec outputs valides | 0.5 jour |
+| Phase | Titre | Effort | Document |
+|-------|-------|--------|----------|
+| 61-A | Provider setup + verification des fixes | 0.5 jour | [`PHASE-61-A.md`](PHASE-61-A.md) |
+| 61-B | Pre-flight bloquant + loop detection verification | 0.5 jour | [`PHASE-61-B.md`](PHASE-61-B.md) |
+| 61-C | Validation empirique des contracts | 1 jour | [`PHASE-61-C.md`](PHASE-61-C.md) |
+| 61-T | Tests + verification finale | 0.5 jour | [`PHASE-61-T.md`](PHASE-61-T.md) |
 
----
+**Ordre d'execution** : A → B → C → T (strict, pas de parallelisme)
 
-## 61-A : Provider rapide + outputs structures
-
-### Fichiers cibles
-
-| Fichier | Action |
-|---------|--------|
-| `content/system/blocks/agents/agent-creator/agent-creator.agent.block.json` | Modifier — configurer model vers provider rapide (Anthropic API / GitHub Models) |
-| `content/system/blocks/agents/test-designer/test-designer.agent.block.json` | Modifier — idem |
-| `content/system/blocks/workflows/block-forge/block-forge.workflow.block.json` | Verifier — variables passees entre nodes |
-| `apps/backend/src/Maestro.Infrastructure/BlockExecutors/ResponseParserBlockExecutor.cs` | Verifier/corriger — extraction blockId, fitness des args step-complete |
-| `apps/backend/src/Maestro.Infrastructure/BlockExecutors/AgentBlockExecutor.cs` | Verifier — forward _agent* vars vers outputs |
-
-### Verification
-
-```bash
-dotnet build apps/backend/src/Maestro.Api/Maestro.Api.csproj
-
-# Lancer block-forge via CLI
-node packages/maestro-cli/index.js session create --type project --name "BF-V2 Test" --template block-forge --repo C:\Meastro --start
-node packages/maestro-cli/index.js session invoke <id> default --input description="An agent that reviews TypeScript code" --input contractId="code-reviewer"
-
-# Verifier : termine en < 5 min
-# Verifier : blockId est un ID valide (pas du texte)
-# Verifier : fitness est un nombre (0.XX)
-curl http://localhost:5000/api/sessions/<id>/variables
-```
-
----
-
-## 61-B : Creer 2 agents avec fitness > 0.5
-
-### Taches
-
-1. **code-reviewer** via `/create-agent` :
-   - Description : "An agent that reviews TypeScript/JavaScript code for bugs, style, and best practices"
-   - Contract : `code-reviewer`
-   - Verifier : fitness > 0.5 sur au moins 2/4 features
-
-2. **test-generator** via `/create-agent` :
-   - Description : "An agent that generates vitest unit tests for TypeScript functions"
-   - Contract : `test-generator`
-   - Verifier : fitness > 0.5 sur au moins 2/3 features
-
-3. **Iterer si necessaire** : relancer avec des descriptions differentes, tester avec differents modeles
-
-### Verification
-
-```bash
-# Verifier les blocks crees
-node packages/maestro-cli/index.js block list --contract code-reviewer
-node packages/maestro-cli/index.js block list --contract test-generator
-
-# Verifier le fitness
-curl http://localhost:5000/api/blocks/<block-id>/fitness
-# Resultat : fitness > 0.5
-```
-
----
-
-## 61-C : Benchmark multi-modeles
-
-### Taches
-
-1. **Comparer 2+ modeles** pour chaque contract :
-   - claude-sonnet-4-6 (Anthropic API)
-   - gpt-4o (GitHub Models)
-   - Optionnel : modele local si disponible
-
-2. **Documenter les resultats** :
-   - Tableau : modele, contract, fitness, cout, temps, features actives
-   - Identifier le meilleur modele par contract
-
-3. **Creer `docs/phases/PHASE-61/benchmark-results.md`**
-
----
-
-## 61-T : Tests
-
-### Couches applicables
-
-| Couche | Quand obligatoire |
-|--------|-------------------|
-| C1 — Type Check | Toujours |
-| C5 — Tests d'integration | Workflow block-forge E2E avec outputs valides |
-| C6 — E2E Dogfooding | 2 agents crees via /create-agent |
-
-### Scenarios de test
-
-1. **Workflow complet** : block-forge termine en < 5 min avec outputs structures valides
-2. **blockId valide** : le block cree existe dans le catalog
-3. **fitness valide** : nombre entre 0 et 1, > 0.5 pour au moins un agent
-4. **Couts reels** : `costs summary` montre un cout > $0 apres l'execution
-5. **Isolation** : les 2 agents du workflow (test-designer, agent-creator) ne partagent pas de variables
+Chaque sous-phase a un critere de passage explicite. Ne pas passer a la suivante si le critere n'est pas rempli.
 
 ---
 
 ## Definition of Done
 
-- [ ] Block-forge utilise un provider rapide (< 5 min pour un workflow complet)
-- [ ] Outputs structures (blockId, fitness) sont des valeurs valides, pas du texte brut
-- [ ] 2 agents crees : code-reviewer (fitness > 0.5) + test-generator (fitness > 0.5)
-- [ ] Benchmark documente pour 2+ modeles
-- [ ] Couts reels visibles apres execution
-- [ ] Tests E2E passent
-- [ ] 0 regression
+- [ ] Provider Anthropic API verifie : un appel test reussit en < 5s
+- [ ] `maxIterations` resolu a 12 (pas 50) — verifie dans les logs
+- [ ] Couts parent > $0 apres execution avec child sessions — verifie par curl
+- [ ] `keepLastN` fonctionne : contexte tronque apres N messages — verifie dans les logs
+- [ ] Pre-flight BLOQUE si maxIterations non resolu ou modele inaccessible
+- [ ] Loop detection arrete un agent apres 5 tool calls identiques — verifie par test unitaire
+- [ ] Contracts valides empiriquement — resultats documentes dans `contract-validation-results.md`
+- [ ] Au moins 1 test E2E : block-forge lance, execute 2+ iterations, s'arrete proprement
+- [ ] Tous les tests passent, 0 regression
+- [ ] `dotnet build` : 0 erreurs
+- [ ] `npx tsc --noEmit` : 0 erreurs
 
 ### NOT in scope
 
-- /adapt workflow (Phase 62)
-- Production de ~30 variantes (Phase 63)
-- Modification du contract system
-- Nouveaux contracts (utiliser code-reviewer et test-generator existants)
+- Condensation du system prompt (Phase 62, apres les donnees de 61-C)
+- Creation d'agents (Phase 62)
+- Live execution view (Phase 62)
+- /adapt workflow (Phase 63)
+- Modification de l'architecture des blocks
 
 ---
 
-## Gestion de la memoire
+## Estimation des couts
 
-### Checkpoint global
-Fichier `docs/phases/PHASE-61/checkpoint.md`
+Avec Claude Sonnet 4.6 via Anthropic API :
+- System prompt agent-creator : ~30K tokens
+- 8 messages contexte : ~8K tokens
+- Input par appel : ~38K tokens × $3/MTok = **~$0.11/appel**
+- Output par appel : ~2K tokens × $15/MTok = **~$0.03/appel**
+- **12 iterations = ~$1.70 par creation d'agent**
 
-### Mise a jour MEMORY.md apres completion
-- Ajouter : "Phase 61 : Block-Forge V2 (provider rapide, 2 agents E2E, benchmark)"
-- Mettre a jour : "Current Project State"
+Le pre-flight doit communiquer ce chiffre. Si un agent boucle et ne produit rien, c'est $1.70 perdus.
+
+---
+
+## Documents de reference
+
+| Document | Contenu |
+|----------|---------|
+| `phase-61-redesign-analysis.md` | Diagnostic complet des 8 problemes identifies |
+| `overnight-report-2026-03-16.md` | Rapport de la session precedente |
+| `checkpoint.md` | Checkpoint de progression |

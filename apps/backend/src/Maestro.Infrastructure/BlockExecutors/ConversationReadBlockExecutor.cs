@@ -45,13 +45,39 @@ public class ConversationReadBlockExecutor : IBlockExecutor
 
         var conversationId = convIdObj.ToString() ?? "";
 
-        var messages = _conversationManager.GetMessages(conversationId);
+        var allMessages = _conversationManager.GetMessages(conversationId);
 
-        // Diagnostic logging for conversation persistence debugging
-        _logger?.LogInformation(
-            "ConversationRead '{ConversationId}': {Count} messages. Roles: [{Roles}]",
-            conversationId, messages.Count,
-            string.Join(", ", messages.Select(m => m.Role)));
+        // Apply keepLastN from context config if available
+        var keepLastN = 0;
+        if (inputs.TryGetValue("keepLastN", out var keepObj) && keepObj != null)
+        {
+            int.TryParse(keepObj.ToString(), out keepLastN);
+        }
+        else if (context.Variables.TryGetValue("_contextKeepLastN", out var ctxKeep) && ctxKeep != null)
+        {
+            int.TryParse(ctxKeep.ToString(), out keepLastN);
+        }
+
+        var messages = allMessages;
+        if (keepLastN > 0 && allMessages.Count > keepLastN + 1)
+        {
+            // Always keep the system message (first) + last N messages
+            var systemMessages = allMessages.Where(m => m.Role.Equals("system", StringComparison.OrdinalIgnoreCase)).ToList();
+            var nonSystemMessages = allMessages.Where(m => !m.Role.Equals("system", StringComparison.OrdinalIgnoreCase)).ToList();
+            var truncated = nonSystemMessages.Skip(Math.Max(0, nonSystemMessages.Count - keepLastN)).ToList();
+            messages = systemMessages.Concat(truncated).ToList();
+
+            _logger?.LogInformation(
+                "ConversationRead '{ConversationId}': truncated {Total} → {Kept} messages (keepLastN={KeepLastN})",
+                conversationId, allMessages.Count, messages.Count, keepLastN);
+        }
+        else
+        {
+            _logger?.LogInformation(
+                "ConversationRead '{ConversationId}': {Count} messages. Roles: [{Roles}]",
+                conversationId, messages.Count,
+                string.Join(", ", messages.Select(m => m.Role)));
+        }
 
         result.Outputs["messages"] = messages;
         result.Outputs["messageCount"] = messages.Count;

@@ -399,6 +399,13 @@ public class NodeExecutionEngine : INodeExecutionCallback
         _stateManager.AppendExecutionLog(session, "info", $"Entering while loop '{nodeId}' (max: {safetyMaxIterations})");
         await _repository.SaveAsync(session);
 
+        // === Loop detection state (Phase 61-B) ===
+        // Track recent tool calls to detect stuck agents.
+        // Only active for agent while loops (those that set _nodeResult_parse-response).
+        var recentToolCalls = new List<string>();
+        var uniqueToolTypesSeen = new HashSet<string>();
+        var noNewToolTypeCount = 0;
+
         while (iteration < safetyMaxIterations && ConditionEvaluator.EvaluateCondition(condition, session))
         {
             if (session.GetVariable<bool>("_shouldStop", false))
@@ -447,6 +454,67 @@ public class NodeExecutionEngine : INodeExecutionCallback
             {
                 ClearChildNodeCheckpoints(session, children);
                 lastOutput = await ExecuteConfigNodesAsync(session, children, workflowConfig, workingDir, workflowId, activePhaseId, displayTree, lastOutput);
+            }
+
+            // === Loop detection: track tool calls after each iteration (Phase 61-B) ===
+            var parseResultVar = session.GetVariable("_nodeResult_parse-response");
+            if (parseResultVar != null)
+            {
+                var toolId = TemplateResolver.ExtractJsonSubPath(parseResultVar, "toolId");
+                if (!string.IsNullOrEmpty(toolId))
+                {
+                    recentToolCalls.Add(toolId);
+
+                    // Check for stuck loop: 5 consecutive identical tool calls → force stop
+                    if (recentToolCalls.Count >= 5)
+                    {
+                        var last5 = recentToolCalls.Skip(recentToolCalls.Count - 5).ToList();
+                        if (last5.All(t => t == last5[0]) && last5[0] != "step-complete")
+                        {
+                            _stateManager.AppendExecutionLog(session, "error",
+                                $"Agent stuck in loop: tool '{last5[0]}' called 5 times consecutively. Forcing stop.");
+                            _logger.LogWarning(
+                                "Agent stuck in loop in while '{NodeId}': tool '{ToolId}' called 5 times. Forcing stop.",
+                                nodeId, last5[0]);
+                            session.SetVariable("_agentDone", "true");
+                            session.SetVariable("_agentResult",
+                                $"Stopped: agent stuck in loop calling '{last5[0]}' repeatedly");
+                            await _repository.SaveAsync(session);
+                            break;
+                        }
+                    }
+                    // Check for warning: 3 consecutive identical tool calls
+                    if (recentToolCalls.Count >= 3)
+                    {
+                        var last3 = recentToolCalls.Skip(recentToolCalls.Count - 3).ToList();
+                        if (last3.All(t => t == last3[0]) && last3[0] != "step-complete")
+                        {
+                            _stateManager.AppendExecutionLog(session, "warning",
+                                $"Agent may be stuck: tool '{last3[0]}' called 3 times consecutively");
+                            _logger.LogWarning(
+                                "Potential loop in while '{NodeId}': tool '{ToolId}' called 3 times consecutively.",
+                                nodeId, last3[0]);
+                        }
+                    }
+
+                    // === Progress detection (Phase 61-B) ===
+                    // If the same tool type is used for 3+ consecutive iterations with no new type, warn.
+                    if (uniqueToolTypesSeen.Add(toolId))
+                    {
+                        // New tool type seen — reset stale counter
+                        noNewToolTypeCount = 0;
+                    }
+                    else
+                    {
+                        noNewToolTypeCount++;
+                        if (noNewToolTypeCount >= 3 && toolId != "step-complete" && toolId != "file-write" && toolId != "file-edit")
+                        {
+                            _stateManager.AppendExecutionLog(session, "warning",
+                                $"No progress: no new tool type for {noNewToolTypeCount} iterations (last: '{toolId}')");
+                            session.SetVariable("_progressWarning", "true");
+                        }
+                    }
+                }
             }
 
             var fitness = SessionStateManager.ReadDoubleVariable(session, "currentFitness", 0);

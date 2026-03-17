@@ -1,5 +1,5 @@
 {
-  "totalRequests": 0,
+  "totalRequests": 6,
   "latency": {
     "p50": 0,
     "p95": 0,
@@ -7,11 +7,50 @@
     "average": 0
   },
   "totalTokens": {
-    "promptTokens": 0,
-    "completionTokens": 0,
-    "totalTokens": 0
+    "promptTokens": 2313,
+    "completionTokens": 260,
+    "totalTokens": 2573
   },
-  "modelStats": [],
+  "modelStats": [
+    {
+      "modelId": {
+        "value": "gpt-4o"
+      },
+      "requestCount": 1,
+      "latency": {
+        "p50": 3012,
+        "p95": 3012,
+        "p99": 3012,
+        "average": 3012
+      },
+      "totalTokens": {
+        "promptTokens": 2298,
+        "completionTokens": 19,
+        "totalTokens": 2317
+      },
+      "requestsPerMinute": 0,
+      "errorRate": 0
+    },
+    {
+      "modelId": {
+        "value": "sonnet"
+      },
+      "requestCount": 5,
+      "latency": {
+        "p50": 8377,
+        "p95": 9034.2,
+        "p99": 9034.84,
+        "average": 8107.2
+      },
+      "totalTokens": {
+        "promptTokens": 15,
+        "completionTokens": 241,
+        "totalTokens": 256
+      },
+      "requestsPerMinute": 0.27181433392699594,
+      "errorRate": 0
+    }
+  ],
   "queue": {
     "currentDepth": 0,
     "depthByModel": {},
@@ -38,7 +77,7 @@
         "p99": 0,
         "average": 0
       },
-      "tokensTotal": 0
+      "tokensTotal": 2573
     },
     {
       "windowName": "5m",
@@ -51,7 +90,7 @@
         "p99": 0,
         "average": 0
       },
-      "tokensTotal": 0
+      "tokensTotal": 2573
     },
     {
       "windowName": "15m",
@@ -64,8 +103,8 @@
         "p99": 0,
         "average": 0
       },
-      "tokensTotal": 0
+      "tokensTotal": 2573
     }
   ],
-  "generatedAt": "2026-03-17T01:13:57.4279167+00:00"
+  "generatedAt": "2026-03-17T12:26:22.2878449+00:00"
 }

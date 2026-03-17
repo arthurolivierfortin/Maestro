@@ -1,9 +1,11 @@
-# Phase 66 : V1 Deploy + Beta testing
+# Phase 66 : Onboarding + Packaging npm
+
+> **Note** : Anciennement Phase 65. Decalee suite a l'insertion de la Phase 62 (Agents Fonctionnels).
 
 **Statut** : A faire
-**Prerequis** : Phase 65 COMPLETE (packaging npm, onboarding)
-**Objectif** : Deployer la V1, recruter 3-5 beta testeurs, iterer sur le feedback.
-**Duree estimee** : 6-10 jours
+**Prerequis** : Phase 65 COMPLETE (choix par contract au setup, Catalog organise)
+**Objectif** : `npm install -g @maestro/cli && maestro init && maestro code` — premiere experience utilisateur complete, du install au premier message.
+**Duree estimee** : 8-10 jours
 
 ---
 
@@ -11,18 +13,19 @@
 
 | Phase | Titre | Effort |
 |-------|-------|--------|
-| 66-A | Stabilisation finale, fix de bugs critiques | 2-3 jours |
-| 66-B | Deploy npm public + documentation | 1-2 jours |
-| 66-C | Beta testing (3-5 testeurs) + iterations | 3-5 jours |
+| 66-A | Packaging npm, commande globale, sidecar auto-start | 3-4 jours |
+| 66-B | `maestro init` + onboarding (provider + choix assistant par contract) | 2-3 jours |
+| 66-C | Documentation : README, Getting Started, 3 exemples | 2-3 jours |
 
 ---
 
 ## Gate
 
-- [ ] 3 testeurs externes installent, choisissent leur assistant par contract, et accomplissent des taches reelles
-- [ ] Aucun crash bloquant dans les premiers 30 minutes d'utilisation
-- [ ] Documentation suffisante pour un onboarding autonome
+- [ ] `npm install -g @maestro/cli` installe correctement
+- [ ] `maestro init` configure provider + assistant
+- [ ] `maestro code` lance le TUI
+- [ ] Un utilisateur externe accomplit une tache reelle
 
 ### NOT in scope
-- Self-improvement (Phase 67, V2)
-- Catalogue communautaire (Phase 68, V2)
+- Beta testing (Phase 67)
+- Catalogue communautaire (Phase 69)

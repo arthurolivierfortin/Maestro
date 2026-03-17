@@ -20,15 +20,15 @@
     { "id": "fitness", "type": "number", "description": "Fitness score from contract tests (0.0-1.0)" }
   ],
   "config": {
-    "model": "gpt-4o",
+    "model": "claude-sonnet-4-6",
     "maxIterations": 12,
     "wallClockTimeoutSeconds": 480,
     "systemPromptFile": "system-prompt.md",
     "context": {
       "strategy": "sliding-window",
-      "maxTokens": 16384,
+      "maxTokens": 4096,
       "keepSystemPrompt": true,
-      "keepLastN": 20
+      "keepLastN": 8
     },
     "nodes": [
       {
@@ -46,13 +46,13 @@
           {
             "id": "read-conversation",
             "blockRef": "conversation-read",
-            "inputs": { "conversationId": "{{_conversationId}}" }
+            "inputs": { "conversationId": "{{_conversationId}}", "keepLastN": "8" }
           },
           {
             "id": "llm-call",
             "blockRef": "inference",
             "config": {
-              "model": "gpt-4o",
+              "model": "claude-sonnet-4-6",
               "maxTokens": 4096,
               "temperature": 0
             },

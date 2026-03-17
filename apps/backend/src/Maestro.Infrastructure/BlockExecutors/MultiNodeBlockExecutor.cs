@@ -119,6 +119,54 @@ public abstract class MultiNodeBlockExecutor : IBlockExecutor
     }
 
     /// <summary>
+    /// Pre-flight check before executing config.nodes (Phase 61-B).
+    /// Logs block configuration (model, maxIterations) for transparency.
+    /// Validates maxIterations is within a sane range (1-50).
+    /// Informational only — does not block execution.
+    /// </summary>
+    private void PreFlightCheck(BlockDefinition block, Domain.Entities.ProjectSession session)
+    {
+        // Extract config values for logging
+        var model = block.Config?.TryGetValue("model", out var modelObj) == true
+            ? modelObj?.ToString() ?? "default"
+            : "default";
+        var maxIterStr = block.Config?.TryGetValue("maxIterations", out var maxIterObj) == true
+            ? maxIterObj?.ToString() ?? "not set"
+            : "not set";
+        var keepLastN = "default";
+        if (block.Config?.TryGetValue("context", out var ctxObj) == true && ctxObj is JsonElement ctxEl
+            && ctxEl.ValueKind == JsonValueKind.Object
+            && ctxEl.TryGetProperty("keepLastN", out var klnProp))
+        {
+            keepLastN = klnProp.ToString();
+        }
+
+        StateManager.AppendExecutionLog(session, "info",
+            $"Pre-flight: block '{block.Id}' (type: {block.BlockType}), model={model}, maxIterations={maxIterStr}, keepLastN={keepLastN}");
+
+        // Validate maxIterations range
+        if (int.TryParse(maxIterStr, out var maxIter))
+        {
+            if (maxIter <= 0)
+            {
+                StateManager.AppendExecutionLog(session, "warning",
+                    $"Pre-flight: maxIterations={maxIter} is invalid (must be > 0). Engine will use default (50).");
+            }
+            else if (maxIter > 50)
+            {
+                StateManager.AppendExecutionLog(session, "warning",
+                    $"Pre-flight: maxIterations={maxIter} exceeds recommended max (50). High iteration counts increase cost and risk of loops.");
+            }
+        }
+        else if (maxIterStr != "not set" && !maxIterStr.Contains("{{"))
+        {
+            // Not a number and not a template variable — likely misconfigured
+            StateManager.AppendExecutionLog(session, "warning",
+                $"Pre-flight: maxIterations='{maxIterStr}' is not a valid number. Engine will use default (50).");
+        }
+    }
+
+    /// <summary>
     /// Executes config.nodes by loading the session and delegating to NodeExecutionEngine.
     /// </summary>
     protected async Task ExecuteConfigNodesAsync(
@@ -178,6 +226,23 @@ public abstract class MultiNodeBlockExecutor : IBlockExecutor
         session.RemoveVariable("_workflowCheckpoint_whileState");
         session.RemoveVariable("_workflowCheckpoint_foreachIndex");
 
+        // Phase 61-A: Inject config values as session variables for template resolution in nodes.
+        // Block JSON config values like maxIterations, wallClockTimeoutSeconds, model are referenced
+        // as {{maxIterations}} in while nodes. Without this injection, template resolution returns ""
+        // and the while loop defaults to 50 (safety max) instead of the intended value.
+        if (block.Config != null)
+        {
+            var configKeysToInject = new[] { "maxIterations", "wallClockTimeoutSeconds", "model" };
+            foreach (var key in configKeysToInject)
+            {
+                if (block.Config.TryGetValue(key, out var val) && val != null
+                    && session.GetVariable(key) == null)
+                {
+                    session.SetVariable(key, val.ToString()!);
+                }
+            }
+        }
+
         // Set input variables on session for template resolution in nodes
         foreach (var kv in inputs)
             session.SetVariable(kv.Key, kv.Value);
@@ -185,6 +250,10 @@ public abstract class MultiNodeBlockExecutor : IBlockExecutor
         var workingDir = context.Variables.ContainsKey("workingDir")
             ? context.Variables["workingDir"]?.ToString() ?? Directory.GetCurrentDirectory()
             : Directory.GetCurrentDirectory();
+
+        // === Pre-flight check (Phase 61-B) ===
+        // Log block configuration for transparency before execution.
+        PreFlightCheck(block, session);
 
         var displayTree = StateManager.BuildExecutionTree(block);
 

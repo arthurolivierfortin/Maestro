@@ -139,6 +139,16 @@ public class ToolDispatcherBlockExecutor : IBlockExecutor
             result.Outputs["result"] = outputStr;
             result.Outputs["success"] = blockResult.Success;
             result.Outputs["toolOutputs"] = blockResult.Outputs;
+
+            // Phase 61-A: Propagate sub-block costs to the tool-dispatcher result.
+            // Without this, costs from tools dispatched by the agent (file-write, contract-test,
+            // inference calls inside contract-test, etc.) are lost — the parent session never
+            // sees them because AccumulateCosts reads from BlockExecutionResult.EstimatedCostUsd.
+            result.EstimatedCostUsd = blockResult.EstimatedCostUsd;
+            result.PromptTokens = blockResult.PromptTokens;
+            result.CompletionTokens = blockResult.CompletionTokens;
+            result.TotalTokens = blockResult.TotalTokens;
+
             return result;
         }
         catch (Exception ex)

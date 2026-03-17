@@ -1,9 +1,11 @@
-# Phase 65 : Onboarding + Packaging npm
+# Phase 65 : Choix assistant au setup + Catalog par contract
+
+> **Note** : Anciennement Phase 64. Decalee suite a l'insertion de la Phase 62 (Agents Fonctionnels).
 
 **Statut** : A faire
-**Prerequis** : Phase 64 COMPLETE (choix par contract au setup, Catalog organise)
-**Objectif** : `npm install -g @maestro/cli && maestro init && maestro code` — premiere experience utilisateur complete, du install au premier message.
-**Duree estimee** : 8-10 jours
+**Prerequis** : Phase 64 COMPLETE (~30 variantes pre-testees avec contracts et capabilities)
+**Objectif** : Au premier lancement, l'utilisateur voit tous les blocks qui implementent le contract `maestro-assistant`, avec leurs capabilities et features actives/inactives. Il choisit celui qu'il veut. Le Catalog est organise par contract et permet de changer a tout moment.
+**Duree estimee** : 3-5 jours
 
 ---
 
@@ -11,19 +13,24 @@
 
 | Phase | Titre | Effort |
 |-------|-------|--------|
-| 65-A | Packaging npm, commande globale, sidecar auto-start | 3-4 jours |
-| 65-B | `maestro init` + onboarding (provider + choix assistant par contract) | 2-3 jours |
-| 65-C | Documentation : README, Getting Started, 3 exemples | 2-3 jours |
+| 65-A | Filtrage compatibilite + feature gating UI | 1 jour |
+| 65-B | UI de choix dans le setup flow | 1.5-2 jours |
+| 65-C | Catalog organise par contract + changement | 1 jour |
+| 65-D | Dogfooding complet | 0.5 jour |
 
 ---
 
 ## Gate
 
-- [ ] `npm install -g @maestro/cli` installe correctement
-- [ ] `maestro init` configure provider + assistant
-- [ ] `maestro code` lance le TUI
-- [ ] Un utilisateur externe accomplit une tache reelle
+- [ ] Le setup affiche tous les blocks par contract avec features actives/inactives
+- [ ] L'utilisateur choisit en comprenant les tradeoffs
+- [ ] Features desactivees montrent la raison (capability manquante)
+- [ ] Le Catalog est organise par contract
+- [ ] Changement de block possible depuis le Catalog
+- [ ] 3 profils hardware testes
+- [ ] Tous les tests passent
+- [ ] E2E dogfooding score >= 3.5/5
 
 ### NOT in scope
-- Beta testing (Phase 66)
-- Catalogue communautaire (Phase 68)
+- Onboarding + Packaging npm (Phase 66)
+- Catalogue communautaire (Phase 69, V2)
