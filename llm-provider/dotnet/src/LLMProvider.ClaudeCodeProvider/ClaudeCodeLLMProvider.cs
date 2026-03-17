@@ -187,8 +187,17 @@ public sealed class ClaudeCodeLLMProvider : ILLMProvider, IDisposable
         }
     }
 
-    public Task<IReadOnlyList<ModelInfo>> GetAvailableModelsAsync(CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<ModelInfo>> GetAvailableModelsAsync(CancellationToken cancellationToken = default)
     {
+        // Only return models if the CLI is actually available (installed + authenticated).
+        // Per ADR-PROVIDER-ROUTING, unavailable providers must return empty lists.
+        var available = await IsAvailableAsync(cancellationToken);
+        if (!available)
+        {
+            _logger.LogDebug("Claude Code provider not available — returning empty model list");
+            return Array.Empty<ModelInfo>();
+        }
+
         var models = _options.Models.Select(m => new ModelInfo(
             id: new ModelId(m.ModelId),
             name: $"Claude {m.Alias}",
@@ -199,7 +208,7 @@ public sealed class ClaudeCodeLLMProvider : ILLMProvider, IDisposable
             parametersBillions: m.ParametersBillions
         )).ToList();
 
-        return Task.FromResult<IReadOnlyList<ModelInfo>>(models);
+        return models;
     }
 
     public async Task<LLMResponse> CompleteAsync(

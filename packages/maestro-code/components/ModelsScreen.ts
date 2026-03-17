@@ -394,7 +394,7 @@ const ModelsScreen = ({ apiClient, onNavigate, onModelSelect, onQuit, initialSta
         if (model?.modelId) onModelSelect(model.modelId, { selectedIndex });
       }
     },
-    t: openPlayground,
+    p: openPlayground,
     ...(showChrome ? {
       h: () => onNavigate('home'),
       a: () => onNavigate('agent'),
@@ -479,9 +479,9 @@ const ModelsScreen = ({ apiClient, onNavigate, onModelSelect, onQuit, initialSta
                 muted('Details'),
                 h(Text, null, '  '),
                 h(Text, { color: theme.shortcut.bracket, dimColor: true }, '['),
-                h(Text, { color: theme.shortcut.key }, 'T'),
+                h(Text, { color: theme.shortcut.key }, 'P'),
                 h(Text, { color: theme.shortcut.bracket, dimColor: true }, '] '),
-                muted('Test'),
+                muted('Playground'),
                 h(Text, null, '  '),
                 h(Text, { color: theme.shortcut.bracket, dimColor: true }, '['),
                 h(Text, { color: theme.shortcut.key }, 'Esc'),

@@ -58,7 +58,7 @@ const SHORTCUTS: Record<string, ShortcutItem[]> = {
   models: [
     { key: 'Up/Down', label: 'Navigate models' },
     { key: 'Enter',   label: 'Open model detail' },
-    { key: 'T',       label: 'Test model (playground)' },
+    { key: 'P',       label: 'Playground (test model)' },
   ],
   commands: [
     { key: '/help',   label: 'Show available commands' },

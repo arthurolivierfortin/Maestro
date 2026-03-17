@@ -44,6 +44,7 @@ interface KeyboardHandlers {
   a?: () => void;
   d?: () => void;
   g?: () => void;
+  p?: () => void;
   number?: (n: number) => void;
 }
 
@@ -81,6 +82,7 @@ const useKeyboard = (handlers: KeyboardHandlers = {}, options?: { isActive?: boo
     if (input === 'a' && handlers.a) handlers.a();
     if (input === 'd' && handlers.d) handlers.d();
     if (input === 'g' && handlers.g) handlers.g();
+    if (input === 'p' && handlers.p) handlers.p();
     const num = parseInt(input, 10);
     if (num >= 1 && num <= 9 && handlers.number) handlers.number(num);
   }, { isActive: options?.isActive !== false });

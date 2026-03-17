@@ -267,7 +267,7 @@ const ModelDetail = ({ modelId, apiClient, onExit, onQuit, onNavigate }: ModelDe
   useKeyboard({
     escape: onExit,
     q: onQuit,
-    t: () => setShowPlayground(true),
+    p: () => setShowPlayground(true),
     h: () => { if (onNavigate) onNavigate('home'); },
     s: () => { if (onNavigate) onNavigate('spaces'); },
     f: () => { if (onNavigate) onNavigate('foundry'); },
@@ -333,12 +333,12 @@ const ModelDetail = ({ modelId, apiClient, onExit, onQuit, onNavigate }: ModelDe
       ),
     ),
 
-    // Footer: [T] Test this model  [Esc] Back
+    // Footer: [P] Playground  [Esc] Back
     h(Box, { flexDirection: 'row', paddingLeft: 1, paddingY: 0 },
       h(Text, { color: theme.shortcut.bracket, dimColor: true }, '['),
-      h(Text, { color: theme.shortcut.key }, 'T'),
+      h(Text, { color: theme.shortcut.key }, 'P'),
       h(Text, { color: theme.shortcut.bracket, dimColor: true }, '] '),
-      muted('Test this model'),
+      muted('Playground'),
       h(Text, null, '  '),
       h(Text, { color: theme.shortcut.bracket, dimColor: true }, '['),
       h(Text, { color: theme.shortcut.key }, 'Esc'),
