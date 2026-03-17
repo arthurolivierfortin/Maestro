@@ -275,6 +275,7 @@ export interface LLMModel {
   quantizationRequired?: string;
   vramRequired?: number;
   isLocal?: boolean;
+  isAvailable?: boolean;
   inputTokenPricePerMillion?: number | null;
   outputTokenPricePerMillion?: number | null;
 }

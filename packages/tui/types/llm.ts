@@ -21,6 +21,7 @@ export interface LLMModel {
   capabilities?: string[];
   recommended?: boolean;
   isLocal?: boolean;
+  isAvailable?: boolean;
   inputTokenPricePerMillion?: number | null;
   outputTokenPricePerMillion?: number | null;
 }

@@ -160,6 +160,7 @@ public class LLMProviderService : ILLMProviderService
                     ContextLength = m.ContextLength,
                     Capabilities = m.Capabilities ?? new List<string>(),
                     ParametersB = m.ParametersBillions ?? 0,
+                    IsAvailable = m.IsAvailable,
                     InputTokenPricePerMillion = m.InputTokenPrice.HasValue ? m.InputTokenPrice.Value * 1000 : null,
                     OutputTokenPricePerMillion = m.OutputTokenPrice.HasValue ? m.OutputTokenPrice.Value * 1000 : null
                 }).ToList()

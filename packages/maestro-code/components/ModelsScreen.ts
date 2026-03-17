@@ -202,8 +202,9 @@ const ModelCard = ({ model, isSelected, isActive }: ModelCardProps) => {
   const displayName = model.name || model.modelId || 'Unknown';
   const provider = model.category || '';
   const selector = isSelected ? icons.arrow : ' ';
-  const statusIcon = isActive ? icons.done : (model.recommended !== false ? icons.done : icons.failed);
-  const statusColor = isActive ? theme.status.success : (model.recommended !== false ? theme.status.success : theme.status.error);
+  const available = model.isAvailable === true;
+  const statusIcon = isActive ? icons.done : (available ? icons.done : icons.failed);
+  const statusColor = isActive ? theme.status.success : (available ? theme.status.success : theme.status.error);
   const nameColor = isActive ? theme.status.success : (isSelected ? theme.panel.borderFocused : theme.text.primary);
   const truncatedName = displayName.length > 30 ? displayName.substring(0, 30) : displayName.padEnd(30);
   const truncatedProvider = provider.length > 16 ? provider.substring(0, 16) : provider.padEnd(16);
@@ -334,7 +335,23 @@ const ModelsScreen = ({ apiClient, onNavigate, onModelSelect, onQuit, initialSta
     10000
   );
 
-  const modelList: any[] = Array.isArray(models) ? models : [];
+  // Deduplicate models by modelId — prefer available providers over unavailable ones
+  const modelList: any[] = (() => {
+    const raw: any[] = Array.isArray(models) ? models : [];
+    const seen = new Map<string, any>();
+    for (const m of raw) {
+      const id = m.modelId;
+      if (!id) continue;
+      const existing = seen.get(id);
+      if (!existing) {
+        seen.set(id, m);
+      } else if (m.isAvailable && !existing.isAvailable) {
+        // Replace with available version
+        seen.set(id, m);
+      }
+    }
+    return Array.from(seen.values());
+  })();
   const sessionList: any[] = (sessions as any[]) || [];
   const runningCount = sessionList.filter((s: any) => s.status === 'running').length;
 
