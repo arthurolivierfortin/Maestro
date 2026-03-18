@@ -40,6 +40,11 @@ public class AgentBlockExecutor : MultiNodeBlockExecutor
     private readonly IConversationManager _conversationManager;
     private readonly ILogger<AgentBlockExecutor>? _logger;
 
+    // Phase 62-C: Lazy-resolved to avoid circular DI (same pattern as other services)
+    private ToolSchemaGenerator? _toolSchemaGenerator;
+    private ToolSchemaGenerator ToolSchemaGenerator =>
+        _toolSchemaGenerator ??= _serviceProvider!.GetRequiredService<ToolSchemaGenerator>();
+
     public AgentBlockExecutor(IServiceProvider serviceProvider)
         : base(serviceProvider)
     {
@@ -66,6 +71,20 @@ public class AgentBlockExecutor : MultiNodeBlockExecutor
         context.Variables.Remove("_agentIteration");
 
         var systemPrompt = await LoadSystemPrompt(block, ct) ?? "";
+
+        // Phase 62-C: Inject available tools based on session permissions.
+        // {{available_tools}} is replaced with dynamically generated tool schemas
+        // from block.json files. step-complete stays in the static prompt (agent-specific args).
+        if (systemPrompt.Contains("{{available_tools}}"))
+        {
+            var allowedBlocks = context.Variables.TryGetValue("_permissions_allowedBlocks", out var ab)
+                && ab is List<string> abList
+                    ? abList
+                    : new List<string> { "*" }; // Default: wildcard (full access)
+
+            var toolsSection = await ToolSchemaGenerator.GenerateToolsSectionAsync(allowedBlocks, ct);
+            systemPrompt = systemPrompt.Replace("{{available_tools}}", toolsSection);
+        }
 
         // Fresh conversation for this invocation, seeded with workflow history.
         // Conversation persistence is the workflow's responsibility via blocks.
@@ -103,9 +122,20 @@ public class AgentBlockExecutor : MultiNodeBlockExecutor
     protected override Task<BlockExecutionResult> ExtractResultAsync(
         BlockDefinition block, ExecutionContext context, CancellationToken ct)
     {
-        var agentResult = context.Variables.ContainsKey("_agentResult")
-            ? context.Variables["_agentResult"]?.ToString() ?? ""
-            : "";
+        var rawResult = context.Variables.ContainsKey("_agentResult")
+            ? context.Variables["_agentResult"]
+            : null;
+        // Ensure _agentResult is serialized as a string, not a C# type name.
+        // SetVariableNodeHandler may have parsed JSON into List<object> or JObject.
+        var agentResult = rawResult switch
+        {
+            null => "",
+            string s => s,
+            System.Text.Json.JsonElement je => je.ValueKind == System.Text.Json.JsonValueKind.String
+                ? je.GetString() ?? ""
+                : je.GetRawText(),
+            _ => TrySerializeToJson(rawResult)
+        };
 
         var (cost, promptTokens, completionTokens) = GetAccumulatedCosts(context);
 
@@ -141,6 +171,22 @@ public class AgentBlockExecutor : MultiNodeBlockExecutor
             TotalTokens = promptTokens + completionTokens,
             Outputs = outputs
         });
+    }
+
+    /// <summary>
+    /// Safely serializes a non-string value to JSON.
+    /// Prevents .ToString() from returning C# type names like "System.Collections.Generic.List`1[System.Object]".
+    /// </summary>
+    private static string TrySerializeToJson(object value)
+    {
+        try
+        {
+            return JsonSerializer.Serialize(value, new JsonSerializerOptions { WriteIndented = false });
+        }
+        catch
+        {
+            return value.ToString() ?? "";
+        }
     }
 
     /// <summary>

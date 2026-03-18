@@ -166,7 +166,9 @@ public class ResponseParserBlockExecutor : IBlockExecutor
                 result.Outputs["toolId"] = toolId;
                 result.Outputs["args"] = args.ValueKind == JsonValueKind.Object ? args.ToString() : "{}";
                 result.Outputs["text"] = jsonContent;
-                result.Logs.Add($"Tool call: {toolId}");
+                var argsPreview = (args.ValueKind == JsonValueKind.Object ? args.ToString() : "{}");
+                if (argsPreview.Length > 200) argsPreview = argsPreview[..200] + "...";
+                result.Logs.Add($"Tool call: {toolId} args={argsPreview}");
 
                 // Multi-tool detection: extra tool calls after the parsed one
                 var firstJsonEnd = rawResponse.IndexOf(jsonContent, StringComparison.Ordinal);

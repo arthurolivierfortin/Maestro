@@ -2,6 +2,7 @@ using System.Text.Json;
 using Maestro.Application.DTOs;
 using Maestro.Application.Interfaces;
 using Maestro.Domain.Entities;
+using Maestro.Domain.ValueObjects;
 using Microsoft.Extensions.DependencyInjection;
 using ExecutionContext = Maestro.Domain.Entities.ExecutionContext;
 
@@ -42,6 +43,18 @@ public class ToolDispatcherBlockExecutor : IBlockExecutor
         }
 
         var toolId = NormalizeToolId(toolIdObj.ToString() ?? "");
+
+        // Phase 62-C: Check block permissions BEFORE dispatching (container isolation model).
+        // Permissions control what the agent is allowed to REQUEST — checked against the
+        // original toolId, before any mapping redirect.
+        var permissionResult = CheckToolPermission(context, toolId);
+        if (!permissionResult.Allowed)
+        {
+            result.Success = false;
+            result.Outputs["result"] = permissionResult.Error!;
+            result.Outputs["success"] = false;
+            return result;
+        }
 
         // Phase 62-A: Check for tool mapping in execution context.
         // Allows contract tests and sandboxed execution to redirect tools to mock/capture blocks.
@@ -172,6 +185,76 @@ public class ToolDispatcherBlockExecutor : IBlockExecutor
             result.Logs.Add($"Tool dispatch failed: {ex.Message}");
             return result;
         }
+    }
+
+    /// <summary>
+    /// Phase 62-C: Check if a tool is allowed by the session's permissions.
+    /// Implements the container isolation model: a session only exposes the tools
+    /// explicitly allowed by its permissions.
+    ///
+    /// Every execution context MUST have _permissions_allowedBlocks set
+    /// (propagated by BuildExecutionContext from session.GetEffectivePermissions()).
+    /// Sessions default to ContextPermissions.Full which has AllowedBlocks = ["*"].
+    /// If permissions are missing from the context, the tool is DENIED (fail-closed).
+    ///
+    /// Two permission layers are checked:
+    /// 1. BlockPermissions rules (explicit Allow/Deny per pattern, first match wins)
+    /// 2. ContextPermissions.AllowedBlocks (whitelist from GetEffectivePermissions)
+    /// </summary>
+    internal static (bool Allowed, string? Error) CheckToolPermission(
+        ExecutionContext context, string toolId)
+    {
+        // Layer 1: Check explicit BlockPermission rules (first match wins).
+        // These are set on the session and propagated via _permissions_blockRules.
+        if (context.Variables.TryGetValue("_permissions_blockRules", out var rulesObj) &&
+            rulesObj is IReadOnlyList<BlockPermission> rules && rules.Count > 0)
+        {
+            foreach (var rule in rules)
+            {
+                if (rule.Matches(toolId))
+                {
+                    if (rule.Permission == BlockPermissionLevel.Denied)
+                        return (false, $"Error: Tool '{toolId}' is denied in this session. Reason: {rule.Reason ?? "blocked by session permissions"}");
+                    if (rule.Permission == BlockPermissionLevel.RequiresApproval)
+                        return (false, $"Error: Tool '{toolId}' requires approval in this session.");
+                    // Allowed — pass through to layer 2
+                    break;
+                }
+            }
+        }
+
+        // Layer 2: Check AllowedBlocks whitelist from effective permissions.
+        // Every context MUST have this set. If missing = fail-closed (deny).
+        if (!context.Variables.TryGetValue("_permissions_allowedBlocks", out var blocksObj) ||
+            blocksObj is not List<string> allowedBlocks)
+        {
+            return (false, $"Error: Tool '{toolId}' denied — no permissions configured in execution context. This is a bug: BuildExecutionContext should always set _permissions_allowedBlocks.");
+        }
+
+        // Empty list = no blocks allowed (explicit ContextPermissions.None)
+        if (allowedBlocks.Count == 0)
+            return (false, $"Error: Tool '{toolId}' is not available — session has no allowed blocks.");
+
+        // Wildcard = all allowed (ContextPermissions.Full / Standard)
+        if (allowedBlocks.Contains("*"))
+            return (true, null);
+
+        // Check exact match or pattern match
+        var isAllowed = allowedBlocks.Contains(toolId) ||
+                        allowedBlocks.Any(pattern =>
+                        {
+                            if (pattern.EndsWith("/*") || pattern.EndsWith(":*"))
+                            {
+                                var prefix = pattern[..^1];
+                                return toolId.StartsWith(prefix, StringComparison.OrdinalIgnoreCase);
+                            }
+                            return pattern.Equals(toolId, StringComparison.OrdinalIgnoreCase);
+                        });
+
+        if (!isAllowed)
+            return (false, $"Error: Tool '{toolId}' is not available in this session. Allowed: [{string.Join(", ", allowedBlocks)}]");
+
+        return (true, null);
     }
 
     /// <summary>

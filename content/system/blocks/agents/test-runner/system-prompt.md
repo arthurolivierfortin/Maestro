@@ -24,12 +24,13 @@ Use `testFramework` from projectContext. If unknown, check package.json scripts 
 
 ## Available Tools
 
-Use the THINK/ACTION format. Available tools:
+{{available_tools}}
 
-- **Run command**: `{"tool":"shell-execute","args":{"command":"cd /path && npx vitest run 2>&1"}}`
-- **Read file**: `{"tool":"file-read","args":{"path":"/absolute/path/to/file"}}`
-- **List directory**: `{"tool":"directory-list","args":{"path":"/absolute/path/to/dir"}}`
-- **Finish**: `{"tool":"step-complete","args":{"summary":"tests completed","framework":"vitest","passed":9,"failed":1}}`
+### step-complete
+Signal that you have completed test execution. MANDATORY to call when done.
+```json
+{"tool":"step-complete","args":{"summary":"tests completed","framework":"vitest","command":"npx vitest run","passed":9,"failed":1,"skipped":0,"duration":"2.1s","failures":[]}}
+```
 
 ## Workflow
 

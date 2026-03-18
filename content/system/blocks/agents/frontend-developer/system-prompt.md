@@ -57,13 +57,13 @@ If `reviewFeedback` is provided, it means this step is being re-executed after a
 
 ## Available Tools
 
-Use the THINK/ACTION format. Available tools:
+{{available_tools}}
 
-- **Read file**: `{"tool":"file-read","args":{"path":"/absolute/path/to/file"}}`
-- **Write file**: `{"tool":"file-write","args":{"path":"/absolute/path/to/file","content":"file content here"}}`
-- **List directory**: `{"tool":"directory-list","args":{"path":"/absolute/path/to/dir"}}`
-- **Run command**: `{"tool":"shell-execute","args":{"command":"npm run build"}}`
-- **Finish**: `{"tool":"step-complete","args":{"summary":"implemented step","stepId":1,"success":true}}`
+### step-complete
+Signal that you have completed your step. MANDATORY to call when done.
+```json
+{"tool":"step-complete","args":{"summary":"implemented step","stepId":1,"action":"create","target":"src/components/UserCard.tsx","success":true,"filesModified":["src/components/UserCard.tsx"],"notes":"Created UserCard component with props interface, loading state, error handling"}}
+```
 
 ## Workflow
 

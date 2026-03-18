@@ -1,19 +1,31 @@
-# Phase 68 (V2) : Self-Improvement — Maestro s'ameliore lui-meme
+# Phase 66 : Onboarding + Packaging npm
 
-> **Note** : Anciennement Phase 67. Decalee suite a l'insertion de la Phase 62 (Agents Fonctionnels).
+> **Note** : Anciennement Phase 65. Decalee suite a l'insertion de la Phase 62 (Agents Fonctionnels).
 
-**Statut** : Vision
-**Prerequis** : Phase 67 COMPLETE (V1 deployee, utilisateurs reels, metriques)
-**Objectif** : Research Team observe les metriques par contract/capability → `/adapt` cree des variantes ameliorees → Workspace Orchestrator gere la promotion. L'Agent Creator s'ameliore lui-meme.
+**Statut** : A faire
+**Prerequis** : Phase 65 COMPLETE (choix par contract au setup, Catalog organise)
+**Objectif** : `npm install -g @maestro/cli && maestro init && maestro code` — premiere experience utilisateur complete, du install au premier message.
+**Duree estimee** : 8-10 jours
 
 ---
 
-## Vision
+## Sous-phases
 
-- Researcher Agent observe les metriques de fitness par contract
-- Trainer Agent utilise /adapt pour creer des variantes ameliorees
-- Tester Agent verifie les capabilities et mesure fitness
-- Publisher publie dans le catalogue si fitness >= 0.75
-- Monitor surveille les regressions post-publication
-- Workspace Orchestrator gere le pipeline research → staging → production
-- Dimension auto-referentielle : Agent Creator cree des variantes de lui-meme
+| Phase | Titre | Effort |
+|-------|-------|--------|
+| 66-A | Packaging npm, commande globale, sidecar auto-start | 3-4 jours |
+| 66-B | `maestro init` + onboarding (provider + choix assistant par contract) | 2-3 jours |
+| 66-C | Documentation : README, Getting Started, 3 exemples | 2-3 jours |
+
+---
+
+## Gate
+
+- [ ] `npm install -g @maestro/cli` installe correctement
+- [ ] `maestro init` configure provider + assistant
+- [ ] `maestro code` lance le TUI
+- [ ] Un utilisateur externe accomplit une tache reelle
+
+### NOT in scope
+- Beta testing (Phase 67)
+- Catalogue communautaire (Phase 69)

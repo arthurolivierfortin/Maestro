@@ -429,6 +429,41 @@ public class ContractTestRunner
                 Authority.Agent("contract-test-runner"),
                 new ProjectSessionConfig(),
                 Directory.GetCurrentDirectory());
+            // Contract test sessions must not be blocked by session cost limits.
+            // They run multiple LLM calls per test and the per-session limit is designed
+            // for production workloads, not test infrastructure.
+            perTestSession.SetVariable("_skipCostLimits", "true");
+
+            // Phase 62-A: Set AllowedBlocks on the session for permission enforcement.
+            // ToolDispatcherBlockExecutor.CheckToolPermission runs BEFORE _toolMapping redirect,
+            // so these are the ORIGINAL tool names (not capture-* names).
+            // Without this, fail-closed enforcement denies all tool calls in contract tests.
+            perTestSession.UpdatePermissions(new ContextPermissions
+            {
+                AllowedBlocks = new List<string>
+                {
+                    "file-write",       // original name (before mapping to capture-file-write)
+                    "file-read",        // original name (before mapping to capture-file-read)
+                    "file-edit",        // original name (before mapping to capture-file-edit)
+                    "shell-execute",    // original name (before mapping to capture-shell-execute)
+                    "step-complete"     // agentic loop exit
+                },
+                AllowedCommands = new List<string> { "*" },
+                AllowedTools = new List<string> { "*" },
+                AllowedPaths = new List<string> { "*" },
+                DataCollections = new List<string> { "*" }
+            });
+
+            // Phase 62-A: Set _toolMapping on the session so BuildExecutionContext propagates it
+            // to nested tool-dispatcher nodes inside the agent's config.nodes.
+            perTestSession.SetVariable("_toolMapping", JsonSerializer.Serialize(new Dictionary<string, string>
+            {
+                ["file-write"] = "capture-file-write",
+                ["file-read"] = "capture-file-read",
+                ["shell-execute"] = "capture-shell-execute",
+                ["file-edit"] = "capture-file-edit"
+            }));
+
             await _sessionRepository.SaveAsync(perTestSession, ct);
             perTestSessionId = perTestSession.Id;
             sessionIdForTest = perTestSessionId;
@@ -446,8 +481,9 @@ public class ContractTestRunner
             // Required by MultiNodeBlockExecutor (agent, workflow, tool blocks)
             context.Variables["sessionId"] = sessionIdForTest;
 
-            // Phase 62-A: Inject _toolMapping for agent blocks so tool calls are captured
-            // instead of executed. This lets contract tests verify what agents actually write.
+            // Phase 62-A: Inject _toolMapping on the context for the initial executor call.
+            // The session already has _toolMapping set (above), which BuildExecutionContext
+            // propagates to nested tool-dispatcher nodes inside the agent's config.nodes.
             if (string.Equals(block.BlockType, "agent", StringComparison.OrdinalIgnoreCase))
             {
                 context.Variables["_toolMapping"] = JsonSerializer.Serialize(new Dictionary<string, string>

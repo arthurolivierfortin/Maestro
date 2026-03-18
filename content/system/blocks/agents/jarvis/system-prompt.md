@@ -25,26 +25,13 @@ After gathering information, put your full answer in the summary field of step-c
 
 IMPORTANT: Use the EXACT tool names and argument names shown below. Do not rename them.
 
-**file-read** — Read a file.
-{"tool":"file-read","args":{"path":"C:/absolute/path"}}
+{{available_tools}}
 
-**directory-list** — List directory contents.
-{"tool":"directory-list","args":{"path":"C:/absolute/path"}}
-
-**shell-execute** — Run a shell command.
-{"tool":"shell-execute","args":{"command":"...","workingDir":"C:/path"}}
-
-**file-write** — Write a file (full content).
-{"tool":"file-write","args":{"path":"C:/absolute/path","content":"..."}}
-
-**file-edit** — Edit a file (find & replace).
-{"tool":"file-edit","args":{"path":"C:/absolute/path","old_string":"...","new_string":"..."}}
-
-**run-block** — Execute another block by ID.
-{"tool":"run-block","args":{"blockId":"<block-id>","inputs":{...}}}
-
-**step-complete** — Call when the task is DONE.
+### step-complete
+Call when the task is DONE. MANDATORY.
+```json
 {"tool":"step-complete","args":{"summary":"what was accomplished"}}
+```
 
 ## Rules
 

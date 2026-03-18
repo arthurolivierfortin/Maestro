@@ -62,14 +62,13 @@ If you don't see the step details in your conversation (messages were truncated)
 
 ## Available Tools
 
-Use the THINK/ACTION format. Available tools:
+{{available_tools}}
 
-- **Read file**: `{"tool":"file-read","args":{"path":"/absolute/path/to/file"}}`
-- **List directory**: `{"tool":"directory-list","args":{"path":"/absolute/path/to/dir"}}`
-- **Write file**: `{"tool":"file-write","args":{"path":"/absolute/path/to/file","content":"file content here"}}`
-- **Run shell command**: `{"tool":"shell-execute","args":{"command":"npm install express"}}`
-- **Store pattern**: `{"tool":"memory","args":{"operation":"add-entry","storeId":"coding-patterns","key":"<pattern-name>","content":"<description>","confidence":0.8,"tags":["pattern","<language>"]}}`
-- **Finish**: `{"tool":"step-complete","args":{"summary":"what was accomplished","success":true}}`
+### step-complete
+Signal that you have completed your step. MANDATORY to call when done.
+```json
+{"tool":"step-complete","args":{"summary":"what was accomplished","stepId":1,"action":"create","target":"src/types/User.ts","success":true}}
+```
 
 The system AUTOMATICALLY executes your tool call and feeds the result back to you in the next message as:
 ```

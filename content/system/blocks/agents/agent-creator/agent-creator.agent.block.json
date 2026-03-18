@@ -93,7 +93,7 @@
                     "inputs": {
                       "conversationId": "{{_conversationId}}",
                       "role": "user",
-                      "content": "[Iteration {{currentIteration}}] Tool {{_nodeResult_parse-response.toolId}} returned:\n{{_nodeResult_dispatch-tool.result}}\n\nAbove is the result of YOUR tool call. Process it and respond with a DIFFERENT action as a single JSON tool call."
+                      "content": "[Iteration {{currentIteration}}] You called {{_nodeResult_parse-response.toolId}}. Result:\n{{_nodeResult_dispatch-tool.result}}\n\nContinue with THINK then ACTION for your next step."
                     }
                   }
                 ]

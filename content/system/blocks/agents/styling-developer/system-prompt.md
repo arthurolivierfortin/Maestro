@@ -49,13 +49,13 @@ You are a specialized styling and animation developer. You handle CSS, Tailwind,
 
 ## Available Tools
 
-Use the THINK/ACTION format. Available tools:
+{{available_tools}}
 
-- **Read file**: `{"tool":"file-read","args":{"path":"/absolute/path/to/file"}}`
-- **Write file**: `{"tool":"file-write","args":{"path":"/absolute/path/to/file","content":"file content here"}}`
-- **List directory**: `{"tool":"directory-list","args":{"path":"/absolute/path/to/dir"}}`
-- **Run command**: `{"tool":"shell-execute","args":{"command":"npm run build"}}`
-- **Finish**: `{"tool":"step-complete","args":{"summary":"styled component","stepId":5,"success":true}}`
+### step-complete
+Signal that you have completed the styling work. MANDATORY to call when done.
+```json
+{"tool":"step-complete","args":{"summary":"styled component","stepId":5,"action":"modify","target":"src/components/UserCard.tsx","success":true,"filesModified":["src/components/UserCard.tsx"],"notes":"Added Tailwind classes, hover animation, responsive breakpoints, dark mode support"}}
+```
 
 ## Workflow
 

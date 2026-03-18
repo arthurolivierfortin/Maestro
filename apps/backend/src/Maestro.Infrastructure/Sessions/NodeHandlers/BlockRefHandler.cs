@@ -95,9 +95,16 @@ public class BlockRefHandler : INodeHandler
             throw new InvalidOperationException($"BlockRefHandler called for node '{nodeId}' with no blockRef");
 
         // === Pre-execution cost limit check (Phase 59-PRE-2-A) ===
-        var costCheck = await CheckCostBeforeExecutionAsync(session, nodeId, blockRefId);
-        if (costCheck != null)
-            return costCheck; // Cost limit stopped — return the stop message
+        // Skip cost limits for contract test sessions (they set _skipCostLimits=true)
+        var skipCostLimits = string.Equals(
+            session.GetVariable("_skipCostLimits")?.ToString(), "true",
+            StringComparison.OrdinalIgnoreCase);
+        if (!skipCostLimits)
+        {
+            var costCheck = await CheckCostBeforeExecutionAsync(session, nodeId, blockRefId);
+            if (costCheck != null)
+                return costCheck; // Cost limit stopped — return the stop message
+        }
 
         // Resolve the block definition
         var block = await _blockDiscovery.GetByIdAsync(SessionHelper.NormalizeBlockId(blockRefId), session.BlockSearchPaths);
@@ -176,6 +183,17 @@ public class BlockRefHandler : INodeHandler
                     continue;
                 }
                 childSession.SetVariable(kv.Key, kv.Value);
+            }
+
+            // Propagate critical parent variables that must survive to child sessions.
+            // These are NOT in the inputs (they're session-level config) and NOT in the blacklist
+            // (they need to cross session boundaries for the system to work).
+            var parentPropagate = new[] { "_skipCostLimits", "_toolMapping" };
+            foreach (var key in parentPropagate)
+            {
+                var val = session.GetVariable(key);
+                if (val != null)
+                    childSession.SetVariable(key, val);
             }
 
             await _repository.SaveAsync(childSession);
@@ -532,6 +550,12 @@ public class BlockRefHandler : INodeHandler
         execContext.Variables["agentId"] = blockRefId;
         var effectivePermissions = session.GetEffectivePermissions();
         execContext.Variables["_permissions_allowedPaths"] = effectivePermissions.AllowedPaths;
+
+        // Phase 62-C: Pass AllowedBlocks and BlockPermissions through execution context
+        // for enforcement in ToolDispatcherBlockExecutor (container isolation model).
+        execContext.Variables["_permissions_allowedBlocks"] = effectivePermissions.AllowedBlocks;
+        if (session.BlockPermissions.Count > 0)
+            execContext.Variables["_permissions_blockRules"] = session.BlockPermissions;
 
         // Phase 59-C: Pass FileAccessRules through execution context for enforcement
         // in file operation executors (file-read, file-write, file-edit).

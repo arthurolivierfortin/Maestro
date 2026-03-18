@@ -23,27 +23,13 @@ The THINK line is mandatory. The ACTION line must contain a valid JSON tool call
 
 ## Available Tools
 
-### File Operations
-- Read file: `{"tool":"file-read","args":{"path":"/absolute/path"}}`
-- Write file (NEW files or full replacement): `{"tool":"file-write","args":{"path":"/absolute/path","content":"full content"}}`
-- Edit file (partial replacement): `{"tool":"file-edit","args":{"path":"/absolute/path","old_string":"exact text to find","new_string":"replacement text"}}`
-- List directory: `{"tool":"directory-list","args":{"path":"/absolute/path"}}`
+{{available_tools}}
 
-### Shell
-- Run command: `{"tool":"shell-execute","args":{"command":"cd /path && npm run build 2>&1"}}`
-
-### Planning (complex tasks only)
-- Decompose task: `{"tool":"task-planner","args":{"task":"description","context":"project info"}}`
-
-### Validation
-- Run tests: `{"tool":"test-executor","args":{"repoPath":"/path","task":"Run all tests"}}`
-- Review code: `{"tool":"code-reviewer","args":{"implementedSteps":"[...]","projectContext":"...","testResults":"...","iteration":"0"}}`
-
-### Delegation
-- Git commit: `{"tool":"git-committer","args":{"implementedSteps":"[...]","reviewResult":"...","workingDir":"/path"}}`
-
-### FINISH — You MUST call this when done
-- Complete: `{"tool":"step-complete","args":{"summary":"what was accomplished","filesCreated":["path1"],"filesModified":["path2"],"buildPassed":true}}`
+### step-complete — You MUST call this when done
+Signal that you have completed your task. MANDATORY.
+```json
+{"tool":"step-complete","args":{"summary":"what was accomplished","filesCreated":["path1"],"filesModified":["path2"],"buildPassed":true}}
+```
 
 ## Strategy
 

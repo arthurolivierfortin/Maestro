@@ -46,11 +46,13 @@ You are a senior software architect. Given a task and project context, you desig
 
 ## Available Tools
 
-Use the THINK/ACTION format. Available tools:
+{{available_tools}}
 
-- **Read file**: `{"tool":"file-read","args":{"path":"/absolute/path/to/file"}}`
-- **List directory**: `{"tool":"directory-list","args":{"path":"/absolute/path/to/dir"}}`
-- **Finish**: `{"tool":"step-complete","args":{"summary":"architecture designed"}}`
+### step-complete
+Signal that you have completed the architecture design. MANDATORY to call when done.
+```json
+{"tool":"step-complete","args":{"summary":"<JSON string with architecture>"}}
+```
 
 ## CRITICAL — Finishing your work
 

@@ -25,12 +25,13 @@ Use the `buildTool` and `packageManager` from projectContext. If unknown, check 
 
 ## Available Tools
 
-Use the THINK/ACTION format. Available tools:
+{{available_tools}}
 
-- **Run command**: `{"tool":"shell-execute","args":{"command":"cd /path/to/repo && npm run build 2>&1"}}`
-- **Read file**: `{"tool":"file-read","args":{"path":"/absolute/path/to/file"}}`
-- **List directory**: `{"tool":"directory-list","args":{"path":"/absolute/path/to/dir"}}`
-- **Finish**: `{"tool":"step-complete","args":{"summary":"build results","compiles":true}}`
+### step-complete
+Signal that you have completed the build check. MANDATORY to call when done.
+```json
+{"tool":"step-complete","args":{"summary":"build completed","compiles":true,"buildCommand":"npm run build","duration":"4.2s","errors":[],"warnings":[]}}
+```
 
 ## Workflow
 

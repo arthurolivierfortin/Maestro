@@ -1,11 +1,11 @@
-# Phase 65 : Choix assistant au setup + Catalog par contract
+# Phase 63 : /adapt = block-forge avec baseBlockId + contractRef
 
-> **Note** : Anciennement Phase 64. Decalee suite a l'insertion de la Phase 62 (Agents Fonctionnels).
+> **Note** : Anciennement Phase 62. Decalee suite a l'insertion de la Phase 62 (Agents Fonctionnels).
 
 **Statut** : A faire
-**Prerequis** : Phase 64 COMPLETE (~30 variantes pre-testees avec contracts et capabilities)
-**Objectif** : Au premier lancement, l'utilisateur voit tous les blocks qui implementent le contract `maestro-assistant`, avec leurs capabilities et features actives/inactives. Il choisit celui qu'il veut. Le Catalog est organise par contract et permet de changer a tout moment.
-**Duree estimee** : 3-5 jours
+**Prerequis** : Phase 62 COMPLETE (agents fonctionnels, fitness > 0.5, block-forge E2E)
+**Objectif** : `/adapt` utilise block-forge pour creer des variantes d'un block optimisees pour un modele/hardware donne. La variante implemente le meme contract que l'original. Les workflows peuvent utiliser `contractRef` au lieu de `blockRef` pour resoudre au runtime vers le block choisi par l'utilisateur.
+**Duree estimee** : 4-6 jours
 
 ---
 
@@ -13,24 +13,22 @@
 
 | Phase | Titre | Effort |
 |-------|-------|--------|
-| 65-A | Filtrage compatibilite + feature gating UI | 1 jour |
-| 65-B | UI de choix dans le setup flow | 1.5-2 jours |
-| 65-C | Catalog organise par contract + changement | 1 jour |
-| 65-D | Dogfooding complet | 0.5 jour |
+| 63-A | Workflow /adapt : invoque block-forge avec baseBlockId + targetModel | 2-3 jours |
+| 63-B | `contractRef` dans les workflows (resolution runtime + verification capabilities) | 1-2 jours |
+| 63-C | Integration TUI : `/adapt` dans AgentPanel, `[A]` dans CatalogScreen | 1 jour |
 
 ---
 
 ## Gate
 
-- [ ] Le setup affiche tous les blocks par contract avec features actives/inactives
-- [ ] L'utilisateur choisit en comprenant les tradeoffs
-- [ ] Features desactivees montrent la raison (capability manquante)
-- [ ] Le Catalog est organise par contract
-- [ ] Changement de block possible depuis le Catalog
-- [ ] 3 profils hardware testes
-- [ ] Tous les tests passent
+- [ ] Workflow `system:adapt-workflow` fonctionnel
+- [ ] La variante creee implemente le meme contract que l'original
+- [ ] Les capabilities sont verifiees, pas juste declarees
+- [ ] `contractRef` fonctionne dans les workflows (resolution runtime + fallback + verification capabilities)
+- [ ] `/adapt` et `[A]` fonctionnent dans le TUI
+- [ ] CLI `maestro adapt` fonctionnel
 - [ ] E2E dogfooding score >= 3.5/5
 
 ### NOT in scope
-- Onboarding + Packaging npm (Phase 66)
-- Catalogue communautaire (Phase 69, V2)
+- Production des ~30 variantes (Phase 64)
+- Catalogue communautaire (Phase 69)

@@ -1,42 +1,155 @@
-# Phase 62 : Agents Fonctionnels + Optimisation
+# Phase 62 : Container Isolation — Solidification du modele Session/Workspace
 
-**Statut** : A faire
-**Prerequis** : Phase 61 COMPLETE (block-forge fiable, contracts valides empiriquement)
-**Objectif** : Implementer `_toolMapping` + mock blocks pour que les contract tests puissent verifier le travail reel des agents, resoudre les conflits de providers, condenser le system prompt, creer 2 agents fonctionnels via foundry, et ajouter une live execution view.
+**Statut** : EN COURS
+**Prerequis** : Phase 61 COMPLETE
+**Objectif** : Solidifier la logique d'arbre Session/Workspace qui est la fondation de Maestro. Permissions, couts, metriques — tout passe par cet arbre. Le system prompt des agents doit refleter les permissions de la session. Si le bottleneck est fragile, tout ce qui est construit dessus (agents, contract tests, sandboxing) est fragile.
 **Duree estimee** : 3-4 jours
+**Raison de l'insertion** : Decouvert pendant Phase 63-C (ex 62-C) que ToolDispatcherBlockExecutor n'enforçait aucune permission — un agent pouvait appeler n'importe quel block. Bug de securite fondamental. De plus, le system prompt des agents liste des tools en dur, ce qui est incoherent avec le modele container.
 
 ---
 
-## Regles pour l'agent executant
+## Contexte — Pourquoi cette phase est critique
 
-1. **Lire `docs/system/AGENT-PROTOCOL.md`** avant de commencer
-2. **Lire `docs/phases/PHASE-61/contract-validation-results.md`** — donnees empiriques de 61-C
-3. **Lire `memory/contract-testing.md`** — design decisions : tout est un block, pas de logique dans AgentBlockExecutor
-4. **Ecrire dans `PHASE-62/checkpoint.md`** apres chaque sous-phase
-5. **Ne PAS modifier AgentBlockExecutor** pour capturer les tool calls — tout passe par les blocks (tool-dispatcher, mock blocks)
-6. **Ne PAS augmenter maxIterations** — si l'agent echoue en 12, le system prompt est le probleme
-7. **Utiliser le pipeline Maestro** — foundry sessions, contract tests, publish
-8. **Documenter chaque iteration** — model, fitness, cout, diagnostic
+### Le modele container
+
+Chaque session/workspace est un container isole :
+```
+Workspace (permissions ceiling)
+  └─ Session (≤ parent)
+    └─ Child Session (≤ parent)      ← TOUJOURS une child session pour un agent
+      └─ Agent = process inside the container
+```
+
+L'agent ne fait pas directement les appels — c'est le block qui appelle le backend. Le backend recoit le session ID et filtre. C'est LE point d'enforcement unique.
+
+**Un agent est TOUJOURS dans une child session**, meme s'il a toutes les permissions du parent. La child session fournit :
+- **Isolation des variables** : l'etat interne de l'agent ne pollue pas le workflow parent
+- **Couts par agent** : on sait exactement combien chaque agent a coute
+- **Lifecycle propre** : l'agent peut etre annule, en erreur, termine — independamment du workflow
+- **Possibilite future de restriction** : on peut restreindre sans changer l'architecture
+
+### Problemes decouverts
+
+1. **ToolDispatcherBlockExecutor n'enforçait aucune permission** — un agent pouvait appeler n'importe quel block du catalogue. Fix initial applique (CheckToolPermission), mais les tests sont incomplets et la logique doit etre solidifiee.
+
+2. **Pas de test E2E Workspace → Session → Child Session → Agent tool call** — la propagation/intersection des permissions n'est jamais testee en profondeur.
+
+3. **Le system prompt des agents est incoherent avec les permissions** — le system prompt liste des tools en dur (file-read, file-write, shell-execute, etc.) dans le block.json. Si la session retire `shell-execute`, l'agent le voit quand meme dans son prompt, l'appelle, se fait refuser, et gaspille des tokens a reessayer. Avec des modeles petits, il peut ne jamais comprendre et loop. C'est comme monter un container Docker avec un fichier de config qui reference des binaires absents du container.
+
+4. **Les couts utilisent la meme logique d'arbre** — le parent accumule les couts de ses enfants. Cette logique doit utiliser le meme pattern que les permissions.
+
+5. **La gestion des permissions par l'utilisateur est inexistante** — pas d'API ni de CLI pour gerer les permissions facilement.
+
+### Impact sur la qualite des agents
+
+Le bug du tool dispatch recursif (Phase 63-C) — ou un agent appelait `json-validator` en boucle — etait cause par l'absence d'enforcement des permissions. L'agent accedait a un tool reel non-mappe au lieu de recevoir une erreur. Si cette fondation n'est pas solide, les memes problemes resurgiront avec chaque nouvel agent.
+
+De plus, si on cree des agents en Phase 63 avec des tools hardcodes dans le system prompt, il faudra tous les refactorer quand on rendra le prompt dynamique. Mieux vaut poser la fondation maintenant.
 
 ---
 
-## Contexte
+## Decisions architecturales
 
-### Phase 61 a rendu l'infrastructure fiable
-- Provider Anthropic direct fonctionnel (cle API dans .env)
-- ProviderType collision corrigee (ClaudeCode=8, Anthropic=4)
-- maxIterations fixe a 12 (pas 50)
-- Loop detection active (warn@3, stop@5)
-- Pre-flight bloquant si config invalide
-- Couts propagent vers le parent
-- Contracts analyses empiriquement (resultats dans `contract-validation-results.md`)
+### 1. Agent = toujours une child session
 
-### Le bloqueur identifie en 61-C
-Les contract tests pour les agents (agent-creator, test-designer) echouent a 50-56% parce que le ContractTestRunner verifie le resume step-complete, pas le contenu reel que l'agent ecrit via ses tool calls.
+Un agent est TOUJOURS execute dans une child session, meme avec `AllowedBlocks = ["*"]`. L'isolation est la pour les variables, les couts et le lifecycle — pas seulement les permissions.
 
-**La solution** : `_toolMapping` dans `ToolDispatcherBlockExecutor`. Quand le ContractTestRunner teste un agent, il injecte un mapping qui redirige `file-write` vers `capture-file-write`. L'agent ne sait pas qu'il parle a un mock. Le mock capture le contenu. L'evaluateur verifie le contenu capture.
+### 2. L'injection des tools = infrastructure, pas un block
 
-Ce mecanisme etait planifie en Phase 54 et discute en Phase 53-F. Il est architecturalement coherent : tout est un block, rien ne change dans AgentBlockExecutor.
+L'assemblage du system prompt (injection des tools disponibles) se fait dans `AgentBlockExecutor.PrepareExecutionAsync` (C# infrastructure). Ce n'est PAS un block dans config.nodes.
+
+**Pourquoi** :
+- C'est du setup universel — chaque agent en a besoin
+- L'utilisateur ne devrait pas avoir a ajouter un node `tool-schema-resolver` dans chaque agent
+- C'est au meme niveau que "creer la conversation" et "injecter l'historique" — de la plomberie
+- Les block.json des tools fournissent le contenu (descriptions, schemas) — l'infrastructure le lit
+
+**Analogie Docker** : le montage des volumes est de l'infrastructure Docker, pas une instruction dans l'application. L'application voit juste les fichiers montes.
+
+### 3. Tous les agents ont le system prompt dynamique
+
+Ce n'est pas une feature optionnelle. C'est comment les agents fonctionnent. `AgentBlockExecutor` est le point d'entree de TOUS les agents, donc tous beneficient automatiquement de l'injection dynamique.
+
+### 4. La black box est renforcee
+
+De l'exterieur : un agent est `prompt → response`. Le caller ne sait pas ce qui se passe a l'interieur.
+
+Avec le system prompt dynamique, la separation est encore plus nette :
+- Le **block.json** definit le comportement (role, instructions, format de reponse)
+- La **session** definit l'environnement (tools disponibles, couts, acces fichiers)
+- Le **runtime** combine les deux
+
+C'est exactement Docker : image (comportement) + config container (environnement) = container qui tourne. Et ca ouvre la porte a la portabilite IDE en V2 sans rien changer — on change juste la source des tools.
+
+---
+
+## Architecture cible
+
+### Principe : le backend filtre par session ID
+
+```
+Agent → response-parser → tool-dispatcher
+                              ↓
+                    CheckToolPermission(context, toolId)
+                         ↓                    ↓
+                    Layer 1:              Layer 2:
+                    BlockPermission       AllowedBlocks
+                    rules (deny/allow)    whitelist (ceiling)
+                         ↓                    ↓
+                    First match wins      Must be in list
+                         ↓                    ↓
+                    If denied → error     If not in list → error
+                    to agent              to agent
+                         ↓
+                    Tool mapping (_toolMapping)
+                         ↓
+                    Block discovery → execute
+```
+
+### Principe : fail-closed
+
+Si les permissions ne sont pas dans le context d'execution, le tool est REFUSE. Pas de fallthrough silencieux. Les sessions ont un default-all (`ContextPermissions.Full` avec `AllowedBlocks = ["*"]`), donc ce n'est jamais vide sauf bug.
+
+### Principe : intersection pour les enfants
+
+```
+Parent: AllowedBlocks = ["*"]
+Child:  AllowedBlocks = ["file-read", "file-write"]
+Effective: ["file-read", "file-write"]  (intersection)
+
+Child cannot ESCALATE — the intersection guarantees it.
+```
+
+### Principe : le prompt reflète le container
+
+Le system prompt de l'agent ne liste QUE les tools disponibles dans sa session. L'injection est faite par l'infrastructure (`AgentBlockExecutor`), pas par un block.
+
+```
+AgentBlockExecutor.PrepareExecutionAsync (infrastructure C#)
+  │
+  ├─ 1. Lit system-prompt.md du block (contenu statique : role, instructions, format)
+  ├─ 2. Lit AllowedBlocks de la session (permissions du container)
+  ├─ 3. Pour chaque tool autorise :
+  │     └─ Charge sa description + schema depuis son block.json (via IBlockDiscoveryService)
+  ├─ 4. Genere la section "## Available Tools" avec les JSON schemas
+  ├─ 5. Remplace {{available_tools}} dans le system prompt
+  └─ 6. Cree la conversation avec le prompt assemble
+
+L'utilisateur ecrit :              L'agent recoit :
+┌──────────────────┐              ┌──────────────────┐
+│ # Role           │              │ # Role           │
+│ You are a ...    │              │ You are a ...    │
+│                  │              │                  │
+│ ## Available Tools│             │ ## Available Tools│
+│ {{available_tools}}│ ────────►  │ ### file-read    │
+│                  │              │ {"name": ...}    │
+│ ## Response Format│             │ ### file-write   │
+│ Use THINK/ACTION │              │ {"name": ...}    │
+└──────────────────┘              │                  │
+                                  │ ## Response Format│
+                                  │ Use THINK/ACTION │
+                                  └──────────────────┘
+```
 
 ---
 
@@ -44,409 +157,175 @@ Ce mecanisme etait planifie en Phase 54 et discute en Phase 53-F. Il est archite
 
 | Phase | Titre | Effort |
 |-------|-------|--------|
-| 62-A | `_toolMapping` + mock blocks (fondation) | 1 jour |
-| 62-B | Resolution conflits providers (detection + choix utilisateur) | 0.5 jour |
-| 62-C | Condenser system prompt + creer agents via foundry | 1.5-2 jours |
-| 62-D | Live execution view dans le TUI | 1 jour |
+| 62-A | Permission enforcement dans ToolDispatcherBlockExecutor (fail-closed) | 0.5 jour |
+| 62-B | Tests E2E de l'arbre Workspace → Session → Child → Agent | 1 jour |
+| 62-C | System prompt dynamique (tools injectes par la session via AgentBlockExecutor) | 1-1.5 jours |
+| 62-D | API et CLI de gestion des permissions | 0.5-1 jour |
+| 62-E | TUI FocusProvider + visibilite permissions/arbre/couts | 1-1.5 jours |
 | 62-T | Tests + validation | 0.5 jour |
 
-**Ordre d'execution** : A → B → C → D → T
+**Ordre d'execution** : A → B → C → D → T (puis E en discussion)
 
-62-A est le fondement — sans mock blocks, les contract tests ne peuvent pas verifier les agents. 62-B permet de s'assurer que le bon provider est utilise pour 62-C.
-
----
-
-## 62-A : `_toolMapping` + Mock Blocks
-
-### Principe architectural
-
-```
-Agent pense appeler "file-write"
-    |
-    v
-response-parser extrait {toolId: "file-write", args: {path: "x.json", content: "{...}"}}
-    |
-    v
-tool-dispatcher recoit toolId="file-write"
-    |  <-- _toolMapping = {"file-write": "capture-file-write"}
-    |  tool-dispatcher resout "capture-file-write" au lieu de "file-write"
-    v
-capture-file-write (mock block) :
-    - Enregistre {toolId: "file-write", path, content} dans _capturedToolCalls (variable session)
-    - Retourne "File written successfully" (l'agent pense que c'est fait)
-    |
-    v
-L'agent continue ses iterations normalement
-    |
-    v
-step-complete → l'evaluateur lit _capturedToolCalls
-    → Verifie que le JSON ecrit est valide
-    → Verifie que les champs requis sont presents
-    → Calcule le fitness
-```
-
-### Tache 1 : Ajouter `_toolMapping` dans ToolDispatcherBlockExecutor
-
-Dans `ToolDispatcherBlockExecutor.ExecuteAsync()`, APRES `NormalizeToolId()` et AVANT la resolution du block :
-
-```csharp
-// Check for tool mapping in execution context (Phase 62-A)
-// Allows contract tests and sandboxed execution to redirect tools to mock blocks.
-// The agent doesn't know it's talking to a mock — same interface, different implementation.
-if (context.Variables.TryGetValue("_toolMapping", out var mappingObj) && mappingObj != null)
-{
-    var mappedId = ResolveMappedToolId(mappingObj, toolId);
-    if (mappedId != null)
-    {
-        result.Logs.Add($"Tool '{toolId}' mapped to '{mappedId}' via _toolMapping");
-        toolId = mappedId;
-    }
-}
-```
-
-`ResolveMappedToolId` parse le mapping (JSON object ou Dictionary) et retourne le block ID mappe, ou null si pas de mapping pour ce toolId.
-
-### Tache 2 : Creer les mock blocks
-
-Chaque mock block est un **vrai block** : un `block.json` + son propre executor C# dedie. Pas un type generique — chaque block a un comportement specifique adapte au tool qu'il mock. L'utilisateur peut les inspecter dans le catalogue, les modifier, ou creer les siens.
-
-Creer dans `content/system/blocks/tools/` :
-
-#### `capture-file-write`
-- **block.json** : `capture-file-write.tool.block.json`
-- **Executor** : `CaptureFileWriteBlockExecutor.cs` (implements `IBlockExecutor`, `SupportedType = "capture-file-write"`)
-- **Inputs** : `path`, `content` (memes inputs que `file-write`)
-- **Comportement** :
-  - Enregistre `{toolId: "file-write", path, content, timestamp}` dans la variable session `_capturedToolCalls` (append a une liste JSON)
-  - Retourne un message realiste : `"File written to {path} (247 bytes)"`
-- **Pourquoi un block dedie** : le message de retour simule la reponse reelle de file-write, ce qui evite de confondre l'agent
-
-#### `capture-file-read`
-- **block.json** : `capture-file-read.tool.block.json`
-- **Executor** : `CaptureFileReadBlockExecutor.cs`
-- **Inputs** : `path`
-- **Comportement** :
-  - Cherche dans `_capturedToolCalls` si un write precedent a ecrit a ce path → retourne le contenu capture
-  - Sinon, delegue au vrai `file-read` (lecture reelle du disque) — les agents ont souvent besoin de lire des fichiers existants (contracts, blocks existants)
-- **Pourquoi un block dedie** : le read-after-write est un pattern fondamental des agents (ecrire un fichier puis le relire pour verifier). Le mock doit gerer ce cas specifiquement.
-
-#### `capture-shell-execute`
-- **block.json** : `capture-shell-execute.tool.block.json`
-- **Executor** : `CaptureShellExecuteBlockExecutor.cs`
-- **Inputs** : `command`, `workingDir` (memes inputs que `shell-execute`)
-- **Comportement** : Enregistre la commande dans `_capturedToolCalls`, retourne un output simule
-- **Output** : `"$ {command}\n(captured — not executed)"`
-- **Pourquoi un block dedie** : l'output simule le format d'un terminal, l'agent peut parser le resultat comme il le ferait normalement
-
-#### `capture-file-edit`
-- **block.json** : `capture-file-edit.tool.block.json`
-- **Executor** : `CaptureFileEditBlockExecutor.cs`
-- **Inputs** : `path`, `old_string`, `new_string` (memes inputs que `file-edit`)
-- **Comportement** :
-  - Si un write precedent existe dans `_capturedToolCalls` pour ce path : applique le remplacement sur le contenu capture
-  - Sinon : enregistre l'edit tel quel dans `_capturedToolCalls`
-- **Output** : `"File edited: {path} (replacement applied)"`
-
-### Extensibilite
-
-L'utilisateur peut creer ses propres mock blocks pour n'importe quel tool :
-- Un `sandbox-shell-execute` qui execute dans un container Docker
-- Un `log-file-write` qui ecrit reellement ET capture
-- Un `dry-run-file-write` qui valide le contenu sans ecrire
-
-Il suffit de creer le block.json + executor et de configurer `_toolMapping`. Aucune modification du moteur.
-
-### Tache 3 : Configurer le ContractTestRunner pour utiliser `_toolMapping`
-
-Dans `ContractTestRunner.SendPromptToBlockAsync()`, quand on cree le `ExecutionContext` pour tester un agent :
-
-```csharp
-// Inject tool mapping for agent testing — capture tool calls instead of executing them
-context.Variables["_toolMapping"] = JsonSerializer.Serialize(new Dictionary<string, string>
-{
-    ["file-write"] = "capture-file-write",
-    ["file-read"] = "capture-file-read",
-    ["shell-execute"] = "capture-shell-execute"
-});
-```
-
-### Tache 4 : Mettre a jour le check type `tool-call`
-
-Le check `tool-call` dans ContractTestRunner doit aussi lire `_capturedToolCalls` :
-
-```csharp
-case "tool-call":
-{
-    var toolName = check.GetProperty("toolName").GetString() ?? "";
-    var passed = response.Contains(toolName, StringComparison.OrdinalIgnoreCase);
-
-    // Check in captured tool calls (from mock blocks via _toolMapping)
-    if (!passed && blockOutputs != null &&
-        blockOutputs.TryGetValue("_capturedToolCalls", out var captured))
-    {
-        passed = captured?.ToString()?.Contains(toolName, StringComparison.OrdinalIgnoreCase) ?? false;
-    }
-
-    // Original: check _toolCalls
-    if (!passed && blockOutputs != null &&
-        blockOutputs.TryGetValue("_toolCalls", out var tc))
-    {
-        passed = tc?.ToString()?.Contains(toolName, StringComparison.OrdinalIgnoreCase) ?? false;
-    }
-
-    // Check requiredArgs in captured tool calls if specified
-    // ...
-}
-```
-
-### Tache 5 : Ajouter un check type `captured-content`
-
-Nouveau check type pour verifier le contenu capture par les mock blocks :
-
-```json
-{
-  "type": "captured-content",
-  "toolName": "file-write",
-  "pathContains": "block.json",
-  "contentCheck": "json-parseable"
-}
-```
-
-Ce check :
-1. Cherche dans `_capturedToolCalls` un appel a `file-write` dont le `path` contient "block.json"
-2. Extrait le `content` de cet appel
-3. Applique le check `json-parseable` (ou `contains`, `contains-all`, etc.) sur le contenu
-
-Ceci permet de verifier que l'agent a ecrit un JSON valide sans modifier l'agent.
-
-### Verification 62-A
-
-- [ ] `_toolMapping` fonctionne : tool-dispatcher redirige vers le mock block
-- [ ] `capture-file-write` capture les appels et retourne un succes simule
-- [ ] `capture-file-read` retourne le contenu capture si un write precedent existe
-- [ ] ContractTestRunner injecte `_toolMapping` pour les agents
-- [ ] Le check `tool-call` lit `_capturedToolCalls`
-- [ ] Le check `captured-content` verifie le contenu des fichiers captures
-- [ ] `dotnet build` : 0 erreurs
-- [ ] Tests unitaires pour chaque mock block
-- [ ] Tests unitaires pour `_toolMapping` dans tool-dispatcher
+62-A et 62-B solidifient l'enforcement. 62-C rend les agents coherents avec le container. 62-D expose la gestion a l'utilisateur.
 
 ---
 
-## 62-B : Resolution Conflits Providers
+## 62-A : Permission enforcement (EN COURS)
 
-### Probleme
+### Ce qui est fait
+- `CheckToolPermission()` dans ToolDispatcherBlockExecutor — 2 couches (BlockPermission rules + AllowedBlocks whitelist)
+- `BuildExecutionContext` propage `_permissions_allowedBlocks` et `_permissions_blockRules`
+- Fail-closed : permissions absentes → tool refuse
+- Tests unitaires : EN COURS (besoin de finaliser apres correction fail-closed)
 
-Quand plusieurs providers supportent le meme modele (ex: ClaudeCode et Anthropic supportent tous les deux `claude-sonnet-4-6`), le systeme doit :
-1. **Detecter** le conflit au demarrage ou quand un provider devient disponible
-2. **Informer** l'utilisateur qu'il y a un conflit
-3. **Demander** quel provider il prefere pour chaque modele en conflit
-4. **Sauvegarder** la preference (persistee dans la config)
-5. **Permettre** de changer la preference a tout moment
-
-### Implementation
-
-#### Backend (LLM-Provider)
-
-1. **Detection des conflits** dans `LLMProviderFactory` :
-   - Apres enregistrement de tous les providers, scanner `GetAvailableModelsAsync` pour chaque provider
-   - Si un modelId apparait dans 2+ providers → conflit
-   - Stocker les conflits dans une structure accessible via API
-
-2. **API endpoint** : `GET /api/v1/providers/conflicts`
-   ```json
-   {
-     "conflicts": [
-       {
-         "modelId": "claude-sonnet-4-6",
-         "providers": ["Anthropic", "ClaudeCode"],
-         "preferred": "Anthropic",
-         "reason": "user-configured"
-       }
-     ]
-   }
-   ```
-
-3. **API endpoint** : `PUT /api/v1/providers/priority`
-   ```json
-   { "modelId": "claude-sonnet-4-6", "preferredProvider": "Anthropic" }
-   ```
-
-4. **Config persistee** : `Providers:Priority` dans appsettings ou .env
-   ```json
-   {
-     "Providers": {
-       "Priority": {
-         "claude-sonnet-4-6": "Anthropic",
-         "claude-haiku-4-5-20251001": "Anthropic"
-       }
-     }
-   }
-   ```
-
-5. **`GetProviderForModelAsync`** verifie d'abord la preference :
-   ```csharp
-   // Check configured priority first
-   if (_priorityConfig.TryGetValue(modelId, out var preferredType))
-   {
-       var preferred = availableProviders.FirstOrDefault(p => p.ProviderType == preferredType);
-       if (preferred != null) return preferred;
-   }
-   // Fallback: first available
-   ```
-
-#### TUI (maestro-code)
-
-- Au setup ou quand un conflit est detecte, afficher un choix :
-  ```
-  Multiple providers support claude-sonnet-4-6:
-    > Anthropic (direct API, ~2s/call, $3/$15 per MTok)
-      ClaudeCode (CLI wrapper, ~8s/call, subscription)
-
-  [j/k] Navigate  [Enter] Select
-  ```
-- Page Models : montrer le provider actif pour chaque modele, permettre de changer
-
-### Verification 62-B
-
-- [ ] Conflits detectes au demarrage
-- [ ] API `GET /api/v1/providers/conflicts` retourne les conflits
-- [ ] API `PUT /api/v1/providers/priority` sauvegarde la preference
-- [ ] `GetProviderForModelAsync` utilise la preference configuree
-- [ ] L'utilisateur peut changer la preference (TUI ou config)
+### Ce qui reste
+- Finaliser les tests (corriger ceux affectes par le changement fail-closed)
+- Verifier que les sessions existantes ne sont pas cassees (ContextPermissions.Full = AllowedBlocks = ["*"])
+- Verifier le ContractTestRunner : doit definir AllowedBlocks dans les sessions de test
 
 ---
 
-## 62-C : Condenser System Prompt + Creer Agents via Foundry
+## 62-B : Tests E2E de l'arbre (A FAIRE)
 
-### Prerequis
+### Scenarios a tester
 
-- 62-A DONE (mock blocks fonctionnels → contract tests fiables)
-- 62-B DONE (provider Anthropic direct utilise → tests rapides)
-
-### Etape 1 : Condenser le system prompt
-
-Reduire de 994 → ~400-500 lignes. Strategie guidee par les donnees de 61-C.
-
-**Garder** :
-- Role et objectif (~20L)
-- Tools JSON schema (obligatoire pour tool-calling, ~80L)
-- step-complete format et champs requis (~20L)
-- Iteration budget et strategie (~10L)
-- Un exemple minimal de block.json (~30L)
-
-**Condenser** :
-- Anatomy of block.json → schema annote
-- System prompt writing rules → 3 regles essentielles
-
-**Retirer** :
-- Exemples de block.json complets (sauf 1 court)
-- Anti-patterns detailles
-- Model tier guidelines
-- Documentation des champs optionnels
-
-**Verification** : re-tester le contract avec mock blocks pour confirmer 0 regression.
-
-### Etape 2 : Creer agents via foundry
-
-Pour chaque agent (agent-creator, test-designer) :
-
-1. Baseline : tester le contract avec mock blocks → noter le fitness
-2. Iterer le system prompt (max 5 iterations)
-3. Tester avec 2+ modeles
-4. Publier si fitness > 0.5
-
-Documenter dans `foundry-iterations.md` et `benchmark-results.md`.
-
-### Criteres de succes
-
-- System prompt < 500 lignes, 0 regression
-- agent-creator : fitness >= 0.5
-- test-designer : fitness >= 0.5
-- Au moins 2 modeles testes
-- Cout total documente
+1. **Workspace → Session → tool call** : permissions du workspace limitent la session
+2. **Session → Child Session → tool call** : intersection des permissions
+3. **Child ne peut pas escalader** : meme si child demande plus, effective = intersection
+4. **Couts remontent dans l'arbre** : child accumule → parent accumule le child
+5. **_toolMapping + permissions** : mapping redirige, permissions filtrent
+6. **ContractTestRunner** : session de test avec permissions restreintes (seuls les tools mappes)
+7. **Agent toujours en child session** : meme avec AllowedBlocks = ["*"], l'agent est isole
 
 ---
 
-## 62-D : Live Execution View dans le TUI
+## 62-C : System prompt dynamique (A FAIRE)
 
-### Objectif
+### Probleme actuel
 
-Quand block-forge tourne via `/create-agent`, le TUI montre en temps reel :
-- L'agent actif et son iteration
-- Les tool calls au fur et a mesure
-- Le cout cumule
-- Cancel via Esc
+Les system prompts des agents listent les tools en dur dans `system-prompt.md` :
 
-### Mockup
-
-```
-Creating agent via block-forge workflow...
-  Description: An agent that reviews TypeScript code
-  Contract:    code-reviewer
-
-  -- test-designer ----------- iter 2/12 --- $0.012 --
-  [ok] directory-list content/system/contracts/
-  [ok] file-read code-reviewer.contract.json
-  [->] file-write test-suite.json
-
-  -- agent-creator ----------- iter 5/12 --- $0.048 --
-  [ok] file-read code-reviewer.contract.json
-  [ok] file-write code-reviewer.agent.block.json
-  [ok] contract-test code-reviewer -> fitness: 0.35
-  [->] contract-test code-reviewer...
-
-  Cost: $0.060 | Time: 2m 15s
-  [Esc to cancel]
+```markdown
+## Available Tools
+### file-read
+{"name": "file-read", "description": "Read a file", "parameters": {...}}
+### file-write
+{"name": "file-write", "description": "Write a file", "parameters": {...}}
+### shell-execute
+{"name": "shell-execute", "description": "Execute a command", "parameters": {...}}
 ```
 
-### Implementation
+C'est statique. Si la session retire `shell-execute` des permissions, l'agent le voit quand meme, l'appelle, se fait refuser, gaspille des tokens.
 
-1. Copier resume structure child → parent dans `BlockRefHandler`
-2. TUI poll la session parent, lit `_childLog_{nodeId}` et `_childIteration_{nodeId}`
-3. Cancel via `useInput` handler → `POST /api/sessions/<id>/stop`
+### Solution
+
+L'injection des tools est de l'infrastructure (`AgentBlockExecutor`), pas un block.
+
+#### 1. Retirer la section tools du system prompt statique
+
+Dans chaque `system-prompt.md` d'agent, remplacer la section "Available Tools" (avec les JSON schemas) par un marqueur :
+
+```markdown
+## Available Tools
+
+{{available_tools}}
+```
+
+Le reste du system prompt (role, instructions, format de reponse, exemples) reste statique dans le fichier.
+
+#### 2. AgentBlockExecutor.PrepareExecutionAsync assemble le prompt
+
+Quand l'agent demarre, dans `PrepareExecutionAsync` (C# infrastructure, PAS un block) :
+
+1. Charger le system prompt depuis `system-prompt.md`
+2. Lire les `AllowedBlocks` de la session (depuis le context d'execution)
+3. Pour chaque tool autorise, charger sa description depuis son `block.json` via `IBlockDiscoveryService`
+4. Generer la section "Available Tools" avec les JSON schemas
+5. Remplacer `{{available_tools}}` dans le system prompt
+6. Creer la conversation avec le system prompt assemble
+
+#### 3. Les block.json des tools contiennent deja les schemas
+
+Chaque tool block (`file-read.tool.block.json`, etc.) a deja un champ `description` et `config.inputs` qui decrit ses parametres. On n'a pas besoin de dupliquer — on lit le block.json et on genere le schema.
+
+#### 4. Aucun changement pour l'utilisateur qui cree des blocks
+
+L'utilisateur qui cree un agent via block-forge n'a PAS besoin de lister les tools. Il ecrit son system prompt avec `{{available_tools}}` et les tools sont injectes automatiquement. C'est plus simple qu'avant, pas plus complexe.
+
+### Ce qui change
+
+| Avant | Apres |
+|-------|-------|
+| Tools listes en dur dans system-prompt.md | `{{available_tools}}` dans system-prompt.md |
+| Agent voit tous les tools, meme ceux interdits | Agent ne voit que les tools de sa session |
+| Modifier les tools = modifier le system prompt | Modifier les tools = modifier les permissions de la session |
+| Chaque agent duplique les memes schemas | Schemas charges depuis les block.json des tools |
+| L'agent est lie a ses tools | L'agent est portable (memes instructions, tools differents) |
+
+### Verification 62-C
+
+- [ ] `{{available_tools}}` resolu par AgentBlockExecutor.PrepareExecutionAsync
+- [ ] Tools generes depuis les block.json (pas dupliques)
+- [ ] Seuls les tools autorises par la session sont injectes
+- [ ] Les agents existants fonctionnent (migration des 19 system prompts)
+- [ ] Contract tests : l'agent ne voit que les tools mappes
+- [ ] Agent avec AllowedBlocks=["*"] voit tous les tools (comportement par defaut)
+- [ ] Agent avec AllowedBlocks restreints ne voit que les tools autorises
+- [ ] Tests unitaires pour l'assemblage du system prompt
 
 ---
 
-## 62-T : Tests + Validation
+## 62-D : API et CLI de gestion des permissions (A FAIRE)
 
-### Tests unitaires
-- `_toolMapping` dans ToolDispatcherBlockExecutor (3+ tests)
-- Mock blocks : capture-file-write, capture-file-read (4+ tests)
-- `captured-content` check type (2+ tests)
-- Provider conflict detection (2+ tests)
-- TUI polling enrichi (2+ tests)
+### API
 
-### Tests d'integration
-- Contract test avec mock blocks : agent-creator fitness verifie
-- Block-forge E2E via CLI ou TUI
-- Provider priority appliquee
+- `GET /api/sessions/{id}/permissions/effective` — permissions effectives (apres intersection parents)
+- `PUT /api/sessions/{id}/permissions` — definir les AllowedBlocks
+- `PUT /api/sessions/{id}/block-rules` — definir les regles BlockPermission (deny/allow/requires-approval)
+- `GET /api/workspaces/{id}/tree` — arbre de sessions avec permissions et couts par niveau
 
-### Dogfooding
-- `/create-agent` dans le TUI avec live view
-- Verifier fitness > 0.5
+### CLI
+
+- `maestro session permissions <id>` — voir les permissions effectives
+- `maestro session restrict <id> --allow file-read,file-write --deny shell-execute`
+- `maestro workspace tree <id>` — voir l'arbre avec permissions et couts
+
+---
+
+## 62-E : TUI — FocusProvider + Visibilite (DECIDEE)
+
+**Decision (2026-03-18)** : Rester sur Ink mais construire un `FocusProvider` (React Context) avec layers de priorite (modal > input > panel > page). Resout le probleme fondamental de focus management sans changer de framework. Alternatives evaluees et rejetees : web app locale, Electron/Tauri, Textual/Bubbletea, reduction de scope.
+
+Points a implementer :
+- FocusProvider + useManagedInput hook (~200-300 lignes)
+- Migration incrementale de tous les useInput existants
+- Page Spaces : arbre avec permissions et couts
+- AgentPanel : permissions de l'agent en cours (lecture seule V1)
+
+Voir `62-E-tui-visibility.md` pour les details complets.
 
 ---
 
 ## Definition of Done
 
-- [ ] `_toolMapping` fonctionne dans ToolDispatcherBlockExecutor
-- [ ] 3 mock blocks crees et testes (capture-file-write, capture-file-read, capture-shell-execute)
-- [ ] ContractTestRunner injecte `_toolMapping` pour les agents
-- [ ] Check type `captured-content` fonctionne
-- [ ] Conflits de providers detectes et resolvables par l'utilisateur
-- [ ] System prompt condense : < 500 lignes, 0 regression
-- [ ] agent-creator : fitness >= 0.5 (avec mock blocks)
-- [ ] test-designer : fitness >= 0.5 (avec mock blocks)
-- [ ] Live execution view fonctionnelle
-- [ ] Cancel (Esc) fonctionne
+- [ ] `CheckToolPermission` fonctionne en fail-closed
+- [ ] Tests E2E : Workspace → Session → Child → Agent tool call
+- [ ] Permissions propagees correctement (intersection parents)
+- [ ] Child ne peut pas escalader les permissions
+- [ ] Agent toujours en child session (meme avec toutes les permissions)
+- [ ] Couts remontent dans l'arbre
+- [ ] System prompt dynamique : `{{available_tools}}` resolu par AgentBlockExecutor (infrastructure)
+- [ ] Injection des tools = infrastructure, pas un block dans config.nodes
+- [ ] Tous les agents beneficient automatiquement (via AgentBlockExecutor)
+- [ ] Agents existants migres (tools retires du system prompt statique, remplaces par marqueur)
+- [ ] ContractTestRunner configure les permissions dans les sessions de test
+- [ ] API de gestion des permissions (GET effective, PUT permissions, PUT block-rules)
+- [ ] CLI : `maestro session permissions`, `maestro session restrict`
 - [ ] Tous les tests passent, 0 regression
 - [ ] `dotnet build` : 0 erreurs
-- [ ] `npx tsc --noEmit` : 0 erreurs
 
 ### NOT in scope
-
-- /adapt workflow (Phase 63)
-- Production de ~30 variantes (Phase 64)
-- Nouveaux contracts
-- Modification de AgentBlockExecutor (tout passe par les blocks)
+- Migration complete du TUI vers un autre framework (Ink reste, FocusProvider ajouté en 62-E)
+- Agents fonctionnels / creation de nouveaux agents (Phase 63)
+- Portabilite IDE / tools fournis par un systeme externe (V2 — l'architecture le permet mais on ne l'implemente pas)
+- /adapt workflow (Phase 64)

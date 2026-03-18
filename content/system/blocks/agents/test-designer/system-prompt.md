@@ -198,11 +198,13 @@ The ACTION line must contain a valid JSON tool call.
 
 ## 9. Available Tools
 
-- **Read file**: `{"tool":"file-read","args":{"path":"/absolute/path/to/file"}}`
-- **Write file**: `{"tool":"file-write","args":{"path":"/absolute/path/to/file","content":"file content"}}`
-- **List directory**: `{"tool":"directory-list","args":{"path":"/absolute/path/to/dir"}}`
-- **Validate JSON**: `{"tool":"json-validator","args":{"data":"json string to validate"}}`
-- **Finish**: `{"tool":"step-complete","args":{"summary":"Generated N tests across M features","testFiles":["/path/to/file"]}}`
+{{available_tools}}
+
+### step-complete
+Signal that you have completed test design. MANDATORY to call when done.
+```json
+{"tool":"step-complete","args":{"summary":"Generated N tests across M features","testFiles":["/path/to/file"]}}
+```
 
 ## 10. Rules
 

@@ -1,0 +1,310 @@
+{
+  "id": "faf9bb4a-3e66-4680-831b-615aea3971d0",
+  "name": "maestro-cli \u2014 bonjour",
+  "status": "idle",
+  "terminalReason": "none",
+  "authority": "human",
+  "workingDirectory": ".",
+  "repositoryPath": "C:\\Meastro\\packages\\maestro-cli",
+  "parentWorkspaceId": null,
+  "parentSessionId": null,
+  "config": {
+    "projectId": null,
+    "workflowId": null,
+    "task": null,
+    "context": null,
+    "access": {
+      "level": "controlled",
+      "allowedPaths": [],
+      "deniedPaths": [
+        ".env",
+        "*.env",
+        "secrets/**"
+      ],
+      "requireApprovalPaths": []
+    },
+    "validation": {
+      "runTests": false,
+      "testCommand": null,
+      "runLinter": false,
+      "linterCommand": null,
+      "requireCleanDiff": false,
+      "maxSteps": 50,
+      "timeoutMs": 600000
+    },
+    "inputs": {}
+  },
+  "createdAt": "2026-03-18T13:50:39.0154631+00:00",
+  "startedAt": "2026-03-18T13:50:39.6961528+00:00",
+  "completedAt": null,
+  "updatedAt": "2026-03-18T13:51:07.1522561+00:00",
+  "commandCount": 0,
+  "modifiedFiles": [],
+  "errorMessage": null,
+  "testResult": null,
+  "linterResult": null,
+  "commitInfo": null,
+  "variables": {
+    "sessionMode": "assistant",
+    "_activeAgent": "system:maestro-assistant",
+    "_activeConversation": "ca14c242065540d689ee1f199112d9ac",
+    "_conversations": [],
+    "_blockOutputs": {
+      "create-initial-conversation": {
+        "type": "block",
+        "output": "ca14c242065540d689ee1f199112d9ac",
+        "timestamp": "13:50:39"
+      },
+      "ensure-conversation": {
+        "type": "conditional",
+        "output": "ca14c242065540d689ee1f199112d9ac",
+        "timestamp": "13:50:40"
+      },
+      "save-user-message": {
+        "type": "block",
+        "output": "{\u0022conversationId\u0022:\u0022ca14c242065540d689ee1f199112d9ac\u0022,\u0022state\u0022:{\u0022conversationId\u0022:\u0022ca14c242065540d689ee1f199112d9ac\u0022,\u0022systemMessageCount\u0022:0,\u0022historyMessageCount\u0022:1,\u0022totalMessageCount\u0022:1,\u0022estimatedSystemTokens\u0022:0,\u0022estimatedHistoryTokens\u0022:2,\u0022estimatedTotalTokens\u0022:2,\u0022createdAt\u0022:\u00222026-03-18T13:50:39.8859110\\u002B00:00\u0022,\u0022lastUpdatedAt\u0022:\u00222026-03-18T13:50:40.4320069\\u002B00:00\u0022}}",
+        "timestamp": "13:50:40"
+      },
+      "load-history": {
+        "type": "block",
+        "output": "[{\u0022role\u0022:\u0022user\u0022,\u0022content\u0022:\u0022bonjour\u0022}]",
+        "timestamp": "13:50:41"
+      },
+      "execute-agent": {
+        "type": "block",
+        "output": "Bonjour ! Je suis l\u0027assistant Maestro, votre orchestrateur conversationnel int\u00E9gr\u00E9 au TUI maestro-code.\n\nJe peux vous aider \u00E0 :\n- **G\u00E9rer vos projets** \u2014 cr\u00E9er des workspaces, lancer des sessions de dev\n- **Entra\u00EEner des blocs** \u2014 sessions Foundry, tests, publication\n- **Diagnostiquer des probl\u00E8mes** \u2014 analyser les erreurs, inspecter les variables de session\n- **R\u00E9pondre \u00E0 vos questions** \u2014 sur Maestro, l\u0027architecture, ou autre chose\n\nQue puis-je faire pour vous aujourd\u0027hui ?",
+        "timestamp": "13:51:06"
+      },
+      "save-assistant-response": {
+        "type": "block",
+        "output": "{\u0022conversationId\u0022:\u0022ca14c242065540d689ee1f199112d9ac\u0022,\u0022state\u0022:{\u0022conversationId\u0022:\u0022ca14c242065540d689ee1f199112d9ac\u0022,\u0022systemMessageCount\u0022:0,\u0022historyMessageCount\u0022:2,\u0022totalMessageCount\u0022:2,\u0022estimatedSystemTokens\u0022:0,\u0022estimatedHistoryTokens\u0022:122,\u0022estimatedTotalTokens\u0022:122,\u0022createdAt\u0022:\u00222026-03-18T13:50:39.8859110\\u002B00:00\u0022,\u0022lastUpdatedAt\u0022:\u00222026-03-18T13:51:06.6484181\\u002B00:00\u0022}}",
+        "timestamp": "13:51:06"
+      }
+    },
+    "_llmActivity": [
+      {
+        "type": "conversation",
+        "blockRef": "conversation",
+        "response": "ca14c242065540d689ee1f199112d9ac",
+        "timestamp": "2026-03-18T13:50:39.8893678Z",
+        "toolCalls": "",
+        "tokens": 0
+      },
+      {
+        "type": "conversation",
+        "blockRef": "conversation",
+        "response": "[{\u0022role\u0022:\u0022user\u0022,\u0022content\u0022:\u0022bonjour\u0022}]",
+        "timestamp": "2026-03-18T13:50:41.0151670Z",
+        "toolCalls": "",
+        "tokens": 0
+      },
+      {
+        "type": "agent",
+        "blockRef": "system:maestro-assistant",
+        "response": "Bonjour ! Je suis l\u0027assistant Maestro, votre orchestrateur conversationnel int\u00E9gr\u00E9 au TUI maestro-code.\n\nJe peux vous aider \u00E0 :\n- **G\u00E9rer vos projets** \u2014 cr\u00E9er des workspaces, lancer des sessions de dev\n- **Entra\u00EEner des blocs** \u2014 sessions Foundry, tests, publication\n- **Diagnostiquer des probl\u00E8mes** \u2014 analyser les erreurs, inspecter les variables de session\n- **R\u00E9pondre \u00E0 vos questions** \u2014 sur Maestro, l\u0027architecture, ou autre chose\n\nQue puis-je faire pour vous aujourd\u0027hui ?",
+        "timestamp": "2026-03-18T13:51:06.1233093Z",
+        "toolCalls": "",
+        "tokens": 219
+      }
+    ],
+    "_executionLog": [
+      {
+        "time": "13:50:39",
+        "level": "warning",
+        "msg": "Missing dependency: blockRef \u0027{{_activeAgent}}\u0027 referenced by \u0027maestro-assistant-workflow\u0027 node \u0027{{_activeAgent}}\u0027"
+      },
+      {
+        "time": "13:50:39",
+        "level": "info",
+        "msg": "Starting workflow: maestro-assistant-workflow"
+      },
+      {
+        "time": "13:50:39",
+        "level": "info",
+        "msg": "Conditional \u0027ensure-conversation\u0027: \u0027{{_activeConversation}} != \u0022\u0022\u0027 -\u003E \u0027 != \u0022\u0022\u0027 -\u003E False"
+      },
+      {
+        "time": "13:50:39",
+        "level": "info",
+        "msg": "Executing blockRef \u0027conversation\u0027 (type: conversation) with 2 inputs"
+      },
+      {
+        "time": "13:50:39",
+        "level": "info",
+        "msg": "[conversation] Conversation created: ca14c242065540d689ee1f199112d9ac"
+      },
+      {
+        "time": "13:50:39",
+        "level": "success",
+        "msg": "blockRef \u0027conversation\u0027 completed (32 chars)"
+      },
+      {
+        "time": "13:50:40",
+        "level": "info",
+        "msg": "set-variable \u0027set-active-conversation\u0027: stored plain text in \u0027_activeConversation\u0027 (32 chars)"
+      },
+      {
+        "time": "13:50:40",
+        "level": "success",
+        "msg": "ensure-conversation: Completed (32 chars)"
+      },
+      {
+        "time": "13:50:40",
+        "level": "info",
+        "msg": "Executing blockRef \u0027conversation\u0027 (type: conversation) with 5 inputs"
+      },
+      {
+        "time": "13:50:40",
+        "level": "info",
+        "msg": "[conversation] Message added: user (7 chars)"
+      },
+      {
+        "time": "13:50:40",
+        "level": "success",
+        "msg": "blockRef \u0027conversation\u0027 completed (372 chars)"
+      },
+      {
+        "time": "13:50:40",
+        "level": "info",
+        "msg": "Executing blockRef \u0027conversation\u0027 (type: conversation) with 3 inputs"
+      },
+      {
+        "time": "13:50:41",
+        "level": "success",
+        "msg": "blockRef \u0027conversation\u0027 completed (37 chars)"
+      },
+      {
+        "time": "13:50:41",
+        "level": "info",
+        "msg": "Executing blockRef \u0027system:maestro-assistant\u0027 (type: agent) with 4 inputs"
+      },
+      {
+        "time": "13:50:41",
+        "level": "info",
+        "msg": "Created child session \u002707c6ba10-0770-402d-9dca-97037744a449\u0027 for agent blockRef \u0027system:maestro-assistant\u0027"
+      },
+      {
+        "time": "13:51:06",
+        "level": "info",
+        "msg": "Agent blockRef \u0027system:maestro-assistant\u0027 completed in child session \u002707c6ba10-0770-402d-9dca-97037744a449\u0027"
+      },
+      {
+        "time": "13:51:06",
+        "level": "success",
+        "msg": "blockRef \u0027system:maestro-assistant\u0027 completed (480 chars)"
+      },
+      {
+        "time": "13:51:06",
+        "level": "info",
+        "msg": "Executing blockRef \u0027conversation\u0027 (type: conversation) with 5 inputs"
+      },
+      {
+        "time": "13:51:06",
+        "level": "info",
+        "msg": "[conversation] Message added: assistant (480 chars)"
+      },
+      {
+        "time": "13:51:06",
+        "level": "success",
+        "msg": "blockRef \u0027conversation\u0027 completed (376 chars)"
+      }
+    ],
+    "_executionTree": [
+      {
+        "id": "ensure-conversation",
+        "name": "Ensure Conversation",
+        "status": "done",
+        "children": [],
+        "output": "ca14c242065540d689ee1f199112d9ac"
+      },
+      {
+        "id": "save-user-message",
+        "name": "Save User Message",
+        "status": "done",
+        "children": [],
+        "output": "{\u0022conversationId\u0022:\u0022ca14c242065540d689ee1f199112d9ac\u0022,\u0022state\u0022:{\u0022conversationId\u0022:\u0022ca14c242065540d689ee1f199112d9ac\u0022,\u0022systemMessageCount\u0022:0,\u0022historyMessageCount\u0022:1,\u0022totalMessageCount\u0022:1,\u0022estimatedSystemTokens\u0022:0,\u0022estimatedHistoryTokens\u0022:2,\u0022estimatedTotalTokens\u0022:2,\u0022createdAt\u0022:\u00222026-03-18T13:50:39.8859110\\u002B00:00\u0022,\u0022lastUpdatedAt\u0022:\u00222026-03-18T13:50:40.4320069\\u002B00:00\u0022}}"
+      },
+      {
+        "id": "load-history",
+        "name": "Load History",
+        "status": "done",
+        "children": [],
+        "output": "[{\u0022role\u0022:\u0022user\u0022,\u0022content\u0022:\u0022bonjour\u0022}]"
+      },
+      {
+        "id": "execute-agent",
+        "name": "Execute Agent",
+        "status": "done",
+        "children": [],
+        "output": "Bonjour ! Je suis l\u0027assistant Maestro, votre orchestrateur conversationnel int\u00E9gr\u00E9 au TUI maestro-code.\n\nJe peux vous aider \u00E0 :\n- **G\u00E9rer vos projets** \u2014 cr\u00E9er des workspaces, lancer des sessions de dev\n- **Entra\u00EEner des blocs** \u2014 sessions Foundry, tests, publication\n- **Diagnostiquer des probl\u00E8mes** \u2014 analyser les erreurs, inspecter les variables de session\n- **R\u00E9pondre \u00E0 vos questions** \u2014 sur Maestro, l\u0027architecture, ou autre chose\n\nQue puis-je faire pour vous aujourd\u0027hui ?"
+      },
+      {
+        "id": "save-assistant-response",
+        "name": "Save Assistant Response",
+        "status": "done",
+        "children": [],
+        "output": "{\u0022conversationId\u0022:\u0022ca14c242065540d689ee1f199112d9ac\u0022,\u0022state\u0022:{\u0022conversationId\u0022:\u0022ca14c242065540d689ee1f199112d9ac\u0022,\u0022systemMessageCount\u0022:0,\u0022historyMessageCount\u0022:2,\u0022totalMessageCount\u0022:2,\u0022estimatedSystemTokens\u0022:0,\u0022estimatedHistoryTokens\u0022:122,\u0022estimatedTotalTokens\u0022:122,\u0022createdAt\u0022:\u00222026-03-18T13:50:39.8859110\\u002B00:00\u0022,\u0022lastUpdatedAt\u0022:\u00222026-03-18T13:51:06.6484181\\u002B00:00\u0022}}"
+      }
+    ],
+    "_monitorDescriptor": {
+      "layout": {
+        "mode": "split-horizontal",
+        "zones": {
+          "top": {
+            "height": "60%"
+          },
+          "bottom": {
+            "height": "40%"
+          }
+        }
+      },
+      "components": [
+        {
+          "id": "exec-tree",
+          "type": "execution-tree",
+          "zone": "top",
+          "data": "$.variables._executionTree"
+        },
+        {
+          "id": "exec-log",
+          "type": "log-panel",
+          "zone": "bottom",
+          "data": "$.variables._executionLog"
+        }
+      ]
+    },
+    "_artifacts": [],
+    "_phaseMetrics": {},
+    "_activeWorkflow": "",
+    "message": "bonjour",
+    "repoPath": "C:\\Meastro\\packages\\maestro-cli",
+    "_activeBlock": null,
+    "_accumulatedCost": "0.003255",
+    "_accumulatedPromptTokens": "3",
+    "_accumulatedCompletionTokens": "216",
+    "_nodeResult_create-initial-conversation": "ca14c242065540d689ee1f199112d9ac",
+    "_workflowCheckpoint": null,
+    "_nodeResult_ensure-conversation": "ca14c242065540d689ee1f199112d9ac",
+    "_nodeResult_save-user-message": "{\u0022conversationId\u0022:\u0022ca14c242065540d689ee1f199112d9ac\u0022,\u0022state\u0022:{\u0022conversationId\u0022:\u0022ca14c242065540d689ee1f199112d9ac\u0022,\u0022systemMessageCount\u0022:0,\u0022historyMessageCount\u0022:1,\u0022totalMessageCount\u0022:1,\u0022estimatedSystemTokens\u0022:0,\u0022estimatedHistoryTokens\u0022:2,\u0022estimatedTotalTokens\u0022:2,\u0022createdAt\u0022:\u00222026-03-18T13:50:39.8859110\\u002B00:00\u0022,\u0022lastUpdatedAt\u0022:\u00222026-03-18T13:50:40.4320069\\u002B00:00\u0022}}",
+    "_nodeResult_load-history": "[{\u0022role\u0022:\u0022user\u0022,\u0022content\u0022:\u0022bonjour\u0022}]",
+    "_agentResult_system:maestro-assistant": "Bonjour ! Je suis l\u0027assistant Maestro, votre orchestrateur conversationnel int\u00E9gr\u00E9 au TUI maestro-code.\n\nJe peux vous aider \u00E0 :\n- **G\u00E9rer vos projets** \u2014 cr\u00E9er des workspaces, lancer des sessions de dev\n- **Entra\u00EEner des blocs** \u2014 sessions Foundry, tests, publication\n- **Diagnostiquer des probl\u00E8mes** \u2014 analyser les erreurs, inspecter les variables de session\n- **R\u00E9pondre \u00E0 vos questions** \u2014 sur Maestro, l\u0027architecture, ou autre chose\n\nQue puis-je faire pour vous aujourd\u0027hui ?",
+    "_childSession_execute-agent": "07c6ba10-0770-402d-9dca-97037744a449",
+    "_nodeResult_execute-agent": "Bonjour ! Je suis l\u0027assistant Maestro, votre orchestrateur conversationnel int\u00E9gr\u00E9 au TUI maestro-code.\n\nJe peux vous aider \u00E0 :\n- **G\u00E9rer vos projets** \u2014 cr\u00E9er des workspaces, lancer des sessions de dev\n- **Entra\u00EEner des blocs** \u2014 sessions Foundry, tests, publication\n- **Diagnostiquer des probl\u00E8mes** \u2014 analyser les erreurs, inspecter les variables de session\n- **R\u00E9pondre \u00E0 vos questions** \u2014 sur Maestro, l\u0027architecture, ou autre chose\n\nQue puis-je faire pour vous aujourd\u0027hui ?",
+    "_nodeResult_save-assistant-response": "{\u0022conversationId\u0022:\u0022ca14c242065540d689ee1f199112d9ac\u0022,\u0022state\u0022:{\u0022conversationId\u0022:\u0022ca14c242065540d689ee1f199112d9ac\u0022,\u0022systemMessageCount\u0022:0,\u0022historyMessageCount\u0022:2,\u0022totalMessageCount\u0022:2,\u0022estimatedSystemTokens\u0022:0,\u0022estimatedHistoryTokens\u0022:122,\u0022estimatedTotalTokens\u0022:122,\u0022createdAt\u0022:\u00222026-03-18T13:50:39.8859110\\u002B00:00\u0022,\u0022lastUpdatedAt\u0022:\u00222026-03-18T13:51:06.6484181\\u002B00:00\u0022}}",
+    "_workflowCheckpoint_whileState": null,
+    "_workflowCheckpoint_foreachIndex": null
+  },
+  "entryPoints": {
+    "message": "maestro-assistant-workflow",
+    "new-conversation": "maestro-new-conversation",
+    "clear-conversation": "maestro-clear-conversation"
+  },
+  "monitorWidgets": null,
+  "blockSearchPaths": [
+    "C:\\Meastro\\packages\\maestro-cli\\.maestro\\blocks"
+  ],
+  "defaultModel": null,
+  "modelOverrides": null,
+  "fileAccessRulesConfig": null,
+  "blockPermissionsConfig": null
+}

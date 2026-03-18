@@ -578,6 +578,43 @@ public class SessionsController : ControllerBase
     }
 
     /// <summary>
+    /// Get effective permissions with full context: own permissions, parent effective,
+    /// block rules, and parent info. Used for debugging and displaying the permission chain.
+    /// </summary>
+    [HttpGet("{id}/permissions/effective")]
+    public async Task<ActionResult> GetEffectivePermissions(string id)
+    {
+        var sessionId = SessionId.From(id);
+        var session = await _sessionServer.GetAsync(sessionId);
+        if (session == null)
+            return NotFound(new { error = $"Session '{id}' not found" });
+
+        var effective = session.GetEffectivePermissions();
+        var own = session.Permissions;
+        var parent = session.GetParentContext();
+
+        var response = new
+        {
+            sessionId = session.Id,
+            sessionName = session.Name,
+            effective = ContextPermissionsDto.FromDomain(effective),
+            own = ContextPermissionsDto.FromDomain(own),
+            parentId = session.ParentSessionId ?? session.ParentWorkspaceId,
+            parentEffective = parent != null
+                ? ContextPermissionsDto.FromDomain(parent.GetEffectivePermissions())
+                : null,
+            blockRules = session.BlockPermissions.Select(bp => new
+            {
+                pattern = bp.BlockPattern,
+                permission = bp.Permission.ToString(),
+                reason = bp.Reason
+            }).ToList()
+        };
+
+        return Ok(response);
+    }
+
+    /// <summary>
     /// Update permissions for a session.
     /// </summary>
     [HttpPut("{id}/permissions")]
@@ -599,6 +636,43 @@ public class SessionsController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to update permissions for session {SessionId}", id);
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Set block permission rules for a session.
+    /// </summary>
+    [HttpPut("{id}/block-rules")]
+    public async Task<ActionResult> SetBlockRules(
+        string id, [FromBody] UpdateBlockPermissionsRequest request)
+    {
+        var sessionId = SessionId.From(id);
+        var session = await _sessionServer.GetAsync(sessionId);
+        if (session == null)
+            return NotFound(new { error = $"Session '{id}' not found" });
+
+        try
+        {
+            var rules = request.Permissions.Select(p => p.ToDomain()).ToList();
+            session.SetBlockPermissions(rules);
+            await _sessionServer.SaveAsync(session);
+            _logger.LogInformation("Set {Count} block rules for session {SessionId}", rules.Count, id);
+
+            return Ok(new
+            {
+                sessionId = session.Id,
+                blockRules = session.BlockPermissions.Select(bp => new
+                {
+                    pattern = bp.BlockPattern,
+                    permission = bp.Permission.ToString(),
+                    reason = bp.Reason
+                }).ToList()
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to set block rules for session {SessionId}", id);
             return BadRequest(new { error = ex.Message });
         }
     }

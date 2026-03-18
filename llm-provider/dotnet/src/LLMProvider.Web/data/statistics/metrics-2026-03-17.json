@@ -1,5 +1,5 @@
 {
-  "totalRequests": 38,
+  "totalRequests": 213,
   "latency": {
     "p50": 0,
     "p95": 0,
@@ -7,28 +7,47 @@
     "average": 0
   },
   "totalTokens": {
-    "promptTokens": 150322,
-    "completionTokens": 30805,
-    "totalTokens": 181127
+    "promptTokens": 1265026,
+    "completionTokens": 199124,
+    "totalTokens": 1464150
   },
   "modelStats": [
     {
       "modelId": {
         "value": "claude-sonnet-4-6"
       },
-      "requestCount": 38,
+      "requestCount": 176,
       "latency": {
-        "p50": 10964,
-        "p95": 27322.449999999997,
-        "p99": 40042.680000000044,
-        "average": 15198.078947368422
+        "p50": 13620.5,
+        "p95": 28409.5,
+        "p99": 44515.25,
+        "average": 15440.198863636364
       },
       "totalTokens": {
-        "promptTokens": 150322,
-        "completionTokens": 30805,
-        "totalTokens": 181127
+        "promptTokens": 1264915,
+        "completionTokens": 157656,
+        "totalTokens": 1422571
       },
-      "requestsPerMinute": 0.4333624786136401,
+      "requestsPerMinute": 0.6278555345321494,
+      "errorRate": 0
+    },
+    {
+      "modelId": {
+        "value": "sonnet"
+      },
+      "requestCount": 37,
+      "latency": {
+        "p50": 23063,
+        "p95": 48047.79999999985,
+        "p99": 77291,
+        "average": 26181.54054054054
+      },
+      "totalTokens": {
+        "promptTokens": 111,
+        "completionTokens": 41468,
+        "totalTokens": 41579
+      },
+      "requestsPerMinute": 0.22628532276723326,
       "errorRate": 0
     }
   ],
@@ -58,7 +77,7 @@
         "p99": 0,
         "average": 0
       },
-      "tokensTotal": 181127
+      "tokensTotal": 1464150
     },
     {
       "windowName": "5m",
@@ -71,7 +90,7 @@
         "p99": 0,
         "average": 0
       },
-      "tokensTotal": 181127
+      "tokensTotal": 1464150
     },
     {
       "windowName": "15m",
@@ -84,8 +103,8 @@
         "p99": 0,
         "average": 0
       },
-      "tokensTotal": 181127
+      "tokensTotal": 1464150
     }
   ],
-  "generatedAt": "2026-03-17T18:36:01.6812676+00:00"
+  "generatedAt": "2026-03-17T22:27:01.8248914+00:00"
 }

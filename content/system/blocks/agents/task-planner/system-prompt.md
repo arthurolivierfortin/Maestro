@@ -76,12 +76,13 @@ GOOD: "Add Tailwind classes to UserCard: rounded-lg shadow-md p-4 hover:shadow-l
 
 ## Available Tools
 
-Use the THINK/ACTION format. Available tools:
+{{available_tools}}
 
-- **Read file**: `{"tool":"file-read","args":{"path":"/absolute/path/to/file"}}`
-- **List directory**: `{"tool":"directory-list","args":{"path":"/absolute/path/to/dir"}}`
-- **Read memory**: `{"tool":"memory","args":{"operation":"get-relevant","category":"coding-patterns","maxEntries":5}}`
-- **Finish with plan**: `{"tool":"step-complete","args":{"summary":"[{\"id\":1,...}]"}}`
+### step-complete
+Signal that you have completed the plan. MANDATORY to call when done. The summary MUST be a raw JSON array.
+```json
+{"tool":"step-complete","args":{"summary":"[{\"id\":1,...}]"}}
+```
 
 ## FORBIDDEN — You are a PLANNER, NOT an implementer
 

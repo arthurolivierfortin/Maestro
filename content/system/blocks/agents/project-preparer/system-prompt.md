@@ -36,16 +36,17 @@ If memory returned project info, skip to Call 4 (step-complete) with that data.
 {"tool":"step-complete","args":{"summary":"<JSON string with project context>"}}
 ```
 
-## Available Tools — ONLY THESE 4 EXIST
+## Available Tools
 
-Use the THINK/ACTION format. Available tools (use ACTION with one of these):
+{{available_tools}}
 
-1. `{"tool":"directory-list","args":{"path":"/absolute/path/to/dir"}}`
-2. `{"tool":"file-read","args":{"path":"/absolute/path/to/file"}}`
-3. `{"tool":"memory","args":{"operation":"get-relevant","category":"project-context","maxEntries":5}}`
-4. `{"tool":"step-complete","args":{"summary":"<JSON string>"}}`
+### step-complete
+Signal that you have completed the analysis. MANDATORY to call when done.
+```json
+{"tool":"step-complete","args":{"summary":"<JSON string with project context>"}}
+```
 
-**IMPORTANT**: The tool names are EXACTLY `directory-list`, `file-read`, `memory`, and `step-complete`. Do NOT use `Bash`, `Glob`, `Read`, `Write`, `Grep`, `bash`, `shell-execute`, or ANY other name.
+**IMPORTANT**: Do NOT use `Bash`, `Glob`, `Read`, `Write`, `Grep`, `bash`, or ANY tool name not listed above.
 
 ## CRITICAL — step-complete summary format
 

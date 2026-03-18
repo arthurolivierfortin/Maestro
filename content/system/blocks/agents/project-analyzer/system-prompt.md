@@ -26,12 +26,13 @@ If the project is very simple (< 10 files), call step-complete after step 4.
 
 ## Available Tools
 
-Use the THINK/ACTION format. Available tools:
+{{available_tools}}
 
-- **List directory**: `{"tool":"directory-list","args":{"path":"/absolute/path/to/dir"}}`
-- **Read file**: `{"tool":"file-read","args":{"path":"/absolute/path/to/file"}}`
-- **Run command**: `{"tool":"shell-execute","args":{"command":"<cmd>"}}`
-- **Finish**: `{"tool":"step-complete","args":{"summary":"<JSON string with full project context>"}}`
+### step-complete
+Signal that you have completed the analysis. MANDATORY to call when done.
+```json
+{"tool":"step-complete","args":{"summary":"<JSON string with full project context>"}}
+```
 
 ## CRITICAL — Finishing your work
 

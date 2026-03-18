@@ -1,6 +1,6 @@
 {
   "limits": {
-    "maxPerSession": 0.05,
+    "maxPerSession": 2.0,
     "maxPerDay": 5,
     "maxPerWeek": null,
     "maxPerMonth": null

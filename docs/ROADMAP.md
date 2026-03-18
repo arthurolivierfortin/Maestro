@@ -1,6 +1,6 @@
 # Maestro — Roadmap
 
-**Derniere mise a jour** : 2026-03-17
+**Derniere mise a jour** : 2026-03-18 (soir)
 **Version actuelle** : v0.1.0-alpha (tag sur main)
 
 ---
@@ -107,17 +107,19 @@
 === V1 ===
 9.  Agent Isolation (sessions enfants, I/O controle, permissions)      <- Phase 59
 10. Model Playground (tester un modele directement dans le TUI)       <- Phase 60
-11. Block-Forge Fiable (bugs, safety, validation contracts)           <- Phase 61 [EN COURS]
-12. Agents Fonctionnels (prompt condense, foundry, live view)         <- Phase 62
-13. /adapt = block-forge avec baseBlockId + contractRef               <- Phase 63
-14. Production variantes (benchmark multi-modeles sur contracts)      <- Phase 64
-15. Choix assistant au setup + Catalog par contract                    <- Phase 65
-16. Onboarding + Packaging npm (maestro init, first-run)              <- Phase 66
-17. V1 Deploy + Beta testing                                           <- Phase 67
+11. Block-Forge Fiable (bugs, safety, validation contracts)           <- Phase 61
+12. Container Isolation (permissions, arbre session/workspace, couts) <- Phase 62
+13. TUI Chat-First (refonte navigation + permissions visuelles)       <- Phase 63 [EN COURS]
+14. Agents Fonctionnels (prompt condense, foundry, live view)         <- Phase 64
+15. /adapt = block-forge avec baseBlockId + contractRef               <- Phase 65
+16. Production variantes (benchmark multi-modeles sur contracts)      <- Phase 66
+17. Choix assistant au setup + Catalog par contract                    <- Phase 67
+18. Onboarding + Packaging npm (maestro init, first-run)              <- Phase 68
+19. V1 Deploy + Beta testing                                           <- Phase 69
 
 === V2 ===
-18. Self-improvement loop (Maestro s'ameliore lui-meme)               <- Phase 68
-19. Catalogue communautaire (auth, publish, import par contract)      <- Phase 69
+20. Self-improvement loop (Maestro s'ameliore lui-meme)               <- Phase 70
+21. Catalogue communautaire (auth, publish, import par contract)      <- Phase 71
 ```
 
 ---
@@ -159,130 +161,161 @@
 
 ---
 
-### Phase 61 : Block-Forge Fiable — EN COURS
+### Phase 61 : Block-Forge Fiable — COMPLETE
 
 **But** : Rendre block-forge fiable en corrigeant les bugs bloquants, verifiant le provider, renforçant le pre-flight, et validant les contracts empiriquement. Aucun agent n'est cree dans cette phase.
-
-| Sous-phase | Objectif | Effort |
-|------------|----------|--------|
-| 61-A | Provider setup + verification des fixes (maxIterations, keepLastN, couts) | 0.5 jour |
-| 61-B | Pre-flight bloquant + loop detection verification | 0.5 jour |
-| 61-C | Validation empirique des contracts (1 jour complet) | 1 jour |
-| 61-T | Tests + verification finale | 0.5 jour |
-
-**Gate** : Provider verifie, fixes confirmes, pre-flight bloquant, contracts valides empiriquement, 1 execution E2E.
 
 **Plan detaille** : `docs/phases/PHASE-61/README.md`
 
 ---
 
-### Phase 62 : Agents Fonctionnels + Optimisation
+### Phase 62 : Container Isolation — EN COURS
 
-**But** : Condenser le system prompt (informe par les donnees de 61-C), creer 2 agents fonctionnels via foundry (fitness > 0.5), ajouter une live execution view dans le TUI.
+**But** : Solidifier la logique d'arbre Session/Workspace qui est la fondation de Maestro. Permissions, couts, metriques — tout passe par cet arbre. Le system prompt des agents doit refleter les permissions de la session (tools dynamiques, pas hardcodes). Si le bottleneck est fragile, tout ce qui est construit dessus est fragile.
+
+**Raison** : Decouvert pendant Phase 63-C que (1) ToolDispatcherBlockExecutor n'enforçait aucune permission, et (2) les system prompts listent des tools en dur — incoherent avec le modele container.
 
 | Sous-phase | Objectif | Effort |
 |------------|----------|--------|
-| 62-A | Condenser le system prompt (guide par 61-C) | 0.5 jour |
-| 62-B | Creer les agents via foundry pipeline (fitness > 0.5) | 1-1.5 jours |
-| 62-C | Live execution view dans le TUI | 1 jour |
+| 62-A | Permission enforcement dans ToolDispatcherBlockExecutor (fail-closed) | 0.5 jour |
+| 62-B | Tests E2E de l'arbre Workspace → Session → Child → Agent | 1 jour |
+| 62-C | System prompt dynamique (tools injectes par la session, pas hardcodes) | 1-1.5 jours |
+| 62-D | API et CLI de gestion des permissions | 0.5-1 jour |
+| 62-E | Discussion TUI (visibilite permissions, arbre, couts) | Discussion |
 | 62-T | Tests + validation | 0.5 jour |
 
-**Gate** : 2 agents avec fitness > 0.5, system prompt < 500 lignes, live view fonctionnelle.
+**Gate** : Permissions enforces fail-closed, tests E2E arbre complet, system prompt dynamique, API de gestion, 0 regression.
 
 **Plan detaille** : `docs/phases/PHASE-62/README.md`
 
 ---
 
-### Phase 63 : /adapt = block-forge avec baseBlockId + contractRef
+### Phase 63 : TUI Chat-First — EN COURS
 
-**But** : `/adapt` utilise block-forge pour creer des variantes d'un block optimisees pour un modele/hardware donne. La variante implemente le meme contract que l'original. `contractRef` dans les workflows.
+**But** : Transformer le TUI multi-pages en paradigme chat-first (comme Claude Code). La page Agent devient l'ecran principal. Les autres pages deviennent des widgets inline accessibles via slash commands. FocusProvider resout le scroll bug. PermissionsPanel rend visible le modele container. Toutes les fonctionnalites preservees.
 
 | Sous-phase | Objectif | Effort |
 |------------|----------|--------|
-| 63-A | Workflow /adapt : invoque block-forge avec baseBlockId + targetModel | 2-3 jours |
-| 63-B | `contractRef` dans les workflows (resolution runtime + verification capabilities) | 1-2 jours |
-| 63-C | Integration TUI : `/adapt` dans AgentPanel, `[A]` dans CatalogScreen | 1 jour |
+| 63-A | FocusProvider + useManagedInput (resout le scroll bug) | 0.5 jour |
+| 63-B | Widgets inline dans le ConversationLog | 1-1.5 jours |
+| 63-C | Migration slash commands (6 pages → widgets) | 1-1.5 jours |
+| 63-D | PermissionsPanel + integration widgets session/workspace/block | 0.5 jour |
+| 63-T | Tests + validation (real-demo-check, test:visual) | 0.5 jour |
 
-**Gate** : Variante creee implemente le meme contract, capabilities verifiees, `/adapt` et `[A]` fonctionnent.
+**Gate** : Chat-first fonctionne, 0 feature perdue, scroll bug resolu, permissions visibles, real-demo-check passe.
 
 **Plan detaille** : `docs/phases/PHASE-63/README.md`
 
 ---
 
-### Phase 64 : Production variantes (benchmark multi-modeles sur contracts)
+### Phase 64 : Agents Fonctionnels + Optimisation
 
-**But** : Utiliser `/adapt` pour creer ~30 implementations du contract `maestro-assistant` avec capabilities verifiees. Config providers cloud opensource.
+**But** : Condenser le system prompt (informe par les donnees de 61-C), creer 2 agents fonctionnels via foundry (fitness > 0.5), ajouter une live execution view dans le TUI.
 
 | Sous-phase | Objectif | Effort |
 |------------|----------|--------|
-| 64-A | Configuration providers cloud opensource dans LLM-Provider .NET | 2-3 jours |
-| 64-B | Execution de `/adapt` par profil hardware (capabilities verifiees par tier) | 3-5 jours |
-| 64-C | Validation, tri, integration dans `content/system/blocks/` | 1-2 jours |
+| 64-A | `_toolMapping` + mock blocks (fondation) | DONE (ex 62-A) |
+| 64-B | Resolution conflits providers | DONE (ex 62-B) |
+| 64-C | Condenser system prompt + creer agents via foundry | EN COURS (6/9 tests) |
+| 64-D | Live execution view dans le TUI | A faire |
+| 64-T | Tests + validation | A faire |
 
-**Gate** : 15+ variantes fitness > 0.6, toutes contract `maestro-assistant`, capabilities verifiees.
+**Gate** : 2 agents avec fitness > 0.5, system prompt < 500 lignes, live view fonctionnelle.
 
 **Plan detaille** : `docs/phases/PHASE-64/README.md`
 
 ---
 
-### Phase 65 : Choix assistant au setup + Catalog par contract
+### Phase 65 : /adapt = block-forge avec baseBlockId + contractRef (ex Phase 64)
 
-**But** : L'utilisateur voit les implementations du contract `maestro-assistant` compatibles avec son hardware, avec features actives/inactives, et choisit. Le Catalog est organise par contract.
+**But** : `/adapt` utilise block-forge pour creer des variantes d'un block optimisees pour un modele/hardware donne. La variante implemente le meme contract que l'original. `contractRef` dans les workflows.
 
 | Sous-phase | Objectif | Effort |
 |------------|----------|--------|
-| 65-A | Filtrage compatibilite + feature gating UI | 1 jour |
-| 65-B | UI de choix au setup (par contract, features actives/inactives, recommended) | 1.5-2 jours |
-| 65-C | Catalog organise par contract + changement d'implementation | 1 jour |
-| 65-D | Dogfooding complet | 0.5 jour |
+| 64-A | Workflow /adapt : invoque block-forge avec baseBlockId + targetModel | 2-3 jours |
+| 64-B | `contractRef` dans les workflows (resolution runtime + verification capabilities) | 1-2 jours |
+| 64-C | Integration TUI : `/adapt` dans AgentPanel, `[A]` dans CatalogScreen | 1 jour |
 
-**Gate** : L'utilisateur comprend ce qu'il gagne/perd avec chaque choix.
+**Gate** : Variante creee implemente le meme contract, capabilities verifiees, `/adapt` et `[A]` fonctionnent.
 
 **Plan detaille** : `docs/phases/PHASE-65/README.md`
 
 ---
 
-### Phase 66 : Onboarding + Packaging npm
+### Phase 66 : Production variantes (benchmark multi-modeles sur contracts)
+
+**But** : Utiliser `/adapt` pour creer ~30 implementations du contract `maestro-assistant` avec capabilities verifiees. Config providers cloud opensource.
+
+| Sous-phase | Objectif | Effort |
+|------------|----------|--------|
+| 65-A | Configuration providers cloud opensource dans LLM-Provider .NET | 2-3 jours |
+| 65-B | Execution de `/adapt` par profil hardware (capabilities verifiees par tier) | 3-5 jours |
+| 65-C | Validation, tri, integration dans `content/system/blocks/` | 1-2 jours |
+
+**Gate** : 15+ variantes fitness > 0.6, toutes contract `maestro-assistant`, capabilities verifiees.
+
+**Plan detaille** : `docs/phases/PHASE-66/README.md`
+
+---
+
+### Phase 67 : Choix assistant au setup + Catalog par contract
+
+**But** : L'utilisateur voit les implementations du contract `maestro-assistant` compatibles avec son hardware, avec features actives/inactives, et choisit. Le Catalog est organise par contract.
+
+| Sous-phase | Objectif | Effort |
+|------------|----------|--------|
+| 66-A | Filtrage compatibilite + feature gating UI | 1 jour |
+| 66-B | UI de choix au setup (par contract, features actives/inactives, recommended) | 1.5-2 jours |
+| 66-C | Catalog organise par contract + changement d'implementation | 1 jour |
+| 66-D | Dogfooding complet | 0.5 jour |
+
+**Gate** : L'utilisateur comprend ce qu'il gagne/perd avec chaque choix.
+
+**Plan detaille** : `docs/phases/PHASE-67/README.md`
+
+---
+
+### Phase 68 : Onboarding + Packaging npm
 
 **But** : `npm install -g @maestro/cli && maestro init && maestro code`. Premiere experience utilisateur complete.
 
 | Sous-phase | Objectif | Effort |
 |------------|----------|--------|
-| 66-A | Packaging npm, commande globale, sidecar auto-start | 3-4 jours |
-| 66-B | `maestro init` + onboarding (provider + choix assistant par contract) | 2-3 jours |
-| 66-C | Documentation : README, Getting Started, 3 exemples | 2-3 jours |
+| 67-A | Packaging npm, commande globale, sidecar auto-start | 3-4 jours |
+| 67-B | `maestro init` + onboarding (provider + choix assistant par contract) | 2-3 jours |
+| 67-C | Documentation : README, Getting Started, 3 exemples | 2-3 jours |
 
 **Gate** : Un utilisateur externe installe, choisit son assistant, et accomplit une tache reelle.
 
 ---
 
-### Phase 67 : V1 Deploy + Beta testing
+### Phase 69 : V1 Deploy + Beta testing
 
 **But** : Deployer la V1, recruter 3-5 beta testeurs, iterer sur le feedback.
 
 | Sous-phase | Objectif | Effort |
 |------------|----------|--------|
-| 67-A | Stabilisation finale, fix de bugs critiques | 2-3 jours |
-| 67-B | Deploy npm public + documentation | 1-2 jours |
-| 67-C | Beta testing (3-5 testeurs) + iterations | 3-5 jours |
+| 68-A | Stabilisation finale, fix de bugs critiques | 2-3 jours |
+| 68-B | Deploy npm public + documentation | 1-2 jours |
+| 68-C | Beta testing (3-5 testeurs) + iterations | 3-5 jours |
 
 **Gate** : 3 testeurs externes installent, choisissent leur assistant par contract, et accomplissent des taches reelles.
 
 ---
 
-### Phase 68 (V2) : Self-Improvement — Maestro s'ameliore lui-meme
+### Phase 70 (V2) : Self-Improvement — Maestro s'ameliore lui-meme
 
 **But** : Research Team observe les metriques par contract/capability → `/adapt` cree des variantes ameliorees → Workspace Orchestrator gere la promotion. L'Agent Creator s'ameliore lui-meme.
 
-**Plan detaille** : `docs/phases/PHASE-68/README.md`
+**Plan detaille** : `docs/phases/PHASE-70/README.md`
 
 ---
 
-### Phase 69 (V2) : Catalogue communautaire + Auth
+### Phase 71 (V2) : Catalogue communautaire + Auth
 
 **But** : Publier et importer des blocks. Catalogue organise par contract. Auth pour identification.
 
-**Plan detaille** : `docs/phases/PHASE-69/README.md`
+**Plan detaille** : `docs/phases/PHASE-71/README.md`
 
 ---
 
@@ -304,15 +337,17 @@
                                          │   └→ 59-PRE-2 Cost Enforcement (DONE)
                                          └→ 59 Agent Isolation (sessions enfants, permissions)
                                              └→ 60 Model Playground
-                                             └→ 61 Block-Forge Fiable (bugs, safety, contracts) [EN COURS]
-                                                 └→ 62 Agents Fonctionnels (prompt, foundry, live view)
-                                                     └→ 63 /adapt = block-forge + contractRef
-                                                         └→ 64 Production ~30 variantes
-                                                             └→ 65 Choix au setup par contract
-                                                                 └→ 66 Onboarding + Packaging npm
-                                                                     └→ 67 V1 Deploy + Beta testing
-                                                                         └→ 68 Self-improvement loop (V2)
-                                                                             └→ 69 Catalogue communautaire (V2)
+                                             └→ 61 Block-Forge Fiable (bugs, safety, contracts)
+                                                 └→ 62 Container Isolation (permissions, arbre, couts)
+                                                     └→ 63 TUI Chat-First (refonte navigation, permissions visuelles) [EN COURS]
+                                                         └→ 64 Agents Fonctionnels (prompt, foundry, live view)
+                                                             └→ 65 /adapt = block-forge + contractRef
+                                                                 └→ 66 Production ~30 variantes
+                                                                     └→ 67 Choix au setup par contract
+                                                                         └→ 68 Onboarding + Packaging npm
+                                                                             └→ 69 V1 Deploy + Beta testing
+                                                                                 └→ 70 Self-improvement loop (V2)
+                                                                                     └→ 71 Catalogue communautaire (V2)
 ```
 
 ## Features planifiees (TODOS)
@@ -337,17 +372,19 @@
 | Cost Enforcement (hard stop, graceful shutdown, auto-resume) | 59-PRE-2 | COMPLETE |
 | Agent Isolation (sessions enfants, I/O controle, permissions) | 59 | Planifie |
 | Model Playground (tester un modele dans le TUI) | 60 | Planifie |
-| Block-Forge Fiable (provider, bugs, safety, validation contracts) | 61 | EN COURS |
-| Agents Fonctionnels (prompt condense, foundry, live view) | 62 | Planifie |
-| /adapt + contractRef dans workflows | 63 | Planifie |
-| Production ~30 variantes pre-testees | 64 | Planifie |
-| Fitness display dans le TUI (score par feature, +/- features) | 65 | Planifie |
-| Backend contract filter `GET /api/blocks?contract=X` | 65 | Planifie |
-| Choix assistant au setup par contract | 65 | Planifie |
-| Onboarding + Packaging npm (maestro init, first-run) | 66 | Planifie |
-| V1 Deploy + Beta testing | 67 | Planifie |
-| Self-improvement loop | 68 | Vision (V2) |
-| Catalogue communautaire par contract | 69 | Vision (V2) |
+| Block-Forge Fiable (provider, bugs, safety, validation contracts) | 61 | COMPLETE |
+| Container Isolation (permissions, arbre session/workspace, couts) | 62 | COMPLETE |
+| TUI Chat-First (refonte navigation, permissions visuelles) | 63 | EN COURS |
+| Agents Fonctionnels (prompt condense, foundry, live view) | 64 | EN COURS (6/9) |
+| /adapt + contractRef dans workflows | 65 | Planifie |
+| Production ~30 variantes pre-testees | 66 | Planifie |
+| Fitness display dans le TUI (score par feature, +/- features) | 67 | Planifie |
+| Backend contract filter `GET /api/blocks?contract=X` | 67 | Planifie |
+| Choix assistant au setup par contract | 67 | Planifie |
+| Onboarding + Packaging npm (maestro init, first-run) | 68 | Planifie |
+| V1 Deploy + Beta testing | 69 | Planifie |
+| Self-improvement loop | 70 | Vision (V2) |
+| Catalogue communautaire par contract | 71 | Vision (V2) |
 
 ## Principes
 

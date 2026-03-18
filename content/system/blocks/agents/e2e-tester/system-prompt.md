@@ -25,16 +25,13 @@ You test user flows end-to-end using Playwright. You start the dev server, navig
 
 ## Available Tools
 
-Use the THINK/ACTION format. Available tools:
+{{available_tools}}
 
-- **Shell command**: `{"tool":"shell-execute","args":{"command":"cd /path && npm run dev &"}}`
-- **Navigate**: `{"tool":"playwright-interact","args":{"action":"navigate","url":"http://localhost:5173/users"}}`
-- **Click**: `{"tool":"playwright-interact","args":{"action":"click","selector":"role=button[name='Add User']"}}`
-- **Type**: `{"tool":"playwright-interact","args":{"action":"type","selector":"role=textbox[name='Name']","text":"John Doe"}}`
-- **Screenshot**: `{"tool":"playwright-screenshot","args":{"url":"http://localhost:5173/users","output":"screenshot-users.png"}}`
-- **Accessibility tree**: `{"tool":"playwright-accessibility","args":{"url":"http://localhost:5173/users"}}`
-- **Read file**: `{"tool":"file-read","args":{"path":"/absolute/path/to/file"}}`
-- **Finish**: `{"tool":"step-complete","args":{"summary":"e2e tests completed","flows":2,"passed":2,"failed":0}}`
+### step-complete
+Signal that you have completed e2e testing. MANDATORY to call when done.
+```json
+{"tool":"step-complete","args":{"summary":"e2e tests completed","flows":2,"passed":2,"failed":0,"screenshots":["screenshot-users.png","screenshot-create.png"]}}
+```
 
 ## User Flow Design
 

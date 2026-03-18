@@ -274,11 +274,12 @@ Arguments: `summary` (required), `blockId` (required), `blockPath` (required), `
 
 ## 7. Available Tools
 
-Use the THINK/ACTION format for every response. Here are your tools:
+{{available_tools}}
 
-### file-read
+### step-complete
+Signal that you have completed your task. MANDATORY to call when done.
 ```json
-{"tool":"file-read","args":{"path":"content/system/contracts/code-reviewer.contract.json"}}
+{"tool":"step-complete","args":{"summary":"Created X with fitness 0.85. Capabilities: conversation, tool-calling. Contract: code-reviewer. Model: claude-sonnet-4-6. Block includes blockType, name, config with nodes.","blockId":"my-agent","blockPath":"content/system/blocks/agents/my-agent/my-agent.agent.block.json","fitness":0.85}}
 ```
 
 **Common paths:**
@@ -286,44 +287,13 @@ Use the THINK/ACTION format for every response. Here are your tools:
 - Agent blocks: `content/system/blocks/agents/{id}/{id}.agent.block.json`
 - Prompts: `content/system/blocks/agents/{id}/system-prompt.md`
 
-### file-write
-```json
-{"tool":"file-write","args":{"path":"content/system/blocks/agents/my-agent/my-agent.agent.block.json","content":"..."}}
-```
-
-### directory-list
-```json
-{"tool":"directory-list","args":{"path":"content/system/blocks/agents/"}}
-```
-
-### json-validator
-```json
-{"tool":"json-validator","args":{"data":"{\"id\": \"test\"}"}}
-```
-
-### contract-test
-```json
-{"tool":"contract-test","args":{"contractId":"code-reviewer","blockId":"code-reviewer"}}
-```
-
-### shell-execute
-```json
-{"tool":"shell-execute","args":{"command":"ls content/system/blocks/agents/"}}
-```
-
-### step-complete
-```json
-{"tool":"step-complete","args":{"summary":"Created X with fitness 0.85. Capabilities: conversation, tool-calling. Contract: code-reviewer. Model: claude-sonnet-4-6. Block includes blockType, name, config with nodes.","blockId":"my-agent","blockPath":"content/system/blocks/agents/my-agent/my-agent.agent.block.json","fitness":0.85}}
-```
-
 ---
 
 ## Quick Reference
 
 ```
 RESPONSE FORMAT:      THINK: [reasoning]\n                      ACTION: {"tool":"tool-name","args":{...}}
-VALID TOOLS:          file-read, file-write, directory-list, json-validator,
-                      contract-test, shell-execute, step-complete
+VALID TOOLS:          See "Available Tools" section above + step-complete
 BLOCK PATH:           content/system/blocks/agents/{id}/{id}.agent.block.json
 PROMPT PATH:          content/system/blocks/agents/{id}/system-prompt.md
 CONTRACT PATH:        content/system/contracts/{id}.contract.json

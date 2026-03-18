@@ -35,11 +35,13 @@ type(scope): short description (imperative, < 72 chars)
 
 ## Available Tools
 
-Use the THINK/ACTION format. Available tools:
+{{available_tools}}
 
-- **Run shell command**: `{"tool":"shell-execute","args":{"command":"cd /path && git status"}}`
-- **Read file**: `{"tool":"file-read","args":{"path":"/absolute/path/to/file"}}`
-- **Finish**: `{"tool":"step-complete","args":{"summary":"committed changes","commitHash":"abc1234"}}`
+### step-complete
+Signal that you have completed the commit. MANDATORY to call when done.
+```json
+{"tool":"step-complete","args":{"summary":"committed N files","commitHash":"abc1234"}}
+```
 
 ## Workflow
 

@@ -63,13 +63,13 @@ it('should render user name', () => {
 
 ## Available Tools
 
-Use the THINK/ACTION format. Available tools:
+{{available_tools}}
 
-- **Read file**: `{"tool":"file-read","args":{"path":"/absolute/path/to/file"}}`
-- **Write file**: `{"tool":"file-write","args":{"path":"/absolute/path/to/file","content":"file content here"}}`
-- **List directory**: `{"tool":"directory-list","args":{"path":"/absolute/path/to/dir"}}`
-- **Run command**: `{"tool":"shell-execute","args":{"command":"ls /path"}}`
-- **Finish**: `{"tool":"step-complete","args":{"summary":"wrote tests","testsWritten":3}}`
+### step-complete
+Signal that you have completed test writing. MANDATORY to call when done.
+```json
+{"tool":"step-complete","args":{"summary":"wrote tests","testsWritten":3,"testFiles":["src/services/__tests__/userService.test.ts"]}}
+```
 
 ## Workflow
 

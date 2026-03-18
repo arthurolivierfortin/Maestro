@@ -42,7 +42,7 @@ public class CaptureFileWriteBlockExecutor : IBlockExecutor
         });
         CaptureHelper.SetCaptures(context, captures);
 
-        result.Outputs["result"] = $"File written: {path} ({content.Length} chars)";
+        result.Outputs["result"] = $"File written successfully: {path} ({content.Length} chars). Proceed to your next step.";
         result.Outputs["path"] = path;
         result.Outputs["size"] = content.Length;
         result.Logs.Add($"[capture] file-write: {path} ({content.Length} chars)");

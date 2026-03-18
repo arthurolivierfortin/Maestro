@@ -149,6 +149,12 @@ builder.Services.AddScoped<Maestro.Application.Interfaces.IBlockExecutor>(sp =>
     new Maestro.Infrastructure.BlockExecutors.MemoryBlockExecutor(
         sp.GetRequiredService<IMemoryManager>()));
 
+// Phase 62-C: ToolSchemaGenerator (generates {{available_tools}} for agent system prompts)
+builder.Services.AddScoped<Maestro.Infrastructure.BlockExecutors.ToolSchemaGenerator>(sp =>
+    new Maestro.Infrastructure.BlockExecutors.ToolSchemaGenerator(
+        sp.GetRequiredService<Maestro.Application.Interfaces.IBlockDiscoveryService>(),
+        sp.GetService<ILogger<Maestro.Infrastructure.BlockExecutors.ToolSchemaGenerator>>()));
+
 builder.Services.AddScoped<Maestro.Infrastructure.BlockExecutors.AgentBlockExecutor>(sp =>
     new Maestro.Infrastructure.BlockExecutors.AgentBlockExecutor(sp));
 builder.Services.AddScoped<Maestro.Application.Interfaces.IBlockExecutor>(sp =>

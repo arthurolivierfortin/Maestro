@@ -107,6 +107,22 @@ async function ensureBackend(skipAutoStart = false) {
 }
 
 /**
+ * Print a session tree node with proper indentation and tree drawing characters.
+ */
+function printSessionTreeNode(node, indent, isLast) {
+  const connector = isLast ? '\u2514\u2500' : '\u251c\u2500';
+  const cost = node.accumulatedCost > 0 ? ` [$${Number(node.accumulatedCost).toFixed(2)}]` : '';
+  const blocks = (node.allowedBlocks || []).join(', ') || '(none)';
+  console.log(`${indent}${connector} ${node.name} (${node.id.substring(0, 8)})${cost} AllowedBlocks: ${blocks}`);
+
+  const childIndent = indent + (isLast ? '   ' : '\u2502  ');
+  const children = node.children || [];
+  for (let i = 0; i < children.length; i++) {
+    printSessionTreeNode(children[i], childIndent, i === children.length - 1);
+  }
+}
+
+/**
  * Resolve a short ID prefix to a full ID by querying the relevant resource list.
  * Supports session, project, workspace, and other resource types.
  * If the ID is already a full UUID (36 chars), returns it as-is.
@@ -6801,9 +6817,12 @@ ${c.bold('Commands:')}
   vars <id> [list|get|set|remove]  Manage variables
   entry-points <id>            Manage entry points
   invoke <id> [entry-point]    Invoke entry point (--input key=val or key=val)
-  permissions <id>             Show/manage session permissions
+  permissions <id>             Show effective permissions with context
     add-path <path>            Add a path to AllowedPaths (read access)
     remove-path <path>         Remove a path from AllowedPaths
+  restrict <id>                Restrict session permissions
+    --allow block1,block2      Set allowed blocks
+    --deny block3              Add deny rules for blocks
   widgets <id>                 Manage monitor widgets
   exec <id> "<cmd>"            Execute command in session
   events <id>                  Show event history
@@ -7133,16 +7152,53 @@ ${c.bold('Quick Start:')}
         const resolvedId = await resolveId(id, 'session');
 
         if (!permCmd || permCmd === 'list') {
-          // Show current permissions
+          // Show effective permissions with full context
           try {
-            const perms = await client._fetch('GET', `/api/sessions/${resolvedId}/permissions`);
-            console.log(`\nSession Permissions (${resolvedId}):\n`);
-            console.log(`  Allowed Commands: ${perms.allowedCommands?.join(', ') || '(none)'}`);
-            console.log(`  Allowed Tools:    ${perms.allowedTools?.join(', ') || '(none)'}`);
-            console.log(`  Allowed Blocks:   ${perms.allowedBlocks?.join(', ') || '(none)'}`);
-            console.log(`  Allowed Paths:    ${perms.allowedPaths?.join(', ') || '(none)'}`);
-            console.log(`  Can Create Blocks:   ${perms.canCreateBlocks}`);
-            console.log(`  Can Create Sessions: ${perms.canCreateSessions}`);
+            const data = await client._fetch('GET', `/api/sessions/${resolvedId}/permissions/effective`);
+            if (formatter.jsonMode) {
+              console.log(JSON.stringify(data, null, 2));
+              return;
+            }
+            console.log(`\nSession: ${data.sessionName} (${data.sessionId})`);
+            console.log(`Parent:  ${data.parentId || '(root)'}\n`);
+            console.log('Effective AllowedBlocks:');
+            const effectiveBlocks = data.effective?.allowedBlocks || [];
+            if (effectiveBlocks.length === 0) {
+              console.log('  (none)');
+            } else {
+              for (const b of effectiveBlocks) {
+                // Check if any block rule denies this block
+                const denied = (data.blockRules || []).find(r => r.pattern === b && r.permission === 'Denied');
+                if (denied) {
+                  console.log(`  ${c.red('x')} ${b} (denied by block rule: "${denied.reason || ''}")`);
+                } else {
+                  console.log(`  ${c.green('v')} ${b}`);
+                }
+              }
+            }
+
+            // Show denied blocks from block rules
+            const denyRules = (data.blockRules || []).filter(r => r.permission === 'Denied');
+            for (const rule of denyRules) {
+              if (!effectiveBlocks.includes(rule.pattern)) {
+                console.log(`  ${c.red('x')} ${rule.pattern} (denied by block rule: "${rule.reason || ''}")`);
+              }
+            }
+
+            console.log('\nAllowed Commands: ' + (data.effective?.allowedCommands?.join(', ') || '(none)'));
+            console.log('Allowed Tools:   ' + (data.effective?.allowedTools?.join(', ') || '(none)'));
+            console.log('Can Create Blocks:   ' + data.effective?.canCreateBlocks);
+            console.log('Can Create Sessions: ' + data.effective?.canCreateSessions);
+
+            if (data.blockRules && data.blockRules.length > 0) {
+              console.log('\nBlock Rules:');
+              for (const rule of data.blockRules) {
+                const prefix = rule.permission === 'Denied' ? c.red('DENY ') :
+                               rule.permission === 'Allowed' ? c.green('ALLOW') :
+                               c.yellow('APRV ');
+                console.log(`  ${prefix} ${rule.pattern}${rule.reason ? '  (' + rule.reason + ')' : ''}`);
+              }
+            }
             console.log('');
           } catch (error) {
             handleApiError(error, 'getting session permissions');
@@ -7194,6 +7250,64 @@ ${c.bold('Quick Start:')}
 
         formatter.error(`Unknown permissions command: ${permCmd}. Use: list, add-path, remove-path`, 'INVALID_COMMAND');
         process.exit(EXIT.USER_ERROR);
+        return;
+      }
+
+      // Session restrict command — update allowed blocks and/or block rules
+      if (subCmd === 'restrict') {
+        const id = argv._[2];
+        if (!id) { formatter.error('Session ID required', 'MISSING_PARAM'); process.exit(EXIT.USER_ERROR); }
+        const resolvedId = await resolveId(id, 'session');
+
+        const allowStr = argv.allow;
+        const denyStr = argv.deny;
+
+        if (!allowStr && !denyStr) {
+          formatter.error('At least one of --allow or --deny is required.\nUsage: maestro session restrict <id> --allow block1,block2 --deny block3', 'MISSING_PARAM');
+          process.exit(EXIT.USER_ERROR);
+        }
+
+        try {
+          // If --allow is provided, update AllowedBlocks
+          if (allowStr) {
+            const blocks = typeof allowStr === 'string' ? allowStr.split(',').map(b => b.trim()) : [allowStr];
+            const perms = await client._fetch('GET', `/api/sessions/${resolvedId}/permissions`);
+            const updated = await client._fetch('PUT', `/api/sessions/${resolvedId}/permissions`, {
+              ...perms,
+              allowedBlocks: blocks
+            });
+            console.log('\nPermissions updated:');
+            for (const b of updated.allowedBlocks || []) {
+              console.log(`  ${c.green('v')} ${b}`);
+            }
+          }
+
+          // If --deny is provided, add block rules
+          if (denyStr) {
+            const denyBlocks = typeof denyStr === 'string' ? denyStr.split(',').map(b => b.trim()) : [denyStr];
+            const rules = denyBlocks.map(b => ({ blockPattern: b, permission: 'denied', reason: 'restricted via CLI' }));
+
+            // If there are existing allow blocks we want to keep, fetch and merge
+            const existingEffective = await client._fetch('GET', `/api/sessions/${resolvedId}/permissions/effective`);
+            const existingRules = (existingEffective.blockRules || [])
+              .filter(r => r.permission !== 'Denied' || !denyBlocks.includes(r.pattern))
+              .map(r => ({ blockPattern: r.pattern, permission: r.permission.toLowerCase(), reason: r.reason }));
+
+            const mergedRules = [...existingRules, ...rules];
+            const result = await client._fetch('PUT', `/api/sessions/${resolvedId}/block-rules`, {
+              permissions: mergedRules
+            });
+
+            console.log(allowStr ? '' : '\nBlock rules updated:');
+            for (const b of denyBlocks) {
+              console.log(`  ${c.red('x')} ${b} (denied)`);
+            }
+          }
+          console.log('');
+        } catch (error) {
+          handleApiError(error, 'restricting session');
+          process.exit(1);
+        }
         return;
       }
 
@@ -7600,6 +7714,34 @@ ${c.bold('Quick Start:')}
         return await getWorkspaceTopology();
       }
 
+      if (subCmd === 'tree') {
+        const workspaceId = argv._[2];
+        if (!workspaceId) { formatter.error('Workspace ID required', 'MISSING_PARAM'); process.exit(EXIT.USER_ERROR); }
+        try {
+          const tree = await client._fetch('GET', `/api/workspaces/${workspaceId}/tree`);
+          if (formatter.jsonMode) {
+            console.log(JSON.stringify(tree, null, 2));
+            return;
+          }
+          console.log(`\nWorkspace ${tree.workspaceName || tree.workspaceId} (${tree.workspaceId})`);
+          console.log(`  AllowedBlocks: ${(tree.allowedBlocks || []).join(', ') || '(none)'}`);
+          const sessions = tree.sessions || [];
+          if (sessions.length === 0) {
+            console.log('  (no sessions)');
+          } else {
+            for (let i = 0; i < sessions.length; i++) {
+              const isLast = i === sessions.length - 1;
+              printSessionTreeNode(sessions[i], '  ', isLast);
+            }
+          }
+          console.log('');
+        } catch (error) {
+          handleApiError(error, 'getting workspace tree');
+          process.exit(1);
+        }
+        return;
+      }
+
       if (subCmd === 'promote') {
         const sourceId = argv.source || argv._[2];
         const targetId = argv.target || argv._[3];
@@ -7611,7 +7753,7 @@ ${c.bold('Quick Start:')}
       }
 
       console.error(`Unknown workspace subcommand: ${subCmd}`);
-      console.error('   Available commands: info, create, delete, add-session, add-project, permissions, topology, promote');
+      console.error('   Available commands: info, create, delete, add-session, add-project, permissions, topology, promote, tree');
       process.exit(1);
     }
 

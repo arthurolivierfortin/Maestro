@@ -1,18 +1,30 @@
-# Phase 69 (V2) : Catalogue communautaire + Auth
+# Phase 67 : V1 Deploy + Beta testing
 
-> **Note** : Anciennement Phase 68. Decalee suite a l'insertion de la Phase 62 (Agents Fonctionnels).
+> **Note** : Anciennement Phase 66. Decalee suite a l'insertion de la Phase 62 (Agents Fonctionnels).
 
-**Statut** : Vision
-**Prerequis** : Phase 67 COMPLETE (V1 deployee, utilisateurs reels)
-**Objectif** : Les utilisateurs peuvent publier et importer des blocks. Le catalogue est organise par contract : on cherche "un code-reviewer" et on voit toutes les implementations disponibles avec leurs capabilities et compatibilite hardware. Systeme d'auth pour identification.
+**Statut** : A faire
+**Prerequis** : Phase 66 COMPLETE (packaging npm, onboarding)
+**Objectif** : Deployer la V1, recruter 3-5 beta testeurs, iterer sur le feedback.
+**Duree estimee** : 6-10 jours
 
 ---
 
-## Vision
+## Sous-phases
 
-- Auth locale (bcrypt) + OAuth GitHub
-- API catalogue : publish, search, import par contract + capabilities + hardware
-- Catalogue organise par contracts (pas une liste plate)
-- Recherche par role (contract), filtrage par hardware, comparaison capabilities
-- Publication avec contract + capabilities verifiees + fitness >= 0.7
-- TUI : onglets Local | Community | All, import intelligent par contract
+| Phase | Titre | Effort |
+|-------|-------|--------|
+| 67-A | Stabilisation finale, fix de bugs critiques | 2-3 jours |
+| 67-B | Deploy npm public + documentation | 1-2 jours |
+| 67-C | Beta testing (3-5 testeurs) + iterations | 3-5 jours |
+
+---
+
+## Gate
+
+- [ ] 3 testeurs externes installent, choisissent leur assistant par contract, et accomplissent des taches reelles
+- [ ] Aucun crash bloquant dans les premiers 30 minutes d'utilisation
+- [ ] Documentation suffisante pour un onboarding autonome
+
+### NOT in scope
+- Self-improvement (Phase 68, V2)
+- Catalogue communautaire (Phase 69, V2)

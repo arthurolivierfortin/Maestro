@@ -367,6 +367,89 @@ public class WorkspacesController : ControllerBase
         });
     }
 
+    // ====== Session Tree Endpoint ======
+
+    /// <summary>
+    /// Get session tree for a workspace with permissions and accumulated costs.
+    /// </summary>
+    [HttpGet("{id}/tree")]
+    public async Task<ActionResult> GetSessionTree(
+        string id,
+        [FromServices] IProjectSessionServer sessionServer,
+        CancellationToken ct)
+    {
+        var workspace = await _workspaceService.GetWorkspaceAsync(id, ct);
+        if (workspace == null)
+        {
+            return NotFound(new { error = $"Workspace '{id}' not found" });
+        }
+
+        // Load all sessions in this workspace
+        var sessionNodes = new List<object>();
+        foreach (var sessionId in workspace.SessionIds)
+        {
+            try
+            {
+                var sid = SessionId.From(sessionId);
+                var session = await sessionServer.GetAsync(sid, ct);
+                if (session == null) continue;
+
+                // Only include root sessions (no parent session) at top level
+                if (!string.IsNullOrEmpty(session.ParentSessionId)) continue;
+
+                sessionNodes.Add(BuildSessionTreeNode(session, workspace, sessionServer, ct).Result);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to load session {SessionId} for tree", sessionId);
+            }
+        }
+
+        return Ok(new
+        {
+            workspaceId = workspace.Id,
+            workspaceName = workspace.Name,
+            allowedBlocks = workspace.Permissions.AllowedBlocks,
+            sessions = sessionNodes
+        });
+    }
+
+    private async Task<object> BuildSessionTreeNode(
+        ProjectSession session,
+        Workspace workspace,
+        IProjectSessionServer sessionServer,
+        CancellationToken ct)
+    {
+        // Get accumulated cost from session variables
+        var accumulatedCost = decimal.TryParse(
+            session.GetVariable("_accumulatedCost")?.ToString(),
+            System.Globalization.NumberStyles.Any,
+            System.Globalization.CultureInfo.InvariantCulture,
+            out var cost) ? cost : 0m;
+
+        // Find child sessions
+        var allSessions = await sessionServer.GetAllAsync(ct: ct);
+        var children = allSessions
+            .Where(s => s.ParentSessionId == session.Id)
+            .ToList();
+
+        var childNodes = new List<object>();
+        foreach (var child in children)
+        {
+            childNodes.Add(await BuildSessionTreeNode(child, workspace, sessionServer, ct));
+        }
+
+        return new
+        {
+            id = session.Id,
+            name = session.Name,
+            status = session.Status.ToString(),
+            allowedBlocks = session.Permissions.AllowedBlocks,
+            accumulatedCost = accumulatedCost,
+            children = childNodes
+        };
+    }
+
     // ====== Context Permissions Endpoints ======
 
     /// <summary>
