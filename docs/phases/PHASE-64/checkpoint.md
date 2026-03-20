@@ -96,16 +96,20 @@ Agent-creator renomme block-creator.
 5. **set-initial nodes** : `set-initial-suite` et `set-initial-contract` ajoutees AVANT le conditionnel pour garantir que la variable est toujours set
 6. **Contrats enrichis** : 12 + 9 + 11 = 32 tests (avant: 5 + 4 + 3 = 12)
 
-### Probleme BLOQUANT identifie
-**Les workflows contract-definer et test-designer retournent les messages input au lieu du resultat de l'inference.**
+### Probleme BLOQUANT — RESOLU (2026-03-20)
 
-La reponse du contract-definer pour le prompt "A greeting agent..." est :
-```
-[{"role":"user","content":"A greeting agent that says hello..."}]
-```
-C'est le `messages` input du node inference, pas son output. Le `blockRef: inference` node dans un workflow simple (pas un agent avec boucle) ne produit pas `_nodeResult_generate-contract.content` correctement.
+**Symptome** : Les workflows contract-definer et test-designer retournaient `[{"role":"user","content":"..."}]` (le conversationHistory input) au lieu du resultat de l'inference.
 
-**Hypothese** : L'inference block (LLMBlockExecutorBase) attend peut-etre des inputs specifiques (`messages` comme JSON array, `systemPrompt`, etc.) et le workflow ne les passe pas dans le bon format. Le messages input est un string literal `"[{\"role\":\"user\",...}]"` qui peut ne pas etre parse correctement.
+**Root cause — 2 bugs identifies et fixes** :
+
+**BUG 1 (InferenceBlockExecutor)** : Quand `inputs["messages"]` etait fourni, le `systemPrompt` du config etait IGNORE. Le LLM recevait seulement le user message sans contexte (pas de system prompt expliquant ce qu'est un contrat Maestro, quel format utiliser, etc.). Resultat : reponse garbage ou vide.
+- **Fix** : Prepend `ChatMessage.System(systemPrompt)` aux messages si aucun system message n'existe deja.
+
+**BUG 2 (WorkflowBlockExecutor)** : `ExtractResultAsync` retournait TOUTES les variables de session comme outputs (y compris `conversationHistory`, `prompt`, `message`). Quand le vrai output (`contractJson`) n'etait pas set (parce que le workflow s'arretait a write-contract apres l'inference garbage), `ExtractResponseText` tombait sur Priority 3 (longest non-underscore output) = `conversationHistory`.
+- **Fix** : Filtrer les outputs — exclure les cles d'input bruit (`prompt`, `message`, `conversationHistory`, `sessionId`, etc.) et les variables systeme internes.
+
+**Build** : 0 erreurs, 34 tests unitaires passent.
+**Tests non valides** : Les contract tests des 3 workflows n'ont PAS encore ete re-runs apres les fixes (services crashes avant reboot).
 
 ## 64-F: PAS COMMENCE (depend de 64-D/G)
 ## 64-T: PAS COMMENCE
@@ -114,22 +118,21 @@ C'est le `messages` input du node inference, pas son output. Le `blockRef: infer
 
 ## Handoff
 
-**Derniere action** : Multiples iterations de debug. Block-creator fonctionne (8/11). Contract-definer et test-designer bloquent sur l'inference node.
+**Derniere action** : Debug et fix des 2 bugs bloquants. Build OK, unit tests OK.
 **Prochaine action** :
-1. **DEBUG PRIORITAIRE** : Comprendre pourquoi `blockRef: inference` dans un workflow retourne les inputs au lieu du resultat LLM
-   - Lire `NodeExecutionEngine` et `BlockRefHandler` pour comprendre comment les inputs sont passes au block inference
-   - Lire `LLMBlockExecutorBase` / `InferenceBlockExecutor` pour comprendre comment `messages` est parse
-   - Tester un appel inference direct via l'API pour confirmer que le provider fonctionne
-   - Possible probleme : le `messages` input est un string JSON literal au lieu d'un array parse
-2. Fixer l'inference dans les workflows
-3. Re-runner les 3 workflows
-4. Block-forge E2E
+1. Relancer les services (backend + LLM provider)
+2. Tester l'inference directement via l'API pour confirmer que le systemPrompt est bien inclus
+3. Re-runner les 3 contract tests (contract-definer, test-designer, block-creator)
+4. Viser >= 70% sur chacun
+5. Block-forge E2E (64-F)
 **Etat du build** : compile, 0 erreurs
 **Branche** : `phase-64-workflow-pipeline`
 
 ## Fichiers modifies (cumul toutes sessions)
 - `apps/backend/src/Maestro.Infrastructure/Testing/ContractTestRunner.cs` (check types + helpers + Maestro tools mapping)
 - `apps/backend/src/Maestro.Infrastructure/BlockExecutors/ResponseParserBlockExecutor.cs` (short JSON array fix)
+- `apps/backend/src/Maestro.Infrastructure/BlockExecutors/InferenceBlockExecutor.cs` (systemPrompt + messages fix)
+- `apps/backend/src/Maestro.Infrastructure/BlockExecutors/WorkflowBlockExecutor.cs` (output filtering fix)
 - `apps/backend/src/Maestro.Infrastructure/BlockExecutors/CaptureGenericBlockExecutor.cs` (NEW)
 - `apps/backend/src/Maestro.Infrastructure/BlockExecutors/SummaryValidatorBlockExecutor.cs` (NEW)
 - `apps/backend/src/Maestro.Infrastructure/BlockExecutors/ToolDispatcherBlockExecutor.cs` (_toolMapping + _lastDispatchedToolId)
@@ -139,8 +142,9 @@ C'est le `messages` input du node inference, pas son output. Le `blockRef: infer
 - `llm-provider/dotnet/src/LLMProvider.Web/appsettings.json` (ClaudeCode priority)
 - `content/system/blocks/tools/capture-generic/` (NEW)
 - `content/system/blocks/tools/summary-validator/` (NEW)
-- `content/system/blocks/agents/contract-definer/` (NEW - block.json + system-prompt.md)
-- `content/system/blocks/agents/test-designer/` (block.json + system-prompt.md modified)
+- `content/system/blocks/workflows/contract-definer/` (workflow block.json)
+- `content/system/blocks/workflows/test-designer/` (workflow block.json)
+- `content/system/blocks/workflows/block-creator/` (workflow block.json)
 - `content/system/blocks/system/maestro-assistant/` (block.json + system-prompt.md modified)
 - `content/system/contracts/test-designer.contract.json` (v2.0 rewrite)
 - `content/system/contracts/maestro-assistant.contract.json` (multi-turn fixes)
