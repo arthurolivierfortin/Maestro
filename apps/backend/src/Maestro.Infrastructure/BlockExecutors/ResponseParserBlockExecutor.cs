@@ -197,7 +197,18 @@ public class ResponseParserBlockExecutor : IBlockExecutor
             result.Logs.Add($"JSON parse error: {ex.Message}");
         }
 
-        // Valid JSON but no "tool" property → text
+        // Valid JSON but no "tool" property
+        // Short JSON arrays (e.g., ["query"], ["hello","hi"]) are not conversational responses —
+        // they indicate the agent produced structured values instead of explaining.
+        // Classify as "retry" so the agent gets nudged to respond in plain text.
+        if (jsonContent != null && jsonContent.TrimStart().StartsWith("[") && jsonContent.Length < 300)
+        {
+            result.Outputs["type"] = "retry";
+            result.Outputs["text"] = "Your response was a JSON array, not a conversational answer. Respond in plain text with explanations.";
+            result.Logs.Add($"Short JSON array ({jsonContent.Length} chars) without tool property → retry");
+            return Task.FromResult(result);
+        }
+
         result.Outputs["type"] = "text";
         result.Outputs["text"] = rawResponse;
         result.Logs.Add("JSON without tool property → text");

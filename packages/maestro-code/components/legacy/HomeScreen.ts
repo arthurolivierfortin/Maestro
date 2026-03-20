@@ -19,12 +19,12 @@ import {
   formatDuration, formatTime,
   prevPage, nextPage,
   spinnerFrame, breathingDot,
-} from '../theme.ts';
+} from '../../theme.ts';
 import { useApiData } from '@maestro/tui/hooks';
-import { useKeyboard } from '../hooks/useKeyboard.ts';
-import { useAnimationTick } from '../hooks/useAnimationTick.ts';
-import { NavBar } from './NavBar.ts';
-import { Panel } from './Panel.ts';
+import { useKeyboard } from '../../hooks/useKeyboard.ts';
+import { useAnimationTick } from '../../hooks/useAnimationTick.ts';
+import { NavBar } from '../NavBar.ts';
+import { Panel } from '../Panel.ts';
 
 // ── System Status Panel ──────────────────────────────────────
 

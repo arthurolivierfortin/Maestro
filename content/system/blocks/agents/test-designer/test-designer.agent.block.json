@@ -6,7 +6,7 @@
   "isAtomic": true,
   "description": "Reads a contract definition and generates executable test configurations (prompt + check pairs) to verify whether a block meets the contract's requirements. Produces a test suite JSON file per contract.",
   "contract": "test-designer",
-  "capabilities": ["conversation", "structured-output", "tool-calling"],
+  "capabilities": ["structured-output", "tool-calling"],
   "inputs": [
     { "id": "contractId", "type": "string", "required": true, "description": "ID of the contract to analyze (e.g. 'maestro-assistant')" },
     { "id": "contractJson", "type": "string", "required": false, "description": "The contract JSON if already loaded (avoids re-reading from disk)" },
@@ -17,7 +17,7 @@
     { "id": "testFiles", "type": "string", "description": "JSON array of file paths written" }
   ],
   "config": {
-    "model": "claude-sonnet-4-6",
+    "model": "claude-opus-4-6",
     "maxIterations": 10,
     "wallClockTimeoutSeconds": 360,
     "systemPromptFile": "system-prompt.md",
@@ -49,9 +49,9 @@
             "id": "llm-call",
             "blockRef": "inference",
             "config": {
-              "model": "claude-sonnet-4-6",
+              "model": "claude-opus-4-6",
               "maxTokens": 8192,
-              "temperature": 0
+              "temperature": 0.2
             },
             "inputs": { "messages": "{{_nodeResult_read-conversation.messages}}" }
           },

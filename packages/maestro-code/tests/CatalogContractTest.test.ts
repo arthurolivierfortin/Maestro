@@ -78,7 +78,7 @@ describe('CatalogScreen — Contract Test [T]', () => {
   afterEach(() => cleanup());
 
   it('shows "No contract" message when pressing [T] on block without contract', async () => {
-    const { CatalogScreen } = await import('../components/CatalogScreen.ts');
+    const { CatalogScreen } = await import('../components/legacy/CatalogScreen.ts');
     const api = createMockApiClient([BLOCK_WITHOUT_CONTRACT]);
 
     const { lastFrame, stdin } = render(h(CatalogScreen, {
@@ -101,7 +101,7 @@ describe('CatalogScreen — Contract Test [T]', () => {
   });
 
   it('calls testContract and displays result when pressing [T] on block with contract', async () => {
-    const { CatalogScreen } = await import('../components/CatalogScreen.ts');
+    const { CatalogScreen } = await import('../components/legacy/CatalogScreen.ts');
     const api = createMockApiClient([BLOCK_WITH_CONTRACT], { testResult: MOCK_TEST_RESULT });
 
     const { lastFrame, stdin } = render(h(CatalogScreen, {
@@ -130,7 +130,7 @@ describe('CatalogScreen — Contract Test [T]', () => {
   });
 
   it('displays error message when API call fails', async () => {
-    const { CatalogScreen } = await import('../components/CatalogScreen.ts');
+    const { CatalogScreen } = await import('../components/legacy/CatalogScreen.ts');
     const api = createMockApiClient(
       [BLOCK_WITH_CONTRACT],
       { testError: new Error('Network timeout') },
@@ -155,7 +155,7 @@ describe('CatalogScreen — Contract Test [T]', () => {
   });
 
   it('displays fitness breakdown and features in the result', async () => {
-    const { CatalogScreen } = await import('../components/CatalogScreen.ts');
+    const { CatalogScreen } = await import('../components/legacy/CatalogScreen.ts');
     const api = createMockApiClient([BLOCK_WITH_CONTRACT], { testResult: MOCK_TEST_RESULT });
 
     const { lastFrame, stdin } = render(h(CatalogScreen, {
@@ -191,7 +191,7 @@ describe('CatalogScreen — Contract Test [T]', () => {
   });
 
   it('shows [T] Test hint only when selected block has a contract', async () => {
-    const { CatalogScreen } = await import('../components/CatalogScreen.ts');
+    const { CatalogScreen } = await import('../components/legacy/CatalogScreen.ts');
     // Two blocks: one with contract, one without — sorted by name
     const api = createMockApiClient([BLOCK_WITHOUT_CONTRACT, BLOCK_WITH_CONTRACT]);
 
@@ -222,7 +222,7 @@ describe('CatalogScreen — Contract Test [T]', () => {
   });
 
   it('shows "Testing..." message while test is in progress', async () => {
-    const { CatalogScreen } = await import('../components/CatalogScreen.ts');
+    const { CatalogScreen } = await import('../components/legacy/CatalogScreen.ts');
     // Create a slow-resolving testContract
     let resolveTest: (v: any) => void;
     const slowPromise = new Promise(resolve => { resolveTest = resolve; });
@@ -261,7 +261,7 @@ describe('CatalogScreen — Contract Test [T]', () => {
 
 describe('formatCost', () => {
   it('formats costs correctly', async () => {
-    const { formatCost } = await import('../components/CatalogScreen.ts');
+    const { formatCost } = await import('../components/legacy/CatalogScreen.ts');
     expect(formatCost(0)).toBe('Free');
     expect(formatCost(0.001)).toBe('< $0.01');
     expect(formatCost(0.005)).toBe('< $0.01');

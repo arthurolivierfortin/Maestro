@@ -288,17 +288,30 @@ public sealed class ClaudeCodeLLMProvider : ILLMProvider, IDisposable
 
         // For large prompts, pipe via stdin to avoid Windows command-line limits.
         // The -p argument is set to a placeholder; actual content comes via stdin.
+        // Check TOTAL arg length (prompt + systemPrompt) since both are CLI arguments.
         string? stdinContent = null;
-        if (prompt.Length > MaxPromptArgLength)
+        var systemPrompt = request.SystemPrompt;
+        var totalArgLength = prompt.Length + (systemPrompt?.Length ?? 0);
+        if (totalArgLength > MaxPromptArgLength)
         {
             _logger.LogDebug(
-                "Prompt too large for command line ({Length} chars > {Max}), piping via stdin",
-                prompt.Length, MaxPromptArgLength);
-            stdinContent = prompt;
+                "Total args too large for command line ({Length} chars > {Max}), piping via stdin",
+                totalArgLength, MaxPromptArgLength);
+
+            // Include system prompt as prefix in stdin content so it doesn't go via --system-prompt arg
+            if (!string.IsNullOrEmpty(systemPrompt))
+            {
+                stdinContent = $"[SYSTEM INSTRUCTIONS — follow these strictly]\n{systemPrompt}\n\n[USER MESSAGE]\n{prompt}";
+                systemPrompt = null; // Don't pass via --system-prompt flag
+            }
+            else
+            {
+                stdinContent = prompt;
+            }
             prompt = "(see stdin)"; // Placeholder — stdin content overrides this
         }
 
-        var args = BuildFreshArguments(prompt, model, request.SystemPrompt,
+        var args = BuildFreshArguments(prompt, model, systemPrompt,
             sessionPersistence: conversationKey != null);
 
         _logger.LogDebug("Executing claude CLI (fresh): {CliPath} --model {Model}, prompt={PromptLength} chars{Stdin}",

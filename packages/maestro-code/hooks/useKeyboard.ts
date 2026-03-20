@@ -1,9 +1,10 @@
-import { useInput } from 'ink';
 import {
   createActionKeyboardHandler,
   type ActionHandlers,
   type KeyboardContext,
 } from '@maestro/tui/hooks';
+import { useManagedInput } from './useManagedInput.ts';
+import type { FocusLayer } from './useFocusProvider.ts';
 
 // Re-export types + shared useActionKeyboard
 export type { ActionHandlers, KeyboardContext };
@@ -48,8 +49,22 @@ interface KeyboardHandlers {
   number?: (n: number) => void;
 }
 
-const useKeyboard = (handlers: KeyboardHandlers = {}, options?: { isActive?: boolean }): void => {
-  useInput((input: string, key) => {
+/**
+ * useKeyboard — Legacy keyboard handler, now delegating to useManagedInput.
+ *
+ * All keyboard events are gated by the FocusProvider's layer system.
+ * Default layer is 'page' — blocked when input/widget/modal is active.
+ *
+ * @param handlers  Map of key handlers
+ * @param options   isActive (Ink-level gate), layer (FocusProvider layer, default 'page')
+ */
+const useKeyboard = (
+  handlers: KeyboardHandlers = {},
+  options?: { isActive?: boolean; layer?: FocusLayer },
+): void => {
+  const layer = options?.layer || 'page';
+
+  useManagedInput(layer, (input: string, key) => {
     if (key.upArrow && key.ctrl && handlers.ctrlUp) { handlers.ctrlUp(); return; }
     if (key.downArrow && key.ctrl && handlers.ctrlDown) { handlers.ctrlDown(); return; }
     if (key.leftArrow && key.ctrl && handlers.ctrlLeft) { handlers.ctrlLeft(); return; }

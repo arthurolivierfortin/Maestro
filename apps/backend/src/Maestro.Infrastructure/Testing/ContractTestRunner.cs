@@ -446,7 +446,16 @@ public class ContractTestRunner
                     "file-read",        // original name (before mapping to capture-file-read)
                     "file-edit",        // original name (before mapping to capture-file-edit)
                     "shell-execute",    // original name (before mapping to capture-shell-execute)
-                    "step-complete"     // agentic loop exit
+                    "step-complete",    // agentic loop exit
+                    "summary-validator", // validates step-complete summaries
+                    // Maestro operation tools (mapped to capture-generic)
+                    "session-create",
+                    "workspace-list",
+                    "workspace-create",
+                    "block-list",
+                    "session-stop",
+                    "workspace-delete",
+                    "contract-test"
                 },
                 AllowedCommands = new List<string> { "*" },
                 AllowedTools = new List<string> { "*" },
@@ -461,7 +470,15 @@ public class ContractTestRunner
                 ["file-write"] = "capture-file-write",
                 ["file-read"] = "capture-file-read",
                 ["shell-execute"] = "capture-shell-execute",
-                ["file-edit"] = "capture-file-edit"
+                ["file-edit"] = "capture-file-edit",
+                // Maestro operation tools → capture-generic
+                ["session-create"] = "capture-generic",
+                ["workspace-list"] = "capture-generic",
+                ["workspace-create"] = "capture-generic",
+                ["block-list"] = "capture-generic",
+                ["session-stop"] = "capture-generic",
+                ["workspace-delete"] = "capture-generic",
+                ["contract-test"] = "capture-generic"
             }));
 
             await _sessionRepository.SaveAsync(perTestSession, ct);
@@ -491,7 +508,15 @@ public class ContractTestRunner
                     ["file-write"] = "capture-file-write",
                     ["file-read"] = "capture-file-read",
                     ["shell-execute"] = "capture-shell-execute",
-                    ["file-edit"] = "capture-file-edit"
+                    ["file-edit"] = "capture-file-edit",
+                    // Maestro operation tools → capture-generic
+                    ["session-create"] = "capture-generic",
+                    ["workspace-list"] = "capture-generic",
+                    ["workspace-create"] = "capture-generic",
+                    ["block-list"] = "capture-generic",
+                    ["session-stop"] = "capture-generic",
+                    ["workspace-delete"] = "capture-generic",
+                    ["contract-test"] = "capture-generic"
                 });
             }
 
@@ -571,7 +596,8 @@ public class ContractTestRunner
             case "contains":
             {
                 var value = check.GetProperty("value").GetString() ?? "";
-                var passed = response.Contains(value, StringComparison.OrdinalIgnoreCase);
+                var searchText = response + "\n" + GetCapturedContentText(blockOutputs);
+                var passed = searchText.Contains(value, StringComparison.OrdinalIgnoreCase);
                 return (passed, type,
                     passed ? null : $"Response does not contain '{value}'");
             }
@@ -579,7 +605,8 @@ public class ContractTestRunner
             case "contains-all":
             {
                 var values = GetStringArray(check, "values");
-                var missing = values.Where(v => !response.Contains(v, StringComparison.OrdinalIgnoreCase)).ToList();
+                var searchText = response + "\n" + GetCapturedContentText(blockOutputs);
+                var missing = values.Where(v => !searchText.Contains(v, StringComparison.OrdinalIgnoreCase)).ToList();
                 var passed = missing.Count == 0;
                 return (passed, type,
                     passed ? null : $"Response missing: {string.Join(", ", missing.Select(m => $"'{m}'"))}");
@@ -588,7 +615,8 @@ public class ContractTestRunner
             case "contains-any":
             {
                 var values = GetStringArray(check, "values");
-                var found = values.Any(v => response.Contains(v, StringComparison.OrdinalIgnoreCase));
+                var searchText = response + "\n" + GetCapturedContentText(blockOutputs);
+                var found = values.Any(v => searchText.Contains(v, StringComparison.OrdinalIgnoreCase));
                 return (found, type,
                     found ? null : $"Response contains none of: {string.Join(", ", values.Select(v => $"'{v}'"))}");
             }
@@ -596,7 +624,8 @@ public class ContractTestRunner
             case "does-not-contain":
             {
                 var values = GetStringArray(check, "values");
-                var foundBad = values.Where(v => response.Contains(v, StringComparison.OrdinalIgnoreCase)).ToList();
+                var searchText = response + "\n" + GetCapturedContentText(blockOutputs);
+                var foundBad = values.Where(v => searchText.Contains(v, StringComparison.OrdinalIgnoreCase)).ToList();
                 var passed = foundBad.Count == 0;
                 return (passed, type,
                     passed ? null : $"Response contains forbidden: {string.Join(", ", foundBad.Select(f => $"'{f}'"))}");
@@ -630,24 +659,19 @@ public class ContractTestRunner
                 try
                 {
                     // Try to find JSON in the response
-                    var jsonStart = response.IndexOf('{');
-                    var jsonEnd = response.LastIndexOf('}');
-                    if (jsonStart >= 0 && jsonEnd > jsonStart)
-                    {
-                        var jsonStr = response[jsonStart..(jsonEnd + 1)];
-                        JsonDocument.Parse(jsonStr);
+                    if (TryFindValidJson(response))
                         return (true, type, null);
-                    }
-                    // Try array
-                    jsonStart = response.IndexOf('[');
-                    jsonEnd = response.LastIndexOf(']');
-                    if (jsonStart >= 0 && jsonEnd > jsonStart)
+
+                    // Phase 64-C: Also check content from captured tool calls (via _toolMapping).
+                    // The agent writes block.json via file-write (captured), so the JSON is in
+                    // _capturedToolCalls content, not in the response summary.
+                    foreach (var content in GetCapturedFileContents(blockOutputs))
                     {
-                        var jsonStr = response[jsonStart..(jsonEnd + 1)];
-                        JsonDocument.Parse(jsonStr);
-                        return (true, type, null);
+                        if (TryFindValidJson(content))
+                            return (true, type, null);
                     }
-                    return (false, type, "No valid JSON found in response");
+
+                    return (false, type, "No valid JSON found in response or captured tool calls");
                 }
                 catch (JsonException ex)
                 {
@@ -677,6 +701,90 @@ public class ContractTestRunner
             default:
                 return (false, type, $"Unknown check type: '{type}'");
         }
+    }
+
+    /// <summary>
+    /// Get all captured tool call data as a single searchable string.
+    /// Used by text-search checks (contains-all, contains, etc.) to also search
+    /// in the content that agents wrote via capture blocks.
+    /// </summary>
+    private static string GetCapturedContentText(Dictionary<string, object>? blockOutputs)
+    {
+        if (blockOutputs == null) return "";
+        if (!blockOutputs.TryGetValue("_capturedToolCalls", out var captured) || captured == null) return "";
+        return captured.ToString() ?? "";
+    }
+
+    /// <summary>
+    /// Extract individual file contents from captured tool calls.
+    /// Used by json-parseable to validate that written file content is valid JSON.
+    /// </summary>
+    private static List<string> GetCapturedFileContents(Dictionary<string, object>? blockOutputs)
+    {
+        var results = new List<string>();
+        if (blockOutputs == null) return results;
+        if (!blockOutputs.TryGetValue("_capturedToolCalls", out var captured) || captured == null) return results;
+
+        var capturedStr = captured.ToString() ?? "";
+        if (string.IsNullOrEmpty(capturedStr)) return results;
+
+        try
+        {
+            using var doc = JsonDocument.Parse(capturedStr);
+            if (doc.RootElement.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var entry in doc.RootElement.EnumerateArray())
+                {
+                    if (entry.TryGetProperty("content", out var contentEl))
+                    {
+                        var content = contentEl.GetString();
+                        if (!string.IsNullOrEmpty(content))
+                            results.Add(content);
+                    }
+                }
+            }
+        }
+        catch { /* _capturedToolCalls not valid JSON — skip */ }
+
+        return results;
+    }
+
+    /// <summary>
+    /// Try to find and parse valid JSON (object or array) in a string.
+    /// </summary>
+    private static bool TryFindValidJson(string text)
+    {
+        if (string.IsNullOrEmpty(text)) return false;
+
+        // Try object
+        var jsonStart = text.IndexOf('{');
+        var jsonEnd = text.LastIndexOf('}');
+        if (jsonStart >= 0 && jsonEnd > jsonStart)
+        {
+            try
+            {
+                var jsonStr = text[jsonStart..(jsonEnd + 1)];
+                JsonDocument.Parse(jsonStr);
+                return true;
+            }
+            catch (JsonException) { /* try array next */ }
+        }
+
+        // Try array
+        jsonStart = text.IndexOf('[');
+        jsonEnd = text.LastIndexOf(']');
+        if (jsonStart >= 0 && jsonEnd > jsonStart)
+        {
+            try
+            {
+                var jsonStr = text[jsonStart..(jsonEnd + 1)];
+                JsonDocument.Parse(jsonStr);
+                return true;
+            }
+            catch (JsonException) { return false; }
+        }
+
+        return false;
     }
 
     private static List<string> GetStringArray(JsonElement element, string propertyName)

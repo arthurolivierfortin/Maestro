@@ -13,7 +13,7 @@
     { "id": "response", "type": "string", "description": "JSON object: { findings, recommendations, warnings }" }
   ],
   "config": {
-    "model": "claude-sonnet-4-6",
+    "model": "claude-opus-4-6",
     "maxIterations": 6,
     "wallClockTimeoutSeconds": 600,
     "systemPromptFile": "system-prompt.md",
@@ -23,7 +23,7 @@
         "id": "agent-while", "type": "while", "condition": "{{_agentDone}} != true", "maxIterations": "{{maxIterations}}",
         "nodes": [
           { "id": "read-conversation", "blockRef": "conversation-read", "inputs": { "conversationId": "{{_conversationId}}" } },
-          { "id": "llm-call", "blockRef": "inference", "config": { "model": "claude-sonnet-4-6", "maxTokens": 4096, "temperature": 0 }, "inputs": { "messages": "{{_nodeResult_read-conversation.messages}}" } },
+          { "id": "llm-call", "blockRef": "inference", "config": { "model": "claude-opus-4-6", "maxTokens": 4096, "temperature": 0 }, "inputs": { "messages": "{{_nodeResult_read-conversation.messages}}" } },
           { "id": "append-assistant", "blockRef": "conversation-append", "inputs": { "conversationId": "{{_conversationId}}", "role": "assistant", "content": "{{_nodeResult_llm-call.content}}" } },
           { "id": "parse-response", "blockRef": "response-parser", "inputs": { "rawResponse": "{{_nodeResult_llm-call.content}}" } },
           {

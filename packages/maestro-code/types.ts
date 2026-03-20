@@ -42,4 +42,6 @@ export interface InteractiveOptions {
   readProviders?: () => Record<string, unknown> | null;
   demo?: boolean;
   noBell?: boolean;
+  /** Restore the old multi-page navigation paradigm (NavBar + page routing + hotkeys). */
+  classic?: boolean;
 }

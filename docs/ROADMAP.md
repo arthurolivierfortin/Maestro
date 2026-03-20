@@ -114,7 +114,7 @@
 15. /adapt = block-forge avec baseBlockId + contractRef               <- Phase 65
 16. Production variantes (benchmark multi-modeles sur contracts)      <- Phase 66
 17. Choix assistant au setup + Catalog par contract                    <- Phase 67
-18. Onboarding + Packaging npm (maestro init, first-run)              <- Phase 68
+18. Onboarding + Packaging npm + SDK @maestro/sdk                      <- Phase 68
 19. V1 Deploy + Beta testing                                           <- Phase 69
 
 === V2 ===
@@ -217,10 +217,12 @@
 | 64-A | `_toolMapping` + mock blocks (fondation) | DONE (ex 62-A) |
 | 64-B | Resolution conflits providers | DONE (ex 62-B) |
 | 64-C | Condenser system prompt + creer agents via foundry | EN COURS (6/9 tests) |
-| 64-D | Live execution view dans le TUI | A faire |
+| 64-D | SSE streaming backend + migration TUI polling → SSE + live execution view | A faire |
 | 64-T | Tests + validation | A faire |
 
-**Gate** : 2 agents avec fitness > 0.5, system prompt < 500 lignes, live view fonctionnelle.
+**Gate** : 2 agents avec fitness > 0.5, system prompt < 500 lignes, live view fonctionnelle, SSE streaming operationnel (0 polling dans le TUI).
+
+**Note** : Le SSE streaming (64-D) remplace les 22 timers/polling actuels du TUI par un EventSource par session. Ce meme mecanisme sera utilise par le SDK (Phase 68) — on construit une fois, TUI et SDK en profitent.
 
 **Plan detaille** : `docs/phases/PHASE-64/README.md`
 
@@ -275,17 +277,20 @@
 
 ---
 
-### Phase 68 : Onboarding + Packaging npm
+### Phase 68 : Onboarding + Packaging npm + SDK
 
-**But** : `npm install -g @maestro/cli && maestro init && maestro code`. Premiere experience utilisateur complete.
+**But** : `npm install -g @maestro/cli && maestro init && maestro code`. Premiere experience utilisateur complete. Extraction du SDK `@maestro/sdk` pour que des apps externes (ex: Cantante) puissent utiliser les agents/workflows Maestro.
 
 | Sous-phase | Objectif | Effort |
 |------------|----------|--------|
 | 67-A | Packaging npm, commande globale, sidecar auto-start | 3-4 jours |
 | 67-B | `maestro init` + onboarding (provider + choix assistant par contract) | 2-3 jours |
 | 67-C | Documentation : README, Getting Started, 3 exemples | 2-3 jours |
+| 67-D | SDK `@maestro/sdk` : extraction de `@maestro/client`, lifecycle simplifie, SSE streaming, docs API | 2-3 jours |
 
-**Gate** : Un utilisateur externe installe, choisit son assistant, et accomplit une tache reelle.
+**Note SDK** : Le SDK permet a des apps externes d'utiliser Maestro comme moteur d'agents. L'API REST et le SSE streaming (Phase 64-D) sont les fondations — le SDK est un wrapper TypeScript avec DX polie : `createSession → invoke → stream results` en 3 appels. Cantante sera le premier consommateur.
+
+**Gate** : Un utilisateur externe installe, choisit son assistant, et accomplit une tache reelle. Une app externe (Cantante) peut invoquer un agent Maestro via le SDK et recevoir les resultats en streaming.
 
 ---
 
@@ -382,6 +387,7 @@
 | Backend contract filter `GET /api/blocks?contract=X` | 67 | Planifie |
 | Choix assistant au setup par contract | 67 | Planifie |
 | Onboarding + Packaging npm (maestro init, first-run) | 68 | Planifie |
+| SDK `@maestro/sdk` (extraction client, SSE, lifecycle simplifie) | 68 | Planifie |
 | V1 Deploy + Beta testing | 69 | Planifie |
 | Self-improvement loop | 70 | Vision (V2) |
 | Catalogue communautaire par contract | 71 | Vision (V2) |

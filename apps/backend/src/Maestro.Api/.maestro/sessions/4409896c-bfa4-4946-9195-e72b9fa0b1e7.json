@@ -1,0 +1,58 @@
+{
+  "id": "4409896c-bfa4-4946-9195-e72b9fa0b1e7",
+  "name": "contract-test-agent-creator-agent-creator",
+  "status": "created",
+  "terminalReason": "none",
+  "authority": "agent:contract-test-runner",
+  "workingDirectory": ".",
+  "repositoryPath": "C:\\Meastro\\apps\\backend\\src\\Maestro.Api",
+  "parentWorkspaceId": null,
+  "parentSessionId": null,
+  "config": {
+    "projectId": null,
+    "workflowId": null,
+    "task": null,
+    "context": null,
+    "access": {
+      "level": "controlled",
+      "allowedPaths": [],
+      "deniedPaths": [
+        ".env",
+        "*.env",
+        "secrets/**",
+        "**/.git/**"
+      ],
+      "requireApprovalPaths": []
+    },
+    "validation": {
+      "runTests": false,
+      "testCommand": null,
+      "runLinter": false,
+      "linterCommand": null,
+      "requireCleanDiff": false,
+      "maxSteps": 50,
+      "timeoutMs": 600000
+    },
+    "inputs": {}
+  },
+  "createdAt": "2026-03-19T01:23:26.2194056+00:00",
+  "startedAt": null,
+  "completedAt": null,
+  "updatedAt": "2026-03-19T01:23:26.2199403+00:00",
+  "commandCount": 0,
+  "modifiedFiles": [],
+  "errorMessage": null,
+  "testResult": null,
+  "linterResult": null,
+  "commitInfo": null,
+  "variables": null,
+  "entryPoints": null,
+  "monitorWidgets": null,
+  "blockSearchPaths": [
+    "C:\\Meastro\\apps\\backend\\src\\Maestro.Api\\.maestro\\blocks"
+  ],
+  "defaultModel": null,
+  "modelOverrides": null,
+  "fileAccessRulesConfig": null,
+  "blockPermissionsConfig": null
+}

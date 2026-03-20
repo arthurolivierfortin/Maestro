@@ -40,6 +40,15 @@
             "type": "contains-any",
             "values": ["publish", "catalog", "available"]
           }
+        },
+        {
+          "id": "calls-file-write-for-block",
+          "description": "Workflow writes the block definition to disk",
+          "prompt": "Create a simple greeting agent that implements the greeting contract. Write the block.json file.",
+          "check": {
+            "type": "tool-call",
+            "toolName": "file-write"
+          }
         }
       ]
     },
@@ -65,6 +74,15 @@
           "check": {
             "type": "contains-any",
             "values": ["improv", "updat", "modif", "fix", "retry", "iterate", "prompt"]
+          }
+        },
+        {
+          "id": "calls-contract-test",
+          "description": "Workflow runs contract tests to verify the block",
+          "prompt": "You just created a greeting agent block. Now test it against the greeting contract to check if it passes.",
+          "check": {
+            "type": "tool-call",
+            "toolName": "contract-test"
           }
         }
       ]

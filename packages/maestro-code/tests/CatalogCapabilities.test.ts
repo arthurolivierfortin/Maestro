@@ -22,7 +22,7 @@ describe('CatalogScreen — Capabilities', () => {
   afterEach(() => cleanup());
 
   it('shows capability tags in inline row', async () => {
-    const { CatalogScreen } = await import('../components/CatalogScreen.ts');
+    const { CatalogScreen } = await import('../components/legacy/CatalogScreen.ts');
     const api = createMockApiClient([
       {
         id: 'file-edit',
@@ -49,7 +49,7 @@ describe('CatalogScreen — Capabilities', () => {
   });
 
   it('shows capability badges in expanded view', async () => {
-    const { CatalogScreen } = await import('../components/CatalogScreen.ts');
+    const { CatalogScreen } = await import('../components/legacy/CatalogScreen.ts');
     const api = createMockApiClient([
       {
         id: 'git-status',
@@ -83,7 +83,7 @@ describe('CatalogScreen — Capabilities', () => {
   });
 
   it('handles blocks without capabilities gracefully', async () => {
-    const { CatalogScreen } = await import('../components/CatalogScreen.ts');
+    const { CatalogScreen } = await import('../components/legacy/CatalogScreen.ts');
     const api = createMockApiClient([
       {
         id: 'no-caps',
@@ -109,7 +109,7 @@ describe('CatalogScreen — Capabilities', () => {
   });
 
   it('truncates to 3 capabilities in inline view', async () => {
-    const { CatalogScreen } = await import('../components/CatalogScreen.ts');
+    const { CatalogScreen } = await import('../components/legacy/CatalogScreen.ts');
     const api = createMockApiClient([
       {
         id: 'many-caps',
@@ -138,7 +138,7 @@ describe('CatalogScreen — Capabilities', () => {
   });
 
   it('shows all capabilities in expanded view', async () => {
-    const { CatalogScreen } = await import('../components/CatalogScreen.ts');
+    const { CatalogScreen } = await import('../components/legacy/CatalogScreen.ts');
     const api = createMockApiClient([
       {
         id: 'many-caps',

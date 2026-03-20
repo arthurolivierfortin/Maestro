@@ -1,0 +1,18 @@
+{
+  "id": "summary-validator",
+  "name": "Summary Validator",
+  "blockType": "summary-validator",
+  "version": "1.0.0",
+  "isAtomic": true,
+  "description": "Validates that a step-complete summary is a proper text response, not a raw JSON array. Used in agent config.nodes to catch structured-output-only responses.",
+  "inputs": [
+    { "id": "summary", "type": "string", "required": true, "description": "The step-complete summary to validate" }
+  ],
+  "outputs": [
+    { "id": "valid", "type": "string", "description": "'true' or 'false'" },
+    { "id": "reason", "type": "string", "description": "Why validation failed, if applicable" }
+  ],
+  "config": {},
+  "metadata": { "category": "validation", "tags": ["validation", "quality", "agent-loop"] },
+  "capabilities": ["validation"]
+}

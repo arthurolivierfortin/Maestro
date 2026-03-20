@@ -13,7 +13,7 @@
     { "id": "response", "type": "string", "description": "JSON: {role, suggestedContractId, capabilities, modelTier, reasoning}" }
   ],
   "config": {
-    "model": "claude-sonnet-4-6",
+    "model": "claude-opus-4-6",
     "maxTokens": 2048,
     "temperature": 0,
     "systemPromptFile": "system-prompt.md"

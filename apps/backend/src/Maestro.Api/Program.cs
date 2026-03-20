@@ -196,6 +196,10 @@ builder.Services.AddScoped<Maestro.Application.Interfaces.IBlockExecutor, Maestr
 builder.Services.AddScoped<Maestro.Application.Interfaces.IBlockExecutor, Maestro.Infrastructure.BlockExecutors.CaptureFileReadBlockExecutor>();
 builder.Services.AddScoped<Maestro.Application.Interfaces.IBlockExecutor, Maestro.Infrastructure.BlockExecutors.CaptureShellExecuteBlockExecutor>();
 builder.Services.AddScoped<Maestro.Application.Interfaces.IBlockExecutor, Maestro.Infrastructure.BlockExecutors.CaptureFileEditBlockExecutor>();
+builder.Services.AddScoped<Maestro.Application.Interfaces.IBlockExecutor, Maestro.Infrastructure.BlockExecutors.CaptureGenericBlockExecutor>();
+
+// Phase 63: Summary validator (rejects raw JSON array summaries from agent step-complete)
+builder.Services.AddSingleton<Maestro.Application.Interfaces.IBlockExecutor, Maestro.Infrastructure.BlockExecutors.SummaryValidatorBlockExecutor>();
 
 // Orchestration services (Phase 5C)
 builder.Services.AddScoped<Maestro.Application.Interfaces.IDataFlowManager, Maestro.Infrastructure.Orchestration.DataFlowManager>();

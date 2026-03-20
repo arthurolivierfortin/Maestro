@@ -28,7 +28,7 @@ describe('ModelsScreen', () => {
   afterEach(() => cleanup());
 
   it('renders METRICS panel', async () => {
-    const { ModelsScreen } = await import('../components/ModelsScreen.ts');
+    const { ModelsScreen } = await import('../components/legacy/ModelsScreen.ts');
     const api = createMockApiClient({
       stats: {
         totalRequests: 150,
@@ -56,7 +56,7 @@ describe('ModelsScreen', () => {
   });
 
   it('renders QUEUE panel', async () => {
-    const { ModelsScreen } = await import('../components/ModelsScreen.ts');
+    const { ModelsScreen } = await import('../components/legacy/ModelsScreen.ts');
     const api = createMockApiClient({
       queue: {
         depth: 2,
@@ -79,7 +79,7 @@ describe('ModelsScreen', () => {
   });
 
   it('shows metrics data when stats available', async () => {
-    const { ModelsScreen } = await import('../components/ModelsScreen.ts');
+    const { ModelsScreen } = await import('../components/legacy/ModelsScreen.ts');
     const api = createMockApiClient({
       stats: {
         totalRequests: 250,
@@ -109,7 +109,7 @@ describe('ModelsScreen', () => {
   });
 
   it('shows queue depth data', async () => {
-    const { ModelsScreen } = await import('../components/ModelsScreen.ts');
+    const { ModelsScreen } = await import('../components/legacy/ModelsScreen.ts');
     const api = createMockApiClient({
       queue: {
         depth: 5,
@@ -134,7 +134,7 @@ describe('ModelsScreen', () => {
   });
 
   it('shows fallback when no metrics available', async () => {
-    const { ModelsScreen } = await import('../components/ModelsScreen.ts');
+    const { ModelsScreen } = await import('../components/legacy/ModelsScreen.ts');
     const api = createMockApiClient({ stats: null, queue: null });
 
     const { lastFrame } = render(h(ModelsScreen, {
@@ -151,7 +151,7 @@ describe('ModelsScreen', () => {
   });
 
   it('preserves AVAILABLE MODELS panel', async () => {
-    const { ModelsScreen } = await import('../components/ModelsScreen.ts');
+    const { ModelsScreen } = await import('../components/legacy/ModelsScreen.ts');
     const api = createMockApiClient({
       models: [
         { modelId: 'model-a', name: 'Model A', category: 'general' },
@@ -175,7 +175,7 @@ describe('ModelsScreen', () => {
   });
 
   it('preserves MODEL STATUS panel', async () => {
-    const { ModelsScreen } = await import('../components/ModelsScreen.ts');
+    const { ModelsScreen } = await import('../components/legacy/ModelsScreen.ts');
     const api = createMockApiClient({
       health: { status: 'ok', activeModel: 'claude-sonnet', device: 'cuda' },
     });
@@ -194,7 +194,7 @@ describe('ModelsScreen', () => {
   });
 
   it('preserves PROVIDERS panel', async () => {
-    const { ModelsScreen } = await import('../components/ModelsScreen.ts');
+    const { ModelsScreen } = await import('../components/legacy/ModelsScreen.ts');
     const api = createMockApiClient();
 
     const { lastFrame } = render(h(ModelsScreen, {
@@ -212,7 +212,7 @@ describe('ModelsScreen', () => {
   });
 
   it('shows provider name in model card', async () => {
-    const { ModelsScreen } = await import('../components/ModelsScreen.ts');
+    const { ModelsScreen } = await import('../components/legacy/ModelsScreen.ts');
     const api = createMockApiClient({
       models: [
         { modelId: 'gpt-4o', name: 'GPT-4o', category: 'Azure' },
@@ -240,7 +240,7 @@ describe('ModelsScreen', () => {
   });
 
   it('shows footer shortcuts when models are loaded', async () => {
-    const { ModelsScreen } = await import('../components/ModelsScreen.ts');
+    const { ModelsScreen } = await import('../components/legacy/ModelsScreen.ts');
     const api = createMockApiClient({
       models: [
         { modelId: 'test-model', name: 'Test Model', category: 'Test' },
@@ -263,7 +263,7 @@ describe('ModelsScreen', () => {
   });
 
   it('shows active model name in status panel', async () => {
-    const { ModelsScreen } = await import('../components/ModelsScreen.ts');
+    const { ModelsScreen } = await import('../components/legacy/ModelsScreen.ts');
     const api = createMockApiClient({
       health: { status: 'ok', activeModel: 'claude-opus-4-6', device: 'cloud' },
     });
@@ -282,7 +282,7 @@ describe('ModelsScreen', () => {
   });
 
   it('marks active model in the list', async () => {
-    const { ModelsScreen } = await import('../components/ModelsScreen.ts');
+    const { ModelsScreen } = await import('../components/legacy/ModelsScreen.ts');
     const api = createMockApiClient({
       health: { status: 'ok', activeModel: 'model-a', device: 'cpu' },
       models: [

@@ -354,6 +354,18 @@ class DemoApiClient implements IMaestroCodeApiClient {
     if (path.includes('/api/contracts')) {
       return Object.values(DEMO_CONTRACTS);
     }
+    if (path.includes('/permissions/effective')) {
+      // Demo permissions for SessionMonitorWidget
+      return {
+        sessionId: path.split('/api/sessions/')[1]?.split('/')[0] || 'demo',
+        sessionName: 'Demo Session',
+        effective: { allowedBlocks: ['*'] },
+        own: { allowedBlocks: ['*'] },
+        parentId: null,
+        parentEffective: null,
+        blockRules: [],
+      };
+    }
     if (path.includes('/api/sessions')) {
       return mapDemoSessions();
     }

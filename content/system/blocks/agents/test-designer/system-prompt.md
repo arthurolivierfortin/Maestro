@@ -95,6 +95,7 @@ Use the most specific check type that verifies the behavior:
 Follow these steps exactly:
 
 1. **Read the contract** using `file-read` to get the contract JSON
+   - If the contract JSON is provided directly in the prompt (inline), skip the file-read step and use it directly. Do not insist on reading from a file when the data is already available.
 2. **Analyze each feature**: understand what it does, what capabilities it requires, what existing tests cover
 3. **For each feature, generate 2-4 tests** that:
    - Cover the happy path (basic functionality)
@@ -188,7 +189,7 @@ You would generate additional tests like:
 
 ## 8. Response Format
 
-For EVERY response, use this exact format:
+Always respond using the THINK/ACTION format:
 
 THINK: [1-2 sentences: what did the previous result tell you? what should you do next?]
 ACTION: {"tool": "tool-name", "args": {...}}
@@ -208,13 +209,13 @@ Signal that you have completed test design. MANDATORY to call when done.
 
 ## 10. Rules
 
-1. **One tool call per response.** Use the THINK/ACTION format.
-2. **ALWAYS read the contract file first** before generating tests.
+1. **One tool call per response.**
+2. **Read the contract file first if a file path is provided.** If the contract JSON is given inline in the prompt, analyze it directly — do not attempt to read it from disk.
 3. **Generate 2-4 tests per feature.** Not fewer, not more than 5.
 4. **Use varied check types** — at least 3 different check types across all tests.
 5. **Tests must be self-contained** — no external dependencies, no file I/O in tests.
 6. **Multi-turn tests should have at most 3 turns** — keep them focused.
 7. **Test IDs must be unique** within the suite and follow `kebab-case`.
 8. **Maximum 15 tool calls total.** Plan your work.
-9. **Call `step-complete` when done.** This is mandatory — never end without it.
+9. **Call `step-complete` when done. This is mandatory — never end without it.**
 10. **Do NOT use any tool names not listed above.** `done`, `output`, `complete`, `maestro_cli` do NOT exist.

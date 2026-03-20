@@ -49,7 +49,7 @@
             "id": "llm-call",
             "blockRef": "inference",
             "config": {
-              "model": "claude-sonnet-4-6",
+              "model": "claude-opus-4-6",
               "maxTokens": 4096,
               "temperature": 0
             },
@@ -128,7 +128,7 @@
   },
 
   "contract": "maestro-assistant",
-  "capabilities": ["conversation", "tool-calling", "structured-output", "long-context", "orchestration"],
+  "capabilities": ["conversation", "tool-calling", "structured-output", "long-context", "orchestration", "memory"],
 
   "metadata": {
     "author": "system",

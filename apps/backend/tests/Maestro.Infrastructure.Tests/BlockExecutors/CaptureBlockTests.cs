@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text.Json;
 using Maestro.Application.DTOs;
 using Maestro.Domain.Entities;
@@ -40,7 +41,7 @@ public class CaptureBlockTests
         var result = await executor.ExecuteAsync(block, context, inputs);
 
         Assert.True(result.Success);
-        Assert.Contains("File written: test/output.json", result.Outputs["result"]?.ToString());
+        Assert.Contains("File written successfully: test/output.json", result.Outputs["result"]?.ToString());
 
         // Verify captures are stored
         Assert.True(context.Variables.ContainsKey("_capturedToolCalls"));
@@ -325,5 +326,308 @@ public class CaptureBlockTests
 
         Assert.False(passed);
         Assert.Contains("file-write", failureReason);
+    }
+
+    // ---- Phase 64-C: EvaluateCheck json-parseable with _capturedToolCalls ----
+
+    [Fact]
+    public void EvaluateCheck_JsonParseable_FindsInCapturedContent()
+    {
+        var captures = JsonSerializer.Serialize(new[]
+        {
+            new { toolId = "file-write", path = "test.block.json", content = "{\"id\": \"test\", \"blockType\": \"agent\"}" }
+        });
+        var checkJson = JsonSerializer.Serialize(new { type = "json-parseable" });
+        using var doc = JsonDocument.Parse(checkJson);
+
+        var blockOutputs = new Dictionary<string, object>
+        {
+            ["_capturedToolCalls"] = captures
+        };
+
+        var (passed, checkType, _) = ContractTestRunner.EvaluateCheck(
+            doc.RootElement, "I created the block.json for you.", blockOutputs);
+
+        Assert.True(passed);
+        Assert.Equal("json-parseable", checkType);
+    }
+
+    [Fact]
+    public void EvaluateCheck_JsonParseable_FailsWhenNoCapturedJson()
+    {
+        var checkJson = JsonSerializer.Serialize(new { type = "json-parseable" });
+        using var doc = JsonDocument.Parse(checkJson);
+
+        var blockOutputs = new Dictionary<string, object>();
+
+        var (passed, _, failureReason) = ContractTestRunner.EvaluateCheck(
+            doc.RootElement, "Done, the file has been created.", blockOutputs);
+
+        Assert.False(passed);
+        Assert.Contains("No valid JSON", failureReason);
+    }
+
+    // ---- Phase 64-C: EvaluateCheck contains-all with _capturedToolCalls ----
+
+    [Fact]
+    public void EvaluateCheck_ContainsAll_FindsInCapturedToolCalls()
+    {
+        var captures = JsonSerializer.Serialize(new[]
+        {
+            new { toolId = "file-write", path = "block.json",
+                  content = "{\"capabilities\": [\"conversation\", \"tool-calling\"]}" }
+        });
+        var checkJson = JsonSerializer.Serialize(new
+        {
+            type = "contains-all",
+            values = new[] { "capabilities", "conversation", "tool-calling" }
+        });
+        using var doc = JsonDocument.Parse(checkJson);
+
+        var blockOutputs = new Dictionary<string, object>
+        {
+            ["_capturedToolCalls"] = captures
+        };
+
+        var (passed, checkType, _) = ContractTestRunner.EvaluateCheck(
+            doc.RootElement, "Block created successfully.", blockOutputs);
+
+        Assert.True(passed);
+        Assert.Equal("contains-all", checkType);
+    }
+
+    [Fact]
+    public void EvaluateCheck_ContainsAll_PartialMatch_Fails()
+    {
+        var captures = JsonSerializer.Serialize(new[]
+        {
+            new { toolId = "file-write", path = "block.json",
+                  content = "{\"capabilities\": [\"conversation\"]}" }
+        });
+        var checkJson = JsonSerializer.Serialize(new
+        {
+            type = "contains-all",
+            values = new[] { "capabilities", "conversation", "tool-calling" }
+        });
+        using var doc = JsonDocument.Parse(checkJson);
+
+        var blockOutputs = new Dictionary<string, object>
+        {
+            ["_capturedToolCalls"] = captures
+        };
+
+        var (passed, _, failureReason) = ContractTestRunner.EvaluateCheck(
+            doc.RootElement, "Block created.", blockOutputs);
+
+        Assert.False(passed);
+        Assert.Contains("tool-calling", failureReason);
+    }
+
+    // ---- Phase 64-C: EvaluateCheck contains with _capturedToolCalls ----
+
+    [Fact]
+    public void EvaluateCheck_Contains_FindsInCapturedToolCalls()
+    {
+        var captures = JsonSerializer.Serialize(new[]
+        {
+            new { toolId = "file-write", path = "prompt.md", content = "# Code Reviewer\nReview for bugs and style." }
+        });
+        var checkJson = JsonSerializer.Serialize(new { type = "contains", value = "bug" });
+        using var doc = JsonDocument.Parse(checkJson);
+
+        var blockOutputs = new Dictionary<string, object>
+        {
+            ["_capturedToolCalls"] = captures
+        };
+
+        var (passed, _, _) = ContractTestRunner.EvaluateCheck(
+            doc.RootElement, "System prompt written.", blockOutputs);
+
+        Assert.True(passed);
+    }
+
+    // ---- CaptureGenericBlockExecutor ----
+
+    [Fact]
+    public async Task CaptureGeneric_RecordsToolCallWithOriginalToolId()
+    {
+        var executor = new CaptureGenericBlockExecutor();
+        var block = CreateBlock("capture-generic", "capture-generic");
+        var context = CreateContext();
+        // Simulate ToolDispatcherBlockExecutor setting the original tool ID
+        context.Variables["_lastDispatchedToolId"] = "session-create";
+
+        var inputs = new Dictionary<string, object>
+        {
+            ["name"] = "My Session",
+            ["type"] = "project",
+            ["repo"] = "/app"
+        };
+
+        var result = await executor.ExecuteAsync(block, context, inputs);
+
+        Assert.True(result.Success);
+        Assert.Contains("Tool executed successfully", result.Outputs["result"]?.ToString());
+
+        // Verify captures are stored with the original tool name
+        Assert.True(context.Variables.ContainsKey("_capturedToolCalls"));
+        var captures = JsonSerializer.Deserialize<List<Dictionary<string, string>>>(
+            context.Variables["_capturedToolCalls"]?.ToString() ?? "[]");
+        Assert.NotNull(captures);
+        Assert.Single(captures!);
+        Assert.Equal("session-create", captures[0]["toolId"]);
+        Assert.Contains("My Session", captures[0]["args"]);
+    }
+
+    [Fact]
+    public async Task CaptureGeneric_NoOriginalToolId_UsesUnknown()
+    {
+        var executor = new CaptureGenericBlockExecutor();
+        var block = CreateBlock("capture-generic", "capture-generic");
+        var context = CreateContext();
+        // Don't set _lastDispatchedToolId — should fall back to "unknown"
+
+        var inputs = new Dictionary<string, object>
+        {
+            ["query"] = "list all blocks"
+        };
+
+        var result = await executor.ExecuteAsync(block, context, inputs);
+
+        Assert.True(result.Success);
+
+        var captures = JsonSerializer.Deserialize<List<Dictionary<string, string>>>(
+            context.Variables["_capturedToolCalls"]?.ToString() ?? "[]");
+        Assert.Single(captures!);
+        Assert.Equal("unknown", captures[0]["toolId"]);
+    }
+
+    [Fact]
+    public async Task CaptureGeneric_MultipleToolCalls_AppendsAll()
+    {
+        var executor = new CaptureGenericBlockExecutor();
+        var block = CreateBlock("capture-generic", "capture-generic");
+        var context = CreateContext();
+
+        // First call: workspace-list
+        context.Variables["_lastDispatchedToolId"] = "workspace-list";
+        await executor.ExecuteAsync(block, context, new Dictionary<string, object>());
+
+        // Second call: session-create
+        context.Variables["_lastDispatchedToolId"] = "session-create";
+        await executor.ExecuteAsync(block, context, new Dictionary<string, object>
+        {
+            ["name"] = "Test Session"
+        });
+
+        var captures = JsonSerializer.Deserialize<List<Dictionary<string, string>>>(
+            context.Variables["_capturedToolCalls"]?.ToString() ?? "[]");
+        Assert.Equal(2, captures!.Count);
+        Assert.Equal("workspace-list", captures[0]["toolId"]);
+        Assert.Equal("session-create", captures[1]["toolId"]);
+    }
+
+    // ---- SummaryValidatorBlockExecutor ----
+
+    [Fact]
+    public async Task SummaryValidator_RejectsJsonArray()
+    {
+        var executor = new SummaryValidatorBlockExecutor();
+        var block = CreateBlock("summary-validator", "summary-validator");
+        var context = CreateContext();
+        var inputs = new Dictionary<string, object> { ["summary"] = "[\"hello\",\"hi\",\"query\"]" };
+
+        var result = await executor.ExecuteAsync(block, context, inputs);
+        Assert.Equal("false", result.Outputs["valid"]?.ToString());
+    }
+
+    [Fact]
+    public async Task SummaryValidator_AcceptsTextSummary()
+    {
+        var executor = new SummaryValidatorBlockExecutor();
+        var block = CreateBlock("summary-validator", "summary-validator");
+        var context = CreateContext();
+        var inputs = new Dictionary<string, object> { ["summary"] = "Generated 12 tests across 4 features for the maestro-assistant contract." };
+
+        var result = await executor.ExecuteAsync(block, context, inputs);
+        Assert.Equal("true", result.Outputs["valid"]?.ToString());
+    }
+
+    [Fact]
+    public async Task SummaryValidator_AcceptsLongJsonArray()
+    {
+        var executor = new SummaryValidatorBlockExecutor();
+        var block = CreateBlock("summary-validator", "summary-validator");
+        var context = CreateContext();
+        // A long JSON array (>300 chars) might be a legitimate structured response
+        var longArray = "[" + string.Join(",", Enumerable.Range(0, 50).Select(i => $"\"item-{i}-with-long-description-text\"")) + "]";
+        var inputs = new Dictionary<string, object> { ["summary"] = longArray };
+
+        var result = await executor.ExecuteAsync(block, context, inputs);
+        Assert.Equal("true", result.Outputs["valid"]?.ToString());
+    }
+
+    [Fact]
+    public void EvaluateCheck_ToolCall_FindsGenericCapturedTool()
+    {
+        // Verify that the tool-call check type finds tools captured by capture-generic
+        var captures = JsonSerializer.Serialize(new[]
+        {
+            new Dictionary<string, string>
+            {
+                ["toolId"] = "session-create",
+                ["args"] = "{\"name\":\"Test\"}",
+                ["timestamp"] = "2026-03-18T00:00:00Z"
+            }
+        });
+
+        var checkJson = JsonSerializer.Serialize(new { type = "tool-call", toolName = "session-create" });
+        using var doc = JsonDocument.Parse(checkJson);
+
+        var blockOutputs = new Dictionary<string, object>
+        {
+            ["_capturedToolCalls"] = captures
+        };
+
+        var (passed, checkType, failureReason) = ContractTestRunner.EvaluateCheck(
+            doc.RootElement, "response without tool name", blockOutputs);
+
+        Assert.True(passed);
+        Assert.Equal("tool-call", checkType);
+        Assert.Null(failureReason);
+    }
+
+    // ---- ResponseParserBlockExecutor: JSON array → retry ----
+
+    [Fact]
+    public async Task ResponseParser_ShortJsonArray_ClassifiedAsRetry()
+    {
+        var executor = new ResponseParserBlockExecutor();
+        var block = CreateBlock("response-parser", "response-parser");
+        var context = CreateContext();
+        var inputs = new Dictionary<string, object>
+        {
+            ["rawResponse"] = "[\"query\"]"
+        };
+
+        var result = await executor.ExecuteAsync(block, context, inputs);
+
+        Assert.Equal("retry", result.Outputs["type"]?.ToString());
+    }
+
+    [Fact]
+    public async Task ResponseParser_ConversationalText_ClassifiedAsText()
+    {
+        var executor = new ResponseParserBlockExecutor();
+        var block = CreateBlock("response-parser", "response-parser");
+        var context = CreateContext();
+        var inputs = new Dictionary<string, object>
+        {
+            ["rawResponse"] = "The best check type for tool verification is `tool-call`. Use it when you want to verify the agent calls a specific tool."
+        };
+
+        var result = await executor.ExecuteAsync(block, context, inputs);
+
+        Assert.Equal("text", result.Outputs["type"]?.ToString());
     }
 }
