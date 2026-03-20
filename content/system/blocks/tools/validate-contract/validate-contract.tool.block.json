@@ -1,0 +1,17 @@
+{
+  "id": "validate-contract",
+  "name": "Validate Contract",
+  "blockType": "validate-contract",
+  "version": "1.0.0",
+  "isAtomic": true,
+  "description": "Validates a Maestro contract JSON against domain-specific rules: required fields, feature weights, valid check types, test structure.",
+  "inputs": [
+    { "id": "contractJson", "type": "string", "required": true, "description": "The contract JSON to validate" }
+  ],
+  "outputs": [
+    { "id": "valid", "type": "string", "description": "'true' or 'false'" },
+    { "id": "errors", "type": "string", "description": "Semicolon-separated list of validation errors" },
+    { "id": "errorCount", "type": "string", "description": "Number of errors found" }
+  ],
+  "metadata": { "category": "maestro-domain", "tags": ["validation", "contract", "domain"] }
+}

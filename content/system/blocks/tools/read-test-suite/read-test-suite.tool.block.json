@@ -1,0 +1,42 @@
+{
+  "id": "read-test-suite",
+  "name": "Read Test Suite",
+  "blockType": "read-test-suite",
+  "version": "1.0.0",
+  "isAtomic": true,
+  "description": "Reads a Maestro test suite by contract ID. Resolves the file path internally using Maestro conventions.",
+  "inputs": [
+    {
+      "id": "contractId",
+      "name": "Contract ID",
+      "type": "string",
+      "required": true,
+      "description": "The contract ID whose test suite to read (e.g., 'test-generator')"
+    }
+  ],
+  "outputs": [
+    {
+      "id": "testSuiteJson",
+      "type": "string",
+      "description": "The parsed test suite JSON content"
+    },
+    {
+      "id": "contractId",
+      "type": "string",
+      "description": "The contract ID"
+    },
+    {
+      "id": "testSuitePath",
+      "type": "string",
+      "description": "The resolved file path"
+    }
+  ],
+  "config": {
+    "toolType": "read-test-suite"
+  },
+  "metadata": {
+    "category": "maestro-domain",
+    "tags": ["test-suite", "read", "domain", "contract"]
+  },
+  "capabilities": ["domain", "testing"]
+}

@@ -597,6 +597,132 @@ public class CaptureBlockTests
         Assert.Null(failureReason);
     }
 
+    // ---- ValidateContractBlockExecutor ----
+
+    [Fact]
+    public async Task ValidateContract_ValidContract_ReturnsTrue()
+    {
+        var executor = new ValidateContractBlockExecutor();
+        var block = CreateBlock("validate-contract", "validate-contract");
+        var context = CreateContext();
+        var contract = JsonSerializer.Serialize(new
+        {
+            id = "test-contract",
+            requiredCapabilities = new[] { "conversation" },
+            minimumFitness = 0.5,
+            features = new Dictionary<string, object>
+            {
+                ["greeting"] = new { weight = 0.6, minimumScore = 0.7, tests = new[] { new { id = "t1", prompt = "Hello", check = new { type = "non-empty" } } } },
+                ["math"] = new { weight = 0.4, minimumScore = 0.5, tests = new[] { new { id = "t2", prompt = "2+2?", check = new { type = "contains", value = "4" } } } }
+            }
+        });
+        var inputs = new Dictionary<string, object> { ["contractJson"] = contract };
+
+        var result = await executor.ExecuteAsync(block, context, inputs);
+        Assert.Equal("true", result.Outputs["valid"]?.ToString());
+    }
+
+    [Fact]
+    public async Task ValidateContract_MissingFeatures_ReturnsFalse()
+    {
+        var executor = new ValidateContractBlockExecutor();
+        var block = CreateBlock("validate-contract", "validate-contract");
+        var context = CreateContext();
+        var contract = JsonSerializer.Serialize(new { id = "bad" });
+        var inputs = new Dictionary<string, object> { ["contractJson"] = contract };
+
+        var result = await executor.ExecuteAsync(block, context, inputs);
+        Assert.Equal("false", result.Outputs["valid"]?.ToString());
+        Assert.Contains("features", result.Outputs["errors"]?.ToString());
+    }
+
+    [Fact]
+    public async Task ValidateContract_WeightsDontSumToOne_Error()
+    {
+        var executor = new ValidateContractBlockExecutor();
+        var block = CreateBlock("validate-contract", "validate-contract");
+        var context = CreateContext();
+        var contract = JsonSerializer.Serialize(new
+        {
+            id = "test",
+            requiredCapabilities = new[] { "conversation" },
+            minimumFitness = 0.5,
+            features = new Dictionary<string, object>
+            {
+                ["a"] = new { weight = 0.3, tests = new[] { new { id = "t1", prompt = "Hi", check = new { type = "non-empty" } } } },
+                ["b"] = new { weight = 0.3, tests = new[] { new { id = "t2", prompt = "Hey", check = new { type = "non-empty" } } } }
+            }
+        });
+        var inputs = new Dictionary<string, object> { ["contractJson"] = contract };
+
+        var result = await executor.ExecuteAsync(block, context, inputs);
+        Assert.Equal("false", result.Outputs["valid"]?.ToString());
+        Assert.Contains("weights sum", result.Outputs["errors"]?.ToString()?.ToLower());
+    }
+
+    // ---- ValidateTestSuiteBlockExecutor ----
+
+    [Fact]
+    public async Task ValidateTestSuite_ValidSuite_ReturnsTrue()
+    {
+        var executor = new ValidateTestSuiteBlockExecutor();
+        var block = CreateBlock("validate-test-suite", "validate-test-suite");
+        var context = CreateContext();
+        var suite = JsonSerializer.Serialize(new
+        {
+            contractId = "test",
+            totalTests = 4,
+            features = new Dictionary<string, object>
+            {
+                ["greeting"] = new { tests = new object[] {
+                    new { id = "t1", prompt = "Hi", check = new { type = "non-empty" } },
+                    new { id = "t2", prompt = "Hey", check = new { type = "contains", value = "hello" } }
+                }},
+                ["math"] = new { tests = new object[] {
+                    new { id = "t3", prompt = "2+2", check = new { type = "contains", value = "4" } },
+                    new { id = "t4", prompt = "Format", check = new { type = "json-parseable" } }
+                }}
+            }
+        });
+        var inputs = new Dictionary<string, object> { ["testSuiteJson"] = suite };
+
+        var result = await executor.ExecuteAsync(block, context, inputs);
+        Assert.Equal("true", result.Outputs["valid"]?.ToString());
+    }
+
+    [Fact]
+    public async Task ValidateTestSuite_MissingFeatureCoverage_Error()
+    {
+        var executor = new ValidateTestSuiteBlockExecutor();
+        var block = CreateBlock("validate-test-suite", "validate-test-suite");
+        var context = CreateContext();
+        var suite = JsonSerializer.Serialize(new
+        {
+            contractId = "test",
+            totalTests = 2,
+            features = new Dictionary<string, object>
+            {
+                ["greeting"] = new { tests = new object[] {
+                    new { id = "t1", prompt = "Hi", check = new { type = "non-empty" } },
+                    new { id = "t2", prompt = "Hey", check = new { type = "contains", value = "hi" } }
+                }}
+            }
+        });
+        var contract = JsonSerializer.Serialize(new
+        {
+            features = new Dictionary<string, object>
+            {
+                ["greeting"] = new { },
+                ["math"] = new { }
+            }
+        });
+        var inputs = new Dictionary<string, object> { ["testSuiteJson"] = suite, ["contractJson"] = contract };
+
+        var result = await executor.ExecuteAsync(block, context, inputs);
+        Assert.Equal("false", result.Outputs["valid"]?.ToString());
+        Assert.Contains("math", result.Outputs["errors"]?.ToString());
+    }
+
     // ---- ResponseParserBlockExecutor: JSON array → retry ----
 
     [Fact]

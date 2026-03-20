@@ -1,0 +1,42 @@
+{
+  "id": "write-contract",
+  "name": "Write Contract",
+  "blockType": "write-contract",
+  "version": "1.0.0",
+  "isAtomic": true,
+  "description": "Writes a Maestro contract to disk. Extracts the 'id' field from the JSON to determine the filename. Encapsulates naming conventions.",
+  "inputs": [
+    {
+      "id": "contractJson",
+      "name": "Contract JSON",
+      "type": "string",
+      "required": true,
+      "description": "The full contract JSON content. Must contain an 'id' field."
+    }
+  ],
+  "outputs": [
+    {
+      "id": "contractId",
+      "type": "string",
+      "description": "The contract ID extracted from the JSON"
+    },
+    {
+      "id": "contractPath",
+      "type": "string",
+      "description": "The resolved file path where the contract was written"
+    },
+    {
+      "id": "result",
+      "type": "string",
+      "description": "Success message with path and size"
+    }
+  ],
+  "config": {
+    "toolType": "write-contract"
+  },
+  "metadata": {
+    "category": "maestro-domain",
+    "tags": ["contract", "write", "domain"]
+  },
+  "capabilities": ["domain", "contract"]
+}

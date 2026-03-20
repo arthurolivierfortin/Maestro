@@ -1,0 +1,42 @@
+{
+  "id": "read-contract",
+  "name": "Read Contract",
+  "blockType": "read-contract",
+  "version": "1.0.0",
+  "isAtomic": true,
+  "description": "Reads a Maestro contract by ID. Resolves the file path internally using Maestro conventions.",
+  "inputs": [
+    {
+      "id": "contractId",
+      "name": "Contract ID",
+      "type": "string",
+      "required": true,
+      "description": "The contract ID (e.g., 'maestro-assistant')"
+    }
+  ],
+  "outputs": [
+    {
+      "id": "contractJson",
+      "type": "string",
+      "description": "The parsed contract JSON content"
+    },
+    {
+      "id": "contractId",
+      "type": "string",
+      "description": "The contract ID"
+    },
+    {
+      "id": "contractPath",
+      "type": "string",
+      "description": "The resolved file path"
+    }
+  ],
+  "config": {
+    "toolType": "read-contract"
+  },
+  "metadata": {
+    "category": "maestro-domain",
+    "tags": ["contract", "read", "domain"]
+  },
+  "capabilities": ["domain", "contract"]
+}
