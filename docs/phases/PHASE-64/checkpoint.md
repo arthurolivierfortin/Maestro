@@ -80,29 +80,50 @@ Agent-creator renomme block-creator.
 - `content/system/blocks/workflows/test-designer/` — read-contract → inference → write-test-suite → validate → done
 - `content/system/blocks/workflows/block-creator/` — read-contract → read-test-suite → inference → write-block → contract-test → loop
 
-### Premier run des workflows
-- **block-creator** : 2/3 (67%) — fonctionne au premier run
-- **test-designer** : 0/4 — ExtractResponseText ne retourne pas le bon output du workflow
-- **contract-definer** : 0/5 — meme probleme d'extraction d'output
+### Runs des workflows (multiple iterations)
 
-### Probleme identifie
-Le ContractTestRunner.ExtractResponseText() concatene tous les outputs du workflow au lieu de retourner l'output principal (contractJson, testSuiteJson). Les checks `contains-all` cherchent dans cette concatenation et ne trouvent pas les mots cles.
+**block-creator** : **8/11 (73%)** — fonctionne bien. Utilise le pattern agent classique (copie de l'ancien agent-creator).
 
-## 64-F: EN COURS
-- Block-forge mis a jour pour reference block-creator au lieu de agent-creator
-- Pipeline : contract-definer → test-designer → block-creator → check-fitness
+**test-designer** : 2/9 — le workflow s'execute mais l'inference node ne produit pas de contenu exploitable. La reponse retournee contient les inputs (messages JSON) au lieu du resultat genere.
 
+**contract-definer** : 1/12 — meme probleme. Les reponses sont `[{"role":"user","content":"..."}]` (les messages input) au lieu du contrat genere.
+
+### Fixes appliques (session courante)
+1. **ExtractResponseText** : ordre de priorite change — `contractJson`/`testSuiteJson`/`blockJson` EN PREMIER, avant `content`/`result`/`response`
+2. **workingDir** : resolution du project root (remonte les dossiers jusqu'a trouver `content/system/`)
+3. **outputDir** : utilise workingDir au lieu de GetCurrentDirectory()
+4. **Copie variables** : context.Variables → execResult.Outputs pour les cles de workflow
+5. **set-initial nodes** : `set-initial-suite` et `set-initial-contract` ajoutees AVANT le conditionnel pour garantir que la variable est toujours set
+6. **Contrats enrichis** : 12 + 9 + 11 = 32 tests (avant: 5 + 4 + 3 = 12)
+
+### Probleme BLOQUANT identifie
+**Les workflows contract-definer et test-designer retournent les messages input au lieu du resultat de l'inference.**
+
+La reponse du contract-definer pour le prompt "A greeting agent..." est :
+```
+[{"role":"user","content":"A greeting agent that says hello..."}]
+```
+C'est le `messages` input du node inference, pas son output. Le `blockRef: inference` node dans un workflow simple (pas un agent avec boucle) ne produit pas `_nodeResult_generate-contract.content` correctement.
+
+**Hypothese** : L'inference block (LLMBlockExecutorBase) attend peut-etre des inputs specifiques (`messages` comme JSON array, `systemPrompt`, etc.) et le workflow ne les passe pas dans le bon format. Le messages input est un string literal `"[{\"role\":\"user\",...}]"` qui peut ne pas etre parse correctement.
+
+## 64-F: PAS COMMENCE (depend de 64-D/G)
 ## 64-T: PAS COMMENCE
 
 ---
 
 ## Handoff
 
-**Derniere action** : 3 workflows crees et testes. Block-creator 2/3. Les deux autres ont un probleme d'extraction d'output.
+**Derniere action** : Multiples iterations de debug. Block-creator fonctionne (8/11). Contract-definer et test-designer bloquent sur l'inference node.
 **Prochaine action** :
-1. Fixer ExtractResponseText pour les workflows (retourner l'output principal, pas la concatenation)
-2. Re-runner les 3 workflows
-3. Block-forge E2E
+1. **DEBUG PRIORITAIRE** : Comprendre pourquoi `blockRef: inference` dans un workflow retourne les inputs au lieu du resultat LLM
+   - Lire `NodeExecutionEngine` et `BlockRefHandler` pour comprendre comment les inputs sont passes au block inference
+   - Lire `LLMBlockExecutorBase` / `InferenceBlockExecutor` pour comprendre comment `messages` est parse
+   - Tester un appel inference direct via l'API pour confirmer que le provider fonctionne
+   - Possible probleme : le `messages` input est un string JSON literal au lieu d'un array parse
+2. Fixer l'inference dans les workflows
+3. Re-runner les 3 workflows
+4. Block-forge E2E
 **Etat du build** : compile, 0 erreurs
 **Branche** : `phase-64-workflow-pipeline`
 
