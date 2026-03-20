@@ -493,7 +493,17 @@ public class ContractTestRunner
         try
         {
             var context = new ExecutionContext();
-            context.Variables["workingDir"] = Directory.GetCurrentDirectory();
+            // Resolve project root (where content/system/ lives).
+            // The API runs from apps/backend/src/Maestro.Api/ but content is at the repo root.
+            var workingDir = Directory.GetCurrentDirectory();
+            if (!Directory.Exists(Path.Combine(workingDir, "content", "system")))
+            {
+                var dir = new DirectoryInfo(workingDir);
+                while (dir != null && !Directory.Exists(Path.Combine(dir.FullName, "content", "system")))
+                    dir = dir.Parent;
+                if (dir != null) workingDir = dir.FullName;
+            }
+            context.Variables["workingDir"] = workingDir;
 
             // Required by MultiNodeBlockExecutor (agent, workflow, tool blocks)
             context.Variables["sessionId"] = sessionIdForTest;
@@ -541,7 +551,7 @@ public class ContractTestRunner
             {
                 inputs["description"] = prompt;
                 inputs["contractId"] = prompt;
-                inputs["outputDir"] = Path.Combine(Directory.GetCurrentDirectory(), "content", "system", "contracts");
+                inputs["outputDir"] = Path.Combine(workingDir, "content", "system", "contracts");
             }
 
             var execResult = await executor.ExecuteAsync(block, context, inputs, ct);
@@ -550,6 +560,20 @@ public class ContractTestRunner
             if (context.Variables.TryGetValue("_capturedToolCalls", out var capturedCalls) && capturedCalls != null)
             {
                 execResult.Outputs["_capturedToolCalls"] = capturedCalls;
+            }
+
+            // Copy workflow output variables from context to outputs.
+            // Workflows set results via set-variable nodes (stored in context.Variables),
+            // but ExtractResponseText reads from execResult.Outputs.
+            foreach (var key in new[] { "contractJson", "testSuiteJson", "blockJson",
+                "contractId", "contractPath", "testSuitePath", "blockId", "blockPath",
+                "fitness", "testResults", "plan" })
+            {
+                if (context.Variables.TryGetValue(key, out var val) && val != null
+                    && !execResult.Outputs.ContainsKey(key))
+                {
+                    execResult.Outputs[key] = val;
+                }
             }
 
             return execResult;
@@ -570,15 +594,34 @@ public class ContractTestRunner
     /// </summary>
     private static string ExtractResponseText(BlockExecutionResult result)
     {
-        if (result.Outputs.TryGetValue("response", out var resp) && resp != null)
-            return resp.ToString() ?? "";
-        if (result.Outputs.TryGetValue("result", out var res) && res != null)
-            return res.ToString() ?? "";
-        if (result.Outputs.TryGetValue("content", out var cnt) && cnt != null)
-            return cnt.ToString() ?? "";
+        // Priority 1: Named content outputs (from agents and workflows)
+        // Workflow-specific keys FIRST (contractJson, testSuiteJson, blockJson) — these contain
+        // the actual generated content. "content" and "result" may contain raw LLM output or paths.
+        foreach (var key in new[] { "contractJson", "testSuiteJson", "blockJson", "response", "result", "content" })
+        {
+            if (result.Outputs.TryGetValue(key, out var val) && val != null)
+            {
+                var text = val.ToString() ?? "";
+                if (text.Length > 20) return text;
+            }
+        }
+
+        // Priority 2: Single output
         if (result.Outputs.Count == 1)
             return result.Outputs.Values.First()?.ToString() ?? "";
 
+        // Priority 3: Find the longest non-underscore output (likely the content)
+        var longest = result.Outputs
+            .Where(kv => !kv.Key.StartsWith("_") && kv.Value != null)
+            .OrderByDescending(kv => kv.Value?.ToString()?.Length ?? 0)
+            .FirstOrDefault();
+        if (longest.Value != null)
+        {
+            var text = longest.Value.ToString() ?? "";
+            if (text.Length > 50) return text;
+        }
+
+        // Priority 4: Concatenate all non-underscore outputs
         return string.Join("\n", result.Outputs
             .Where(kv => !kv.Key.StartsWith("_"))
             .Select(kv => kv.Value?.ToString() ?? ""));

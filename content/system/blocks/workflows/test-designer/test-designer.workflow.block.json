@@ -43,6 +43,12 @@
         }
       },
       {
+        "id": "set-initial-suite",
+        "type": "set-variable",
+        "variable": "testSuiteJson",
+        "value": "{{_nodeResult_generate-tests.content}}"
+      },
+      {
         "id": "validate",
         "blockRef": "validate-test-suite",
         "inputs": {

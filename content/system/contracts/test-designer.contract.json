@@ -7,42 +7,80 @@
   "minimumFitness": 0.3,
   "features": {
     "test-generation": {
-      "description": "Generate valid test suites from contracts",
+      "description": "Generates valid test suites with proper structure",
       "requires": ["structured-output"],
-      "weight": 0.6,
+      "weight": 0.40,
       "minimumScore": 0.7,
       "tests": [
         {
-          "id": "generates-tests-for-greeting",
-          "description": "Produces a test suite for a greeting contract",
-          "prompt": "greeting",
+          "id": "generates-for-maestro-assistant",
+          "description": "Produces a test suite for the maestro-assistant contract",
+          "prompt": "maestro-assistant",
+          "check": { "type": "contains-all", "values": ["contractId", "features", "tests", "prompt", "check"] }
+        },
+        {
+          "id": "generates-for-code-reviewer",
+          "description": "Produces a test suite for the code-reviewer contract",
+          "prompt": "code-reviewer",
           "check": { "type": "contains-all", "values": ["contractId", "features", "tests"] }
         },
         {
-          "id": "generates-tests-for-code-reviewer",
-          "description": "Produces a test suite for a code reviewer contract",
-          "prompt": "code-reviewer",
-          "check": { "type": "contains-all", "values": ["contractId", "features", "tests"] }
+          "id": "generates-valid-json",
+          "description": "Output is valid JSON",
+          "prompt": "agent-creator",
+          "check": { "type": "json-parseable" }
+        },
+        {
+          "id": "includes-total-tests",
+          "description": "Test suite includes a totalTests count",
+          "prompt": "block-creator",
+          "check": { "type": "contains", "value": "totalTests" }
         }
       ]
     },
-    "test-quality": {
-      "description": "Generated tests have proper structure and variety",
+    "feature-coverage": {
+      "description": "Test suite covers all features from the source contract",
       "requires": ["structured-output"],
-      "weight": 0.4,
+      "weight": 0.35,
       "minimumScore": 0.6,
       "tests": [
         {
-          "id": "tests-cover-features",
-          "description": "Test suite covers all features in the contract",
+          "id": "covers-maestro-assistant-features",
+          "description": "Test suite includes tests for conversation and operations features",
           "prompt": "maestro-assistant",
           "check": { "type": "contains-all", "values": ["conversation", "maestro-operations"] }
         },
         {
-          "id": "tests-use-varied-checks",
-          "description": "Test suite uses multiple check types",
+          "id": "covers-code-reviewer-features",
+          "description": "Test suite includes tests for code reading and review features",
+          "prompt": "code-reviewer",
+          "check": { "type": "contains-any", "values": ["code-reading", "review-feedback", "code_reading", "review"] }
+        }
+      ]
+    },
+    "check-variety": {
+      "description": "Generated tests use varied check types",
+      "requires": ["structured-output"],
+      "weight": 0.25,
+      "minimumScore": 0.5,
+      "tests": [
+        {
+          "id": "uses-contains-checks",
+          "description": "At least one test uses contains or contains-all check",
+          "prompt": "maestro-assistant",
+          "check": { "type": "contains-any", "values": ["contains-all", "contains-any", "\"contains\""] }
+        },
+        {
+          "id": "uses-varied-types",
+          "description": "Uses more than just non-empty checks",
           "prompt": "agent-creator",
           "check": { "type": "contains-any", "values": ["contains", "tool-call", "json-parseable", "regex", "does-not-contain"] }
+        },
+        {
+          "id": "has-check-with-values",
+          "description": "At least one check has concrete values to match against",
+          "prompt": "code-reviewer",
+          "check": { "type": "contains-any", "values": ["values", "value", "toolName", "pattern"] }
         }
       ]
     }

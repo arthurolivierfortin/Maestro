@@ -1,34 +1,34 @@
 {
-  "totalRequests": 110,
+  "totalRequests": 122,
   "latency": {
-    "p50": 11857,
-    "p95": 112091.79999999999,
-    "p99": 118975.95999999999,
-    "average": 41891.11111111111
+    "p50": 103695,
+    "p95": 112189.20000000001,
+    "p99": 112944.24,
+    "average": 103023.33333333333
   },
   "totalTokens": {
-    "promptTokens": 330,
-    "completionTokens": 123189,
-    "totalTokens": 123519
+    "promptTokens": 366,
+    "completionTokens": 190924,
+    "totalTokens": 191290
   },
   "modelStats": [
     {
       "modelId": {
         "value": "opus"
       },
-      "requestCount": 56,
+      "requestCount": 68,
       "latency": {
-        "p50": 23412.5,
-        "p95": 56928.25,
-        "p99": 108864.85000000006,
-        "average": 27924.39285714286
+        "p50": 27376.5,
+        "p95": 102116.15,
+        "p99": 116591.23999999999,
+        "average": 37296.57352941176
       },
       "totalTokens": {
-        "promptTokens": 168,
-        "completionTokens": 70325,
-        "totalTokens": 70493
+        "promptTokens": 204,
+        "completionTokens": 138060,
+        "totalTokens": 138264
       },
-      "requestsPerMinute": 0.6241895171506073,
+      "requestsPerMinute": 0.10857150425153014,
       "errorRate": 0
     },
     {
@@ -72,39 +72,39 @@
       "requestCount": 1,
       "requestsPerMinute": 1,
       "latency": {
-        "p50": 120697,
-        "p95": 120697,
-        "p99": 120697,
-        "average": 120697
+        "p50": 113133,
+        "p95": 113133,
+        "p99": 113133,
+        "average": 113133
       },
-      "tokensTotal": 123519
+      "tokensTotal": 191290
     },
     {
       "windowName": "5m",
       "windowSeconds": 300,
-      "requestCount": 3,
-      "requestsPerMinute": 0.6,
+      "requestCount": 1,
+      "requestsPerMinute": 0.2,
       "latency": {
-        "p50": 99184,
-        "p95": 118545.7,
-        "p99": 120266.74,
-        "average": 91292.66666666667
+        "p50": 113133,
+        "p95": 113133,
+        "p99": 113133,
+        "average": 113133
       },
-      "tokensTotal": 123519
+      "tokensTotal": 191290
     },
     {
       "windowName": "15m",
       "windowSeconds": 900,
-      "requestCount": 9,
-      "requestsPerMinute": 0.6,
+      "requestCount": 3,
+      "requestsPerMinute": 0.2,
       "latency": {
-        "p50": 11857,
-        "p95": 112091.79999999999,
-        "p99": 118975.95999999999,
-        "average": 41891.11111111111
+        "p50": 103695,
+        "p95": 112189.20000000001,
+        "p99": 112944.24,
+        "average": 103023.33333333333
       },
-      "tokensTotal": 123519
+      "tokensTotal": 191290
     }
   ],
-  "generatedAt": "2026-03-20T03:59:28.3541476+00:00"
+  "generatedAt": "2026-03-20T12:55:28.750321+00:00"
 }

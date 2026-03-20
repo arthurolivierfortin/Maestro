@@ -38,6 +38,12 @@
         }
       },
       {
+        "id": "set-initial-contract",
+        "type": "set-variable",
+        "variable": "contractJson",
+        "value": "{{_nodeResult_generate-contract.content}}"
+      },
+      {
         "id": "validate",
         "blockRef": "validate-contract",
         "inputs": {

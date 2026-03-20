@@ -1,0 +1,396 @@
+{
+  "id": "72035e22-782c-41bc-b9a3-de710100b5e8",
+  "name": "contract-test-contract-definer-contract-definer",
+  "status": "created",
+  "terminalReason": "none",
+  "authority": "agent:contract-test-runner",
+  "workingDirectory": ".",
+  "repositoryPath": "C:\\Meastro\\apps\\backend\\src\\Maestro.Api",
+  "parentWorkspaceId": null,
+  "parentSessionId": null,
+  "config": {
+    "projectId": null,
+    "workflowId": null,
+    "task": null,
+    "context": null,
+    "access": {
+      "level": "controlled",
+      "allowedPaths": [],
+      "deniedPaths": [
+        ".env",
+        "*.env",
+        "secrets/**",
+        "**/.git/**"
+      ],
+      "requireApprovalPaths": []
+    },
+    "validation": {
+      "runTests": false,
+      "testCommand": null,
+      "runLinter": false,
+      "linterCommand": null,
+      "requireCleanDiff": false,
+      "maxSteps": 50,
+      "timeoutMs": 600000
+    },
+    "inputs": {}
+  },
+  "createdAt": "2026-03-20T12:21:42.7555584+00:00",
+  "startedAt": null,
+  "completedAt": null,
+  "updatedAt": "2026-03-20T12:30:53.2159528+00:00",
+  "commandCount": 0,
+  "modifiedFiles": [],
+  "errorMessage": null,
+  "testResult": null,
+  "linterResult": null,
+  "commitInfo": null,
+  "variables": {
+    "prompt": "A full-stack code reviewer that checks frontend React components for accessibility, backend Node.js APIs for security, and database queries for performance",
+    "message": "A full-stack code reviewer that checks frontend React components for accessibility, backend Node.js APIs for security, and database queries for performance",
+    "conversationHistory": "[{\u0022role\u0022:\u0022user\u0022,\u0022content\u0022:\u0022A full-stack code reviewer that checks frontend React components for accessibility, backend Node.js APIs for security, and database queries for performance\u0022}]",
+    "description": "A full-stack code reviewer that checks frontend React components for accessibility, backend Node.js APIs for security, and database queries for performance",
+    "contractId": "A full-stack code reviewer that checks frontend React components for accessibility, backend Node.js APIs for security, and database queries for performance",
+    "outputDir": "C:\\Meastro\\apps\\backend\\src\\Maestro.Api\\content\\system\\contracts",
+    "_executionLog": [
+      {
+        "time": "12:21:42",
+        "level": "info",
+        "msg": "Pre-flight: block \u0027contract-definer\u0027 (type: workflow), model=default, maxIterations=not set, keepLastN=default"
+      },
+      {
+        "time": "12:21:42",
+        "level": "info",
+        "msg": "Pre-flight: maxIterations not set. Engine will use default (50)."
+      },
+      {
+        "time": "12:21:42",
+        "level": "info",
+        "msg": "Executing blockRef \u0027inference\u0027 (type: inference) with 2 inputs"
+      },
+      {
+        "time": "12:23:05",
+        "level": "info",
+        "msg": "[inference] Tokens: 6206 (prompt=3, completion=6203), cost=$0.093060"
+      },
+      {
+        "time": "12:23:05",
+        "level": "success",
+        "msg": "blockRef \u0027inference\u0027 completed (16389 chars)"
+      },
+      {
+        "time": "12:23:06",
+        "level": "info",
+        "msg": "Executing blockRef \u0027write-contract\u0027 (type: write-contract) with 2 inputs"
+      },
+      {
+        "time": "12:23:06",
+        "level": "error",
+        "msg": "blockRef \u0027write-contract\u0027 error: Block \u0027write-contract\u0027 failed: Invalid contract JSON: \u0027N\u0027 is an invalid start of a value. LineNumber: 0 | BytePositionInLine: 0."
+      },
+      {
+        "time": "12:23:06",
+        "level": "error",
+        "msg": "write-contract: Block \u0027write-contract\u0027 failed: Invalid contract JSON: \u0027N\u0027 is an invalid start of a value. LineNumber: 0 | BytePositionInLine: 0."
+      },
+      {
+        "time": "12:23:06",
+        "level": "warning",
+        "msg": "Stopping sequence: node \u0027write-contract\u0027 failed"
+      },
+      {
+        "time": "12:23:06",
+        "level": "info",
+        "msg": "Pre-flight: block \u0027contract-definer\u0027 (type: workflow), model=default, maxIterations=not set, keepLastN=default"
+      },
+      {
+        "time": "12:23:06",
+        "level": "info",
+        "msg": "Pre-flight: maxIterations not set. Engine will use default (50)."
+      },
+      {
+        "time": "12:23:06",
+        "level": "info",
+        "msg": "Executing blockRef \u0027inference\u0027 (type: inference) with 2 inputs"
+      },
+      {
+        "time": "12:24:27",
+        "level": "info",
+        "msg": "[inference] Tokens: 5553 (prompt=3, completion=5550), cost=$0.083265"
+      },
+      {
+        "time": "12:24:27",
+        "level": "success",
+        "msg": "blockRef \u0027inference\u0027 completed (17377 chars)"
+      },
+      {
+        "time": "12:24:27",
+        "level": "info",
+        "msg": "Executing blockRef \u0027write-contract\u0027 (type: write-contract) with 2 inputs"
+      },
+      {
+        "time": "12:24:27",
+        "level": "error",
+        "msg": "blockRef \u0027write-contract\u0027 error: Block \u0027write-contract\u0027 failed: Invalid contract JSON: \u0027N\u0027 is an invalid start of a value. LineNumber: 0 | BytePositionInLine: 0."
+      },
+      {
+        "time": "12:24:27",
+        "level": "error",
+        "msg": "write-contract: Block \u0027write-contract\u0027 failed: Invalid contract JSON: \u0027N\u0027 is an invalid start of a value. LineNumber: 0 | BytePositionInLine: 0."
+      },
+      {
+        "time": "12:24:27",
+        "level": "warning",
+        "msg": "Stopping sequence: node \u0027write-contract\u0027 failed"
+      },
+      {
+        "time": "12:24:27",
+        "level": "info",
+        "msg": "Pre-flight: block \u0027contract-definer\u0027 (type: workflow), model=default, maxIterations=not set, keepLastN=default"
+      },
+      {
+        "time": "12:24:27",
+        "level": "info",
+        "msg": "Pre-flight: maxIterations not set. Engine will use default (50)."
+      },
+      {
+        "time": "12:24:27",
+        "level": "info",
+        "msg": "Executing blockRef \u0027inference\u0027 (type: inference) with 2 inputs"
+      },
+      {
+        "time": "12:25:41",
+        "level": "info",
+        "msg": "[inference] Tokens: 4448 (prompt=3, completion=4445), cost=$0.066690"
+      },
+      {
+        "time": "12:25:41",
+        "level": "success",
+        "msg": "blockRef \u0027inference\u0027 completed (12514 chars)"
+      },
+      {
+        "time": "12:25:42",
+        "level": "info",
+        "msg": "Executing blockRef \u0027write-contract\u0027 (type: write-contract) with 2 inputs"
+      },
+      {
+        "time": "12:25:42",
+        "level": "error",
+        "msg": "blockRef \u0027write-contract\u0027 error: Block \u0027write-contract\u0027 failed: Invalid contract JSON: \u0027N\u0027 is an invalid start of a value. LineNumber: 0 | BytePositionInLine: 0."
+      },
+      {
+        "time": "12:25:42",
+        "level": "error",
+        "msg": "write-contract: Block \u0027write-contract\u0027 failed: Invalid contract JSON: \u0027N\u0027 is an invalid start of a value. LineNumber: 0 | BytePositionInLine: 0."
+      },
+      {
+        "time": "12:25:42",
+        "level": "warning",
+        "msg": "Stopping sequence: node \u0027write-contract\u0027 failed"
+      },
+      {
+        "time": "12:25:42",
+        "level": "info",
+        "msg": "Pre-flight: block \u0027contract-definer\u0027 (type: workflow), model=default, maxIterations=not set, keepLastN=default"
+      },
+      {
+        "time": "12:25:42",
+        "level": "info",
+        "msg": "Pre-flight: maxIterations not set. Engine will use default (50)."
+      },
+      {
+        "time": "12:25:42",
+        "level": "info",
+        "msg": "Executing blockRef \u0027inference\u0027 (type: inference) with 2 inputs"
+      },
+      {
+        "time": "12:29:47",
+        "level": "info",
+        "msg": "[inference] Tokens: 8818 (prompt=3, completion=8815), cost=$0.132240"
+      },
+      {
+        "time": "12:29:47",
+        "level": "success",
+        "msg": "blockRef \u0027inference\u0027 completed (24885 chars)"
+      },
+      {
+        "time": "12:29:48",
+        "level": "info",
+        "msg": "Executing blockRef \u0027write-contract\u0027 (type: write-contract) with 2 inputs"
+      },
+      {
+        "time": "12:29:48",
+        "level": "error",
+        "msg": "blockRef \u0027write-contract\u0027 error: Block \u0027write-contract\u0027 failed: Invalid contract JSON: \u0027N\u0027 is an invalid start of a value. LineNumber: 0 | BytePositionInLine: 0."
+      },
+      {
+        "time": "12:29:48",
+        "level": "error",
+        "msg": "write-contract: Block \u0027write-contract\u0027 failed: Invalid contract JSON: \u0027N\u0027 is an invalid start of a value. LineNumber: 0 | BytePositionInLine: 0."
+      },
+      {
+        "time": "12:29:48",
+        "level": "warning",
+        "msg": "Stopping sequence: node \u0027write-contract\u0027 failed"
+      },
+      {
+        "time": "12:29:48",
+        "level": "info",
+        "msg": "Pre-flight: block \u0027contract-definer\u0027 (type: workflow), model=default, maxIterations=not set, keepLastN=default"
+      },
+      {
+        "time": "12:29:48",
+        "level": "info",
+        "msg": "Pre-flight: maxIterations not set. Engine will use default (50)."
+      },
+      {
+        "time": "12:29:48",
+        "level": "info",
+        "msg": "Executing blockRef \u0027inference\u0027 (type: inference) with 2 inputs"
+      },
+      {
+        "time": "12:30:52",
+        "level": "info",
+        "msg": "[inference] Tokens: 4131 (prompt=3, completion=4128), cost=$0.061935"
+      },
+      {
+        "time": "12:30:52",
+        "level": "success",
+        "msg": "blockRef \u0027inference\u0027 completed (9633 chars)"
+      },
+      {
+        "time": "12:30:53",
+        "level": "info",
+        "msg": "Executing blockRef \u0027write-contract\u0027 (type: write-contract) with 2 inputs"
+      },
+      {
+        "time": "12:30:53",
+        "level": "error",
+        "msg": "blockRef \u0027write-contract\u0027 error: Block \u0027write-contract\u0027 failed: Invalid contract JSON: \u0027N\u0027 is an invalid start of a value. LineNumber: 0 | BytePositionInLine: 0."
+      },
+      {
+        "time": "12:30:53",
+        "level": "error",
+        "msg": "write-contract: Block \u0027write-contract\u0027 failed: Invalid contract JSON: \u0027N\u0027 is an invalid start of a value. LineNumber: 0 | BytePositionInLine: 0."
+      },
+      {
+        "time": "12:30:53",
+        "level": "warning",
+        "msg": "Stopping sequence: node \u0027write-contract\u0027 failed"
+      },
+      {
+        "time": "12:30:53",
+        "level": "info",
+        "msg": "Pre-flight: block \u0027contract-definer\u0027 (type: workflow), model=default, maxIterations=not set, keepLastN=default"
+      },
+      {
+        "time": "12:30:53",
+        "level": "info",
+        "msg": "Pre-flight: maxIterations not set. Engine will use default (50)."
+      },
+      {
+        "time": "12:30:53",
+        "level": "info",
+        "msg": "Executing blockRef \u0027inference\u0027 (type: inference) with 2 inputs"
+      }
+    ],
+    "_activeBlock": {
+      "id": "generate-contract",
+      "name": "Generate Contract",
+      "type": "block",
+      "status": "running",
+      "startedAt": "2026-03-20T12:30:53.1923370\u002B00:00",
+      "logs": [],
+      "metadata": {}
+    },
+    "_executionTree": [
+      {
+        "id": "generate-contract",
+        "name": "Generate Contract",
+        "status": "running",
+        "children": [],
+        "output": "Executing inference..."
+      },
+      {
+        "id": "write-contract",
+        "name": "Write Contract",
+        "status": "pending",
+        "children": []
+      },
+      {
+        "id": "validate",
+        "name": "Validate",
+        "status": "pending",
+        "children": []
+      },
+      {
+        "id": "check-valid",
+        "name": "Check Valid",
+        "status": "pending",
+        "children": []
+      }
+    ],
+    "_accumulatedCost": "0.437190",
+    "_accumulatedPromptTokens": "15",
+    "_accumulatedCompletionTokens": "29141",
+    "_llmActivity": [
+      {
+        "type": "inference",
+        "blockRef": "inference",
+        "response": "Now I have a clear picture of the contract format. Here\u0027s the contract for the greeting agent:\n\n\u003Ctool_call\u003E\n{\u0022name\u0022: \u0022Write\u0022, \u0022arguments\u0022: {\u0022file_path\u0022: \u0022../../../../content/system/contracts/greeting-agent.contract.json\u0022, \u0022content\u0022: \u0022{\\n  \\\u0022id\\\u0022: \\\u0022greeting-agent\\\u0022,\\n  \\\u0022name\\\u0022: \\\u0022Greeting Agent\\\u0022,\\n  \\\u0022version\\\u0022: \\\u00221.0\\\u0022,\\n  \\\u0022description\\\u0022: \\\u0022A friendly greeting agent that welcomes users by name and remembers their names across conversations using persistent memory.\\\u0022,\\n  \\\u0022blockType\\\u0022: \\\u0022agen...",
+        "timestamp": "2026-03-20T12:23:05.5241017Z",
+        "toolCalls": "",
+        "tokens": 6206
+      },
+      {
+        "type": "inference",
+        "blockRef": "inference",
+        "response": "Now I have a clear picture of the contract format. Let me create the contract.\n\n\u003Ctool_call\u003E\n{\u0022name\u0022: \u0022Write\u0022,\u0022arguments\u0022: {\u0022file_path\u0022: \u0022../../../../content/system/contracts/ts-code-reviewer.contract.json\u0022, \u0022content\u0022: \u0022{\\n  \\\u0022id\\\u0022: \\\u0022ts-code-reviewer\\\u0022,\\n  \\\u0022name\\\u0022: \\\u0022TypeScript Code Reviewer\\\u0022,\\n  \\\u0022version\\\u0022: \\\u00221.0\\\u0022,\\n  \\\u0022description\\\u0022: \\\u0022Reviews TypeScript code for bugs, security vulnerabilities, and style violations. Produces structured findings with severity, location, and suggested fixes....",
+        "timestamp": "2026-03-20T12:24:27.1684343Z",
+        "toolCalls": "",
+        "tokens": 5553
+      },
+      {
+        "type": "inference",
+        "blockRef": "inference",
+        "response": "Now I have a clear picture of the contract format. Here\u0027s the contract for the translation agent:\n\n\u003Ctool_call\u003E\n{\u0022name\u0022: \u0022Write\u0022, \u0022arguments\u0022: {\u0022file_path\u0022: \u0022../../../../content/system/contracts/english-to-french-translator.contract.json\u0022, \u0022content\u0022: \u0022{\\n  \\\u0022id\\\u0022: \\\u0022english-to-french-translator\\\u0022,\\n  \\\u0022name\\\u0022: \\\u0022English to French Translator\\\u0022,\\n  \\\u0022version\\\u0022: \\\u00221.0\\\u0022,\\n  \\\u0022description\\\u0022: \\\u0022An agent that translates English text to French with proper grammar and tone preservation. Handles formal, i...",
+        "timestamp": "2026-03-20T12:25:41.9284282Z",
+        "toolCalls": "",
+        "tokens": 4448
+      },
+      {
+        "type": "inference",
+        "blockRef": "inference",
+        "response": "Now I have a clear picture of the contract format. Let me create the contract.\n\n\u003Ctool_call\u003E\n{\u0022name\u0022: \u0022Write\u0022, \u0022arguments\u0022: {\u0022file_path\u0022: \u0022C:/Meastro/content/system/contracts/commit-message-writer.contract.json\u0022, \u0022content\u0022: \u0022{\\n  \\\u0022id\\\u0022: \\\u0022commit-message-writer-contract\\\u0022,\\n  \\\u0022name\\\u0022: \\\u0022Commit Message Writer Contract\\\u0022,\\n  \\\u0022version\\\u0022: \\\u00221.0\\\u0022,\\n  \\\u0022description\\\u0022: \\\u0022Contract defining the expected behavior of the commit-message-writer block. Tests that the agent can read git diffs, classify chang...",
+        "timestamp": "2026-03-20T12:29:47.6927756Z",
+        "toolCalls": "",
+        "tokens": 8818
+      },
+      {
+        "type": "inference",
+        "blockRef": "inference",
+        "response": "Now I have a clear picture of the contract format. Let me create the contract for a test-runner agent.\n\n\u003Ctool_call\u003E\n{\u0022name\u0022: \u0022Write\u0022, \u0022arguments\u0022: {\u0022file_path\u0022: \u0022C:/Meastro/content/system/contracts/test-runner.contract.json\u0022, \u0022content\u0022: \u0022{\\n  \\\u0022contractId\\\u0022: \\\u0022test-runner\\\u0022,\\n  \\\u0022version\\\u0022: \\\u00221.0\\\u0022,\\n  \\\u0022blockType\\\u0022: \\\u0022agent\\\u0022,\\n  \\\u0022description\\\u0022: \\\u0022An agent that reads source code files, runs shell commands to execute tests, and writes test result reports with failure analysis.\\\u0022,\\n  \\\u0022capabilit...",
+        "timestamp": "2026-03-20T12:30:52.6314813Z",
+        "toolCalls": "",
+        "tokens": 4131
+      }
+    ],
+    "_blockOutputs": {
+      "generate-contract": {
+        "type": "block",
+        "output": "Now I have a clear picture of the contract format. Let me create the contract for a test-runner agent.\n\n\u003Ctool_call\u003E\n{\u0022name\u0022: \u0022Write\u0022, \u0022arguments\u0022: {\u0022file_path\u0022: \u0022C:/Meastro/content/system/contracts/test-runner.contract.json\u0022, \u0022content\u0022: \u0022{\\n  \\\u0022contractId\\\u0022: \\\u0022test-runner\\\u0022,\\n  \\\u0022version\\\u0022: \\\u00221.0\\\u0022,\\n  \\\u0022blockType\\\u0022: \\\u0022agent\\\u0022,\\n  \\\u0022description\\\u0022: \\\u0022An agent that reads source code files, runs shell commands to execute tests, and writes test result reports with failure analysis.\\\u0022,\\n  \\\u0022capabilities\\\u0022: [\\n    \\\u0022Reads source code and test files to understand the codebase\\\u0022,\\n    \\\u0022Executes test suites via shell commands\\\u0022,\\n    \\\u0022Captures and parses test output (pass/fail/error)\\\u0022,\\n    \\\u0022Writes structured test result reports\\\u0022,\\n    \\\u0022Diagnoses test failures with actionable suggestions\\\u0022\\n  ],\\n  \\\u0022features\\\u0022: [\\n    {\\n      \\\u0022id\\\u0022: \\\u0022code-reading\\\u0022,\\n      \\\u0022description\\\u0022: \\\u0022Reads source code and test files to understand what needs testing and how tests are structured\\\u0022,\\n      \\\u0022tests\\\u0022: [\\n        {\\n          \\\u0022id\\\u0022: \\\u0022code-reading-basic\\\u0022,\\n          \\\u0022description\\\u0022: \\\u0022Reads source files when given a project path\\\u0022,\\n          \\\u0022input\\\u0022: \\\u0022Read the source code in the project at {{projectPath}} and identify the test framework and test files.\\\u0022,\\n          \\\u0022expectedTools\\\u0022: [\\\u0022file-read\\\u0022],\\n          \\\u0022expectedOutputFields\\\u0022: [\\\u0022filesRead\\\u0022, \\\u0022testFramework\\\u0022, \\\u0022testFiles\\\u0022],\\n          \\\u0022criteria\\\u0022: [\\n            \\\u0022Must use file-read to examine at least one source file\\\u0022,\\n            \\\u0022Must identify the test framework (e.g., jest, pytest, dotnet test, go test)\\\u0022,\\n            \\\u0022Must list discovered test files\\\u0022\\n          ]\\n        },\\n        {\\n          \\\u0022id\\\u0022: \\\u0022code-reading-targeted\\\u0022,\\n          \\\u0022description\\\u0022: \\\u0022Reads specific source and test files when given explicit paths\\\u0022,\\n          \\\u0022input\\\u0022: \\\u0022Read the source file at {{sourcePath}} and its corresponding test file at {{testPath}}. Identify what functions are tested.\\\u0022,\\n          \\\u0022expectedTools\\\u0022: [\\\u0022file-read\\\u0022],\\n          \\\u0022expectedOutputFields\\\u0022: [\\\u0022filesRead\\\u0022, \\\u0022functionsIdentified\\\u0022, \\\u0022testCoverage\\\u0022],\\n          \\\u0022criteria\\\u0022: [\\n            \\\u0022Must read both the source and test files\\\u0022,\\n            \\\u0022Must identify functions/methods in the source file\\\u0022,\\n            \\\u0022Must map which functions have corresponding tests\\\u0022\\n          ]\\n        }\\n      ]\\n    },\\n    {\\n      \\\u0022id\\\u0022: \\\u0022test-execution\\\u0022,\\n      \\\u0022description\\\u0022: \\\u0022Runs test suites via shell commands and captures results\\\u0022,\\n      \\\u0022tests\\\u0022: [\\n        {\\n          \\\u0022id\\\u0022: \\\u0022test-execution-full-suite\\\u0022,\\n          \\\u0022description\\\u0022: \\\u0022Executes the full test suite for a project\\\u0022,\\n          \\\u0022input\\\u0022: \\\u0022Run all tests for the project at {{projectPath}} and capture the results.\\\u0022,\\n          \\\u0022expectedTools\\\u0022: [\\\u0022shell-execute\\\u0022],\\n          \\\u0022expectedOutputFields\\\u0022: [\\\u0022command\\\u0022, \\\u0022exitCode\\\u0022, \\\u0022totalTests\\\u0022, \\\u0022passed\\\u0022, \\\u0022failed\\\u0022],\\n          \\\u0022criteria\\\u0022: [\\n            \\\u0022Must use shell-execute to run the test command\\\u0022,\\n            \\\u0022Must use the correct test command for the detected framework\\\u0022,\\n            \\\u0022Must capture exit code and parse test counts from output\\\u0022\\n          ]\\n        },\\n        {\\n          \\\u0022id\\\u0022: \\\u0022test-execution-specific-file\\\u0022,\\n          \\\u0022description\\\u0022: \\\u0022Executes tests from a specific test file\\\u0022,\\n          \\\u0022input\\\u0022: \\\u0022Run only the tests in {{testPath}} and capture the results.\\\u0022,\\n          \\\u0022expectedTools\\\u0022: [\\\u0022shell-execute\\\u0022],\\n          \\\u0022expectedOutputFields\\\u0022: [\\\u0022command\\\u0022, \\\u0022exitCode\\\u0022, \\\u0022totalTests\\\u0022, \\\u0022passed\\\u0022, \\\u0022failed\\\u0022],\\n          \\\u0022criteria\\\u0022: [\\n            \\\u0022Must scope the test command to the specific file\\\u0022,\\n            \\\u0022Must not run the entire test suite\\\u0022,\\n            \\\u0022Must capture pass/fail counts\\\u0022\\n          ]\\n        },\\n        {\\n          \\\u0022id\\\u0022: \\\u0022test-execution-handles-failure\\\u0022,\\n          \\\u0022description\\\u0022: \\\u0022Handles test execution failures gracefully (non-zero exit code)\\\u0022,\\n          \\\u0022input\\\u0022: \\\u0022Run the tests at {{projectPath}}. Some tests are expected to fail.\\\u0022,\\n          \\\u0022expectedTools\\\u0022: [\\\u0022shell-execute\\\u0022],\\n          \\\u0022expectedOutputFields\\\u0022: [\\\u0022command\\\u0022, \\\u0022exitCode\\\u0022, \\\u0022totalTests\\\u0022, \\\u0022passed\\\u0022, \\\u0022failed\\\u0022, \\\u0022failureDetails\\\u0022],\\n          \\\u0022criteria\\\u0022: [\\n            \\\u0022Must not stop or error out when tests fail\\\u0022,\\n            \\\u0022Must capture which specific tests failed\\\u0022,\\n            \\\u0022Must extract failure messages or stack traces\\\u0022\\n          ]\\n        }\\n      ]\\n    },\\n    {\\n      \\\u0022id\\\u0022: \\\u0022report-writing\\\u0022,\\n      \\\u0022description\\\u0022: \\\u0022Writes structured test result reports to a file\\\u0022,\\n      \\\u0022tests\\\u0022: [\\n        {\\n          \\\u0022id\\\u0022: \\\u0022report-writing-passing\\\u0022,\\n          \\\u0022description\\\u0022: \\\u0022Writes a report when all tests pass\\\u0022,\\n          \\\u0022input\\\u0022: \\\u0022Run the tests at {{projectPath}} and write a test report to {{reportPath}}.\\\u0022,\\n          \\\u0022expectedTools\\\u0022: [\\\u0022file-read\\\u0022, \\\u0022shell-execute\\\u0022, \\\u0022file-write\\\u0022],\\n          \\\u0022expectedOutputFields\\\u0022: [\\\u0022reportPath\\\u0022, \\\u0022totalTests\\\u0022, \\\u0022passed\\\u0022, \\\u0022failed\\\u0022, \\\u0022status\\\u0022],\\n          \\\u0022criteria\\\u0022: [\\n            \\\u0022Must write report to the specified path using file-write\\\u0022,\\n            \\\u0022Report must include: test counts, pass/fail status, timestamp\\\u0022,\\n            \\\u0022Report must clearly indicate overall PASS status\\\u0022,\\n            \\\u0022Report must list individual test names and their results\\\u0022\\n          ]\\n        },\\n        {\\n          \\\u0022id\\\u0022: \\\u0022report-writing-with-failures\\\u0022,\\n          \\\u0022description\\\u0022: \\\u0022Writes a detailed report when some tests fail\\\u0022,\\n          \\\u0022input\\\u0022: \\\u0022Run the tests at {{projectPath}} and write a detailed test report to {{reportPath}} including failure analysis.\\\u0022,\\n          \\\u0022expectedTools\\\u0022: [\\\u0022file-read\\\u0022, \\\u0022shell-execute\\\u0022, \\\u0022file-write\\\u0022],\\n          \\\u0022expectedOutputFields\\\u0022: [\\\u0022reportPath\\\u0022, \\\u0022totalTests\\\u0022, \\\u0022passed\\\u0022, \\\u0022failed\\\u0022, \\\u0022status\\\u0022, \\\u0022failureDetails\\\u0022],\\n          \\\u0022criteria\\\u0022: [\\n            \\\u0022Must write report to the specified path\\\u0022,\\n            \\\u0022Report must clearly indicate overall FAIL status\\\u0022,\\n            \\\u0022Report must include failure messages for each failing test\\\u0022,\\n            \\\u0022Report must include the test command that was run\\\u0022\\n          ]\\n        }\\n      ]\\n    },\\n    {\\n      \\\u0022id\\\u0022: \\\u0022failure-analysis\\\u0022,\\n      \\\u0022description\\\u0022: \\\u0022Analyzes test failures by reading source code and providing actionable diagnosis\\\u0022,\\n      \\\u0022tests\\\u0022: [\\n        {\\n          \\\u0022id\\\u0022: \\\u0022failure-analysis-with-source\\\u0022,\\n          \\\u0022description\\\u0022: \\\u0022Reads failing source code and diagnoses the root cause\\\u0022,\\n          \\\u0022input\\\u0022: \\\u0022Run the tests at {{projectPath}}, and for any failures, read the relevant source code and explain why the tests are failing. Write your analysis to {{reportPath}}.\\\u0022,\\n          \\\u0022expectedTools\\\u0022: [\\\u0022file-read\\\u0022, \\\u0022shell-execute\\\u0022, \\\u0022file-write\\\u0022],\\n          \\\u0022expectedOutputFields\\\u0022: [\\\u0022reportPath\\\u0022, \\\u0022failureCount\\\u0022, \\\u0022analyses\\\u0022],\\n          \\\u0022criteria\\\u0022: [\\n            \\\u0022Must run tests first to identify failures\\\u0022,\\n            \\\u0022Must read the source code related to each failing test\\\u0022,\\n            \\\u0022Must provide a root cause explanation for each failure\\\u0022,\\n            \\\u0022Must suggest concrete fixes, not vague advice\\\u0022,\\n            \\\u0022Must write the analysis to the report file\\\u0022\\n          ]\\n        },\\n        {\\n          \\\u0022id\\\u0022: \\\u0022failure-analysis-no-failures\\\u0022,\\n          \\\u0022description\\\u0022: \\\u0022Handles the case where all tests pass (no failures to analyze)\\\u0022,\\n          \\\u0022input\\\u0022: \\\u0022Run the tests at {{projectPath}} and analyze any failures. Write results to {{reportPath}}.\\\u0022,\\n          \\\u0022expectedTools\\\u0022: [\\\u0022shell-execute\\\u0022, \\\u0022file-write\\\u0022],\\n          \\\u0022expectedOutputFields\\\u0022: [\\\u0022reportPath\\\u0022, \\\u0022totalTests\\\u0022, \\\u0022passed\\\u0022, \\\u0022status\\\u0022],\\n          \\\u0022criteria\\\u0022: [\\n            \\\u0022Must run the tests\\\u0022,\\n            \\\u0022Must correctly identify that all tests passed\\\u0022,\\n            \\\u0022Must not fabricate failure analysis when there are no failures\\\u0022,\\n            \\\u0022Must write a report confirming all tests passed\\\u0022\\n          ]\\n        }\\n      ]\\n    }\\n  ],\\n  \\\u0022fitness\\\u0022: {\\n    \\\u0022weights\\\u0022: {\\n      \\\u0022performance\\\u0022: 0.6,\\n      \\\u0022cost\\\u0022: 0.2,\\n      \\\u0022speed\\\u0022: 0.2\\n    },\\n    \\\u0022thresholds\\\u0022: {\\n      \\\u0022minPerformance\\\u0022: 0.8,\\n      \\\u0022maxCostPerRun\\\u0022: 0.50,\\n      \\\u0022maxDurationMs\\\u0022: 120000\\n    }\\n  }\\n}\\n\u0022}}\n\u003C/tool_call\u003E\n\nContract created at \u0060content/system/contracts/test-runner.contract.json\u0060. Here\u0027s what it defines:\n\n**4 features, 9 tests total:**\n\n| Feature | Tests | Expected Tools |\n|---------|-------|----------------|\n| **code-reading** (2) | Discover test framework \u002B targeted file reading | \u0060file-read\u0060 |\n| **test-execution** (3) | Full suite, specific file, graceful failure handling | \u0060shell-execute\u0060 |\n| **report-writing** (2) | Passing report \u002B failure report with details | \u0060file-read\u0060, \u0060shell-execute\u0060, \u0060file-write\u0060 |\n| **failure-analysis** (2) | Root cause diagnosis \u002B no-failures edge case | \u0060file-read\u0060, \u0060shell-execute\u0060, \u0060file-write\u0060 |\n\n**Fitness weights:** 60% performance, 20% cost, 20% speed \u2014 heavily weighted toward correctness since test results must be accurate.\n\n**Thresholds:** min 80% performance, max $0.50/run, max 120s \u2014 generous duration because shell-execute for real test suites can take time.\n\nKey design decisions:\n- \u0060failure-analysis-no-failures\u0060 explicitly tests that the agent **doesn\u0027t fabricate failures** when all tests pass \u2014 a common LLM hallucination risk\n- \u0060test-execution-handles-failure\u0060 ensures the agent doesn\u0027t bail on non-zero exit codes\n- Reports require individual test names and results, not just aggregated counts\n- Failure analysis demands **concrete fixes**, not generic advice",
+        "timestamp": "12:30:52"
+      }
+    },
+    "_nodeResult_generate-contract": "Now I have a clear picture of the contract format. Let me create the contract for a test-runner agent.\n\n\u003Ctool_call\u003E\n{\u0022name\u0022: \u0022Write\u0022, \u0022arguments\u0022: {\u0022file_path\u0022: \u0022C:/Meastro/content/system/contracts/test-runner.contract.json\u0022, \u0022content\u0022: \u0022{\\n  \\\u0022contractId\\\u0022: \\\u0022test-runner\\\u0022,\\n  \\\u0022version\\\u0022: \\\u00221.0\\\u0022,\\n  \\\u0022blockType\\\u0022: \\\u0022agent\\\u0022,\\n  \\\u0022description\\\u0022: \\\u0022An agent that reads source code files, runs shell commands to execute tests, and writes test result reports with failure analysis.\\\u0022,\\n  \\\u0022capabilities\\\u0022: [\\n    \\\u0022Reads source code and test files to understand the codebase\\\u0022,\\n    \\\u0022Executes test suites via shell commands\\\u0022,\\n    \\\u0022Captures and parses test output (pass/fail/error)\\\u0022,\\n    \\\u0022Writes structured test result reports\\\u0022,\\n    \\\u0022Diagnoses test failures with actionable suggestions\\\u0022\\n  ],\\n  \\\u0022features\\\u0022: [\\n    {\\n      \\\u0022id\\\u0022: \\\u0022code-reading\\\u0022,\\n      \\\u0022description\\\u0022: \\\u0022Reads source code and test files to understand what needs testing and how tests are structured\\\u0022,\\n      \\\u0022tests\\\u0022: [\\n        {\\n          \\\u0022id\\\u0022: \\\u0022code-reading-basic\\\u0022,\\n          \\\u0022description\\\u0022: \\\u0022Reads source files when given a project path\\\u0022,\\n          \\\u0022input\\\u0022: \\\u0022Read the source code in the project at {{projectPath}} and identify the test framework and test files.\\\u0022,\\n          \\\u0022expectedTools\\\u0022: [\\\u0022file-read\\\u0022],\\n          \\\u0022expectedOutputFields\\\u0022: [\\\u0022filesRead\\\u0022, \\\u0022testFramework\\\u0022, \\\u0022testFiles\\\u0022],\\n          \\\u0022criteria\\\u0022: [\\n            \\\u0022Must use file-read to examine at least one source file\\\u0022,\\n            \\\u0022Must identify the test framework (e.g., jest, pytest, dotnet test, go test)\\\u0022,\\n            \\\u0022Must list discovered test files\\\u0022\\n          ]\\n        },\\n        {\\n          \\\u0022id\\\u0022: \\\u0022code-reading-targeted\\\u0022,\\n          \\\u0022description\\\u0022: \\\u0022Reads specific source and test files when given explicit paths\\\u0022,\\n          \\\u0022input\\\u0022: \\\u0022Read the source file at {{sourcePath}} and its corresponding test file at {{testPath}}. Identify what functions are tested.\\\u0022,\\n          \\\u0022expectedTools\\\u0022: [\\\u0022file-read\\\u0022],\\n          \\\u0022expectedOutputFields\\\u0022: [\\\u0022filesRead\\\u0022, \\\u0022functionsIdentified\\\u0022, \\\u0022testCoverage\\\u0022],\\n          \\\u0022criteria\\\u0022: [\\n            \\\u0022Must read both the source and test files\\\u0022,\\n            \\\u0022Must identify functions/methods in the source file\\\u0022,\\n            \\\u0022Must map which functions have corresponding tests\\\u0022\\n          ]\\n        }\\n      ]\\n    },\\n    {\\n      \\\u0022id\\\u0022: \\\u0022test-execution\\\u0022,\\n      \\\u0022description\\\u0022: \\\u0022Runs test suites via shell commands and captures results\\\u0022,\\n      \\\u0022tests\\\u0022: [\\n        {\\n          \\\u0022id\\\u0022: \\\u0022test-execution-full-suite\\\u0022,\\n          \\\u0022description\\\u0022: \\\u0022Executes the full test suite for a project\\\u0022,\\n          \\\u0022input\\\u0022: \\\u0022Run all tests for the project at {{projectPath}} and capture the results.\\\u0022,\\n          \\\u0022expectedTools\\\u0022: [\\\u0022shell-execute\\\u0022],\\n          \\\u0022expectedOutputFields\\\u0022: [\\\u0022command\\\u0022, \\\u0022exitCode\\\u0022, \\\u0022totalTests\\\u0022, \\\u0022passed\\\u0022, \\\u0022failed\\\u0022],\\n          \\\u0022criteria\\\u0022: [\\n            \\\u0022Must use shell-execute to run the test command\\\u0022,\\n            \\\u0022Must use the correct test command for the detected framework\\\u0022,\\n            \\\u0022Must capture exit code and parse test counts from output\\\u0022\\n          ]\\n        },\\n        {\\n          \\\u0022id\\\u0022: \\\u0022test-execution-specific-file\\\u0022,\\n          \\\u0022description\\\u0022: \\\u0022Executes tests from a specific test file\\\u0022,\\n          \\\u0022input\\\u0022: \\\u0022Run only the tests in {{testPath}} and capture the results.\\\u0022,\\n          \\\u0022expectedTools\\\u0022: [\\\u0022shell-execute\\\u0022],\\n          \\\u0022expectedOutputFields\\\u0022: [\\\u0022command\\\u0022, \\\u0022exitCode\\\u0022, \\\u0022totalTests\\\u0022, \\\u0022passed\\\u0022, \\\u0022failed\\\u0022],\\n          \\\u0022criteria\\\u0022: [\\n            \\\u0022Must scope the test command to the specific file\\\u0022,\\n            \\\u0022Must not run the entire test suite\\\u0022,\\n            \\\u0022Must capture pass/fail counts\\\u0022\\n          ]\\n        },\\n        {\\n          \\\u0022id\\\u0022: \\\u0022test-execution-handles-failure\\\u0022,\\n          \\\u0022description\\\u0022: \\\u0022Handles test execution failures gracefully (non-zero exit code)\\\u0022,\\n          \\\u0022input\\\u0022: \\\u0022Run the tests at {{projectPath}}. Some tests are expected to fail.\\\u0022,\\n          \\\u0022expectedTools\\\u0022: [\\\u0022shell-execute\\\u0022],\\n          \\\u0022expectedOutputFields\\\u0022: [\\\u0022command\\\u0022, \\\u0022exitCode\\\u0022, \\\u0022totalTests\\\u0022, \\\u0022passed\\\u0022, \\\u0022failed\\\u0022, \\\u0022failureDetails\\\u0022],\\n          \\\u0022criteria\\\u0022: [\\n            \\\u0022Must not stop or error out when tests fail\\\u0022,\\n            \\\u0022Must capture which specific tests failed\\\u0022,\\n            \\\u0022Must extract failure messages or stack traces\\\u0022\\n          ]\\n        }\\n      ]\\n    },\\n    {\\n      \\\u0022id\\\u0022: \\\u0022report-writing\\\u0022,\\n      \\\u0022description\\\u0022: \\\u0022Writes structured test result reports to a file\\\u0022,\\n      \\\u0022tests\\\u0022: [\\n        {\\n          \\\u0022id\\\u0022: \\\u0022report-writing-passing\\\u0022,\\n          \\\u0022description\\\u0022: \\\u0022Writes a report when all tests pass\\\u0022,\\n          \\\u0022input\\\u0022: \\\u0022Run the tests at {{projectPath}} and write a test report to {{reportPath}}.\\\u0022,\\n          \\\u0022expectedTools\\\u0022: [\\\u0022file-read\\\u0022, \\\u0022shell-execute\\\u0022, \\\u0022file-write\\\u0022],\\n          \\\u0022expectedOutputFields\\\u0022: [\\\u0022reportPath\\\u0022, \\\u0022totalTests\\\u0022, \\\u0022passed\\\u0022, \\\u0022failed\\\u0022, \\\u0022status\\\u0022],\\n          \\\u0022criteria\\\u0022: [\\n            \\\u0022Must write report to the specified path using file-write\\\u0022,\\n            \\\u0022Report must include: test counts, pass/fail status, timestamp\\\u0022,\\n            \\\u0022Report must clearly indicate overall PASS status\\\u0022,\\n            \\\u0022Report must list individual test names and their results\\\u0022\\n          ]\\n        },\\n        {\\n          \\\u0022id\\\u0022: \\\u0022report-writing-with-failures\\\u0022,\\n          \\\u0022description\\\u0022: \\\u0022Writes a detailed report when some tests fail\\\u0022,\\n          \\\u0022input\\\u0022: \\\u0022Run the tests at {{projectPath}} and write a detailed test report to {{reportPath}} including failure analysis.\\\u0022,\\n          \\\u0022expectedTools\\\u0022: [\\\u0022file-read\\\u0022, \\\u0022shell-execute\\\u0022, \\\u0022file-write\\\u0022],\\n          \\\u0022expectedOutputFields\\\u0022: [\\\u0022reportPath\\\u0022, \\\u0022totalTests\\\u0022, \\\u0022passed\\\u0022, \\\u0022failed\\\u0022, \\\u0022status\\\u0022, \\\u0022failureDetails\\\u0022],\\n          \\\u0022criteria\\\u0022: [\\n            \\\u0022Must write report to the specified path\\\u0022,\\n            \\\u0022Report must clearly indicate overall FAIL status\\\u0022,\\n            \\\u0022Report must include failure messages for each failing test\\\u0022,\\n            \\\u0022Report must include the test command that was run\\\u0022\\n          ]\\n        }\\n      ]\\n    },\\n    {\\n      \\\u0022id\\\u0022: \\\u0022failure-analysis\\\u0022,\\n      \\\u0022description\\\u0022: \\\u0022Analyzes test failures by reading source code and providing actionable diagnosis\\\u0022,\\n      \\\u0022tests\\\u0022: [\\n        {\\n          \\\u0022id\\\u0022: \\\u0022failure-analysis-with-source\\\u0022,\\n          \\\u0022description\\\u0022: \\\u0022Reads failing source code and diagnoses the root cause\\\u0022,\\n          \\\u0022input\\\u0022: \\\u0022Run the tests at {{projectPath}}, and for any failures, read the relevant source code and explain why the tests are failing. Write your analysis to {{reportPath}}.\\\u0022,\\n          \\\u0022expectedTools\\\u0022: [\\\u0022file-read\\\u0022, \\\u0022shell-execute\\\u0022, \\\u0022file-write\\\u0022],\\n          \\\u0022expectedOutputFields\\\u0022: [\\\u0022reportPath\\\u0022, \\\u0022failureCount\\\u0022, \\\u0022analyses\\\u0022],\\n          \\\u0022criteria\\\u0022: [\\n            \\\u0022Must run tests first to identify failures\\\u0022,\\n            \\\u0022Must read the source code related to each failing test\\\u0022,\\n            \\\u0022Must provide a root cause explanation for each failure\\\u0022,\\n            \\\u0022Must suggest concrete fixes, not vague advice\\\u0022,\\n            \\\u0022Must write the analysis to the report file\\\u0022\\n          ]\\n        },\\n        {\\n          \\\u0022id\\\u0022: \\\u0022failure-analysis-no-failures\\\u0022,\\n          \\\u0022description\\\u0022: \\\u0022Handles the case where all tests pass (no failures to analyze)\\\u0022,\\n          \\\u0022input\\\u0022: \\\u0022Run the tests at {{projectPath}} and analyze any failures. Write results to {{reportPath}}.\\\u0022,\\n          \\\u0022expectedTools\\\u0022: [\\\u0022shell-execute\\\u0022, \\\u0022file-write\\\u0022],\\n          \\\u0022expectedOutputFields\\\u0022: [\\\u0022reportPath\\\u0022, \\\u0022totalTests\\\u0022, \\\u0022passed\\\u0022, \\\u0022status\\\u0022],\\n          \\\u0022criteria\\\u0022: [\\n            \\\u0022Must run the tests\\\u0022,\\n            \\\u0022Must correctly identify that all tests passed\\\u0022,\\n            \\\u0022Must not fabricate failure analysis when there are no failures\\\u0022,\\n            \\\u0022Must write a report confirming all tests passed\\\u0022\\n          ]\\n        }\\n      ]\\n    }\\n  ],\\n  \\\u0022fitness\\\u0022: {\\n    \\\u0022weights\\\u0022: {\\n      \\\u0022performance\\\u0022: 0.6,\\n      \\\u0022cost\\\u0022: 0.2,\\n      \\\u0022speed\\\u0022: 0.2\\n    },\\n    \\\u0022thresholds\\\u0022: {\\n      \\\u0022minPerformance\\\u0022: 0.8,\\n      \\\u0022maxCostPerRun\\\u0022: 0.50,\\n      \\\u0022maxDurationMs\\\u0022: 120000\\n    }\\n  }\\n}\\n\u0022}}\n\u003C/tool_call\u003E\n\nContract created at \u0060content/system/contracts/test-runner.contract.json\u0060. Here\u0027s what it defines:\n\n**4 features, 9 tests total:**\n\n| Feature | Tests | Expected Tools |\n|---------|-------|----------------|\n| **code-reading** (2) | Discover test framework \u002B targeted file reading | \u0060file-read\u0060 |\n| **test-execution** (3) | Full suite, specific file, graceful failure handling | \u0060shell-execute\u0060 |\n| **report-writing** (2) | Passing report \u002B failure report with details | \u0060file-read\u0060, \u0060shell-execute\u0060, \u0060file-write\u0060 |\n| **failure-analysis** (2) | Root cause diagnosis \u002B no-failures edge case | \u0060file-read\u0060, \u0060shell-execute\u0060, \u0060file-write\u0060 |\n\n**Fitness weights:** 60% performance, 20% cost, 20% speed \u2014 heavily weighted toward correctness since test results must be accurate.\n\n**Thresholds:** min 80% performance, max $0.50/run, max 120s \u2014 generous duration because shell-execute for real test suites can take time.\n\nKey design decisions:\n- \u0060failure-analysis-no-failures\u0060 explicitly tests that the agent **doesn\u0027t fabricate failures** when all tests pass \u2014 a common LLM hallucination risk\n- \u0060test-execution-handles-failure\u0060 ensures the agent doesn\u0027t bail on non-zero exit codes\n- Reports require individual test names and results, not just aggregated counts\n- Failure analysis demands **concrete fixes**, not generic advice"
+  },
+  "entryPoints": null,
+  "monitorWidgets": null,
+  "blockSearchPaths": [
+    "C:\\Meastro\\apps\\backend\\src\\Maestro.Api\\.maestro\\blocks"
+  ],
+  "defaultModel": null,
+  "modelOverrides": null,
+  "fileAccessRulesConfig": null,
+  "blockPermissionsConfig": null
+}
