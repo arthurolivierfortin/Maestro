@@ -65,22 +65,32 @@ Durant le travail sur cette phase, un probleme de securite fondamental a ete dec
 - Cost: $0.13 per run
 - Provider: ClaudeCode (CLI, priority 1)
 
-## 64-D: EN COURS — test-designer contract v2.0
-- test-designer contract rewritten v2.0 (11 tests, purely generative)
-- System prompt simplified: single THINK/ACTION mode, no conversation
-- Block capabilities changed to `[structured-output, tool-calling]`
-- config.nodes simplified (removed summary-validator branches)
-- Contract test running...
+## ARCHITECTURE PIVOT — Workflow-first (2026-03-19 soir)
 
-## 64-G: EN COURS — contract-definer agent
-- contract-definer agent CREATED (block.json + system-prompt.md + contract)
-- Contract: 16 tests across 4 features (requirement-gathering, contract-generation, test-advice, quality-judgment)
-- Conversational agent (temperature 0.3, maxIterations 15)
-- Contract test running...
+Pivot majeur : les "agents" block-forge sont maintenant des WORKFLOWS multi-nodes.
+Le LLM ne controle pas le flux — le workflow le fait.
+7 blocks specialises crees (read-contract, write-contract, validate-contract, read-test-suite, write-test-suite, validate-test-suite, write-block).
+Tous les models passes a Opus.
+Agent-creator renomme block-creator.
 
-## 64-F: PAS COMMENCE
-- Block-forge pipeline needs to be updated from 2 agents to 3 agents (contract-definer -> test-designer -> agent-creator)
-- Depends on 64-D and 64-G completion
+## 64-D + 64-G : CONVERGE en workflows
+
+### 3 workflows crees
+- `content/system/blocks/workflows/contract-definer/` — description → inference → write-contract → validate → done
+- `content/system/blocks/workflows/test-designer/` — read-contract → inference → write-test-suite → validate → done
+- `content/system/blocks/workflows/block-creator/` — read-contract → read-test-suite → inference → write-block → contract-test → loop
+
+### Premier run des workflows
+- **block-creator** : 2/3 (67%) — fonctionne au premier run
+- **test-designer** : 0/4 — ExtractResponseText ne retourne pas le bon output du workflow
+- **contract-definer** : 0/5 — meme probleme d'extraction d'output
+
+### Probleme identifie
+Le ContractTestRunner.ExtractResponseText() concatene tous les outputs du workflow au lieu de retourner l'output principal (contractJson, testSuiteJson). Les checks `contains-all` cherchent dans cette concatenation et ne trouvent pas les mots cles.
+
+## 64-F: EN COURS
+- Block-forge mis a jour pour reference block-creator au lieu de agent-creator
+- Pipeline : contract-definer → test-designer → block-creator → check-fitness
 
 ## 64-T: PAS COMMENCE
 
@@ -88,9 +98,13 @@ Durant le travail sur cette phase, un probleme de securite fondamental a ete dec
 
 ## Handoff
 
-**Derniere action** : 64-D (test-designer v2.0) and 64-G (contract-definer) contract tests launched in parallel
-**Prochaine action** : Analyze results of both contract tests, iterate if needed, then 64-F (block-forge 3-agent pipeline)
-**Etat du build** : compiles, tests need regression check
+**Derniere action** : 3 workflows crees et testes. Block-creator 2/3. Les deux autres ont un probleme d'extraction d'output.
+**Prochaine action** :
+1. Fixer ExtractResponseText pour les workflows (retourner l'output principal, pas la concatenation)
+2. Re-runner les 3 workflows
+3. Block-forge E2E
+**Etat du build** : compile, 0 erreurs
+**Branche** : `phase-64-workflow-pipeline`
 
 ## Fichiers modifies (cumul toutes sessions)
 - `apps/backend/src/Maestro.Infrastructure/Testing/ContractTestRunner.cs` (check types + helpers + Maestro tools mapping)
