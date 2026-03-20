@@ -1,146 +1,57 @@
 {
   "id": "contract-definer",
   "name": "Contract Definer",
-  "version": "1.0.0",
-  "description": "Conversational agent that understands user intent and produces formal Maestro contract definitions. Asks clarifying questions, recommends capabilities, defines features with weights, and generates complete contract JSON.",
-  "requiredCapabilities": ["conversation"],
+  "version": "2.0.0",
+  "description": "Workflow that generates a Maestro contract from a natural language description.",
+  "requiredCapabilities": ["structured-output"],
   "minimumFitness": 0.3,
   "features": {
-    "requirement-gathering": {
-      "description": "Understand user intent and ask clarifying questions",
-      "requires": ["conversation"],
-      "weight": 0.30,
-      "minimumScore": 0.7,
-      "tests": [
-        {
-          "id": "asks-clarifying-questions",
-          "description": "Agent asks for more details when given a vague description",
-          "prompt": "I want to create an agent",
-          "check": { "type": "contains-any", "values": ["what", "which", "could you", "describe", "?", "more details", "clarify", "specifically", "what kind"] }
-        },
-        {
-          "id": "identifies-capabilities",
-          "description": "Agent identifies required capabilities from a description",
-          "prompt": "I need an agent that reads code files, runs shell commands, and writes test files. What capabilities should the contract require?",
-          "check": { "type": "contains-all", "values": ["tool-calling"] }
-        },
-        {
-          "id": "suggests-features",
-          "description": "Agent proposes features for a contract based on description",
-          "prompt": "I want a commit message writer agent. It reads git diffs and produces conventional commit messages. What features should the contract have?",
-          "check": { "type": "contains-any", "values": ["feature", "diff", "commit", "format", "conventional"] }
-        },
-        {
-          "id": "multi-turn-refinement",
-          "description": "Agent refines understanding across multiple turns",
-          "turns": [
-            { "prompt": "I want a code reviewer agent" },
-            { "prompt": "It should focus on security vulnerabilities, not style", "check": { "type": "contains-any", "values": ["security", "vulnerab", "injection", "XSS", "auth"] } }
-          ]
-        },
-        {
-          "id": "understands-existing-contract",
-          "description": "Agent can analyze an existing contract and explain what it covers",
-          "prompt": "Analyze this contract and tell me what it tests: {\"id\":\"greeting\",\"features\":{\"say-hello\":{\"description\":\"Greet the user\",\"weight\":0.6,\"tests\":[{\"id\":\"basic\",\"prompt\":\"Hi\",\"check\":{\"type\":\"non-empty\"}}]},\"remember-name\":{\"description\":\"Remember user name\",\"weight\":0.4,\"tests\":[]}}}",
-          "check": { "type": "contains-all", "values": ["say-hello", "remember-name"] }
-        }
-      ]
-    },
     "contract-generation": {
-      "description": "Generate valid contract JSON from requirements",
-      "requires": ["conversation", "structured-output", "tool-calling"],
-      "weight": 0.35,
+      "description": "Generate a valid contract from a description",
+      "requires": ["structured-output"],
+      "weight": 0.6,
       "minimumScore": 0.7,
       "tests": [
         {
-          "id": "generates-valid-contract",
-          "description": "Produces syntactically valid contract JSON",
-          "prompt": "Generate a contract for a greeting agent that says hello and remembers names. Write it to /output/greeting.contract.json.",
-          "check": { "type": "tool-call", "toolName": "file-write" }
+          "id": "generates-contract-for-greeter",
+          "description": "Produces a contract for a simple greeting agent",
+          "prompt": "A greeting agent that says hello and remembers names",
+          "check": { "type": "contains-all", "values": ["features", "requiredCapabilities", "minimumFitness"] }
         },
         {
-          "id": "contract-has-required-fields",
-          "description": "Generated contract has all required top-level fields",
-          "turns": [
-            { "prompt": "Create a contract for a simple calculator agent that can add and multiply numbers. Write it to /output/calculator.contract.json." },
-            { "prompt": "What fields did you include in the contract?", "check": { "type": "contains-all", "values": ["features", "minimumFitness", "requiredCapabilities"] } }
-          ]
+          "id": "generates-contract-for-reviewer",
+          "description": "Produces a contract for a code reviewer",
+          "prompt": "A code reviewer agent that checks TypeScript code for bugs, security vulnerabilities, and style issues",
+          "check": { "type": "contains-all", "values": ["features", "requiredCapabilities", "minimumFitness"] }
         },
         {
-          "id": "features-have-weights",
-          "description": "Generated features include proper weights that sum to ~1.0",
-          "prompt": "Define a contract for a code-reviewer agent with 3 features: bug detection, style checking, and suggestion quality. Explain the weights you'd assign and why.",
-          "check": { "type": "contains-any", "values": ["weight", "0.", "importance", "priority"] }
-        },
-        {
-          "id": "generates-test-checks",
-          "description": "Generated contract includes tests with meaningful checks",
-          "prompt": "Generate a contract for an agent that translates English to French. Include at least 2 tests per feature with specific checks (not just non-empty). Write to /output/translator.contract.json.",
-          "check": { "type": "tool-call", "toolName": "file-write" }
+          "id": "generates-contract-for-translator",
+          "description": "Produces a contract for a translator agent",
+          "prompt": "An agent that translates English text to French with proper grammar",
+          "check": { "type": "contains-all", "values": ["features", "weight", "check"] }
         }
       ]
     },
-    "test-advice": {
-      "description": "Recommend check types and evaluate test quality",
-      "requires": ["conversation"],
-      "weight": 0.20,
+    "contract-quality": {
+      "description": "Generated contracts have proper structure and quality",
+      "requires": ["structured-output"],
+      "weight": 0.4,
       "minimumScore": 0.6,
       "tests": [
         {
-          "id": "recommends-tool-call-check",
-          "description": "Recommends tool-call check for tool verification",
-          "prompt": "I want to verify that an agent calls the 'search-web' tool when asked to look up recent news. What check type should I use and what would the check definition look like?",
-          "check": { "type": "contains-any", "values": ["tool-call", "tool call", "tool_call", "toolCall"] }
+          "id": "contract-has-features-and-tests",
+          "description": "Generated contract contains features with tests",
+          "prompt": "A commit message writer agent that reads git diffs and produces conventional commit messages",
+          "check": { "type": "contains-all", "values": ["features", "weight", "tests", "check"] }
         },
         {
-          "id": "recommends-regex-check",
-          "description": "Recommends regex check for format validation",
-          "prompt": "I need a test that verifies an agent always returns a semantic version number like '2.1.4'. Which check type is best?",
-          "check": { "type": "contains-any", "values": ["regex", "pattern"] }
-        },
-        {
-          "id": "critiques-weak-test",
-          "description": "Identifies a trivial test as poor quality",
-          "prompt": "Evaluate this test and explain what's wrong with it: { 'id': 'test-1', 'prompt': 'Hello', 'check': { 'type': 'non-empty' } }. Is it a good test for verifying an assistant's capabilities?",
-          "check": { "type": "contains-any", "values": ["trivial", "not good", "bad", "weak", "poor", "any LLM", "not specific", "too simple", "useless", "any response", "proves nothing", "doesn't test", "not meaningful", "insufficient"] }
-        },
-        {
-          "id": "warns-about-non-empty-overuse",
-          "description": "Flags a test suite where all checks are non-empty as poor quality",
-          "prompt": "A test suite has 8 tests and every single one uses check type 'non-empty'. What is the problem with this?",
-          "check": { "type": "contains-any", "values": ["trivial", "any response", "no discrimination", "poor coverage", "not specific", "passes everything", "weak", "useless", "untestable", "doesn't verify", "cannot distinguish", "can't distinguish", "nothing about", "only verifies", "wrong content", "off-topic", "hallucination", "proves nothing", "any LLM", "doesn't test", "not meaningful", "insufficient"] }
-        }
-      ]
-    },
-    "quality-judgment": {
-      "description": "Evaluate and improve existing contracts",
-      "requires": ["conversation"],
-      "weight": 0.15,
-      "minimumScore": 0.5,
-      "tests": [
-        {
-          "id": "identifies-missing-coverage",
-          "description": "Identifies gaps in a contract's test coverage",
-          "prompt": "This contract only has 'non-empty' checks for all tests and no edge case tests. What's missing?",
-          "check": { "type": "contains-any", "values": ["edge case", "specific", "contains", "stronger", "meaningful", "check type"] }
-        },
-        {
-          "id": "suggests-constraint-tests",
-          "description": "Suggests does-not-contain tests for safety constraints",
-          "prompt": "How would you design a test to verify that an agent does NOT reveal its confidential system instructions? What check type would you use and why?",
-          "check": { "type": "contains-any", "values": ["does-not-contain", "must not", "should not contain", "constraint", "not reveal", "negative test", "blacklist", "forbidden", "should not", "must not reveal"] }
-        },
-        {
-          "id": "evaluates-contract-completeness",
-          "description": "Assesses whether a contract adequately covers a role",
-          "prompt": "A contract for a 'code-reviewer' has only one feature: 'responds-to-code'. Is this contract complete enough?",
-          "check": { "type": "contains-any", "values": ["no", "missing", "incomplete", "should have", "lacks", "more features", "not enough"] }
+          "id": "contract-has-capabilities",
+          "description": "Generated contract declares required capabilities",
+          "prompt": "An agent that reads files, runs shell commands, and writes test results to disk",
+          "check": { "type": "contains-all", "values": ["requiredCapabilities", "tool-calling"] }
         }
       ]
     }
   },
-  "scoring": {
-    "method": "weighted-average",
-    "description": "Score = sum(feature.weight * feature.score). Contract definer must reliably understand user intent, generate valid contracts, and provide quality advice."
-  }
+  "scoring": { "method": "weighted-average" }
 }

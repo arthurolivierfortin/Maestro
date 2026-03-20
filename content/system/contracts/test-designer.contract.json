@@ -2,116 +2,50 @@
   "id": "test-designer",
   "name": "Test Designer",
   "version": "2.0.0",
-  "description": "Agent that reads a contract definition and generates executable test configurations. Purely generative — reads contract, writes test suite, validates output.",
-
-  "requiredCapabilities": ["structured-output", "tool-calling"],
+  "description": "Workflow that generates test suites from contract definitions.",
+  "requiredCapabilities": ["structured-output"],
   "minimumFitness": 0.3,
-
   "features": {
-    "contract-reading": {
-      "description": "Read and understand a contract definition",
-      "requires": ["structured-output"],
-      "weight": 0.25,
-      "minimumScore": 0.7,
-      "tests": [
-        {
-          "id": "identify-features",
-          "description": "Lists all features from a given contract",
-          "prompt": "Analyze this contract and list all features that need testing: {\"id\":\"example\",\"features\":{\"greeting\":{\"description\":\"Say hello\",\"requires\":[\"conversation\"],\"tests\":[{\"id\":\"hello\",\"prompt\":\"Hi\",\"check\":{\"type\":\"non-empty\"}}]},\"math\":{\"description\":\"Do math\",\"requires\":[\"reasoning\"],\"tests\":[{\"id\":\"add\",\"prompt\":\"2+2?\",\"check\":{\"type\":\"contains\",\"value\":\"4\"}}]}}}",
-          "check": { "type": "contains-all", "values": ["greeting", "math"] }
-        },
-        {
-          "id": "identify-capabilities",
-          "description": "Identifies required capabilities per feature",
-          "prompt": "What capabilities are needed for the 'math' feature in this contract? {\"features\":{\"math\":{\"requires\":[\"reasoning\",\"structured-output\"]}}}",
-          "check": { "type": "contains-all", "values": ["reasoning", "structured-output"] }
-        },
-        {
-          "id": "understand-minimum-fitness",
-          "description": "Understands minimumFitness threshold",
-          "prompt": "A contract has minimumFitness: 0.75. A block scores 0.72 on the weighted average. Does it pass the contract?",
-          "check": { "type": "contains-any", "values": ["no", "does not pass", "fails", "below", "not pass"] }
-        }
-      ]
-    },
     "test-generation": {
-      "description": "Generate valid test configurations from contract specs",
-      "requires": ["structured-output", "tool-calling"],
-      "weight": 0.35,
+      "description": "Generate valid test suites from contracts",
+      "requires": ["structured-output"],
+      "weight": 0.6,
       "minimumScore": 0.7,
       "tests": [
         {
-          "id": "generate-single-turn",
-          "description": "Generates a valid single-turn test config",
-          "prompt": "Generate a BlockTestRun JSON config for this contract test: {\"id\":\"basic-response\",\"prompt\":\"Hello\",\"check\":{\"type\":\"non-empty\",\"minLength\":20}}",
-          "check": { "type": "json-parseable" }
+          "id": "generates-tests-for-greeting",
+          "description": "Produces a test suite for a greeting contract",
+          "prompt": "greeting",
+          "check": { "type": "contains-all", "values": ["contractId", "features", "tests"] }
         },
         {
-          "id": "generate-multi-turn",
-          "description": "Generates a valid multi-turn test config",
-          "prompt": "Generate a BlockTestRun JSON config for this multi-turn test: {\"id\":\"context-retention\",\"turns\":[{\"prompt\":\"My name is Bob\"},{\"prompt\":\"What is my name?\",\"check\":{\"type\":\"contains\",\"value\":\"Bob\"}}]}",
-          "check": { "type": "json-parseable" }
-        },
-        {
-          "id": "generate-tool-call-test",
-          "description": "Generates a test that verifies tool call behavior",
-          "prompt": "Generate a test config that verifies the agent calls 'session-create' with argument 'name' when asked to create a session",
-          "check": { "type": "contains-all", "values": ["session-create", "name"] }
-        },
-        {
-          "id": "generates-varied-check-types",
-          "description": "Generated tests use multiple check types, not just non-empty",
-          "prompt": "Generate 4 tests for a code-reviewer feature called 'review-quality'. The agent should provide actionable code review feedback. Use at least 3 different check types.",
-          "check": { "type": "tool-call", "toolName": "file-write" }
+          "id": "generates-tests-for-code-reviewer",
+          "description": "Produces a test suite for a code reviewer contract",
+          "prompt": "code-reviewer",
+          "check": { "type": "contains-all", "values": ["contractId", "features", "tests"] }
         }
       ]
     },
-    "output-format": {
-      "description": "Produced test suite follows the correct JSON schema",
-      "requires": ["structured-output", "tool-calling"],
-      "weight": 0.25,
+    "test-quality": {
+      "description": "Generated tests have proper structure and variety",
+      "requires": ["structured-output"],
+      "weight": 0.4,
       "minimumScore": 0.6,
       "tests": [
         {
-          "id": "output-has-required-fields",
-          "description": "Test suite JSON contains all required top-level fields",
-          "prompt": "Generate a test suite for a contract with id 'greeting' that has one feature 'say-hello' with one test. Write the complete test suite JSON to /output/greeting.test-suite.json.",
-          "check": { "type": "tool-call", "toolName": "file-write" }
+          "id": "tests-cover-features",
+          "description": "Test suite covers all features in the contract",
+          "prompt": "maestro-assistant",
+          "check": { "type": "contains-all", "values": ["conversation", "maestro-operations"] }
         },
         {
-          "id": "output-json-is-valid",
-          "description": "The written test suite file is valid JSON",
-          "prompt": "Generate a minimal test suite for a contract called 'simple'. It has one feature 'basic' with one test: prompt 'Hello', check non-empty. Write to /output/simple.test-suite.json.",
-          "check": { "type": "tool-call", "toolName": "file-write" }
-        }
-      ]
-    },
-    "completeness": {
-      "description": "Generated tests cover all features in the source contract",
-      "requires": ["structured-output"],
-      "weight": 0.15,
-      "minimumScore": 0.5,
-      "tests": [
-        {
-          "id": "covers-all-features",
-          "description": "Test suite has tests for every feature in the contract",
-          "prompt": "Read this contract and generate tests for ALL features: {\"id\":\"multi-feature\",\"features\":{\"auth\":{\"description\":\"Authentication\",\"requires\":[\"tool-calling\"],\"weight\":0.4,\"tests\":[]},\"logging\":{\"description\":\"Activity logging\",\"requires\":[\"structured-output\"],\"weight\":0.3,\"tests\":[]},\"retry\":{\"description\":\"Retry on failure\",\"requires\":[\"conversation\"],\"weight\":0.3,\"tests\":[]}}}. Write the test suite to /output/multi-feature.test-suite.json.",
-          "check": { "type": "tool-call", "toolName": "file-write" }
-        },
-        {
-          "id": "multi-turn-context",
-          "description": "Agent retains context across turns",
-          "turns": [
-            { "prompt": "Here is a partial contract: { \"features\": { \"auth\": { \"weight\": 0.4 }, \"logging\": { \"weight\": 0.3 }, \"retry\": { \"weight\": 0.3 } } }" },
-            { "prompt": "What are the feature IDs in that contract?", "check": { "type": "contains-all", "values": ["auth", "logging", "retry"] } }
-          ]
+          "id": "tests-use-varied-checks",
+          "description": "Test suite uses multiple check types",
+          "prompt": "agent-creator",
+          "check": { "type": "contains-any", "values": ["contains", "tool-call", "json-parseable", "regex", "does-not-contain"] }
         }
       ]
     }
   },
-
-  "scoring": {
-    "method": "weighted-average",
-    "description": "Score = sum(feature.weight * feature.score). Test designer must reliably produce executable, complete test suites."
-  }
+  "scoring": { "method": "weighted-average" }
 }

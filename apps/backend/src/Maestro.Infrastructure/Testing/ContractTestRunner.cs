@@ -535,6 +535,15 @@ public class ContractTestRunner
                 ["conversationHistory"] = conversationHistory
             };
 
+            // For workflow blocks, also map the prompt to common workflow input names.
+            // Workflows expect specific input names (description, contractId, etc.) not generic "prompt".
+            if (string.Equals(block.BlockType, "workflow", StringComparison.OrdinalIgnoreCase))
+            {
+                inputs["description"] = prompt;
+                inputs["contractId"] = prompt;
+                inputs["outputDir"] = Path.Combine(Directory.GetCurrentDirectory(), "content", "system", "contracts");
+            }
+
             var execResult = await executor.ExecuteAsync(block, context, inputs, ct);
 
             // Phase 62-A: Copy _capturedToolCalls from context to outputs so EvaluateCheck can read them

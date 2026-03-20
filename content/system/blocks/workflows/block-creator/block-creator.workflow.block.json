@@ -1,0 +1,138 @@
+{
+  "id": "block-creator",
+  "name": "Block Creator",
+  "blockType": "workflow",
+  "version": "2.0.0",
+  "isAtomic": false,
+  "description": "Workflow that creates a Maestro block (block.json + system-prompt.md) and iterates until it passes the contract tests. Replaces the monolithic agent-creator.",
+  "contract": "block-creator",
+  "capabilities": ["structured-output", "tool-calling"],
+  "inputs": [
+    { "id": "description", "type": "string", "required": true, "description": "What the block should do" },
+    { "id": "contractId", "type": "string", "required": true, "description": "Contract to satisfy" },
+    { "id": "targetModel", "type": "string", "required": false, "description": "Target model (default: claude-opus-4-6)" }
+  ],
+  "outputs": [
+    { "id": "blockId", "type": "string", "description": "ID of created block" },
+    { "id": "blockPath", "type": "string", "description": "Path to block directory" },
+    { "id": "fitness", "type": "string", "description": "Fitness score" },
+    { "id": "testResults", "type": "string", "description": "Test results JSON" }
+  ],
+  "config": {
+    "nodes": [
+      {
+        "id": "read-contract",
+        "blockRef": "read-contract",
+        "inputs": { "contractId": "{{contractId}}" }
+      },
+      {
+        "id": "read-tests",
+        "blockRef": "read-test-suite",
+        "inputs": { "contractId": "{{contractId}}" }
+      },
+      {
+        "id": "set-iteration",
+        "type": "set-variable",
+        "variable": "_iteration",
+        "value": "0"
+      },
+      {
+        "id": "set-best-fitness",
+        "type": "set-variable",
+        "variable": "_bestFitness",
+        "value": "0"
+      },
+      {
+        "id": "set-feedback",
+        "type": "set-variable",
+        "variable": "_feedback",
+        "value": ""
+      },
+      {
+        "id": "create-loop",
+        "type": "while",
+        "condition": "{{_bestFitness}} < 0.5",
+        "maxIterations": 3,
+        "nodes": [
+          {
+            "id": "design-block",
+            "blockRef": "inference",
+            "config": {
+              "model": "claude-opus-4-6",
+              "maxTokens": 16384,
+              "temperature": 0.2,
+              "systemPrompt": "You are a Maestro block creator. Design a block that satisfies the given contract.\n\nYou must produce a JSON response with exactly two fields:\n1. \"blockJson\": A complete block.json object with id, name, blockType, version, isAtomic, description, contract, capabilities, inputs, outputs, config (with model and nodes), metadata\n2. \"systemPrompt\": A complete system-prompt.md string for the block\n\nThe block should use the standard agentic while-loop pattern in config.nodes:\ninit → while(_agentDone != true) → [conversation-read → inference → conversation-append → response-parser → conditional(tool-call/step-complete/text/retry)]\n\nRespond with ONLY the JSON object containing blockJson and systemPrompt. No explanation."
+            },
+            "inputs": {
+              "messages": "[{\"role\":\"user\",\"content\":\"Create a block for: {{description}}\\n\\nContract:\\n{{_nodeResult_read-contract.contractJson}}\\n\\nTest suite:\\n{{_nodeResult_read-tests.testSuiteJson}}\\n\\nTarget model: {{targetModel}}\\n\\nPrevious feedback: {{_feedback}}\"}]"
+            }
+          },
+          {
+            "id": "extract-block-json",
+            "type": "set-variable",
+            "variable": "_blockJson",
+            "value": "{{_nodeResult_design-block.content}}"
+          },
+          {
+            "id": "write-block",
+            "blockRef": "write-block",
+            "inputs": {
+              "blockJson": "{{_blockJson}}",
+              "systemPrompt": ""
+            }
+          },
+          {
+            "id": "test-block",
+            "blockRef": "contract-test",
+            "inputs": {
+              "contractId": "{{contractId}}",
+              "blockId": "{{_nodeResult_write-block.blockId}}"
+            }
+          },
+          {
+            "id": "update-feedback",
+            "type": "set-variable",
+            "variable": "_feedback",
+            "value": "Previous attempt fitness: {{_nodeResult_test-block.fitness}}. Test results: {{_nodeResult_test-block.testResults}}"
+          },
+          {
+            "id": "update-best",
+            "type": "set-variable",
+            "variable": "_bestFitness",
+            "value": "{{_nodeResult_test-block.fitness}}"
+          }
+        ]
+      },
+      {
+        "id": "set-output-block-id",
+        "type": "set-variable",
+        "variable": "blockId",
+        "value": "{{_nodeResult_write-block.blockId}}"
+      },
+      {
+        "id": "set-output-path",
+        "type": "set-variable",
+        "variable": "blockPath",
+        "value": "{{_nodeResult_write-block.blockPath}}"
+      },
+      {
+        "id": "set-output-fitness",
+        "type": "set-variable",
+        "variable": "fitness",
+        "value": "{{_bestFitness}}"
+      },
+      {
+        "id": "set-output-results",
+        "type": "set-variable",
+        "variable": "testResults",
+        "value": "{{_nodeResult_test-block.testResults}}"
+      }
+    ]
+  },
+  "metadata": {
+    "category": "block-forge",
+    "designation": "workflow",
+    "tags": ["creation", "block", "block-forge"],
+    "tier": 1
+  }
+}
