@@ -1,0 +1,266 @@
+{
+  "id": "0e50406a-4ce0-47dc-8147-a5f3988985a2",
+  "name": "contract-test-contract-definer-contract-definer",
+  "status": "created",
+  "terminalReason": "none",
+  "authority": "agent:contract-test-runner",
+  "workingDirectory": ".",
+  "repositoryPath": "C:\\Meastro\\apps\\backend\\src\\Maestro.Api",
+  "parentWorkspaceId": null,
+  "parentSessionId": null,
+  "config": {
+    "projectId": null,
+    "workflowId": null,
+    "task": null,
+    "context": null,
+    "access": {
+      "level": "controlled",
+      "allowedPaths": [],
+      "deniedPaths": [
+        ".env",
+        "*.env",
+        "secrets/**",
+        "**/.git/**"
+      ],
+      "requireApprovalPaths": []
+    },
+    "validation": {
+      "runTests": false,
+      "testCommand": null,
+      "runLinter": false,
+      "linterCommand": null,
+      "requireCleanDiff": false,
+      "maxSteps": 50,
+      "timeoutMs": 600000
+    },
+    "inputs": {}
+  },
+  "createdAt": "2026-03-20T13:58:26.1067868+00:00",
+  "startedAt": null,
+  "completedAt": null,
+  "updatedAt": "2026-03-20T13:59:10.7379966+00:00",
+  "commandCount": 0,
+  "modifiedFiles": [],
+  "errorMessage": null,
+  "testResult": null,
+  "linterResult": null,
+  "commitInfo": null,
+  "variables": {
+    "prompt": "A code reviewer that checks for bugs, security issues, and style violations in TypeScript code",
+    "message": "A code reviewer that checks for bugs, security issues, and style violations in TypeScript code",
+    "conversationHistory": "[{\u0022role\u0022:\u0022user\u0022,\u0022content\u0022:\u0022A code reviewer that checks for bugs, security issues, and style violations in TypeScript code\u0022}]",
+    "description": "A code reviewer that checks for bugs, security issues, and style violations in TypeScript code",
+    "contractId": "A code reviewer that checks for bugs, security issues, and style violations in TypeScript code",
+    "outputDir": "C:\\Meastro\\content\\system\\contracts",
+    "_executionLog": [
+      {
+        "time": "13:58:26",
+        "level": "info",
+        "msg": "Pre-flight: block \u0027contract-definer\u0027 (type: workflow), model=default, maxIterations=not set, keepLastN=default"
+      },
+      {
+        "time": "13:58:26",
+        "level": "info",
+        "msg": "Pre-flight: maxIterations not set. Engine will use default (50)."
+      },
+      {
+        "time": "13:58:26",
+        "level": "info",
+        "msg": "Executing blockRef \u0027inference\u0027 (type: inference) with 2 inputs"
+      },
+      {
+        "time": "13:59:08",
+        "level": "info",
+        "msg": "[inference] Tokens: 1587 (prompt=3, completion=1584), cost=$0.023775"
+      },
+      {
+        "time": "13:59:08",
+        "level": "success",
+        "msg": "blockRef \u0027inference\u0027 completed (4891 chars)"
+      },
+      {
+        "time": "13:59:09",
+        "level": "info",
+        "msg": "Executing blockRef \u0027write-contract\u0027 (type: write-contract) with 2 inputs"
+      },
+      {
+        "time": "13:59:09",
+        "level": "info",
+        "msg": "[write-contract] [write-contract] Wrote C:\\Meastro\\content\\system\\contracts\\greeting-agent.contract.json (4891 chars)"
+      },
+      {
+        "time": "13:59:09",
+        "level": "success",
+        "msg": "blockRef \u0027write-contract\u0027 completed (217 chars)"
+      },
+      {
+        "time": "13:59:10",
+        "level": "info",
+        "msg": "set-variable \u0027set-initial-contract\u0027: unwrapped \u0027requiredCapabilities (array)\u0027 -\u003E stored 2-item list in \u0027contractJson\u0027"
+      },
+      {
+        "time": "13:59:10",
+        "level": "info",
+        "msg": "Executing blockRef \u0027validate-contract\u0027 (type: validate-contract) with 2 inputs"
+      },
+      {
+        "time": "13:59:10",
+        "level": "info",
+        "msg": "[validate-contract] [validate-contract] Contract is valid"
+      },
+      {
+        "time": "13:59:10",
+        "level": "success",
+        "msg": "blockRef \u0027validate-contract\u0027 completed (45 chars)"
+      },
+      {
+        "time": "13:59:10",
+        "level": "info",
+        "msg": "Conditional \u0027check-valid\u0027: \u0027{{_nodeResult_validate.valid}}\u0027 -\u003E \u0027true\u0027 -\u003E True"
+      },
+      {
+        "time": "13:59:10",
+        "level": "info",
+        "msg": "Conditional \u0027check-valid\u0027: multi-way branch, key=\u0027true\u0027"
+      },
+      {
+        "time": "13:59:10",
+        "level": "info",
+        "msg": "set-variable \u0027set-contract-id\u0027: stored plain text in \u0027contractId\u0027 (14 chars)"
+      },
+      {
+        "time": "13:59:10",
+        "level": "info",
+        "msg": "set-variable \u0027set-contract-path\u0027: stored plain text in \u0027contractPath\u0027 (64 chars)"
+      },
+      {
+        "time": "13:59:10",
+        "level": "info",
+        "msg": "set-variable \u0027set-contract-json\u0027: unwrapped \u0027requiredCapabilities (array)\u0027 -\u003E stored 2-item list in \u0027contractJson\u0027"
+      },
+      {
+        "time": "13:59:10",
+        "level": "success",
+        "msg": "check-valid: Completed (4891 chars)"
+      },
+      {
+        "time": "13:59:10",
+        "level": "info",
+        "msg": "Pre-flight: block \u0027contract-definer\u0027 (type: workflow), model=default, maxIterations=not set, keepLastN=default"
+      },
+      {
+        "time": "13:59:10",
+        "level": "info",
+        "msg": "Pre-flight: maxIterations not set. Engine will use default (50)."
+      },
+      {
+        "time": "13:59:10",
+        "level": "info",
+        "msg": "Executing blockRef \u0027inference\u0027 (type: inference) with 2 inputs"
+      }
+    ],
+    "_activeBlock": {
+      "id": "generate-contract",
+      "name": "Generate Contract",
+      "type": "block",
+      "status": "running",
+      "startedAt": "2026-03-20T13:59:10.7046538\u002B00:00",
+      "logs": [],
+      "metadata": {}
+    },
+    "_executionTree": [
+      {
+        "id": "generate-contract",
+        "name": "Generate Contract",
+        "status": "running",
+        "children": [],
+        "output": "Executing inference..."
+      },
+      {
+        "id": "write-contract",
+        "name": "Write Contract",
+        "status": "pending",
+        "children": []
+      },
+      {
+        "id": "set-initial-contract",
+        "name": "Set Initial Contract",
+        "status": "pending",
+        "children": []
+      },
+      {
+        "id": "validate",
+        "name": "Validate",
+        "status": "pending",
+        "children": []
+      },
+      {
+        "id": "check-valid",
+        "name": "Check Valid",
+        "status": "pending",
+        "children": []
+      }
+    ],
+    "_accumulatedCost": "0.023775",
+    "_accumulatedPromptTokens": "3",
+    "_accumulatedCompletionTokens": "1584",
+    "_llmActivity": [
+      {
+        "type": "inference",
+        "blockRef": "inference",
+        "response": "{\n  \u0022id\u0022: \u0022greeting-agent\u0022,\n  \u0022name\u0022: \u0022Greeting Agent\u0022,\n  \u0022version\u0022: \u00221.0.0\u0022,\n  \u0022description\u0022: \u0022A conversational agent that greets users warmly, extracts and remembers their names across conversations, and provides a personalized hello experience.\u0022,\n  \u0022requiredCapabilities\u0022: [\u0022conversation\u0022, \u0022memory\u0022],\n  \u0022minimumFitness\u0022: 0.3,\n  \u0022features\u0022: {\n    \u0022basic-greeting\u0022: {\n      \u0022description\u0022: \u0022Responds with a friendly greeting when the user initiates conversation\u0022,\n      \u0022requires\u0022: [\u0022conversation\u0022],\n...",
+        "timestamp": "2026-03-20T13:59:08.9696177Z",
+        "toolCalls": "",
+        "tokens": 1587
+      },
+      {
+        "type": "write-contract",
+        "blockRef": "write-contract",
+        "response": "Contract written: C:\\Meastro\\content\\system\\contracts\\greeting-agent.contract.json",
+        "timestamp": "2026-03-20T13:59:09.5066180Z",
+        "toolCalls": "",
+        "tokens": 0
+      }
+    ],
+    "_blockOutputs": {
+      "generate-contract": {
+        "type": "block",
+        "output": "{\n  \u0022id\u0022: \u0022greeting-agent\u0022,\n  \u0022name\u0022: \u0022Greeting Agent\u0022,\n  \u0022version\u0022: \u00221.0.0\u0022,\n  \u0022description\u0022: \u0022A conversational agent that greets users warmly, extracts and remembers their names across conversations, and provides a personalized hello experience.\u0022,\n  \u0022requiredCapabilities\u0022: [\u0022conversation\u0022, \u0022memory\u0022],\n  \u0022minimumFitness\u0022: 0.3,\n  \u0022features\u0022: {\n    \u0022basic-greeting\u0022: {\n      \u0022description\u0022: \u0022Responds with a friendly greeting when the user initiates conversation\u0022,\n      \u0022requires\u0022: [\u0022conversation\u0022],\n      \u0022weight\u0022: 0.2,\n      \u0022minimumScore\u0022: 0.5,\n      \u0022tests\u0022: [\n        {\n          \u0022id\u0022: \u0022responds-with-hello\u0022,\n          \u0022description\u0022: \u0022Agent responds with a greeting when user says hi\u0022,\n          \u0022prompt\u0022: \u0022Hi there!\u0022,\n          \u0022check\u0022: { \u0022type\u0022: \u0022contains-any\u0022, \u0022values\u0022: [\u0022hello\u0022, \u0022Hello\u0022, \u0022hi\u0022, \u0022Hi\u0022, \u0022hey\u0022, \u0022Hey\u0022, \u0022greetings\u0022, \u0022Greetings\u0022, \u0022welcome\u0022, \u0022Welcome\u0022] }\n        },\n        {\n          \u0022id\u0022: \u0022greeting-is-non-empty\u0022,\n          \u0022description\u0022: \u0022Agent produces a non-empty response to a simple hello\u0022,\n          \u0022prompt\u0022: \u0022Good morning!\u0022,\n          \u0022check\u0022: { \u0022type\u0022: \u0022non-empty\u0022 }\n        },\n        {\n          \u0022id\u0022: \u0022greeting-is-friendly-tone\u0022,\n          \u0022description\u0022: \u0022Agent uses warm, friendly language in its greeting\u0022,\n          \u0022prompt\u0022: \u0022Hey!\u0022,\n          \u0022check\u0022: { \u0022type\u0022: \u0022contains-any\u0022, \u0022values\u0022: [\u0022!\u0022, \u0022glad\u0022, \u0022nice\u0022, \u0022great\u0022, \u0022wonderful\u0022, \u0022pleasure\u0022, \u0022happy\u0022, \u0022welcome\u0022, \u0022lovely\u0022] }\n        }\n      ]\n    },\n    \u0022name-extraction\u0022: {\n      \u0022description\u0022: \u0022Extracts and uses the user\u0027s name when introduced\u0022,\n      \u0022requires\u0022: [\u0022conversation\u0022],\n      \u0022weight\u0022: 0.3,\n      \u0022minimumScore\u0022: 0.6,\n      \u0022tests\u0022: [\n        {\n          \u0022id\u0022: \u0022uses-name-after-introduction\u0022,\n          \u0022description\u0022: \u0022Agent uses the user\u0027s name after they introduce themselves\u0022,\n          \u0022prompt\u0022: \u0022Hi, my name is Carlos.\u0022,\n          \u0022check\u0022: { \u0022type\u0022: \u0022contains\u0022, \u0022value\u0022: \u0022Carlos\u0022 }\n        },\n        {\n          \u0022id\u0022: \u0022extracts-name-from-casual-intro\u0022,\n          \u0022description\u0022: \u0022Agent picks up name from a casual introduction format\u0022,\n          \u0022prompt\u0022: \u0022Hey, I\u0027m Priya. What\u0027s up?\u0022,\n          \u0022check\u0022: { \u0022type\u0022: \u0022contains\u0022, \u0022value\u0022: \u0022Priya\u0022 }\n        },\n        {\n          \u0022id\u0022: \u0022acknowledges-name-explicitly\u0022,\n          \u0022description\u0022: \u0022Agent acknowledges it has learned the user\u0027s name\u0022,\n          \u0022prompt\u0022: \u0022Hello! You can call me Jordan.\u0022,\n          \u0022check\u0022: { \u0022type\u0022: \u0022contains-all\u0022, \u0022values\u0022: [\u0022Jordan\u0022] }\n        }\n      ]\n    },\n    \u0022name-persistence\u0022: {\n      \u0022description\u0022: \u0022Remembers the user\u0027s name in subsequent conversation turns and across sessions\u0022,\n      \u0022requires\u0022: [\u0022conversation\u0022, \u0022memory\u0022],\n      \u0022weight\u0022: 0.35,\n      \u0022minimumScore\u0022: 0.6,\n      \u0022tests\u0022: [\n        {\n          \u0022id\u0022: \u0022recalls-name-when-asked\u0022,\n          \u0022description\u0022: \u0022Agent can recall the user\u0027s name when prompted after introduction\u0022,\n          \u0022prompt\u0022: \u0022I told you earlier my name is Sasha. Do you remember my name?\u0022,\n          \u0022check\u0022: { \u0022type\u0022: \u0022contains\u0022, \u0022value\u0022: \u0022Sasha\u0022 }\n        },\n        {\n          \u0022id\u0022: \u0022uses-name-in-followup-greeting\u0022,\n          \u0022description\u0022: \u0022Agent uses the stored name in a follow-up greeting\u0022,\n          \u0022prompt\u0022: \u0022We spoke before and I told you my name is Mateo. Say hello to me again.\u0022,\n          \u0022check\u0022: { \u0022type\u0022: \u0022regex\u0022, \u0022pattern\u0022: \u0022(?i)(hello|hi|hey|welcome back|good to see you).*Mateo|Mateo.*(hello|hi|hey|welcome|good)\u0022 }\n        },\n        {\n          \u0022id\u0022: \u0022does-not-fabricate-name\u0022,\n          \u0022description\u0022: \u0022Agent does not invent a name when none was provided\u0022,\n          \u0022prompt\u0022: \u0022Hello, do you know my name?\u0022,\n          \u0022check\u0022: { \u0022type\u0022: \u0022contains-any\u0022, \u0022values\u0022: [\u0022don\u0027t know\u0022, \u0022haven\u0027t told\u0022, \u0022not sure\u0022, \u0022didn\u0027t mention\u0022, \u0022don\u0027t have\u0022, \u0022haven\u0027t shared\u0022, \u0022don\u0027t recall\u0022, \u0022no name\u0022] }\n        }\n      ]\n    },\n    \u0022graceful-interaction\u0022: {\n      \u0022description\u0022: \u0022Handles edge cases and unusual inputs gracefully while maintaining a greeting-oriented persona\u0022,\n      \u0022requires\u0022: [\u0022conversation\u0022],\n      \u0022weight\u0022: 0.15,\n      \u0022minimumScore\u0022: 0.5,\n      \u0022tests\u0022: [\n        {\n          \u0022id\u0022: \u0022handles-empty-like-input\u0022,\n          \u0022description\u0022: \u0022Agent responds gracefully to minimal input\u0022,\n          \u0022prompt\u0022: \u0022...\u0022,\n          \u0022check\u0022: { \u0022type\u0022: \u0022non-empty\u0022 }\n        },\n        {\n          \u0022id\u0022: \u0022stays-on-persona\u0022,\n          \u0022description\u0022: \u0022Agent does not break character when asked unrelated questions\u0022,\n          \u0022prompt\u0022: \u0022What is the capital of France?\u0022,\n          \u0022check\u0022: { \u0022type\u0022: \u0022does-not-contain\u0022, \u0022values\u0022: [\u0022I cannot\u0022, \u0022error\u0022, \u0022undefined\u0022, \u0022null\u0022, \u0022exception\u0022] }\n        },\n        {\n          \u0022id\u0022: \u0022handles-name-correction\u0022,\n          \u0022description\u0022: \u0022Agent updates the name when user corrects it\u0022,\n          \u0022prompt\u0022: \u0022Actually, my name isn\u0027t Alex. It\u0027s Jamie. Please remember that.\u0022,\n          \u0022check\u0022: { \u0022type\u0022: \u0022contains\u0022, \u0022value\u0022: \u0022Jamie\u0022 }\n        }\n      ]\n    }\n  },\n  \u0022scoring\u0022: { \u0022method\u0022: \u0022weighted-average\u0022 }\n}",
+        "timestamp": "13:59:08"
+      },
+      "write-contract": {
+        "type": "block",
+        "output": "{\u0022contractId\u0022:\u0022greeting-agent\u0022,\u0022contractPath\u0022:\u0022C:\\\\Meastro\\\\content\\\\system\\\\contracts\\\\greeting-agent.contract.json\u0022,\u0022result\u0022:\u0022Contract written: C:\\\\Meastro\\\\content\\\\system\\\\contracts\\\\greeting-agent.contract.json\u0022}",
+        "timestamp": "13:59:09"
+      },
+      "validate": {
+        "type": "block",
+        "output": "{\u0022valid\u0022:\u0022true\u0022,\u0022errors\u0022:\u0022\u0022,\u0022errorCount\u0022:\u00220\u0022}",
+        "timestamp": "13:59:10"
+      },
+      "check-valid": {
+        "type": "conditional",
+        "output": "{\n  \u0022id\u0022: \u0022greeting-agent\u0022,\n  \u0022name\u0022: \u0022Greeting Agent\u0022,\n  \u0022version\u0022: \u00221.0.0\u0022,\n  \u0022description\u0022: \u0022A conversational agent that greets users warmly, extracts and remembers their names across conversations, and provides a personalized hello experience.\u0022,\n  \u0022requiredCapabilities\u0022: [\u0022conversation\u0022, \u0022memory\u0022],\n  \u0022minimumFitness\u0022: 0.3,\n  \u0022features\u0022: {\n    \u0022basic-greeting\u0022: {\n      \u0022description\u0022: \u0022Responds with a friendly greeting when the user initiates conversation\u0022,\n      \u0022requires\u0022: [\u0022conversation\u0022],\n      \u0022weight\u0022: 0.2,\n      \u0022minimumScore\u0022: 0.5,\n      \u0022tests\u0022: [\n        {\n          \u0022id\u0022: \u0022responds-with-hello\u0022,\n          \u0022description\u0022: \u0022Agent responds with a greeting when user says hi\u0022,\n          \u0022prompt\u0022: \u0022Hi there!\u0022,\n          \u0022check\u0022: { \u0022type\u0022: \u0022contains-any\u0022, \u0022values\u0022: [\u0022hello\u0022, \u0022Hello\u0022, \u0022hi\u0022, \u0022Hi\u0022, \u0022hey\u0022, \u0022Hey\u0022, \u0022greetings\u0022, \u0022Greetings\u0022, \u0022welcome\u0022, \u0022Welcome\u0022] }\n        },\n        {\n          \u0022id\u0022: \u0022greeting-is-non-empty\u0022,\n          \u0022description\u0022: \u0022Agent produces a non-empty response to a simple hello\u0022,\n          \u0022prompt\u0022: \u0022Good morning!\u0022,\n          \u0022check\u0022: { \u0022type\u0022: \u0022non-empty\u0022 }\n        },\n        {\n          \u0022id\u0022: \u0022greeting-is-friendly-tone\u0022,\n          \u0022description\u0022: \u0022Agent uses warm, friendly language in its greeting\u0022,\n          \u0022prompt\u0022: \u0022Hey!\u0022,\n          \u0022check\u0022: { \u0022type\u0022: \u0022contains-any\u0022, \u0022values\u0022: [\u0022!\u0022, \u0022glad\u0022, \u0022nice\u0022, \u0022great\u0022, \u0022wonderful\u0022, \u0022pleasure\u0022, \u0022happy\u0022, \u0022welcome\u0022, \u0022lovely\u0022] }\n        }\n      ]\n    },\n    \u0022name-extraction\u0022: {\n      \u0022description\u0022: \u0022Extracts and uses the user\u0027s name when introduced\u0022,\n      \u0022requires\u0022: [\u0022conversation\u0022],\n      \u0022weight\u0022: 0.3,\n      \u0022minimumScore\u0022: 0.6,\n      \u0022tests\u0022: [\n        {\n          \u0022id\u0022: \u0022uses-name-after-introduction\u0022,\n          \u0022description\u0022: \u0022Agent uses the user\u0027s name after they introduce themselves\u0022,\n          \u0022prompt\u0022: \u0022Hi, my name is Carlos.\u0022,\n          \u0022check\u0022: { \u0022type\u0022: \u0022contains\u0022, \u0022value\u0022: \u0022Carlos\u0022 }\n        },\n        {\n          \u0022id\u0022: \u0022extracts-name-from-casual-intro\u0022,\n          \u0022description\u0022: \u0022Agent picks up name from a casual introduction format\u0022,\n          \u0022prompt\u0022: \u0022Hey, I\u0027m Priya. What\u0027s up?\u0022,\n          \u0022check\u0022: { \u0022type\u0022: \u0022contains\u0022, \u0022value\u0022: \u0022Priya\u0022 }\n        },\n        {\n          \u0022id\u0022: \u0022acknowledges-name-explicitly\u0022,\n          \u0022description\u0022: \u0022Agent acknowledges it has learned the user\u0027s name\u0022,\n          \u0022prompt\u0022: \u0022Hello! You can call me Jordan.\u0022,\n          \u0022check\u0022: { \u0022type\u0022: \u0022contains-all\u0022, \u0022values\u0022: [\u0022Jordan\u0022] }\n        }\n      ]\n    },\n    \u0022name-persistence\u0022: {\n      \u0022description\u0022: \u0022Remembers the user\u0027s name in subsequent conversation turns and across sessions\u0022,\n      \u0022requires\u0022: [\u0022conversation\u0022, \u0022memory\u0022],\n      \u0022weight\u0022: 0.35,\n      \u0022minimumScore\u0022: 0.6,\n      \u0022tests\u0022: [\n        {\n          \u0022id\u0022: \u0022recalls-name-when-asked\u0022,\n          \u0022description\u0022: \u0022Agent can recall the user\u0027s name when prompted after introduction\u0022,\n          \u0022prompt\u0022: \u0022I told you earlier my name is Sasha. Do you remember my name?\u0022,\n          \u0022check\u0022: { \u0022type\u0022: \u0022contains\u0022, \u0022value\u0022: \u0022Sasha\u0022 }\n        },\n        {\n          \u0022id\u0022: \u0022uses-name-in-followup-greeting\u0022,\n          \u0022description\u0022: \u0022Agent uses the stored name in a follow-up greeting\u0022,\n          \u0022prompt\u0022: \u0022We spoke before and I told you my name is Mateo. Say hello to me again.\u0022,\n          \u0022check\u0022: { \u0022type\u0022: \u0022regex\u0022, \u0022pattern\u0022: \u0022(?i)(hello|hi|hey|welcome back|good to see you).*Mateo|Mateo.*(hello|hi|hey|welcome|good)\u0022 }\n        },\n        {\n          \u0022id\u0022: \u0022does-not-fabricate-name\u0022,\n          \u0022description\u0022: \u0022Agent does not invent a name when none was provided\u0022,\n          \u0022prompt\u0022: \u0022Hello, do you know my name?\u0022,\n          \u0022check\u0022: { \u0022type\u0022: \u0022contains-any\u0022, \u0022values\u0022: [\u0022don\u0027t know\u0022, \u0022haven\u0027t told\u0022, \u0022not sure\u0022, \u0022didn\u0027t mention\u0022, \u0022don\u0027t have\u0022, \u0022haven\u0027t shared\u0022, \u0022don\u0027t recall\u0022, \u0022no name\u0022] }\n        }\n      ]\n    },\n    \u0022graceful-interaction\u0022: {\n      \u0022description\u0022: \u0022Handles edge cases and unusual inputs gracefully while maintaining a greeting-oriented persona\u0022,\n      \u0022requires\u0022: [\u0022conversation\u0022],\n      \u0022weight\u0022: 0.15,\n      \u0022minimumScore\u0022: 0.5,\n      \u0022tests\u0022: [\n        {\n          \u0022id\u0022: \u0022handles-empty-like-input\u0022,\n          \u0022description\u0022: \u0022Agent responds gracefully to minimal input\u0022,\n          \u0022prompt\u0022: \u0022...\u0022,\n          \u0022check\u0022: { \u0022type\u0022: \u0022non-empty\u0022 }\n        },\n        {\n          \u0022id\u0022: \u0022stays-on-persona\u0022,\n          \u0022description\u0022: \u0022Agent does not break character when asked unrelated questions\u0022,\n          \u0022prompt\u0022: \u0022What is the capital of France?\u0022,\n          \u0022check\u0022: { \u0022type\u0022: \u0022does-not-contain\u0022, \u0022values\u0022: [\u0022I cannot\u0022, \u0022error\u0022, \u0022undefined\u0022, \u0022null\u0022, \u0022exception\u0022] }\n        },\n        {\n          \u0022id\u0022: \u0022handles-name-correction\u0022,\n          \u0022description\u0022: \u0022Agent updates the name when user corrects it\u0022,\n          \u0022prompt\u0022: \u0022Actually, my name isn\u0027t Alex. It\u0027s Jamie. Please remember that.\u0022,\n          \u0022check\u0022: { \u0022type\u0022: \u0022contains\u0022, \u0022value\u0022: \u0022Jamie\u0022 }\n        }\n      ]\n    }\n  },\n  \u0022scoring\u0022: { \u0022method\u0022: \u0022weighted-average\u0022 }\n}",
+        "timestamp": "13:59:10"
+      }
+    },
+    "_nodeResult_generate-contract": "{\n  \u0022id\u0022: \u0022greeting-agent\u0022,\n  \u0022name\u0022: \u0022Greeting Agent\u0022,\n  \u0022version\u0022: \u00221.0.0\u0022,\n  \u0022description\u0022: \u0022A conversational agent that greets users warmly, extracts and remembers their names across conversations, and provides a personalized hello experience.\u0022,\n  \u0022requiredCapabilities\u0022: [\u0022conversation\u0022, \u0022memory\u0022],\n  \u0022minimumFitness\u0022: 0.3,\n  \u0022features\u0022: {\n    \u0022basic-greeting\u0022: {\n      \u0022description\u0022: \u0022Responds with a friendly greeting when the user initiates conversation\u0022,\n      \u0022requires\u0022: [\u0022conversation\u0022],\n      \u0022weight\u0022: 0.2,\n      \u0022minimumScore\u0022: 0.5,\n      \u0022tests\u0022: [\n        {\n          \u0022id\u0022: \u0022responds-with-hello\u0022,\n          \u0022description\u0022: \u0022Agent responds with a greeting when user says hi\u0022,\n          \u0022prompt\u0022: \u0022Hi there!\u0022,\n          \u0022check\u0022: { \u0022type\u0022: \u0022contains-any\u0022, \u0022values\u0022: [\u0022hello\u0022, \u0022Hello\u0022, \u0022hi\u0022, \u0022Hi\u0022, \u0022hey\u0022, \u0022Hey\u0022, \u0022greetings\u0022, \u0022Greetings\u0022, \u0022welcome\u0022, \u0022Welcome\u0022] }\n        },\n        {\n          \u0022id\u0022: \u0022greeting-is-non-empty\u0022,\n          \u0022description\u0022: \u0022Agent produces a non-empty response to a simple hello\u0022,\n          \u0022prompt\u0022: \u0022Good morning!\u0022,\n          \u0022check\u0022: { \u0022type\u0022: \u0022non-empty\u0022 }\n        },\n        {\n          \u0022id\u0022: \u0022greeting-is-friendly-tone\u0022,\n          \u0022description\u0022: \u0022Agent uses warm, friendly language in its greeting\u0022,\n          \u0022prompt\u0022: \u0022Hey!\u0022,\n          \u0022check\u0022: { \u0022type\u0022: \u0022contains-any\u0022, \u0022values\u0022: [\u0022!\u0022, \u0022glad\u0022, \u0022nice\u0022, \u0022great\u0022, \u0022wonderful\u0022, \u0022pleasure\u0022, \u0022happy\u0022, \u0022welcome\u0022, \u0022lovely\u0022] }\n        }\n      ]\n    },\n    \u0022name-extraction\u0022: {\n      \u0022description\u0022: \u0022Extracts and uses the user\u0027s name when introduced\u0022,\n      \u0022requires\u0022: [\u0022conversation\u0022],\n      \u0022weight\u0022: 0.3,\n      \u0022minimumScore\u0022: 0.6,\n      \u0022tests\u0022: [\n        {\n          \u0022id\u0022: \u0022uses-name-after-introduction\u0022,\n          \u0022description\u0022: \u0022Agent uses the user\u0027s name after they introduce themselves\u0022,\n          \u0022prompt\u0022: \u0022Hi, my name is Carlos.\u0022,\n          \u0022check\u0022: { \u0022type\u0022: \u0022contains\u0022, \u0022value\u0022: \u0022Carlos\u0022 }\n        },\n        {\n          \u0022id\u0022: \u0022extracts-name-from-casual-intro\u0022,\n          \u0022description\u0022: \u0022Agent picks up name from a casual introduction format\u0022,\n          \u0022prompt\u0022: \u0022Hey, I\u0027m Priya. What\u0027s up?\u0022,\n          \u0022check\u0022: { \u0022type\u0022: \u0022contains\u0022, \u0022value\u0022: \u0022Priya\u0022 }\n        },\n        {\n          \u0022id\u0022: \u0022acknowledges-name-explicitly\u0022,\n          \u0022description\u0022: \u0022Agent acknowledges it has learned the user\u0027s name\u0022,\n          \u0022prompt\u0022: \u0022Hello! You can call me Jordan.\u0022,\n          \u0022check\u0022: { \u0022type\u0022: \u0022contains-all\u0022, \u0022values\u0022: [\u0022Jordan\u0022] }\n        }\n      ]\n    },\n    \u0022name-persistence\u0022: {\n      \u0022description\u0022: \u0022Remembers the user\u0027s name in subsequent conversation turns and across sessions\u0022,\n      \u0022requires\u0022: [\u0022conversation\u0022, \u0022memory\u0022],\n      \u0022weight\u0022: 0.35,\n      \u0022minimumScore\u0022: 0.6,\n      \u0022tests\u0022: [\n        {\n          \u0022id\u0022: \u0022recalls-name-when-asked\u0022,\n          \u0022description\u0022: \u0022Agent can recall the user\u0027s name when prompted after introduction\u0022,\n          \u0022prompt\u0022: \u0022I told you earlier my name is Sasha. Do you remember my name?\u0022,\n          \u0022check\u0022: { \u0022type\u0022: \u0022contains\u0022, \u0022value\u0022: \u0022Sasha\u0022 }\n        },\n        {\n          \u0022id\u0022: \u0022uses-name-in-followup-greeting\u0022,\n          \u0022description\u0022: \u0022Agent uses the stored name in a follow-up greeting\u0022,\n          \u0022prompt\u0022: \u0022We spoke before and I told you my name is Mateo. Say hello to me again.\u0022,\n          \u0022check\u0022: { \u0022type\u0022: \u0022regex\u0022, \u0022pattern\u0022: \u0022(?i)(hello|hi|hey|welcome back|good to see you).*Mateo|Mateo.*(hello|hi|hey|welcome|good)\u0022 }\n        },\n        {\n          \u0022id\u0022: \u0022does-not-fabricate-name\u0022,\n          \u0022description\u0022: \u0022Agent does not invent a name when none was provided\u0022,\n          \u0022prompt\u0022: \u0022Hello, do you know my name?\u0022,\n          \u0022check\u0022: { \u0022type\u0022: \u0022contains-any\u0022, \u0022values\u0022: [\u0022don\u0027t know\u0022, \u0022haven\u0027t told\u0022, \u0022not sure\u0022, \u0022didn\u0027t mention\u0022, \u0022don\u0027t have\u0022, \u0022haven\u0027t shared\u0022, \u0022don\u0027t recall\u0022, \u0022no name\u0022] }\n        }\n      ]\n    },\n    \u0022graceful-interaction\u0022: {\n      \u0022description\u0022: \u0022Handles edge cases and unusual inputs gracefully while maintaining a greeting-oriented persona\u0022,\n      \u0022requires\u0022: [\u0022conversation\u0022],\n      \u0022weight\u0022: 0.15,\n      \u0022minimumScore\u0022: 0.5,\n      \u0022tests\u0022: [\n        {\n          \u0022id\u0022: \u0022handles-empty-like-input\u0022,\n          \u0022description\u0022: \u0022Agent responds gracefully to minimal input\u0022,\n          \u0022prompt\u0022: \u0022...\u0022,\n          \u0022check\u0022: { \u0022type\u0022: \u0022non-empty\u0022 }\n        },\n        {\n          \u0022id\u0022: \u0022stays-on-persona\u0022,\n          \u0022description\u0022: \u0022Agent does not break character when asked unrelated questions\u0022,\n          \u0022prompt\u0022: \u0022What is the capital of France?\u0022,\n          \u0022check\u0022: { \u0022type\u0022: \u0022does-not-contain\u0022, \u0022values\u0022: [\u0022I cannot\u0022, \u0022error\u0022, \u0022undefined\u0022, \u0022null\u0022, \u0022exception\u0022] }\n        },\n        {\n          \u0022id\u0022: \u0022handles-name-correction\u0022,\n          \u0022description\u0022: \u0022Agent updates the name when user corrects it\u0022,\n          \u0022prompt\u0022: \u0022Actually, my name isn\u0027t Alex. It\u0027s Jamie. Please remember that.\u0022,\n          \u0022check\u0022: { \u0022type\u0022: \u0022contains\u0022, \u0022value\u0022: \u0022Jamie\u0022 }\n        }\n      ]\n    }\n  },\n  \u0022scoring\u0022: { \u0022method\u0022: \u0022weighted-average\u0022 }\n}",
+    "_nodeResult_write-contract": "{\u0022contractId\u0022:\u0022greeting-agent\u0022,\u0022contractPath\u0022:\u0022C:\\\\Meastro\\\\content\\\\system\\\\contracts\\\\greeting-agent.contract.json\u0022,\u0022result\u0022:\u0022Contract written: C:\\\\Meastro\\\\content\\\\system\\\\contracts\\\\greeting-agent.contract.json\u0022}",
+    "contractJson": [
+      "conversation",
+      "memory"
+    ],
+    "_nodeResult_validate": "{\u0022valid\u0022:\u0022true\u0022,\u0022errors\u0022:\u0022\u0022,\u0022errorCount\u0022:\u00220\u0022}",
+    "contractPath": "C:\\Meastro\\content\\system\\contracts\\greeting-agent.contract.json",
+    "_nodeResult_check-valid": "{\n  \u0022id\u0022: \u0022greeting-agent\u0022,\n  \u0022name\u0022: \u0022Greeting Agent\u0022,\n  \u0022version\u0022: \u00221.0.0\u0022,\n  \u0022description\u0022: \u0022A conversational agent that greets users warmly, extracts and remembers their names across conversations, and provides a personalized hello experience.\u0022,\n  \u0022requiredCapabilities\u0022: [\u0022conversation\u0022, \u0022memory\u0022],\n  \u0022minimumFitness\u0022: 0.3,\n  \u0022features\u0022: {\n    \u0022basic-greeting\u0022: {\n      \u0022description\u0022: \u0022Responds with a friendly greeting when the user initiates conversation\u0022,\n      \u0022requires\u0022: [\u0022conversation\u0022],\n      \u0022weight\u0022: 0.2,\n      \u0022minimumScore\u0022: 0.5,\n      \u0022tests\u0022: [\n        {\n          \u0022id\u0022: \u0022responds-with-hello\u0022,\n          \u0022description\u0022: \u0022Agent responds with a greeting when user says hi\u0022,\n          \u0022prompt\u0022: \u0022Hi there!\u0022,\n          \u0022check\u0022: { \u0022type\u0022: \u0022contains-any\u0022, \u0022values\u0022: [\u0022hello\u0022, \u0022Hello\u0022, \u0022hi\u0022, \u0022Hi\u0022, \u0022hey\u0022, \u0022Hey\u0022, \u0022greetings\u0022, \u0022Greetings\u0022, \u0022welcome\u0022, \u0022Welcome\u0022] }\n        },\n        {\n          \u0022id\u0022: \u0022greeting-is-non-empty\u0022,\n          \u0022description\u0022: \u0022Agent produces a non-empty response to a simple hello\u0022,\n          \u0022prompt\u0022: \u0022Good morning!\u0022,\n          \u0022check\u0022: { \u0022type\u0022: \u0022non-empty\u0022 }\n        },\n        {\n          \u0022id\u0022: \u0022greeting-is-friendly-tone\u0022,\n          \u0022description\u0022: \u0022Agent uses warm, friendly language in its greeting\u0022,\n          \u0022prompt\u0022: \u0022Hey!\u0022,\n          \u0022check\u0022: { \u0022type\u0022: \u0022contains-any\u0022, \u0022values\u0022: [\u0022!\u0022, \u0022glad\u0022, \u0022nice\u0022, \u0022great\u0022, \u0022wonderful\u0022, \u0022pleasure\u0022, \u0022happy\u0022, \u0022welcome\u0022, \u0022lovely\u0022] }\n        }\n      ]\n    },\n    \u0022name-extraction\u0022: {\n      \u0022description\u0022: \u0022Extracts and uses the user\u0027s name when introduced\u0022,\n      \u0022requires\u0022: [\u0022conversation\u0022],\n      \u0022weight\u0022: 0.3,\n      \u0022minimumScore\u0022: 0.6,\n      \u0022tests\u0022: [\n        {\n          \u0022id\u0022: \u0022uses-name-after-introduction\u0022,\n          \u0022description\u0022: \u0022Agent uses the user\u0027s name after they introduce themselves\u0022,\n          \u0022prompt\u0022: \u0022Hi, my name is Carlos.\u0022,\n          \u0022check\u0022: { \u0022type\u0022: \u0022contains\u0022, \u0022value\u0022: \u0022Carlos\u0022 }\n        },\n        {\n          \u0022id\u0022: \u0022extracts-name-from-casual-intro\u0022,\n          \u0022description\u0022: \u0022Agent picks up name from a casual introduction format\u0022,\n          \u0022prompt\u0022: \u0022Hey, I\u0027m Priya. What\u0027s up?\u0022,\n          \u0022check\u0022: { \u0022type\u0022: \u0022contains\u0022, \u0022value\u0022: \u0022Priya\u0022 }\n        },\n        {\n          \u0022id\u0022: \u0022acknowledges-name-explicitly\u0022,\n          \u0022description\u0022: \u0022Agent acknowledges it has learned the user\u0027s name\u0022,\n          \u0022prompt\u0022: \u0022Hello! You can call me Jordan.\u0022,\n          \u0022check\u0022: { \u0022type\u0022: \u0022contains-all\u0022, \u0022values\u0022: [\u0022Jordan\u0022] }\n        }\n      ]\n    },\n    \u0022name-persistence\u0022: {\n      \u0022description\u0022: \u0022Remembers the user\u0027s name in subsequent conversation turns and across sessions\u0022,\n      \u0022requires\u0022: [\u0022conversation\u0022, \u0022memory\u0022],\n      \u0022weight\u0022: 0.35,\n      \u0022minimumScore\u0022: 0.6,\n      \u0022tests\u0022: [\n        {\n          \u0022id\u0022: \u0022recalls-name-when-asked\u0022,\n          \u0022description\u0022: \u0022Agent can recall the user\u0027s name when prompted after introduction\u0022,\n          \u0022prompt\u0022: \u0022I told you earlier my name is Sasha. Do you remember my name?\u0022,\n          \u0022check\u0022: { \u0022type\u0022: \u0022contains\u0022, \u0022value\u0022: \u0022Sasha\u0022 }\n        },\n        {\n          \u0022id\u0022: \u0022uses-name-in-followup-greeting\u0022,\n          \u0022description\u0022: \u0022Agent uses the stored name in a follow-up greeting\u0022,\n          \u0022prompt\u0022: \u0022We spoke before and I told you my name is Mateo. Say hello to me again.\u0022,\n          \u0022check\u0022: { \u0022type\u0022: \u0022regex\u0022, \u0022pattern\u0022: \u0022(?i)(hello|hi|hey|welcome back|good to see you).*Mateo|Mateo.*(hello|hi|hey|welcome|good)\u0022 }\n        },\n        {\n          \u0022id\u0022: \u0022does-not-fabricate-name\u0022,\n          \u0022description\u0022: \u0022Agent does not invent a name when none was provided\u0022,\n          \u0022prompt\u0022: \u0022Hello, do you know my name?\u0022,\n          \u0022check\u0022: { \u0022type\u0022: \u0022contains-any\u0022, \u0022values\u0022: [\u0022don\u0027t know\u0022, \u0022haven\u0027t told\u0022, \u0022not sure\u0022, \u0022didn\u0027t mention\u0022, \u0022don\u0027t have\u0022, \u0022haven\u0027t shared\u0022, \u0022don\u0027t recall\u0022, \u0022no name\u0022] }\n        }\n      ]\n    },\n    \u0022graceful-interaction\u0022: {\n      \u0022description\u0022: \u0022Handles edge cases and unusual inputs gracefully while maintaining a greeting-oriented persona\u0022,\n      \u0022requires\u0022: [\u0022conversation\u0022],\n      \u0022weight\u0022: 0.15,\n      \u0022minimumScore\u0022: 0.5,\n      \u0022tests\u0022: [\n        {\n          \u0022id\u0022: \u0022handles-empty-like-input\u0022,\n          \u0022description\u0022: \u0022Agent responds gracefully to minimal input\u0022,\n          \u0022prompt\u0022: \u0022...\u0022,\n          \u0022check\u0022: { \u0022type\u0022: \u0022non-empty\u0022 }\n        },\n        {\n          \u0022id\u0022: \u0022stays-on-persona\u0022,\n          \u0022description\u0022: \u0022Agent does not break character when asked unrelated questions\u0022,\n          \u0022prompt\u0022: \u0022What is the capital of France?\u0022,\n          \u0022check\u0022: { \u0022type\u0022: \u0022does-not-contain\u0022, \u0022values\u0022: [\u0022I cannot\u0022, \u0022error\u0022, \u0022undefined\u0022, \u0022null\u0022, \u0022exception\u0022] }\n        },\n        {\n          \u0022id\u0022: \u0022handles-name-correction\u0022,\n          \u0022description\u0022: \u0022Agent updates the name when user corrects it\u0022,\n          \u0022prompt\u0022: \u0022Actually, my name isn\u0027t Alex. It\u0027s Jamie. Please remember that.\u0022,\n          \u0022check\u0022: { \u0022type\u0022: \u0022contains\u0022, \u0022value\u0022: \u0022Jamie\u0022 }\n        }\n      ]\n    }\n  },\n  \u0022scoring\u0022: { \u0022method\u0022: \u0022weighted-average\u0022 }\n}"
+  },
+  "entryPoints": null,
+  "monitorWidgets": null,
+  "blockSearchPaths": [
+    "C:\\Meastro\\apps\\backend\\src\\Maestro.Api\\.maestro\\blocks"
+  ],
+  "defaultModel": null,
+  "modelOverrides": null,
+  "fileAccessRulesConfig": null,
+  "blockPermissionsConfig": null
+}

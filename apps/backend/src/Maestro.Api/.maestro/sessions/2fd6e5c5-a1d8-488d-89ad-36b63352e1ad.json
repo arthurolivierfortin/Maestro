@@ -1,0 +1,124 @@
+{
+  "id": "2fd6e5c5-a1d8-488d-89ad-36b63352e1ad",
+  "name": "contract-test-contract-definer-contract-definer",
+  "status": "created",
+  "terminalReason": "none",
+  "authority": "agent:contract-test-runner",
+  "workingDirectory": ".",
+  "repositoryPath": "C:\\Meastro\\apps\\backend\\src\\Maestro.Api",
+  "parentWorkspaceId": null,
+  "parentSessionId": null,
+  "config": {
+    "projectId": null,
+    "workflowId": null,
+    "task": null,
+    "context": null,
+    "access": {
+      "level": "controlled",
+      "allowedPaths": [],
+      "deniedPaths": [
+        ".env",
+        "*.env",
+        "secrets/**",
+        "**/.git/**"
+      ],
+      "requireApprovalPaths": []
+    },
+    "validation": {
+      "runTests": false,
+      "testCommand": null,
+      "runLinter": false,
+      "linterCommand": null,
+      "requireCleanDiff": false,
+      "maxSteps": 50,
+      "timeoutMs": 600000
+    },
+    "inputs": {}
+  },
+  "createdAt": "2026-03-20T13:59:29.1284535+00:00",
+  "startedAt": null,
+  "completedAt": null,
+  "updatedAt": "2026-03-20T13:59:29.1519205+00:00",
+  "commandCount": 0,
+  "modifiedFiles": [],
+  "errorMessage": null,
+  "testResult": null,
+  "linterResult": null,
+  "commitInfo": null,
+  "variables": {
+    "prompt": "A greeting agent that says hello and remembers user names across conversations",
+    "message": "A greeting agent that says hello and remembers user names across conversations",
+    "conversationHistory": "[{\u0022role\u0022:\u0022user\u0022,\u0022content\u0022:\u0022A greeting agent that says hello and remembers user names across conversations\u0022}]",
+    "description": "A greeting agent that says hello and remembers user names across conversations",
+    "contractId": "A greeting agent that says hello and remembers user names across conversations",
+    "outputDir": "C:\\Meastro\\content\\system\\contracts",
+    "_executionLog": [
+      {
+        "time": "13:59:29",
+        "level": "info",
+        "msg": "Pre-flight: block \u0027contract-definer\u0027 (type: workflow), model=default, maxIterations=not set, keepLastN=default"
+      },
+      {
+        "time": "13:59:29",
+        "level": "info",
+        "msg": "Pre-flight: maxIterations not set. Engine will use default (50)."
+      },
+      {
+        "time": "13:59:29",
+        "level": "info",
+        "msg": "Executing blockRef \u0027inference\u0027 (type: inference) with 2 inputs"
+      }
+    ],
+    "_activeBlock": {
+      "id": "generate-contract",
+      "name": "Generate Contract",
+      "type": "block",
+      "status": "running",
+      "startedAt": "2026-03-20T13:59:29.1341089\u002B00:00",
+      "logs": [],
+      "metadata": {}
+    },
+    "_executionTree": [
+      {
+        "id": "generate-contract",
+        "name": "Generate Contract",
+        "status": "running",
+        "children": [],
+        "output": "Executing inference..."
+      },
+      {
+        "id": "write-contract",
+        "name": "Write Contract",
+        "status": "pending",
+        "children": []
+      },
+      {
+        "id": "set-initial-contract",
+        "name": "Set Initial Contract",
+        "status": "pending",
+        "children": []
+      },
+      {
+        "id": "validate",
+        "name": "Validate",
+        "status": "pending",
+        "children": []
+      },
+      {
+        "id": "check-valid",
+        "name": "Check Valid",
+        "status": "pending",
+        "children": []
+      }
+    ]
+  },
+  "entryPoints": null,
+  "monitorWidgets": null,
+  "blockSearchPaths": [
+    "C:\\Meastro\\apps\\backend\\src\\Maestro.Api\\.maestro\\blocks"
+  ],
+  "defaultModel": null,
+  "modelOverrides": null,
+  "fileAccessRulesConfig": null,
+  "blockPermissionsConfig": null
+}

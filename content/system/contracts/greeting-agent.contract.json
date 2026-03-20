@@ -1,0 +1,115 @@
+{
+  "id": "greeting-agent",
+  "name": "Greeting Agent",
+  "version": "1.0.0",
+  "description": "A conversational agent that greets users warmly, extracts and remembers their names across conversations, and provides a personalized hello experience.",
+  "requiredCapabilities": ["conversation", "memory"],
+  "minimumFitness": 0.3,
+  "features": {
+    "basic-greeting": {
+      "description": "Responds with a friendly greeting when the user initiates conversation",
+      "requires": ["conversation"],
+      "weight": 0.2,
+      "minimumScore": 0.5,
+      "tests": [
+        {
+          "id": "responds-with-hello",
+          "description": "Agent responds with a greeting when user says hi",
+          "prompt": "Hi there!",
+          "check": { "type": "contains-any", "values": ["hello", "Hello", "hi", "Hi", "hey", "Hey", "greetings", "Greetings", "welcome", "Welcome"] }
+        },
+        {
+          "id": "greeting-is-non-empty",
+          "description": "Agent produces a non-empty response to a simple hello",
+          "prompt": "Good morning!",
+          "check": { "type": "non-empty" }
+        },
+        {
+          "id": "greeting-is-friendly-tone",
+          "description": "Agent uses warm, friendly language in its greeting",
+          "prompt": "Hey!",
+          "check": { "type": "contains-any", "values": ["!", "glad", "nice", "great", "wonderful", "pleasure", "happy", "welcome", "lovely"] }
+        }
+      ]
+    },
+    "name-extraction": {
+      "description": "Extracts and uses the user's name when introduced",
+      "requires": ["conversation"],
+      "weight": 0.3,
+      "minimumScore": 0.6,
+      "tests": [
+        {
+          "id": "uses-name-after-introduction",
+          "description": "Agent uses the user's name after they introduce themselves",
+          "prompt": "Hi, my name is Carlos.",
+          "check": { "type": "contains", "value": "Carlos" }
+        },
+        {
+          "id": "extracts-name-from-casual-intro",
+          "description": "Agent picks up name from a casual introduction format",
+          "prompt": "Hey, I'm Priya. What's up?",
+          "check": { "type": "contains", "value": "Priya" }
+        },
+        {
+          "id": "acknowledges-name-explicitly",
+          "description": "Agent acknowledges it has learned the user's name",
+          "prompt": "Hello! You can call me Jordan.",
+          "check": { "type": "contains-all", "values": ["Jordan"] }
+        }
+      ]
+    },
+    "name-persistence": {
+      "description": "Remembers the user's name in subsequent conversation turns and across sessions",
+      "requires": ["conversation", "memory"],
+      "weight": 0.35,
+      "minimumScore": 0.6,
+      "tests": [
+        {
+          "id": "recalls-name-when-asked",
+          "description": "Agent can recall the user's name when prompted after introduction",
+          "prompt": "I told you earlier my name is Sasha. Do you remember my name?",
+          "check": { "type": "contains", "value": "Sasha" }
+        },
+        {
+          "id": "uses-name-in-followup-greeting",
+          "description": "Agent uses the stored name in a follow-up greeting",
+          "prompt": "We spoke before and I told you my name is Mateo. Say hello to me again.",
+          "check": { "type": "regex", "pattern": "(?i)(hello|hi|hey|welcome back|good to see you).*Mateo|Mateo.*(hello|hi|hey|welcome|good)" }
+        },
+        {
+          "id": "does-not-fabricate-name",
+          "description": "Agent does not invent a name when none was provided",
+          "prompt": "Hello, do you know my name?",
+          "check": { "type": "contains-any", "values": ["don't know", "haven't told", "not sure", "didn't mention", "don't have", "haven't shared", "don't recall", "no name"] }
+        }
+      ]
+    },
+    "graceful-interaction": {
+      "description": "Handles edge cases and unusual inputs gracefully while maintaining a greeting-oriented persona",
+      "requires": ["conversation"],
+      "weight": 0.15,
+      "minimumScore": 0.5,
+      "tests": [
+        {
+          "id": "handles-empty-like-input",
+          "description": "Agent responds gracefully to minimal input",
+          "prompt": "...",
+          "check": { "type": "non-empty" }
+        },
+        {
+          "id": "stays-on-persona",
+          "description": "Agent does not break character when asked unrelated questions",
+          "prompt": "What is the capital of France?",
+          "check": { "type": "does-not-contain", "values": ["I cannot", "error", "undefined", "null", "exception"] }
+        },
+        {
+          "id": "handles-name-correction",
+          "description": "Agent updates the name when user corrects it",
+          "prompt": "Actually, my name isn't Alex. It's Jamie. Please remember that.",
+          "check": { "type": "contains", "value": "Jamie" }
+        }
+      ]
+    }
+  },
+  "scoring": { "method": "weighted-average" }
+}
