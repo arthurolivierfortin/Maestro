@@ -285,8 +285,13 @@ with tab_containers:
     else:
         st.error("STOPPED" if main_state.get("status") == "exited" else "NOT FOUND")
         if st.button("Start maestro-main", key="start_main", type="primary"):
-            subprocess.Popen([*COMPOSE_BASE, "up", "-d", "main"])
-            time.sleep(5)
+            with st.spinner("Starting maestro-main..."):
+                r = subprocess.run([*COMPOSE_BASE, "up", "-d", "main"],
+                                   capture_output=True, text=True, timeout=60)
+                if r.returncode != 0:
+                    st.error(f"Failed: {r.stderr[-300:]}")
+                else:
+                    time.sleep(5)
             st.rerun()
 
     st.markdown("---")
@@ -324,8 +329,13 @@ with tab_containers:
     else:
         st.error("STOPPED" if dev_state.get("status") == "exited" else "NOT FOUND")
         if st.button("Start maestro-dev", key="start_dev", type="primary"):
-            subprocess.Popen([*COMPOSE_BASE, "up", "-d", "dev"])
-            time.sleep(5)
+            with st.spinner("Starting maestro-dev..."):
+                r = subprocess.run([*COMPOSE_BASE, "up", "-d", "dev"],
+                                   capture_output=True, text=True, timeout=60)
+                if r.returncode != 0:
+                    st.error(f"Failed: {r.stderr[-300:]}")
+                else:
+                    time.sleep(5)
             st.rerun()
 
     st.markdown("---")
@@ -336,13 +346,21 @@ with tab_containers:
         any_running = main_running or dev_running
         if any_running:
             if st.button("Stop All"):
-                subprocess.run([*COMPOSE_BASE, "down"],
-                               capture_output=True, timeout=30)
+                with st.spinner("Stopping..."):
+                    r = subprocess.run([*COMPOSE_BASE, "down"],
+                                       capture_output=True, text=True, timeout=30)
+                    if r.returncode != 0:
+                        st.error(f"Stop failed: {r.stderr[-300:]}")
                 st.rerun()
         else:
             if st.button("Start All", type="primary"):
-                subprocess.Popen([*COMPOSE_BASE, "up", "-d"])
-                time.sleep(8)
+                with st.spinner("Starting containers..."):
+                    r = subprocess.run([*COMPOSE_BASE, "up", "-d"],
+                                       capture_output=True, text=True, timeout=60)
+                    if r.returncode != 0:
+                        st.error(f"Start failed: {r.stderr[-300:]}")
+                    else:
+                        time.sleep(5)
                 st.rerun()
     with gc2:
         if st.button("Rebuild All"):
