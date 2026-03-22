@@ -1,0 +1,18 @@
+{
+  "mcpServers": {
+    "maestro-tools": {
+      "type": "stdio",
+      "command": "python3",
+      "args": ["/app/scripts/maestro_mcp_tools.py"],
+      "env": {
+        "MAESTRO_API_URL": "http://maestro-main:5000",
+        "LLM_PROVIDER_URL": "http://maestro-main:5010"
+      }
+    },
+    "process-manager": {
+      "type": "stdio",
+      "command": "python3",
+      "args": ["/app/scripts/process_manager.py"]
+    }
+  }
+}

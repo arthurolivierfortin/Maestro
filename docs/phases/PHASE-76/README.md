@@ -1,4 +1,4 @@
-# Phase 71 (V2) : Block-forge pipeline
+# Phase 76 (V2) : Catalogue communautaire + Auth
 
 > **Note** : Anciennement Phase 68. Decalee suite a l'insertion de la Phase 62 (Agents Fonctionnels).
 

@@ -1,0 +1,44 @@
+FROM mcr.microsoft.com/dotnet/sdk:10.0-alpine AS build
+
+WORKDIR /src
+COPY apps/backend/ apps/backend/
+RUN dotnet publish apps/backend/src/Maestro.Api/Maestro.Api.csproj -c Release -o /publish/backend
+
+COPY llm-provider/dotnet/ llm-provider/dotnet/
+RUN dotnet publish llm-provider/dotnet/src/LLMProvider.Web/LLMProvider.Web.csproj -c Release -o /publish/llm-provider
+
+# ── Runtime image ──
+FROM mcr.microsoft.com/dotnet/aspnet:10.0-alpine
+
+# System packages
+RUN apk add --no-cache git bash curl python3 py3-pip gosu \
+    && ln -sf /usr/bin/python3 /usr/bin/python
+
+# GitHub CLI (for deployer)
+RUN apk add --no-cache github-cli
+
+# Create user (uid 1000 — same as node in dev container for shared volumes)
+RUN adduser -D -s /bin/bash -u 1000 maestro
+
+# Copy published apps
+WORKDIR /app
+COPY --from=build /publish/backend /app/backend/
+COPY --from=build /publish/llm-provider /app/llm-provider/
+
+# Copy content (blocks, contracts, templates)
+COPY content/ /app/content/
+
+# Copy scripts
+COPY scripts/ /app/scripts/
+
+# Entrypoint
+COPY docker/entrypoint.main.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh \
+    && mkdir -p /app/data /app/logs \
+    && chown -R maestro:maestro /app
+
+ENV ASPNETCORE_URLS=http://0.0.0.0:5000
+
+EXPOSE 5000 5010
+
+ENTRYPOINT ["/entrypoint.sh"]

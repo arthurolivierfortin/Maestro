@@ -1,0 +1,75 @@
+services:
+  # -- maestro-main: Backend + LLM Provider + Deployer --
+  # Watches GitHub main, auto-deploys with rollback, runs Maestro services
+  main:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.main
+    container_name: maestro-main
+    restart: unless-stopped
+
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://0.0.0.0:5000
+      - LOG_LEVEL=${LOG_LEVEL:-Information}
+      - GITHUB_APP_ID=${GITHUB_APP_ID:-}
+      - GITHUB_INSTALLATION_ID=${GITHUB_INSTALLATION_ID:-}
+      - GITHUB_PEM_FILENAME=${GITHUB_PEM_FILENAME:-maestro-dev.private-key.pem}
+      - GITHUB_REPO=${GITHUB_REPO:-}
+
+    volumes:
+      - maestro-data:/app/data
+      - maestro-logs:/app/logs
+      - ~/.github-apps:/home/maestro/.github-apps:ro
+      - ../.env:/app/.env:ro
+
+    ports:
+      - "5000:5000"
+      - "5010:5010"
+
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+
+  # -- maestro-dev: Claude Code Agents --
+  # Interactive Claude Code session for development (think, build, review)
+  dev:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.dev
+    container_name: maestro-dev
+    stdin_open: true
+    tty: true
+    restart: unless-stopped
+
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - MAESTRO_API_URL=http://maestro-main:5000
+      - LLM_PROVIDER_URL=http://maestro-main:5010
+      - LOG_LEVEL=${LOG_LEVEL:-Information}
+      - GITHUB_APP_ID=${GITHUB_APP_ID:-}
+      - GITHUB_INSTALLATION_ID=${GITHUB_INSTALLATION_ID:-}
+      - GITHUB_PEM_FILENAME=${GITHUB_PEM_FILENAME:-maestro-dev.private-key.pem}
+      - GITHUB_REPO=${GITHUB_REPO:-}
+
+    volumes:
+      - maestro-data:/app/data
+      - maestro-logs:/app/logs
+      - claude-config:/home/node/.claude
+      - ~/.claude/.credentials.json:/home/node/.claude/.credentials.json:ro
+      - ~/.github-apps:/home/node/.github-apps:ro
+      - ../.env:/app/.env:ro
+
+    depends_on:
+      - main
+
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+
+volumes:
+  maestro-data:
+  maestro-logs:
+  claude-config:
