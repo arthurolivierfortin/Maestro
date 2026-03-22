@@ -44,6 +44,7 @@ DEPLOY_LOG = LOGS_DIR / "deploy.log"
 DEV_LOG = LOGS_DIR / "docker-dev.log"
 
 COMPOSE_FILE = str(PROJECT_ROOT / "docker" / "docker-compose.yml")
+COMPOSE_BASE = ["docker", "compose", "-f", COMPOSE_FILE, "--project-directory", str(PROJECT_ROOT)]
 GITHUB_REPO_URL = os.environ.get("GH_REPO", "")
 if GITHUB_REPO_URL and not GITHUB_REPO_URL.startswith("http"):
     GITHUB_REPO_URL = f"https://github.com/{GITHUB_REPO_URL}"
@@ -261,7 +262,7 @@ with tab_containers:
     else:
         st.error("STOPPED" if main_state.get("status") == "exited" else "NOT FOUND")
         if st.button("Start maestro-main", key="start_main", type="primary"):
-            subprocess.Popen(["docker", "compose", "-f", COMPOSE_FILE, "up", "-d", "main"])
+            subprocess.Popen([*COMPOSE_BASE, "up", "-d", "main"])
             time.sleep(5)
             st.rerun()
 
@@ -312,7 +313,7 @@ with tab_containers:
     else:
         st.error("STOPPED" if dev_state.get("status") == "exited" else "NOT FOUND")
         if st.button("Start maestro-dev", key="start_dev", type="primary"):
-            subprocess.Popen(["docker", "compose", "-f", COMPOSE_FILE, "up", "-d", "dev"])
+            subprocess.Popen([*COMPOSE_BASE, "up", "-d", "dev"])
             time.sleep(5)
             st.rerun()
 
@@ -324,24 +325,24 @@ with tab_containers:
         any_running = main_running or dev_running
         if any_running:
             if st.button("Stop All"):
-                subprocess.run(["docker", "compose", "-f", COMPOSE_FILE, "down"],
+                subprocess.run([*COMPOSE_BASE, "down"],
                                capture_output=True, timeout=30)
                 st.rerun()
         else:
             if st.button("Start All", type="primary"):
-                subprocess.Popen(["docker", "compose", "-f", COMPOSE_FILE, "up", "-d"])
+                subprocess.Popen([*COMPOSE_BASE, "up", "-d"])
                 time.sleep(8)
                 st.rerun()
     with gc2:
         if st.button("Rebuild All"):
             with st.spinner("Rebuilding..."):
-                subprocess.run(["docker", "compose", "-f", COMPOSE_FILE, "down"],
+                subprocess.run([*COMPOSE_BASE, "down"],
                                capture_output=True, timeout=30)
                 result = subprocess.run(
-                    ["docker", "compose", "-f", COMPOSE_FILE, "build"],
+                    [*COMPOSE_BASE, "build"],
                     capture_output=True, text=True, timeout=600)
                 if result.returncode == 0:
-                    subprocess.Popen(["docker", "compose", "-f", COMPOSE_FILE, "up", "-d"])
+                    subprocess.Popen([*COMPOSE_BASE, "up", "-d"])
                     time.sleep(8)
                     st.success("Rebuilt!")
                 else:
