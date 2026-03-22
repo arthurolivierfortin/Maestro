@@ -1,0 +1,51 @@
+# Git
+.git
+.gitignore
+
+# Node
+**/node_modules
+
+# .NET build artifacts
+**/bin
+**/obj
+**/.nuget
+**/NuGet
+**/*.nupkg
+
+# IDE
+.vs
+.vscode
+.idea
+*.user
+*.suo
+
+# Docker (avoid recursive copy)
+docker/scripts
+
+# Test repos
+test-repos
+
+# Temp / OS
+*.tmp
+*.swp
+.DS_Store
+Thumbs.db
+
+# Python
+__pycache__
+*.pyc
+.pytest_cache
+.mypy_cache
+
+# Claude Code state
+.claude/worktrees
+.maestro/sessions
+
+# Logs and data (mounted as volumes)
+logs
+data
+
+# Large unnecessary files
+*.zip
+*.tar.gz
+*.7z

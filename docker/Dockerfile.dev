@@ -39,7 +39,7 @@ COPY docker/.mcp.json.docker /app/.mcp.json.docker
 COPY docker/settings.json /app/.claude/settings.json.docker
 COPY docker/entrypoint.dev.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh \
-    && chown -R node:node /app /c/Meastro
+    && chown -R node:node /app/.claude /app/docker /app/scripts /app/dashboard /c/Meastro
 
 # ── Environment ──
 ENV DISABLE_AUTOUPDATER=1
