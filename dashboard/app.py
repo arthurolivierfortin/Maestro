@@ -45,17 +45,6 @@ DEV_LOG = LOGS_DIR / "docker-dev.log"
 
 COMPOSE_FILE = str(PROJECT_ROOT / "docker" / "docker-compose.yml")
 COMPOSE_BASE = ["docker", "compose", "-f", COMPOSE_FILE]
-COMPOSE_CWD = str(PROJECT_ROOT)
-
-
-def _compose(*args, **kwargs) -> subprocess.CompletedProcess:
-    """Run docker compose with correct working directory."""
-    timeout = kwargs.pop("timeout", 60)
-    return subprocess.run(
-        [*COMPOSE_BASE, *args],
-        capture_output=True, text=True, timeout=timeout, cwd=COMPOSE_CWD,
-        **kwargs,
-    )
 GITHUB_REPO_URL = os.environ.get("GH_REPO", "")
 if GITHUB_REPO_URL and not GITHUB_REPO_URL.startswith("http"):
     GITHUB_REPO_URL = f"https://github.com/{GITHUB_REPO_URL}"
@@ -296,12 +285,8 @@ with tab_containers:
     else:
         st.error("STOPPED" if main_state.get("status") == "exited" else "NOT FOUND")
         if st.button("Start maestro-main", key="start_main", type="primary"):
-            with st.spinner("Starting maestro-main..."):
-                r = _compose("up", "-d", "main")
-                if r.returncode != 0:
-                    st.error(f"Failed: {r.stderr[-300:]}")
-                else:
-                    time.sleep(5)
+            subprocess.Popen([*COMPOSE_BASE, "up", "-d", "main"])
+            time.sleep(5)
             st.rerun()
 
     st.markdown("---")
@@ -339,12 +324,8 @@ with tab_containers:
     else:
         st.error("STOPPED" if dev_state.get("status") == "exited" else "NOT FOUND")
         if st.button("Start maestro-dev", key="start_dev", type="primary"):
-            with st.spinner("Starting maestro-dev..."):
-                r = _compose("up", "-d", "dev")
-                if r.returncode != 0:
-                    st.error(f"Failed: {r.stderr[-300:]}")
-                else:
-                    time.sleep(5)
+            subprocess.Popen([*COMPOSE_BASE, "up", "-d", "dev"])
+            time.sleep(5)
             st.rerun()
 
     st.markdown("---")
@@ -355,27 +336,23 @@ with tab_containers:
         any_running = main_running or dev_running
         if any_running:
             if st.button("Stop All"):
-                with st.spinner("Stopping..."):
-                    r = _compose("down", timeout=30)
-                    if r.returncode != 0:
-                        st.error(f"Stop failed: {r.stderr[-300:]}")
+                subprocess.run([*COMPOSE_BASE, "down"],
+                               capture_output=True, timeout=30)
                 st.rerun()
         else:
             if st.button("Start All", type="primary"):
-                with st.spinner("Starting containers..."):
-                    r = _compose("up", "-d")
-                    if r.returncode != 0:
-                        st.error(f"Start failed: {r.stderr[-300:]}")
-                    else:
-                        time.sleep(5)
+                subprocess.Popen([*COMPOSE_BASE, "up", "-d"])
+                time.sleep(5)
                 st.rerun()
     with gc2:
         if st.button("Rebuild All"):
             with st.spinner("Rebuilding..."):
-                _compose("down", timeout=30)
-                result = _compose("build", timeout=600)
+                subprocess.run([*COMPOSE_BASE, "down"],
+                               capture_output=True, timeout=30)
+                result = subprocess.run([*COMPOSE_BASE, "build"],
+                                        capture_output=True, text=True, timeout=600)
                 if result.returncode == 0:
-                    _compose("up", "-d")
+                    subprocess.Popen([*COMPOSE_BASE, "up", "-d"])
                     time.sleep(8)
                     st.success("Rebuilt!")
                 else:
