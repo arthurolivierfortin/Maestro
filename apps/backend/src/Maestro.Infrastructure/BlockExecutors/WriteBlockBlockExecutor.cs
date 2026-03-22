@@ -30,6 +30,11 @@ public class WriteBlockBlockExecutor : IBlockExecutor
             return Task.FromResult(result);
         }
 
+        // Strip markdown code fences if present (LLM output often wraps JSON in ```json...```)
+        var cleaned = LLMBlockExecutorBase.ExtractJson(blockJson);
+        if (cleaned != null)
+            blockJson = cleaned;
+
         // Extract block info from JSON
         string blockId, blockType;
         try

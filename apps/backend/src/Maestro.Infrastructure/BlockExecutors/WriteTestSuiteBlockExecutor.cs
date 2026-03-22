@@ -29,6 +29,11 @@ public class WriteTestSuiteBlockExecutor : IBlockExecutor
             return Task.FromResult(result);
         }
 
+        // Strip markdown code fences if present (LLM output often wraps JSON in ```json...```)
+        var cleaned = LLMBlockExecutorBase.ExtractJson(testSuiteJson);
+        if (cleaned != null)
+            testSuiteJson = cleaned;
+
         // If contractId not provided as input, extract from JSON
         if (string.IsNullOrEmpty(contractId))
         {

@@ -28,6 +28,11 @@ public class WriteContractBlockExecutor : IBlockExecutor
             return Task.FromResult(result);
         }
 
+        // Strip markdown code fences if present (LLM output often wraps JSON in ```json...```)
+        var cleaned = LLMBlockExecutorBase.ExtractJson(contractJson);
+        if (cleaned != null)
+            contractJson = cleaned;
+
         // Extract contractId from the JSON
         string contractId;
         try

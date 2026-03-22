@@ -109,7 +109,20 @@ Agent-creator renomme block-creator.
 - **Fix** : Filtrer les outputs — exclure les cles d'input bruit (`prompt`, `message`, `conversationHistory`, `sessionId`, etc.) et les variables systeme internes.
 
 **Build** : 0 erreurs, 34 tests unitaires passent.
-**Tests non valides** : Les contract tests des 3 workflows n'ont PAS encore ete re-runs apres les fixes (services crashes avant reboot).
+
+**CONTRACT-DEFINER** : 12/12, performance 1.0, fitness 0.135, cost $2.57/run.
+
+### Bugs supplementaires trouves et fixes pendant les tests
+
+**BUG 3 (Write*BlockExecutors)** : `JsonDocument.Parse` echouait sur le output LLM qui contient des code fences markdown (` ```json...``` `). Fix : strip fences via `LLMBlockExecutorBase.ExtractJson()` avant parsing dans WriteContractBlockExecutor, WriteTestSuiteBlockExecutor, WriteBlockBlockExecutor.
+
+**BUG 4 (SetVariableNodeHandler)** : Auto-parse JSON destructif. Quand la valeur est un JSON object (ex: contract), le handler parsait en JObject et `TryUnwrapJObjectToList` extrayait le premier array (ex: `requiredCapabilities`) au lieu de garder l'objet complet. `.ToString()` sur `List<object>` retournait le nom du type C#. Fix : stocker toujours les valeurs comme strings (le JSON parsing est destructif pour le contenu workflow).
+
+**BUG 5 (ContractTestRunner.ExtractResponseText)** : `.ToString()` sur `List<object>` et `JObject` retournait les noms de types C# au lieu du JSON. Fix : `SerializeOutputValue()` qui serialise proprement les types non-string.
+
+**BUG 6 (WorkflowBlockExecutor.ExtractResultAsync)** : Retournait TOUTES les variables de session comme outputs. Fix : filtrer les cles d'input bruit et les variables systeme internes.
+
+**BUG 7 (MaestroClient timeout)** : Default 30s trop court pour les workflows. Fix : augmente a 600s (10 min).
 
 ## 64-F: PAS COMMENCE (depend de 64-D/G)
 ## 64-T: PAS COMMENCE

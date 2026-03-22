@@ -18,7 +18,8 @@ public class WorkflowBlockExecutor : MultiNodeBlockExecutor
     private static readonly HashSet<string> InputNoiseKeys = new(StringComparer.OrdinalIgnoreCase)
     {
         "prompt", "message", "conversationHistory",
-        "sessionId", "workingDir", "workspaceId", "agentId", "outputDir"
+        "sessionId", "workingDir", "workspaceId", "agentId", "outputDir",
+        "description", "targetModel", "maxIterations"
     };
 
     public override string SupportedType => "workflow";

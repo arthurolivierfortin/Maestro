@@ -601,30 +601,51 @@ public class ContractTestRunner
         {
             if (result.Outputs.TryGetValue(key, out var val) && val != null)
             {
-                var text = val.ToString() ?? "";
+                var text = SerializeOutputValue(val);
                 if (text.Length > 20) return text;
             }
         }
 
         // Priority 2: Single output
         if (result.Outputs.Count == 1)
-            return result.Outputs.Values.First()?.ToString() ?? "";
+            return SerializeOutputValue(result.Outputs.Values.First());
 
         // Priority 3: Find the longest non-underscore output (likely the content)
         var longest = result.Outputs
             .Where(kv => !kv.Key.StartsWith("_") && kv.Value != null)
-            .OrderByDescending(kv => kv.Value?.ToString()?.Length ?? 0)
+            .OrderByDescending(kv => SerializeOutputValue(kv.Value).Length)
             .FirstOrDefault();
         if (longest.Value != null)
         {
-            var text = longest.Value.ToString() ?? "";
+            var text = SerializeOutputValue(longest.Value);
             if (text.Length > 50) return text;
         }
 
         // Priority 4: Concatenate all non-underscore outputs
         return string.Join("\n", result.Outputs
             .Where(kv => !kv.Key.StartsWith("_"))
-            .Select(kv => kv.Value?.ToString() ?? ""));
+            .Select(kv => SerializeOutputValue(kv.Value)));
+    }
+
+    /// <summary>
+    /// Serialize a value to string. Lists and dicts get JSON-serialized instead of .ToString()
+    /// which would return the C# type name (e.g. "System.Collections.Generic.List`1[...]").
+    /// </summary>
+    private static string SerializeOutputValue(object? value)
+    {
+        if (value == null) return "";
+        if (value is string s) return s;
+        // Newtonsoft JToken: use its own ToString() which produces proper JSON
+        if (value is Newtonsoft.Json.Linq.JToken jt)
+            return jt.ToString(Newtonsoft.Json.Formatting.None);
+        if (value is System.Collections.IList || value is System.Collections.IDictionary)
+        {
+            try { return System.Text.Json.JsonSerializer.Serialize(value); }
+            catch { /* fallthrough */ }
+        }
+        if (value is System.Text.Json.JsonElement je)
+            return je.ValueKind == System.Text.Json.JsonValueKind.String ? je.GetString() ?? "" : je.GetRawText();
+        return value.ToString() ?? "";
     }
 
     /// <summary>

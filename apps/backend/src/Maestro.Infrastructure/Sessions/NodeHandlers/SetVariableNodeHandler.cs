@@ -77,79 +77,31 @@ public class SetVariableNodeHandler : INodeHandler
             return rawValue;
         }
 
-        // Try to parse as JSON for proper List/Dict storage
-        var trimmed = rawValue.Trim();
-        trimmed = trimmed.TrimStart('\uFEFF', '\u200B', '\u200C', '\u200D');
-        if (trimmed.StartsWith("[") || trimmed.StartsWith("{"))
-        {
-            try
-            {
-                var token = JToken.Parse(trimmed);
-
-                if (token is JArray jArr)
-                {
-                    var parsedList = SessionHelper.JArrayToNativeList(jArr);
-                    session.SetVariable(variableName, parsedList);
-                    _stateManager.AppendExecutionLog(session, "info",
-                        $"set-variable '{nodeId}': stored {parsedList.Count}-item list in '{variableName}' ({trimmed.Length} chars)");
-                }
-                else if (token is JObject jObj)
-                {
-                    var (unwrappedList, unwrapField) = TryUnwrapJObjectToList(jObj);
-
-                    if (unwrappedList != null && unwrappedList.Count > 0)
-                    {
-                        session.SetVariable(variableName, unwrappedList);
-                        _stateManager.AppendExecutionLog(session, "info",
-                            $"set-variable '{nodeId}': unwrapped '{unwrapField}' -> stored {unwrappedList.Count}-item list in '{variableName}'");
-                    }
-                    else
-                    {
-                        session.SetVariable(variableName, jObj);
-                        _stateManager.AppendExecutionLog(session, "info",
-                            $"set-variable '{nodeId}': stored JSON object in '{variableName}' ({trimmed.Length} chars)");
-                    }
-                }
-                else
-                {
-                    session.SetVariable(variableName, rawValue);
-                    _stateManager.AppendExecutionLog(session, "info",
-                        $"set-variable '{nodeId}': stored value in '{variableName}' ({trimmed.Length} chars, token type: {token.Type})");
-                }
-            }
-            catch (Exception ex)
-            {
-                session.SetVariable(variableName, rawValue);
-                _stateManager.AppendExecutionLog(session, "warn",
-                    $"set-variable '{nodeId}': JSON parse failed, stored as string in '{variableName}' ({rawValue.Length} chars, err: {ex.Message})");
-            }
-        }
-        else
-        {
-            var embeddedArray = SessionHelper.TryExtractJsonArrayFromText(rawValue);
-            if (embeddedArray != null && embeddedArray.Count > 0)
-            {
-                var list = SessionHelper.JArrayToNativeList(embeddedArray);
-                session.SetVariable(variableName, list);
-                _stateManager.AppendExecutionLog(session, "info",
-                    $"set-variable '{nodeId}': extracted {list.Count}-item list from plain text in '{variableName}'");
-            }
-            else
-            {
-                session.SetVariable(variableName, rawValue);
-                _stateManager.AppendExecutionLog(session, "info",
-                    $"set-variable '{nodeId}': stored plain text in '{variableName}' ({rawValue.Length} chars)");
-            }
-        }
+        // Store as string — always. JSON content (contracts, test suites, block definitions)
+        // must remain as strings for template resolution and check evaluation (contains, json-parseable).
+        // Parsing to JObject/List was destructive: TryUnwrapJObjectToList extracted arrays from objects,
+        // and .ToString() on List<object> returned C# type names instead of JSON.
+        session.SetVariable(variableName, rawValue);
+        _stateManager.AppendExecutionLog(session, "info",
+            $"set-variable '{nodeId}': stored in '{variableName}' ({rawValue.Length} chars)");
 
         return rawValue;
     }
 
     /// <summary>
-    /// Three-pass extraction of an array from a JObject wrapper.
+    /// Extraction of an array from a JObject wrapper.
+    /// Only unwraps when the object is a THIN WRAPPER around a single array
+    /// (1-2 properties, at least one being the array). Multi-property objects
+    /// (like contracts, test suites, block definitions) must NOT be unwrapped —
+    /// their internal arrays are not the "value", the whole object is.
     /// </summary>
     internal static (List<object>? list, string? fieldName) TryUnwrapJObjectToList(JObject jObj)
     {
+        // Only unwrap thin wrappers (1-2 properties). Objects with 3+ properties
+        // are rich data structures that should be stored as-is.
+        if (jObj.Count > 2)
+            return (null, null);
+
         // Pass 1: String property starting with "["
         foreach (var prop in jObj.Properties())
         {
