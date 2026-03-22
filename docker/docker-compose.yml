@@ -64,7 +64,7 @@ services:
       - C:/Money:/ref/Money:ro
 
     ports:
-      - "8503:8501"
+      - "8510:8501"
 
     depends_on:
       - main
