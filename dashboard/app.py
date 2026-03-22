@@ -72,6 +72,36 @@ def _read_json(path: Path) -> dict | list | None:
         return None
 
 
+def _open_terminal(command: str, label: str = "terminal") -> None:
+    """Open a new terminal window running the given command.
+
+    Tries multiple methods in order. Always shows the command as fallback.
+    """
+    import shutil
+    import subprocess as _sp
+
+    methods = []
+
+    # Method 1: Windows Terminal (most reliable)
+    if shutil.which("wt"):
+        methods.append(("Windows Terminal", ["wt", "new-tab", "cmd", "/k", command]))
+
+    # Method 2: cmd /c start (opens new window)
+    methods.append(("CMD", ["cmd", "/c", "start", "cmd", "/k", command]))
+
+    for method_name, args in methods:
+        try:
+            _sp.Popen(args)
+            st.toast(f"Opening {label} via {method_name}...")
+            return
+        except Exception:
+            continue
+
+    # All methods failed — show command to copy
+    st.warning(f"Could not open terminal. Run this manually:")
+    st.code(command, language="bash")
+
+
 def _read_log_tail(path: Path, lines: int = 20) -> str:
     if not path.exists():
         return "(no log file)"
@@ -241,14 +271,7 @@ with tab_containers:
         mc_a1, mc_a2 = st.columns(2)
         with mc_a1:
             if st.button("Open Main Shell", key="main_shell"):
-                try:
-                    subprocess.Popen(
-                        ["powershell", "-Command",
-                         "Start-Process powershell -ArgumentList '-NoExit','-Command','docker exec -it maestro-main bash'"])
-                    st.toast("Opening shell...")
-                except Exception as e:
-                    st.error(f"Failed: {e}")
-                    st.code("docker exec -it maestro-main bash")
+                _open_terminal("docker exec -it maestro-main bash", "main shell")
 
         with st.expander("Deploy Logs"):
             try:
@@ -283,22 +306,10 @@ with tab_containers:
         ac1, ac2 = st.columns(2)
         with ac1:
             if st.button("Attach Claude Terminal"):
-                try:
-                    subprocess.Popen(
-                        ["powershell", "-Command",
-                         "Start-Process powershell -ArgumentList '-NoExit','-Command','docker attach maestro-dev'"])
-                    st.toast("Opening terminal...")
-                except Exception as e:
-                    st.error(f"Failed: {e}")
+                _open_terminal("docker attach maestro-dev", "Claude terminal")
         with ac2:
             if st.button("Open Dev Shell"):
-                try:
-                    subprocess.Popen(
-                        ["powershell", "-Command",
-                         "Start-Process powershell -ArgumentList '-NoExit','-Command','docker exec -it -u node maestro-dev bash'"])
-                    st.toast("Opening shell...")
-                except Exception as e:
-                    st.error(f"Failed: {e}")
+                _open_terminal("docker exec -it -u node maestro-dev bash", "dev shell")
         st.caption("Detach: Ctrl+P, Ctrl+Q | Type /startup after attaching")
 
         with st.expander("Dev Container Logs"):
