@@ -22,10 +22,10 @@ import time
 from pathlib import Path
 
 # Read from environment (.env) — no hardcoded values
-APP_ID = int(os.environ.get("GITHUB_APP_ID", "0"))
-INSTALLATION_ID = int(os.environ.get("GITHUB_INSTALLATION_ID", "0"))
-PEM_FILENAME = os.environ.get("GITHUB_PEM_FILENAME", "maestro-dev.private-key.pem")
-PEM_PATH = Path.home() / ".github-apps" / PEM_FILENAME
+APP_ID = int(os.environ.get("GH_APP_ID", "0"))
+INSTALLATION_ID = int(os.environ.get("GH_APP_INSTALLATION_ID", "0"))
+_pem_path_env = os.environ.get("GH_APP_PEM_PATH", "")
+PEM_PATH = Path(os.path.expanduser(_pem_path_env)) if _pem_path_env else Path.home() / ".github-apps" / "maestro-dev.private-key.pem"
 TOKEN_CACHE = Path(__file__).parent.parent / "data" / ".gh_app_token.json"
 
 RENEW_THRESHOLD_SECONDS = 600

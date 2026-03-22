@@ -12,10 +12,10 @@ services:
       - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://0.0.0.0:5000
       - LOG_LEVEL=${LOG_LEVEL:-Information}
-      - GITHUB_APP_ID=${GITHUB_APP_ID:-}
-      - GITHUB_INSTALLATION_ID=${GITHUB_INSTALLATION_ID:-}
-      - GITHUB_PEM_FILENAME=${GITHUB_PEM_FILENAME:-maestro-dev.private-key.pem}
-      - GITHUB_REPO=${GITHUB_REPO:-}
+      - GH_APP_ID=${GH_APP_ID:-}
+      - GH_APP_INSTALLATION_ID=${GH_APP_INSTALLATION_ID:-}
+      - GH_APP_PEM_PATH=${GH_APP_PEM_PATH:-~/.github-apps/maestro-dev.private-key.pem}
+      - GH_REPO=${GH_REPO:-}
 
     volumes:
       - maestro-data:/app/data
@@ -48,10 +48,10 @@ services:
       - MAESTRO_API_URL=http://maestro-main:5000
       - LLM_PROVIDER_URL=http://maestro-main:5010
       - LOG_LEVEL=${LOG_LEVEL:-Information}
-      - GITHUB_APP_ID=${GITHUB_APP_ID:-}
-      - GITHUB_INSTALLATION_ID=${GITHUB_INSTALLATION_ID:-}
-      - GITHUB_PEM_FILENAME=${GITHUB_PEM_FILENAME:-maestro-dev.private-key.pem}
-      - GITHUB_REPO=${GITHUB_REPO:-}
+      - GH_APP_ID=${GH_APP_ID:-}
+      - GH_APP_INSTALLATION_ID=${GH_APP_INSTALLATION_ID:-}
+      - GH_APP_PEM_PATH=${GH_APP_PEM_PATH:-~/.github-apps/maestro-dev.private-key.pem}
+      - GH_REPO=${GH_REPO:-}
 
     volumes:
       - maestro-data:/app/data

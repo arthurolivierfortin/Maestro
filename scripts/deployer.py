@@ -110,7 +110,7 @@ def refresh_github_token() -> None:
         r = run_cmd([sys.executable, str(APP_DIR / "scripts" / "gh_app_auth.py")], timeout=30)
         if r.returncode == 0:
             token = r.stdout.strip()
-            repo = os.environ.get("GITHUB_REPO", "")
+            repo = os.environ.get("GH_REPO", "")
             if not repo:
                 # Fallback: parse from git remote
                 url_r = run_cmd(["git", "remote", "get-url", "origin"])
