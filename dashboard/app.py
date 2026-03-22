@@ -242,8 +242,8 @@ with tab_containers:
             if st.button("Open Main Shell", key="main_shell"):
                 try:
                     subprocess.Popen(
-                        ["cmd", "/c", "start", "powershell", "-NoExit", "-Command",
-                         "docker exec -it maestro-main bash"])
+                        ["powershell", "-Command",
+                         "Start-Process powershell -ArgumentList '-NoExit','-Command','docker exec -it maestro-main bash'"])
                     st.toast("Opening shell...")
                 except Exception as e:
                     st.error(f"Failed: {e}")
@@ -284,8 +284,8 @@ with tab_containers:
             if st.button("Attach Claude Terminal"):
                 try:
                     subprocess.Popen(
-                        ["cmd", "/c", "start", "powershell", "-NoExit", "-Command",
-                         "docker attach maestro-dev"])
+                        ["powershell", "-Command",
+                         "Start-Process powershell -ArgumentList '-NoExit','-Command','docker attach maestro-dev'"])
                     st.toast("Opening terminal...")
                 except Exception as e:
                     st.error(f"Failed: {e}")
@@ -293,8 +293,8 @@ with tab_containers:
             if st.button("Open Dev Shell"):
                 try:
                     subprocess.Popen(
-                        ["cmd", "/c", "start", "powershell", "-NoExit", "-Command",
-                         "docker exec -it -u node maestro-dev bash"])
+                        ["powershell", "-Command",
+                         "Start-Process powershell -ArgumentList '-NoExit','-Command','docker exec -it -u node maestro-dev bash'"])
                     st.toast("Opening shell...")
                 except Exception as e:
                     st.error(f"Failed: {e}")
