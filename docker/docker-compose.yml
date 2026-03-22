@@ -61,6 +61,9 @@ services:
       - ~/.github-apps:/home/node/.github-apps:ro
       - ../.env:/app/.env:ro
 
+    ports:
+      - "8501:8501"
+
     depends_on:
       - main
 

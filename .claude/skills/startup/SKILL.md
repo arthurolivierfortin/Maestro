@@ -19,7 +19,13 @@ Initialize the Maestro autonomous development system.
    curl -s http://localhost:5010/api/v1/health/ | head -c 80 || echo "LLM Provider DOWN"
    ```
 
-3. Schedule **Health check** (every 5 min):
+3. Start the dashboard:
+   ```bash
+   nohup streamlit run C:/Meastro/dashboard/app.py --server.port 8501 --server.headless true > C:/Meastro/logs/dashboard.log 2>&1 &
+   echo "Dashboard started on http://localhost:8501"
+   ```
+
+4. Schedule **Health check** (every 5 min):
    ```
    /loop 5m /health
    ```

@@ -19,6 +19,9 @@ RUN apk add --no-cache github-cli
 # ── Claude Code ──
 RUN npm install -g @anthropic-ai/claude-code
 
+# ── Dashboard dependencies ──
+RUN pip install --no-cache-dir --break-system-packages streamlit plotly
+
 # ── Setup node user (already exists in node:22-alpine with uid 1000) ──
 RUN mkdir -p /home/node/.claude \
     && echo '{"hasCompletedOnboarding":true}' > /home/node/.claude.json \
