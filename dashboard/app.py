@@ -44,7 +44,18 @@ DEPLOY_LOG = LOGS_DIR / "deploy.log"
 DEV_LOG = LOGS_DIR / "docker-dev.log"
 
 COMPOSE_FILE = str(PROJECT_ROOT / "docker" / "docker-compose.yml")
-COMPOSE_BASE = ["docker", "compose", "-f", COMPOSE_FILE, "--project-directory", str(PROJECT_ROOT)]
+COMPOSE_BASE = ["docker", "compose", "-f", COMPOSE_FILE]
+COMPOSE_CWD = str(PROJECT_ROOT)
+
+
+def _compose(*args, **kwargs) -> subprocess.CompletedProcess:
+    """Run docker compose with correct working directory."""
+    timeout = kwargs.pop("timeout", 60)
+    return subprocess.run(
+        [*COMPOSE_BASE, *args],
+        capture_output=True, text=True, timeout=timeout, cwd=COMPOSE_CWD,
+        **kwargs,
+    )
 GITHUB_REPO_URL = os.environ.get("GH_REPO", "")
 if GITHUB_REPO_URL and not GITHUB_REPO_URL.startswith("http"):
     GITHUB_REPO_URL = f"https://github.com/{GITHUB_REPO_URL}"
@@ -286,8 +297,7 @@ with tab_containers:
         st.error("STOPPED" if main_state.get("status") == "exited" else "NOT FOUND")
         if st.button("Start maestro-main", key="start_main", type="primary"):
             with st.spinner("Starting maestro-main..."):
-                r = subprocess.run([*COMPOSE_BASE, "up", "-d", "main"],
-                                   capture_output=True, text=True, timeout=60)
+                r = _compose("up", "-d", "main")
                 if r.returncode != 0:
                     st.error(f"Failed: {r.stderr[-300:]}")
                 else:
@@ -330,8 +340,7 @@ with tab_containers:
         st.error("STOPPED" if dev_state.get("status") == "exited" else "NOT FOUND")
         if st.button("Start maestro-dev", key="start_dev", type="primary"):
             with st.spinner("Starting maestro-dev..."):
-                r = subprocess.run([*COMPOSE_BASE, "up", "-d", "dev"],
-                                   capture_output=True, text=True, timeout=60)
+                r = _compose("up", "-d", "dev")
                 if r.returncode != 0:
                     st.error(f"Failed: {r.stderr[-300:]}")
                 else:
@@ -347,16 +356,14 @@ with tab_containers:
         if any_running:
             if st.button("Stop All"):
                 with st.spinner("Stopping..."):
-                    r = subprocess.run([*COMPOSE_BASE, "down"],
-                                       capture_output=True, text=True, timeout=30)
+                    r = _compose("down", timeout=30)
                     if r.returncode != 0:
                         st.error(f"Stop failed: {r.stderr[-300:]}")
                 st.rerun()
         else:
             if st.button("Start All", type="primary"):
                 with st.spinner("Starting containers..."):
-                    r = subprocess.run([*COMPOSE_BASE, "up", "-d"],
-                                       capture_output=True, text=True, timeout=60)
+                    r = _compose("up", "-d")
                     if r.returncode != 0:
                         st.error(f"Start failed: {r.stderr[-300:]}")
                     else:
@@ -365,13 +372,10 @@ with tab_containers:
     with gc2:
         if st.button("Rebuild All"):
             with st.spinner("Rebuilding..."):
-                subprocess.run([*COMPOSE_BASE, "down"],
-                               capture_output=True, timeout=30)
-                result = subprocess.run(
-                    [*COMPOSE_BASE, "build"],
-                    capture_output=True, text=True, timeout=600)
+                _compose("down", timeout=30)
+                result = _compose("build", timeout=600)
                 if result.returncode == 0:
-                    subprocess.Popen([*COMPOSE_BASE, "up", "-d"])
+                    _compose("up", "-d")
                     time.sleep(8)
                     st.success("Rebuilt!")
                 else:
