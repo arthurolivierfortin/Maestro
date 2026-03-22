@@ -19,8 +19,8 @@ RUN apk add --no-cache github-cli
 # ── Claude Code ──
 RUN npm install -g @anthropic-ai/claude-code
 
-# ── Dashboard dependencies ──
-RUN pip install --no-cache-dir --break-system-packages streamlit plotly
+# ── Dashboard + auth dependencies ──
+RUN pip install --no-cache-dir --break-system-packages streamlit plotly PyJWT cryptography
 
 # ── Setup node user (already exists in node:22-alpine with uid 1000) ──
 RUN mkdir -p /home/node/.claude \
@@ -39,7 +39,7 @@ COPY docker/.mcp.json.docker /app/.mcp.json.docker
 COPY docker/settings.json /app/.claude/settings.json.docker
 COPY docker/entrypoint.dev.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh \
-    && chown -R node:node /app/.claude /app/docker /app/scripts /app/dashboard /c/Meastro
+    && chown -R node:node /app/.claude /app/docker /app/scripts /app/dashboard /app/docs /c/Meastro
 
 # ── Environment ──
 ENV DISABLE_AUTOUPDATER=1

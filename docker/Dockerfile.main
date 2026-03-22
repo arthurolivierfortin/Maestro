@@ -12,7 +12,8 @@ FROM mcr.microsoft.com/dotnet/aspnet:10.0-alpine
 
 # System packages
 RUN apk add --no-cache git bash curl python3 py3-pip gosu \
-    && ln -sf /usr/bin/python3 /usr/bin/python
+    && ln -sf /usr/bin/python3 /usr/bin/python \
+    && pip install --no-cache-dir --break-system-packages PyJWT cryptography
 
 # GitHub CLI (for deployer)
 RUN apk add --no-cache github-cli
