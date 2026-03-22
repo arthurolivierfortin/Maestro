@@ -24,6 +24,10 @@ export interface LogLine {
   bold?: boolean;
   dim?: boolean;
   timestamp?: string;
+  /** When present, this line is rendered as an inline widget instead of text */
+  widgetId?: string;
+  /** Widget definition — type + props + interactive flag */
+  widget?: import('../types/widgets.ts').ChatWidget;
 }
 
 export interface Widget {
@@ -39,6 +43,38 @@ export interface Widget {
 
 function ts(): string {
   return new Date().toISOString().slice(11, 19);
+}
+
+// ── Widget marker parser ─────────────────────────────────────
+
+/** Pattern: [widget:TYPE] or [widget:TYPE:key=val,key=val] */
+const WIDGET_MARKER_PATTERN = /\[widget:([a-z-]+)(?::([^\]]*))?\]/;
+
+/**
+ * Parse a line for a widget marker. Returns null if no marker found.
+ * Used by agent response processing to inject inline widgets.
+ */
+function parseWidgetMarker(line: string): { type: string; props: Record<string, any>; cleanLine: string } | null {
+  const match = line.match(WIDGET_MARKER_PATTERN);
+  if (!match) return null;
+
+  const type = match[1];
+  const argsStr = match[2] || '';
+  const props: Record<string, any> = {};
+
+  if (argsStr) {
+    for (const pair of argsStr.split(',')) {
+      const eqIdx = pair.indexOf('=');
+      if (eqIdx > 0) {
+        const k = pair.slice(0, eqIdx).trim();
+        const v = pair.slice(eqIdx + 1).trim();
+        props[k] = v;
+      }
+    }
+  }
+
+  const cleanLine = line.replace(WIDGET_MARKER_PATTERN, '').trim();
+  return { type, props, cleanLine };
 }
 
 // ── Session Manager ───────────────────────────────────────────
@@ -211,6 +247,7 @@ class SessionManager {
     task: string,
     addLine: (line: LogLine) => void,
     setBusy: (b: boolean) => void,
+    addWidget?: (type: string, props: Record<string, any>, interactive?: boolean) => string,
   ): Promise<void> {
     setBusy(true);
     this._lastOutput = null;
@@ -232,7 +269,7 @@ class SessionManager {
       });
 
       // Start polling for completion
-      this.startPolling(addLine, setBusy);
+      this.startPolling(addLine, setBusy, addWidget);
 
     } catch (err: any) {
       const msg = String(err.message || err);
@@ -248,7 +285,6 @@ class SessionManager {
         addLine({ text: `Could not create session: ${msg}`, color: 'red', bold: true, timestamp: ts() });
         addLine({ text: '  Check connection with "maestro health" or run "maestro init".', color: 'yellow' });
       }
-      addLine({ text: '' });
       setBusy(false);
     }
   }
@@ -258,7 +294,7 @@ class SessionManager {
   private static readonly POLL_TIMEOUT_MS = 300_000; // 5 minutes
   private static readonly EMPTY_TREE_TIMEOUT_MS = 30_000; // 30 seconds with empty tree = likely error
 
-  private startPolling(addLine: (line: LogLine) => void, setBusy: (b: boolean) => void) {
+  private startPolling(addLine: (line: LogLine) => void, setBusy: (b: boolean) => void, addWidget?: (type: string, props: Record<string, any>, interactive?: boolean) => string) {
     this.lastReportedStatus.clear();
     this.pollStartTime = Date.now();
 
@@ -329,7 +365,6 @@ class SessionManager {
         if (status === 'error' || status === 'failed') {
           this.stopPolling();
           const errMsg = session.error || session.errorMessage || session.statusMessage || 'Session encountered an error';
-          addLine({ text: '' });
           addLine({ text: `Error: ${errMsg}`, color: 'red', bold: true, timestamp: ts() });
           // Surface provider-specific advice
           const errLower = String(errMsg).toLowerCase();
@@ -337,7 +372,6 @@ class SessionManager {
             addLine({ text: '  This looks like a provider configuration issue.', color: 'yellow' });
             addLine({ text: '  Run "maestro init" to reconfigure providers, or "claude login" for Claude auth.', color: 'yellow' });
           }
-          addLine({ text: '' });
           this._lastHadErrors = true;
           setBusy(false);
           return;
@@ -350,7 +384,6 @@ class SessionManager {
         // Detect empty execution tree that never populates (workflow failed to start)
         if (tree.length === 0 && elapsed > SessionManager.EMPTY_TREE_TIMEOUT_MS) {
           this.stopPolling();
-          addLine({ text: '' });
 
           // Check if errors point to a provider issue
           const isProviderError = errorLogs.some((e: any) => {
@@ -373,7 +406,6 @@ class SessionManager {
             addLine({ text: '  Possible causes: LLM provider not configured, missing API keys, or workflow error.', color: 'yellow' });
             addLine({ text: '  Run "maestro init" to reconfigure or "maestro health" to check services.', color: 'yellow' });
           }
-          addLine({ text: '' });
           this._lastHadErrors = true;
           setBusy(false);
           return;
@@ -385,10 +417,8 @@ class SessionManager {
           if (hasRunning && errorLogs.length > 0) {
             // Errors in the log but nodes still "running" — likely a stuck execution
             this.stopPolling();
-            addLine({ text: '' });
             const lastErr = errorLogs[errorLogs.length - 1];
             addLine({ text: `Error: ${lastErr.msg || lastErr.message || 'Execution error'}`, color: 'red', bold: true, timestamp: ts() });
-            addLine({ text: '' });
             this._lastHadErrors = true;
             setBusy(false);
             return;
@@ -404,10 +434,8 @@ class SessionManager {
               reportNode(node.id || node.name, node.name || node.id, 'error', node);
             }
           }
-          addLine({ text: '' });
           addLine({ text: 'The agent took too long to respond (5 min timeout).', color: 'yellow', bold: true, timestamp: ts() });
           addLine({ text: '  Try a simpler task or check that your LLM provider is responding.', color: 'yellow' });
-          addLine({ text: '' });
           this._lastHadErrors = true;
           setBusy(false);
           return;
@@ -545,17 +573,23 @@ class SessionManager {
             addLine({ text: 'Agent:', color: 'cyan', bold: true, timestamp: ts() });
             const outputLines = String(agentOutput).split('\n');
             for (const line of outputLines) {
-              addLine({ text: `  ${line}`, color: 'white' });
+              const marker = parseWidgetMarker(line);
+              if (marker && addWidget) {
+                addWidget(marker.type, marker.props, true);
+                if (marker.cleanLine) {
+                  addLine({ text: `  ${marker.cleanLine}`, color: 'white' });
+                }
+              } else {
+                addLine({ text: `  ${line}`, color: 'white' });
+              }
             }
           }
 
-          addLine({ text: '' });
           if (hasErrors) {
             addLine({ text: 'Task completed with errors', color: 'red', bold: true, timestamp: ts() });
           } else if (tree.length > 0) {
             addLine({ text: 'Task completed', color: 'green', bold: true, timestamp: ts() });
           }
-          addLine({ text: '' });
           this._lastHadErrors = hasErrors;
           setBusy(false);
         }
@@ -725,4 +759,4 @@ class SessionManager {
   }
 }
 
-export { SessionManager, ts };
+export { SessionManager, ts, parseWidgetMarker };

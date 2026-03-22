@@ -446,7 +446,16 @@ public class ContractTestRunner
                     "file-read",        // original name (before mapping to capture-file-read)
                     "file-edit",        // original name (before mapping to capture-file-edit)
                     "shell-execute",    // original name (before mapping to capture-shell-execute)
-                    "step-complete"     // agentic loop exit
+                    "step-complete",    // agentic loop exit
+                    "summary-validator", // validates step-complete summaries
+                    // Maestro operation tools (mapped to capture-generic)
+                    "session-create",
+                    "workspace-list",
+                    "workspace-create",
+                    "block-list",
+                    "session-stop",
+                    "workspace-delete",
+                    "contract-test"
                 },
                 AllowedCommands = new List<string> { "*" },
                 AllowedTools = new List<string> { "*" },
@@ -461,7 +470,15 @@ public class ContractTestRunner
                 ["file-write"] = "capture-file-write",
                 ["file-read"] = "capture-file-read",
                 ["shell-execute"] = "capture-shell-execute",
-                ["file-edit"] = "capture-file-edit"
+                ["file-edit"] = "capture-file-edit",
+                // Maestro operation tools → capture-generic
+                ["session-create"] = "capture-generic",
+                ["workspace-list"] = "capture-generic",
+                ["workspace-create"] = "capture-generic",
+                ["block-list"] = "capture-generic",
+                ["session-stop"] = "capture-generic",
+                ["workspace-delete"] = "capture-generic",
+                ["contract-test"] = "capture-generic"
             }));
 
             await _sessionRepository.SaveAsync(perTestSession, ct);
@@ -476,7 +493,17 @@ public class ContractTestRunner
         try
         {
             var context = new ExecutionContext();
-            context.Variables["workingDir"] = Directory.GetCurrentDirectory();
+            // Resolve project root (where content/system/ lives).
+            // The API runs from apps/backend/src/Maestro.Api/ but content is at the repo root.
+            var workingDir = Directory.GetCurrentDirectory();
+            if (!Directory.Exists(Path.Combine(workingDir, "content", "system")))
+            {
+                var dir = new DirectoryInfo(workingDir);
+                while (dir != null && !Directory.Exists(Path.Combine(dir.FullName, "content", "system")))
+                    dir = dir.Parent;
+                if (dir != null) workingDir = dir.FullName;
+            }
+            context.Variables["workingDir"] = workingDir;
 
             // Required by MultiNodeBlockExecutor (agent, workflow, tool blocks)
             context.Variables["sessionId"] = sessionIdForTest;
@@ -491,7 +518,15 @@ public class ContractTestRunner
                     ["file-write"] = "capture-file-write",
                     ["file-read"] = "capture-file-read",
                     ["shell-execute"] = "capture-shell-execute",
-                    ["file-edit"] = "capture-file-edit"
+                    ["file-edit"] = "capture-file-edit",
+                    // Maestro operation tools → capture-generic
+                    ["session-create"] = "capture-generic",
+                    ["workspace-list"] = "capture-generic",
+                    ["workspace-create"] = "capture-generic",
+                    ["block-list"] = "capture-generic",
+                    ["session-stop"] = "capture-generic",
+                    ["workspace-delete"] = "capture-generic",
+                    ["contract-test"] = "capture-generic"
                 });
             }
 
@@ -510,12 +545,35 @@ public class ContractTestRunner
                 ["conversationHistory"] = conversationHistory
             };
 
+            // For workflow blocks, also map the prompt to common workflow input names.
+            // Workflows expect specific input names (description, contractId, etc.) not generic "prompt".
+            if (string.Equals(block.BlockType, "workflow", StringComparison.OrdinalIgnoreCase))
+            {
+                inputs["description"] = prompt;
+                inputs["contractId"] = prompt;
+                inputs["outputDir"] = Path.Combine(workingDir, "content", "system", "contracts");
+            }
+
             var execResult = await executor.ExecuteAsync(block, context, inputs, ct);
 
             // Phase 62-A: Copy _capturedToolCalls from context to outputs so EvaluateCheck can read them
             if (context.Variables.TryGetValue("_capturedToolCalls", out var capturedCalls) && capturedCalls != null)
             {
                 execResult.Outputs["_capturedToolCalls"] = capturedCalls;
+            }
+
+            // Copy workflow output variables from context to outputs.
+            // Workflows set results via set-variable nodes (stored in context.Variables),
+            // but ExtractResponseText reads from execResult.Outputs.
+            foreach (var key in new[] { "contractJson", "testSuiteJson", "blockJson",
+                "contractId", "contractPath", "testSuitePath", "blockId", "blockPath",
+                "fitness", "testResults", "plan" })
+            {
+                if (context.Variables.TryGetValue(key, out var val) && val != null
+                    && !execResult.Outputs.ContainsKey(key))
+                {
+                    execResult.Outputs[key] = val;
+                }
             }
 
             return execResult;
@@ -536,18 +594,58 @@ public class ContractTestRunner
     /// </summary>
     private static string ExtractResponseText(BlockExecutionResult result)
     {
-        if (result.Outputs.TryGetValue("response", out var resp) && resp != null)
-            return resp.ToString() ?? "";
-        if (result.Outputs.TryGetValue("result", out var res) && res != null)
-            return res.ToString() ?? "";
-        if (result.Outputs.TryGetValue("content", out var cnt) && cnt != null)
-            return cnt.ToString() ?? "";
-        if (result.Outputs.Count == 1)
-            return result.Outputs.Values.First()?.ToString() ?? "";
+        // Priority 1: Named content outputs (from agents and workflows)
+        // Workflow-specific keys FIRST (contractJson, testSuiteJson, blockJson) — these contain
+        // the actual generated content. "content" and "result" may contain raw LLM output or paths.
+        foreach (var key in new[] { "contractJson", "testSuiteJson", "blockJson", "response", "result", "content" })
+        {
+            if (result.Outputs.TryGetValue(key, out var val) && val != null)
+            {
+                var text = SerializeOutputValue(val);
+                if (text.Length > 20) return text;
+            }
+        }
 
+        // Priority 2: Single output
+        if (result.Outputs.Count == 1)
+            return SerializeOutputValue(result.Outputs.Values.First());
+
+        // Priority 3: Find the longest non-underscore output (likely the content)
+        var longest = result.Outputs
+            .Where(kv => !kv.Key.StartsWith("_") && kv.Value != null)
+            .OrderByDescending(kv => SerializeOutputValue(kv.Value).Length)
+            .FirstOrDefault();
+        if (longest.Value != null)
+        {
+            var text = SerializeOutputValue(longest.Value);
+            if (text.Length > 50) return text;
+        }
+
+        // Priority 4: Concatenate all non-underscore outputs
         return string.Join("\n", result.Outputs
             .Where(kv => !kv.Key.StartsWith("_"))
-            .Select(kv => kv.Value?.ToString() ?? ""));
+            .Select(kv => SerializeOutputValue(kv.Value)));
+    }
+
+    /// <summary>
+    /// Serialize a value to string. Lists and dicts get JSON-serialized instead of .ToString()
+    /// which would return the C# type name (e.g. "System.Collections.Generic.List`1[...]").
+    /// </summary>
+    private static string SerializeOutputValue(object? value)
+    {
+        if (value == null) return "";
+        if (value is string s) return s;
+        // Newtonsoft JToken: use its own ToString() which produces proper JSON
+        if (value is Newtonsoft.Json.Linq.JToken jt)
+            return jt.ToString(Newtonsoft.Json.Formatting.None);
+        if (value is System.Collections.IList || value is System.Collections.IDictionary)
+        {
+            try { return System.Text.Json.JsonSerializer.Serialize(value); }
+            catch { /* fallthrough */ }
+        }
+        if (value is System.Text.Json.JsonElement je)
+            return je.ValueKind == System.Text.Json.JsonValueKind.String ? je.GetString() ?? "" : je.GetRawText();
+        return value.ToString() ?? "";
     }
 
     /// <summary>
@@ -571,7 +669,8 @@ public class ContractTestRunner
             case "contains":
             {
                 var value = check.GetProperty("value").GetString() ?? "";
-                var passed = response.Contains(value, StringComparison.OrdinalIgnoreCase);
+                var searchText = response + "\n" + GetCapturedContentText(blockOutputs);
+                var passed = searchText.Contains(value, StringComparison.OrdinalIgnoreCase);
                 return (passed, type,
                     passed ? null : $"Response does not contain '{value}'");
             }
@@ -579,7 +678,8 @@ public class ContractTestRunner
             case "contains-all":
             {
                 var values = GetStringArray(check, "values");
-                var missing = values.Where(v => !response.Contains(v, StringComparison.OrdinalIgnoreCase)).ToList();
+                var searchText = response + "\n" + GetCapturedContentText(blockOutputs);
+                var missing = values.Where(v => !searchText.Contains(v, StringComparison.OrdinalIgnoreCase)).ToList();
                 var passed = missing.Count == 0;
                 return (passed, type,
                     passed ? null : $"Response missing: {string.Join(", ", missing.Select(m => $"'{m}'"))}");
@@ -588,7 +688,8 @@ public class ContractTestRunner
             case "contains-any":
             {
                 var values = GetStringArray(check, "values");
-                var found = values.Any(v => response.Contains(v, StringComparison.OrdinalIgnoreCase));
+                var searchText = response + "\n" + GetCapturedContentText(blockOutputs);
+                var found = values.Any(v => searchText.Contains(v, StringComparison.OrdinalIgnoreCase));
                 return (found, type,
                     found ? null : $"Response contains none of: {string.Join(", ", values.Select(v => $"'{v}'"))}");
             }
@@ -596,7 +697,8 @@ public class ContractTestRunner
             case "does-not-contain":
             {
                 var values = GetStringArray(check, "values");
-                var foundBad = values.Where(v => response.Contains(v, StringComparison.OrdinalIgnoreCase)).ToList();
+                var searchText = response + "\n" + GetCapturedContentText(blockOutputs);
+                var foundBad = values.Where(v => searchText.Contains(v, StringComparison.OrdinalIgnoreCase)).ToList();
                 var passed = foundBad.Count == 0;
                 return (passed, type,
                     passed ? null : $"Response contains forbidden: {string.Join(", ", foundBad.Select(f => $"'{f}'"))}");
@@ -630,24 +732,19 @@ public class ContractTestRunner
                 try
                 {
                     // Try to find JSON in the response
-                    var jsonStart = response.IndexOf('{');
-                    var jsonEnd = response.LastIndexOf('}');
-                    if (jsonStart >= 0 && jsonEnd > jsonStart)
-                    {
-                        var jsonStr = response[jsonStart..(jsonEnd + 1)];
-                        JsonDocument.Parse(jsonStr);
+                    if (TryFindValidJson(response))
                         return (true, type, null);
-                    }
-                    // Try array
-                    jsonStart = response.IndexOf('[');
-                    jsonEnd = response.LastIndexOf(']');
-                    if (jsonStart >= 0 && jsonEnd > jsonStart)
+
+                    // Phase 64-C: Also check content from captured tool calls (via _toolMapping).
+                    // The agent writes block.json via file-write (captured), so the JSON is in
+                    // _capturedToolCalls content, not in the response summary.
+                    foreach (var content in GetCapturedFileContents(blockOutputs))
                     {
-                        var jsonStr = response[jsonStart..(jsonEnd + 1)];
-                        JsonDocument.Parse(jsonStr);
-                        return (true, type, null);
+                        if (TryFindValidJson(content))
+                            return (true, type, null);
                     }
-                    return (false, type, "No valid JSON found in response");
+
+                    return (false, type, "No valid JSON found in response or captured tool calls");
                 }
                 catch (JsonException ex)
                 {
@@ -677,6 +774,90 @@ public class ContractTestRunner
             default:
                 return (false, type, $"Unknown check type: '{type}'");
         }
+    }
+
+    /// <summary>
+    /// Get all captured tool call data as a single searchable string.
+    /// Used by text-search checks (contains-all, contains, etc.) to also search
+    /// in the content that agents wrote via capture blocks.
+    /// </summary>
+    private static string GetCapturedContentText(Dictionary<string, object>? blockOutputs)
+    {
+        if (blockOutputs == null) return "";
+        if (!blockOutputs.TryGetValue("_capturedToolCalls", out var captured) || captured == null) return "";
+        return captured.ToString() ?? "";
+    }
+
+    /// <summary>
+    /// Extract individual file contents from captured tool calls.
+    /// Used by json-parseable to validate that written file content is valid JSON.
+    /// </summary>
+    private static List<string> GetCapturedFileContents(Dictionary<string, object>? blockOutputs)
+    {
+        var results = new List<string>();
+        if (blockOutputs == null) return results;
+        if (!blockOutputs.TryGetValue("_capturedToolCalls", out var captured) || captured == null) return results;
+
+        var capturedStr = captured.ToString() ?? "";
+        if (string.IsNullOrEmpty(capturedStr)) return results;
+
+        try
+        {
+            using var doc = JsonDocument.Parse(capturedStr);
+            if (doc.RootElement.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var entry in doc.RootElement.EnumerateArray())
+                {
+                    if (entry.TryGetProperty("content", out var contentEl))
+                    {
+                        var content = contentEl.GetString();
+                        if (!string.IsNullOrEmpty(content))
+                            results.Add(content);
+                    }
+                }
+            }
+        }
+        catch { /* _capturedToolCalls not valid JSON — skip */ }
+
+        return results;
+    }
+
+    /// <summary>
+    /// Try to find and parse valid JSON (object or array) in a string.
+    /// </summary>
+    private static bool TryFindValidJson(string text)
+    {
+        if (string.IsNullOrEmpty(text)) return false;
+
+        // Try object
+        var jsonStart = text.IndexOf('{');
+        var jsonEnd = text.LastIndexOf('}');
+        if (jsonStart >= 0 && jsonEnd > jsonStart)
+        {
+            try
+            {
+                var jsonStr = text[jsonStart..(jsonEnd + 1)];
+                JsonDocument.Parse(jsonStr);
+                return true;
+            }
+            catch (JsonException) { /* try array next */ }
+        }
+
+        // Try array
+        jsonStart = text.IndexOf('[');
+        jsonEnd = text.LastIndexOf(']');
+        if (jsonStart >= 0 && jsonEnd > jsonStart)
+        {
+            try
+            {
+                var jsonStr = text[jsonStart..(jsonEnd + 1)];
+                JsonDocument.Parse(jsonStr);
+                return true;
+            }
+            catch (JsonException) { return false; }
+        }
+
+        return false;
     }
 
     private static List<string> GetStringArray(JsonElement element, string propertyName)

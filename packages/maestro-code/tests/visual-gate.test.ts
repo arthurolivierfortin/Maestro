@@ -68,7 +68,15 @@ const NO_CRASH_ASSERTION: StructuralAssertion = {
 
 // ── Page-specific assertions ─────────────────────────────────
 
-// AgentScreen panels: AGENT STATUS, CONVERSATION, ACTIONS
+// Chat-first mode panels: AGENT STATUS, CONVERSATION (no NavBar, no ACTIONS)
+const CHAT_FIRST_ASSERTIONS: StructuralAssertion[] = [
+  { label: 'AGENT STATUS panel', pattern: 'AGENT STATUS' },
+  { label: 'CONVERSATION panel', pattern: 'CONVERSATION' },
+  TASKBAR_ASSERTION,
+  BORDERS_ASSERTION,
+];
+
+// Classic mode: AgentScreen panels: AGENT STATUS, CONVERSATION, ACTIONS
 const AGENT_PAGE_ASSERTIONS: StructuralAssertion[] = [
   NAVBAR_ASSERTION,
   { label: 'Agent tab indicator', pattern: /gent/ },
@@ -148,7 +156,7 @@ function logFailures(label: string, result: ReturnType<typeof checkStructure>) {
 
 // ── Tests ────────────────────────────────────────────────────
 
-describe('Visual Gate — Agent Page (initial render)', () => {
+describe('Visual Gate — Chat-First Mode (initial render)', () => {
   it('has correct structure and conversation content', async () => {
     const frame = await captureFrame({ waitMs: 10000 });
 
@@ -167,18 +175,18 @@ describe('Visual Gate — Agent Page (initial render)', () => {
     }
     expect(crashCheck).toBe(false);
 
-    // Structural assertions + conversation content
+    // Structural assertions for chat-first mode (no NavBar, no ACTIONS)
     const result = checkStructure(frame.lines, [
-      ...AGENT_PAGE_ASSERTIONS,
+      ...CHAT_FIRST_ASSERTIONS,
       // Demo mode auto-started "Add login page" → ConversationLog should show it
       { label: 'Has conversation content', pattern: /login|Maestro|task|idle|working/ },
     ]);
-    logFailures('Agent page', result);
+    logFailures('Chat-first mode', result);
     expect(result.pass).toBe(true);
   }, 20000);
 });
 
-describe('Visual Gate — Page Navigation', () => {
+describe('Visual Gate — Page Navigation (classic mode)', () => {
   it('navigates through all pages: h, s, f, c, m', async () => {
     const frames = await captureSequence(
       [
@@ -188,7 +196,7 @@ describe('Visual Gate — Page Navigation', () => {
         { key: 'c', label: 'Catalog', waitMs: 3000 },
         { key: 'm', label: 'Models', waitMs: 3000 },
       ],
-      { waitMs: 12000 },
+      { waitMs: 12000, classic: true },
     );
 
     // Diagnostic: log first 3 lines of each frame

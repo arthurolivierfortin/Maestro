@@ -178,6 +178,20 @@ powershell.exe -File C:\Meastro\dev-scripts\dev-start.ps1 -Stop
 6. For any setup/onboarding flow change: test the first-run flow (no `.maestro/`, no provider config)
 7. For dogfooding: use e2e-tester sub-agent — **never dogfood your own changes** (bias)
 
+## Autonomous Improvement Loop
+
+The TUI dogfood MCP server (`tui-dogfood`) enables autonomous observation and improvement of the maestro-code TUI. An agent can spawn the TUI in a PTY, capture frames, press keys, and verify results — all without human intervention.
+
+**Slash commands**:
+- `/improve` — One cycle: observe all pages, analyze issues, fix the top one, validate visually. References `AGENT-PROTOCOL.md` and `TESTING-PROTOCOL.md`.
+- `/dev-loop` — Wrapper for `/loop 10m /improve`. Runs continuous improvement cycles with one-sentence summaries.
+- `/quality-gate` — Quick 5-check gate (TUI starts, navigation works, input works, scroll works, help overlay). PASS/FAIL verdict.
+
+**MCP tools** (from `tui-dogfood` server in `.mcp.json`):
+`tui_spawn`, `tui_frame`, `tui_press`, `tui_type`, `tui_wait`, `tui_stable`, `tui_check`, `tui_note`, `tui_report`, `tui_kill`
+
+**E2E tester agent**: `.claude/agents/e2e-tester.md` — dedicated sub-agent for dogfooding sessions (Couche 6 of Testing Protocol).
+
 ## Common Pitfalls
 
 > **Full reference**: `docs/guides/ai-agents/common-pitfalls.md` (20+ detailed pitfalls with cause/fix/verification)

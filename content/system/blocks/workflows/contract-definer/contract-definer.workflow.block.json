@@ -1,0 +1,102 @@
+{
+  "id": "contract-definer",
+  "name": "Contract Definer",
+  "blockType": "workflow",
+  "version": "2.0.0",
+  "isAtomic": false,
+  "description": "Workflow that transforms a natural language description into a formal Maestro contract.json. Uses inference for reasoning, specialized blocks for writing and validation.",
+  "contract": "contract-definer",
+  "capabilities": ["structured-output"],
+  "inputs": [
+    { "id": "description", "type": "string", "required": true, "description": "Natural language description of the block to create" }
+  ],
+  "outputs": [
+    { "id": "contractId", "type": "string", "description": "ID of the generated contract" },
+    { "id": "contractPath", "type": "string", "description": "Path to the written contract file" },
+    { "id": "contractJson", "type": "string", "description": "The contract JSON content" }
+  ],
+  "config": {
+    "nodes": [
+      {
+        "id": "generate-contract",
+        "blockRef": "inference",
+        "config": {
+          "model": "claude-opus-4-6",
+          "maxTokens": 8192,
+          "temperature": 0.3,
+          "systemPrompt": "You are a Maestro contract architect. Given a description of what a block should do, generate a complete Maestro contract JSON.\n\nA contract has this structure:\n{\n  \"id\": \"kebab-case-id\",\n  \"name\": \"Human Readable Name\",\n  \"version\": \"1.0.0\",\n  \"description\": \"What the block does\",\n  \"requiredCapabilities\": [\"conversation\", \"tool-calling\", etc.],\n  \"minimumFitness\": 0.3,\n  \"features\": {\n    \"feature-id\": {\n      \"description\": \"What this feature does\",\n      \"requires\": [\"capability\"],\n      \"weight\": 0.0-1.0,\n      \"minimumScore\": 0.5-0.8,\n      \"tests\": [\n        { \"id\": \"test-id\", \"description\": \"...\", \"prompt\": \"...\", \"check\": { \"type\": \"contains|tool-call|json-parseable|regex|contains-all|contains-any|does-not-contain|non-empty\", ... } }\n      ]\n    }\n  },\n  \"scoring\": { \"method\": \"weighted-average\" }\n}\n\nRules:\n- Feature weights MUST sum to 1.0\n- Each feature needs 2-4 tests\n- Use at least 3 different check types across all tests\n- minimumFitness should be 0.3 for new contracts\n- Check types: non-empty, contains (value), contains-all (values[]), contains-any (values[]), does-not-contain (values[]), tool-call (toolName), json-parseable, regex (pattern)\n\nRespond with ONLY the JSON. No explanation, no markdown code blocks, just raw JSON."
+        },
+        "inputs": {
+          "messages": "[{\"role\":\"user\",\"content\":\"Create a Maestro contract for this block: {{description}}\"}]"
+        }
+      },
+      {
+        "id": "write-contract",
+        "blockRef": "write-contract",
+        "inputs": {
+          "contractJson": "{{_nodeResult_generate-contract.content}}"
+        }
+      },
+      {
+        "id": "set-initial-contract",
+        "type": "set-variable",
+        "variable": "contractJson",
+        "value": "{{_nodeResult_generate-contract.content}}"
+      },
+      {
+        "id": "validate",
+        "blockRef": "validate-contract",
+        "inputs": {
+          "contractJson": "{{_nodeResult_generate-contract.content}}"
+        }
+      },
+      {
+        "id": "check-valid",
+        "type": "conditional",
+        "condition": "{{_nodeResult_validate.valid}}",
+        "branches": {
+          "true": {
+            "nodes": [
+              { "id": "set-contract-id", "type": "set-variable", "variable": "contractId", "value": "{{_nodeResult_write-contract.contractId}}" },
+              { "id": "set-contract-path", "type": "set-variable", "variable": "contractPath", "value": "{{_nodeResult_write-contract.contractPath}}" },
+              { "id": "set-contract-json", "type": "set-variable", "variable": "contractJson", "value": "{{_nodeResult_generate-contract.content}}" }
+            ]
+          },
+          "false": {
+            "nodes": [
+              {
+                "id": "fix-contract",
+                "blockRef": "inference",
+                "config": {
+                  "model": "claude-opus-4-6",
+                  "maxTokens": 8192,
+                  "temperature": 0.2,
+                  "systemPrompt": "You are a Maestro contract architect. The contract you generated has validation errors. Fix them and return ONLY the corrected JSON.\n\nRules:\n- Feature weights MUST sum to 1.0\n- Each feature needs 2-4 tests with id, prompt, and check\n- Use at least 3 different check types\n- Required fields: id, features, requiredCapabilities, minimumFitness\n- Valid check types: non-empty, contains, contains-all, contains-any, does-not-contain, tool-call, json-parseable, regex\n\nRespond with ONLY the corrected JSON."
+                },
+                "inputs": {
+                  "messages": "[{\"role\":\"user\",\"content\":\"This contract has errors: {{_nodeResult_validate.errors}}\\n\\nOriginal contract:\\n{{_nodeResult_generate-contract.content}}\\n\\nFix the errors and return the corrected JSON only.\"}]"
+                }
+              },
+              {
+                "id": "write-fixed",
+                "blockRef": "write-contract",
+                "inputs": {
+                  "contractJson": "{{_nodeResult_fix-contract.content}}"
+                }
+              },
+              { "id": "set-fixed-id", "type": "set-variable", "variable": "contractId", "value": "{{_nodeResult_write-fixed.contractId}}" },
+              { "id": "set-fixed-path", "type": "set-variable", "variable": "contractPath", "value": "{{_nodeResult_write-fixed.contractPath}}" },
+              { "id": "set-fixed-json", "type": "set-variable", "variable": "contractJson", "value": "{{_nodeResult_fix-contract.content}}" }
+            ]
+          }
+        }
+      }
+    ]
+  },
+  "metadata": {
+    "category": "block-forge",
+    "designation": "workflow",
+    "tags": ["contract", "generation", "block-forge"],
+    "tier": 1
+  }
+}

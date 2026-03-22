@@ -21,6 +21,7 @@ export interface CaptureOptions {
   rows?: number;       // default 40
   waitMs?: number;     // default 5000
   cwd?: string;        // default monorepo root
+  classic?: boolean;   // default false — launch in --classic mode
 }
 
 export interface Frame {
@@ -62,12 +63,13 @@ function hasContent(lines: string[]): boolean {
 }
 
 /** Spawn a PTY process running maestro code --demo. */
-function spawnDemoPty(ptyMod: any, cols: number, rows: number, root: string) {
+function spawnDemoPty(ptyMod: any, cols: number, rows: number, root: string, classic: boolean = false) {
   const isWin = process.platform === 'win32';
   const shell = isWin ? 'cmd.exe' : '/bin/bash';
+  const classicFlag = classic ? '--classic' : '';
   const shellArgs = isWin
-    ? ['/c', 'node', 'packages/maestro-cli/index.js', 'code', '--demo', '--no-bell']
-    : ['-c', 'node packages/maestro-cli/index.js code --demo --no-bell'];
+    ? ['/c', 'node', 'packages/maestro-cli/index.js', 'code', '--demo', '--no-bell', ...(classicFlag ? [classicFlag] : [])]
+    : ['-c', `node packages/maestro-cli/index.js code --demo --no-bell ${classicFlag}`.trim()];
 
   return ptyMod.spawn(shell, shellArgs, {
     name: 'xterm-256color',
@@ -88,10 +90,10 @@ export async function captureFrame(options: CaptureOptions = {}): Promise<Frame>
   const pty = await import('node-pty');
   const { Terminal } = await import('@xterm/headless');
 
-  const { cols = 120, rows = 40, waitMs = 5000, cwd } = options;
+  const { cols = 120, rows = 40, waitMs = 5000, cwd, classic = false } = options;
   const root = cwd || getMonorepoRoot();
 
-  const proc = spawnDemoPty(pty, cols, rows, root);
+  const proc = spawnDemoPty(pty, cols, rows, root, classic);
   const term = new Terminal({ cols, rows, allowProposedApi: true });
   proc.onData((data: string) => term.write(data));
 
@@ -151,12 +153,12 @@ export async function captureSequence(
   const pty = await import('node-pty');
   const { Terminal } = await import('@xterm/headless');
 
-  const { cols = 120, rows = 40, waitMs = 5000, cwd } = options;
+  const { cols = 120, rows = 40, waitMs = 5000, cwd, classic = false } = options;
   const root = cwd || getMonorepoRoot();
   const frames: Frame[] = [];
   let elapsed = 0;
 
-  const proc = spawnDemoPty(pty, cols, rows, root);
+  const proc = spawnDemoPty(pty, cols, rows, root, classic);
   const term = new Terminal({ cols, rows, allowProposedApi: true });
   proc.onData((data: string) => term.write(data));
 

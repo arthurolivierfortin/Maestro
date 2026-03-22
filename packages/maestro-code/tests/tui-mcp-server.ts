@@ -115,8 +115,8 @@ server.registerTool(
   {
     description: "Send a keypress to the TUI. Returns the screen after the press.",
     inputSchema: {
-      key: z.enum(["enter", "escape", "tab", "up", "down", "left", "right", "/", "h", "a", "s", "f", "c", "m", "j", "k", "p", "t", "q"])
-        .describe("Key to press. Letters = pages: h=Home, a=Agent, s=Spaces, f=Foundry, c=Catalog, m=Models. j/k=scroll. p=playground. t=test. /=focus input."),
+      key: z.enum(["enter", "escape", "tab", "space", "up", "down", "left", "right", "/", "h", "a", "s", "f", "c", "m", "j", "k", "p", "t", "q", "d", "r", "n", "y", "z", "1", "2", "3", "4", "?"])
+        .describe("Key to press. Navigation: j/k=scroll, space=expand/collapse, enter=select/open, escape=close. Filters: 1/2/3/4=type tabs, r=toggle filter. Actions: d=delete, t=test, p=playground, z=zoom, ?=help overlay, y=confirm, n=deny. Pages (classic): h/a/s/f/c/m."),
     },
   },
   async ({ key }) => {

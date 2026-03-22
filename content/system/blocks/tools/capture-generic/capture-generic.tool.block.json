@@ -1,0 +1,24 @@
+{
+  "id": "capture-generic",
+  "name": "Capture Generic",
+  "blockType": "capture-generic",
+  "version": "1.0.0",
+  "isAtomic": true,
+  "description": "Generic capture block for any tool call. Records the tool call in _capturedToolCalls and returns a simulated success response. Used by contract tests via _toolMapping for tools that don't have dedicated capture blocks (session-create, workspace-list, block-list, etc.).",
+  "inputs": [],
+  "outputs": [
+    {
+      "id": "result",
+      "type": "string",
+      "description": "Simulated success message"
+    }
+  ],
+  "config": {
+    "toolType": "capture-generic"
+  },
+  "metadata": {
+    "category": "testing",
+    "tags": ["capture", "mock", "generic", "contract-test"]
+  },
+  "capabilities": ["capture", "testing"]
+}

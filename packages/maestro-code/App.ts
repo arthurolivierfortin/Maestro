@@ -17,13 +17,10 @@ import { createElement as h, useState, useCallback, useEffect, useRef, useMemo }
 import { render, useApp, useStdout, Box, Text, useInput } from 'ink';
 import { setTerminalBg, resetTerminalBg, palette } from '@maestro/tui/theme';
 import type { PageName } from './theme.ts';
+import { FocusProvider, useFocusContext } from './hooks/useFocusProvider.ts';
+import { useManagedInput } from './hooks/useManagedInput.ts';
 
 import { SessionMonitor } from './components/SessionMonitor.ts';
-import { HomeScreen } from './components/HomeScreen.ts';
-import { SpacesScreen } from './components/SpacesScreen.ts';
-import { FoundryScreen } from './components/FoundryScreen.ts';
-import { CatalogScreen } from './components/CatalogScreen.ts';
-import { ModelsScreen } from './components/ModelsScreen.ts';
 import { WorkspaceDetail } from './components/WorkspaceDetail.ts';
 import { RepoDetail } from './components/RepoDetail.ts';
 import { ModelDetail } from './components/ModelDetail.ts';
@@ -31,10 +28,19 @@ import { BlockDetail } from './components/BlockDetail.ts';
 import { TaskInputBar } from './components/TaskInputBar.ts';
 import { ConversationLog } from './components/ConversationLog.ts';
 import { AgentScreen } from './components/AgentScreen.ts';
+import { ChatFirstScreen } from './components/ChatFirstScreen.ts';
 import { StatusBar } from './components/StatusBar.ts';
+import { ChatStatusBar } from './components/ChatStatusBar.ts';
 import { HelpOverlay } from './components/HelpOverlay.ts';
 import { ProviderSetupScreen } from './components/ProviderSetupScreen.ts';
 import { AssistantSelector } from './components/AssistantSelector.ts';
+
+// Legacy page components — only used in --classic mode
+import { HomeScreen } from './components/legacy/HomeScreen.ts';
+import { SpacesScreen } from './components/legacy/SpacesScreen.ts';
+import { FoundryScreen } from './components/legacy/FoundryScreen.ts';
+import { CatalogScreen } from './components/legacy/CatalogScreen.ts';
+import { ModelsScreen } from './components/legacy/ModelsScreen.ts';
 
 import type { IApiClient } from '@maestro/tui/types';
 import type { IMaestroCodeApiClient, InteractiveOptions } from './types.ts';
@@ -42,6 +48,7 @@ import type { IMaestroCodeApiClient, InteractiveOptions } from './types.ts';
 import { DemoApiClient } from './mocks/DemoApiClient.ts';
 import { SessionManager, ts } from './services/SessionManager.ts';
 import type { LogLine, Widget } from './services/SessionManager.ts';
+import type { ChatWidget, WidgetType } from './types/widgets.ts';
 import { useInputHistory } from './hooks/useInputHistory.ts';
 
 // ── Create-agent argument parser ────────────────────────────────
@@ -306,9 +313,12 @@ interface AppProps {
   importSessionTemplate?: (sessionId: string, templateName: string, options?: { quiet?: boolean }) => Promise<void>;
   template?: string;
   entryPoint?: string;
+  /** When true, restore the old multi-page paradigm (NavBar, page routing, hotkeys). Default: false. */
+  classic?: boolean;
 }
 
-const App = ({ apiClient: clientProp, sessionManager: smProp, demoMode, repoPath, noBell, hasProviders: hasProvidersProp, ensureBackendFn, saveProviders, readProviders, importSessionTemplate, template, entryPoint }: AppProps) => {
+const App = ({ apiClient: clientProp, sessionManager: smProp, demoMode, repoPath, noBell, hasProviders: hasProvidersProp, ensureBackendFn, saveProviders, readProviders, importSessionTemplate, template, entryPoint, classic }: AppProps) => {
+  const classicMode = classic === true;
   const { exit } = useApp();
   const { stdout } = useStdout();
 
@@ -458,7 +468,7 @@ const App = ({ apiClient: clientProp, sessionManager: smProp, demoMode, repoPath
   // ── Agent state ──
   const [lines, setLines] = useState<LogLine[]>([
     { text: 'Maestro Code', color: 'cyan', bold: true },
-    { text: 'Welcome to Maestro Code. Press / to type a task.', color: 'gray', dim: true },
+    { text: 'Welcome to Maestro Code. Type a message or /help for commands.', color: 'gray', dim: true },
     { text: '' },
   ]);
   const [busy, setBusy] = useState(false);
@@ -466,24 +476,118 @@ const App = ({ apiClient: clientProp, sessionManager: smProp, demoMode, repoPath
   const [activeAgent, setActiveAgent] = useState<string | null>(() => {
     // Load saved assistant choice from provider config
     const cfg = readProviders ? readProviders() : null;
-    return (cfg as any)?._selectedAssistant || null;
+    return (cfg as any)?._selectedAssistant || 'system:maestro-assistant';
   });
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [pendingInteractive, setPendingInteractive] = useState<Widget | null>(null);
   const [currentWidget, setCurrentWidget] = useState<Widget | null>(null);
   const history = useInputHistory();
-  const [inputFocused, setInputFocused] = useState(false);
+  const [inputFocused, setInputFocused] = useState(!classicMode);
   const [showHelp, setShowHelp] = useState(false);
   const completedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // ── Conversation line buffer limit ──
+  const MAX_LINES = 500;
+
+  // ── Widget management (Phase 63-B) ──
+  const [focusedWidgetId, setFocusedWidgetId] = useState<string | null>(null);
+  const [collapsedWidgets, setCollapsedWidgets] = useState<Set<string>>(() => new Set());
+  const widgetCounterRef = useRef(0);
+  const collapseWidgetReleaseRef = useRef<(() => void) | null>(null);
+  const inputValueRef = useRef('');
+
+  /**
+   * Add an inline widget to the conversation log.
+   * The widget becomes the focused widget (if interactive).
+   */
+  const addWidget = useCallback((type: WidgetType, props: Record<string, any> = {}, interactive: boolean = true) => {
+    const widgetId = `w-${++widgetCounterRef.current}-${Date.now()}`;
+    const widget: ChatWidget = { type, props, interactive };
+    const line: LogLine = {
+      text: '',
+      widgetId,
+      widget,
+      timestamp: ts(),
+    };
+    setLines(prev => {
+      const next = [...prev, line];
+      return next.length > MAX_LINES ? next.slice(next.length - MAX_LINES) : next;
+    });
+    // Always set focused widget — even non-interactive widgets need focus
+    // so Esc can collapse them. The interactive flag only controls whether
+    // the widget claims the 'widget' focus layer for keyboard events.
+    setFocusedWidgetId(widgetId);
+    return widgetId;
+  }, []);
+
+  /**
+   * Collapse a widget (Esc). Widget stays in chat history as a 1-line summary.
+   * Focus returns to page layer.
+   */
+  const collapseWidget = useCallback((widgetId: string) => {
+    setCollapsedWidgets(prev => {
+      const next = new Set(prev);
+      next.add(widgetId);
+      return next;
+    });
+    if (focusedWidgetId === widgetId) {
+      setFocusedWidgetId(null);
+    }
+    // focusRelease('widget') is called after focusRelease is declared (see below)
+    collapseWidgetReleaseRef.current?.();
+  }, [focusedWidgetId]);
+
+  /**
+   * Navigate from one widget to another (e.g., sessions list → session detail).
+   * Collapses current focused widget and opens a new one.
+   */
+  const handleWidgetNavigate = useCallback((targetType: import('./types/widgets.ts').WidgetType, targetProps: Record<string, any>) => {
+    // Collapse current widget
+    if (focusedWidgetId) {
+      collapseWidget(focusedWidgetId);
+    }
+    // Add new widget
+    addWidget(targetType, targetProps, true);
+  }, [focusedWidgetId, collapseWidget, addWidget]);
 
   // ── Refs for Ctrl+C handler (assigned after handleCancel is defined below) ──
   const busyRef = useRef(busy);
   busyRef.current = busy;
   const handleCancelRef = useRef<(() => void) | null>(null);
 
+  // ── Focus layer management ──
+  const { claim: focusClaim, release: focusRelease } = useFocusContext();
+  // Wire up the release ref for collapseWidget (defined before focusRelease)
+  collapseWidgetReleaseRef.current = () => focusRelease('widget');
+
+  // Claim/release focus layers based on state
+  useEffect(() => {
+    if (inputFocused) {
+      focusClaim('input');
+    } else {
+      focusRelease('input');
+    }
+  }, [inputFocused, focusClaim, focusRelease]);
+
+  useEffect(() => {
+    if (showHelp) {
+      focusClaim('modal');
+    } else {
+      focusRelease('modal');
+    }
+  }, [showHelp, focusClaim, focusRelease]);
+
+  // Always claim 'page' so page-level handlers can be gated
+  useEffect(() => {
+    focusClaim('page');
+    return () => focusRelease('page');
+  }, [focusClaim, focusRelease]);
+
   // ── Input focus management + Ctrl+C interception ──
   // Slash-to-focus model: '/' activates input bar, Escape returns to navigation.
   // Ctrl+C when busy → cancel task; Ctrl+C when idle → quit.
+  // This handler uses raw useInput (not managed) because Ctrl+C must ALWAYS work,
+  // even when a modal or input layer is active.
   useInput((input, key) => {
     // Ctrl+C: cancel task if busy, otherwise quit
     if (input === 'c' && key.ctrl) {
@@ -494,28 +598,53 @@ const App = ({ apiClient: clientProp, sessionManager: smProp, demoMode, repoPath
       }
       return;
     }
-    // ? key toggles help overlay (when not typing)
-    if (!inputFocused && input === '?') {
-      setShowHelp(prev => !prev);
+    // Enter: submit input value directly from raw handler.
+    // TaskInputBar's useManagedInput('input') may not fire due to focus layer conflicts.
+    // This raw handler is always active and serves as the fallback submission path.
+    if (key.return && !classicMode && inputValueRef.current.trim()) {
+      const v = inputValueRef.current.trim();
+      inputValueRef.current = '';
+      handleSubmit(v);
       return;
     }
+
     // Escape closes help overlay first, then unfocuses input
     if (showHelp && key.escape) {
       setShowHelp(false);
       return;
     }
-    if (!inputFocused && input === '/' && currentPageRef.current === 'agent') {
-      setInputFocused(true);
-      return;
-    }
     if (inputFocused && key.escape) {
-      setInputFocused(false);
+      // If a widget is focused, collapse it directly.
+      // The widget's useManagedInput('widget') can't handle Esc because
+      // the input layer (alwaysActive in chat-first) blocks the widget layer.
+      if (focusedWidgetId) {
+        collapseWidget(focusedWidgetId);
+        return;
+      }
+      // In classic mode, Esc unfocuses input
+      if (classicMode) {
+        setInputFocused(false);
+      }
+      // In chat-first mode, Esc does nothing when no widget is focused
+      // (input stays always active)
       return;
     }
   }, { isActive: true });
 
-  // ── Add line (FIFO 500) ──
-  const MAX_LINES = 500;
+  // Page-level hotkeys — gated by FocusProvider (blocked when input/modal active)
+  useManagedInput('page', (input, key) => {
+    // ? key toggles help overlay (when not typing)
+    if (input === '?') {
+      setShowHelp(prev => !prev);
+      return;
+    }
+    if (input === '/' && (!classicMode || currentPageRef.current === 'agent')) {
+      setInputFocused(true);
+      return;
+    }
+  });
+
+  // ── Add line (FIFO) ──
   const addLine = useCallback((line: LogLine) => {
     setLines(prev => {
       const next = [...prev, line];
@@ -545,7 +674,7 @@ const App = ({ apiClient: clientProp, sessionManager: smProp, demoMode, repoPath
       if (historyLines.length > 0) {
         setLines([
           { text: 'Maestro Code', color: 'cyan', bold: true },
-          { text: 'Previous session restored. Press / to continue.', color: 'gray', dim: true },
+          { text: 'Previous session restored. Type a message to continue.', color: 'gray', dim: true },
           { text: '' },
           ...historyLines,
         ]);
@@ -656,26 +785,35 @@ const App = ({ apiClient: clientProp, sessionManager: smProp, demoMode, repoPath
     '/help': () => {
       addLine({ text: '' });
       addLine({ text: 'Available commands:', color: 'cyan', bold: true, timestamp: ts() });
-      addLine({ text: '  /help    — Show this help message', color: 'white' });
-      addLine({ text: '  /status  — Show session and connection status', color: 'white' });
-      addLine({ text: '  /new     — Start a new conversation (keeps history)', color: 'white' });
-      addLine({ text: '  /clear   — Clear conversation and start fresh', color: 'white' });
-      addLine({ text: '  /stop    — Cancel the current task', color: 'white' });
-      addLine({ text: '  /purge   — Delete all idle/completed sessions', color: 'white' });
-      addLine({ text: '  /costs        — View/set cost limits', color: 'white' });
-      addLine({ text: '  /agent        — Show or switch active agent (/agent compact)', color: 'white' });
-      addLine({ text: '  /create-agent — Create an agent via block-forge workflow', color: 'white' });
-      addLine({ text: '  /playground   — Open model playground (/playground <modelId>)', color: 'white' });
-      addLine({ text: '  /quit         — Quit Maestro Code', color: 'white' });
+      addLine({ text: '  /help             — Show this help message', color: 'white' });
+      addLine({ text: '  /status           — System health + active sessions', color: 'white' });
+      addLine({ text: '  /spaces           — Sessions list', color: 'white' });
+      addLine({ text: '  /workspaces       — Workspaces list', color: 'white' });
+      addLine({ text: '  /repos            — Repos list', color: 'white' });
+      addLine({ text: '  /catalog [filter] — Block catalog (filter: agents|tools|workflows)', color: 'white' });
+      addLine({ text: '  /foundry          — My blocks', color: 'white' });
+      addLine({ text: '  /models           — LLM models + providers', color: 'white' });
+      addLine({ text: '  /session <id>     — Session monitor', color: 'white' });
+      addLine({ text: '  /block <id>       — Block details', color: 'white' });
+      addLine({ text: '  /model <id>       — Model details', color: 'white' });
+      addLine({ text: '  /workspace <id>   — Workspace details', color: 'white' });
+      addLine({ text: '  /permissions <id> — Session permissions diff', color: 'white' });
+      addLine({ text: '  /new              — Start a new conversation', color: 'white' });
+      addLine({ text: '  /clear            — Clear conversation', color: 'white' });
+      addLine({ text: '  /stop             — Cancel the current task', color: 'white' });
+      addLine({ text: '  /purge            — Delete idle sessions', color: 'white' });
+      addLine({ text: '  /costs            — View/set cost limits', color: 'white' });
+      addLine({ text: '  /agent            — Show or switch active agent', color: 'white' });
+      addLine({ text: '  /create-agent     — Create agent via block-forge', color: 'white' });
+      addLine({ text: '  /playground       — Model playground', color: 'white' });
+      addLine({ text: '  /quit             — Quit', color: 'white' });
       addLine({ text: '' });
       addLine({ text: 'Keyboard:', color: 'cyan', bold: true });
       addLine({ text: '  /        — Focus input bar', color: 'white' });
-      addLine({ text: '  Escape   — Return to navigation', color: 'white' });
+      addLine({ text: '  Escape   — Close widget / return to navigation', color: 'white' });
+      addLine({ text: '  j/k      — Navigate within focused widget', color: 'white' });
       addLine({ text: '  ?        — Toggle keyboard shortcuts overlay', color: 'white' });
       addLine({ text: '  Ctrl+C   — Cancel task (when busy) or quit', color: 'white' });
-      addLine({ text: '' });
-      addLine({ text: 'Pages:', color: 'cyan', bold: true });
-      addLine({ text: '  h Home  a Agent  s Spaces  f Foundry  c Catalog  m Models', color: 'white' });
       addLine({ text: '' });
     },
     '/new': () => {
@@ -727,71 +865,73 @@ const App = ({ apiClient: clientProp, sessionManager: smProp, demoMode, repoPath
         }
       })();
     },
-    '/status': () => {
-      addLine({ text: '' });
-      addLine({ text: 'Status:', color: 'cyan', bold: true, timestamp: ts() });
-      const sid = sessionManager?.getSessionId();
-      addLine({ text: `  Session:  ${sid ? sid.slice(0, 8) : 'No active session'}`, color: 'white' });
-      addLine({ text: `  Template: ${sessionManager ? 'maestro-assistant' : 'N/A'}`, color: 'white' });
-      addLine({ text: `  Repo:     ${sessionManager?.getRepoPath() || 'N/A'}`, color: 'white' });
-      if (sid && apiClient) {
-        (async () => {
-          try {
-            const session = await apiClient.getSession(sid);
-            const status = session?.status || session?.containerStatus || 'unknown';
-            const convId = session?.variables?._activeConversation;
-            addLine({ text: `  Status:   ${status}`, color: 'white' });
-            addLine({ text: `  Conversation: ${convId || 'None'}`, color: 'white' });
-            // Show children if this session has any
-            try {
-              const allSessions = await apiClient.listSessions();
-              const children = (allSessions || []).filter((s: any) => s.parentSessionId === sid);
-              if (children.length > 0) {
-                addLine({ text: '  Children:', color: 'white' });
-                for (const child of children) {
-                  const childVars = child.variables || {};
-                  const childCost = typeof childVars._accumulatedCost === 'number'
-                    ? `$${childVars._accumulatedCost.toFixed(2)}`
-                    : '$0.00';
-                  // Simple duration formatting
-                  let childDur = '0s';
-                  if (child.startedAt) {
-                    const startMs = new Date(child.startedAt).getTime();
-                    const endMs = child.completedAt ? new Date(child.completedAt).getTime() : Date.now();
-                    const secs = Math.round((endMs - startMs) / 1000);
-                    childDur = secs >= 60 ? `${Math.floor(secs / 60)}m ${secs % 60}s` : `${secs}s`;
-                  }
-                  const childId = child.id ? child.id.substring(0, 8) : '--------';
-                  const childName = child.name || 'Unnamed';
-                  addLine({ text: `    ${childId} — ${childName} (${childCost}, ${childDur})`, color: 'gray' });
-                }
-              }
-            } catch {
-              // Non-fatal — can't list children
-            }
-          } catch {
-            addLine({ text: `  Status:   (could not fetch)`, color: 'yellow' });
-          }
-          addLine({ text: '' });
-        })();
-      } else {
-        addLine({ text: '' });
-      }
-    },
-  }), [handleQuit, handleCancel, addLine, sessionManager, apiClient]);
+    // Widget slash commands (Phase 63-B) — render inline widgets
+    '/status': () => { addWidget('status', {}, true); },
+    '/spaces': () => { addWidget('sessions', {}, true); },
+    '/sessions': () => { addWidget('sessions', {}, true); },
+    '/workspaces': () => { addWidget('workspaces', {}, true); },
+    '/repos': () => { addWidget('repos', {}, true); },
+    '/catalog': () => { addWidget('catalog', {}, true); },
+    '/foundry': () => { addWidget('foundry', {}, true); },
+    '/models': () => { addWidget('models', {}, true); },
+  }), [handleQuit, handleCancel, addLine, addWidget, sessionManager, apiClient]);
 
   // ── Handle task submit ──
   const handleSubmit = useCallback((input: string) => {
     const trimmed = input.trim().toLowerCase();
 
-    // Return to navigation mode after submitting
-    setInputFocused(false);
+    // Return to navigation mode after submitting (classic mode only)
+    // In chat-first mode, input stays focused
+    if (classicMode) {
+      setInputFocused(false);
+    }
 
     // Slash commands — dispatch via map
     const cmd = slashCommands[trimmed];
     if (cmd) { cmd(); return; }
 
     // Parametric slash commands
+
+    // /spaces with subcommand: /spaces repos, /spaces workspaces, /spaces sessions
+    if (trimmed.startsWith('/spaces ')) {
+      const sub = input.trim().slice('/spaces '.length).trim().toLowerCase();
+      if (sub === 'repos') { addWidget('repos', {}, true); return; }
+      if (sub === 'workspaces') { addWidget('workspaces', {}, true); return; }
+      if (sub === 'sessions') { addWidget('sessions', {}, true); return; }
+    }
+
+    // Widget commands with arguments (Phase 63-B)
+    if (trimmed.startsWith('/session ')) {
+      const sessionId = input.trim().slice('/session '.length).trim();
+      if (sessionId) { addWidget('session-monitor', { sessionId }, true); return; }
+    }
+    if (trimmed.startsWith('/block ')) {
+      const blockId = input.trim().slice('/block '.length).trim();
+      if (blockId) { addWidget('block-detail', { blockId }, false); return; }
+    }
+    if (trimmed.startsWith('/model ')) {
+      const modelId = input.trim().slice('/model '.length).trim();
+      if (modelId) { addWidget('model-detail', { modelId }, true); return; }
+    }
+    if (trimmed.startsWith('/workspace ')) {
+      const workspaceId = input.trim().slice('/workspace '.length).trim();
+      if (workspaceId) { addWidget('workspace-detail', { workspaceId }, true); return; }
+    }
+    if (trimmed.startsWith('/repo ')) {
+      const repoId = input.trim().slice('/repo '.length).trim();
+      if (repoId) { addWidget('repo-detail', { repoId }, true); return; }
+    }
+    if (trimmed.startsWith('/permissions ')) {
+      const sessionId = input.trim().slice('/permissions '.length).trim();
+      if (sessionId) { addWidget('permissions', { sessionId }, false); return; }
+    }
+    // /catalog with filter: /catalog agents, /catalog tools, /catalog workflows
+    if (trimmed.startsWith('/catalog ')) {
+      const filter = input.trim().slice('/catalog '.length).trim().toLowerCase();
+      const filterMap: Record<string, string> = { agents: 'agent', tools: 'tool', workflows: 'workflow' };
+      addWidget('catalog', { initialFilter: filterMap[filter] || 'all' }, true);
+      return;
+    }
 
     // /costs — view and configure cost limits
     if (trimmed === '/costs' || trimmed.startsWith('/costs ')) {
@@ -1185,18 +1325,25 @@ const App = ({ apiClient: clientProp, sessionManager: smProp, demoMode, repoPath
     if (trimmed === '/playground' || trimmed.startsWith('/playground ')) {
       const arg = input.trim().slice('/playground'.length).trim();
       if (arg) {
-        // /playground <modelId> — go to Models page and open that model's detail + playground
-        setCurrentPage('models');
-        setNavStack([]);
-        // Navigate directly to model detail — the detail view will be rendered with playground support
-        setDetailView({ type: 'model', id: arg });
-        setRestoredState(null);
+        if (classicMode) {
+          // Classic mode: navigate to model detail view
+          setCurrentPage('models');
+          setNavStack([]);
+          setDetailView({ type: 'model', id: arg });
+          setRestoredState(null);
+        } else {
+          // Chat-first mode: inject model-detail widget
+          addWidget('model-detail', { modelId: arg }, true);
+        }
       } else {
-        // /playground — navigate to Models page so user can select a model
-        setCurrentPage('models');
-        setNavStack([]);
-        setDetailView(null);
-        setRestoredState(null);
+        if (classicMode) {
+          setCurrentPage('models');
+          setNavStack([]);
+          setDetailView(null);
+          setRestoredState(null);
+        } else {
+          addWidget('models', {}, true);
+        }
         addLine({ text: '' });
         addLine({ text: 'Navigate to a model and press Enter, then [T] to open the playground.', color: 'cyan', timestamp: ts() });
         addLine({ text: '' });
@@ -1234,6 +1381,14 @@ const App = ({ apiClient: clientProp, sessionManager: smProp, demoMode, repoPath
           });
         }
       }
+      return;
+    }
+
+    // Unknown slash command — show error instead of sending to agent
+    if (trimmed.startsWith('/')) {
+      addLine({ text: '' });
+      addLine({ text: `Unknown command: ${trimmed.split(' ')[0]}. Type /help for available commands.`, color: 'yellow', timestamp: ts() });
+      addLine({ text: '' });
       return;
     }
 
@@ -1283,7 +1438,7 @@ const App = ({ apiClient: clientProp, sessionManager: smProp, demoMode, repoPath
         } else {
           setAgentState('working');
         }
-      }).then(() => {
+      }, addWidget).then(() => {
         const id = sessionManager.getSessionId();
         if (id) {
           setCurrentSessionId(id);
@@ -1291,7 +1446,7 @@ const App = ({ apiClient: clientProp, sessionManager: smProp, demoMode, repoPath
         }
       });
     }
-  }, [addLine, sessionManager, busy, pendingInteractive, history, slashCommands]);
+  }, [addLine, addWidget, sessionManager, busy, pendingInteractive, history, slashCommands]);
 
   // ── Auto-start demo session ──
   const autoStarted = useRef(false);
@@ -1331,8 +1486,19 @@ const App = ({ apiClient: clientProp, sessionManager: smProp, demoMode, repoPath
     );
   }
 
-  // ── Render detail views ──
-  if (detailView) {
+  // ── Render reconfigure overlay ──
+  if (showReconfigure) {
+    return h(FullscreenBox, null,
+      h(ProviderSetupScreen, {
+        onComplete: handleReconfigureComplete,
+        onSkip: () => setShowReconfigure(false),
+        existingProviders: currentProviders,
+      }),
+    );
+  }
+
+  // ── Classic mode: detail views (only in classic mode) ──
+  if (classicMode && detailView) {
     const detailProps = {
       apiClient,
       onExit: handleBack,
@@ -1371,80 +1537,103 @@ const App = ({ apiClient: clientProp, sessionManager: smProp, demoMode, repoPath
         detailComponent = h(SessionMonitor as any, { sessionId: detailView.id, apiClient, onExit: handleBack, onQuit: handleQuit, onNavigate: handleNavigate });
     }
 
-    // Detail components render their own StatusBar — no global one here
+    return h(FullscreenBox, null, detailComponent);
+  }
+
+  // ── Classic mode: page routing (NavBar + page switching + hotkeys) ──
+  if (classicMode) {
+    const pageProps = {
+      apiClient,
+      onNavigate: handleNavigate,
+      onSessionSelect: handleSessionSelect,
+      onWorkspaceSelect: handleWorkspaceSelect,
+      onRepoSelect: handleRepoSelect,
+      onQuit: handleQuit,
+      initialState: restoredState,
+      keyboardActive: !inputFocused,
+    };
+
+    let pageComponent;
+    if (showHelp) {
+      pageComponent = h(HelpOverlay, { currentPage, onClose: () => setShowHelp(false), classic: true });
+    } else {
+      switch (currentPage) {
+        case 'agent':
+          pageComponent = h(AgentScreen, {
+            ...pageProps,
+            lines,
+            agentState,
+            sessionId: currentSessionId,
+            busy,
+            keyboardActive: !inputFocused,
+            lastOutput: sessionManager?.getLastOutput() || null,
+            repoPath: sessionManager?.getRepoPath() || repoPath || null,
+            activeAgent,
+            focusedWidgetId,
+            collapsedWidgets,
+            onWidgetClose: collapseWidget,
+          });
+          break;
+        case 'spaces':
+          pageComponent = h(SpacesScreen as any, pageProps);
+          break;
+        case 'foundry':
+          pageComponent = h(FoundryScreen as any, { ...pageProps, onBlockSelect: handleBlockSelect });
+          break;
+        case 'catalog':
+          pageComponent = h(CatalogScreen as any, { ...pageProps, onBlockSelect: handleBlockSelect });
+          break;
+        case 'models':
+          pageComponent = h(ModelsScreen as any, {
+            ...pageProps,
+            onModelSelect: handleModelSelect,
+            providers: currentProviders,
+            onReconfigure: handleReconfigure,
+          });
+          break;
+        case 'home':
+        default:
+          pageComponent = h(HomeScreen, pageProps);
+          break;
+      }
+    }
+
     return h(FullscreenBox, null,
-      detailComponent,
+      pageComponent,
+      currentPage === 'agent' && !showHelp
+        ? h(TaskInputBar, {
+            onSubmit: handleSubmit,
+            disabled: busy && !pendingInteractive,
+            placeholder: busy ? 'Send a message to the agent...' : 'Describe your task...',
+            onUpArrow: history.prev,
+            onDownArrow: history.next,
+            captureInput: inputFocused,
+          })
+        : null,
+      h(StatusBar, { currentPage, connectionStatus, latency: connLatency, lastRefresh, dailyCost, costLimitStatus }),
     );
   }
 
-  // ── Render reconfigure overlay ──
-  if (showReconfigure) {
-    return h(FullscreenBox, null,
-      h(ProviderSetupScreen, {
-        onComplete: handleReconfigureComplete,
-        onSkip: () => setShowReconfigure(false),
-        existingProviders: currentProviders,
-      }),
-    );
-  }
-
-  // ── Render page views ──
-  const pageProps = {
-    apiClient,
-    onNavigate: handleNavigate,
-    onSessionSelect: handleSessionSelect,
-    onWorkspaceSelect: handleWorkspaceSelect,
-    onRepoSelect: handleRepoSelect,
-    onQuit: handleQuit,
-    initialState: restoredState,
-    keyboardActive: !inputFocused,
-  };
-
-  let pageComponent;
-  if (showHelp) {
-    pageComponent = h(HelpOverlay, { currentPage, onClose: () => setShowHelp(false) });
-  } else {
-    switch (currentPage) {
-      case 'agent':
-        pageComponent = h(AgentScreen, {
-          ...pageProps,
+  // ── Chat-first mode (default): single Agent screen + widgets ──
+  return h(FullscreenBox, null,
+    showHelp
+      ? h(HelpOverlay, { onClose: () => setShowHelp(false), classic: false })
+      : h(ChatFirstScreen, {
+          apiClient,
+          onQuit: handleQuit,
           lines,
           agentState,
           sessionId: currentSessionId,
           busy,
-          keyboardActive: !inputFocused,
           lastOutput: sessionManager?.getLastOutput() || null,
           repoPath: sessionManager?.getRepoPath() || repoPath || null,
           activeAgent,
-        });
-        break;
-      case 'spaces':
-        pageComponent = h(SpacesScreen as any, pageProps);
-        break;
-      case 'foundry':
-        pageComponent = h(FoundryScreen as any, { ...pageProps, onBlockSelect: handleBlockSelect });
-        break;
-      case 'catalog':
-        pageComponent = h(CatalogScreen as any, { ...pageProps, onBlockSelect: handleBlockSelect });
-        break;
-      case 'models':
-        pageComponent = h(ModelsScreen as any, {
-          ...pageProps,
-          onModelSelect: handleModelSelect,
-          providers: currentProviders,
-          onReconfigure: handleReconfigure,
-        });
-        break;
-      case 'home':
-      default:
-        pageComponent = h(HomeScreen, pageProps);
-        break;
-    }
-  }
-
-  return h(FullscreenBox, null,
-    pageComponent,
-    currentPage === 'agent' && !showHelp
+          focusedWidgetId,
+          collapsedWidgets,
+          onWidgetClose: collapseWidget,
+          onWidgetNavigate: handleWidgetNavigate,
+        }),
+    !showHelp
       ? h(TaskInputBar, {
           onSubmit: handleSubmit,
           disabled: busy && !pendingInteractive,
@@ -1452,9 +1641,19 @@ const App = ({ apiClient: clientProp, sessionManager: smProp, demoMode, repoPath
           onUpArrow: history.prev,
           onDownArrow: history.next,
           captureInput: inputFocused,
+          alwaysActive: true,
+          inputValueRef,
         })
       : null,
-    h(StatusBar, { currentPage, connectionStatus, latency: connLatency, lastRefresh, dailyCost, costLimitStatus }),
+    h(ChatStatusBar, {
+      connectionStatus,
+      latency: connLatency,
+      lastRefresh,
+      dailyCost,
+      costLimitStatus,
+      focusedWidgetId,
+      apiClient,
+    }),
   );
 };
 
@@ -1471,6 +1670,7 @@ async function startInteractive(options: InteractiveOptions = {}): Promise<void>
   const sessionManager = options.apiClient ? new SessionManager(options) : null;
   const demoMode = options.demo || false;
   const noBell = options.noBell || false;
+  const classicMode = options.classic || false;
   const hasProviders = options.hasProviders === true;
   const sidecar = options.sidecar || null;
   const ensureBackendFn = options.ensureBackendFn || null;
@@ -1478,7 +1678,7 @@ async function startInteractive(options: InteractiveOptions = {}): Promise<void>
   // No API client, no demo mode, and providers already configured → show error
   const apiClient = options.apiClient || null;
   const needsSetup = !hasProviders && !demoMode;
-  const rootComponent = (!apiClient && !demoMode && !needsSetup)
+  const appContent = (!apiClient && !demoMode && !needsSetup)
     ? h(NoBackendScreen)
     : h(App, {
         apiClient, sessionManager, demoMode, repoPath: options.repoPath, noBell,
@@ -1488,7 +1688,9 @@ async function startInteractive(options: InteractiveOptions = {}): Promise<void>
         importSessionTemplate: options.importSessionTemplate || null,
         template: options.template || null,
         entryPoint: options.entryPoint || null,
+        classic: classicMode,
       } as AppProps);
+  const rootComponent = h(FocusProvider, null, appContent);
 
   const instance = render(rootComponent, { exitOnCtrlC: false });
 

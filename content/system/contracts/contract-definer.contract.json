@@ -1,0 +1,107 @@
+{
+  "id": "contract-definer",
+  "name": "Contract Definer",
+  "version": "2.0.0",
+  "description": "Workflow that generates a Maestro contract from a natural language description.",
+  "requiredCapabilities": ["structured-output"],
+  "minimumFitness": 0.3,
+  "features": {
+    "contract-structure": {
+      "description": "Generated contract has all required fields and proper structure",
+      "requires": ["structured-output"],
+      "weight": 0.40,
+      "minimumScore": 0.7,
+      "tests": [
+        {
+          "id": "has-required-fields",
+          "description": "Contract contains id, features, requiredCapabilities, minimumFitness",
+          "prompt": "A greeting agent that says hello and remembers user names across conversations",
+          "check": { "type": "contains-all", "values": ["features", "requiredCapabilities", "minimumFitness"] }
+        },
+        {
+          "id": "has-features-with-weights",
+          "description": "Contract features have weight and minimumScore",
+          "prompt": "A code reviewer that checks for bugs, security issues, and style violations in TypeScript code",
+          "check": { "type": "contains-all", "values": ["weight", "minimumScore"] }
+        },
+        {
+          "id": "has-tests-in-features",
+          "description": "Contract features include test definitions",
+          "prompt": "An agent that translates English to French with proper grammar and tone preservation",
+          "check": { "type": "contains-all", "values": ["tests", "prompt", "check"] }
+        },
+        {
+          "id": "has-valid-json",
+          "description": "Output is valid JSON",
+          "prompt": "A commit message writer that reads git diffs and produces conventional commits",
+          "check": { "type": "json-parseable" }
+        }
+      ]
+    },
+    "contract-quality": {
+      "description": "Generated contracts have meaningful content, not just structure",
+      "requires": ["structured-output"],
+      "weight": 0.35,
+      "minimumScore": 0.6,
+      "tests": [
+        {
+          "id": "identifies-capabilities",
+          "description": "Contract declares appropriate capabilities for the described task",
+          "prompt": "An agent that reads source code files, runs shell commands to execute tests, and writes test result reports",
+          "check": { "type": "contains-any", "values": ["tool-calling", "tool_calling"] }
+        },
+        {
+          "id": "has-multiple-features",
+          "description": "Contract defines more than one feature for a complex description",
+          "prompt": "A full-stack code reviewer that checks frontend React components for accessibility, backend Node.js APIs for security, and database queries for performance",
+          "check": { "type": "contains-all", "values": ["feature", "weight"] }
+        },
+        {
+          "id": "uses-varied-check-types",
+          "description": "Tests in the contract use different check types",
+          "prompt": "An agent that creates project documentation, including README files and API docs, and validates the output format",
+          "check": { "type": "contains-any", "values": ["contains", "non-empty", "json-parseable", "regex", "tool-call", "contains-all", "contains-any"] }
+        },
+        {
+          "id": "sets-reasonable-fitness",
+          "description": "Contract sets a minimumFitness value between 0 and 1",
+          "prompt": "A simple echo agent that repeats back whatever the user says",
+          "check": { "type": "contains-any", "values": ["0.3", "0.4", "0.5", "minimumFitness"] }
+        }
+      ]
+    },
+    "description-adaptation": {
+      "description": "Contract adapts to different types of block descriptions",
+      "requires": ["structured-output"],
+      "weight": 0.25,
+      "minimumScore": 0.5,
+      "tests": [
+        {
+          "id": "handles-simple-description",
+          "description": "Produces a contract even for a very simple description",
+          "prompt": "A calculator agent",
+          "check": { "type": "contains-all", "values": ["features", "tests"] }
+        },
+        {
+          "id": "handles-detailed-description",
+          "description": "Produces a rich contract for a detailed description",
+          "prompt": "A Kubernetes deployment agent that reads YAML manifests, validates them against best practices (resource limits, liveness probes, security contexts), generates helm charts, and runs dry-run deployments. It should support multiple environments (dev, staging, prod) and rollback on failure.",
+          "check": { "type": "contains-all", "values": ["features", "requiredCapabilities", "weight"] }
+        },
+        {
+          "id": "handles-tool-heavy-description",
+          "description": "Identifies tool-calling capability for tool-heavy descriptions",
+          "prompt": "An agent that uses file-read to analyze code, shell-execute to run linters, file-write to generate reports, and git commands to create branches",
+          "check": { "type": "contains", "value": "tool" }
+        },
+        {
+          "id": "handles-conversational-description",
+          "description": "Identifies conversation capability for chat-focused descriptions",
+          "prompt": "A customer support chatbot that answers questions about Maestro, explains concepts, and helps troubleshoot issues through multi-turn dialogue",
+          "check": { "type": "contains", "value": "conversation" }
+        }
+      ]
+    }
+  },
+  "scoring": { "method": "weighted-average" }
+}

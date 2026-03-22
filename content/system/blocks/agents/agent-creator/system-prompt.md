@@ -67,7 +67,7 @@ You do NOT execute the agent. You create the files that define it.
     { "id": "result", "type": "string", "description": "..." }
   ],
   "config": {
-    "model": "claude-sonnet-4-6",
+    "model": "claude-opus-4-6",
     "maxIterations": 15,
     "wallClockTimeoutSeconds": 600,
     "systemPromptFile": "system-prompt.md",
@@ -116,7 +116,7 @@ Every agent MUST have `config.nodes` with this exact pattern. Copy it verbatim. 
       {
         "id": "llm-call",
         "blockRef": "inference",
-        "config": { "model": "claude-sonnet-4-6", "maxTokens": 4096, "temperature": 0 },
+        "config": { "model": "claude-opus-4-6", "maxTokens": 4096, "temperature": 0 },
         "inputs": { "messages": "{{_nodeResult_read-conversation.messages}}" }
       },
       {

@@ -1,20 +1,23 @@
 /**
- * HelpOverlay — Global keyboard shortcut overlay for maestro-code.
+ * HelpOverlay -- Global keyboard shortcut overlay for maestro-code.
  *
- * Shows context-sensitive shortcuts based on the current page.
- * Toggled by pressing `?` on any page (when input is not focused).
+ * Shows context-sensitive shortcuts.
+ * - Classic mode: page navigation (h/a/s/f/c/m), page-specific shortcuts, commands
+ * - Chat-first mode: global shortcuts, slash commands, widget shortcuts
+ *
+ * Toggled by pressing `?` (when input is not focused).
  */
 
 import { createElement as h } from 'react';
 import { Box, Text } from 'ink';
 import { theme } from '../theme.ts';
 
-// ── Shortcut definitions per context ─────────────────────────
+// -- Shortcut definitions per context -----------------------------------
 
 const SHORTCUTS: Record<string, ShortcutItem[]> = {
   global: [
     { key: '/',       label: 'Focus input bar' },
-    { key: 'Esc',     label: 'Return to navigation / close' },
+    { key: 'Esc',     label: 'Return to navigation / close widget' },
     { key: 'Ctrl+C',  label: 'Cancel task or quit' },
     { key: '?',       label: 'Toggle this help' },
     { key: 'q',       label: 'Quit' },
@@ -60,6 +63,7 @@ const SHORTCUTS: Record<string, ShortcutItem[]> = {
     { key: 'Enter',   label: 'Open model detail' },
     { key: 'P',       label: 'Playground (test model)' },
   ],
+  // Slash commands (shown in both modes)
   commands: [
     { key: '/help',   label: 'Show available commands' },
     { key: '/status', label: 'Show session status' },
@@ -72,9 +76,33 @@ const SHORTCUTS: Record<string, ShortcutItem[]> = {
     { key: '/playground',   label: 'Open model playground' },
     { key: '/quit',         label: 'Quit' },
   ],
+  // Navigation commands (chat-first only)
+  slashNav: [
+    { key: '/status',          label: 'System health + active sessions' },
+    { key: '/spaces',          label: 'Sessions list' },
+    { key: '/spaces repos',    label: 'Repos list' },
+    { key: '/foundry',         label: 'My blocks' },
+    { key: '/catalog',         label: 'Block catalog' },
+    { key: '/catalog agents',  label: 'Catalog filtered to agents' },
+    { key: '/models',          label: 'LLM models + providers' },
+    { key: '/session <id>',    label: 'Session monitor' },
+    { key: '/block <id>',      label: 'Block details' },
+    { key: '/model <id>',      label: 'Model details' },
+    { key: '/workspace <id>',  label: 'Workspace details' },
+    { key: '/permissions <id>', label: 'Session permissions diff' },
+  ],
+  // Widget keyboard shortcuts (chat-first only)
+  widgetKeys: [
+    { key: 'j / k',    label: 'Navigate within focused widget' },
+    { key: 'Enter',    label: 'Open / select item' },
+    { key: 'Space',    label: 'Expand / collapse item' },
+    { key: 'Tab',      label: 'Cycle tabs / panels' },
+    { key: 'z',        label: 'Zoom panel (in session monitor)' },
+    { key: 'Esc',      label: 'Close / collapse widget' },
+  ],
 };
 
-// ── Section renderer ─────────────────────────────────────────
+// -- Section renderer ---------------------------------------------------
 
 interface ShortcutItem {
   key: string;
@@ -91,7 +119,7 @@ const Section = ({ title, items }: SectionProps) => {
     h(Text, { bold: true, color: theme.panel.borderFocused }, `  ${title}`),
     ...items.map((item, i) =>
       h(Box, { key: `${title}-${i}`, flexDirection: 'row', paddingLeft: 2 },
-        h(Text, { color: theme.shortcut.key }, `${item.key.padEnd(14)}`),
+        h(Text, { color: theme.shortcut.key }, `${item.key.padEnd(18)}`),
         h(Text, { color: theme.text.muted }, item.label),
       )
     ),
@@ -99,19 +127,51 @@ const Section = ({ title, items }: SectionProps) => {
   );
 };
 
-// ── HelpOverlay component ────────────────────────────────────
+// -- HelpOverlay component -----------------------------------------------
 
 interface HelpOverlayProps {
   currentPage?: string;
   onClose?: () => void;
+  /** When true, show classic mode layout with page navigation. Default: false. */
+  classic?: boolean;
 }
 
-const HelpOverlay = ({ currentPage, onClose }: HelpOverlayProps) => {
-  const pageKey = currentPage || 'agent';
-  const pageShortcuts = SHORTCUTS[pageKey] || [];
+const HelpOverlay = ({ currentPage, onClose, classic }: HelpOverlayProps) => {
+  if (classic) {
+    // Classic mode: same as the old layout (pages + page-specific + commands)
+    const pageKey = currentPage || 'agent';
+    const pageShortcuts = SHORTCUTS[pageKey] || [];
+    const pageName = pageKey.charAt(0).toUpperCase() + pageKey.slice(1);
 
-  const pageName = pageKey.charAt(0).toUpperCase() + pageKey.slice(1);
+    return h(Box, {
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'center',
+      width: '100%',
+      flexGrow: 1,
+    },
+      h(Box, {
+        flexDirection: 'column',
+        borderStyle: 'single',
+        borderColor: theme.panel.borderFocused,
+        paddingX: 2,
+        paddingY: 1,
+        width: 54,
+      },
+        h(Text, { bold: true, color: theme.panel.borderFocused }, '  Maestro Code -- Keyboard Shortcuts'),
+        h(Text, null, ''),
+        h(Section, { title: 'Global', items: SHORTCUTS.global }),
+        h(Section, { title: 'Page Navigation', items: SHORTCUTS.pages }),
+        pageShortcuts.length > 0
+          ? h(Section, { title: `${pageName} Page`, items: pageShortcuts })
+          : null,
+        h(Section, { title: 'Commands', items: SHORTCUTS.commands }),
+        h(Text, { color: theme.text.muted }, '  Press ? or Esc to close'),
+      ),
+    );
+  }
 
+  // Chat-first mode: global + slash commands + widget shortcuts
   return h(Box, {
     flexDirection: 'column',
     alignItems: 'center',
@@ -125,16 +185,14 @@ const HelpOverlay = ({ currentPage, onClose }: HelpOverlayProps) => {
       borderColor: theme.panel.borderFocused,
       paddingX: 2,
       paddingY: 1,
-      width: 54,
+      width: 58,
     },
-      h(Text, { bold: true, color: theme.panel.borderFocused }, '  Maestro Code — Keyboard Shortcuts'),
+      h(Text, { bold: true, color: theme.panel.borderFocused }, '  Maestro Code -- Keyboard Shortcuts'),
       h(Text, null, ''),
-      h(Section, { title: 'Global', items: SHORTCUTS.global }),
-      h(Section, { title: 'Pages', items: SHORTCUTS.pages }),
-      pageShortcuts.length > 0
-        ? h(Section, { title: `${pageName} Page`, items: pageShortcuts })
-        : null,
-      h(Section, { title: 'Commands', items: SHORTCUTS.commands }),
+      h(Section, { title: 'Global Shortcuts', items: SHORTCUTS.global }),
+      h(Section, { title: 'Slash Commands', items: SHORTCUTS.commands }),
+      h(Section, { title: 'Navigation Commands', items: SHORTCUTS.slashNav }),
+      h(Section, { title: 'Widget Shortcuts', items: SHORTCUTS.widgetKeys }),
       h(Text, { color: theme.text.muted }, '  Press ? or Esc to close'),
     ),
   );

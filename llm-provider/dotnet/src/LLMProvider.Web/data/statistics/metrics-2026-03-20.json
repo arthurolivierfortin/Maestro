@@ -1,0 +1,91 @@
+{
+  "totalRequests": 1,
+  "latency": {
+    "p50": 33131,
+    "p95": 33131,
+    "p99": 33131,
+    "average": 33131
+  },
+  "totalTokens": {
+    "promptTokens": 3,
+    "completionTokens": 1584,
+    "totalTokens": 1587
+  },
+  "modelStats": [
+    {
+      "modelId": {
+        "value": "opus"
+      },
+      "requestCount": 1,
+      "latency": {
+        "p50": 33131,
+        "p95": 33131,
+        "p99": 33131,
+        "average": 33131
+      },
+      "totalTokens": {
+        "promptTokens": 3,
+        "completionTokens": 1584,
+        "totalTokens": 1587
+      },
+      "requestsPerMinute": 0,
+      "errorRate": 0
+    }
+  ],
+  "queue": {
+    "currentDepth": 0,
+    "depthByModel": {},
+    "currentModel": null,
+    "avgWaitTimeMs": 0,
+    "totalEnqueued": 0,
+    "totalProcessed": 0
+  },
+  "switching": {
+    "totalSwitches": 0,
+    "switchesAvoided": 0,
+    "avgSwitchDuration": "00:00:00",
+    "recentDecisions": []
+  },
+  "timeWindows": [
+    {
+      "windowName": "1m",
+      "windowSeconds": 60,
+      "requestCount": 1,
+      "requestsPerMinute": 1,
+      "latency": {
+        "p50": 33131,
+        "p95": 33131,
+        "p99": 33131,
+        "average": 33131
+      },
+      "tokensTotal": 1587
+    },
+    {
+      "windowName": "5m",
+      "windowSeconds": 300,
+      "requestCount": 1,
+      "requestsPerMinute": 0.2,
+      "latency": {
+        "p50": 33131,
+        "p95": 33131,
+        "p99": 33131,
+        "average": 33131
+      },
+      "tokensTotal": 1587
+    },
+    {
+      "windowName": "15m",
+      "windowSeconds": 900,
+      "requestCount": 1,
+      "requestsPerMinute": 0.06666666666666667,
+      "latency": {
+        "p50": 33131,
+        "p95": 33131,
+        "p99": 33131,
+        "average": 33131
+      },
+      "tokensTotal": 1587
+    }
+  ],
+  "generatedAt": "2026-03-20T13:59:12.9567097+00:00"
+}

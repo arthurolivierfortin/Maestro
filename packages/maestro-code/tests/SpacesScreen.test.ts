@@ -36,7 +36,7 @@ describe('SpacesScreen flat list', () => {
   });
 
   it('flat list excludes children — only top-level sessions shown', async () => {
-    const { SpacesScreen } = await import('../components/SpacesScreen.ts');
+    const { SpacesScreen } = await import('../components/legacy/SpacesScreen.ts');
     const { lastFrame } = render(h(SpacesScreen, {
       apiClient: makeApi(),
       onNavigate: vi.fn(),
@@ -57,7 +57,7 @@ describe('SpacesScreen flat list', () => {
   });
 
   it('parent with children shows [+N] badge', async () => {
-    const { SpacesScreen } = await import('../components/SpacesScreen.ts');
+    const { SpacesScreen } = await import('../components/legacy/SpacesScreen.ts');
     const { lastFrame } = render(h(SpacesScreen, {
       apiClient: makeApi(),
       onNavigate: vi.fn(),
@@ -74,7 +74,7 @@ describe('SpacesScreen flat list', () => {
   });
 
   it('session without children shows no badge', async () => {
-    const { SpacesScreen } = await import('../components/SpacesScreen.ts');
+    const { SpacesScreen } = await import('../components/legacy/SpacesScreen.ts');
     const soloOnly = [
       { id: 'solo-1', name: 'Solo One', status: 'idle', variables: {} },
     ];
@@ -94,7 +94,7 @@ describe('SpacesScreen flat list', () => {
   });
 
   it('expanded parent shows children in detail view', async () => {
-    const { SpacesScreen } = await import('../components/SpacesScreen.ts');
+    const { SpacesScreen } = await import('../components/legacy/SpacesScreen.ts');
     const { lastFrame } = render(h(SpacesScreen, {
       apiClient: makeApi(),
       onNavigate: vi.fn(),
@@ -118,7 +118,7 @@ describe('SpacesScreen flat list', () => {
       { id: 'fit-1', name: 'Fitness Session', status: 'idle', variables: { currentFitness: 0.85, _accumulatedCost: 1.0 } },
       { id: 'nofit-1', name: 'No Fitness', status: 'idle', variables: { _accumulatedCost: 0.0 } },
     ];
-    const { SpacesScreen } = await import('../components/SpacesScreen.ts');
+    const { SpacesScreen } = await import('../components/legacy/SpacesScreen.ts');
     const { lastFrame } = render(h(SpacesScreen, {
       apiClient: makeApi(sessionsWithFitness),
       onNavigate: vi.fn(),
@@ -145,7 +145,7 @@ describe('SpacesScreen flat list', () => {
   });
 
   it('child with / in name shows short name in detail view', async () => {
-    const { SpacesScreen } = await import('../components/SpacesScreen.ts');
+    const { SpacesScreen } = await import('../components/legacy/SpacesScreen.ts');
     const { lastFrame } = render(h(SpacesScreen, {
       apiClient: makeApi(),
       onNavigate: vi.fn(),
@@ -165,7 +165,7 @@ describe('SpacesScreen flat list', () => {
   });
 
   it('no tree connectors in session rows', async () => {
-    const { SpacesScreen } = await import('../components/SpacesScreen.ts');
+    const { SpacesScreen } = await import('../components/legacy/SpacesScreen.ts');
     const { lastFrame } = render(h(SpacesScreen, {
       apiClient: makeApi(),
       onNavigate: vi.fn(),
@@ -193,7 +193,7 @@ describe('SpacesScreen flat list', () => {
   });
 
   it('renders empty session list', async () => {
-    const { SpacesScreen } = await import('../components/SpacesScreen.ts');
+    const { SpacesScreen } = await import('../components/legacy/SpacesScreen.ts');
     const { lastFrame } = render(h(SpacesScreen, {
       apiClient: makeApi([]),
       onNavigate: vi.fn(),
@@ -212,7 +212,7 @@ describe('SpacesScreen flat list', () => {
       { id: 'orphan-1', name: 'Orphan Session', status: 'idle', parentSessionId: 'nonexistent', variables: {} },
       { id: 'normal-1', name: 'Normal Session', status: 'idle', variables: {} },
     ];
-    const { SpacesScreen } = await import('../components/SpacesScreen.ts');
+    const { SpacesScreen } = await import('../components/legacy/SpacesScreen.ts');
     const { lastFrame } = render(h(SpacesScreen, {
       apiClient: makeApi(orphanSessions),
       onNavigate: vi.fn(),

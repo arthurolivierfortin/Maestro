@@ -196,6 +196,21 @@ builder.Services.AddScoped<Maestro.Application.Interfaces.IBlockExecutor, Maestr
 builder.Services.AddScoped<Maestro.Application.Interfaces.IBlockExecutor, Maestro.Infrastructure.BlockExecutors.CaptureFileReadBlockExecutor>();
 builder.Services.AddScoped<Maestro.Application.Interfaces.IBlockExecutor, Maestro.Infrastructure.BlockExecutors.CaptureShellExecuteBlockExecutor>();
 builder.Services.AddScoped<Maestro.Application.Interfaces.IBlockExecutor, Maestro.Infrastructure.BlockExecutors.CaptureFileEditBlockExecutor>();
+builder.Services.AddScoped<Maestro.Application.Interfaces.IBlockExecutor, Maestro.Infrastructure.BlockExecutors.CaptureGenericBlockExecutor>();
+
+// Domain-specific block executors (replace generic file-read/file-write for Maestro artifacts)
+builder.Services.AddSingleton<IBlockExecutor, Maestro.Infrastructure.BlockExecutors.ReadContractBlockExecutor>();
+builder.Services.AddSingleton<IBlockExecutor, Maestro.Infrastructure.BlockExecutors.WriteContractBlockExecutor>();
+builder.Services.AddSingleton<IBlockExecutor, Maestro.Infrastructure.BlockExecutors.ReadTestSuiteBlockExecutor>();
+builder.Services.AddSingleton<IBlockExecutor, Maestro.Infrastructure.BlockExecutors.WriteTestSuiteBlockExecutor>();
+builder.Services.AddSingleton<IBlockExecutor, Maestro.Infrastructure.BlockExecutors.WriteBlockBlockExecutor>();
+
+// Phase 63: Summary validator (rejects raw JSON array summaries from agent step-complete)
+builder.Services.AddSingleton<Maestro.Application.Interfaces.IBlockExecutor, Maestro.Infrastructure.BlockExecutors.SummaryValidatorBlockExecutor>();
+
+// Domain validation blocks (contract & test suite structure validation)
+builder.Services.AddSingleton<Maestro.Application.Interfaces.IBlockExecutor, Maestro.Infrastructure.BlockExecutors.ValidateContractBlockExecutor>();
+builder.Services.AddSingleton<Maestro.Application.Interfaces.IBlockExecutor, Maestro.Infrastructure.BlockExecutors.ValidateTestSuiteBlockExecutor>();
 
 // Orchestration services (Phase 5C)
 builder.Services.AddScoped<Maestro.Application.Interfaces.IDataFlowManager, Maestro.Infrastructure.Orchestration.DataFlowManager>();

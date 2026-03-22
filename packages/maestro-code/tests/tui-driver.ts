@@ -146,6 +146,7 @@ export class TuiDriver {
       enter: '\r',
       escape: '\x1b',
       tab: '\t',
+      space: ' ',
       up: '\x1b[A',
       down: '\x1b[B',
       right: '\x1b[C',

@@ -1,0 +1,49 @@
+{
+  "id": "write-block",
+  "name": "Write Block",
+  "blockType": "write-block",
+  "version": "1.0.0",
+  "isAtomic": true,
+  "description": "Writes a block definition and optional system prompt to the proper directory structure. Encapsulates path resolution, naming conventions, and directory creation.",
+  "inputs": [
+    {
+      "id": "blockJson",
+      "name": "Block JSON",
+      "type": "string",
+      "required": true,
+      "description": "The full block definition JSON. Must contain 'id' and 'blockType' fields."
+    },
+    {
+      "id": "systemPrompt",
+      "name": "System Prompt",
+      "type": "string",
+      "required": false,
+      "description": "Optional system prompt markdown content. Written as system-prompt.md in the block directory."
+    }
+  ],
+  "outputs": [
+    {
+      "id": "blockId",
+      "type": "string",
+      "description": "The block ID extracted from the JSON"
+    },
+    {
+      "id": "blockPath",
+      "type": "string",
+      "description": "The block directory path"
+    },
+    {
+      "id": "result",
+      "type": "string",
+      "description": "Success message with path"
+    }
+  ],
+  "config": {
+    "toolType": "write-block"
+  },
+  "metadata": {
+    "category": "maestro-domain",
+    "tags": ["block", "write", "domain"]
+  },
+  "capabilities": ["domain", "block-management"]
+}

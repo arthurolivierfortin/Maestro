@@ -223,6 +223,10 @@ interface AgentScreenProps {
   lastOutput?: string | null;
   repoPath?: string | null;
   activeAgent?: string | null;
+  /** Widget focus management (Phase 63-B) */
+  focusedWidgetId?: string | null;
+  collapsedWidgets?: Set<string>;
+  onWidgetClose?: (widgetId: string) => void;
 }
 
 const AgentScreen = ({
@@ -238,6 +242,9 @@ const AgentScreen = ({
   lastOutput = null,
   repoPath = null,
   activeAgent = null,
+  focusedWidgetId = null,
+  collapsedWidgets,
+  onWidgetClose,
 }: AgentScreenProps) => {
   const { stdout } = useStdout();
   const [showQuitConfirm, setShowQuitConfirm] = useState(false);
@@ -328,7 +335,16 @@ const AgentScreen = ({
         canScrollUp: scrollOffset < lines.length - conversationHeight,
         canScrollDown: scrollOffset > 0,
       },
-        h(ConversationLog, { lines, height: conversationHeight, width: conversationWidth, scrollOffset }),
+        h(ConversationLog, {
+          lines,
+          height: conversationHeight,
+          width: conversationWidth,
+          scrollOffset,
+          focusedWidgetId,
+          collapsedWidgets,
+          onWidgetClose,
+          apiClient,
+        }),
       ),
 
       // Actions (right, fixed width)

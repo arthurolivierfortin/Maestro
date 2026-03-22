@@ -1,0 +1,49 @@
+{
+  "id": "write-test-suite",
+  "name": "Write Test Suite",
+  "blockType": "write-test-suite",
+  "version": "1.0.0",
+  "isAtomic": true,
+  "description": "Writes a Maestro test suite to disk. Uses the contractId to determine the filename. Encapsulates naming conventions.",
+  "inputs": [
+    {
+      "id": "testSuiteJson",
+      "name": "Test Suite JSON",
+      "type": "string",
+      "required": true,
+      "description": "The full test suite JSON content"
+    },
+    {
+      "id": "contractId",
+      "name": "Contract ID",
+      "type": "string",
+      "required": false,
+      "description": "The contract ID. If omitted, extracted from 'contractId' field in testSuiteJson."
+    }
+  ],
+  "outputs": [
+    {
+      "id": "contractId",
+      "type": "string",
+      "description": "The contract ID"
+    },
+    {
+      "id": "testSuitePath",
+      "type": "string",
+      "description": "The resolved file path where the test suite was written"
+    },
+    {
+      "id": "result",
+      "type": "string",
+      "description": "Success message with path and size"
+    }
+  ],
+  "config": {
+    "toolType": "write-test-suite"
+  },
+  "metadata": {
+    "category": "maestro-domain",
+    "tags": ["test-suite", "write", "domain", "contract"]
+  },
+  "capabilities": ["domain", "testing"]
+}

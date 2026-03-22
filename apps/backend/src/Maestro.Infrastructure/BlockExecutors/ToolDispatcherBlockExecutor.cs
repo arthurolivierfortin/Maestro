@@ -65,6 +65,9 @@ public class ToolDispatcherBlockExecutor : IBlockExecutor
             if (mappedId != null)
             {
                 result.Logs.Add($"Tool '{toolId}' mapped to '{mappedId}' via _toolMapping");
+                // Store the original tool ID so capture blocks (especially capture-generic)
+                // can record which tool was originally called.
+                context.Variables["_lastDispatchedToolId"] = toolId;
                 toolId = mappedId;
             }
         }

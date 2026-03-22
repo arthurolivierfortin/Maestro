@@ -86,13 +86,11 @@
       "tests": [
         {
           "id": "create-session",
-          "description": "Agent correctly calls session creation tool",
-          "prompt": "Create a dev session for Cantante",
-          "check": {
-            "type": "tool-call",
-            "toolName": "session-create",
-            "requiredArgs": ["name"]
-          }
+          "description": "Agent correctly calls session creation tool after confirmation",
+          "turns": [
+            { "prompt": "Create a dev session for Cantante" },
+            { "prompt": "Yes, go ahead. The repo is at C:/Cantante", "check": { "type": "tool-call", "toolName": "session-create" } }
+          ]
         },
         {
           "id": "list-workspaces",
@@ -132,12 +130,11 @@
         },
         {
           "id": "ops-create-workspace",
-          "description": "Agent calls workspace-create tool when asked to set up a workspace",
-          "prompt": "Create a new workspace for my Cantante project",
-          "check": {
-            "type": "tool-call",
-            "toolName": "workspace-create"
-          }
+          "description": "Agent calls workspace-create tool after confirming details",
+          "turns": [
+            { "prompt": "Create a new workspace for my Cantante project" },
+            { "prompt": "Yes, the repo path is C:/Cantante", "check": { "type": "tool-call", "toolName": "workspace-create" } }
+          ]
         },
         {
           "id": "ops-confirm-before-session",

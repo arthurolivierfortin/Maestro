@@ -59,7 +59,7 @@ export class MaestroClient {
   constructor(options: MaestroClientOptions = {}) {
     const transportOpts: HttpTransportOptions = {
       baseUrl: options.baseUrl ?? 'http://localhost:5000',
-      timeout: options.timeout ?? 30000,
+      timeout: options.timeout ?? 600000,
       retryAttempts: options.retryAttempts ?? 3,
       retryDelay: options.retryDelay ?? 1000,
       debug: options.debug ?? false,

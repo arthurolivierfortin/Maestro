@@ -6446,6 +6446,7 @@ ${c.bold('Options:')}
   --no-splash           Skip the startup splash screen
   --demo                Run in demo mode (mock execution without backend)
   --no-bell             Disable terminal bell notifications
+  --classic             Restore the old multi-page navigation (NavBar + hotkeys)
 
 ${c.bold('Examples:')}
   maestro code                                   Interactive TUI mode
@@ -6517,6 +6518,7 @@ ${c.bold('Examples:')}
         },
         demo: isDemoMode,
         noBell: argv['no-bell'] || argv.noBell || false,
+        classic: argv.classic || false,
       });
     }
 

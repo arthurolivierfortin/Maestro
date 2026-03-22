@@ -1,0 +1,18 @@
+{
+  "id": "validate-test-suite",
+  "name": "Validate Test Suite",
+  "blockType": "validate-test-suite",
+  "version": "1.0.0",
+  "isAtomic": true,
+  "description": "Validates a test suite JSON against domain rules: feature coverage, check type variety, required fields, minimum tests per feature.",
+  "inputs": [
+    { "id": "testSuiteJson", "type": "string", "required": true, "description": "The test suite JSON to validate" },
+    { "id": "contractJson", "type": "string", "required": false, "description": "The contract JSON to check coverage against" }
+  ],
+  "outputs": [
+    { "id": "valid", "type": "string", "description": "'true' or 'false'" },
+    { "id": "errors", "type": "string", "description": "Semicolon-separated list of validation errors" },
+    { "id": "errorCount", "type": "string", "description": "Number of errors found" }
+  ],
+  "metadata": { "category": "maestro-domain", "tags": ["validation", "test-suite", "domain"] }
+}

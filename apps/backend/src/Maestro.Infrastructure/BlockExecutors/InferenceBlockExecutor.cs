@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Maestro.Application.DTOs;
@@ -68,12 +69,21 @@ public class InferenceBlockExecutor : LLMBlockExecutorBase
             }
         }
 
-        // If inputs contain pre-built messages (e.g. from agent config.nodes), use them directly.
-        // The inference block is a pure pass-through — it doesn't manage conversations.
+        // If inputs contain pre-built messages (e.g. from agent config.nodes or workflow nodes),
+        // use them directly. If a systemPrompt is also available, prepend it as a system message
+        // so the LLM has context for generation.
         LLMRequest request;
         if (inputs.ContainsKey("messages"))
         {
             var messages = ParseMessages(inputs["messages"]);
+
+            // Prepend systemPrompt as a system message if available and not already present
+            if (!string.IsNullOrEmpty(systemPrompt)
+                && !messages.Any(m => string.Equals(m.Role, "system", StringComparison.OrdinalIgnoreCase)))
+            {
+                messages.Insert(0, ChatMessage.System(systemPrompt));
+            }
+
             request = new LLMRequest
             {
                 ModelId = modelId,

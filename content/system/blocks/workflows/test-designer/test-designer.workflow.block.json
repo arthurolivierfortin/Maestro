@@ -1,0 +1,107 @@
+{
+  "id": "test-designer",
+  "name": "Test Designer",
+  "blockType": "workflow",
+  "version": "2.0.0",
+  "isAtomic": false,
+  "description": "Workflow that reads a contract and generates a comprehensive test suite. Uses inference for test design, specialized blocks for reading, writing, and validation.",
+  "contract": "test-designer",
+  "capabilities": ["structured-output", "tool-calling"],
+  "inputs": [
+    { "id": "contractId", "type": "string", "required": true, "description": "ID of the contract to generate tests for" }
+  ],
+  "outputs": [
+    { "id": "testSuiteJson", "type": "string", "description": "The generated test suite JSON" },
+    { "id": "testSuitePath", "type": "string", "description": "Path to the written test suite file" }
+  ],
+  "config": {
+    "nodes": [
+      {
+        "id": "read-contract",
+        "blockRef": "read-contract",
+        "inputs": { "contractId": "{{contractId}}" }
+      },
+      {
+        "id": "generate-tests",
+        "blockRef": "inference",
+        "config": {
+          "model": "claude-opus-4-6",
+          "maxTokens": 8192,
+          "temperature": 0.2,
+          "systemPrompt": "You are a Maestro test designer. Given a contract JSON, generate a comprehensive test suite.\n\nTest suite format:\n{\n  \"contractId\": \"the-contract-id\",\n  \"contractVersion\": \"1.0.0\",\n  \"generatedAt\": \"ISO-timestamp\",\n  \"generator\": \"test-designer\",\n  \"features\": {\n    \"feature-id\": {\n      \"tests\": [\n        {\n          \"id\": \"unique-kebab-id\",\n          \"description\": \"What this tests\",\n          \"prompt\": \"Message sent to the block\",\n          \"check\": { \"type\": \"check-type\", ... }\n        }\n      ]\n    }\n  },\n  \"totalTests\": N,\n  \"summary\": \"Generated N tests across M features\"\n}\n\nRules:\n- Generate 2-4 tests per feature\n- Use at least 3 different check types across all tests\n- Check types: non-empty (minLength?), contains (value), contains-all (values[]), contains-any (values[]), does-not-contain (values[]), tool-call (toolName, requiredArgs?), json-parseable, regex (pattern, flags?)\n- Tests must be self-contained\n- Include at least one constraint test (does-not-contain) per contract\n- Test IDs must be unique kebab-case\n\nRespond with ONLY the JSON. No explanation."
+        },
+        "inputs": {
+          "messages": "[{\"role\":\"user\",\"content\":\"Generate a test suite for this contract:\\n{{_nodeResult_read-contract.contractJson}}\"}]"
+        }
+      },
+      {
+        "id": "write-tests",
+        "blockRef": "write-test-suite",
+        "inputs": {
+          "testSuiteJson": "{{_nodeResult_generate-tests.content}}",
+          "contractId": "{{contractId}}"
+        }
+      },
+      {
+        "id": "set-initial-suite",
+        "type": "set-variable",
+        "variable": "testSuiteJson",
+        "value": "{{_nodeResult_generate-tests.content}}"
+      },
+      {
+        "id": "validate",
+        "blockRef": "validate-test-suite",
+        "inputs": {
+          "testSuiteJson": "{{_nodeResult_generate-tests.content}}",
+          "contractJson": "{{_nodeResult_read-contract.contractJson}}"
+        }
+      },
+      {
+        "id": "check-valid",
+        "type": "conditional",
+        "condition": "{{_nodeResult_validate.valid}}",
+        "branches": {
+          "true": {
+            "nodes": [
+              { "id": "set-suite", "type": "set-variable", "variable": "testSuiteJson", "value": "{{_nodeResult_generate-tests.content}}" },
+              { "id": "set-path", "type": "set-variable", "variable": "testSuitePath", "value": "{{_nodeResult_write-tests.testSuitePath}}" }
+            ]
+          },
+          "false": {
+            "nodes": [
+              {
+                "id": "fix-tests",
+                "blockRef": "inference",
+                "config": {
+                  "model": "claude-opus-4-6",
+                  "maxTokens": 8192,
+                  "temperature": 0.2,
+                  "systemPrompt": "You are a Maestro test designer. The test suite you generated has validation errors. Fix them.\n\nRules:\n- 2-4 tests per feature, at least 3 different check types\n- Every feature in the contract must be covered\n- Each test needs id, prompt, and check\n- Required fields: contractId, features, totalTests\n\nRespond with ONLY the corrected JSON."
+                },
+                "inputs": {
+                  "messages": "[{\"role\":\"user\",\"content\":\"Errors: {{_nodeResult_validate.errors}}\\n\\nOriginal test suite:\\n{{_nodeResult_generate-tests.content}}\\n\\nContract:\\n{{_nodeResult_read-contract.contractJson}}\\n\\nFix and return corrected JSON only.\"}]"
+                }
+              },
+              {
+                "id": "write-fixed",
+                "blockRef": "write-test-suite",
+                "inputs": {
+                  "testSuiteJson": "{{_nodeResult_fix-tests.content}}",
+                  "contractId": "{{contractId}}"
+                }
+              },
+              { "id": "set-fixed-suite", "type": "set-variable", "variable": "testSuiteJson", "value": "{{_nodeResult_fix-tests.content}}" },
+              { "id": "set-fixed-path", "type": "set-variable", "variable": "testSuitePath", "value": "{{_nodeResult_write-fixed.testSuitePath}}" }
+            ]
+          }
+        }
+      }
+    ]
+  },
+  "metadata": {
+    "category": "block-forge",
+    "designation": "workflow",
+    "tags": ["testing", "generation", "block-forge"],
+    "tier": 1
+  }
+}

@@ -4,7 +4,7 @@
   "blockType": "workflow",
   "version": "1.0.0",
   "isAtomic": false,
-  "description": "End-to-end pipeline that creates a block from a description. Orchestrates test-designer (to generate tests from a contract) and agent-creator (to create the block and iterate until it passes). Checks fitness against a threshold and consolidates results.",
+  "description": "End-to-end pipeline that creates a block from a description. Orchestrates test-designer (to generate tests from a contract) and block-creator (to create the block and iterate until it passes). Checks fitness against a threshold and consolidates results.",
   "contract": "block-forge",
   "capabilities": ["orchestration", "tool-calling"],
   "inputs": [
@@ -39,41 +39,25 @@
         }
       },
       {
-        "id": "construct-td-message",
-        "type": "set-variable",
-        "variable": "_tdConversationHistory",
-        "value": "[{\"role\":\"user\",\"content\":\"Design a comprehensive test suite for the contract '{{contractId}}'. Read the contract definition, analyze its features and requirements, then generate test configurations (prompt + check pairs) that thoroughly verify whether a block meets the contract. Write the test suite files to the output directory.\"}]"
-      },
-      {
         "id": "call-test-designer",
         "blockRef": "test-designer",
         "inputs": {
-          "contractId": "{{contractId}}",
-          "outputDir": "/tmp/block-forge/{{_sessionId}}",
-          "conversationHistory": "{{_tdConversationHistory}}"
+          "contractId": "{{contractId}}"
         }
       },
       {
-        "id": "construct-ac-message",
-        "type": "set-variable",
-        "variable": "_acConversationHistory",
-        "value": "[{\"role\":\"user\",\"content\":\"Create a block that does the following: {{description}}. It should implement the '{{contractId}}' contract. Use the test results from the test designer to guide your implementation. Iterate until the block passes all contract tests.\"}]"
-      },
-      {
-        "id": "call-agent-creator",
-        "blockRef": "agent-creator",
+        "id": "call-block-creator",
+        "blockRef": "block-creator",
         "inputs": {
           "description": "{{description}}",
           "contractId": "{{contractId}}",
-          "targetModel": "{{targetModel}}",
-          "baseBlockId": "{{baseBlockId}}",
-          "conversationHistory": "{{_acConversationHistory}}"
+          "targetModel": "{{targetModel}}"
         }
       },
       {
         "id": "check-fitness",
         "type": "conditional",
-        "condition": "{{_nodeResult_call-agent-creator.fitness}} >= {{targetFitness}}",
+        "condition": "{{_nodeResult_call-block-creator.fitness}} >= {{targetFitness}}",
         "then": {
           "nodes": [
             {
@@ -99,7 +83,7 @@
         "id": "set-result-blockId",
         "type": "set-variable",
         "variable": "blockId",
-        "value": "{{_nodeResult_call-agent-creator.blockId}}"
+        "value": "{{_nodeResult_call-block-creator.blockId}}"
       },
       {
         "id": "set-result-contractId",
@@ -111,7 +95,7 @@
         "id": "set-result-fitness",
         "type": "set-variable",
         "variable": "fitness",
-        "value": "{{_nodeResult_call-agent-creator.fitness}}"
+        "value": "{{_nodeResult_call-block-creator.fitness}}"
       },
       {
         "id": "set-result-published",
@@ -123,7 +107,7 @@
         "id": "set-result-testResults",
         "type": "set-variable",
         "variable": "testResults",
-        "value": "{{_nodeResult_call-agent-creator.testResults}}"
+        "value": "{{_nodeResult_call-block-creator.testResults}}"
       }
     ]
   },

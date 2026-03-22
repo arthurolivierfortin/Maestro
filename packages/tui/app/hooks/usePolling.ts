@@ -70,6 +70,10 @@ export function usePolling<T>(fetchFn: () => Promise<T>, interval: number = 3000
 
   useEffect(() => {
     mountedRef.current = true;
+    // interval <= 0 means "don't poll" (widget not focused)
+    if (interval <= 0) {
+      return () => { mountedRef.current = false; };
+    }
     refresh();
     const timer = setInterval(refresh, interval);
     return () => {

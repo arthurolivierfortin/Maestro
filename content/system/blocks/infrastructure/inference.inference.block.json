@@ -15,7 +15,7 @@
     { "id": "response", "type": "string", "description": "LLM response content (alias)" }
   ],
   "config": {
-    "model": "claude-sonnet-4-6",
+    "model": "claude-opus-4-6",
     "maxTokens": 4096,
     "temperature": 0
   },

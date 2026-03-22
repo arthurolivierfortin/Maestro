@@ -17,11 +17,15 @@ export { Artifacts } from './Artifacts.ts';
 
 // Screens (copied from monitor)
 export { SessionMonitor } from './SessionMonitor.ts';
-export { HomeScreen } from './HomeScreen.ts';
-export { SpacesScreen } from './SpacesScreen.ts';
-export { FoundryScreen } from './FoundryScreen.ts';
-export { CatalogScreen } from './CatalogScreen.ts';
-export { ModelsScreen } from './ModelsScreen.ts';
+export { ChatFirstScreen } from './ChatFirstScreen.ts';
+export { ChatStatusBar } from './ChatStatusBar.ts';
+
+// Legacy page screens (--classic mode only)
+export { HomeScreen } from './legacy/HomeScreen.ts';
+export { SpacesScreen } from './legacy/SpacesScreen.ts';
+export { FoundryScreen } from './legacy/FoundryScreen.ts';
+export { CatalogScreen } from './legacy/CatalogScreen.ts';
+export { ModelsScreen } from './legacy/ModelsScreen.ts';
 
 // Detail views (copied from monitor)
 export { BlockDetail } from './BlockDetail.ts';
