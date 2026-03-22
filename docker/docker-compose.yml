@@ -60,6 +60,8 @@ services:
       - ~/.claude/.credentials.json:/home/node/.claude/.credentials.json:ro
       - ~/.github-apps:/home/node/.github-apps:ro
       - ../.env:/app/.env:ro
+      # Reference projects (read-only — for learning patterns, not modifying)
+      - C:/Money:/ref/Money:ro
 
     ports:
       - "8503:8501"
