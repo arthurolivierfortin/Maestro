@@ -7,23 +7,37 @@
 
 ## Vision strategique (mise a jour 2026-03-22)
 
-> **Option C : Orchestrer maintenant, specialiser plus tard.**
+> **Meme destination, chemin different.**
 >
-> **Court terme** : Maestro orchestre Claude Code (et autres providers) — fournissant ce que
-> Claude Code ne peut pas faire seul : permissions granulaires, isolation par session,
-> gestion multi-projet, fitness tracking, catalogue, integration GitHub.
+> Maestro centralise la gestion de projets autonomes (Money, Cantante, Maestro lui-meme).
+> Chaque projet a des agents Claude Code dans des containers Docker.
+> Maestro orchestre le tout : workspaces, sessions, blocks, contracts, fitness.
 >
-> **Moyen terme** : Block-forge cree des agents specialises qui remplacent progressivement
-> les appels Opus par des Haiku/Sonnet/local sur des taches contraintes.
-> Metrique de succes : meme fitness, cout reduit.
+> **V1** : Dashboard Streamlit = centre de controle.
+> Les agents sont des containers Claude Code persistants avec memoire.
+> Le dashboard les surveille et les controle (start/stop/logs/attach).
+> maestro-assistant = un shell Claude Code avec acces a tous les projets.
+> Service layer avec mapper : chaque concept Maestro pointe vers son implementation Claude Code.
 >
-> **Reference** : Le projet Money (`C:\Money`) a un pipeline autonome complet
-> (Docker + Claude Code + GitHub App + 5 agents + hooks + dashboard).
-> Maestro doit faire la meme chose, mais mieux — puis se remplacer lui-meme.
+> **V2** : Maestro remplace Claude Code comme moteur d'agent.
+> Le mapper switch : containers → vraies sessions Maestro, .md agents → vrais blocks.
+> Page Agent = chat integre dans le dashboard (conversation geree par le backend).
+> Block-forge cree des agents specialises (contrats, fitness, /adapt).
 >
-> **Self-hosting progressif** : On monte un setup Money-like pour developper Maestro.
-> Chaque phase V1 integre dans Maestro une piece de ce setup externe.
-> Quand la V1 est livree, Maestro se gere lui-meme.
+> **V3** : TUI Ink + interface web React.
+> Meme backend, meme API, differents renderers.
+> maestro-assistant fait la meme chose qu'en V1 mais nativement via blocks.
+> C'est la meme destination que l'ancien roadmap pre-pivot, avec l'experience acquise en V1/V2.
+>
+> **Mapper architecture** : Service layer Python entre le dashboard et l'implementation.
+> Switch V1→V2 = changer l'implementation des services, zero changement aux pages.
+> ```
+> WorkspaceService  V1: ~/.maestro/projects.json + docker-compose    V2: API /api/workspaces
+> SessionService    V1: docker compose up/down/inspect               V2: API /api/sessions
+> BlockService      V1: .claude/agents/*.md + .claude/skills/        V2: API /api/blocks
+> AgentService      V1: docker exec/attach (Claude Code persistent)  V2: API /api/sessions/invoke
+> ContractService   V1=V2: API /api/contracts (deja natif)
+> ```
 
 ### Concepts fondamentaux (inchanges)
 
@@ -100,114 +114,117 @@
 | 63 | TUI Chat-First (chat-first paradigm, FocusProvider, widgets) | COMPLETE |
 | 64 | Agents Fonctionnels — infra (64-A a 64-E DONE, block-forge → V2) | COMPLETE (partiel) |
 
-### Phase 64 — Detail
+---
 
-Les sous-phases d'infrastructure sont terminees :
-- 64-A : `_toolMapping` + 4 capture blocks + 20 tests
-- 64-B : Provider conflict detection + priority API + 11 tests
-- 64-C : agent-creator 9/9, performance 1.0
-- 64-D0 : capture-generic + summary-validator + 9 tests
-- 64-E : maestro-assistant 24/24, performance 1.0
+## V1 — Dashboard Streamlit + Claude Code containers
 
-Bugs infra fixes (2026-03-20) :
-- InferenceBlockExecutor : systemPrompt + messages
-- WriteContractBlockExecutor / WriteTestSuiteBlockExecutor / WriteBlockBlockExecutor : markdown fences
-- WorkflowBlockExecutor : output filtering
-- SetVariableNodeHandler : JSON auto-parse destructif
-- ContractTestRunner : SerializeOutputValue pour List/JObject
-- MaestroClient : timeout 30s → 600s
-
-Le block-forge pipeline (64-F/G/T : contract-definer, test-designer, block-creator) est reporte en V2.
-Le contract-definer workflow fonctionne (12/12, performance 1.0) comme preuve de concept.
+> **Le dashboard est un centre de controle, PAS une interface conversationnelle.**
+> Les agents vivent dans des containers Docker et gerent leur propre conversation.
+> Le dashboard les surveille et les controle.
+> maestro-assistant = shell Claude Code avec acces multi-projet.
 
 ---
 
-## V1 — Maestro comme plateforme d'orchestration
+### Phase 65 : Pipeline Claude Code + Dashboard V1
 
-> Chaque phase integre dans Maestro une piece du setup externe (Claude Code pipeline).
-> Quand la V1 est livree, Maestro se gere lui-meme.
-
----
-
-### Phase 65 : Pipeline Claude Code pour dev Maestro
-
-**But** : Monter un setup autonome (base sur Money) pour developper Maestro lui-meme.
-Ce pipeline est utilise pour construire les phases suivantes.
+**But** : Setup autonome (base sur Money) + dashboard Streamlit comme interface principale.
 
 **Reference** : `C:\Money\docs\AUTONOMOUS-ARCHITECTURE.md`
 
-| Composant | Description |
-|-----------|-------------|
-| 2 containers | maestro-main (backend, services) + maestro-dev (Claude Code agents) |
-| Agents | /health, /improve, /dev-cycle (/think + /build + /review) |
-| GitHub App | Auth bot, commits, PRs, branch protection (feat/* → dev → main) |
-| Hooks | PreToolUse (safety), PostToolUse (auto-test) |
-| Task coordination | Locks, verdicts (JSON files), backlog management |
-| MCP server | maestro-tools (build, test, session create, block list, contract test) |
-| Dashboard | Streamlit ou TUI Maestro existant |
+| Sous-phase | Objectif | Statut |
+|------------|----------|--------|
+| 65-A | Infrastructure Docker (2 containers, entrypoints, helper scripts) | DONE |
+| 65-B | Deployer + GitHub App auth | DONE |
+| 65-C | Hooks securite (PreToolUse, PostToolUse) | DONE |
+| 65-D | Agents (.md) + Skills (7 slash commands) | DONE |
+| 65-E | MCP server maestro-tools (7 tools) | DONE |
+| 65-F | Dashboard Streamlit enrichi — pages et service layer | A FAIRE |
+| 65-G | maestro-assistant container (Claude Code multi-projet) | A FAIRE |
+| 65-T | Validation Docker build + /dev-cycle E2E | A FAIRE |
 
-**Prerequis** : Setup Money finalise (on adapte sa structure).
+**65-F : Dashboard enrichi**
 
-**Gate** : Pipeline autonome qui peut creer une branche, implementer une feature, tester, ouvrir un PR, merger.
+Pages (memes que le TUI, adaptees pour Streamlit) :
+- **Agent** : panneau de controle de maestro-assistant (status, logs, attach terminal). PAS de chat en V1.
+- **Spaces** : workspaces (projets) + sessions (containers Docker). Start/stop/rebuild.
+- **Catalog** : blocks = agents `.md` + skills de tous les projets connectes.
+- **Models** : status des LLM providers.
+- **Monitor** : agent monitoring (logs, verdicts, scheduled loops).
+- **Pipeline** : feature backlog (GitHub Issues → PRs → merge).
+
+Service layer (mapper V1→V2) :
+```
+dashboard/
+  pages/
+    agent.py, spaces.py, catalog.py, models.py, monitor.py, pipeline.py
+  services/
+    workspace_service.py    V1: ~/.maestro/projects.json + docker-compose
+    session_service.py      V1: docker compose up/down/inspect
+    block_service.py        V1: lit .claude/agents/*.md + .claude/skills/
+    agent_service.py        V1: docker exec/attach
+    contract_service.py     V1=V2: API /api/contracts (deja natif)
+    health_service.py       V1: docker inspect + curl endpoints
+  config.py                 Lit ~/.maestro/projects.json
+```
+
+**65-G : maestro-assistant**
+
+Un container Claude Code persistant avec :
+- Acces a tous les projets connectes (via volumes ou git clone)
+- CLAUDE.md qui decrit Maestro et ses projets
+- Skills : /create-agent, /add-feature, /explain, /status
+- MCP tools pour interagir avec le backend Maestro
+
+**Gate** :
+- Dashboard Streamlit avec 6 pages fonctionnelles
+- Service layer avec interfaces pour switch V2
+- maestro-assistant repond aux questions et cree des agents
+- /dev-cycle produit un PR end-to-end
+- ~/.maestro/projects.json avec Money et Maestro enregistres
 
 ---
 
-### Phase 66 : GitHub Integration dans Maestro
+### Phase 66 : GitHub Integration dans le backend
 
-**But** : Integrer dans le backend Maestro ce que `gh_app_auth.py` et `deployer.py` font en externe.
+**But** : Le backend Maestro gere GitHub nativement. Le mapper GitHubService switch de scripts Python → API backend.
 
 | Sous-phase | Objectif |
 |------------|----------|
-| 66-A | API : connecter un repo (git remote, GitHub App auth) |
+| 66-A | API : connecter un repo (GitHub App auth dans le backend) |
 | 66-B | API : creer PR, push, merge, branch management |
-| 66-C | Webhook receiver (push → trigger workflow Maestro) |
+| 66-C | Webhook receiver (push → trigger workflow) |
 | 66-D | CLI : `maestro project connect <repo>` |
 
-**Remplace** : `scripts/gh_app_auth.py`, integration GitHub manuelle
-
-**Gate** : Maestro peut creer un PR sur un repo connecte via son API.
+**Mapper switch** : `gh_app_auth.py` + `deployer.py` → API endpoints dans le backend.
 
 ---
 
-### Phase 67 : Agent Runtime + Mapper
+### Phase 67 : Agent Runtime + Mapper backend
 
-**But** : Maestro lance et gere des agents (aujourd'hui Claude Code, demain natif).
+**But** : Le backend Maestro lance et gere des agents. Le mapper SessionService switch de Docker → API.
 
 | Sous-phase | Objectif |
 |------------|----------|
-| 67-A | Interface `IAgentRuntime` + `ClaudeCodeRuntime` |
+| 67-A | Interface `IAgentRuntime` + `ClaudeCodeRuntime` dans le backend C# |
 | 67-B | Session Maestro → processus Claude Code (isolation, permissions) |
-| 67-C | Lifecycle : start, stop, restart, status, logs |
+| 67-C | Lifecycle : start, stop, restart, status, logs via API |
 | 67-D | CLI : `maestro agent start/stop/status` |
 
-**Remplace** : `process_manager.py`, docker manage scripts
-
-**Gate** : Maestro peut lancer un agent Claude Code, l'isoler dans une session, et recuperer ses resultats.
-
-**Le mapper** :
-```
-interface IAgentRuntime
-    ExecuteAsync(config, session) → result
-
-ClaudeCodeRuntime   ← court terme (lance claude --dangerously-skip-permissions)
-MaestroNativeRuntime ← moyen terme (execute via blocks/workflows)
-```
+**Mapper switch** : `docker compose` + `process_manager.py` → `POST /api/agents/start`
 
 ---
 
-### Phase 68 : Agent Dashboard dans Maestro
+### Phase 68 : Chat integre (debut V2)
 
-**But** : Le TUI/frontend Maestro remplace le dashboard externe (Streamlit dans Money).
+**But** : La page Agent passe de "panneau de controle" a "chat integre". La conversation est geree par le backend Maestro (ConversationManager), plus par Claude Code.
 
 | Sous-phase | Objectif |
 |------------|----------|
-| 68-A | Monitoring agents : status, logs, verdicts en temps reel |
-| 68-B | Controle : start/stop/restart agents depuis le TUI |
-| 68-C | Historique : journal d'ameliorations, deploy state |
+| 68-A | ConversationService : V2 implementation (API backend) |
+| 68-B | Page Agent : chat Streamlit connecte a l'API conversation |
+| 68-C | maestro-assistant : block agent natif (block.json + system-prompt.md) |
 
-**Remplace** : Streamlit dashboard
-
-**Gate** : L'utilisateur peut surveiller et controler ses agents depuis maestro-code.
+**Mapper switch** : `docker exec claude -p` → `POST /api/sessions/{id}/invoke` avec streaming.
 
 ---
 
@@ -219,10 +236,8 @@ MaestroNativeRuntime ← moyen terme (execute via blocks/workflows)
 |------------|----------|
 | 69-A | Packaging npm, commande globale, sidecar auto-start |
 | 69-B | `maestro init` + onboarding (provider, repo, premier agent) |
-| 69-C | Documentation : README, Getting Started |
-| 69-D | `maestro project add ./my-app` — setup complet via Maestro |
-
-**Gate** : Un utilisateur installe, connecte son repo, lance un agent, et voit les resultats.
+| 69-C | `maestro project add ./my-app` — setup complet via Maestro |
+| 69-D | Documentation : README, Getting Started |
 
 ---
 
@@ -234,47 +249,52 @@ MaestroNativeRuntime ← moyen terme (execute via blocks/workflows)
 
 ---
 
-## V2 — Specialisation et optimisation
+## V2 — Maestro remplace Claude Code
 
-> Maestro remplace progressivement les gros modeles par des agents specialises.
-> Metrique de succes : meme fitness, cout reduit.
+> Le mapper switch progressivement : chaque service pointe vers le vrai backend Maestro.
+> Block-forge cree des agents specialises. /adapt optimise pour differents modeles.
 
 ---
 
 ### Phase 71 : Block-forge pipeline
 
-Le pipeline de creation d'agents specialises (ex-Phase 64 F/G/T) :
-- contract-definer → test-designer → block-creator
-- Workflows multi-nodes, pas des LLM generalistes
-- Contract-definer deja valide (12/12)
-
----
+contract-definer → test-designer → block-creator (deja valide en Phase 64).
 
 ### Phase 72 : /adapt + contractRef
 
-`/adapt` utilise block-forge pour creer des variantes optimisees pour un modele/hardware.
-
----
+Variantes optimisees par modele/hardware.
 
 ### Phase 73 : Production variantes
 
-~30 implementations du contract `maestro-assistant` avec capabilities verifiees.
-
----
+~30 implementations avec capabilities verifiees.
 
 ### Phase 74 : Catalog par contract + choix au setup
 
-L'utilisateur voit les implementations compatibles avec son hardware.
+L'utilisateur voit les implementations compatibles.
 
 ---
 
-### Phase 75 : Self-improvement loop
+## V3 — Multi-interface
 
-Maestro s'ameliore lui-meme — observe, diagnostique, propose, implemente.
+> TUI Ink + interface web React. Meme backend, meme API.
+> C'est la meme destination que l'ancien roadmap pre-pivot.
 
 ---
 
-### Phase 76 : Catalogue communautaire
+### Phase 75 : TUI Ink revival
+
+Reutilise le TUI existant (packages/maestro-code) avec le vrai backend V2.
+Les composants Ink parlent a la meme API que le dashboard Streamlit.
+
+### Phase 76 : Interface web React
+
+React SPA connectee a l'API Maestro. Reutilise @maestro/client.
+
+### Phase 77 : Self-improvement loop
+
+Maestro s'ameliore lui-meme.
+
+### Phase 78 : Catalogue communautaire
 
 Publier et importer des blocks. Auth. Marketplace.
 
@@ -286,33 +306,38 @@ Publier et importer des blocks. Auth. Marketplace.
 === Phases completees ===
 4-64 : Infrastructure, blocks, sessions, execution, TUI, contracts, isolation, agents infra
 
-=== V1 : Orchestration ===
-65 Pipeline Claude Code pour dev Maestro (quand Money est pret)
- └→ 66 GitHub Integration dans Maestro
-     └→ 67 Agent Runtime + Mapper
-         └→ 68 Agent Dashboard
+=== V1 : Dashboard + Claude Code containers ===
+65 Pipeline CC + Dashboard Streamlit + maestro-assistant [EN COURS]
+ └→ 66 GitHub Integration backend
+     └→ 67 Agent Runtime + Mapper backend
+         └→ 68 Chat integre (debut V2)
              └→ 69 Onboarding + npm
                  └→ 70 V1 Deploy + Beta
 
-=== V2 : Specialisation ===
+=== V2 : Maestro native ===
 71 Block-forge pipeline
  └→ 72 /adapt + contractRef
      └→ 73 Production variantes
          └→ 74 Catalog par contract
-             └→ 75 Self-improvement loop
-                 └→ 76 Catalogue communautaire
+
+=== V3 : Multi-interface ===
+75 TUI Ink revival
+76 Interface web React
+77 Self-improvement loop
+78 Catalogue communautaire
 ```
 
 ---
 
 ## Principes
 
-1. **Option C** — Orchestrer Claude Code maintenant, specialiser avec blocks plus tard
-2. **Self-hosting progressif** — Chaque phase V1 remplace une piece du setup externe
-3. **Livrer avant de perfectionner** — V1 imparfaite > V2 jamais livree
-4. **Pas de couplage fort** — Le mapper IAgentRuntime permet de switcher de provider
-5. **Money est la reference** — `C:\Money\docs\AUTONOMOUS-ARCHITECTURE.md`
-6. **Max 3 jours par phase** — Decouper si necessaire
-7. **Infrastructure solide AVANT les modeles** — Fixer les bugs, verifier le provider, puis creer les agents
-8. **Tout est un block** — Si c'est dans le moteur d'execution, c'est un block
-9. **Contract > Features > Capabilities > Tests** — Le contract definit le role verifiable
+1. **V1 = centre de controle** — Dashboard Streamlit surveille et controle des agents Claude Code
+2. **V2 = Maestro natif** — Le mapper switch, le chat arrive dans le dashboard
+3. **V3 = meme destination** — TUI + web, le meme resultat que l'ancien roadmap
+4. **Mapper au niveau service** — Switch = changer l'implementation, pas les pages
+5. **Container = agent** — Il a sa memoire, son contexte, sa conversation. On le controle, on ne le remplace pas (V1)
+6. **Self-hosting progressif** — Maestro se developpe via son propre pipeline
+7. **Money est la reference** — `C:\Money\docs\AUTONOMOUS-ARCHITECTURE.md`
+8. **Livrer avant de perfectionner** — V1 imparfaite > V2 jamais livree
+9. **Contract > Features > Capabilities > Tests** — Inchange
+10. **Tout est un block** — Inchange (moteur d'execution)

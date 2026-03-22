@@ -2,6 +2,6 @@
 
 **But** : Deployer V1, recruter 3-5 beta testeurs, iterer.
 
-**Statut** : A faire (depend de Phase 69)
+## Gate
 
-Voir roadmap: docs/ROADMAP.md
+3 testeurs externes installent Maestro, connectent un repo, lancent des agents, et accomplissent des taches reelles via le dashboard Streamlit.
