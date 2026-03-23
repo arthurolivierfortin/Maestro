@@ -12,22 +12,12 @@ git config --global user.name "maestro-deployer[bot]"
 git config --global user.email "maestro-deployer[bot]@users.noreply.github.com"
 git config --global --add safe.directory /app
 
-# ── GitHub App auth + set git remote URL with token ──
+# ── GitHub App auth ──
 cd /app
-if [ -n "${GH_APP_ID:-}" ] && ls ~/.github-apps/*.pem 1>/dev/null 2>&1; then
-    TOKEN=$(python3 scripts/gh_app_auth.py 2>/dev/null)
-    if [ -n "$TOKEN" ]; then
-        REPO="${GH_REPO:-}"
-        if [ -z "$REPO" ]; then
-            REPO=$(git remote get-url origin 2>/dev/null | sed -E 's|.*github\.com[:/](.+)(\.git)?$|\1|' | sed 's/\.git$//')
-        fi
-        if [ -n "$REPO" ]; then
-            git remote set-url origin "https://x-access-token:${TOKEN}@github.com/${REPO}.git"
-        fi
-        echo "GitHub App: token applied to git remote"
-    else
-        echo "GitHub App: FAILED to get token"
-    fi
+if [ -n "${GH_APP_ID:-}" ]; then
+    python3 scripts/gh_app_auth.py --setup --force 2>/dev/null && \
+        echo "GitHub App: OK" || \
+        echo "GitHub App: FAILED"
 else
     echo "GitHub App: not configured (set GH_APP_ID in .env)"
 fi
