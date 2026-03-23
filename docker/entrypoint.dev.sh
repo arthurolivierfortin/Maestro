@@ -29,11 +29,15 @@ fi
 echo "" > "$LOGFILE"
 log "=== Maestro Dev Agent ==="
 
-# ── Skip onboarding ──
+# ── Skip onboarding + trust workspace ──
 if [ ! -f ~/.claude.json ] || ! grep -q "hasCompletedOnboarding" ~/.claude.json 2>/dev/null; then
     echo '{"hasCompletedOnboarding":true}' > ~/.claude.json
     log "Onboarding: skipped"
 fi
+
+# Pre-trust the /app directory so Claude doesn't prompt
+mkdir -p ~/.claude/projects/-app
+log "Workspace trust: /app pre-configured"
 
 # ── Claude settings ──
 if [ ! -f ~/.claude/settings.json ]; then
@@ -68,5 +72,13 @@ log "Starting Claude Code (interactive)"
 log "Attach: docker attach maestro-dev"
 log "Tip: type /startup after attaching"
 log "---"
+
+# First run: accept trust prompt non-interactively, then start interactive
+if [ ! -f /app/data/.workspace_trusted ]; then
+    log "First run: accepting workspace trust..."
+    echo "" | claude --dangerously-skip-permissions -p "echo hello" > /dev/null 2>&1 || true
+    touch /app/data/.workspace_trusted
+    log "Workspace trusted"
+fi
 
 exec claude --dangerously-skip-permissions
