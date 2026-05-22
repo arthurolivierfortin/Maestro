@@ -8,12 +8,12 @@ namespace Maestro.Api.Configuration;
 /// </summary>
 public class MemoryPreloaderService : IHostedService
 {
-    private readonly IMemoryManager _memoryManager;
+    private readonly IMemoryProvider _memoryProvider;
     private readonly ILogger<MemoryPreloaderService> _logger;
 
-    public MemoryPreloaderService(IMemoryManager memoryManager, ILogger<MemoryPreloaderService> logger)
+    public MemoryPreloaderService(IMemoryProvider memoryProvider, ILogger<MemoryPreloaderService> logger)
     {
-        _memoryManager = memoryManager;
+        _memoryProvider = memoryProvider;
         _logger = logger;
     }
 
@@ -21,7 +21,7 @@ public class MemoryPreloaderService : IHostedService
     {
         try
         {
-            var stores = await _memoryManager.ListStoresAsync(ct: cancellationToken);
+            var stores = await _memoryProvider.ListStoresAsync(ct: cancellationToken);
             _logger.LogInformation("Memory preloader: loaded {Count} stores at startup", stores.Count);
         }
         catch (Exception ex)
