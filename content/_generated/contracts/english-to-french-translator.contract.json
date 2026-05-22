@@ -1,0 +1,115 @@
+{
+  "id": "english-to-french-translator",
+  "name": "English to French Translator",
+  "version": "1.0.0",
+  "description": "An agent that translates English text to French while preserving proper grammar, idiomatic expressions, and the original tone of the source text.",
+  "requiredCapabilities": ["conversation", "language-translation"],
+  "minimumFitness": 0.3,
+  "features": {
+    "basic-translation": {
+      "description": "Translates simple English sentences to grammatically correct French",
+      "requires": ["conversation"],
+      "weight": 0.3,
+      "minimumScore": 0.7,
+      "tests": [
+        {
+          "id": "simple-sentence",
+          "description": "Translates a simple declarative sentence",
+          "prompt": "Translate to French: The cat is sleeping on the couch.",
+          "check": { "type": "contains", "value": "Le chat dort sur le canapé" }
+        },
+        {
+          "id": "question-form",
+          "description": "Translates a question preserving interrogative form",
+          "prompt": "Translate to French: Where did you buy this book?",
+          "check": { "type": "contains-any", "values": ["Où as-tu acheté ce livre", "Où avez-vous acheté ce livre"] }
+        },
+        {
+          "id": "outputs-french-only",
+          "description": "Output should be in French, not repeat the English",
+          "prompt": "Translate to French: I enjoy walking in the park every morning.",
+          "check": { "type": "does-not-contain", "values": ["I enjoy", "walking in the park", "every morning"] }
+        }
+      ]
+    },
+    "grammar-accuracy": {
+      "description": "Produces translations with correct French grammar including gender agreement, verb conjugation, and article usage",
+      "requires": ["conversation"],
+      "weight": 0.3,
+      "minimumScore": 0.6,
+      "tests": [
+        {
+          "id": "gender-agreement",
+          "description": "Correctly handles feminine/masculine noun agreement",
+          "prompt": "Translate to French: The small white house is beautiful.",
+          "check": { "type": "contains-all", "values": ["maison", "belle"] }
+        },
+        {
+          "id": "verb-conjugation-past",
+          "description": "Correctly conjugates past tense verbs",
+          "prompt": "Translate to French: They went to the market and bought fresh vegetables.",
+          "check": { "type": "contains-any", "values": ["sont allés", "sont allées", "allèrent"] }
+        },
+        {
+          "id": "subjunctive-mood",
+          "description": "Uses subjunctive mood where French grammar requires it",
+          "prompt": "Translate to French: I want him to come before it rains.",
+          "check": { "type": "regex", "pattern": "(?i)(qu'il vienne|avant qu'il (ne )?pleuve)" }
+        }
+      ]
+    },
+    "tone-preservation": {
+      "description": "Preserves the tone and register of the original text — formal stays formal, casual stays casual, emotional stays emotional",
+      "requires": ["conversation"],
+      "weight": 0.25,
+      "minimumScore": 0.5,
+      "tests": [
+        {
+          "id": "formal-register",
+          "description": "Preserves formal tone using vous and formal vocabulary",
+          "prompt": "Translate to French: Dear Sir, I am writing to formally request a meeting at your earliest convenience.",
+          "check": { "type": "contains-all", "values": ["vous", "Monsieur"] }
+        },
+        {
+          "id": "casual-register",
+          "description": "Preserves casual/informal tone using tu and colloquial language",
+          "prompt": "Translate to French: Hey dude, wanna grab some pizza tonight? I'm starving!",
+          "check": { "type": "contains-any", "values": ["tu", "pizza", "faim"] }
+        },
+        {
+          "id": "emotional-tone",
+          "description": "Preserves emotional intensity and exclamatory tone",
+          "prompt": "Translate to French: What an absolutely incredible sunset! I have never seen anything so breathtaking in my entire life!",
+          "check": { "type": "regex", "pattern": "(!.*!|[Qq]uel|[Ii]ncroyable|[Jj]amais)" }
+        }
+      ]
+    },
+    "idiomatic-expressions": {
+      "description": "Translates idioms and expressions into their French equivalents rather than translating word-for-word",
+      "requires": ["conversation"],
+      "weight": 0.15,
+      "minimumScore": 0.5,
+      "tests": [
+        {
+          "id": "avoids-literal-idiom",
+          "description": "Does not translate an idiom word-for-word",
+          "prompt": "Translate to French: It's raining cats and dogs outside.",
+          "check": { "type": "does-not-contain", "values": ["chats et des chiens", "chats et chiens"] }
+        },
+        {
+          "id": "uses-french-idiom",
+          "description": "Uses an appropriate French idiomatic equivalent",
+          "prompt": "Translate to French: He kicked the bucket last winter.",
+          "check": { "type": "contains-any", "values": ["cassé sa pipe", "passé l'arme à gauche", "décédé", "mort", "quitté ce monde"] }
+        },
+        {
+          "id": "non-empty-response",
+          "description": "Always produces a non-empty translation",
+          "prompt": "Translate to French: Break a leg at your performance tonight!",
+          "check": { "type": "non-empty" }
+        }
+      ]
+    }
+  },
+  "scoring": { "method": "weighted-average" }
+}

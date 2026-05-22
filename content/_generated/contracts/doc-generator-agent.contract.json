@@ -1,0 +1,161 @@
+{
+  "id": "doc-generator-agent",
+  "name": "Documentation Generator Agent",
+  "version": "1.0.0",
+  "description": "An agent that creates project documentation including README files and API docs, and validates the output format for correctness and completeness.",
+  "requiredCapabilities": ["conversation", "tool-calling", "markdown-generation"],
+  "minimumFitness": 0.3,
+  "features": {
+    "readme-generation": {
+      "description": "Generates well-structured README files with standard sections (title, description, installation, usage, contributing, license)",
+      "requires": ["conversation", "markdown-generation"],
+      "weight": 0.30,
+      "minimumScore": 0.6,
+      "tests": [
+        {
+          "id": "readme-standard-sections",
+          "description": "Generated README contains all standard sections",
+          "prompt": "Generate a README.md for a Node.js CLI tool called 'taskflow' that manages developer workflows. Include all standard sections.",
+          "check": {
+            "type": "contains-all",
+            "values": ["# taskflow", "## Installation", "## Usage", "## Contributing", "## License"]
+          }
+        },
+        {
+          "id": "readme-markdown-valid",
+          "description": "Generated README uses valid markdown formatting",
+          "prompt": "Generate a README.md for a Python REST API library called 'quickapi'. Keep it concise but complete.",
+          "check": {
+            "type": "regex",
+            "pattern": "^#\\s+.+\\n[\\s\\S]*##\\s+.+\\n[\\s\\S]*```[\\s\\S]*```"
+          }
+        },
+        {
+          "id": "readme-includes-code-examples",
+          "description": "README includes code examples in fenced code blocks",
+          "prompt": "Generate a README for a JavaScript utility library called 'arraykit' that provides array manipulation functions. Include usage examples.",
+          "check": {
+            "type": "contains-all",
+            "values": ["```", "arraykit", "import"]
+          }
+        }
+      ]
+    },
+    "api-docs-generation": {
+      "description": "Generates API documentation with endpoint descriptions, parameters, request/response examples, and error codes",
+      "requires": ["conversation", "markdown-generation"],
+      "weight": 0.30,
+      "minimumScore": 0.6,
+      "tests": [
+        {
+          "id": "api-docs-endpoint-structure",
+          "description": "API docs describe endpoints with method, path, parameters, and responses",
+          "prompt": "Generate API documentation for a user management REST API with endpoints: POST /users (create), GET /users/:id (get by id), PUT /users/:id (update), DELETE /users/:id (delete). Include request/response examples.",
+          "check": {
+            "type": "contains-all",
+            "values": ["POST", "GET", "PUT", "DELETE", "/users", "request", "response"]
+          }
+        },
+        {
+          "id": "api-docs-includes-status-codes",
+          "description": "API docs include HTTP status codes for success and error cases",
+          "prompt": "Generate API documentation for a GET /products endpoint that returns a paginated list of products. Include all relevant HTTP status codes.",
+          "check": {
+            "type": "contains-any",
+            "values": ["200", "400", "401", "404", "500"]
+          }
+        },
+        {
+          "id": "api-docs-json-examples",
+          "description": "API docs include JSON request/response body examples",
+          "prompt": "Generate API documentation for a POST /orders endpoint that creates a new order with items, quantities, and shipping address. Show example request and response bodies.",
+          "check": {
+            "type": "regex",
+            "pattern": "```json[\\s\\S]*\\{[\\s\\S]*\\}[\\s\\S]*```"
+          }
+        },
+        {
+          "id": "api-docs-parameter-descriptions",
+          "description": "API docs include parameter names and their descriptions",
+          "prompt": "Generate API documentation for a GET /search endpoint with query parameters: q (search term), page (page number), limit (results per page), sort (sort field), order (asc/desc).",
+          "check": {
+            "type": "contains-all",
+            "values": ["q", "page", "limit", "sort", "order"]
+          }
+        }
+      ]
+    },
+    "format-validation": {
+      "description": "Validates that generated documentation follows correct markdown structure, uses consistent heading hierarchy, and has no broken references",
+      "requires": ["conversation"],
+      "weight": 0.25,
+      "minimumScore": 0.5,
+      "tests": [
+        {
+          "id": "validates-heading-hierarchy",
+          "description": "Agent identifies and flags incorrect heading hierarchy in documentation",
+          "prompt": "Review this documentation for format issues:\n\n# My Project\n#### Deep heading\n## Installation\n# Another top heading\n### Skipped level\n\nList all heading hierarchy problems you find.",
+          "check": {
+            "type": "contains-any",
+            "values": ["heading hierarchy", "heading level", "skipped", "h4 before h2", "inconsistent", "jump"]
+          }
+        },
+        {
+          "id": "validates-markdown-structure",
+          "description": "Agent detects structural markdown issues",
+          "prompt": "Validate the format of this documentation and report any issues:\n\n# API Reference\n\n## GET /users\nReturns all users\n```json\n{\"users\": []}\n\n## POST /users\nCreates a user\n\nNote the unclosed code block above. What format problems exist?",
+          "check": {
+            "type": "contains-any",
+            "values": ["unclosed", "code block", "missing closing", "not closed", "```"]
+          }
+        },
+        {
+          "id": "self-validates-output",
+          "description": "When generating docs, the agent validates its own output before presenting it",
+          "prompt": "Generate a short README for a project called 'logstream' and then validate that your output has correct markdown formatting. State whether the format passes validation.",
+          "check": {
+            "type": "contains-any",
+            "values": ["valid", "passes", "correct", "well-formed", "properly formatted"]
+          }
+        }
+      ]
+    },
+    "context-awareness": {
+      "description": "Adapts documentation content and style based on the project type, tech stack, and target audience",
+      "requires": ["conversation"],
+      "weight": 0.15,
+      "minimumScore": 0.5,
+      "tests": [
+        {
+          "id": "adapts-to-tech-stack",
+          "description": "Documentation reflects the specific technology stack mentioned",
+          "prompt": "Generate a README for a Rust CLI tool called 'cargobench' that benchmarks Cargo build times. Use Rust-appropriate installation and usage instructions.",
+          "check": {
+            "type": "contains-all",
+            "values": ["cargo", "rust"]
+          }
+        },
+        {
+          "id": "does-not-hallucinate-features",
+          "description": "Agent does not invent features or endpoints not described in the prompt",
+          "prompt": "Generate minimal API documentation for exactly one endpoint: GET /health that returns {\"status\": \"ok\"}. Do not add any other endpoints.",
+          "check": {
+            "type": "does-not-contain",
+            "values": ["POST /health", "PUT /health", "DELETE /health", "PATCH /health", "/users", "/login"]
+          }
+        },
+        {
+          "id": "produces-non-empty-output",
+          "description": "Agent always produces substantive documentation output",
+          "prompt": "Generate a brief API doc section for a WebSocket endpoint ws://localhost:8080/stream that streams real-time price updates.",
+          "check": {
+            "type": "non-empty"
+          }
+        }
+      ]
+    }
+  },
+  "scoring": {
+    "method": "weighted-average"
+  }
+}

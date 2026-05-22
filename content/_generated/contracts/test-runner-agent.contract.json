@@ -1,0 +1,121 @@
+{
+  "id": "test-runner-agent",
+  "name": "Test Runner Agent",
+  "version": "1.0.0",
+  "description": "An agent that reads source code files, runs shell commands to execute tests, and writes test result reports summarizing outcomes.",
+  "requiredCapabilities": ["conversation", "tool-calling", "reasoning"],
+  "minimumFitness": 0.3,
+  "features": {
+    "source-code-reading": {
+      "description": "The agent reads and analyzes source code files to understand what needs to be tested and how tests are structured.",
+      "requires": ["tool-calling"],
+      "weight": 0.25,
+      "minimumScore": 0.6,
+      "tests": [
+        {
+          "id": "reads-file-when-asked",
+          "description": "Agent uses file-read tool when asked to examine a source file",
+          "prompt": "Read the file src/utils/parser.ts and tell me what functions it exports.",
+          "check": { "type": "tool-call", "toolName": "file-read" }
+        },
+        {
+          "id": "identifies-test-files",
+          "description": "Agent identifies which test files correspond to the source code",
+          "prompt": "I have a module at src/services/auth-service.ts. Figure out where its tests might be and read them.",
+          "check": { "type": "contains-any", "values": ["test", "spec", ".test.", ".spec."] }
+        },
+        {
+          "id": "analyzes-code-structure",
+          "description": "Agent provides meaningful analysis of code it reads",
+          "prompt": "Read src/index.ts and summarize what the code does and what test coverage it might need.",
+          "check": { "type": "non-empty" }
+        }
+      ]
+    },
+    "test-execution": {
+      "description": "The agent runs shell commands to execute test suites and captures their output.",
+      "requires": ["tool-calling"],
+      "weight": 0.30,
+      "minimumScore": 0.6,
+      "tests": [
+        {
+          "id": "runs-test-command",
+          "description": "Agent uses shell-execute tool to run tests",
+          "prompt": "Run the unit tests for this project using npm test.",
+          "check": { "type": "tool-call", "toolName": "shell-execute" }
+        },
+        {
+          "id": "uses-correct-test-runner",
+          "description": "Agent constructs appropriate shell commands for the testing framework",
+          "prompt": "This project uses pytest. Run all tests in the tests/ directory with verbose output.",
+          "check": { "type": "contains-all", "values": ["pytest", "tests/"] }
+        },
+        {
+          "id": "handles-test-failure",
+          "description": "Agent identifies and explains test failures from command output",
+          "prompt": "I ran the tests and got this output:\n\nFAILED tests/test_auth.py::test_login_invalid_password - AssertionError: expected 401, got 500\nFAILED tests/test_auth.py::test_token_refresh - TimeoutError\n2 failed, 14 passed\n\nAnalyze these failures.",
+          "check": { "type": "contains-all", "values": ["test_login_invalid_password", "test_token_refresh", "500"] }
+        },
+        {
+          "id": "does-not-fabricate-results",
+          "description": "Agent does not invent test results without running commands",
+          "prompt": "What are the test results for this project?",
+          "check": { "type": "contains-any", "values": ["run", "execute", "shell-execute", "let me", "need to", "first"] }
+        }
+      ]
+    },
+    "report-writing": {
+      "description": "The agent writes structured test result reports to files summarizing pass/fail outcomes, failures, and recommendations.",
+      "requires": ["tool-calling"],
+      "weight": 0.30,
+      "minimumScore": 0.6,
+      "tests": [
+        {
+          "id": "writes-report-file",
+          "description": "Agent uses file-write tool to create a report file",
+          "prompt": "The tests completed with 18 passed, 2 failed (test_login returns 500 instead of 401, test_refresh times out). Write a test report to reports/test-results.md.",
+          "check": { "type": "tool-call", "toolName": "file-write" }
+        },
+        {
+          "id": "report-contains-structure",
+          "description": "Agent produces a report with proper structure including summary, failures, and details",
+          "prompt": "Generate a test result report for: 45 passed, 3 failed, 1 skipped. Failures: test_payment_processing (assertion error on amount), test_email_send (connection refused), test_cache_expiry (off by one). Write it to report.md.",
+          "check": { "type": "contains-all", "values": ["passed", "failed", "test_payment_processing", "test_email_send", "test_cache_expiry"] }
+        },
+        {
+          "id": "report-includes-recommendations",
+          "description": "Agent includes actionable recommendations or next steps in the report",
+          "prompt": "Write a test report for these results: 30 passed, 5 failed. All 5 failures are in the database integration tests with connection timeout errors. Save to reports/integration-test-report.md.",
+          "check": { "type": "contains-any", "values": ["recommend", "suggestion", "next step", "action", "investigate", "fix", "consider", "should"] }
+        }
+      ]
+    },
+    "workflow-coordination": {
+      "description": "The agent follows a logical workflow: read code first, then run tests, then write reports — reasoning about each step.",
+      "requires": ["reasoning", "conversation"],
+      "weight": 0.15,
+      "minimumScore": 0.5,
+      "tests": [
+        {
+          "id": "plans-before-executing",
+          "description": "Agent explains its plan before jumping into execution",
+          "prompt": "I need you to test the authentication module in src/auth/ and give me a full report. Go ahead.",
+          "check": { "type": "contains-any", "values": ["first", "step", "plan", "start by", "begin by", "I'll", "approach"] }
+        },
+        {
+          "id": "does-not-skip-reading",
+          "description": "Agent reads code before blindly running tests",
+          "prompt": "Test the module at src/services/payment.ts and write a report. I'm not sure what test framework we use.",
+          "check": { "type": "does-not-contain", "values": ["npm test", "jest", "mocha", "pytest"] }
+        },
+        {
+          "id": "follows-logical-sequence",
+          "description": "Agent describes a read-then-run-then-report sequence",
+          "prompt": "Explain how you would approach testing an unfamiliar codebase and producing a test report.",
+          "check": { "type": "regex", "pattern": "(?i)(read|examine|understand|analyze).*?(run|execute|invoke).*?(report|write|document|summar)" }
+        }
+      ]
+    }
+  },
+  "scoring": { "method": "weighted-average" }
+}

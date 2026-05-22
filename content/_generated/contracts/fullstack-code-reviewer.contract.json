@@ -1,0 +1,161 @@
+{
+  "id": "fullstack-code-reviewer",
+  "name": "Full-Stack Code Reviewer",
+  "version": "1.0.0",
+  "description": "Reviews frontend React components for accessibility issues, backend Node.js APIs for security vulnerabilities, and database queries for performance problems. Produces structured, actionable feedback across all three layers.",
+  "requiredCapabilities": ["conversation", "tool-calling", "code-analysis"],
+  "minimumFitness": 0.3,
+  "features": {
+    "frontend-accessibility": {
+      "description": "Identifies accessibility violations in React components including missing ARIA attributes, keyboard navigation gaps, color contrast issues, and semantic HTML misuse",
+      "requires": ["conversation", "code-analysis"],
+      "weight": 0.3,
+      "minimumScore": 0.6,
+      "tests": [
+        {
+          "id": "detect-missing-aria-labels",
+          "description": "Detects missing aria-label or aria-labelledby on interactive elements",
+          "prompt": "Review this React component for accessibility:\n```jsx\nfunction SearchBar() {\n  return (\n    <div onClick={() => search()}>\n      <input type=\"text\" onChange={handleChange} />\n      <div onClick={clearInput}>X</div>\n      <img src=\"logo.png\" />\n    </div>\n  );\n}\n```",
+          "check": {
+            "type": "contains-all",
+            "values": ["aria", "alt", "button"]
+          }
+        },
+        {
+          "id": "detect-keyboard-navigation-issues",
+          "description": "Flags div-based click handlers that lack keyboard support and proper roles",
+          "prompt": "Check this React component for keyboard accessibility:\n```jsx\nfunction CardList({ items }) {\n  return (\n    <div className=\"grid\">\n      {items.map(item => (\n        <div key={item.id} className=\"card\" onClick={() => navigate(item.url)}>\n          <span style={{color: '#aaa', backgroundColor: '#fff'}}>{item.title}</span>\n        </div>\n      ))}\n    </div>\n  );\n}\n```",
+          "check": {
+            "type": "contains-all",
+            "values": ["keyboard", "role", "tabIndex"]
+          }
+        },
+        {
+          "id": "does-not-approve-inaccessible-code",
+          "description": "Must not give a clean bill of health to clearly inaccessible components",
+          "prompt": "Review this React component for accessibility:\n```jsx\nfunction Menu() {\n  return (\n    <div>\n      <div onClick={open} style={{backgroundImage: 'url(menu.png)'}}></div>\n      <div id=\"dropdown\" style={{display: isOpen ? 'block' : 'none'}}>\n        <div onClick={() => go('/home')}>Home</div>\n        <div onClick={() => go('/about')}>About</div>\n      </div>\n    </div>\n  );\n}\n```",
+          "check": {
+            "type": "does-not-contain",
+            "values": ["no issues", "looks good", "no accessibility problems", "passes accessibility"]
+          }
+        },
+        {
+          "id": "suggests-semantic-html",
+          "description": "Recommends semantic HTML elements over generic divs for navigation and lists",
+          "prompt": "Review this React navigation component for accessibility best practices:\n```jsx\nfunction Navigation({ links }) {\n  return (\n    <div className=\"nav\">\n      {links.map(link => (\n        <div key={link.href} onClick={() => window.location.href = link.href}>\n          {link.label}\n        </div>\n      ))}\n    </div>\n  );\n}\n```",
+          "check": {
+            "type": "contains-any",
+            "values": ["<nav>", "nav>", "semantic", "<a>", "<ul>", "<li>", "anchor"]
+          }
+        }
+      ]
+    },
+    "backend-security": {
+      "description": "Identifies security vulnerabilities in Node.js API code including SQL injection, missing input validation, authentication bypasses, and insecure data handling",
+      "requires": ["conversation", "code-analysis"],
+      "weight": 0.3,
+      "minimumScore": 0.6,
+      "tests": [
+        {
+          "id": "detect-sql-injection",
+          "description": "Identifies SQL injection vulnerabilities from string concatenation in queries",
+          "prompt": "Review this Node.js API endpoint for security:\n```javascript\napp.get('/users', async (req, res) => {\n  const name = req.query.name;\n  const result = await db.query(`SELECT * FROM users WHERE name = '${name}'`);\n  res.json(result.rows);\n});\n```",
+          "check": {
+            "type": "contains-all",
+            "values": ["SQL injection", "parameterized"]
+          }
+        },
+        {
+          "id": "detect-missing-auth-and-validation",
+          "description": "Flags endpoints that lack authentication checks and input validation",
+          "prompt": "Review this Node.js API for security vulnerabilities:\n```javascript\napp.delete('/api/users/:id', async (req, res) => {\n  const userId = req.params.id;\n  await db.query('DELETE FROM users WHERE id = $1', [userId]);\n  await db.query('DELETE FROM user_sessions WHERE user_id = $1', [userId]);\n  res.json({ success: true });\n});\n\napp.post('/api/admin/config', async (req, res) => {\n  const { key, value } = req.body;\n  await db.query('UPDATE config SET value = $1 WHERE key = $2', [value, key]);\n  res.json({ updated: true });\n});\n```",
+          "check": {
+            "type": "contains-all",
+            "values": ["authentication", "authorization", "validation"]
+          }
+        },
+        {
+          "id": "detect-sensitive-data-exposure",
+          "description": "Catches endpoints that leak sensitive data like passwords or tokens in responses",
+          "prompt": "Review this Node.js API endpoint for security:\n```javascript\napp.get('/api/profile/:id', async (req, res) => {\n  const user = await User.findById(req.params.id);\n  res.json(user);\n});\n\n// User model includes: id, name, email, password_hash, api_key, ssn, created_at\n```",
+          "check": {
+            "type": "contains-any",
+            "values": ["password", "sensitive", "api_key", "ssn", "expose", "whitelist", "allowlist", "select"]
+          }
+        }
+      ]
+    },
+    "database-performance": {
+      "description": "Analyzes database queries for performance issues including missing indexes, N+1 queries, full table scans, and inefficient joins",
+      "requires": ["conversation", "code-analysis"],
+      "weight": 0.25,
+      "minimumScore": 0.5,
+      "tests": [
+        {
+          "id": "detect-n-plus-one",
+          "description": "Identifies N+1 query patterns in data fetching code",
+          "prompt": "Review this code for database performance:\n```javascript\nasync function getOrdersWithItems() {\n  const orders = await db.query('SELECT * FROM orders');\n  for (const order of orders.rows) {\n    const items = await db.query('SELECT * FROM order_items WHERE order_id = $1', [order.id]);\n    order.items = items.rows;\n  }\n  return orders.rows;\n}\n```",
+          "check": {
+            "type": "contains-all",
+            "values": ["N+1", "JOIN"]
+          }
+        },
+        {
+          "id": "detect-missing-index-hints",
+          "description": "Flags queries filtering on columns that likely need indexes",
+          "prompt": "Review these database queries for performance:\n```javascript\n// Called on every page load\nconst recentPosts = await db.query(\n  'SELECT * FROM posts WHERE status = $1 AND created_at > $2 ORDER BY created_at DESC',\n  ['published', thirtyDaysAgo]\n);\n\n// Called on every search\nconst results = await db.query(\n  'SELECT * FROM products WHERE LOWER(description) LIKE $1',\n  [`%${searchTerm.toLowerCase()}%`]\n);\n```",
+          "check": {
+            "type": "contains-any",
+            "values": ["index", "INDEX", "full table scan", "full-text", "LIKE '%", "leading wildcard"]
+          }
+        },
+        {
+          "id": "detect-select-star-and-no-limit",
+          "description": "Catches SELECT * and missing LIMIT on potentially large result sets",
+          "prompt": "Review this query for performance:\n```javascript\napp.get('/api/logs', async (req, res) => {\n  const logs = await db.query('SELECT * FROM audit_logs WHERE created_at > $1 ORDER BY created_at DESC', [req.query.since]);\n  res.json(logs.rows);\n});\n```\nThe audit_logs table has 50 million rows and 25 columns including a large JSON payload column.",
+          "check": {
+            "type": "contains-all",
+            "values": ["SELECT *", "LIMIT"]
+          }
+        }
+      ]
+    },
+    "structured-output": {
+      "description": "Produces well-organized review output with clear severity levels, specific line references, and actionable fix suggestions",
+      "requires": ["conversation"],
+      "weight": 0.15,
+      "minimumScore": 0.5,
+      "tests": [
+        {
+          "id": "categorizes-findings-by-severity",
+          "description": "Output uses severity indicators to distinguish critical from minor issues",
+          "prompt": "Perform a full-stack review of this code and categorize findings by severity:\n\nFrontend:\n```jsx\nfunction LoginForm() {\n  return <div><input type=\"text\" placeholder=\"Username\" /><input type=\"text\" placeholder=\"Password\" /><div onClick={submit}>Login</div></div>;\n}\n```\n\nBackend:\n```javascript\napp.post('/login', async (req, res) => {\n  const user = await db.query(`SELECT * FROM users WHERE username='${req.body.username}' AND password='${req.body.password}'`);\n  if (user.rows[0]) { res.json({ token: jwt.sign(user.rows[0], 'secret123') }); }\n});\n```",
+          "check": {
+            "type": "regex",
+            "pattern": "(?i)(critical|high|medium|low|severe|warning|error|major|minor)"
+          }
+        },
+        {
+          "id": "provides-actionable-fixes",
+          "description": "Each finding includes a concrete code suggestion, not just a description of the problem",
+          "prompt": "Review this Node.js endpoint and provide specific fix suggestions with code examples:\n```javascript\napp.get('/api/data', async (req, res) => {\n  const query = `SELECT * FROM ${req.query.table} WHERE id = ${req.query.id}`;\n  const data = await db.query(query);\n  res.json(data.rows);\n});\n```",
+          "check": {
+            "type": "contains-all",
+            "values": ["parameterized", "whitelist"]
+          }
+        },
+        {
+          "id": "output-is-non-empty-and-substantial",
+          "description": "Ensures the reviewer always produces meaningful output, not empty or trivial responses",
+          "prompt": "Review this full-stack code:\n\nReact: `<img src={url} />` rendered in a list without keys.\nAPI: `app.put('/users/:id', (req, res) => { db.run('UPDATE users SET ' + Object.keys(req.body).map(k => k + '=\"' + req.body[k] + '\"').join(',') + ' WHERE id=' + req.params.id) })`\nQuery: `SELECT * FROM events WHERE date BETWEEN '2020-01-01' AND '2030-01-01'`",
+          "check": {
+            "type": "non-empty"
+          }
+        }
+      ]
+    }
+  },
+  "scoring": {
+    "method": "weighted-average"
+  }
+}

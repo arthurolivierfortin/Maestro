@@ -1,0 +1,197 @@
+{
+  "id": "k8s-deployment-agent",
+  "name": "Kubernetes Deployment Agent",
+  "version": "1.0.0",
+  "description": "Reads YAML manifests, validates them against Kubernetes best practices (resource limits, liveness probes, security contexts), generates Helm charts, runs dry-run deployments across multiple environments (dev, staging, prod), and supports rollback on failure.",
+  "requiredCapabilities": ["conversation", "tool-calling", "yaml-processing", "kubernetes-knowledge"],
+  "minimumFitness": 0.3,
+  "features": {
+    "manifest-validation": {
+      "description": "Validates Kubernetes YAML manifests against best practices including resource limits, liveness/readiness probes, and security contexts",
+      "requires": ["conversation", "yaml-processing", "kubernetes-knowledge"],
+      "weight": 0.25,
+      "minimumScore": 0.7,
+      "tests": [
+        {
+          "id": "detect-missing-resource-limits",
+          "description": "Identifies containers missing CPU/memory resource limits and requests",
+          "prompt": "Validate this Kubernetes deployment manifest:\n```yaml\napiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: web-app\nspec:\n  replicas: 3\n  selector:\n    matchLabels:\n      app: web-app\n  template:\n    metadata:\n      labels:\n        app: web-app\n    spec:\n      containers:\n      - name: web-app\n        image: nginx:1.25\n        ports:\n        - containerPort: 80\n```",
+          "check": {
+            "type": "contains-all",
+            "values": ["resource", "limits", "requests"]
+          }
+        },
+        {
+          "id": "detect-missing-probes",
+          "description": "Flags missing liveness and readiness probes",
+          "prompt": "Check this deployment for best practice violations:\n```yaml\napiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: api-server\nspec:\n  replicas: 2\n  selector:\n    matchLabels:\n      app: api-server\n  template:\n    metadata:\n      labels:\n        app: api-server\n    spec:\n      containers:\n      - name: api\n        image: myregistry/api:v2.1\n        resources:\n          limits:\n            cpu: 500m\n            memory: 256Mi\n          requests:\n            cpu: 250m\n            memory: 128Mi\n```",
+          "check": {
+            "type": "contains-all",
+            "values": ["livenessProbe", "readinessProbe"]
+          }
+        },
+        {
+          "id": "detect-missing-security-context",
+          "description": "Warns about missing security contexts and running as root",
+          "prompt": "Audit this manifest for security issues:\n```yaml\napiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: payment-service\nspec:\n  replicas: 1\n  selector:\n    matchLabels:\n      app: payment\n  template:\n    metadata:\n      labels:\n        app: payment\n    spec:\n      containers:\n      - name: payment\n        image: myregistry/payment:v1.0\n        ports:\n        - containerPort: 8443\n```",
+          "check": {
+            "type": "contains-any",
+            "values": ["securityContext", "runAsNonRoot", "readOnlyRootFilesystem", "allowPrivilegeEscalation"]
+          }
+        },
+        {
+          "id": "valid-manifest-passes",
+          "description": "Approves a well-configured manifest with all best practices",
+          "prompt": "Validate this deployment manifest:\n```yaml\napiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: secure-app\nspec:\n  replicas: 3\n  selector:\n    matchLabels:\n      app: secure-app\n  template:\n    metadata:\n      labels:\n        app: secure-app\n    spec:\n      securityContext:\n        runAsNonRoot: true\n        fsGroup: 1000\n      containers:\n      - name: app\n        image: myregistry/app:v3.2@sha256:abc123\n        ports:\n        - containerPort: 8080\n        resources:\n          limits:\n            cpu: 1000m\n            memory: 512Mi\n          requests:\n            cpu: 500m\n            memory: 256Mi\n        livenessProbe:\n          httpGet:\n            path: /healthz\n            port: 8080\n          initialDelaySeconds: 15\n          periodSeconds: 10\n        readinessProbe:\n          httpGet:\n            path: /ready\n            port: 8080\n          initialDelaySeconds: 5\n          periodSeconds: 5\n        securityContext:\n          allowPrivilegeEscalation: false\n          readOnlyRootFilesystem: true\n```",
+          "check": {
+            "type": "does-not-contain",
+            "values": ["missing", "violation", "warning", "not found", "absent"]
+          }
+        }
+      ]
+    },
+    "helm-chart-generation": {
+      "description": "Generates Helm charts from raw Kubernetes manifests with parameterized values for multi-environment support",
+      "requires": ["conversation", "tool-calling", "yaml-processing"],
+      "weight": 0.25,
+      "minimumScore": 0.6,
+      "tests": [
+        {
+          "id": "generate-chart-yaml",
+          "description": "Generates a valid Chart.yaml with proper metadata",
+          "prompt": "Generate a Helm chart for a web application called 'order-service' version 2.1.0. Include the Chart.yaml content.",
+          "check": {
+            "type": "contains-all",
+            "values": ["apiVersion", "name", "version", "order-service"]
+          }
+        },
+        {
+          "id": "generate-values-yaml",
+          "description": "Creates a values.yaml with environment-parameterized settings",
+          "prompt": "Generate a Helm values.yaml for a microservice that needs to support dev (1 replica, 256Mi memory), staging (2 replicas, 512Mi memory), and prod (3 replicas, 1Gi memory) environments. Show the default values.yaml.",
+          "check": {
+            "type": "contains-all",
+            "values": ["replicaCount", "resources", "image"]
+          }
+        },
+        {
+          "id": "templatize-deployment",
+          "description": "Converts a raw deployment manifest into a Helm template with proper Go template syntax",
+          "prompt": "Convert this raw Kubernetes deployment to a Helm template:\n```yaml\napiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: user-service\nspec:\n  replicas: 3\n  template:\n    spec:\n      containers:\n      - name: user-service\n        image: myregistry/user-service:v1.5\n        resources:\n          limits:\n            memory: 512Mi\n```",
+          "check": {
+            "type": "contains-any",
+            "values": ["{{ .Values", "{{ .Release", "{{- include"]
+          }
+        }
+      ]
+    },
+    "multi-environment-support": {
+      "description": "Manages deployments across dev, staging, and prod environments with appropriate configurations and safeguards",
+      "requires": ["conversation", "tool-calling", "kubernetes-knowledge"],
+      "weight": 0.2,
+      "minimumScore": 0.6,
+      "tests": [
+        {
+          "id": "environment-specific-config",
+          "description": "Produces correct configuration differences per environment",
+          "prompt": "I need to deploy the notification-service to all three environments. Dev should use 1 replica with debug logging, staging should use 2 replicas with info logging, and prod should use 5 replicas with warn logging and PodDisruptionBudget. What are the environment-specific configurations?",
+          "check": {
+            "type": "contains-all",
+            "values": ["dev", "staging", "prod", "replica"]
+          }
+        },
+        {
+          "id": "prod-safeguards",
+          "description": "Applies additional safeguards for production deployments",
+          "prompt": "What safeguards should be applied when deploying to production versus dev for a critical payment service?",
+          "check": {
+            "type": "contains-any",
+            "values": ["PodDisruptionBudget", "rolling update", "maxUnavailable", "maxSurge", "approval", "canary", "blue-green"]
+          }
+        },
+        {
+          "id": "namespace-isolation",
+          "description": "Ensures proper namespace usage per environment",
+          "prompt": "Set up the namespace and context configuration for deploying analytics-service across dev, staging, and prod environments.",
+          "check": {
+            "type": "regex",
+            "pattern": "(namespace|context).*(dev|staging|prod)"
+          }
+        }
+      ]
+    },
+    "dry-run-deployment": {
+      "description": "Executes dry-run deployments to validate manifests will apply correctly without making actual changes",
+      "requires": ["tool-calling", "kubernetes-knowledge"],
+      "weight": 0.15,
+      "minimumScore": 0.5,
+      "tests": [
+        {
+          "id": "dry-run-command-generation",
+          "description": "Generates correct kubectl or helm dry-run commands",
+          "prompt": "Run a dry-run deployment of the order-service Helm chart to the staging namespace. Show the exact commands.",
+          "check": {
+            "type": "contains-any",
+            "values": ["--dry-run", "dry-run=server", "dry-run=client", "--debug"]
+          }
+        },
+        {
+          "id": "dry-run-uses-tool-call",
+          "description": "Issues a shell execution tool call for the dry-run",
+          "prompt": "Execute a dry-run deployment for the auth-service to the dev environment using helm upgrade --install with --dry-run flag.",
+          "check": {
+            "type": "tool-call",
+            "toolName": "shell-execute"
+          }
+        },
+        {
+          "id": "dry-run-error-interpretation",
+          "description": "Correctly interprets and explains dry-run errors",
+          "prompt": "The dry-run returned this error:\n```\nError: UPGRADE FAILED: cannot patch \"cache-service\" with kind Deployment: Deployment.apps \"cache-service\" is invalid: spec.selector: Invalid value: v1.LabelSelector{MatchLabels:map[string]string{\"app\":\"cache-v2\"}, MatchExpressions:[]v1.LabelSelectorRequirement(nil)}: field is immutable\n```\nWhat went wrong and how do I fix it?",
+          "check": {
+            "type": "contains-all",
+            "values": ["selector", "immutable"]
+          }
+        }
+      ]
+    },
+    "rollback-on-failure": {
+      "description": "Detects deployment failures and executes rollback procedures to restore the previous stable state",
+      "requires": ["conversation", "tool-calling", "kubernetes-knowledge"],
+      "weight": 0.15,
+      "minimumScore": 0.5,
+      "tests": [
+        {
+          "id": "rollback-command-generation",
+          "description": "Generates correct rollback commands for both kubectl and helm",
+          "prompt": "The deployment of payment-service v2.3.0 to production failed. The pods are in CrashLoopBackOff. How do I rollback?",
+          "check": {
+            "type": "contains-any",
+            "values": ["helm rollback", "kubectl rollout undo", "rollback"]
+          }
+        },
+        {
+          "id": "rollback-strategy-plan",
+          "description": "Proposes a complete rollback strategy including verification steps",
+          "prompt": "Design a rollback procedure for a failed production deployment of order-service. Include detection, rollback execution, and post-rollback verification.",
+          "check": {
+            "type": "contains-all",
+            "values": ["rollback", "verify", "history"]
+          }
+        },
+        {
+          "id": "automatic-rollback-config",
+          "description": "Configures automatic rollback mechanisms in Helm or deployment spec",
+          "prompt": "How do I configure automatic rollback on failure for Helm deployments? Show the configuration.",
+          "check": {
+            "type": "contains-any",
+            "values": ["--atomic", "--wait", "--timeout", "rollbackOnFailure", "progressDeadlineSeconds"]
+          }
+        }
+      ]
+    }
+  },
+  "scoring": {
+    "method": "weighted-average"
+  }
+}

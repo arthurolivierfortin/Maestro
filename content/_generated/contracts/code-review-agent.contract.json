@@ -1,0 +1,147 @@
+{
+  "id": "code-review-agent",
+  "name": "Code Review Agent",
+  "version": "1.0.0",
+  "description": "An agent that analyzes source code via file-read, runs linters via shell-execute, generates analysis reports via file-write, and creates git branches for fixes via git commands.",
+  "requiredCapabilities": ["conversation", "tool-calling", "reasoning"],
+  "minimumFitness": 0.3,
+  "features": {
+    "code-analysis": {
+      "description": "Reads and analyzes source code files using file-read to identify issues, patterns, and areas for improvement",
+      "requires": ["tool-calling"],
+      "weight": 0.25,
+      "minimumScore": 0.6,
+      "tests": [
+        {
+          "id": "reads-source-file",
+          "description": "Agent should use file-read to read a source code file when asked to analyze it",
+          "prompt": "Analyze the code quality of the file src/services/UserService.ts",
+          "check": { "type": "tool-call", "toolName": "file-read" }
+        },
+        {
+          "id": "identifies-code-issues",
+          "description": "Agent should identify concrete code quality issues after reading a file",
+          "prompt": "Read and analyze src/utils/parser.js for potential bugs and code smells",
+          "check": { "type": "contains-any", "values": ["issue", "problem", "bug", "smell", "concern", "improvement", "warning", "error", "vulnerability", "complexity"] }
+        },
+        {
+          "id": "reads-multiple-files",
+          "description": "Agent should read multiple related files when analyzing a module",
+          "prompt": "Analyze the authentication module — the main files are src/auth/login.ts, src/auth/session.ts, and src/auth/middleware.ts",
+          "check": { "type": "tool-call", "toolName": "file-read" }
+        },
+        {
+          "id": "does-not-fabricate-content",
+          "description": "Agent should not fabricate file contents — it must read before analyzing",
+          "prompt": "What issues are in the file src/config/database.ts?",
+          "check": { "type": "does-not-contain", "values": ["I can see that the file contains", "Based on the typical structure", "Usually this kind of file"] }
+        }
+      ]
+    },
+    "linting-execution": {
+      "description": "Runs linting tools via shell-execute to get automated code quality feedback",
+      "requires": ["tool-calling"],
+      "weight": 0.25,
+      "minimumScore": 0.6,
+      "tests": [
+        {
+          "id": "runs-linter-command",
+          "description": "Agent should execute a linter via shell-execute when asked to lint code",
+          "prompt": "Run the linter on the src/ directory and tell me what it finds",
+          "check": { "type": "tool-call", "toolName": "shell-execute" }
+        },
+        {
+          "id": "uses-correct-lint-commands",
+          "description": "Agent should use appropriate linting commands for the technology stack",
+          "prompt": "Lint the TypeScript project in the current directory. The project uses ESLint.",
+          "check": { "type": "contains-any", "values": ["eslint", "npx eslint", "npm run lint", "yarn lint"] }
+        },
+        {
+          "id": "interprets-lint-output",
+          "description": "Agent should interpret and summarize linting results rather than just dumping raw output",
+          "prompt": "Run eslint on src/ and give me a summary of the findings categorized by severity",
+          "check": { "type": "contains-all", "values": ["error", "warning"] }
+        }
+      ]
+    },
+    "report-generation": {
+      "description": "Generates structured analysis reports using file-write with actionable findings",
+      "requires": ["tool-calling"],
+      "weight": 0.20,
+      "minimumScore": 0.5,
+      "tests": [
+        {
+          "id": "writes-report-file",
+          "description": "Agent should use file-write to create a report file when asked to generate a report",
+          "prompt": "Analyze src/index.ts and write a code review report to reports/review-2026-03-20.md",
+          "check": { "type": "tool-call", "toolName": "file-write" }
+        },
+        {
+          "id": "report-has-structure",
+          "description": "The generated report should have clear structure with sections",
+          "prompt": "Generate a full code quality report for the project and save it to REVIEW.md",
+          "check": { "type": "contains-any", "values": ["## ", "### ", "# Summary", "# Findings", "# Issues", "# Report", "# Code Review"] }
+        },
+        {
+          "id": "report-includes-actionable-items",
+          "description": "Report should contain actionable recommendations, not just observations",
+          "prompt": "Write a detailed code review report to report.md with specific recommendations for fixing the issues you find",
+          "check": { "type": "contains-any", "values": ["recommend", "should", "fix", "refactor", "consider", "suggest", "action", "TODO"] }
+        }
+      ]
+    },
+    "git-branch-management": {
+      "description": "Creates git branches for organizing fixes using shell-execute with git commands",
+      "requires": ["tool-calling"],
+      "weight": 0.15,
+      "minimumScore": 0.5,
+      "tests": [
+        {
+          "id": "creates-git-branch",
+          "description": "Agent should use shell-execute with git to create a new branch for fixes",
+          "prompt": "Create a new git branch called fix/lint-errors for the linting fixes we identified",
+          "check": { "type": "tool-call", "toolName": "shell-execute" }
+        },
+        {
+          "id": "uses-git-commands",
+          "description": "Agent should use proper git commands for branch operations",
+          "prompt": "Set up a new branch for the code review fixes and switch to it",
+          "check": { "type": "contains-any", "values": ["git checkout -b", "git branch", "git switch -c", "git switch --create"] }
+        },
+        {
+          "id": "follows-branch-naming",
+          "description": "Agent should use a descriptive branch naming convention",
+          "prompt": "Create a branch for fixing the authentication issues found during review",
+          "check": { "type": "regex", "pattern": "(?:fix|refactor|review|chore|improvement)[/\\-]\\w+" }
+        }
+      ]
+    },
+    "reasoning-and-planning": {
+      "description": "Agent reasons about its approach before acting — thinks through which files to read, which linters to run, and what order to perform tasks",
+      "requires": ["reasoning"],
+      "weight": 0.15,
+      "minimumScore": 0.5,
+      "tests": [
+        {
+          "id": "thinks-before-acting",
+          "description": "Agent should reason about its plan before executing tools",
+          "prompt": "Do a full code review of the payments module in src/payments/",
+          "check": { "type": "contains-any", "values": ["THINK", "plan", "first", "start by", "approach", "I'll", "step", "Let me"] }
+        },
+        {
+          "id": "produces-non-empty-response",
+          "description": "Agent should always produce a substantive response, never empty",
+          "prompt": "How would you approach reviewing a large TypeScript codebase you've never seen before?",
+          "check": { "type": "non-empty" }
+        },
+        {
+          "id": "does-not-skip-analysis",
+          "description": "Agent should not jump straight to writing reports without reading code first",
+          "prompt": "Review src/api/ and write a report to review.md",
+          "check": { "type": "does-not-contain", "values": ["I'll write the report now", "Here's the report without reading", "I'll skip reading"] }
+        }
+      ]
+    }
+  },
+  "scoring": { "method": "weighted-average" }
+}

@@ -1,0 +1,144 @@
+{
+  "id": "typescript-code-reviewer",
+  "name": "TypeScript Code Reviewer",
+  "version": "1.0.0",
+  "description": "Reviews TypeScript code for bugs, security vulnerabilities, and style violations. Provides structured feedback with severity levels, line references, and actionable fix suggestions.",
+  "requiredCapabilities": ["conversation", "reasoning"],
+  "minimumFitness": 0.3,
+  "features": {
+    "bug-detection": {
+      "description": "Identifies logical bugs, type errors, null reference risks, off-by-one errors, race conditions, and other correctness issues in TypeScript code",
+      "requires": ["reasoning"],
+      "weight": 0.35,
+      "minimumScore": 0.6,
+      "tests": [
+        {
+          "id": "detect-null-reference",
+          "description": "Detects potential null/undefined reference when accessing optional property without guard",
+          "prompt": "Review this TypeScript code for bugs:\n\n```typescript\ninterface User {\n  name: string;\n  address?: { city: string; zip: string };\n}\n\nfunction getCity(user: User): string {\n  return user.address.city;\n}\n```",
+          "check": {
+            "type": "contains-all",
+            "values": ["null", "undefined", "address"]
+          }
+        },
+        {
+          "id": "detect-off-by-one",
+          "description": "Detects off-by-one error in array iteration",
+          "prompt": "Review this TypeScript code for bugs:\n\n```typescript\nfunction lastThreeItems<T>(arr: T[]): T[] {\n  const result: T[] = [];\n  for (let i = arr.length; i > arr.length - 3; i--) {\n    result.push(arr[i]);\n  }\n  return result;\n}\n```",
+          "check": {
+            "type": "contains-any",
+            "values": ["off-by-one", "out of bounds", "undefined", "arr.length - 1", "index"]
+          }
+        },
+        {
+          "id": "detect-async-bug",
+          "description": "Detects missing await on async function call",
+          "prompt": "Review this TypeScript code for bugs:\n\n```typescript\nasync function fetchUser(id: string): Promise<{ name: string }> {\n  const response = await fetch(`/api/users/${id}`);\n  return response.json();\n}\n\nfunction displayUser(id: string): void {\n  const user = fetchUser(id);\n  console.log(`Hello, ${user.name}`);\n}\n```",
+          "check": {
+            "type": "contains-all",
+            "values": ["await", "Promise"]
+          }
+        }
+      ]
+    },
+    "security-analysis": {
+      "description": "Identifies security vulnerabilities including injection attacks, insecure data handling, XSS vectors, and unsafe deserialization",
+      "requires": ["reasoning"],
+      "weight": 0.35,
+      "minimumScore": 0.6,
+      "tests": [
+        {
+          "id": "detect-sql-injection",
+          "description": "Detects SQL injection vulnerability from string concatenation in query",
+          "prompt": "Review this TypeScript code for security issues:\n\n```typescript\nimport { Pool } from 'pg';\n\nconst pool = new Pool();\n\nasync function getUser(username: string) {\n  const query = `SELECT * FROM users WHERE username = '${username}'`;\n  const result = await pool.query(query);\n  return result.rows[0];\n}\n```",
+          "check": {
+            "type": "contains-all",
+            "values": ["injection", "parameterized"]
+          }
+        },
+        {
+          "id": "detect-xss-vulnerability",
+          "description": "Detects XSS vulnerability from unsanitized user input rendered as HTML",
+          "prompt": "Review this TypeScript code for security issues:\n\n```typescript\nfunction renderComment(comment: { author: string; body: string }): string {\n  return `<div class=\"comment\">\n    <h3>${comment.author}</h3>\n    <p>${comment.body}</p>\n  </div>`;\n}\n\napp.get('/comments', async (req, res) => {\n  const comments = await db.getComments();\n  const html = comments.map(renderComment).join('');\n  res.send(`<html><body>${html}</body></html>`);\n});\n```",
+          "check": {
+            "type": "contains-any",
+            "values": ["XSS", "cross-site scripting", "sanitize", "escape", "innerHTML"]
+          }
+        },
+        {
+          "id": "detect-hardcoded-secret",
+          "description": "Detects hardcoded API key in source code",
+          "prompt": "Review this TypeScript code for security issues:\n\n```typescript\nconst API_KEY = 'sk-proj-abc123def456ghi789';\n\nasync function callExternalApi(data: Record<string, unknown>) {\n  return fetch('https://api.example.com/v1/process', {\n    method: 'POST',\n    headers: {\n      'Authorization': `Bearer ${API_KEY}`,\n      'Content-Type': 'application/json'\n    },\n    body: JSON.stringify(data)\n  });\n}\n```",
+          "check": {
+            "type": "contains-all",
+            "values": ["hardcoded", "environment"]
+          }
+        }
+      ]
+    },
+    "style-violations": {
+      "description": "Identifies TypeScript style issues including naming conventions, code organization, any-type usage, missing return types, and general readability concerns",
+      "requires": ["reasoning"],
+      "weight": 0.2,
+      "minimumScore": 0.5,
+      "tests": [
+        {
+          "id": "detect-any-type-abuse",
+          "description": "Flags excessive use of 'any' type that defeats TypeScript's type safety",
+          "prompt": "Review this TypeScript code for style violations:\n\n```typescript\nfunction processData(data: any): any {\n  const result: any = {};\n  for (const key of Object.keys(data)) {\n    const value: any = data[key];\n    result[key] = typeof value === 'string' ? value.trim() : value;\n  }\n  return result;\n}\n\nfunction merge(a: any, b: any): any {\n  return { ...a, ...b };\n}\n```",
+          "check": {
+            "type": "contains",
+            "value": "any"
+          }
+        },
+        {
+          "id": "detect-naming-and-organization",
+          "description": "Flags poor naming conventions and missing type annotations",
+          "prompt": "Review this TypeScript code for style violations:\n\n```typescript\nconst x = 5;\nconst My_Function = (A: string, b: number) => {\n  let RES = '';\n  for (let I = 0; I < b; I++) {\n    RES += A;\n  }\n  return RES;\n};\nfunction Do_stuff(input: string[]) {\n  return input.map((v) => v.toUpperCase()).filter((v) => v.length > x);\n}\n```",
+          "check": {
+            "type": "contains-any",
+            "values": ["naming", "camelCase", "convention", "descriptive", "PascalCase"]
+          }
+        },
+        {
+          "id": "no-false-positives-on-clean-code",
+          "description": "Should not flag major style issues on reasonably clean code",
+          "prompt": "Review this TypeScript code for style violations:\n\n```typescript\ninterface UserProfile {\n  readonly id: string;\n  displayName: string;\n  email: string;\n  createdAt: Date;\n}\n\nfunction formatUserGreeting(user: UserProfile): string {\n  const timeOfDay = new Date().getHours() < 12 ? 'morning' : 'afternoon';\n  return `Good ${timeOfDay}, ${user.displayName}!`;\n}\n\nfunction isValidEmail(email: string): boolean {\n  return /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email);\n}\n```",
+          "check": {
+            "type": "does-not-contain",
+            "values": ["critical", "severe", "major bug", "vulnerability"]
+          }
+        }
+      ]
+    },
+    "structured-output": {
+      "description": "Produces well-organized review output with categorized findings, severity levels, and actionable recommendations",
+      "requires": ["conversation"],
+      "weight": 0.1,
+      "minimumScore": 0.5,
+      "tests": [
+        {
+          "id": "categorized-findings",
+          "description": "Output should categorize findings and include severity or priority indicators",
+          "prompt": "Review this TypeScript code for bugs, security issues, and style violations. Provide a structured review.\n\n```typescript\nconst DB_PASSWORD = 'admin123';\n\nasync function findUser(name: any) {\n  const q = `SELECT * FROM users WHERE name = '${name}'`;\n  const res: any = await db.query(q);\n  return res.rows[0].email;\n}\n```",
+          "check": {
+            "type": "contains-all",
+            "values": ["security", "injection", "any"]
+          }
+        },
+        {
+          "id": "provides-fix-suggestions",
+          "description": "Review should include concrete fix suggestions, not just problem identification",
+          "prompt": "Review this TypeScript code and suggest fixes:\n\n```typescript\nfunction divide(a: number, b: number): number {\n  return a / b;\n}\n\nfunction getFirst(items: string[]): string {\n  return items[0];\n}\n```",
+          "check": {
+            "type": "regex",
+            "pattern": "(?i)(suggest|recommend|fix|should|instead|consider|use|change|replace|check|guard|validate)"
+          }
+        }
+      ]
+    }
+  },
+  "scoring": {
+    "method": "weighted-average"
+  }
+}

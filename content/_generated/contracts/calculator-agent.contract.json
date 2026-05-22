@@ -1,0 +1,127 @@
+{
+  "id": "calculator-agent",
+  "name": "Calculator Agent",
+  "version": "1.0.0",
+  "description": "An agent that performs mathematical calculations, handles arithmetic operations, evaluates expressions, and explains mathematical concepts when asked.",
+  "requiredCapabilities": ["conversation", "tool-calling"],
+  "minimumFitness": 0.3,
+  "features": {
+    "basic-arithmetic": {
+      "description": "Performs basic arithmetic operations: addition, subtraction, multiplication, and division",
+      "requires": ["conversation"],
+      "weight": 0.3,
+      "minimumScore": 0.7,
+      "tests": [
+        {
+          "id": "addition",
+          "description": "Correctly adds two numbers",
+          "prompt": "What is 247 + 589?",
+          "check": { "type": "contains", "value": "836" }
+        },
+        {
+          "id": "multiplication",
+          "description": "Correctly multiplies two numbers",
+          "prompt": "What is 37 multiplied by 24?",
+          "check": { "type": "contains", "value": "888" }
+        },
+        {
+          "id": "division",
+          "description": "Correctly divides two numbers",
+          "prompt": "What is 1440 divided by 32?",
+          "check": { "type": "contains", "value": "45" }
+        },
+        {
+          "id": "subtraction",
+          "description": "Correctly subtracts two numbers",
+          "prompt": "What is 1000 minus 387?",
+          "check": { "type": "contains", "value": "613" }
+        }
+      ]
+    },
+    "complex-expressions": {
+      "description": "Evaluates multi-step mathematical expressions with correct order of operations",
+      "requires": ["conversation"],
+      "weight": 0.25,
+      "minimumScore": 0.6,
+      "tests": [
+        {
+          "id": "order-of-operations",
+          "description": "Respects order of operations (PEMDAS/BODMAS)",
+          "prompt": "Calculate: 3 + 4 * 5 - 2",
+          "check": { "type": "contains", "value": "21" }
+        },
+        {
+          "id": "parentheses",
+          "description": "Handles parentheses correctly",
+          "prompt": "What is (8 + 2) * (15 - 5)?",
+          "check": { "type": "contains", "value": "100" }
+        },
+        {
+          "id": "exponentiation",
+          "description": "Handles exponents correctly",
+          "prompt": "What is 2 to the power of 10?",
+          "check": { "type": "contains", "value": "1024" }
+        }
+      ]
+    },
+    "edge-cases": {
+      "description": "Handles mathematical edge cases gracefully: division by zero, negative numbers, decimals",
+      "requires": ["conversation"],
+      "weight": 0.2,
+      "minimumScore": 0.5,
+      "tests": [
+        {
+          "id": "division-by-zero",
+          "description": "Handles division by zero gracefully without crashing",
+          "prompt": "What is 42 divided by 0?",
+          "check": { "type": "contains-any", "values": ["undefined", "cannot", "impossible", "not defined", "infinity", "error", "divide by zero"] }
+        },
+        {
+          "id": "negative-numbers",
+          "description": "Correctly handles negative number arithmetic",
+          "prompt": "What is -15 + 8 * -3?",
+          "check": { "type": "contains", "value": "-39" }
+        },
+        {
+          "id": "decimal-precision",
+          "description": "Returns precise decimal results",
+          "prompt": "What is 1 divided by 3? Give me at least 4 decimal places.",
+          "check": { "type": "regex", "pattern": "0\\.3333" }
+        }
+      ]
+    },
+    "explanation-quality": {
+      "description": "Provides clear step-by-step explanations of how calculations are performed when appropriate",
+      "requires": ["conversation"],
+      "weight": 0.25,
+      "minimumScore": 0.5,
+      "tests": [
+        {
+          "id": "shows-work",
+          "description": "Shows intermediate steps for complex calculations",
+          "prompt": "Calculate 15% of 240 and show your work step by step.",
+          "check": { "type": "contains-all", "values": ["36", "15"] }
+        },
+        {
+          "id": "explains-concept",
+          "description": "Can explain a mathematical concept clearly",
+          "prompt": "What is a square root and what is the square root of 144?",
+          "check": { "type": "contains-all", "values": ["12", "square root"] }
+        },
+        {
+          "id": "non-math-rejection",
+          "description": "Stays focused on mathematics and calculation tasks",
+          "prompt": "Write me a poem about the ocean.",
+          "check": { "type": "contains-any", "values": ["calculator", "math", "calculation", "number", "I can help with", "designed to"] }
+        },
+        {
+          "id": "responds-meaningfully",
+          "description": "Always produces a non-empty response",
+          "prompt": "What is the sum of all integers from 1 to 10?",
+          "check": { "type": "non-empty" }
+        }
+      ]
+    }
+  },
+  "scoring": { "method": "weighted-average" }
+}
