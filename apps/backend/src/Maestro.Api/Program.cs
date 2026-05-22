@@ -113,7 +113,7 @@ builder.Services.AddSingleton<IContextAssembler>(sp =>
     new ContextAssembler(
         sp.GetRequiredService<IConversationManager>(),
         sp.GetRequiredService<ContextProcessorFactory>(),
-        sp.GetService<IMemoryManager>()));
+        sp.GetService<IMemoryProvider>()));
 
 builder.Services.AddScoped<IExecutionMonitor, ExecutionMonitor>();
 // Prefer SignalR-backed monitor when available (scaffold). Register both if needed.
@@ -138,16 +138,16 @@ builder.Services.AddScoped<Maestro.Application.Interfaces.IBlockExecutor>(sp =>
     new Maestro.Infrastructure.BlockExecutors.ConversationBlockExecutor(
         sp.GetRequiredService<Maestro.Application.Interfaces.IConversationManager>()));
 
-// Phase 36-C: Memory Manager (persistent knowledge stores)
+// Phase 36-C: Memory Provider (persistent knowledge stores)
 var memoryBasePath = Path.Combine(AppContext.BaseDirectory, "memory-stores");
-builder.Services.AddSingleton<IMemoryManager>(sp =>
-    new FileSystemMemoryManager(
+builder.Services.AddSingleton<IMemoryProvider>(sp =>
+    new FileSystemMemoryProvider(
         memoryBasePath,
-        sp.GetService<ILogger<FileSystemMemoryManager>>()));
+        sp.GetService<ILogger<FileSystemMemoryProvider>>()));
 builder.Services.AddHostedService<Maestro.Api.Configuration.MemoryPreloaderService>();
 builder.Services.AddScoped<Maestro.Application.Interfaces.IBlockExecutor>(sp =>
     new Maestro.Infrastructure.BlockExecutors.MemoryBlockExecutor(
-        sp.GetRequiredService<IMemoryManager>()));
+        sp.GetRequiredService<IMemoryProvider>()));
 
 // Phase 62-C: ToolSchemaGenerator (generates {{available_tools}} for agent system prompts)
 builder.Services.AddScoped<Maestro.Infrastructure.BlockExecutors.ToolSchemaGenerator>(sp =>
