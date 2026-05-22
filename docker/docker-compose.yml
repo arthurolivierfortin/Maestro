@@ -63,9 +63,6 @@ services:
       # Reference projects (read-only — for learning patterns, not modifying)
       - C:/Money:/ref/Money:ro
 
-    ports:
-      - "8510:8501"
-
     depends_on:
       - main
 
