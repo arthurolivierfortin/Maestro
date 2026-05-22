@@ -8,14 +8,14 @@ using Microsoft.Extensions.Logging;
 namespace Maestro.Infrastructure.Memory;
 
 /// <summary>
-/// File-system backed memory manager.
+/// File-system backed memory provider.
 /// Stores memories as JSON files in a configurable directory.
 /// Thread-safe via ConcurrentDictionary cache + file locks.
 /// </summary>
-public class FileSystemMemoryManager : IMemoryManager
+public class FileSystemMemoryProvider : IMemoryProvider
 {
     private readonly string _basePath;
-    private readonly ILogger<FileSystemMemoryManager>? _logger;
+    private readonly ILogger<FileSystemMemoryProvider>? _logger;
     private readonly ConcurrentDictionary<string, MemoryStore> _cache = new();
     private readonly SemaphoreSlim _fileLock = new(1, 1);
     private bool _loaded;
@@ -27,7 +27,7 @@ public class FileSystemMemoryManager : IMemoryManager
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
     };
 
-    public FileSystemMemoryManager(string basePath, ILogger<FileSystemMemoryManager>? logger = null)
+    public FileSystemMemoryProvider(string basePath, ILogger<FileSystemMemoryProvider>? logger = null)
     {
         _basePath = basePath;
         _logger = logger;
