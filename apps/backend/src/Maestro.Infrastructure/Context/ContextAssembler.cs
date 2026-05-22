@@ -10,23 +10,23 @@ namespace Maestro.Infrastructure.Context;
 /// This is the bridge between conversations (message storage) and
 /// context processors (optimization strategies).
 ///
-/// Phase 36-C: Also reads from IMemoryManager to inject persistent
+/// Phase 36-C: Also reads from IMemoryProvider to inject persistent
 /// knowledge entries into the system prompt context.
 /// </summary>
 public class ContextAssembler : IContextAssembler
 {
     private readonly IConversationManager _conversationManager;
     private readonly ContextProcessorFactory _processorFactory;
-    private readonly IMemoryManager? _memoryManager;
+    private readonly IMemoryProvider? _memoryProvider;
 
     public ContextAssembler(
         IConversationManager conversationManager,
         ContextProcessorFactory processorFactory,
-        IMemoryManager? memoryManager = null)
+        IMemoryProvider? memoryProvider = null)
     {
         _conversationManager = conversationManager;
         _processorFactory = processorFactory;
-        _memoryManager = memoryManager;
+        _memoryProvider = memoryProvider;
     }
 
     /// <inheritdoc />
@@ -49,9 +49,9 @@ public class ContextAssembler : IContextAssembler
             .ToList();
 
         // 3. Inject memory entries into system prompt if available
-        if (_memoryManager != null)
+        if (_memoryProvider != null)
         {
-            var memoryEntries = await _memoryManager.GetRelevantEntriesAsync(
+            var memoryEntries = await _memoryProvider.GetRelevantEntriesAsync(
                 maxEntries: 5, ct: ct);
 
             if (memoryEntries.Count > 0)
