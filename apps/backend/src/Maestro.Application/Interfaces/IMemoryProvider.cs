@@ -3,10 +3,10 @@ using Maestro.Domain.Entities;
 namespace Maestro.Application.Interfaces;
 
 /// <summary>
-/// Manages persistent memory stores.
+/// Provides persistent memory stores.
 /// Memories persist across sessions and can be queried by category, tags, or block scope.
 /// </summary>
-public interface IMemoryManager
+public interface IMemoryProvider
 {
     /// <summary>
     /// Creates a new memory store.
