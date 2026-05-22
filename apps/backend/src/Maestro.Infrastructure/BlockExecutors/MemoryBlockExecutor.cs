@@ -8,16 +8,16 @@ namespace Maestro.Infrastructure.BlockExecutors;
 
 /// <summary>
 /// Executor for memory blocks.
-/// Wraps IMemoryManager as a composable block.
+/// Wraps IMemoryProvider as a composable block.
 /// Supports operations: create-store, add-entry, search, get-relevant, remove-entry, delete-store.
 /// </summary>
 public class MemoryBlockExecutor : IBlockExecutor
 {
-    private readonly IMemoryManager _memoryManager;
+    private readonly IMemoryProvider _memoryProvider;
 
-    public MemoryBlockExecutor(IMemoryManager memoryManager)
+    public MemoryBlockExecutor(IMemoryProvider memoryProvider)
     {
-        _memoryManager = memoryManager;
+        _memoryProvider = memoryProvider;
     }
 
     public string SupportedType => "memory";
@@ -88,7 +88,7 @@ public class MemoryBlockExecutor : IBlockExecutor
         var blockId = GetString(inputs, "blockId", null);
         var sessionId = GetString(inputs, "sessionId", null);
 
-        var store = await _memoryManager.CreateStoreAsync(id, name, category, blockId, sessionId, ct);
+        var store = await _memoryProvider.CreateStoreAsync(id, name, category, blockId, sessionId, ct);
 
         result.Outputs["storeId"] = store.Id;
         result.Outputs["name"] = store.Name;
@@ -122,7 +122,7 @@ public class MemoryBlockExecutor : IBlockExecutor
             LastUsedAt = DateTimeOffset.UtcNow
         };
 
-        await _memoryManager.AddEntryAsync(storeId, entry, ct);
+        await _memoryProvider.AddEntryAsync(storeId, entry, ct);
 
         result.Outputs["storeId"] = storeId;
         result.Outputs["key"] = key;
@@ -138,7 +138,7 @@ public class MemoryBlockExecutor : IBlockExecutor
         var category = GetString(inputs, "category", null);
         var maxResults = GetInt(inputs, "maxResults", 20);
 
-        var results = await _memoryManager.SearchAsync(query, category, maxResults, ct);
+        var results = await _memoryProvider.SearchAsync(query, category, maxResults, ct);
 
         var entries = results.Select(r => new Dictionary<string, object>
         {
@@ -163,7 +163,7 @@ public class MemoryBlockExecutor : IBlockExecutor
         var tags = GetStringList(inputs, "tags");
         var maxEntries = GetInt(inputs, "maxEntries", 10);
 
-        var entries = await _memoryManager.GetRelevantEntriesAsync(
+        var entries = await _memoryProvider.GetRelevantEntriesAsync(
             category, blockId, tags.Count > 0 ? tags : null, maxEntries, ct);
 
         var serialized = entries.Select(e => new Dictionary<string, object>
@@ -189,7 +189,7 @@ public class MemoryBlockExecutor : IBlockExecutor
         var key = GetString(inputs, "key", null)
             ?? throw new ArgumentException("key is required for remove-entry");
 
-        await _memoryManager.RemoveEntryAsync(storeId, key, ct);
+        await _memoryProvider.RemoveEntryAsync(storeId, key, ct);
 
         result.Outputs["storeId"] = storeId;
         result.Outputs["key"] = key;
@@ -203,7 +203,7 @@ public class MemoryBlockExecutor : IBlockExecutor
         var storeId = GetString(inputs, "storeId", null)
             ?? throw new ArgumentException("storeId is required for delete-store");
 
-        await _memoryManager.DeleteStoreAsync(storeId, ct);
+        await _memoryProvider.DeleteStoreAsync(storeId, ct);
 
         result.Outputs["storeId"] = storeId;
         result.Success = true;
