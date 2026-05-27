@@ -104,4 +104,43 @@ public class McpBlockExecutorTests
             It.IsAny<Dictionary<string, object?>>(),
             It.IsAny<CancellationToken>()), Times.Once);
     }
+
+    [Fact]
+    public async Task UnknownOperation_ReturnsFalse()
+    {
+        var mockWrapper = new Mock<IMcpClientWrapper>();
+        var executor = Build(out _, mockWrapper.Object);
+
+        var inputs = new Dictionary<string, object>
+        {
+            ["operation"] = "unknown-op"
+        };
+
+        var result = await executor.ExecuteAsync(McpBlock(), Ctx(), inputs);
+
+        Assert.False(result.Success);
+        Assert.Contains("Unknown MCP operation", result.Outputs["error"]?.ToString() ?? "");
+        Assert.Contains("Unknown MCP operation", result.Logs[0]);
+    }
+
+    [Fact]
+    public async Task McpException_PropagatesAsFailure()
+    {
+        var mockWrapper = new Mock<IMcpClientWrapper>();
+        mockWrapper.Setup(w => w.ListToolsAsync(It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("MCP server crashed"));
+
+        var executor = Build(out _, mockWrapper.Object);
+
+        var inputs = new Dictionary<string, object>
+        {
+            ["operation"] = "list-tools"
+        };
+
+        var result = await executor.ExecuteAsync(McpBlock(), Ctx(), inputs);
+
+        Assert.False(result.Success);
+        Assert.Equal("MCP server crashed", result.Outputs["error"]);
+        Assert.Contains("MCP operation failed", result.Logs[0]);
+    }
 }
