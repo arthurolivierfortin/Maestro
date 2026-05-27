@@ -149,6 +149,14 @@ builder.Services.AddScoped<Maestro.Application.Interfaces.IBlockExecutor>(sp =>
     new Maestro.Infrastructure.BlockExecutors.MemoryBlockExecutor(
         sp.GetRequiredService<IMemoryProvider>()));
 
+// Phase 65-H: MCP support (wraps external MCP servers as Maestro blocks)
+builder.Services.AddSingleton<Maestro.Infrastructure.Mcp.IMcpClientFactory>(sp =>
+    new Maestro.Infrastructure.Mcp.McpClientFactory(
+        sp.GetService<ILoggerFactory>()));
+builder.Services.AddScoped<Maestro.Application.Interfaces.IBlockExecutor>(sp =>
+    new Maestro.Infrastructure.BlockExecutors.McpBlockExecutor(
+        sp.GetRequiredService<Maestro.Infrastructure.Mcp.IMcpClientFactory>()));
+
 // Phase 62-C: ToolSchemaGenerator (generates {{available_tools}} for agent system prompts)
 builder.Services.AddScoped<Maestro.Infrastructure.BlockExecutors.ToolSchemaGenerator>(sp =>
     new Maestro.Infrastructure.BlockExecutors.ToolSchemaGenerator(
