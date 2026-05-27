@@ -1,0 +1,27 @@
+{
+  "id": "mcp-filesystem",
+  "name": "MCP Filesystem",
+  "blockType": "mcp-server",
+  "version": "1.0.0",
+  "isAtomic": true,
+  "description": "MCP server for filesystem operations (read, write, list, search) via @modelcontextprotocol/server-filesystem",
+  "inputs": [
+    { "id": "operation", "type": "string", "required": true, "description": "Operation to execute: 'list-tools' or 'call-tool'" },
+    { "id": "toolName", "type": "string", "required": false, "description": "Name of the MCP tool to call (required for call-tool)" },
+    { "id": "arguments", "type": "object", "required": false, "description": "Arguments to pass to the MCP tool (required for call-tool)" }
+  ],
+  "outputs": [
+    { "id": "tools", "type": "array", "description": "List of available tools (for list-tools operation)" },
+    { "id": "result", "type": "string", "description": "Tool call result (for call-tool operation)" },
+    { "id": "error", "type": "string", "description": "Error message if operation failed" }
+  ],
+  "config": {
+    "command": "npx",
+    "args": ["-y", "@modelcontextprotocol/server-filesystem", "/data"],
+    "transport": "stdio"
+  },
+  "metadata": {
+    "category": "mcp",
+    "tags": ["mcp", "filesystem", "tools", "external"]
+  }
+}

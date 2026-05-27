@@ -12,7 +12,7 @@
 - [x] [SPEC-5] [sdk] Ajouter operation `call-tool` dans `McpBlockExecutor` qui lit `inputs["toolName"]` + `inputs["arguments"]`, appelle le MCP server, retourne le resultat dans `Outputs["result"]` — `apps/backend/src/Maestro.Infrastructure/BlockExecutors/McpBlockExecutor.cs`
 - [x] [SPEC-6] [sdk] Gestion des erreurs dans `McpBlockExecutor` : operation inconnue → `Success=false` + log, exception MCP → `Success=false` + `Outputs["error"]` + log, pas de catch silencieux — `apps/backend/src/Maestro.Infrastructure/BlockExecutors/McpBlockExecutor.cs`
 - [x] [SPEC-7] [sdk] Enregistrer `IMcpClientFactory` (singleton) et `McpBlockExecutor` (scoped `IBlockExecutor`) dans le DI — `apps/backend/src/Maestro.Api/Program.cs`
-- [ ] [SPEC-8] [sdk] Creer sample block.json pour MCP filesystem server avec `blockType: "mcp-server"`, config command/args/transport — `content/system/blocks/tools/mcp-filesystem/mcp-filesystem.tool.block.json`
+- [x] [SPEC-8] [sdk] Creer sample block.json pour MCP filesystem server avec `blockType: "mcp-server"`, config command/args/transport — `content/system/blocks/tools/mcp-filesystem/mcp-filesystem.tool.block.json`
 
 ## Tests
 - [x] [TEST-1] `McpBlockExecutor.ExecuteAsync` avec operation `list-tools` route vers le client MCP et retourne les tools dans Outputs — `apps/backend/tests/Maestro.Infrastructure.Tests/BlockExecutors/McpBlockExecutorTests.cs::ListTools_ReturnsToolsFromMcpClient`
@@ -28,7 +28,7 @@
 - [ ] [DB-0] None
 
 ## Block / Contract changes
-- [ ] [BLOCK-1] Sample block `mcp-filesystem.tool.block.json` avec `blockType: "mcp-server"`, config `command: "npx"`, `args: ["-y", "@modelcontextprotocol/server-filesystem", "/data"]`, `transport: "stdio"` — `content/system/blocks/tools/mcp-filesystem/mcp-filesystem.tool.block.json`
+- [x] [BLOCK-1] Sample block `mcp-filesystem.tool.block.json` avec `blockType: "mcp-server"`, config `command: "npx"`, `args: ["-y", "@modelcontextprotocol/server-filesystem", "/data"]`, `transport: "stdio"` — `content/system/blocks/tools/mcp-filesystem/mcp-filesystem.tool.block.json`
 - [ ] [CONTRACT-0] None (pas de contrat MCP pour V1 — le McpBlockExecutor est un executor generique, pas un contrat)
 
 ## Verification gates (6 layers TESTING-PROTOCOL)
