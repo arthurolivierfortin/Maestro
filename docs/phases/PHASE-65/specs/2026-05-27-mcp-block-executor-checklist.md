@@ -6,7 +6,7 @@
 
 ## Code
 - [x] [SPEC-1] [sdk] Ajouter `ModelContextProtocol` NuGet (v1.3.0+) a `Maestro.Infrastructure.csproj` — `apps/backend/src/Maestro.Infrastructure/Maestro.Infrastructure.csproj`
-- [ ] [SPEC-2] [sdk] Creer `IMcpClientFactory` interface avec methode pour obtenir un client MCP par config (command, args) et `IAsyncDisposable` — `apps/backend/src/Maestro.Infrastructure/Mcp/IMcpClientFactory.cs`
+- [x] [SPEC-2] [sdk] Creer `IMcpClientFactory` interface avec methode pour obtenir un client MCP par config (command, args) et `IAsyncDisposable` — `apps/backend/src/Maestro.Infrastructure/Mcp/IMcpClientFactory.cs`
 - [ ] [SPEC-3] [sdk] Creer `McpClientFactory` implementation : demarrage processus MCP stdio via le NuGet, cache par cle (command+args-hash), dispose kill les processus — `apps/backend/src/Maestro.Infrastructure/Mcp/McpClientFactory.cs`
 - [ ] [SPEC-4] [sdk] Creer `McpBlockExecutor` avec `SupportedType = "mcp-server"`, operation `list-tools` qui retourne les tools du server dans `Outputs["tools"]` — `apps/backend/src/Maestro.Infrastructure/BlockExecutors/McpBlockExecutor.cs`
 - [ ] [SPEC-5] [sdk] Ajouter operation `call-tool` dans `McpBlockExecutor` qui lit `inputs["toolName"]` + `inputs["arguments"]`, appelle le MCP server, retourne le resultat dans `Outputs["result"]` — `apps/backend/src/Maestro.Infrastructure/BlockExecutors/McpBlockExecutor.cs`
