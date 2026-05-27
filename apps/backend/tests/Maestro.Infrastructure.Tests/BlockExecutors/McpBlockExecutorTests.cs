@@ -74,4 +74,34 @@ public class McpBlockExecutorTests
         Assert.Equal("Read a file", tools[0]["description"]);
         Assert.Equal(2, result.Outputs["count"]);
     }
+
+    [Fact]
+    public async Task CallTool_RoutesToMcpClientWithCorrectArgs()
+    {
+        var mockWrapper = new Mock<IMcpClientWrapper>();
+        mockWrapper.Setup(w => w.CallToolAsync(
+                "read_file",
+                It.Is<Dictionary<string, object?>>(d => d.ContainsKey("path") && (string)d["path"]! == "/tmp/test.txt"),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new McpToolCallResult(false, "file content here"));
+
+        var executor = Build(out _, mockWrapper.Object);
+
+        var inputs = new Dictionary<string, object>
+        {
+            ["operation"] = "call-tool",
+            ["toolName"] = "read_file",
+            ["arguments"] = new Dictionary<string, object> { ["path"] = "/tmp/test.txt" }
+        };
+
+        var result = await executor.ExecuteAsync(McpBlock(), Ctx(), inputs);
+
+        Assert.True(result.Success);
+        Assert.Equal("file content here", result.Outputs["result"]);
+        Assert.Equal("read_file", result.Outputs["toolName"]);
+        mockWrapper.Verify(w => w.CallToolAsync(
+            "read_file",
+            It.IsAny<Dictionary<string, object?>>(),
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
 }
