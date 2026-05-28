@@ -19,6 +19,10 @@ vi.mock('../ModelsPage', () => ({
   ModelsPage: () => <div>ModelsPage</div>,
 }));
 
+vi.mock('../MonitorPage', () => ({
+  MonitorPage: () => <div>MonitorPage</div>,
+}));
+
 // Mock useBackendStatus
 vi.mock('../../hooks/useBackendStatus', () => ({
   useBackendStatus: () => ({ connected: true, checking: false }),
@@ -64,6 +68,14 @@ describe('Navigation', () => {
     fireEvent.click(screen.getByText('[4] Models'));
 
     expect(screen.getByText('ModelsPage')).toBeDefined();
+  });
+
+  it('navigates to MonitorPage when clicking Monitor tab', () => {
+    render(<App />);
+
+    fireEvent.click(screen.getByText('[5] Monitor'));
+
+    expect(screen.getByText('MonitorPage')).toBeDefined();
   });
 
   it('highlights the active tab', () => {

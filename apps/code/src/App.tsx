@@ -4,9 +4,10 @@ import { ConsolePage } from './pages/ConsolePage';
 import { SpacesPage } from './pages/SpacesPage';
 import { CatalogPage } from './pages/CatalogPage';
 import { ModelsPage } from './pages/ModelsPage';
+import { MonitorPage } from './pages/MonitorPage';
 import { StatusBar } from './components/StatusBar';
 
-export type PageId = 'console' | 'spaces' | 'catalog' | 'models';
+export type PageId = 'console' | 'spaces' | 'catalog' | 'models' | 'monitor';
 
 export default function App() {
   const [currentPage, setCurrentPage] = useState<PageId>('console');
@@ -19,6 +20,7 @@ export default function App() {
         {currentPage === 'spaces' && <SpacesPage />}
         {currentPage === 'catalog' && <CatalogPage />}
         {currentPage === 'models' && <ModelsPage />}
+        {currentPage === 'monitor' && <MonitorPage />}
       </main>
       <StatusBar />
     </div>
