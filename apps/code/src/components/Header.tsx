@@ -12,7 +12,7 @@ const tabs: TabDef[] = [
   { key: 2, label: 'Spaces', pageId: 'spaces' },
   { key: 3, label: 'Catalog', pageId: 'catalog' },
   { key: 4, label: 'Models', pageId: 'models' },
-  { key: 5, label: 'Monitor', pageId: null },
+  { key: 5, label: 'Monitor', pageId: 'monitor' },
 ];
 
 interface HeaderProps {

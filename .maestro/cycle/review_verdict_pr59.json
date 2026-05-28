@@ -1,0 +1,43 @@
+{
+  "pr_number": 59,
+  "checklist_path": "docs/phases/PHASE-65/specs/2026-05-27-mcp-block-executor-checklist.md",
+  "stage1_spec": {
+    "status": "approved",
+    "items": [
+      {"id": "SPEC-1", "tag": "sdk", "implemented": true, "test_id": null, "file_evidence": "apps/backend/src/Maestro.Infrastructure/Maestro.Infrastructure.csproj (ModelContextProtocol 1.3.0)"},
+      {"id": "SPEC-2", "tag": "sdk", "implemented": true, "test_id": "TEST-6", "file_evidence": "apps/backend/src/Maestro.Infrastructure/Mcp/IMcpClientFactory.cs:3-8"},
+      {"id": "SPEC-3", "tag": "sdk", "implemented": true, "test_id": "TEST-6,TEST-7,TEST-8", "file_evidence": "apps/backend/src/Maestro.Infrastructure/Mcp/McpClientFactory.cs:28-74"},
+      {"id": "SPEC-4", "tag": "sdk", "implemented": true, "test_id": "TEST-1", "file_evidence": "apps/backend/src/Maestro.Infrastructure/BlockExecutors/McpBlockExecutor.cs:48-50,72-86"},
+      {"id": "SPEC-5", "tag": "sdk", "implemented": true, "test_id": "TEST-2", "file_evidence": "apps/backend/src/Maestro.Infrastructure/BlockExecutors/McpBlockExecutor.cs:51-52,88-111"},
+      {"id": "SPEC-6", "tag": "sdk", "implemented": true, "test_id": "TEST-3,TEST-4", "file_evidence": "apps/backend/src/Maestro.Infrastructure/BlockExecutors/McpBlockExecutor.cs:54-58,62-66"},
+      {"id": "SPEC-7", "tag": "sdk", "implemented": true, "test_id": "TEST-5", "file_evidence": "apps/backend/src/Maestro.Api/Program.cs (AddSingleton+AddScoped)"},
+      {"id": "SPEC-8", "tag": "sdk", "implemented": true, "test_id": "BLOCK-1", "file_evidence": "content/system/blocks/tools/mcp-filesystem/mcp-filesystem.tool.block.json"}
+    ],
+    "cardinal_rule_ok": true,
+    "no_legacy_support_ok": true,
+    "tags_consistent": true,
+    "pitfalls_scan": "clean",
+    "blocking_items": []
+  },
+  "stage2_quality": {
+    "status": "approved",
+    "sandbox": {
+      "type_check_backend": {"result": "pass", "tail": "66 Warning(s), 0 Error(s). Time Elapsed 00:00:23.11"},
+      "type_check_tui": {"result": "skip", "tail": "N/A — no TUI files changed"},
+      "type_check_cli": {"result": "skip", "tail": "N/A — no CLI files changed"},
+      "unit_tests_backend": {"result": "pass", "tail": "Failed: 4 (pre-existing), Passed: 113, Total: 117. 12/12 new MCP tests passed. Same 4 failures on dev (101 passed)."},
+      "unit_tests_tui": {"result": "skip", "tail": "N/A — no TUI files changed"},
+      "real_demo_check": {"result": "skip", "tail": "N/A — no TUI files changed"},
+      "integration": {"result": "skip", "tail": "N/A — MCP client mocked in tests, no new integration tests"},
+      "provider_health": {"result": "skip", "tail": "N/A — no workflow/agent changes"}
+    },
+    "issues": [
+      {"severity": "minor", "file": "apps/backend/src/Maestro.Infrastructure/Mcp/McpClientFactory.cs", "line": 84, "what": "Empty catch block in DisposeAsync with minimal comment", "how_to_fix": "Add more descriptive comment: '// Swallow dispose errors — MCP process may have already exited'"},
+      {"severity": "minor", "file": "apps/backend/src/Maestro.Infrastructure/Mcp/McpClientFactory.cs", "line": 91, "what": "BuildCacheKey uses pipe separator — theoretical collision if args contain '|'", "how_to_fix": "Consider using a hash or escaped separator. Low risk in practice (MCP args don't contain pipes)."},
+      {"severity": "minor", "file": "apps/backend/src/Maestro.Infrastructure/BlockExecutors/McpBlockExecutor.cs", "line": 30, "what": "Default operation 'list-tools' is implicit, not documented in block.json", "how_to_fix": "Optional: add defaultOperation field to block.json schema or document in code comment."}
+    ],
+    "plan_deviations": []
+  },
+  "verdict": "approved",
+  "feedback": "PR #59 est solide. 8/8 SPEC implementes avec evidence, 8/8 tests exercent le vrai behavior, tous les sandbox gates passent (build 0 errors, 113/117 tests — 4 echecs pre-existants identiques sur dev). Architecture propre: IMcpClientWrapper pour testabilite, SemaphoreSlim pour thread-safety stdio, JsonElement handling correct, No Silent Failures respecte. Cardinal Rule OK (nouveau MCP server = nouveau block.json, zero C#). No Legacy OK (greenfield). 3 issues mineures non-bloquantes (comment dans catch, cache key separator, default operation implicite)."
+}

@@ -1,0 +1,97 @@
+{
+  "pr_number": 61,
+  "checklist_path": "docs/phases/PHASE-66/specs/2026-05-27-code-app-scaffold-checklist.md",
+  "stage1_spec": {
+    "status": "approved",
+    "items": [
+      {"id": "SPEC-1", "tag": "code-app", "implemented": true, "test_id": "TEST-6", "file_evidence": "apps/code/package.json:1-33 (React 19.1, Vite 6.4, Electron 33.4, TS 5.7, vitest, scripts dev/dev:web/build/type-check/test)"},
+      {"id": "SPEC-2", "tag": "code-app", "implemented": true, "test_id": null, "file_evidence": "apps/code/vite.config.ts:1-68 (react plugin, vite-plugin-electron, port 5174, proxy /api->:5000, alias @/)"},
+      {"id": "SPEC-3", "tag": "code-app", "implemented": true, "test_id": null, "file_evidence": "apps/code/tsconfig.json:1-26 (strict, jsx react-jsx, paths @/*, noUnusedLocals, noUnusedParameters)"},
+      {"id": "SPEC-4", "tag": "code-app", "implemented": true, "test_id": null, "file_evidence": "apps/code/index.html:1-16 + apps/code/src/main.tsx:1-10 (createRoot, import tui-theme.css, render App)"},
+      {"id": "SPEC-5", "tag": "code-app", "implemented": true, "test_id": null, "file_evidence": "apps/code/electron/main.ts:1-140 (BrowserWindow 1400x900, minWidth 1024, minHeight 768, VITE_DEV_SERVER_URL, Edit/View/Window menu, single instance lock, ready-to-show)"},
+      {"id": "SPEC-6", "tag": "code-app", "implemented": true, "test_id": null, "file_evidence": "apps/code/electron/preload.ts:1-3 (contextBridge.exposeInMainWorld isElectron true)"},
+      {"id": "SPEC-7", "tag": "code-app", "implemented": true, "test_id": null, "file_evidence": "apps/code/src/theme/tui-theme.css:1-65 (CSS custom properties --tui-bg/fg/accent/border/error/success/muted, JetBrains Mono via Google Fonts in index.html, reset, .ascii-border, .streaming-cursor)"},
+      {"id": "SPEC-8", "tag": "code-app", "implemented": true, "test_id": null, "file_evidence": "apps/code/src/theme/tokens.ts:1-19 (colors bg/fg/accent/border/error/success/muted exact hex, fontFamily JetBrains Mono, spacing xs/sm/md/lg/xl)"},
+      {"id": "SPEC-9", "tag": "code-app", "implemented": true, "test_id": "TEST-6", "file_evidence": "apps/code/src/services/apiClient.ts:1-12 (API_URL from import.meta.env.VITE_API_URL||'', apiFetch wraps fetch, throws on !ok with body.error)"},
+      {"id": "SPEC-10", "tag": "code-app", "implemented": true, "test_id": "TEST-1,TEST-2", "file_evidence": "apps/code/src/services/chatService.ts:1-100 (sendChatCompletion via apiFetch, streamChatCompletion via direct fetch with SSE parsing, NO fetchLLMModels/Health/etc)"},
+      {"id": "SPEC-11", "tag": "code-app", "implemented": true, "test_id": "TEST-3,TEST-4", "file_evidence": "apps/code/src/hooks/useChat.ts:1-126 (adapted from apps/desktop, same behavior, improved catch(e:unknown) vs catch(e:any))"},
+      {"id": "SPEC-12", "tag": "code-app", "implemented": true, "test_id": "TEST-5", "file_evidence": "apps/code/src/hooks/useBackendStatus.ts:1-30 (poll /api/discovery/health every 10s, connected/checking state, cleanup)"},
+      {"id": "SPEC-13", "tag": "code-app", "implemented": true, "test_id": null, "file_evidence": "apps/code/src/components/Header.tsx:1-42 (MAESTRO CODE + 5 tabs [1]Console active, [2-5] disabled/muted)"},
+      {"id": "SPEC-14", "tag": "code-app", "implemented": true, "test_id": null, "file_evidence": "apps/code/src/components/StatusBar.tsx:1-32 (green/red dot, Connected/Disconnected, useBackendStatus)"},
+      {"id": "SPEC-15", "tag": "code-app", "implemented": true, "test_id": null, "file_evidence": "apps/code/src/components/ChatMessage.tsx:1-29 (role user|assistant, > you / > assistant labels, streaming-cursor class)"},
+      {"id": "SPEC-16", "tag": "code-app", "implemented": true, "test_id": null, "file_evidence": "apps/code/src/components/ChatInput.tsx:1-52 (textarea 3 rows, Enter sends, Shift+Enter newline, disabled when isLoading, placeholder)"},
+      {"id": "SPEC-17", "tag": "code-app", "implemented": true, "test_id": null, "file_evidence": "apps/code/src/pages/ConsolePage.tsx:1-54 (flex column, scrollable messages, scroll-to-bottom, ChatInput sticky, error display)"},
+      {"id": "SPEC-18", "tag": "code-app", "implemented": true, "test_id": null, "file_evidence": "apps/code/src/App.tsx:1-15 (flex column 100vh, Header + ConsolePage + StatusBar)"}
+    ],
+    "cardinal_rule_ok": true,
+    "no_legacy_support_ok": true,
+    "tags_consistent": true,
+    "pitfalls_scan": "clean — no @ts-nocheck, no AgentBlockExecutor changes, no ToolBlockExecutor changes, no backend code touched",
+    "blocking_items": []
+  },
+  "stage2_quality": {
+    "status": "approved",
+    "sandbox": {
+      "type_check_apps_code": {"result": "pass", "tail": "(exit 0, no output = 0 errors)"},
+      "unit_tests_apps_code": {"result": "pass", "tail": "Test Files  4 passed (4)\n      Tests  9 passed (9)\n   Duration  3.69s"},
+      "real_demo_check": {"result": "skip", "tail": "N/A — no real-demo-check.cjs for React-web apps yet (documented in checklist)"},
+      "provider_health": {"result": "skip", "tail": "N/A — no workflow/agent touched, pure frontend"}
+    },
+    "issues": [
+      {
+        "severity": "minor",
+        "file": "apps/code/package.json",
+        "line": 10,
+        "what": "dev:web script uses ELECTRON_DISABLE=true (Unix syntax) — will fail on Windows without cross-env",
+        "how_to_fix": "Add cross-env as devDependency: \"dev:web\": \"cross-env ELECTRON_DISABLE=true vite\""
+      },
+      {
+        "severity": "minor",
+        "file": "apps/code/src/hooks/useChat.ts",
+        "line": 75,
+        "what": "fallbackSend param _partial is unused (prefixed with _ so linter OK, but dead param)",
+        "how_to_fix": "Remove _partial parameter or use it to prepend partial streaming content to the fallback response"
+      },
+      {
+        "severity": "minor",
+        "file": "apps/code/electron/main.ts",
+        "line": 5,
+        "what": "import.meta.url in CJS output (rollup output format is cjs in vite.config.ts line 22) — may fail at runtime in Electron",
+        "how_to_fix": "Use __dirname directly in CJS context, or switch output format to ESM for Electron main"
+      }
+    ],
+    "plan_deviations": [
+      {
+        "type": "extra_file",
+        "file": "docs/phases/PHASE-66/specs/2026-05-27-code-app-scaffold-checklist.md",
+        "severity": "acceptable",
+        "note": "Checklist ticked by builder — expected behavior, not scope creep"
+      },
+      {
+        "type": "extra_file",
+        "file": "apps/code/package-lock.json",
+        "severity": "acceptable",
+        "note": "Generated by npm install — expected"
+      },
+      {
+        "type": "spec_correction",
+        "note": "useBackendStatus polls /api/discovery/health instead of GET / as spec said — researcher corrected this in plan_verdict because / is not proxied. Justified deviation."
+      }
+    ]
+  },
+  "adaptation_verification": {
+    "chatService": "Correctly adapted from apps/desktop/src/services/chatService.ts — kept sendChatCompletion + streamChatCompletion, removed fetchLLMModels/Health/Capabilities/loadModel/switchModel (6 functions removed). sendChatCompletion now uses apiFetch wrapper instead of direct fetch. Same SSE parsing logic. API_URL defaults to '' (proxy) instead of hardcoded localhost:5000.",
+    "useChat": "Near-identical to apps/desktop/src/hooks/useChat.ts — only improvement: catch(e:unknown) with instanceof Error check instead of catch(e:any). Same state management, streaming, abort, fallback logic."
+  },
+  "theme_verification": {
+    "jetbrains_mono": true,
+    "monospace_everywhere": true,
+    "color_palette": "amber #ffb300 accent, green #4caf50 success, dark bg #1a1a2e, light fg #e0e0e0, red #ff5252 error, muted #6c6c8a",
+    "css_custom_properties": true,
+    "streaming_cursor_animation": true,
+    "scrollbar_styling": true,
+    "ascii_border_utility": true
+  },
+  "verdict": "approved",
+  "feedback": "Stage 1 PASS: 18/18 SPECs implemented with file:line evidence. 6/6 TESTss present and meaningful (SSE parsing, error handling, hook state, stopGeneration, backend status). All commits tagged [code-app]. Cardinal Rule OK (pure API consumer). No Legacy OK (new app). No pitfalls. Stage 2 PASS: tsc --noEmit 0 errors, vitest 9/9 pass. chatService/useChat correctly adapted from apps/desktop (6 LLM functions removed, apiFetch wrapper added, catch(e:unknown) improvement). TUI theme well-crafted (JetBrains Mono, amber/green palette, CSS custom properties, streaming cursor animation). 3 minor issues found (cross-env for Windows, unused _partial param, import.meta.url in CJS context)."
+}

@@ -1,16 +1,19 @@
 {
-  "issue": 64,
-  "spec_path": "docs/phases/PHASE-66/specs/2026-05-27-catalog-page-design.md",
-  "checklist_path": "docs/phases/PHASE-66/specs/2026-05-27-catalog-page-checklist.md",
-  "plan_path": "docs/phases/PHASE-66/plans/2026-05-27-catalog-page-plan.md",
+  "issue": 68,
+  "spec_path": "docs/phases/PHASE-66/specs/2026-05-27-monitor-page-design.md",
+  "checklist_path": "docs/phases/PHASE-66/specs/2026-05-27-monitor-page-checklist.md",
+  "plan_path": "docs/phases/PHASE-66/plans/2026-05-27-monitor-page-plan.md",
   "files_to_create": [
-    "apps/code/src/services/blockService.ts",
-    "apps/code/src/services/__tests__/blockService.test.ts",
-    "apps/code/src/hooks/useBlocks.ts",
-    "apps/code/src/hooks/__tests__/useBlocks.test.ts",
-    "apps/code/src/components/BlockCard.tsx",
-    "apps/code/src/pages/CatalogPage.tsx",
-    "apps/code/src/pages/__tests__/CatalogPage.test.tsx"
+    "apps/code/src/services/costsService.ts",
+    "apps/code/src/services/__tests__/costsService.test.ts",
+    "apps/code/src/hooks/useCostData.ts",
+    "apps/code/src/hooks/__tests__/useCostData.test.ts",
+    "apps/code/src/components/CostCard.tsx",
+    "apps/code/src/components/__tests__/CostCard.test.tsx",
+    "apps/code/src/components/SpendingBar.tsx",
+    "apps/code/src/components/__tests__/SpendingBar.test.tsx",
+    "apps/code/src/pages/MonitorPage.tsx",
+    "apps/code/src/pages/__tests__/MonitorPage.test.tsx"
   ],
   "files_to_modify": [
     "apps/code/src/App.tsx",
@@ -19,18 +22,21 @@
   ],
   "common_pitfalls_checked": [
     "@ts-nocheck — not used",
-    "API response shape mismatch — verified BlockDto from C# source: id, name, blockType, description",
-    "Theme consistency — using colors/spacing/fontFamily tokens throughout"
+    "SDK/backend type mismatch — verified against CostDtos.cs (CostSummaryDto, CostLimitsDto, CostPeriodDto, CostBreakdownDto, CostLimitConfigDto)",
+    "Polling memory leak — clearInterval in useEffect cleanup mandatory",
+    "Polling interval 0 — constant 30_000, never computed",
+    "Theme consistency — using tokens throughout"
   ],
   "architectural_refs_read": [
-    "apps/backend/src/Maestro.Api/Controllers/BlocksController.cs",
-    "apps/backend/src/Maestro.Application/DTOs/BlockDto.cs"
+    "apps/backend/src/Maestro.Api/Controllers/CostsController.cs",
+    "apps/backend/src/Maestro.Application/DTOs/CostDtos.cs",
+    "apps/backend/src/Maestro.Application/Interfaces/ICostTrackingService.cs"
   ],
   "cardinal_rule_ok": true,
   "no_legacy_support_ok": true,
   "tags_consistent": true,
   "cross_cutting": [
-    "Navigation.test.tsx must be updated for tab 3 change from Foundry to Catalog"
+    "Navigation.test.tsx must mock MonitorPage and add test for tab 5"
   ],
   "status": "approved"
 }

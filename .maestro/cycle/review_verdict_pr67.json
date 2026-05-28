@@ -1,0 +1,31 @@
+{
+  "pr_number": 67,
+  "checklist_path": "docs/phases/PHASE-66/specs/2026-05-27-models-page-checklist.md",
+  "stage1_spec": {
+    "status": "approved",
+    "items": [
+      {"id": "SPEC-1", "tag": "code-app", "implemented": true, "test_id": "TEST-1", "file_evidence": "apps/code/src/services/providerService.ts:84-99"},
+      {"id": "SPEC-2", "tag": "code-app", "implemented": true, "test_id": "TEST-2", "file_evidence": "apps/code/src/hooks/useProviderData.ts:1-49"},
+      {"id": "SPEC-3", "tag": "code-app", "implemented": true, "test_id": "TEST-3", "file_evidence": "apps/code/src/components/ProviderHealthBadge.tsx:1-49"},
+      {"id": "SPEC-4", "tag": "code-app", "implemented": true, "test_id": "TEST-4", "file_evidence": "apps/code/src/components/ModelRow.tsx:1-48"},
+      {"id": "SPEC-5", "tag": "code-app", "implemented": true, "test_id": "TEST-5", "file_evidence": "apps/code/src/pages/ModelsPage.tsx:1-73"},
+      {"id": "SPEC-6", "tag": "code-app", "implemented": true, "test_id": "TEST-6", "file_evidence": "apps/code/src/App.tsx:6,10,21 + apps/code/src/components/Header.tsx:14"}
+    ],
+    "cardinal_rule_ok": true,
+    "no_legacy_support_ok": true,
+    "tags_consistent": true,
+    "pitfalls_scan": "clean",
+    "blocking_items": []
+  },
+  "stage2_quality": {
+    "status": "approved",
+    "sandbox": {
+      "type_check_tui": {"result": "pass", "tail": "Exit 0 — no errors"},
+      "unit_tests_tui": {"result": "pass", "tail": "Test Files 18 passed (18), Tests 73 passed (73)"}
+    },
+    "issues": [],
+    "plan_deviations": []
+  },
+  "verdict": "approved",
+  "feedback": "All 6 SPECs implemented with matching tests. Type check clean, 73/73 tests pass. TS types match LLMDtos.cs. Polling cleanup verified (clearInterval in useEffect). No legacy code, no @ts-nocheck, no Cardinal Rule violations. Clean PR."
+}
