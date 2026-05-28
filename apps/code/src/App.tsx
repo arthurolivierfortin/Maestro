@@ -13,10 +13,17 @@ export type PageId = 'console' | 'spaces' | 'catalog' | 'models' | 'monitor';
 export default function App() {
   const [currentPage, setCurrentPage] = useState<PageId>('console');
   const [showHelp, setShowHelp] = useState(false);
+  const [phosphor] = useState<'amber' | 'green' | 'white'>('amber');
+  const [crt] = useState<'on' | 'off'>('on');
 
   const toggleHelp = useCallback(() => {
     setShowHelp((prev) => !prev);
   }, []);
+
+  useEffect(() => {
+    document.documentElement.dataset.tui = phosphor;
+    document.documentElement.dataset.crt = crt;
+  }, [phosphor, crt]);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -34,19 +41,21 @@ export default function App() {
   }, [toggleHelp]);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
-      <Header currentPage={currentPage} onNavigate={setCurrentPage} />
-      <main style={{ flex: 1, overflow: 'hidden' }}>
-        {currentPage === 'console' && (
-          <ConsolePage showHelp={showHelp} onToggleHelp={toggleHelp} />
-        )}
-        {currentPage === 'spaces' && <SpacesPage />}
-        {currentPage === 'catalog' && <CatalogPage />}
-        {currentPage === 'models' && <ModelsPage />}
-        {currentPage === 'monitor' && <MonitorPage />}
-      </main>
-      <StatusBar />
-      {showHelp && currentPage !== 'console' && <HelpOverlay onClose={toggleHelp} />}
+    <div className="shell">
+      <div className="term" data-route={currentPage}>
+        <Header currentPage={currentPage} onNavigate={setCurrentPage} />
+        <main className="body">
+          {currentPage === 'console' && (
+            <ConsolePage showHelp={showHelp} onToggleHelp={toggleHelp} />
+          )}
+          {currentPage === 'spaces' && <SpacesPage />}
+          {currentPage === 'catalog' && <CatalogPage />}
+          {currentPage === 'models' && <ModelsPage />}
+          {currentPage === 'monitor' && <MonitorPage />}
+        </main>
+        <StatusBar />
+        {showHelp && currentPage !== 'console' && <HelpOverlay onClose={toggleHelp} />}
+      </div>
     </div>
   );
 }
