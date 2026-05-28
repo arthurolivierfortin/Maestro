@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { useSessions } from '../hooks/useSessions';
 import { useWorkspaces } from '../hooks/useWorkspaces';
+import { NewSessionForm } from '../components/NewSessionForm';
+import { SessionDetail } from '../components/SessionDetail';
 import type { SessionDto } from '../services/sessionService';
 import type { WorkspaceDto } from '../services/workspaceService';
 
@@ -36,10 +38,12 @@ function SessionRow({
   session,
   onStart,
   onStop,
+  onSelect,
 }: {
   session: SessionDto;
   onStart: () => void;
   onStop: () => void;
+  onSelect: () => void;
 }) {
   const isActive = session.status.toLowerCase() === 'active';
   const canStart = ['created', 'stopped'].includes(session.status.toLowerCase());
@@ -53,8 +57,17 @@ function SessionRow({
     return `${seconds}s`;
   };
 
+  const stop = (handler: () => void) => (e: React.MouseEvent) => {
+    e.stopPropagation();
+    handler();
+  };
+
   return (
-    <div className="row gap-12" style={{ padding: '6px 14px', borderBottom: '1px dotted var(--line-soft)' }}>
+    <div
+      className="row gap-12"
+      onClick={onSelect}
+      style={{ padding: '6px 14px', borderBottom: '1px dotted var(--line-soft)', cursor: 'pointer' }}
+    >
       <StatusPip status={session.status} />
       <div className="flex-1">
         <div className="c0 bd" style={{ fontSize: 13 }}>{session.name}</div>
@@ -64,12 +77,12 @@ function SessionRow({
       </div>
       <div className="row gap-6">
         {canStart && (
-          <button onClick={onStart} className="b ok" style={{ cursor: 'pointer' }}>
+          <button onClick={stop(onStart)} className="b ok" style={{ cursor: 'pointer' }}>
             Start
           </button>
         )}
         {canStop && (
-          <button onClick={onStop} className="b err" style={{ cursor: 'pointer' }}>
+          <button onClick={stop(onStop)} className="b err" style={{ cursor: 'pointer' }}>
             Stop
           </button>
         )}
@@ -94,11 +107,25 @@ function WorkspaceRow({ workspace }: { workspace: WorkspaceDto }) {
 
 export function SpacesPage() {
   const [activeTab, setActiveTab] = useState<SpacesTab>('sessions');
-  const { sessions, isLoading: sessionsLoading, error: sessionsError, startSession, stopSession } = useSessions();
+  const [showForm, setShowForm] = useState(false);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const {
+    sessions,
+    isLoading: sessionsLoading,
+    error: sessionsError,
+    startSession,
+    stopSession,
+    createSession,
+    pauseSession,
+    resumeSession,
+    deleteSession,
+  } = useSessions();
   const { workspaces, isLoading: workspacesLoading, error: workspacesError } = useWorkspaces();
 
   const isLoading = activeTab === 'sessions' ? sessionsLoading : workspacesLoading;
   const error = activeTab === 'sessions' ? sessionsError : workspacesError;
+
+  const selectedSession = selectedId ? sessions.find((s) => s.id === selectedId) : undefined;
 
   return (
     <div className="col" style={{ height: '100%' }}>
@@ -129,24 +156,63 @@ export function SpacesPage() {
         )}
 
         {!isLoading && !error && activeTab === 'sessions' && (
-          <div className="box">
-            <div className="box-title">Sessions</div>
-            <div className="box-meta">{sessions.length}</div>
-            <div className="box-body" style={{ paddingLeft: 0, paddingRight: 0 }}>
-              {sessions.length === 0 ? (
-                <div className="c2" style={{ fontSize: 13, padding: '4px 14px' }}>No sessions found.</div>
-              ) : (
-                sessions.map((session) => (
-                  <SessionRow
-                    key={session.id}
-                    session={session}
-                    onStart={() => startSession(session.id)}
-                    onStop={() => stopSession(session.id)}
-                  />
-                ))
-              )}
+          <>
+            <div className="row between" style={{ marginBottom: 8 }}>
+              <span className="c2" style={{ fontSize: 12 }}>{sessions.length} sessions</span>
+              <button
+                onClick={() => setShowForm((v) => !v)}
+                className="b ac"
+                style={{ cursor: 'pointer' }}
+              >
+                [+] New Session
+              </button>
             </div>
-          </div>
+
+            {showForm && (
+              <NewSessionForm
+                onSubmit={async (request) => {
+                  await createSession(request);
+                  setShowForm(false);
+                }}
+                onCancel={() => setShowForm(false)}
+              />
+            )}
+
+            <div className="box">
+              <div className="box-title">Sessions</div>
+              <div className="box-meta">{sessions.length}</div>
+              <div className="box-body" style={{ paddingLeft: 0, paddingRight: 0 }}>
+                {sessions.length === 0 ? (
+                  <div className="c2" style={{ fontSize: 13, padding: '4px 14px' }}>No sessions found.</div>
+                ) : (
+                  sessions.map((session) => (
+                    <SessionRow
+                      key={session.id}
+                      session={session}
+                      onStart={() => startSession(session.id)}
+                      onStop={() => stopSession(session.id)}
+                      onSelect={() => setSelectedId(session.id)}
+                    />
+                  ))
+                )}
+              </div>
+            </div>
+
+            {selectedSession && (
+              <SessionDetail
+                session={selectedSession}
+                onStart={(id) => startSession(id)}
+                onPause={(id) => pauseSession(id)}
+                onResume={(id) => resumeSession(id)}
+                onStop={(id) => stopSession(id)}
+                onDelete={async (id) => {
+                  await deleteSession(id);
+                  setSelectedId(null);
+                }}
+                onClose={() => setSelectedId(null)}
+              />
+            )}
+          </>
         )}
 
         {!isLoading && !error && activeTab === 'workspaces' && (
