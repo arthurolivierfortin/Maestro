@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { describe, it, expect, vi } from 'vitest';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { BlockCard } from '../BlockCard';
 import type { BlockDto } from '../../services/blockService';
 
@@ -34,5 +34,19 @@ describe('BlockCard', () => {
 
     expect(screen.getByText('Git Commit Agent')).toBeDefined();
     expect(screen.queryByText('Commits code')).toBeNull();
+  });
+
+  it('renders without onClick (no crash on click)', () => {
+    render(<BlockCard block={baseBlock} />);
+    fireEvent.click(screen.getByText('Git Commit Agent'));
+    expect(screen.getByText('Git Commit Agent')).toBeDefined();
+  });
+
+  it('calls onClick with the block id when clicked', () => {
+    const onClick = vi.fn();
+    render(<BlockCard block={baseBlock} onClick={onClick} />);
+
+    fireEvent.click(screen.getByText('Git Commit Agent'));
+    expect(onClick).toHaveBeenCalledWith('b1');
   });
 });

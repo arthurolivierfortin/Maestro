@@ -17,13 +17,15 @@ const typeBadgeKind = (blockType: string): string => {
 
 interface BlockCardProps {
   block: BlockDto;
+  onClick?: (id: string) => void;
 }
 
-export function BlockCard({ block }: BlockCardProps) {
+export function BlockCard({ block, onClick }: BlockCardProps) {
   return (
     <div
       className="row gap-12"
-      style={{ padding: '6px 14px', borderBottom: '1px dotted var(--line-soft)' }}
+      style={{ padding: '6px 14px', borderBottom: '1px dotted var(--line-soft)', cursor: onClick ? 'pointer' : undefined }}
+      onClick={onClick ? () => onClick(block.id) : undefined}
     >
       <span className={`b ${typeBadgeKind(block.blockType)}`} style={{ minWidth: 64, justifyContent: 'center' }}>
         {block.blockType}
