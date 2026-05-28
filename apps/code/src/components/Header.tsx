@@ -1,14 +1,26 @@
 import { colors, spacing, fontFamily } from '../theme/tokens';
+import type { PageId } from '../App';
 
-const tabs = [
-  { key: 1, label: 'Console', active: true },
-  { key: 2, label: 'Spaces', active: false },
-  { key: 3, label: 'Foundry', active: false },
-  { key: 4, label: 'Models', active: false },
-  { key: 5, label: 'Monitor', active: false },
+interface TabDef {
+  key: number;
+  label: string;
+  pageId: PageId | null;
+}
+
+const tabs: TabDef[] = [
+  { key: 1, label: 'Console', pageId: 'console' },
+  { key: 2, label: 'Spaces', pageId: 'spaces' },
+  { key: 3, label: 'Foundry', pageId: null },
+  { key: 4, label: 'Models', pageId: null },
+  { key: 5, label: 'Monitor', pageId: null },
 ];
 
-export function Header() {
+interface HeaderProps {
+  currentPage: PageId;
+  onNavigate: (page: PageId) => void;
+}
+
+export function Header({ currentPage, onNavigate }: HeaderProps) {
   return (
     <header style={{
       display: 'flex',
@@ -23,19 +35,24 @@ export function Header() {
         MAESTRO CODE
       </span>
       <nav style={{ display: 'flex', gap: spacing.sm }}>
-        {tabs.map((tab) => (
-          <span
-            key={tab.key}
-            style={{
-              color: tab.active ? colors.accent : colors.muted,
-              opacity: tab.active ? 1 : 0.5,
-              cursor: tab.active ? 'default' : 'not-allowed',
-              fontSize: '13px',
-            }}
-          >
-            [{tab.key}] {tab.label}
-          </span>
-        ))}
+        {tabs.map((tab) => {
+          const isActive = tab.pageId === currentPage;
+          const isEnabled = tab.pageId !== null;
+          return (
+            <span
+              key={tab.key}
+              onClick={isEnabled ? () => onNavigate(tab.pageId!) : undefined}
+              style={{
+                color: isActive ? colors.accent : colors.muted,
+                opacity: isActive ? 1 : 0.5,
+                cursor: isEnabled ? 'pointer' : 'not-allowed',
+                fontSize: '13px',
+              }}
+            >
+              [{tab.key}] {tab.label}
+            </span>
+          );
+        })}
       </nav>
     </header>
   );
