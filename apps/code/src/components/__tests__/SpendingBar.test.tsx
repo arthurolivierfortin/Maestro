@@ -33,4 +33,13 @@ describe('SpendingBar', () => {
 
     expect(screen.getByText('100%')).toBeDefined();
   });
+
+  it('renders an ASCII bar with full (█) and empty (░) segments', () => {
+    const { container } = render(<SpendingBar label="Daily" current={2.5} max={5.0} />);
+
+    const bar = container.querySelector('.bar-ascii');
+    expect(bar).not.toBeNull();
+    expect(bar?.textContent).toContain('█');
+    expect(bar?.textContent).toContain('░');
+  });
 });
