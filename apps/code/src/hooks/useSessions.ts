@@ -3,8 +3,12 @@ import {
   getSessions as fetchSessions,
   startSession as apiStartSession,
   stopSession as apiStopSession,
+  createSession as apiCreateSession,
+  pauseSession as apiPauseSession,
+  resumeSession as apiResumeSession,
+  deleteSession as apiDeleteSession,
 } from '../services/sessionService';
-import type { SessionDto } from '../services/sessionService';
+import type { SessionDto, CreateSessionRequest } from '../services/sessionService';
 
 const POLL_INTERVAL = 5000;
 
@@ -47,11 +51,35 @@ export function useSessions() {
     await loadSessions();
   }, [loadSessions]);
 
+  const createSession = useCallback(async (request: CreateSessionRequest) => {
+    await apiCreateSession(request);
+    await loadSessions();
+  }, [loadSessions]);
+
+  const pauseSession = useCallback(async (id: string) => {
+    await apiPauseSession(id);
+    await loadSessions();
+  }, [loadSessions]);
+
+  const resumeSession = useCallback(async (id: string) => {
+    await apiResumeSession(id);
+    await loadSessions();
+  }, [loadSessions]);
+
+  const deleteSession = useCallback(async (id: string) => {
+    await apiDeleteSession(id);
+    await loadSessions();
+  }, [loadSessions]);
+
   return {
     sessions,
     isLoading,
     error,
     startSession,
     stopSession,
+    createSession,
+    pauseSession,
+    resumeSession,
+    deleteSession,
   };
 }

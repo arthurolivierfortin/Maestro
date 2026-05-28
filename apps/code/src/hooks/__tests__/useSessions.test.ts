@@ -5,16 +5,32 @@ vi.mock('../../services/sessionService', () => ({
   getSessions: vi.fn(),
   startSession: vi.fn(),
   stopSession: vi.fn(),
+  createSession: vi.fn(),
+  pauseSession: vi.fn(),
+  resumeSession: vi.fn(),
+  deleteSession: vi.fn(),
 }));
 
 import { useSessions } from '../useSessions';
-import { getSessions, startSession, stopSession } from '../../services/sessionService';
+import {
+  getSessions,
+  startSession,
+  stopSession,
+  createSession,
+  pauseSession,
+  resumeSession,
+  deleteSession,
+} from '../../services/sessionService';
 
 beforeEach(() => {
   vi.useFakeTimers();
   vi.mocked(getSessions).mockReset();
   vi.mocked(startSession).mockReset();
   vi.mocked(stopSession).mockReset();
+  vi.mocked(createSession).mockReset();
+  vi.mocked(pauseSession).mockReset();
+  vi.mocked(resumeSession).mockReset();
+  vi.mocked(deleteSession).mockReset();
 });
 
 afterEach(() => {
@@ -129,6 +145,78 @@ describe('useSessions', () => {
     });
 
     expect(stopSession).toHaveBeenCalledWith('s1');
+    expect(getSessions).toHaveBeenCalledTimes(2);
+  });
+
+  it('createSession action calls service and refreshes', async () => {
+    vi.mocked(getSessions).mockResolvedValue([]);
+    vi.mocked(createSession).mockResolvedValue({ id: 's9', name: 'N', status: 'created', type: 'project', authority: 'human', createdAt: '2026-01-01', commandCount: 0 });
+
+    const { result } = renderHook(() => useSessions());
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+
+    await act(async () => {
+      await result.current.createSession({ repositoryPath: 'C:/P' });
+    });
+
+    expect(createSession).toHaveBeenCalledWith({ repositoryPath: 'C:/P' });
+    expect(getSessions).toHaveBeenCalledTimes(2);
+  });
+
+  it('pauseSession action calls service and refreshes', async () => {
+    vi.mocked(getSessions).mockResolvedValue([]);
+    vi.mocked(pauseSession).mockResolvedValue({ id: 's1', name: 'N', status: 'paused', type: 'project', authority: 'human', createdAt: '2026-01-01', commandCount: 0 });
+
+    const { result } = renderHook(() => useSessions());
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+
+    await act(async () => {
+      await result.current.pauseSession('s1');
+    });
+
+    expect(pauseSession).toHaveBeenCalledWith('s1');
+    expect(getSessions).toHaveBeenCalledTimes(2);
+  });
+
+  it('resumeSession action calls service and refreshes', async () => {
+    vi.mocked(getSessions).mockResolvedValue([]);
+    vi.mocked(resumeSession).mockResolvedValue({ id: 's1', name: 'N', status: 'active', type: 'project', authority: 'human', createdAt: '2026-01-01', commandCount: 0 });
+
+    const { result } = renderHook(() => useSessions());
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+
+    await act(async () => {
+      await result.current.resumeSession('s1');
+    });
+
+    expect(resumeSession).toHaveBeenCalledWith('s1');
+    expect(getSessions).toHaveBeenCalledTimes(2);
+  });
+
+  it('deleteSession action calls service and refreshes', async () => {
+    vi.mocked(getSessions).mockResolvedValue([]);
+    vi.mocked(deleteSession).mockResolvedValue(undefined);
+
+    const { result } = renderHook(() => useSessions());
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+
+    await act(async () => {
+      await result.current.deleteSession('s1');
+    });
+
+    expect(deleteSession).toHaveBeenCalledWith('s1');
     expect(getSessions).toHaveBeenCalledTimes(2);
   });
 });
