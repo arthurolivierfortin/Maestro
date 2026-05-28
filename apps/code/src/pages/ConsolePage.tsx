@@ -1,16 +1,55 @@
-import { useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useChat } from '../hooks/useChat';
 import { ChatMessage } from '../components/ChatMessage';
 import { ChatInput } from '../components/ChatInput';
+import { HelpOverlay } from '../components/HelpOverlay';
 import { colors, spacing } from '../theme/tokens';
 
-export function ConsolePage() {
-  const { messages, isLoading, error, streamingContent, sendMessage } = useChat();
+interface ConsolePageProps {
+  showHelp?: boolean;
+  onToggleHelp?: () => void;
+}
+
+export function ConsolePage({ showHelp: externalShowHelp, onToggleHelp }: ConsolePageProps = {}) {
+  const { messages, isLoading, error, streamingContent, sendMessage, clearMessages, stopGeneration } = useChat();
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [internalShowHelp, setInternalShowHelp] = useState(false);
+
+  const showHelp = externalShowHelp ?? internalShowHelp;
+  const toggleHelp = useCallback(() => {
+    if (onToggleHelp) {
+      onToggleHelp();
+    } else {
+      setInternalShowHelp((prev) => !prev);
+    }
+  }, [onToggleHelp]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, streamingContent]);
+
+  const handleSlashCommand = useCallback(
+    (command: string, _args: string) => {
+      switch (command) {
+        case 'help':
+          toggleHelp();
+          break;
+        case 'clear':
+        case 'new':
+          clearMessages();
+          break;
+        case 'stop':
+          stopGeneration();
+          break;
+        case 'quit':
+          if (typeof window !== 'undefined' && window.close) {
+            window.close();
+          }
+          break;
+      }
+    },
+    [clearMessages, stopGeneration, toggleHelp]
+  );
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
@@ -48,7 +87,8 @@ export function ConsolePage() {
         )}
         <div ref={messagesEndRef} />
       </div>
-      <ChatInput onSend={sendMessage} isLoading={isLoading} />
+      <ChatInput onSend={sendMessage} onSlashCommand={handleSlashCommand} isLoading={isLoading} />
+      {showHelp && <HelpOverlay onClose={toggleHelp} />}
     </div>
   );
 }

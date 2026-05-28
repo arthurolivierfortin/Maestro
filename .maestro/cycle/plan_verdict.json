@@ -1,42 +1,40 @@
 {
-  "issue": 68,
-  "spec_path": "docs/phases/PHASE-66/specs/2026-05-27-monitor-page-design.md",
-  "checklist_path": "docs/phases/PHASE-66/specs/2026-05-27-monitor-page-checklist.md",
-  "plan_path": "docs/phases/PHASE-66/plans/2026-05-27-monitor-page-plan.md",
+  "issue": 70,
+  "spec_path": "docs/phases/PHASE-66/specs/2026-05-27-slash-commands-design.md",
+  "checklist_path": "docs/phases/PHASE-66/specs/2026-05-27-slash-commands-checklist.md",
+  "plan_path": "docs/phases/PHASE-66/plans/2026-05-27-slash-commands-plan.md",
   "files_to_create": [
-    "apps/code/src/services/costsService.ts",
-    "apps/code/src/services/__tests__/costsService.test.ts",
-    "apps/code/src/hooks/useCostData.ts",
-    "apps/code/src/hooks/__tests__/useCostData.test.ts",
-    "apps/code/src/components/CostCard.tsx",
-    "apps/code/src/components/__tests__/CostCard.test.tsx",
-    "apps/code/src/components/SpendingBar.tsx",
-    "apps/code/src/components/__tests__/SpendingBar.test.tsx",
-    "apps/code/src/pages/MonitorPage.tsx",
-    "apps/code/src/pages/__tests__/MonitorPage.test.tsx"
+    "apps/code/src/slash/SlashCommandParser.ts",
+    "apps/code/src/slash/__tests__/SlashCommandParser.test.ts",
+    "apps/code/src/components/SlashAutocomplete.tsx",
+    "apps/code/src/components/__tests__/SlashAutocomplete.test.tsx",
+    "apps/code/src/components/HelpOverlay.tsx",
+    "apps/code/src/components/__tests__/HelpOverlay.test.tsx",
+    "apps/code/src/components/__tests__/ChatInput.test.tsx"
   ],
   "files_to_modify": [
-    "apps/code/src/App.tsx",
-    "apps/code/src/components/Header.tsx",
-    "apps/code/src/pages/__tests__/Navigation.test.tsx"
+    "apps/code/src/components/ChatInput.tsx",
+    "apps/code/src/pages/ConsolePage.tsx",
+    "apps/code/src/App.tsx"
   ],
   "common_pitfalls_checked": [
     "@ts-nocheck — not used",
-    "SDK/backend type mismatch — verified against CostDtos.cs (CostSummaryDto, CostLimitsDto, CostPeriodDto, CostBreakdownDto, CostLimitConfigDto)",
-    "Polling memory leak — clearInterval in useEffect cleanup mandatory",
-    "Polling interval 0 — constant 30_000, never computed",
-    "Theme consistency — using tokens throughout"
+    "Keyboard event conflicts — ? key must check e.target tagName to avoid firing in textarea",
+    "Theme consistency — using tokens throughout",
+    "No new dependencies — pure React + existing theme tokens"
   ],
   "architectural_refs_read": [
-    "apps/backend/src/Maestro.Api/Controllers/CostsController.cs",
-    "apps/backend/src/Maestro.Application/DTOs/CostDtos.cs",
-    "apps/backend/src/Maestro.Application/Interfaces/ICostTrackingService.cs"
+    "packages/maestro-code/components/SlashAutocomplete.ts",
+    "apps/code/src/components/ChatInput.tsx",
+    "apps/code/src/pages/ConsolePage.tsx",
+    "apps/code/src/hooks/useChat.ts",
+    "apps/code/src/App.tsx"
   ],
   "cardinal_rule_ok": true,
   "no_legacy_support_ok": true,
   "tags_consistent": true,
   "cross_cutting": [
-    "Navigation.test.tsx must mock MonitorPage and add test for tab 5"
+    "Help overlay state must be accessible from both App.tsx (? key) and ConsolePage (/help command)"
   ],
   "status": "approved"
 }
