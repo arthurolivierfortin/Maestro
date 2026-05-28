@@ -20,6 +20,10 @@ beforeEach(() => {
     error: null,
     startSession: vi.fn(),
     stopSession: vi.fn(),
+    createSession: vi.fn(),
+    pauseSession: vi.fn(),
+    resumeSession: vi.fn(),
+    deleteSession: vi.fn(),
   });
   vi.mocked(useWorkspaces).mockReturnValue({
     workspaces: [],
@@ -44,6 +48,10 @@ describe('SpacesPage', () => {
       error: null,
       startSession: vi.fn(),
       stopSession: vi.fn(),
+      createSession: vi.fn(),
+      pauseSession: vi.fn(),
+      resumeSession: vi.fn(),
+      deleteSession: vi.fn(),
     });
 
     render(<SpacesPage />);
@@ -83,6 +91,10 @@ describe('SpacesPage', () => {
       error: null,
       startSession: vi.fn(),
       stopSession: vi.fn(),
+      createSession: vi.fn(),
+      pauseSession: vi.fn(),
+      resumeSession: vi.fn(),
+      deleteSession: vi.fn(),
     });
 
     render(<SpacesPage />);
@@ -97,6 +109,10 @@ describe('SpacesPage', () => {
       error: 'Connection failed',
       startSession: vi.fn(),
       stopSession: vi.fn(),
+      createSession: vi.fn(),
+      pauseSession: vi.fn(),
+      resumeSession: vi.fn(),
+      deleteSession: vi.fn(),
     });
 
     render(<SpacesPage />);
