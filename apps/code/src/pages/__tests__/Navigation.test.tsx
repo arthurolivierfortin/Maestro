@@ -11,6 +11,10 @@ vi.mock('../SpacesPage', () => ({
   SpacesPage: () => <div>SpacesPage</div>,
 }));
 
+vi.mock('../CatalogPage', () => ({
+  CatalogPage: () => <div>CatalogPage</div>,
+}));
+
 // Mock useBackendStatus
 vi.mock('../../hooks/useBackendStatus', () => ({
   useBackendStatus: () => ({ connected: true, checking: false }),
@@ -40,6 +44,14 @@ describe('Navigation', () => {
     // Back to Console
     fireEvent.click(screen.getByText('[1] Console'));
     expect(screen.getByText('ConsolePage')).toBeDefined();
+  });
+
+  it('navigates to CatalogPage when clicking Catalog tab', () => {
+    render(<App />);
+
+    fireEvent.click(screen.getByText('[3] Catalog'));
+
+    expect(screen.getByText('CatalogPage')).toBeDefined();
   });
 
   it('highlights the active tab', () => {
