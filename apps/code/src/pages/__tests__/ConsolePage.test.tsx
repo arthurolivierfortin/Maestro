@@ -74,4 +74,9 @@ describe('ConsolePage', () => {
     render(<ConsolePage />);
     expect(screen.getByText('Type a message to start a conversation.')).toBeDefined();
   });
+
+  it('wraps messages in a conv container', () => {
+    const { container } = render(<ConsolePage />);
+    expect(container.querySelector('.conv')).not.toBeNull();
+  });
 });

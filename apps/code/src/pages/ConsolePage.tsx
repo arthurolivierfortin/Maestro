@@ -3,7 +3,6 @@ import { useChat } from '../hooks/useChat';
 import { ChatMessage } from '../components/ChatMessage';
 import { ChatInput } from '../components/ChatInput';
 import { HelpOverlay } from '../components/HelpOverlay';
-import { colors, spacing } from '../theme/tokens';
 
 interface ConsolePageProps {
   showHelp?: boolean;
@@ -52,22 +51,11 @@ export function ConsolePage({ showHelp: externalShowHelp, onToggleHelp }: Consol
   );
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      <div style={{
-        flex: 1,
-        overflowY: 'auto',
-        padding: `${spacing.sm} 0`,
-      }}>
+    <div className="col" style={{ height: '100%', minHeight: 0 }}>
+      <div className="conv">
         {messages.length === 0 && !streamingContent && (
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            height: '100%',
-            color: colors.muted,
-            fontSize: '14px',
-          }}>
-            Type a message to start a conversation.
+          <div className="line">
+            <span className="body dim">Type a message to start a conversation.</span>
           </div>
         )}
         {messages.map((msg, i) => (
@@ -77,12 +65,8 @@ export function ConsolePage({ showHelp: externalShowHelp, onToggleHelp }: Consol
           <ChatMessage role="assistant" content={streamingContent} isStreaming />
         )}
         {error && (
-          <div style={{
-            padding: `${spacing.sm} ${spacing.md}`,
-            color: colors.error,
-            fontSize: '13px',
-          }}>
-            Error: {error}
+          <div className="line err">
+            <span className="body">Error: {error}</span>
           </div>
         )}
         <div ref={messagesEndRef} />
