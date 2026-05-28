@@ -1,6 +1,5 @@
 import { useBlocks } from '../hooks/useBlocks';
 import { BlockCard } from '../components/BlockCard';
-import { colors, spacing, fontFamily } from '../theme/tokens';
 
 interface FilterDef {
   label: string;
@@ -19,80 +18,56 @@ export function CatalogPage() {
   const { blocks, isLoading, error, typeFilter, setTypeFilter, setSearchQuery } = useBlocks();
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', fontFamily }}>
+    <div className="col" style={{ height: '100%' }}>
       {/* Filters row */}
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: spacing.sm,
-        padding: `${spacing.sm} ${spacing.md}`,
-        borderBottom: `1px solid ${colors.border}`,
-        flexWrap: 'wrap',
-      }}>
+      <div className="tabs" style={{ flexWrap: 'wrap' }}>
         {filters.map((f) => {
           const isActive = f.type === typeFilter;
           return (
-            <button
+            <span
               key={f.label}
+              className={`tab${isActive ? ' active' : ''}`}
               onClick={() => setTypeFilter(f.type)}
-              style={{
-                background: 'none',
-                border: 'none',
-                color: isActive ? colors.accent : colors.muted,
-                cursor: 'pointer',
-                fontSize: '13px',
-                fontWeight: isActive ? 700 : 400,
-                fontFamily,
-                padding: `${spacing.xs} ${spacing.sm}`,
-                borderBottom: isActive ? `2px solid ${colors.accent}` : '2px solid transparent',
-              }}
             >
               {f.label}
-            </button>
+            </span>
           );
         })}
         <input
           type="text"
           placeholder="Search blocks..."
           onChange={(e) => setSearchQuery(e.target.value || undefined)}
+          className="c0"
           style={{
             marginLeft: 'auto',
-            background: 'none',
-            border: `1px solid ${colors.border}`,
-            color: colors.fg,
-            fontFamily,
-            fontSize: '12px',
-            padding: `${spacing.xs} ${spacing.sm}`,
+            background: 'transparent',
+            border: '1px solid var(--line)',
+            padding: '2px 8px',
             outline: 'none',
-            minWidth: '150px',
+            minWidth: 150,
+            fontSize: 12,
           }}
         />
       </div>
 
       {/* Content */}
-      <div style={{ flex: 1, overflowY: 'auto' }}>
-        {isLoading && (
-          <div style={{ padding: spacing.md, color: colors.muted, fontSize: '13px' }}>
-            Loading blocks...
-          </div>
-        )}
+      <div style={{ flex: 1, overflowY: 'auto', padding: 14 }}>
+        {isLoading && <div className="c2" style={{ fontSize: 13 }}>Loading blocks...</div>}
 
-        {error && (
-          <div style={{ padding: spacing.md, color: colors.error, fontSize: '13px' }}>
-            Error: {error}
-          </div>
-        )}
+        {error && <div className="cerr" style={{ fontSize: 13 }}>Error: {error}</div>}
 
         {!isLoading && !error && (
-          blocks.length === 0 ? (
-            <div style={{ padding: spacing.md, color: colors.muted, fontSize: '13px' }}>
-              No blocks found.
+          <div className="box">
+            <div className="box-title">Catalog</div>
+            <div className="box-meta">{blocks.length}</div>
+            <div className="box-body" style={{ paddingLeft: 0, paddingRight: 0 }}>
+              {blocks.length === 0 ? (
+                <div className="c2" style={{ fontSize: 13, padding: '4px 14px' }}>No blocks found.</div>
+              ) : (
+                blocks.map((block) => <BlockCard key={block.id} block={block} />)
+              )}
             </div>
-          ) : (
-            blocks.map((block) => (
-              <BlockCard key={block.id} block={block} />
-            ))
-          )
+          </div>
         )}
       </div>
     </div>

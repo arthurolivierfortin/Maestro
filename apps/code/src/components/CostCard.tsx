@@ -1,5 +1,3 @@
-import { colors, spacing, fontFamily } from '../theme/tokens';
-
 interface CostCardProps {
   label: string;
   value: string;
@@ -8,24 +6,12 @@ interface CostCardProps {
 
 export function CostCard({ label, value, subLabel }: CostCardProps) {
   return (
-    <div style={{
-      padding: spacing.md,
-      border: `1px solid ${colors.border}`,
-      borderRadius: '4px',
-      fontFamily,
-      minWidth: '120px',
-    }}>
-      <div style={{ color: colors.muted, fontSize: '11px', marginBottom: spacing.xs }}>
-        {label}
+    <div className="box" style={{ minWidth: 120, flex: 1 }}>
+      <div className="box-title">{label}</div>
+      <div className="box-body">
+        <div className="c0 bd" style={{ fontSize: 22 }}>{value}</div>
+        {subLabel && <div className="c2" style={{ fontSize: 11, marginTop: 4 }}>{subLabel}</div>}
       </div>
-      <div style={{ color: colors.accent, fontSize: '18px', fontWeight: 700 }}>
-        {value}
-      </div>
-      {subLabel && (
-        <div style={{ color: colors.muted, fontSize: '11px', marginTop: spacing.xs }}>
-          {subLabel}
-        </div>
-      )}
     </div>
   );
 }

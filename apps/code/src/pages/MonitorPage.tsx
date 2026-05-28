@@ -1,7 +1,6 @@
 import { useCostData } from '../hooks/useCostData';
 import { CostCard } from '../components/CostCard';
 import { SpendingBar } from '../components/SpendingBar';
-import { colors, spacing, fontFamily } from '../theme/tokens';
 import type { CostLimitConfig } from '../services/costsService';
 
 interface LimitEntry {
@@ -33,25 +32,16 @@ export function MonitorPage() {
   const providerEntries = summary ? Object.entries(summary.byProvider) : [];
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', fontFamily }}>
-      {/* Content */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: spacing.md }}>
-        {isLoading && (
-          <div style={{ color: colors.muted, fontSize: '13px' }}>
-            Loading cost data...
-          </div>
-        )}
+    <div className="col" style={{ height: '100%' }}>
+      <div style={{ flex: 1, overflowY: 'auto', padding: 14 }}>
+        {isLoading && <div className="c2" style={{ fontSize: 13 }}>Loading cost data...</div>}
 
-        {error && (
-          <div style={{ color: colors.error, fontSize: '13px' }}>
-            Error: {error}
-          </div>
-        )}
+        {error && <div className="cerr" style={{ fontSize: 13 }}>Error: {error}</div>}
 
         {!isLoading && !error && summary && (
           <>
             {/* Cost summary cards */}
-            <div style={{ display: 'flex', gap: spacing.md, flexWrap: 'wrap', marginBottom: spacing.lg }}>
+            <div className="row gap-12" style={{ flexWrap: 'wrap', marginBottom: 16, alignItems: 'stretch' }}>
               <CostCard
                 label="Today"
                 value={`$${summary.today.totalCost.toFixed(2)}`}
@@ -75,39 +65,49 @@ export function MonitorPage() {
             </div>
 
             {/* Spending limits */}
-            <div style={{ marginBottom: spacing.lg }}>
-              <div style={{ color: colors.fg, fontSize: '13px', fontWeight: 600, marginBottom: spacing.sm, borderBottom: `1px solid ${colors.border}`, paddingBottom: spacing.xs }}>
-                Spending Limits
+            <div className="box" style={{ marginBottom: 16 }}>
+              <div className="box-title">Spending Limits</div>
+              <div className="box-body" style={{ paddingLeft: 0, paddingRight: 0 }}>
+                {hasLimits ? (
+                  limitEntries.map((entry) => (
+                    <SpendingBar
+                      key={entry.label}
+                      label={entry.label}
+                      current={entry.current}
+                      max={entry.config.value ?? 0}
+                      enforcement={entry.config.enforcement}
+                    />
+                  ))
+                ) : (
+                  <div className="c2" style={{ fontSize: 12, padding: '4px 14px' }}>
+                    No spending limits configured.
+                  </div>
+                )}
               </div>
-              {hasLimits ? (
-                limitEntries.map((entry) => (
-                  <SpendingBar
-                    key={entry.label}
-                    label={entry.label}
-                    current={entry.current}
-                    max={entry.config.value ?? 0}
-                    enforcement={entry.config.enforcement}
-                  />
-                ))
-              ) : (
-                <div style={{ color: colors.muted, fontSize: '12px', padding: `${spacing.xs} ${spacing.md}` }}>
-                  No spending limits configured.
-                </div>
-              )}
             </div>
 
             {/* Provider breakdown */}
             {providerEntries.length > 0 && (
-              <div>
-                <div style={{ color: colors.fg, fontSize: '13px', fontWeight: 600, marginBottom: spacing.sm, borderBottom: `1px solid ${colors.border}`, paddingBottom: spacing.xs }}>
-                  Cost by Provider
+              <div className="box">
+                <div className="box-title">Cost by Provider</div>
+                <div className="box-body" style={{ paddingLeft: 0, paddingRight: 0 }}>
+                  <table className="tbl">
+                    <thead>
+                      <tr>
+                        <th>provider</th>
+                        <th style={{ textAlign: 'right' }}>cost</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {providerEntries.map(([name, data]) => (
+                        <tr key={name}>
+                          <td className="c1">{name}</td>
+                          <td className="ca" style={{ textAlign: 'right' }}>${data.totalCost.toFixed(2)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
-                {providerEntries.map(([name, data]) => (
-                  <div key={name} style={{ display: 'flex', justifyContent: 'space-between', padding: `${spacing.xs} ${spacing.md}`, fontSize: '12px' }}>
-                    <span style={{ color: colors.fg }}>{name}</span>
-                    <span style={{ color: colors.accent }}>${data.totalCost.toFixed(2)}</span>
-                  </div>
-                ))}
               </div>
             )}
           </>

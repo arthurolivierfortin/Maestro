@@ -1,5 +1,3 @@
-import { colors, spacing, fontFamily } from '../theme/tokens';
-
 interface SpendingBarProps {
   label: string;
   current: number;
@@ -7,51 +5,42 @@ interface SpendingBarProps {
   enforcement?: string;
 }
 
+const BAR_WIDTH = 24;
+
 export function SpendingBar({ label, current, max, enforcement }: SpendingBarProps) {
   if (max <= 0) {
     return (
-      <div style={{ padding: `${spacing.xs} ${spacing.md}`, fontFamily, fontSize: '12px' }}>
-        <span style={{ color: colors.fg }}>{label}</span>
-        {' '}
-        <span style={{ color: colors.muted }}>No limit</span>
+      <div className="row gap-6" style={{ padding: '4px 14px', fontSize: 12 }}>
+        <span className="c1">{label}</span>
+        <span className="c3">No limit</span>
       </div>
     );
   }
 
   const pct = Math.min(Math.round((current / max) * 100), 100);
-  const barColor = pct > 90 ? colors.error : pct > 60 ? colors.accent : colors.success;
+  const variant = pct > 90 ? 'err' : pct > 60 ? 'warn' : 'ok';
+  const full = Math.round((pct / 100) * BAR_WIDTH);
+  const empty = BAR_WIDTH - full;
 
   return (
-    <div style={{ padding: `${spacing.xs} ${spacing.md}`, fontFamily, fontSize: '12px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: spacing.xs }}>
-        <span style={{ color: colors.fg }}>
+    <div className="col" style={{ padding: '4px 14px', fontSize: 12 }}>
+      <div className="row between">
+        <span className="c1">
           {label}
           {enforcement && (
-            <span style={{ color: colors.muted, fontSize: '10px', marginLeft: spacing.xs }}>
-              {enforcement}
-            </span>
+            <span className="c3" style={{ fontSize: 10, marginLeft: 6 }}>{enforcement}</span>
           )}
         </span>
-        <span style={{ color: colors.muted }}>
+        <span className="c2">
           ${current.toFixed(2)} / ${max.toFixed(2)}
         </span>
       </div>
-      <div style={{
-        height: '6px',
-        backgroundColor: colors.border,
-        borderRadius: '3px',
-        overflow: 'hidden',
-      }}>
-        <div style={{
-          height: '100%',
-          width: `${pct}%`,
-          backgroundColor: barColor,
-          borderRadius: '3px',
-          transition: 'width 0.3s ease',
-        }} />
-      </div>
-      <div style={{ textAlign: 'right', color: colors.muted, fontSize: '10px', marginTop: '2px' }}>
-        {pct}%
+      <div className="row between gap-8">
+        <span className="bar-ascii" style={{ flex: 1 }}>
+          <span className={`full ${variant}`}>{'█'.repeat(full)}</span>
+          <span className="empty">{'░'.repeat(empty)}</span>
+        </span>
+        <span className="c3" style={{ fontSize: 10 }}>{pct}%</span>
       </div>
     </div>
   );
