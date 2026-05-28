@@ -46,6 +46,6 @@
 ## Verification gates (TESTING-PROTOCOL — applicable subset)
 - [x] [GATE-1] Layer 1 Type Check : `cd apps/code && npx tsc --noEmit` (no backend C# touched)
 - [x] [GATE-2] Layer 2 Unit Tests : `cd apps/code && npm test -- --run` — all green (baseline 154, may grow with new assertions)
-- [ ] [GATE-3] Layer 4 Visual Check : `cd apps/code && npm run dev` (Vite), Playwright navigate tabs 2/3/4/5, screenshot each, compare to `mock/claude-design/pure-pages.jsx` (Spaces/Models/Monitor) — judge step
+- [x] [GATE-3] Layer 4 Visual Check : Vite dev (:5174), Playwright tabs 1-5 screenshot (populated via stubbed fetch), compared to `mock/claude-design/pure-pages.jsx` — high fidelity on all 4 pages (judge_verdict.json)
 - [x] [GATE-4] No-Legacy / Cardinal Rule litmus : grep confirms no surviving generic inline-style cohabitation on the 9 touched files; no new C#/block/contract — judge Stage 1
 - [x] [GATE-5] Provider verification : N/A (no workflow/agent touched)
