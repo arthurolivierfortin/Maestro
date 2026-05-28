@@ -1,10 +1,9 @@
-import { colors, spacing, fontFamily } from '../theme/tokens';
 import type { PageId } from '../App';
 
 interface TabDef {
   key: number;
   label: string;
-  pageId: PageId | null;
+  pageId: PageId;
 }
 
 const tabs: TabDef[] = [
@@ -22,38 +21,28 @@ interface HeaderProps {
 
 export function Header({ currentPage, onNavigate }: HeaderProps) {
   return (
-    <header style={{
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      padding: `${spacing.sm} ${spacing.md}`,
-      borderBottom: `1px solid ${colors.border}`,
-      fontFamily,
-      backgroundColor: colors.bg,
-    }}>
-      <span style={{ color: colors.accent, fontWeight: 700, fontSize: '14px' }}>
-        MAESTRO CODE
-      </span>
-      <nav style={{ display: 'flex', gap: spacing.sm }}>
-        {tabs.map((tab) => {
-          const isActive = tab.pageId === currentPage;
-          const isEnabled = tab.pageId !== null;
-          return (
-            <span
-              key={tab.key}
-              onClick={isEnabled ? () => onNavigate(tab.pageId!) : undefined}
-              style={{
-                color: isActive ? colors.accent : colors.muted,
-                opacity: isActive ? 1 : 0.5,
-                cursor: isEnabled ? 'pointer' : 'not-allowed',
-                fontSize: '13px',
-              }}
-            >
-              [{tab.key}] {tab.label}
-            </span>
-          );
-        })}
-      </nav>
-    </header>
+    <>
+      <div className="term-title">
+        <span className="wm">▌MAESTRO</span>
+        <span className="sep">─</span>
+        <span className="c1">code · v0.1.0</span>
+        <span className="mid">maestro · agent.maestro at the wheel</span>
+        <div className="right">
+          <span><span className="pip pulse" /> online</span>
+        </div>
+      </div>
+      <div className="tabs">
+        {tabs.map((tab) => (
+          <span
+            key={tab.key}
+            className={'tab' + (tab.pageId === currentPage ? ' active' : '')}
+            onClick={() => onNavigate(tab.pageId)}
+          >
+            <span className="n">{tab.key}</span>
+            {tab.label}
+          </span>
+        ))}
+      </div>
+    </>
   );
 }
