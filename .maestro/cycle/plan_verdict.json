@@ -1,39 +1,36 @@
 {
-  "issue": 62,
-  "spec_path": "docs/phases/PHASE-66/specs/2026-05-27-spaces-page-design.md",
-  "checklist_path": "docs/phases/PHASE-66/specs/2026-05-27-spaces-page-checklist.md",
-  "plan_path": "docs/phases/PHASE-66/plans/2026-05-27-spaces-page-plan.md",
+  "issue": 64,
+  "spec_path": "docs/phases/PHASE-66/specs/2026-05-27-catalog-page-design.md",
+  "checklist_path": "docs/phases/PHASE-66/specs/2026-05-27-catalog-page-checklist.md",
+  "plan_path": "docs/phases/PHASE-66/plans/2026-05-27-catalog-page-plan.md",
   "files_to_create": [
-    "apps/code/src/services/sessionService.ts",
-    "apps/code/src/services/workspaceService.ts",
-    "apps/code/src/services/__tests__/sessionService.test.ts",
-    "apps/code/src/services/__tests__/workspaceService.test.ts",
-    "apps/code/src/hooks/useSessions.ts",
-    "apps/code/src/hooks/useWorkspaces.ts",
-    "apps/code/src/hooks/__tests__/useSessions.test.ts",
-    "apps/code/src/hooks/__tests__/useWorkspaces.test.ts",
-    "apps/code/src/pages/SpacesPage.tsx",
-    "apps/code/src/pages/__tests__/SpacesPage.test.tsx",
-    "apps/code/src/pages/__tests__/Navigation.test.tsx"
+    "apps/code/src/services/blockService.ts",
+    "apps/code/src/services/__tests__/blockService.test.ts",
+    "apps/code/src/hooks/useBlocks.ts",
+    "apps/code/src/hooks/__tests__/useBlocks.test.ts",
+    "apps/code/src/components/BlockCard.tsx",
+    "apps/code/src/pages/CatalogPage.tsx",
+    "apps/code/src/pages/__tests__/CatalogPage.test.tsx"
   ],
   "files_to_modify": [
     "apps/code/src/App.tsx",
-    "apps/code/src/components/Header.tsx"
+    "apps/code/src/components/Header.tsx",
+    "apps/code/src/pages/__tests__/Navigation.test.tsx"
   ],
   "common_pitfalls_checked": [
     "@ts-nocheck — not used",
-    "setInterval cleanup on unmount — will use cleanup in useEffect return",
-    "API response shape mismatch — verified DTOs from backend source"
+    "API response shape mismatch — verified BlockDto from C# source: id, name, blockType, description",
+    "Theme consistency — using colors/spacing/fontFamily tokens throughout"
   ],
   "architectural_refs_read": [
-    "apps/backend/src/Maestro.Api/Controllers/SessionsController.cs",
-    "apps/backend/src/Maestro.Api/Controllers/WorkspacesController.cs",
-    "apps/backend/src/Maestro.Application/DTOs/ProjectSessionDto.cs",
-    "apps/backend/src/Maestro.Application/DTOs/WorkspaceDto.cs"
+    "apps/backend/src/Maestro.Api/Controllers/BlocksController.cs",
+    "apps/backend/src/Maestro.Application/DTOs/BlockDto.cs"
   ],
   "cardinal_rule_ok": true,
   "no_legacy_support_ok": true,
   "tags_consistent": true,
-  "cross_cutting": [],
+  "cross_cutting": [
+    "Navigation.test.tsx must be updated for tab 3 change from Foundry to Catalog"
+  ],
   "status": "approved"
 }
