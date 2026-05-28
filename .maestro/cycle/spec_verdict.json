@@ -1,0 +1,12 @@
+{
+  "spec_path": "docs/phases/PHASE-66/specs/2026-05-27-spaces-page-design.md",
+  "checklist_path": "docs/phases/PHASE-66/specs/2026-05-27-spaces-page-checklist.md",
+  "spec_count": 6,
+  "test_count": 6,
+  "block_count": 0,
+  "contract_count": 0,
+  "gate_count": 2,
+  "tags": ["code-app"],
+  "phase": "66",
+  "status": "ready"
+}
