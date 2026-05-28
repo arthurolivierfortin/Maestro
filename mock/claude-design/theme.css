@@ -1,0 +1,113 @@
+/* Maestro design tokens */
+:root {
+  /* surfaces — cool near-black, stepped */
+  --bg-0: oklch(0.16 0.008 240);   /* app background */
+  --bg-1: oklch(0.19 0.008 240);   /* surfaces */
+  --bg-2: oklch(0.22 0.008 240);   /* raised */
+  --bg-3: oklch(0.26 0.008 240);   /* hover */
+  --line: oklch(0.30 0.010 240);
+  --line-strong: oklch(0.38 0.012 240);
+
+  --fg-0: oklch(0.97 0.005 240);
+  --fg-1: oklch(0.78 0.010 240);
+  --fg-2: oklch(0.58 0.012 240);
+  --fg-3: oklch(0.42 0.012 240);
+
+  /* brand & semantics */
+  --accent: oklch(0.78 0.14 220);          /* cyan-ish */
+  --accent-soft: oklch(0.78 0.14 220 / 0.14);
+  --accent-line: oklch(0.78 0.14 220 / 0.4);
+  --agent: oklch(0.72 0.16 295);           /* violet */
+  --agent-soft: oklch(0.72 0.16 295 / 0.14);
+  --ok: oklch(0.78 0.16 150);
+  --ok-soft: oklch(0.78 0.16 150 / 0.14);
+  --warn: oklch(0.82 0.14 80);
+  --warn-soft: oklch(0.82 0.14 80 / 0.14);
+  --err: oklch(0.72 0.18 25);
+  --err-soft: oklch(0.72 0.18 25 / 0.14);
+
+  --radius: 6px;
+  --radius-sm: 4px;
+  --radius-lg: 10px;
+
+  --shadow-1: 0 1px 0 oklch(1 0 0 / 0.03) inset, 0 1px 2px oklch(0 0 0 / 0.4);
+  --shadow-2: 0 1px 0 oklch(1 0 0 / 0.03) inset, 0 8px 24px oklch(0 0 0 / 0.45);
+
+  --font-ui: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+
+  --density: 1;       /* 1 = comfortable, 0.85 = compact */
+}
+
+[data-theme='light'] {
+  --bg-0: oklch(0.985 0.003 240);
+  --bg-1: oklch(0.965 0.004 240);
+  --bg-2: oklch(0.93 0.005 240);
+  --bg-3: oklch(0.90 0.005 240);
+  --line: oklch(0.88 0.006 240);
+  --line-strong: oklch(0.78 0.008 240);
+  --fg-0: oklch(0.18 0.012 240);
+  --fg-1: oklch(0.34 0.012 240);
+  --fg-2: oklch(0.50 0.010 240);
+  --fg-3: oklch(0.65 0.010 240);
+  --shadow-1: 0 1px 0 oklch(1 0 0 / 0.6) inset, 0 1px 2px oklch(0 0 0 / 0.06);
+  --shadow-2: 0 1px 0 oklch(1 0 0 / 0.6) inset, 0 8px 24px oklch(0 0 0 / 0.10);
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background: var(--bg-0);
+  color: var(--fg-0);
+  font-family: var(--font-ui);
+  font-size: 13px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+#root { height: 100%; }
+
+button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; padding: 0; }
+input, textarea, select { font: inherit; color: inherit; }
+
+/* utility */
+.mono { font-family: var(--font-mono); font-feature-settings: 'ss01','calt'; }
+.kbd {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  padding: 2px 5px;
+  border: 1px solid var(--line);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  color: var(--fg-1);
+  background: var(--bg-2);
+  letter-spacing: 0.02em;
+}
+
+/* scrollbars */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--bg-3); border-radius: 8px; border: 2px solid transparent; background-clip: padding-box; }
+::-webkit-scrollbar-thumb:hover { background: var(--line-strong); background-clip: padding-box; border: 2px solid transparent; }
+
+/* selection */
+::selection { background: var(--accent-soft); color: var(--fg-0); }
+
+/* pulsing dot keyframes */
+@keyframes pulse-dot {
+  0%, 100% { box-shadow: 0 0 0 0 var(--accent-soft); }
+  50%      { box-shadow: 0 0 0 6px transparent; }
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes blink-caret { 0%,49% { opacity: 1; } 50%,100% { opacity: 0; } }
+@keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+
+.shimmer {
+  background: linear-gradient(90deg, transparent, oklch(1 0 0 / 0.05), transparent);
+  background-size: 200% 100%;
+  animation: shimmer 1.6s linear infinite;
+}
