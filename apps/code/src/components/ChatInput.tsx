@@ -1,5 +1,4 @@
 import { useState, useCallback, KeyboardEvent } from 'react';
-import { colors, spacing, fontFamily } from '../theme/tokens';
 import { SlashAutocomplete } from './SlashAutocomplete';
 import { parseSlashCommand, filterCommands } from '../slash/SlashCommandParser';
 
@@ -83,14 +82,11 @@ export function ChatInput({ onSend, onSlashCommand, isLoading }: ChatInputProps)
   );
 
   return (
-    <div style={{
-      padding: spacing.md,
-      borderTop: `1px solid ${colors.border}`,
-      position: 'relative',
-    }}>
+    <div className="cmdline" style={{ position: 'relative' }}>
       {showAutocomplete && (
         <SlashAutocomplete input={value} selectedIndex={selectedIndex} />
       )}
+      <span className="prompt">❯</span>
       <textarea
         value={value}
         onChange={(e) => handleChange(e.target.value)}
@@ -98,18 +94,6 @@ export function ChatInput({ onSend, onSlashCommand, isLoading }: ChatInputProps)
         disabled={isLoading}
         placeholder="Type a message or / for commands..."
         rows={3}
-        style={{
-          width: '100%',
-          backgroundColor: 'transparent',
-          color: colors.fg,
-          border: `1px solid ${colors.border}`,
-          borderRadius: '4px',
-          padding: spacing.sm,
-          fontFamily,
-          fontSize: '14px',
-          resize: 'none',
-          outline: 'none',
-        }}
       />
     </div>
   );

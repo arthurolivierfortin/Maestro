@@ -3,6 +3,14 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { ChatInput } from '../ChatInput';
 
 describe('ChatInput', () => {
+  it('renders the cmdline vocabulary with a prompt glyph', () => {
+    const { container } = render(
+      <ChatInput onSend={vi.fn()} onSlashCommand={vi.fn()} isLoading={false} />
+    );
+    expect(container.querySelector('.cmdline')).not.toBeNull();
+    expect(container.querySelector('.cmdline .prompt')).not.toBeNull();
+  });
+
   it('shows autocomplete when "/" is typed', () => {
     render(<ChatInput onSend={vi.fn()} onSlashCommand={vi.fn()} isLoading={false} />);
     const textarea = screen.getByPlaceholderText('Type a message or / for commands...');
