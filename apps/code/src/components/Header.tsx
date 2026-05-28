@@ -10,7 +10,7 @@ interface TabDef {
 const tabs: TabDef[] = [
   { key: 1, label: 'Console', pageId: 'console' },
   { key: 2, label: 'Spaces', pageId: 'spaces' },
-  { key: 3, label: 'Foundry', pageId: null },
+  { key: 3, label: 'Catalog', pageId: 'catalog' },
   { key: 4, label: 'Models', pageId: null },
   { key: 5, label: 'Monitor', pageId: null },
 ];
