@@ -128,6 +128,27 @@ describe('SpacesPage', () => {
     expect(screen.getByPlaceholderText(/repository path/i)).toBeDefined();
   });
 
+  it('shows both Start and Stop for an idle session row (real backend status)', () => {
+    vi.mocked(useSessions).mockReturnValue({
+      sessions: [
+        { id: 's1', name: 'Idle Session', status: 'idle', type: 'project', authority: 'human', createdAt: '2026-01-01T00:00:00Z', commandCount: 5 },
+      ],
+      isLoading: false,
+      error: null,
+      startSession: vi.fn(),
+      stopSession: vi.fn(),
+      createSession: vi.fn(),
+      pauseSession: vi.fn(),
+      resumeSession: vi.fn(),
+      deleteSession: vi.fn(),
+    });
+
+    render(<SpacesPage />);
+
+    expect(screen.getByText('Start')).toBeDefined();
+    expect(screen.getByText('Stop')).toBeDefined();
+  });
+
   it('shows session detail when a session row is clicked', () => {
     vi.mocked(useSessions).mockReturnValue({
       sessions: [
