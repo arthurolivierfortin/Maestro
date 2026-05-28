@@ -15,6 +15,10 @@ vi.mock('../CatalogPage', () => ({
   CatalogPage: () => <div>CatalogPage</div>,
 }));
 
+vi.mock('../ModelsPage', () => ({
+  ModelsPage: () => <div>ModelsPage</div>,
+}));
+
 // Mock useBackendStatus
 vi.mock('../../hooks/useBackendStatus', () => ({
   useBackendStatus: () => ({ connected: true, checking: false }),
@@ -52,6 +56,14 @@ describe('Navigation', () => {
     fireEvent.click(screen.getByText('[3] Catalog'));
 
     expect(screen.getByText('CatalogPage')).toBeDefined();
+  });
+
+  it('navigates to ModelsPage when clicking Models tab', () => {
+    render(<App />);
+
+    fireEvent.click(screen.getByText('[4] Models'));
+
+    expect(screen.getByText('ModelsPage')).toBeDefined();
   });
 
   it('highlights the active tab', () => {
