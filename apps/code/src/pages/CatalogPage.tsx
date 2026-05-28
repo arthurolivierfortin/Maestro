@@ -1,5 +1,8 @@
+import { useState } from 'react';
 import { useBlocks } from '../hooks/useBlocks';
+import { useBlockDetail } from '../hooks/useBlockDetail';
 import { BlockCard } from '../components/BlockCard';
+import { BlockDetail } from '../components/BlockDetail';
 
 interface FilterDef {
   label: string;
@@ -16,6 +19,8 @@ const filters: FilterDef[] = [
 
 export function CatalogPage() {
   const { blocks, isLoading, error, typeFilter, setTypeFilter, setSearchQuery } = useBlocks();
+  const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
+  const detail = useBlockDetail(selectedBlockId);
 
   return (
     <div className="col" style={{ height: '100%' }}>
@@ -64,10 +69,21 @@ export function CatalogPage() {
               {blocks.length === 0 ? (
                 <div className="c2" style={{ fontSize: 13, padding: '4px 14px' }}>No blocks found.</div>
               ) : (
-                blocks.map((block) => <BlockCard key={block.id} block={block} />)
+                blocks.map((block) => (
+                  <BlockCard key={block.id} block={block} onClick={setSelectedBlockId} />
+                ))
               )}
             </div>
           </div>
+        )}
+
+        {!isLoading && !error && selectedBlockId && detail.block && (
+          <BlockDetail
+            block={detail.block}
+            configContent={detail.configContent}
+            promptContent={detail.promptContent}
+            onClose={() => setSelectedBlockId(null)}
+          />
         )}
       </div>
     </div>
