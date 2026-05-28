@@ -1,6 +1,14 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, within } from '@testing-library/react';
 import App from '../../App';
+
+function tab(container: HTMLElement, label: string): HTMLElement {
+  const found = Array.from(container.querySelectorAll<HTMLElement>('.tab')).find(
+    (el) => within(el).queryByText(label) !== null
+  );
+  if (!found) throw new Error(`tab "${label}" not found`);
+  return found;
+}
 
 // Mock the pages to avoid their dependency chains
 vi.mock('../ConsolePage', () => ({
@@ -35,62 +43,62 @@ describe('Navigation', () => {
   });
 
   it('navigates to SpacesPage when clicking Spaces tab', () => {
-    render(<App />);
+    const { container } = render(<App />);
 
-    fireEvent.click(screen.getByText('[2] Spaces'));
+    fireEvent.click(tab(container, 'Spaces'));
 
     expect(screen.getByText('SpacesPage')).toBeDefined();
   });
 
   it('navigates back to ConsolePage when clicking Console tab', () => {
-    render(<App />);
+    const { container } = render(<App />);
 
     // Go to Spaces
-    fireEvent.click(screen.getByText('[2] Spaces'));
+    fireEvent.click(tab(container, 'Spaces'));
     expect(screen.getByText('SpacesPage')).toBeDefined();
 
     // Back to Console
-    fireEvent.click(screen.getByText('[1] Console'));
+    fireEvent.click(tab(container, 'Console'));
     expect(screen.getByText('ConsolePage')).toBeDefined();
   });
 
   it('navigates to CatalogPage when clicking Catalog tab', () => {
-    render(<App />);
+    const { container } = render(<App />);
 
-    fireEvent.click(screen.getByText('[3] Catalog'));
+    fireEvent.click(tab(container, 'Catalog'));
 
     expect(screen.getByText('CatalogPage')).toBeDefined();
   });
 
   it('navigates to ModelsPage when clicking Models tab', () => {
-    render(<App />);
+    const { container } = render(<App />);
 
-    fireEvent.click(screen.getByText('[4] Models'));
+    fireEvent.click(tab(container, 'Models'));
 
     expect(screen.getByText('ModelsPage')).toBeDefined();
   });
 
   it('navigates to MonitorPage when clicking Monitor tab', () => {
-    render(<App />);
+    const { container } = render(<App />);
 
-    fireEvent.click(screen.getByText('[5] Monitor'));
+    fireEvent.click(tab(container, 'Monitor'));
 
     expect(screen.getByText('MonitorPage')).toBeDefined();
   });
 
   it('highlights the active tab', () => {
-    render(<App />);
+    const { container } = render(<App />);
 
-    const consoleTab = screen.getByText('[1] Console');
-    const spacesTab = screen.getByText('[2] Spaces');
+    const consoleTab = tab(container, 'Console');
+    const spacesTab = tab(container, 'Spaces');
 
     // Console should be active initially
-    expect(consoleTab.style.opacity).toBe('1');
-    expect(spacesTab.style.opacity).toBe('0.5');
+    expect(consoleTab.className).toContain('active');
+    expect(spacesTab.className).not.toContain('active');
 
     // Click Spaces
     fireEvent.click(spacesTab);
-    expect(spacesTab.style.opacity).toBe('1');
-    expect(consoleTab.style.opacity).toBe('0.5');
+    expect(tab(container, 'Spaces').className).toContain('active');
+    expect(tab(container, 'Console').className).not.toContain('active');
   });
 });
