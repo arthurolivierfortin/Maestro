@@ -1,0 +1,179 @@
+{
+  "id": "full-stack-code-reviewer",
+  "name": "Full-Stack Code Reviewer",
+  "version": "1.0.0",
+  "description": "Reviews frontend React components for accessibility issues, backend Node.js APIs for security vulnerabilities, and database queries for performance problems. Produces structured, actionable feedback across all three domains.",
+  "requiredCapabilities": ["conversation", "tool-calling"],
+  "minimumFitness": 0.3,
+  "features": {
+    "frontend-accessibility": {
+      "description": "Identifies accessibility issues in React components including missing ARIA attributes, improper heading hierarchy, missing alt text, keyboard navigation gaps, and color contrast concerns",
+      "requires": ["conversation"],
+      "weight": 0.25,
+      "minimumScore": 0.6,
+      "tests": [
+        {
+          "id": "detect-missing-aria",
+          "description": "Detects missing ARIA attributes on interactive elements",
+          "prompt": "Review this React component for accessibility:\n\n```jsx\nfunction SearchBar({ onSearch }) {\n  const [query, setQuery] = useState('');\n  return (\n    <div onClick={() => onSearch(query)}>\n      <input value={query} onChange={e => setQuery(e.target.value)} />\n      <div onClick={() => onSearch(query)}>Search</div>\n    </div>\n  );\n}\n```",
+          "check": {
+            "type": "contains-all",
+            "values": ["aria", "role", "button"]
+          }
+        },
+        {
+          "id": "detect-missing-alt-text",
+          "description": "Flags images without alt text and non-semantic elements used as buttons",
+          "prompt": "Review this React component for accessibility:\n\n```jsx\nfunction ProductCard({ product }) {\n  return (\n    <div className=\"card\">\n      <img src={product.image} />\n      <span>{product.name}</span>\n      <span>${product.price}</span>\n      <div className=\"btn\" onClick={() => addToCart(product.id)}>Add to Cart</div>\n    </div>\n  );\n}\n```",
+          "check": {
+            "type": "contains-all",
+            "values": ["alt", "button", "semantic"]
+          }
+        },
+        {
+          "id": "keyboard-navigation-review",
+          "description": "Identifies keyboard navigation issues in custom interactive components",
+          "prompt": "Review this React component for accessibility:\n\n```jsx\nfunction Dropdown({ items, onSelect }) {\n  const [open, setOpen] = useState(false);\n  return (\n    <div>\n      <div onClick={() => setOpen(!open)}>Select an option</div>\n      {open && (\n        <ul>\n          {items.map(item => (\n            <li key={item.id} onClick={() => { onSelect(item); setOpen(false); }}>\n              {item.label}\n            </li>\n          ))}\n        </ul>\n      )}\n    </div>\n  );\n}\n```",
+          "check": {
+            "type": "contains-any",
+            "values": ["keyboard", "tabIndex", "tabindex", "onKeyDown", "onKeyPress", "focus", "Tab"]
+          }
+        }
+      ]
+    },
+    "backend-security": {
+      "description": "Identifies security vulnerabilities in Node.js APIs including SQL injection, XSS, missing input validation, insecure authentication, improper error exposure, and missing rate limiting",
+      "requires": ["conversation"],
+      "weight": 0.30,
+      "minimumScore": 0.6,
+      "tests": [
+        {
+          "id": "detect-sql-injection",
+          "description": "Detects SQL injection vulnerabilities from string concatenation in queries",
+          "prompt": "Review this Node.js API endpoint for security vulnerabilities:\n\n```javascript\napp.get('/api/users', async (req, res) => {\n  const { search, role } = req.query;\n  const query = `SELECT * FROM users WHERE name LIKE '%${search}%' AND role = '${role}'`;\n  const results = await db.query(query);\n  res.json(results);\n});\n```",
+          "check": {
+            "type": "contains-all",
+            "values": ["SQL injection", "parameterized"]
+          }
+        },
+        {
+          "id": "detect-missing-validation",
+          "description": "Flags missing input validation and authentication on sensitive endpoints",
+          "prompt": "Review this Node.js API for security:\n\n```javascript\napp.post('/api/admin/users', async (req, res) => {\n  const { username, email, password, role } = req.body;\n  const hashedPassword = crypto.createHash('md5').update(password).digest('hex');\n  await db.query('INSERT INTO users (username, email, password, role) VALUES ($1, $2, $3, $4)',\n    [username, email, hashedPassword, role]);\n  res.json({ success: true, password: hashedPassword });\n});\n```",
+          "check": {
+            "type": "contains-all",
+            "values": ["md5", "validation", "password"]
+          }
+        },
+        {
+          "id": "detect-xss-and-error-leak",
+          "description": "Identifies XSS risks and information leakage through error messages",
+          "prompt": "Review this Node.js API for security:\n\n```javascript\napp.get('/api/profile/:id', async (req, res) => {\n  try {\n    const user = await db.query(`SELECT * FROM users WHERE id = $1`, [req.params.id]);\n    const html = `<h1>Welcome ${user.rows[0].name}</h1><div>${user.rows[0].bio}</div>`;\n    res.send(html);\n  } catch (err) {\n    res.status(500).json({ error: err.message, stack: err.stack, query: err.query });\n  }\n});\n```",
+          "check": {
+            "type": "contains-any",
+            "values": ["XSS", "cross-site scripting", "sanitiz", "escap", "stack trace", "error exposure", "information leak"]
+          }
+        },
+        {
+          "id": "no-false-positives-clean-code",
+          "description": "Does not invent critical vulnerabilities in reasonably secure code",
+          "prompt": "Review this Node.js API for security:\n\n```javascript\napp.get('/api/items', authenticate, rateLimit({ windowMs: 60000, max: 100 }), async (req, res) => {\n  const { page = 1, limit = 20 } = req.query;\n  const offset = (Math.max(1, parseInt(page, 10)) - 1) * Math.min(100, parseInt(limit, 10));\n  const results = await db.query('SELECT id, name, price FROM items ORDER BY id LIMIT $1 OFFSET $2',\n    [Math.min(100, parseInt(limit, 10)), offset]);\n  res.json({ data: results.rows });\n});\n```",
+          "check": {
+            "type": "does-not-contain",
+            "values": ["SQL injection", "critical vulnerability", "highly vulnerable"]
+          }
+        }
+      ]
+    },
+    "database-performance": {
+      "description": "Identifies performance issues in database queries including missing indexes, N+1 queries, SELECT *, missing pagination, and inefficient joins",
+      "requires": ["conversation"],
+      "weight": 0.25,
+      "minimumScore": 0.6,
+      "tests": [
+        {
+          "id": "detect-n-plus-one",
+          "description": "Identifies N+1 query patterns and recommends JOINs or batch loading",
+          "prompt": "Review this database access pattern for performance:\n\n```javascript\nasync function getOrdersWithProducts(userId) {\n  const orders = await db.query('SELECT * FROM orders WHERE user_id = $1', [userId]);\n  for (const order of orders.rows) {\n    const items = await db.query('SELECT * FROM order_items WHERE order_id = $1', [order.id]);\n    for (const item of items.rows) {\n      item.product = await db.query('SELECT * FROM products WHERE id = $1', [item.product_id]);\n    }\n    order.items = items.rows;\n  }\n  return orders.rows;\n}\n```",
+          "check": {
+            "type": "contains-all",
+            "values": ["N+1", "JOIN"]
+          }
+        },
+        {
+          "id": "detect-missing-index-and-pagination",
+          "description": "Flags queries on large tables without WHERE indexes or pagination",
+          "prompt": "Review these database queries for performance:\n\n```sql\n-- Used on a table with 50 million rows\nSELECT * FROM audit_logs WHERE created_at > '2025-01-01' ORDER BY created_at DESC;\n\nSELECT * FROM products WHERE LOWER(description) LIKE '%wireless%' OR LOWER(name) LIKE '%wireless%';\n\nSELECT user_id, COUNT(*) as order_count FROM orders GROUP BY user_id HAVING COUNT(*) > 5;\n```",
+          "check": {
+            "type": "contains-any",
+            "values": ["index", "INDEX", "pagination", "LIMIT", "full table scan", "full-text search"]
+          }
+        },
+        {
+          "id": "detect-select-star-and-missing-limit",
+          "description": "Identifies SELECT * usage and unbounded result sets",
+          "prompt": "Review this query layer for performance:\n\n```javascript\nasync function searchUsers(term) {\n  return db.query(`SELECT * FROM users WHERE email LIKE $1 OR name LIKE $1`, [`%${term}%`]);\n}\n\nasync function getDashboardStats() {\n  const allOrders = await db.query('SELECT * FROM orders');\n  const totalRevenue = allOrders.rows.reduce((sum, o) => sum + o.total, 0);\n  const avgOrder = totalRevenue / allOrders.rows.length;\n  return { totalRevenue, avgOrder, count: allOrders.rows.length };\n}\n```",
+          "check": {
+            "type": "regex",
+            "pattern": "(?i)(SELECT \\*|select all columns|specific columns|SUM|aggregate|LIMIT|unbounded|entire table)"
+          }
+        }
+      ]
+    },
+    "structured-output": {
+      "description": "Produces well-organized review output with clear severity levels, categorization by domain, and actionable fix suggestions",
+      "requires": ["conversation"],
+      "weight": 0.10,
+      "minimumScore": 0.5,
+      "tests": [
+        {
+          "id": "severity-classification",
+          "description": "Classifies findings by severity when reviewing mixed code",
+          "prompt": "Review all of the following code and provide a structured report with severity levels:\n\nFrontend:\n```jsx\nfunction LoginForm({ onLogin }) {\n  return <div><input type=\"text\" /><input type=\"password\" /><div onClick={onLogin}>Login</div></div>;\n}\n```\n\nBackend:\n```javascript\napp.post('/login', async (req, res) => {\n  const user = await db.query(`SELECT * FROM users WHERE email = '${req.body.email}'`);\n  if (user.rows[0].password === req.body.password) {\n    res.json({ token: jwt.sign(user.rows[0], 'secret123') });\n  }\n});\n```",
+          "check": {
+            "type": "contains-any",
+            "values": ["critical", "high", "medium", "low", "severity", "Critical", "High", "Medium", "Low", "Severity"]
+          }
+        },
+        {
+          "id": "actionable-recommendations",
+          "description": "Provides concrete fix suggestions, not just problem descriptions",
+          "prompt": "Review this code and provide actionable fix recommendations with code examples:\n\n```javascript\napp.delete('/api/records/:id', async (req, res) => {\n  await db.query(`DELETE FROM records WHERE id = ${req.params.id}`);\n  res.json({ deleted: true });\n});\n```",
+          "check": {
+            "type": "regex",
+            "pattern": "(?s)(\\$[0-9]|parameterized|prepared statement|\\?).*(authenticat|authoriz|permission|middleware)"
+          }
+        }
+      ]
+    },
+    "cross-stack-awareness": {
+      "description": "Identifies issues that span multiple layers, such as frontend displaying unsanitized backend data, or frontend making unbounded API calls that trigger expensive queries",
+      "requires": ["conversation"],
+      "weight": 0.10,
+      "minimumScore": 0.5,
+      "tests": [
+        {
+          "id": "frontend-backend-interaction",
+          "description": "Identifies cross-layer issues between frontend and backend",
+          "prompt": "Review this full-stack code for cross-layer issues:\n\nFrontend:\n```jsx\nfunction UserList() {\n  const [users, setUsers] = useState([]);\n  useEffect(() => {\n    fetch('/api/users').then(r => r.json()).then(setUsers);\n  }, []);\n  return <div>{users.map(u => <div key={u.id} dangerouslySetInnerHTML={{__html: u.bio}} />)}</div>;\n}\n```\n\nBackend:\n```javascript\napp.get('/api/users', async (req, res) => {\n  const users = await db.query('SELECT * FROM users');\n  res.json(users.rows);\n});\n```",
+          "check": {
+            "type": "contains-all",
+            "values": ["dangerouslySetInnerHTML", "sanitiz"]
+          }
+        },
+        {
+          "id": "identifies-multi-layer-perf-issue",
+          "description": "Spots performance problems that cascade across layers",
+          "prompt": "Review this full-stack feature for cross-cutting performance issues:\n\nFrontend:\n```jsx\nfunction Dashboard() {\n  const [data, setData] = useState(null);\n  useEffect(() => {\n    const interval = setInterval(() => {\n      fetch('/api/dashboard/stats').then(r => r.json()).then(setData);\n    }, 1000);\n    return () => clearInterval(interval);\n  }, []);\n  return <div>{JSON.stringify(data)}</div>;\n}\n```\n\nBackend:\n```javascript\napp.get('/api/dashboard/stats', async (req, res) => {\n  const revenue = await db.query('SELECT SUM(total) FROM orders');\n  const users = await db.query('SELECT COUNT(*) FROM users');\n  const products = await db.query('SELECT COUNT(*) FROM products WHERE stock = 0');\n  res.json({ revenue: revenue.rows[0].sum, users: users.rows[0].count, outOfStock: products.rows[0].count });\n});\n```",
+          "check": {
+            "type": "contains-any",
+            "values": ["polling", "interval", "caching", "cache", "WebSocket", "websocket", "1000ms", "every second", "rate"]
+          }
+        }
+      ]
+    }
+  },
+  "scoring": {
+    "method": "weighted-average"
+  }
+}

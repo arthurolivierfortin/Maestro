@@ -1,0 +1,206 @@
+{
+  "id": "kubernetes-deployment-agent",
+  "name": "Kubernetes Deployment Agent",
+  "version": "1.0.0",
+  "description": "Reads YAML manifests, validates them against Kubernetes best practices (resource limits, liveness probes, security contexts), generates Helm charts, runs dry-run deployments, supports multiple environments (dev, staging, prod), and performs rollback on failure.",
+  "requiredCapabilities": ["conversation", "tool-calling", "yaml-processing"],
+  "minimumFitness": 0.3,
+  "features": {
+    "manifest-validation": {
+      "description": "Reads Kubernetes YAML manifests and validates them against best practices including resource limits, liveness/readiness probes, and security contexts",
+      "requires": ["conversation", "tool-calling"],
+      "weight": 0.25,
+      "minimumScore": 0.6,
+      "tests": [
+        {
+          "id": "detect-missing-resource-limits",
+          "description": "Identifies a deployment YAML missing resource requests and limits",
+          "prompt": "Validate this Kubernetes manifest:\n\napiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: my-app\nspec:\n  replicas: 2\n  selector:\n    matchLabels:\n      app: my-app\n  template:\n    metadata:\n      labels:\n        app: my-app\n    spec:\n      containers:\n      - name: my-app\n        image: my-app:latest\n        ports:\n        - containerPort: 8080",
+          "check": {
+            "type": "contains-all",
+            "values": ["resource", "limits", "requests"]
+          }
+        },
+        {
+          "id": "detect-missing-probes",
+          "description": "Flags containers missing liveness and readiness probes",
+          "prompt": "Check this deployment for best practice violations:\n\napiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: api-server\nspec:\n  replicas: 3\n  selector:\n    matchLabels:\n      app: api-server\n  template:\n    metadata:\n      labels:\n        app: api-server\n    spec:\n      containers:\n      - name: api-server\n        image: api-server:1.2.0\n        resources:\n          limits:\n            cpu: 500m\n            memory: 256Mi",
+          "check": {
+            "type": "contains-all",
+            "values": ["liveness", "readiness"]
+          }
+        },
+        {
+          "id": "detect-security-context-issues",
+          "description": "Identifies missing or insecure security contexts",
+          "prompt": "Audit this manifest for security best practices:\n\napiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: web-frontend\nspec:\n  replicas: 1\n  selector:\n    matchLabels:\n      app: web-frontend\n  template:\n    metadata:\n      labels:\n        app: web-frontend\n    spec:\n      containers:\n      - name: web-frontend\n        image: web-frontend:latest\n        ports:\n        - containerPort: 80\n        securityContext:\n          privileged: true\n          runAsUser: 0",
+          "check": {
+            "type": "contains-all",
+            "values": ["privileged", "runAsUser", "root"]
+          }
+        },
+        {
+          "id": "flag-latest-tag",
+          "description": "Warns about using the 'latest' image tag in production manifests",
+          "prompt": "Validate this deployment manifest for production readiness:\n\napiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: payment-service\nspec:\n  replicas: 2\n  selector:\n    matchLabels:\n      app: payment-service\n  template:\n    metadata:\n      labels:\n        app: payment-service\n    spec:\n      containers:\n      - name: payment-service\n        image: payment-service:latest",
+          "check": {
+            "type": "contains-any",
+            "values": ["latest", "tag", "pinned", "immutable", "specific version"]
+          }
+        }
+      ]
+    },
+    "helm-chart-generation": {
+      "description": "Generates Helm chart structures from Kubernetes manifests including Chart.yaml, values.yaml, and templated resources",
+      "requires": ["conversation", "tool-calling"],
+      "weight": 0.20,
+      "minimumScore": 0.5,
+      "tests": [
+        {
+          "id": "generate-chart-structure",
+          "description": "Produces a valid Helm chart directory structure with required files",
+          "prompt": "Generate a Helm chart for a deployment called 'order-service' with image order-service:2.1.0, 3 replicas, port 8080, 256Mi memory limit, and 250m CPU limit. Show me the Chart.yaml and values.yaml content.",
+          "check": {
+            "type": "contains-all",
+            "values": ["Chart.yaml", "values.yaml", "order-service"]
+          }
+        },
+        {
+          "id": "templatize-values",
+          "description": "Creates properly templated resources with Go template syntax",
+          "prompt": "Show the Helm template for a deployment resource that uses values from values.yaml for image, replicas, resources, and ports. Use standard Helm template syntax.",
+          "check": {
+            "type": "regex",
+            "pattern": "\\{\\{.*\\.Values\\."
+          }
+        },
+        {
+          "id": "generate-values-yaml",
+          "description": "Generates a values.yaml with environment-specific overrides",
+          "prompt": "Create a values.yaml for the order-service Helm chart with configurable replicas, image tag, resource limits, and environment variables. Include sensible defaults for a dev environment.",
+          "check": {
+            "type": "contains-all",
+            "values": ["replicas", "image", "tag", "resources", "limits"]
+          }
+        }
+      ]
+    },
+    "dry-run-deployment": {
+      "description": "Executes dry-run deployments using kubectl or helm to validate manifests will apply correctly without making actual changes",
+      "requires": ["conversation", "tool-calling"],
+      "weight": 0.20,
+      "minimumScore": 0.5,
+      "tests": [
+        {
+          "id": "kubectl-dry-run-command",
+          "description": "Generates the correct kubectl dry-run command for server-side validation",
+          "prompt": "I have a deployment manifest at ./manifests/order-service.yaml. Show me how to do a dry-run deployment to validate it against the cluster without applying changes.",
+          "check": {
+            "type": "contains-all",
+            "values": ["kubectl", "dry-run"]
+          }
+        },
+        {
+          "id": "helm-dry-run-command",
+          "description": "Generates correct helm install/upgrade with --dry-run flag",
+          "prompt": "I want to test deploying the order-service Helm chart to the staging namespace without actually deploying. What commands should I run?",
+          "check": {
+            "type": "contains-all",
+            "values": ["helm", "--dry-run", "staging"]
+          }
+        },
+        {
+          "id": "interpret-dry-run-errors",
+          "description": "Correctly interprets and explains dry-run validation errors",
+          "prompt": "My dry-run returned this error:\n\nerror: error validating \"deployment.yaml\": error validating data: ValidationError(Deployment.spec.template.spec.containers[0].resources.limits.memory): invalid type for io.k8s.apimachinery.pkg.api.resource.Quantity: got \"number\", expected \"string\"\n\nWhat went wrong and how do I fix it?",
+          "check": {
+            "type": "contains-all",
+            "values": ["memory", "string", "quantity"]
+          }
+        }
+      ]
+    },
+    "multi-environment-support": {
+      "description": "Manages deployments across dev, staging, and production environments with appropriate configuration differences",
+      "requires": ["conversation", "tool-calling"],
+      "weight": 0.20,
+      "minimumScore": 0.5,
+      "tests": [
+        {
+          "id": "environment-specific-values",
+          "description": "Generates environment-specific value overrides for dev, staging, and prod",
+          "prompt": "Create Helm values override files for dev, staging, and production environments for the order-service. Dev should have 1 replica with debug logging, staging should have 2 replicas, and prod should have 5 replicas with higher resource limits and strict security.",
+          "check": {
+            "type": "contains-all",
+            "values": ["dev", "staging", "prod", "replicas"]
+          }
+        },
+        {
+          "id": "namespace-isolation",
+          "description": "Ensures each environment uses its own namespace",
+          "prompt": "How should I structure my Kubernetes deployment to ensure dev, staging, and production are properly isolated? Show me the namespace strategy.",
+          "check": {
+            "type": "contains-any",
+            "values": ["namespace", "Namespace", "NAMESPACE"]
+          }
+        },
+        {
+          "id": "prod-safety-checks",
+          "description": "Applies stricter validation rules for production deployments",
+          "prompt": "I'm deploying to production. What additional checks should be performed that aren't necessary for dev deployments? List the production-specific validations.",
+          "check": {
+            "type": "does-not-contain",
+            "values": ["no additional checks", "same as dev", "no difference"]
+          }
+        },
+        {
+          "id": "environment-aware-deploy-command",
+          "description": "Generates correct deployment commands targeting specific environments",
+          "prompt": "Deploy the order-service Helm chart to the staging environment using the staging values file, in the staging namespace, on the staging cluster context.",
+          "check": {
+            "type": "regex",
+            "pattern": "helm.*(install|upgrade).*-f.*staging"
+          }
+        }
+      ]
+    },
+    "rollback-on-failure": {
+      "description": "Detects deployment failures and executes rollback to the last known good state",
+      "requires": ["conversation", "tool-calling"],
+      "weight": 0.15,
+      "minimumScore": 0.5,
+      "tests": [
+        {
+          "id": "rollback-strategy",
+          "description": "Describes a complete rollback strategy including detection and execution",
+          "prompt": "My deployment of order-service v2.3.0 to production failed — pods are in CrashLoopBackOff. What is the rollback procedure? Include how to verify the rollback succeeded.",
+          "check": {
+            "type": "contains-any",
+            "values": ["helm rollback", "kubectl rollout undo", "rollback"]
+          }
+        },
+        {
+          "id": "rollback-with-helm",
+          "description": "Generates correct Helm rollback commands with revision targeting",
+          "prompt": "Show me how to rollback the order-service Helm release to the previous revision, and how to check the release history to find which revision to target.",
+          "check": {
+            "type": "contains-all",
+            "values": ["helm", "rollback", "history"]
+          }
+        },
+        {
+          "id": "automated-rollback-detection",
+          "description": "Explains how to detect failures that should trigger automatic rollback",
+          "prompt": "How can I set up automated rollback detection for my Kubernetes deployments? What signals indicate a failed deployment that needs rollback?",
+          "check": {
+            "type": "contains-any",
+            "values": ["CrashLoopBackOff", "health check", "readiness", "rollout status", "progressDeadlineSeconds", "failed"]
+          }
+        }
+      ]
+    }
+  },
+  "scoring": {
+    "method": "weighted-average"
+  }
+}

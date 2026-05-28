@@ -46,6 +46,32 @@ When asked for an opinion, give a real one with reasoning. Don't hedge with "it 
 
 **NEVER create a session to "test" Maestro infrastructure.** To verify backend fixes, use `curl` or API calls directly.
 
+## Maestro Development Workflow — `/cycle` (MANDATORY for autonomous dev)
+
+> **Full reference**: `docs/system/CYCLE.md` (anti-patterns + verdict JSON schemas)
+
+When developing Maestro itself (not USING Maestro on a target project), use the `/cycle` workflow:
+
+- **`/cycle-start`** — Brainstorm a new feature with the user in main thread, dispatch `spec-writer` to produce spec + machine-readable checklist (`[SPEC-N]`/`[TEST-N]`/`[GATE-N]`), create GitHub issue.
+- **`/cycle`** — Pick the next issue, dispatch `researcher` → `builder` → `judge` (2-stage) → `tui-verifier` (if UI touched), merge if approved. Cap retry 2x.
+
+**5 agents** in `.claude/agents/`: `spec-writer`, `researcher`, `builder`, `judge`, `tui-verifier`.
+
+**Adaptations Maestro-specific** vs Marcel/TODO source pattern:
+- 6 layers TESTING-PROTOCOL.md enforced in judge Stage 2 (pas juste vitest)
+- `tui-verifier` utilise `tui-dogfood` MCP (pas Playwright)
+- Stage 1 du judge inclut Cardinal Rule litmus test + No Legacy Support check
+- Tags `[sdk]` vs `[code-app]` sur chaque SPEC (préparation soft split V2 Phase 71-72)
+- Provider verification (1 API call <5s vers LLM-Provider :5010) avant tout workflow agent
+
+**Soft split SDK / Code app** (décision 2026-05-22):
+- `[sdk]` = `apps/backend/`, `llm-provider/`, `content/system/blocks/` génériques, contracts canoniques
+- `[code-app]` = `packages/maestro-code/`, app-specific blocks, `packages/maestro-cli/` user ops
+- Direction de dépendance: code-app → SDK, JAMAIS l'inverse
+- Hard split en packages npm/NuGet planifié Phase 71-72 (V2)
+
+**Anciens skills à déprécier après validation `/cycle`** : `dev-cycle`, `think`, `build`, `review`. Garder `/improve`, `/dev-loop`, `/quality-gate`, `/health`, `/startup` (purposes différents — autonomous improvement TUI, pas dev cycle).
+
 ## Session & Workspace Rules (MANDATORY)
 
 ### Session Creation Checklist

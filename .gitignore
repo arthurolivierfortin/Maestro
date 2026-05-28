@@ -192,3 +192,6 @@ llm-provider/api/__pycache__/
 llm-provider/src/__pycache__/
 llm-provider/api/.venv/
 test-repos/auth-claude
+
+# Cycle transient artifacts
+.maestro/cycle/

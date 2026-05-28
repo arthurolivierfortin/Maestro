@@ -1,0 +1,170 @@
+{
+  "id": "maestro-support-chatbot",
+  "name": "Maestro Support Chatbot",
+  "version": "1.0.0",
+  "description": "A customer support chatbot that answers questions about Maestro, explains concepts, and helps troubleshoot issues through multi-turn dialogue.",
+  "requiredCapabilities": ["conversation", "multi-turn"],
+  "minimumFitness": 0.3,
+  "features": {
+    "concept-explanation": {
+      "description": "Clearly explains Maestro concepts such as blocks, sessions, workspaces, foundry, contracts, and fitness scoring when asked.",
+      "requires": ["conversation"],
+      "weight": 0.25,
+      "minimumScore": 0.6,
+      "tests": [
+        {
+          "id": "explain-blocks",
+          "description": "Explains what a block is in Maestro",
+          "prompt": "What is a block in Maestro?",
+          "check": {
+            "type": "contains-all",
+            "values": ["block", "JSON"]
+          }
+        },
+        {
+          "id": "explain-sessions",
+          "description": "Explains sessions and their role",
+          "prompt": "Can you explain what sessions are and why they matter?",
+          "check": {
+            "type": "contains-any",
+            "values": ["container", "workspace", "execution", "isolat"]
+          }
+        },
+        {
+          "id": "explain-fitness",
+          "description": "Explains the fitness scoring model",
+          "prompt": "How does fitness scoring work in Maestro?",
+          "check": {
+            "type": "contains-all",
+            "values": ["fitness", "score"]
+          }
+        },
+        {
+          "id": "explain-foundry",
+          "description": "Explains the foundry workflow",
+          "prompt": "What is the foundry and how do I use it?",
+          "check": {
+            "type": "regex",
+            "pattern": "(?i)(foundry|train|test|publish|block development)"
+          }
+        }
+      ]
+    },
+    "question-answering": {
+      "description": "Accurately answers factual questions about Maestro features, architecture, and usage.",
+      "requires": ["conversation"],
+      "weight": 0.25,
+      "minimumScore": 0.6,
+      "tests": [
+        {
+          "id": "answer-block-types",
+          "description": "Identifies the types of blocks available",
+          "prompt": "What types of blocks exist in Maestro?",
+          "check": {
+            "type": "contains-any",
+            "values": ["inference", "agent", "workflow", "tool", "composite"]
+          }
+        },
+        {
+          "id": "answer-cli-usage",
+          "description": "Provides CLI usage guidance",
+          "prompt": "How do I create a new workspace using the CLI?",
+          "check": {
+            "type": "contains",
+            "value": "workspace"
+          }
+        },
+        {
+          "id": "answer-pipeline",
+          "description": "Describes the block development pipeline",
+          "prompt": "What is the correct pipeline for developing a new block?",
+          "check": {
+            "type": "contains-all",
+            "values": ["workspace", "foundry", "test", "publish"]
+          }
+        }
+      ]
+    },
+    "troubleshooting": {
+      "description": "Helps users diagnose and resolve issues by asking clarifying questions, suggesting causes, and proposing solutions.",
+      "requires": ["conversation", "multi-turn"],
+      "weight": 0.30,
+      "minimumScore": 0.5,
+      "tests": [
+        {
+          "id": "troubleshoot-session-failure",
+          "description": "Helps troubleshoot a session that won't start",
+          "prompt": "My session won't start. I get an error when I run session create. What should I check?",
+          "check": {
+            "type": "contains-any",
+            "values": ["backend", "service", "port", "running", "log", "error", "check", "verify", "template"]
+          }
+        },
+        {
+          "id": "troubleshoot-llm-connection",
+          "description": "Helps diagnose LLM provider connectivity issues",
+          "prompt": "I'm getting timeout errors when my agent tries to call the LLM. The backend is running but inference calls fail. What could be wrong?",
+          "check": {
+            "type": "contains-all",
+            "values": ["5010", "provider"]
+          }
+        },
+        {
+          "id": "troubleshoot-asks-questions",
+          "description": "Asks clarifying questions rather than just guessing",
+          "prompt": "My block isn't working. Help me fix it.",
+          "check": {
+            "type": "regex",
+            "pattern": "(?i)(\\?|what .*(error|type|seeing|happening|expect)|can you .*(share|provide|tell|describe)|which)"
+          }
+        },
+        {
+          "id": "troubleshoot-fitness-low",
+          "description": "Helps diagnose low fitness scores",
+          "prompt": "My agent has a fitness of 0.05. All tests pass but fitness is still very low. Why?",
+          "check": {
+            "type": "contains-any",
+            "values": ["cost", "token", "latency", "performance", "weight", "formula", "metric", "efficiency"]
+          }
+        }
+      ]
+    },
+    "conversational-quality": {
+      "description": "Maintains a helpful, professional, and coherent multi-turn dialogue style appropriate for support interactions.",
+      "requires": ["conversation"],
+      "weight": 0.20,
+      "minimumScore": 0.5,
+      "tests": [
+        {
+          "id": "polite-greeting",
+          "description": "Responds appropriately to a greeting",
+          "prompt": "Hi, I'm new to Maestro and a bit lost. Can you help me?",
+          "check": {
+            "type": "does-not-contain",
+            "values": ["I cannot", "I'm unable", "I don't know", "error", "undefined"]
+          }
+        },
+        {
+          "id": "non-empty-response",
+          "description": "Always produces a substantive response to support questions",
+          "prompt": "What's the best way to get started with Maestro if I've never used it before?",
+          "check": {
+            "type": "non-empty"
+          }
+        },
+        {
+          "id": "structured-answer",
+          "description": "Provides structured, actionable guidance rather than vague answers",
+          "prompt": "Give me a step-by-step guide to create my first block in Maestro.",
+          "check": {
+            "type": "regex",
+            "pattern": "(?i)(1[.)]|step\\s*1|first)"
+          }
+        }
+      ]
+    }
+  },
+  "scoring": {
+    "method": "weighted-average"
+  }
+}

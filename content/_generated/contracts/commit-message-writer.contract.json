@@ -1,0 +1,134 @@
+{
+  "id": "commit-message-writer",
+  "name": "Commit Message Writer",
+  "version": "1.0.0",
+  "description": "Reads git diffs and produces well-structured conventional commit messages following the Conventional Commits specification (type(scope): description, optional body and footer)",
+  "requiredCapabilities": ["conversation", "tool-calling"],
+  "minimumFitness": 0.3,
+  "features": {
+    "conventional-format": {
+      "description": "Produces commit messages that follow the Conventional Commits specification with correct type, optional scope, and description",
+      "requires": ["conversation"],
+      "weight": 0.35,
+      "minimumScore": 0.7,
+      "tests": [
+        {
+          "id": "feat-type-recognition",
+          "description": "Recognizes a new feature diff and produces a feat: commit",
+          "prompt": "Write a commit message for this diff:\n\ndiff --git a/src/auth/login.ts b/src/auth/login.ts\nnew file mode 100644\n--- /dev/null\n+++ b/src/auth/login.ts\n@@ -0,0 +1,25 @@\n+export async function loginWithOAuth(provider: string): Promise<User> {\n+  const token = await fetchOAuthToken(provider);\n+  const user = await validateToken(token);\n+  return user;\n+}\n+\n+export async function refreshSession(sessionId: string): Promise<Session> {\n+  const session = await getSession(sessionId);\n+  if (session.isExpired()) {\n+    return await renewSession(session);\n+  }\n+  return session;\n+}",
+          "check": {
+            "type": "regex",
+            "pattern": "^feat(\\(.*\\))?:\\s.+"
+          }
+        },
+        {
+          "id": "fix-type-recognition",
+          "description": "Recognizes a bug fix diff and produces a fix: commit",
+          "prompt": "Write a commit message for this diff:\n\ndiff --git a/src/utils/parser.ts b/src/utils/parser.ts\n--- a/src/utils/parser.ts\n+++ b/src/utils/parser.ts\n@@ -12,7 +12,7 @@ export function parseConfig(raw: string): Config {\n   const lines = raw.split('\\n');\n   for (const line of lines) {\n-    if (line.startsWith('#')) continue;\n+    if (line.startsWith('#') || line.trim() === '') continue;\n     const [key, value] = line.split('=');\n-    config[key] = value;\n+    config[key.trim()] = value?.trim() ?? '';\n   }\n   return config;\n }",
+          "check": {
+            "type": "regex",
+            "pattern": "^fix(\\(.*\\))?:\\s.+"
+          }
+        },
+        {
+          "id": "valid-commit-types",
+          "description": "Only uses valid conventional commit types",
+          "prompt": "Write a commit message for this diff:\n\ndiff --git a/README.md b/README.md\n--- a/README.md\n+++ b/README.md\n@@ -1,5 +1,10 @@\n # MyProject\n \n-A simple project.\n+A powerful CLI tool for managing deployments.\n+\n+## Installation\n+\n+```bash\n+npm install -g myproject\n+```",
+          "check": {
+            "type": "regex",
+            "pattern": "^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\\(.*\\))?(!)?:\\s.+"
+          }
+        }
+      ]
+    },
+    "diff-comprehension": {
+      "description": "Accurately understands the semantic meaning of git diffs and reflects it in the commit message",
+      "requires": ["conversation"],
+      "weight": 0.30,
+      "minimumScore": 0.6,
+      "tests": [
+        {
+          "id": "multi-file-diff-summary",
+          "description": "Summarizes a multi-file diff accurately without listing every file",
+          "prompt": "Write a commit message for this diff:\n\ndiff --git a/src/api/routes.ts b/src/api/routes.ts\n--- a/src/api/routes.ts\n+++ b/src/api/routes.ts\n@@ -15,6 +15,12 @@ router.get('/users', getUsers);\n router.get('/users/:id', getUserById);\n+router.post('/users/:id/avatar', uploadAvatar);\n+router.delete('/users/:id/avatar', deleteAvatar);\n \ndiff --git a/src/api/handlers/avatar.ts b/src/api/handlers/avatar.ts\nnew file mode 100644\n--- /dev/null\n+++ b/src/api/handlers/avatar.ts\n@@ -0,0 +1,18 @@\n+import { Request, Response } from 'express';\n+import { storageService } from '../services/storage';\n+\n+export async function uploadAvatar(req: Request, res: Response) {\n+  const file = req.file;\n+  const url = await storageService.upload(file);\n+  res.json({ avatarUrl: url });\n+}\n+\n+export async function deleteAvatar(req: Request, res: Response) {\n+  await storageService.delete(req.params.id, 'avatar');\n+  res.status(204).send();\n+}\n\ndiff --git a/src/api/middleware/upload.ts b/src/api/middleware/upload.ts\nnew file mode 100644\n--- /dev/null\n+++ b/src/api/middleware/upload.ts\n@@ -0,0 +1,8 @@\n+import multer from 'multer';\n+export const upload = multer({ limits: { fileSize: 5 * 1024 * 1024 } });",
+          "check": {
+            "type": "contains-any",
+            "values": ["avatar", "upload", "image", "profile picture", "user avatar"]
+          }
+        },
+        {
+          "id": "refactor-detection",
+          "description": "Identifies refactoring changes vs functional changes",
+          "prompt": "Write a commit message for this diff:\n\ndiff --git a/src/services/order.ts b/src/services/order.ts\n--- a/src/services/order.ts\n+++ b/src/services/order.ts\n@@ -5,25 +5,15 @@ export class OrderService {\n-  async createOrder(userId: string, items: any[], address: any, payment: any) {\n-    const total = items.reduce((sum, item) => sum + item.price * item.qty, 0);\n-    const tax = total * 0.1;\n-    const shipping = address.country === 'US' ? 0 : 15;\n-    const finalTotal = total + tax + shipping;\n-    const order = await this.repo.create({ userId, items, total: finalTotal, address, payment });\n-    await this.emailService.sendConfirmation(userId, order);\n-    await this.inventoryService.reserve(items);\n-    return order;\n-  }\n+  async createOrder(userId: string, items: OrderItem[], address: Address, payment: Payment) {\n+    const pricing = this.pricingService.calculate(items, address);\n+    const order = await this.repo.create({ userId, items, ...pricing, address, payment });\n+    await this.notificationService.orderCreated(order);\n+    await this.inventoryService.reserve(items);\n+    return order;\n+  }",
+          "check": {
+            "type": "contains-any",
+            "values": ["refactor", "extract", "pricing", "type", "simplif"]
+          }
+        },
+        {
+          "id": "does-not-hallucinate",
+          "description": "Does not invent changes not present in the diff",
+          "prompt": "Write a commit message for this diff:\n\ndiff --git a/tsconfig.json b/tsconfig.json\n--- a/tsconfig.json\n+++ b/tsconfig.json\n@@ -3,7 +3,7 @@\n     \"target\": \"ES2020\",\n-    \"strict\": false,\n+    \"strict\": true,\n     \"outDir\": \"./dist\"\n   }\n }",
+          "check": {
+            "type": "does-not-contain",
+            "values": ["feature", "endpoint", "database", "migration", "deploy", "security vulnerability"]
+          }
+        }
+      ]
+    },
+    "message-quality": {
+      "description": "Produces concise, informative commit messages with appropriate subject line length and optional body",
+      "requires": ["conversation"],
+      "weight": 0.20,
+      "minimumScore": 0.5,
+      "tests": [
+        {
+          "id": "concise-subject",
+          "description": "Subject line is concise (under ~72 chars) and lowercase after type prefix",
+          "prompt": "Write a commit message for this diff:\n\ndiff --git a/src/cache.ts b/src/cache.ts\n--- a/src/cache.ts\n+++ b/src/cache.ts\n@@ -8,6 +8,10 @@ export class Cache {\n   get(key: string) {\n+    const entry = this.store.get(key);\n+    if (entry && entry.expiresAt < Date.now()) {\n+      this.store.delete(key);\n+      return undefined;\n+    }\n     return this.store.get(key)?.value;\n   }",
+          "check": {
+            "type": "non-empty"
+          }
+        },
+        {
+          "id": "imperative-mood",
+          "description": "Uses imperative mood in the subject line (add, fix, change — not added, fixed, changed)",
+          "prompt": "Write a commit message for this diff:\n\ndiff --git a/src/logger.ts b/src/logger.ts\n--- a/src/logger.ts\n+++ b/src/logger.ts\n@@ -1,8 +1,12 @@\n export class Logger {\n-  log(message: string) {\n-    console.log(message);\n+  log(level: 'info' | 'warn' | 'error', message: string, context?: Record<string, unknown>) {\n+    const entry = {\n+      timestamp: new Date().toISOString(),\n+      level,\n+      message,\n+      ...context\n+    };\n+    console.log(JSON.stringify(entry));\n   }\n }",
+          "check": {
+            "type": "does-not-contain",
+            "values": ["added", "fixed", "changed", "updated", "removed", "implemented"]
+          }
+        }
+      ]
+    },
+    "git-diff-reading": {
+      "description": "Can request and read git diffs via tool calls when not provided inline",
+      "requires": ["tool-calling"],
+      "weight": 0.15,
+      "minimumScore": 0.5,
+      "tests": [
+        {
+          "id": "requests-diff-when-missing",
+          "description": "Calls a shell tool to get git diff when no diff is provided",
+          "prompt": "Write a commit message for the currently staged changes.",
+          "check": {
+            "type": "tool-call",
+            "toolName": "shell-execute"
+          }
+        },
+        {
+          "id": "uses-git-command",
+          "description": "Uses an appropriate git diff command",
+          "prompt": "I just staged some files. Generate a commit message for them.",
+          "check": {
+            "type": "tool-call",
+            "toolName": "shell-execute"
+          }
+        }
+      ]
+    }
+  },
+  "scoring": {
+    "method": "weighted-average"
+  }
+}

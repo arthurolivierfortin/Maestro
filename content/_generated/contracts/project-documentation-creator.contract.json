@@ -1,0 +1,143 @@
+{
+  "id": "project-documentation-creator",
+  "name": "Project Documentation Creator",
+  "version": "1.0.0",
+  "description": "An agent that creates project documentation including README files and API docs, and validates the output format for correctness and completeness.",
+  "requiredCapabilities": ["conversation", "tool-calling", "structured-output"],
+  "minimumFitness": 0.3,
+  "features": {
+    "readme-generation": {
+      "description": "Generates well-structured README files with standard sections like title, description, installation, usage, and license.",
+      "requires": ["conversation"],
+      "weight": 0.3,
+      "minimumScore": 0.6,
+      "tests": [
+        {
+          "id": "readme-has-standard-sections",
+          "description": "Generated README contains all standard sections",
+          "prompt": "Create a README.md for a Node.js CLI tool called 'datapipe' that transforms CSV files into JSON. It uses Node 18+, is installed via npm, and is MIT licensed.",
+          "check": {
+            "type": "contains-all",
+            "values": ["# ", "Installation", "Usage", "License"]
+          }
+        },
+        {
+          "id": "readme-includes-code-examples",
+          "description": "Generated README includes code examples or code blocks",
+          "prompt": "Create a README.md for a Python library called 'fastquery' that provides a fluent API for SQL query building. Include installation and usage examples.",
+          "check": {
+            "type": "regex",
+            "pattern": "```[a-z]*\\n[\\s\\S]+?```"
+          }
+        },
+        {
+          "id": "readme-is-markdown",
+          "description": "Output is valid markdown with proper heading hierarchy",
+          "prompt": "Generate a README for a REST API service called 'auth-gateway' built with Go. It handles JWT authentication and rate limiting.",
+          "check": {
+            "type": "contains-all",
+            "values": ["# ", "## "]
+          }
+        }
+      ]
+    },
+    "api-documentation": {
+      "description": "Generates API documentation describing endpoints, parameters, request/response formats, and error codes.",
+      "requires": ["conversation"],
+      "weight": 0.3,
+      "minimumScore": 0.6,
+      "tests": [
+        {
+          "id": "api-docs-contain-endpoints",
+          "description": "API docs include endpoint paths and HTTP methods",
+          "prompt": "Create API documentation for a user management service with endpoints: POST /users (create user), GET /users/:id (get user), PUT /users/:id (update user), DELETE /users/:id (delete user). Each endpoint accepts and returns JSON.",
+          "check": {
+            "type": "contains-all",
+            "values": ["POST", "GET", "PUT", "DELETE", "/users"]
+          }
+        },
+        {
+          "id": "api-docs-include-request-response",
+          "description": "API docs include request and response format descriptions",
+          "prompt": "Document the API for a POST /orders endpoint that accepts a JSON body with fields: productId (string, required), quantity (integer, required), shippingAddress (string, optional). It returns 201 with the created order object or 400 on validation error.",
+          "check": {
+            "type": "contains-all",
+            "values": ["productId", "quantity", "201", "400"]
+          }
+        },
+        {
+          "id": "api-docs-include-error-codes",
+          "description": "API docs describe error responses and status codes",
+          "prompt": "Create API documentation for a GET /products/:id endpoint that returns product details. Include error responses for not found, unauthorized, and server error scenarios.",
+          "check": {
+            "type": "contains-any",
+            "values": ["404", "401", "500", "Not Found", "Unauthorized", "Server Error"]
+          }
+        }
+      ]
+    },
+    "format-validation": {
+      "description": "Validates that generated documentation follows proper formatting conventions and identifies issues in existing docs.",
+      "requires": ["conversation"],
+      "weight": 0.25,
+      "minimumScore": 0.5,
+      "tests": [
+        {
+          "id": "validates-missing-sections",
+          "description": "Identifies missing required sections in a README",
+          "prompt": "Validate this README and list what's missing:\n\n# MyApp\n\nA cool app.\n\n## Usage\n\nRun `myapp start`.\n",
+          "check": {
+            "type": "contains-any",
+            "values": ["Installation", "install", "License", "license", "missing", "Missing"]
+          }
+        },
+        {
+          "id": "validates-broken-format",
+          "description": "Detects formatting issues in documentation",
+          "prompt": "Review this API doc for formatting issues and suggest corrections:\n\n# API\n##GET /users\nReturns users.\nParameters\nname - filter by name\n##POST /users\nCreates user.\nBody: {name, email}\nReturns: 200\n\nNote the missing spaces after ## and inconsistent structure.",
+          "check": {
+            "type": "contains-any",
+            "values": ["spacing", "space", "format", "inconsistent", "heading", "##"]
+          }
+        },
+        {
+          "id": "does-not-pass-invalid-docs",
+          "description": "Does not claim empty or trivial documentation is complete",
+          "prompt": "Is this README complete and ready for publishing?\n\n# App\n\nAn app.\n",
+          "check": {
+            "type": "does-not-contain",
+            "values": ["looks complete", "ready to publish", "no changes needed", "looks good as is"]
+          }
+        }
+      ]
+    },
+    "tool-usage": {
+      "description": "Uses file-write tools to save generated documentation to disk.",
+      "requires": ["tool-calling"],
+      "weight": 0.15,
+      "minimumScore": 0.5,
+      "tests": [
+        {
+          "id": "writes-readme-file",
+          "description": "Calls file-write tool to save README.md",
+          "prompt": "Create a README.md file for a project called 'taskrunner' - a task scheduling library for Python. Write it to disk at ./README.md.",
+          "check": {
+            "type": "tool-call",
+            "toolName": "file-write"
+          }
+        },
+        {
+          "id": "output-is-non-empty",
+          "description": "Agent produces substantive documentation content",
+          "prompt": "Generate API reference documentation for a WebSocket chat service with connect, send-message, and disconnect events.",
+          "check": {
+            "type": "non-empty"
+          }
+        }
+      ]
+    }
+  },
+  "scoring": {
+    "method": "weighted-average"
+  }
+}

@@ -1,0 +1,127 @@
+{
+  "id": "code-analysis-agent",
+  "name": "Code Analysis Agent",
+  "version": "1.0.0",
+  "description": "An agent that reads source code for analysis, runs linters via shell execution, generates written reports, and manages git branches for isolated work.",
+  "requiredCapabilities": ["conversation", "tool-calling", "reasoning"],
+  "minimumFitness": 0.3,
+  "features": {
+    "code-reading": {
+      "description": "Reads source files using file-read to analyze code structure, patterns, and potential issues",
+      "requires": ["tool-calling"],
+      "weight": 0.25,
+      "minimumScore": 0.6,
+      "tests": [
+        {
+          "id": "reads-target-file",
+          "description": "Agent uses file-read to read the specified source file before analysis",
+          "prompt": "Analyze the code quality of src/utils/parser.ts",
+          "check": { "type": "tool-call", "toolName": "file-read" }
+        },
+        {
+          "id": "identifies-code-issues",
+          "description": "Agent identifies concrete issues or observations after reading code",
+          "prompt": "Read src/index.ts and tell me what you find",
+          "check": { "type": "contains-any", "values": ["function", "import", "export", "class", "variable", "error", "issue", "pattern", "complexity", "dependency"] }
+        },
+        {
+          "id": "reads-before-concluding",
+          "description": "Agent does not fabricate analysis without reading the file first",
+          "prompt": "What problems exist in src/config/database.ts?",
+          "check": { "type": "tool-call", "toolName": "file-read" }
+        }
+      ]
+    },
+    "linter-execution": {
+      "description": "Runs linting tools via shell-execute to get automated code quality feedback",
+      "requires": ["tool-calling"],
+      "weight": 0.25,
+      "minimumScore": 0.6,
+      "tests": [
+        {
+          "id": "runs-linter-command",
+          "description": "Agent invokes shell-execute to run a linter",
+          "prompt": "Run the linter on the src/ directory and report the results",
+          "check": { "type": "tool-call", "toolName": "shell-execute" }
+        },
+        {
+          "id": "uses-appropriate-linter",
+          "description": "Agent uses a recognized linting tool in its shell command",
+          "prompt": "Lint check the TypeScript files in this project",
+          "check": { "type": "contains-any", "values": ["eslint", "tslint", "prettier", "biome", "tsc", "npx", "lint"] }
+        },
+        {
+          "id": "interprets-linter-output",
+          "description": "Agent provides interpretation of linting results, not just raw output",
+          "prompt": "Run eslint on src/ and explain what the results mean",
+          "check": { "type": "contains-any", "values": ["warning", "error", "issue", "violation", "rule", "fix", "clean", "passed", "failed", "problem"] }
+        },
+        {
+          "id": "does-not-fabricate-results",
+          "description": "Agent actually runs the linter rather than guessing results",
+          "prompt": "Check this project for linting errors",
+          "check": { "type": "tool-call", "toolName": "shell-execute" }
+        }
+      ]
+    },
+    "report-generation": {
+      "description": "Generates structured analysis reports and writes them to files using file-write",
+      "requires": ["tool-calling"],
+      "weight": 0.25,
+      "minimumScore": 0.6,
+      "tests": [
+        {
+          "id": "writes-report-file",
+          "description": "Agent uses file-write to create a report file",
+          "prompt": "Analyze src/ and write a code quality report to reports/analysis.md",
+          "check": { "type": "tool-call", "toolName": "file-write" }
+        },
+        {
+          "id": "report-contains-structure",
+          "description": "Agent generates a report with recognizable structure and sections",
+          "prompt": "Create a comprehensive code review report for the project and save it to report.md",
+          "check": { "type": "contains-all", "values": ["report", "file-write"] }
+        },
+        {
+          "id": "report-mentions-findings",
+          "description": "Agent includes findings or recommendations in the report content",
+          "prompt": "Generate a lint report summarizing all issues found and save to lint-report.md",
+          "check": { "type": "does-not-contain", "values": ["I cannot write files", "I don't have access", "I am unable to create"] }
+        }
+      ]
+    },
+    "git-branch-management": {
+      "description": "Creates git branches for isolated work using shell-execute with git commands",
+      "requires": ["tool-calling"],
+      "weight": 0.25,
+      "minimumScore": 0.5,
+      "tests": [
+        {
+          "id": "creates-git-branch",
+          "description": "Agent uses shell-execute with a git command to create a branch",
+          "prompt": "Create a new git branch called fix/lint-errors for the cleanup work",
+          "check": { "type": "tool-call", "toolName": "shell-execute" }
+        },
+        {
+          "id": "uses-git-commands",
+          "description": "Agent includes proper git branch syntax in its command",
+          "prompt": "Set up a branch named refactor/code-quality for the improvements",
+          "check": { "type": "regex", "pattern": "git\\s+(checkout|branch|switch)\\s+(-b\\s+)?\\S+" }
+        },
+        {
+          "id": "confirms-branch-action",
+          "description": "Agent communicates what branch operation it performed",
+          "prompt": "Create a branch called feat/analysis-report and confirm it was created",
+          "check": { "type": "contains-any", "values": ["branch", "created", "switched", "checkout", "checked out"] }
+        },
+        {
+          "id": "uses-descriptive-branch-names",
+          "description": "Agent does not refuse or hallucinate when asked to create a branch",
+          "prompt": "We need a new branch for fixing the linting issues. Create one with an appropriate name.",
+          "check": { "type": "does-not-contain", "values": ["I cannot create branches", "I don't have git access", "not possible"] }
+        }
+      ]
+    }
+  },
+  "scoring": { "method": "weighted-average" }
+}

@@ -1,0 +1,161 @@
+{
+  "id": "doc-generator",
+  "name": "Project Documentation Generator",
+  "version": "1.0.0",
+  "description": "An agent that creates project documentation including README files and API docs, and validates the output format for correctness and completeness.",
+  "requiredCapabilities": ["conversation", "tool-calling", "structured-output"],
+  "minimumFitness": 0.3,
+  "features": {
+    "readme-generation": {
+      "description": "Generates well-structured README files with standard sections (title, description, installation, usage, etc.)",
+      "requires": ["conversation"],
+      "weight": 0.3,
+      "minimumScore": 0.6,
+      "tests": [
+        {
+          "id": "readme-basic-sections",
+          "description": "Generates a README containing all essential sections for a Node.js CLI tool called 'taskflow'",
+          "prompt": "Generate a README.md for a Node.js CLI tool called 'taskflow' that manages developer tasks via the terminal. It uses SQLite for storage and supports create, list, complete, and delete operations. Install via npm.",
+          "check": {
+            "type": "contains-all",
+            "values": ["# taskflow", "Installation", "Usage", "npm"]
+          }
+        },
+        {
+          "id": "readme-markdown-format",
+          "description": "Output must be valid markdown with proper heading hierarchy",
+          "prompt": "Generate a README.md for a Python library called 'colorpalette' that extracts dominant colors from images using k-means clustering. It requires Pillow and numpy.",
+          "check": {
+            "type": "regex",
+            "pattern": "^# .+\\n[\\s\\S]*## .+[\\s\\S]*##"
+          }
+        },
+        {
+          "id": "readme-code-blocks",
+          "description": "README includes code examples in fenced code blocks",
+          "prompt": "Generate a README.md for a Go HTTP middleware library called 'ratelimit' that provides token-bucket rate limiting. Show how to integrate it with net/http.",
+          "check": {
+            "type": "contains-all",
+            "values": ["```go", "```", "ratelimit", "http"]
+          }
+        }
+      ]
+    },
+    "api-docs-generation": {
+      "description": "Generates API documentation with endpoints, parameters, request/response examples, and status codes",
+      "requires": ["conversation"],
+      "weight": 0.3,
+      "minimumScore": 0.6,
+      "tests": [
+        {
+          "id": "api-docs-rest-endpoints",
+          "description": "Documents REST API endpoints with methods, paths, and descriptions",
+          "prompt": "Generate API documentation for a user management REST API with these endpoints: POST /users (create user with name and email), GET /users/:id (get user by ID), PUT /users/:id (update user), DELETE /users/:id (delete user). Include request/response examples.",
+          "check": {
+            "type": "contains-all",
+            "values": ["POST", "GET", "PUT", "DELETE", "/users", "request", "response"]
+          }
+        },
+        {
+          "id": "api-docs-status-codes",
+          "description": "API docs include HTTP status codes for success and error cases",
+          "prompt": "Generate API documentation for a POST /auth/login endpoint that accepts email and password in JSON body, returns a JWT token on success, and returns errors for invalid credentials and missing fields.",
+          "check": {
+            "type": "contains-any",
+            "values": ["200", "201", "400", "401", "403"]
+          }
+        },
+        {
+          "id": "api-docs-json-examples",
+          "description": "API docs contain JSON request/response body examples",
+          "prompt": "Document a POST /orders endpoint that accepts items (array of {productId, quantity}), shippingAddress (string), and paymentMethod (string). It returns an order object with id, status, total, and createdAt.",
+          "check": {
+            "type": "regex",
+            "pattern": "```json[\\s\\S]*\\{[\\s\\S]*\\}[\\s\\S]*```"
+          }
+        },
+        {
+          "id": "api-docs-no-placeholder-garbage",
+          "description": "API docs should not contain TODO placeholders or lorem ipsum filler",
+          "prompt": "Generate complete API documentation for a GET /products endpoint that returns a paginated list of products with fields: id, name, price, category. Supports query params: page, limit, category.",
+          "check": {
+            "type": "does-not-contain",
+            "values": ["TODO", "lorem ipsum", "TBD", "FIXME", "placeholder"]
+          }
+        }
+      ]
+    },
+    "format-validation": {
+      "description": "Validates that generated documentation follows correct markdown formatting and structural conventions",
+      "requires": ["conversation", "tool-calling"],
+      "weight": 0.25,
+      "minimumScore": 0.5,
+      "tests": [
+        {
+          "id": "validate-detects-missing-sections",
+          "description": "When asked to validate a README, identifies missing standard sections",
+          "prompt": "Validate this README and list what's missing:\n\n# MyApp\n\nA cool app.\n\n## Installation\n\nnpm install myapp\n",
+          "check": {
+            "type": "contains-any",
+            "values": ["Usage", "usage", "License", "license", "Description", "description", "examples", "Examples", "missing"]
+          }
+        },
+        {
+          "id": "validate-confirms-good-structure",
+          "description": "Confirms when documentation has proper structure and completeness",
+          "prompt": "Validate this README structure: it has Title, Description, Table of Contents, Installation, Usage with code examples, API Reference, Configuration, Contributing, and License sections. All sections contain substantive content. Is this well-structured?",
+          "check": {
+            "type": "contains-any",
+            "values": ["well-structured", "complete", "good", "comprehensive", "solid", "proper", "correct"]
+          }
+        },
+        {
+          "id": "validate-output-non-empty",
+          "description": "Validation output is never empty",
+          "prompt": "Validate this API doc snippet for correctness:\n\n## GET /health\n\nReturns server health status.\n\n**Response 200:**\n```json\n{\"status\": \"ok\"}\n```",
+          "check": {
+            "type": "non-empty"
+          }
+        }
+      ]
+    },
+    "contextual-adaptation": {
+      "description": "Adapts documentation style and content to the specific project type, language, and ecosystem conventions",
+      "requires": ["conversation"],
+      "weight": 0.15,
+      "minimumScore": 0.5,
+      "tests": [
+        {
+          "id": "adapt-python-conventions",
+          "description": "Uses Python ecosystem conventions (pip, venv, pyproject.toml) for a Python project",
+          "prompt": "Generate a README for a Python FastAPI microservice called 'invoice-api' that processes invoices. It uses PostgreSQL, SQLAlchemy, and Alembic for migrations.",
+          "check": {
+            "type": "contains-any",
+            "values": ["pip install", "pip", "venv", "python", "requirements", "pyproject"]
+          }
+        },
+        {
+          "id": "adapt-rust-conventions",
+          "description": "Uses Rust ecosystem conventions (cargo, crates.io) for a Rust project",
+          "prompt": "Generate a README for a Rust crate called 'blazecache' that provides an in-memory LRU cache with TTL support and async compatibility via tokio.",
+          "check": {
+            "type": "contains-all",
+            "values": ["cargo", "Cargo.toml", "blazecache"]
+          }
+        },
+        {
+          "id": "adapt-does-not-mix-ecosystems",
+          "description": "Does not include irrelevant ecosystem tooling when documenting a specific language project",
+          "prompt": "Generate a README for a pure Go CLI tool called 'logparse' that parses nginx access logs and outputs statistics. No JavaScript, no Python, no Docker — just Go.",
+          "check": {
+            "type": "does-not-contain",
+            "values": ["npm", "pip", "requirements.txt", "package.json", "node_modules"]
+          }
+        }
+      ]
+    }
+  },
+  "scoring": {
+    "method": "weighted-average"
+  }
+}

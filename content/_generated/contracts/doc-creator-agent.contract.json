@@ -1,0 +1,161 @@
+{
+  "id": "doc-creator-agent",
+  "name": "Documentation Creator Agent",
+  "version": "1.0.0",
+  "description": "An agent that creates project documentation including README files and API docs, and validates the output format for correctness and completeness.",
+  "requiredCapabilities": ["conversation", "tool-calling", "structured-output"],
+  "minimumFitness": 0.3,
+  "features": {
+    "readme-generation": {
+      "description": "Generate comprehensive README files with standard sections for a given project",
+      "requires": ["conversation"],
+      "weight": 0.30,
+      "minimumScore": 0.6,
+      "tests": [
+        {
+          "id": "readme-basic-structure",
+          "description": "Generates a README with all essential sections for a Node.js CLI tool",
+          "prompt": "Create a README.md for a Node.js CLI tool called 'logfire' that aggregates and searches log files. It supports glob patterns, regex search, and JSON output. Install via npm.",
+          "check": {
+            "type": "contains-all",
+            "values": ["# logfire", "Installation", "Usage", "npm"]
+          }
+        },
+        {
+          "id": "readme-includes-examples",
+          "description": "README includes practical usage examples with code blocks",
+          "prompt": "Create a README.md for a Python library called 'dataweave' that transforms CSV files into various formats (JSON, Parquet, XML). Include at least two usage examples.",
+          "check": {
+            "type": "regex",
+            "pattern": "```[a-z]*\\n[\\s\\S]+?```"
+          }
+        },
+        {
+          "id": "readme-no-placeholder-content",
+          "description": "Generated README does not contain placeholder or TODO markers",
+          "prompt": "Generate a complete README for a Rust HTTP server library called 'swiftserve' that supports middleware, routing, and TLS. Fill in all sections completely.",
+          "check": {
+            "type": "does-not-contain",
+            "values": ["TODO", "PLACEHOLDER", "TBD", "Lorem ipsum", "[insert", "fill in"]
+          }
+        },
+        {
+          "id": "readme-markdown-valid",
+          "description": "Output is valid markdown with proper heading hierarchy",
+          "prompt": "Create a README.md for a Go microservice framework called 'meshgo' with features: service discovery, load balancing, circuit breakers.",
+          "check": {
+            "type": "regex",
+            "pattern": "^# .+\\n[\\s\\S]*## .+"
+          }
+        }
+      ]
+    },
+    "api-doc-generation": {
+      "description": "Generate API documentation with endpoints, parameters, request/response examples",
+      "requires": ["conversation"],
+      "weight": 0.30,
+      "minimumScore": 0.6,
+      "tests": [
+        {
+          "id": "api-doc-endpoints",
+          "description": "Generates API docs with HTTP methods and endpoint paths",
+          "prompt": "Create API documentation for a user management REST API with endpoints: create user, get user by ID, update user, delete user, and list users with pagination.",
+          "check": {
+            "type": "contains-all",
+            "values": ["GET", "POST", "DELETE"]
+          }
+        },
+        {
+          "id": "api-doc-request-response",
+          "description": "API docs include request and response body examples",
+          "prompt": "Document a REST API endpoint POST /api/orders that accepts a JSON body with items array, shipping address, and payment method. It returns the created order with an ID and status.",
+          "check": {
+            "type": "contains-all",
+            "values": ["request", "response", "items", "status"]
+          }
+        },
+        {
+          "id": "api-doc-includes-json-examples",
+          "description": "API documentation contains JSON code block examples",
+          "prompt": "Write API documentation for GET /api/products/:id that returns product details including name, price, description, and inventory count. Include example JSON.",
+          "check": {
+            "type": "regex",
+            "pattern": "```json\\s*\\n\\s*\\{[\\s\\S]*?\\}\\s*\\n\\s*```"
+          }
+        }
+      ]
+    },
+    "format-validation": {
+      "description": "Validate that documentation output follows proper formatting standards and structure",
+      "requires": ["conversation", "tool-calling"],
+      "weight": 0.20,
+      "minimumScore": 0.5,
+      "tests": [
+        {
+          "id": "validates-markdown-issues",
+          "description": "Identifies and reports formatting problems in provided documentation",
+          "prompt": "Review this documentation for format issues and list every problem you find:\n\n# My API\n##Missing space after hash\nEndpoint: GET /users\nResponse:\n{\"id\": 1}\nThe above JSON is not in a code block.\n####Skipped heading levels\n- inconsistent\n* list markers",
+          "check": {
+            "type": "contains-any",
+            "values": ["heading", "code block", "format", "markdown", "inconsistent"]
+          }
+        },
+        {
+          "id": "format-produces-clean-output",
+          "description": "When asked to fix formatting, produces well-structured markdown output",
+          "prompt": "Fix the formatting of this documentation and return corrected markdown:\n\n# API\n##Users Endpoint\nGET /api/users - returns users\nresponse: {\"users\": []}\nno code block above\n- item one\n* item two",
+          "check": {
+            "type": "regex",
+            "pattern": "## .+\\n"
+          }
+        },
+        {
+          "id": "format-non-empty-feedback",
+          "description": "Always provides substantive feedback when validating docs, never empty responses",
+          "prompt": "Validate the format of this API documentation snippet and provide detailed feedback:\n\nGET /health\nReturns 200 OK.",
+          "check": {
+            "type": "non-empty"
+          }
+        }
+      ]
+    },
+    "content-completeness": {
+      "description": "Ensure generated documentation covers all required sections and does not omit critical information",
+      "requires": ["conversation"],
+      "weight": 0.20,
+      "minimumScore": 0.5,
+      "tests": [
+        {
+          "id": "completeness-readme-sections",
+          "description": "README includes license, contributing, and prerequisites sections when requested",
+          "prompt": "Generate a full README for an open-source TypeScript ORM called 'querycraft'. Include all standard open-source sections: description, installation, usage, configuration, contributing guidelines, and license.",
+          "check": {
+            "type": "contains-all",
+            "values": ["Installation", "Contributing", "License"]
+          }
+        },
+        {
+          "id": "completeness-api-error-codes",
+          "description": "API documentation covers error responses and status codes",
+          "prompt": "Document the POST /api/auth/login endpoint that accepts email and password. Describe success (200 with JWT token) and all error cases: invalid credentials (401), missing fields (400), rate limited (429).",
+          "check": {
+            "type": "contains-all",
+            "values": ["400", "401", "429", "200"]
+          }
+        },
+        {
+          "id": "completeness-identifies-gaps",
+          "description": "When reviewing docs, identifies missing sections that should be present",
+          "prompt": "Review this README for completeness and identify what's missing:\n\n# SuperCache\nA caching library for Node.js.\n\n## Installation\nnpm install supercache\n\n## Usage\nconst cache = require('supercache');\ncache.set('key', 'value');",
+          "check": {
+            "type": "contains-any",
+            "values": ["API", "configuration", "options", "example", "license", "contributing", "parameters", "methods", "documentation"]
+          }
+        }
+      ]
+    }
+  },
+  "scoring": {
+    "method": "weighted-average"
+  }
+}

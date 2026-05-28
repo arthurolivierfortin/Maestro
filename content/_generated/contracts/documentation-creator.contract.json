@@ -1,0 +1,152 @@
+{
+  "id": "documentation-creator",
+  "name": "Documentation Creator",
+  "version": "1.0.0",
+  "description": "An agent that creates project documentation including README files and API docs, and validates the output format for correctness and completeness.",
+  "requiredCapabilities": ["conversation", "tool-calling", "structured-output"],
+  "minimumFitness": 0.3,
+  "features": {
+    "readme-generation": {
+      "description": "Generates well-structured README files with standard sections (title, description, installation, usage, contributing, license)",
+      "requires": ["conversation"],
+      "weight": 0.3,
+      "minimumScore": 0.6,
+      "tests": [
+        {
+          "id": "readme-has-standard-sections",
+          "description": "Generated README contains all standard sections",
+          "prompt": "Create a README.md for a Node.js REST API project called 'task-tracker' that manages tasks with CRUD operations. The project uses Express and MongoDB.",
+          "check": {
+            "type": "contains-all",
+            "values": ["# ", "## Installation", "## Usage", "task-tracker"]
+          }
+        },
+        {
+          "id": "readme-includes-code-examples",
+          "description": "README includes code blocks with usage examples",
+          "prompt": "Create a README.md for a Python CLI tool called 'csvmerge' that merges multiple CSV files. It uses argparse for argument parsing.",
+          "check": {
+            "type": "regex",
+            "pattern": "```[a-z]*\\n[\\s\\S]+?```"
+          }
+        },
+        {
+          "id": "readme-markdown-valid",
+          "description": "Output is valid markdown with proper heading hierarchy",
+          "prompt": "Generate a README for a Rust library called 'fastcache' that provides an in-memory LRU cache. Include installation via Cargo, basic usage, and API overview.",
+          "check": {
+            "type": "contains-all",
+            "values": ["# ", "## ", "fastcache", "cargo"]
+          }
+        }
+      ]
+    },
+    "api-documentation": {
+      "description": "Generates API documentation with endpoint descriptions, request/response schemas, and example payloads",
+      "requires": ["conversation", "structured-output"],
+      "weight": 0.3,
+      "minimumScore": 0.6,
+      "tests": [
+        {
+          "id": "api-doc-has-endpoints",
+          "description": "API documentation lists endpoints with HTTP methods and paths",
+          "prompt": "Generate API documentation for a user management service with endpoints: POST /users (create), GET /users/:id (get by id), PUT /users/:id (update), DELETE /users/:id (delete). Each accepts/returns JSON.",
+          "check": {
+            "type": "contains-all",
+            "values": ["POST", "GET", "PUT", "DELETE", "/users"]
+          }
+        },
+        {
+          "id": "api-doc-includes-request-response",
+          "description": "API docs include request and response examples or schemas",
+          "prompt": "Write API documentation for a POST /orders endpoint that accepts a JSON body with fields: productId (string), quantity (integer), shippingAddress (object with street, city, zip). It returns the created order with an id and status field.",
+          "check": {
+            "type": "contains-all",
+            "values": ["productId", "quantity", "shippingAddress", "status"]
+          }
+        },
+        {
+          "id": "api-doc-includes-status-codes",
+          "description": "API documentation includes HTTP status codes",
+          "prompt": "Document a GET /products/:id endpoint that returns a product object. Include error responses for not found and server errors.",
+          "check": {
+            "type": "contains-any",
+            "values": ["200", "404", "500", "status code"]
+          }
+        }
+      ]
+    },
+    "format-validation": {
+      "description": "Validates that generated documentation follows proper formatting rules and structural conventions",
+      "requires": ["conversation", "tool-calling"],
+      "weight": 0.25,
+      "minimumScore": 0.5,
+      "tests": [
+        {
+          "id": "validates-missing-sections",
+          "description": "Identifies and reports missing required sections in a documentation file",
+          "prompt": "Review this README and identify what's missing:\n\n# MyApp\n\nA cool app.\n\n## Installation\n\nnpm install myapp\n\nThat's it!",
+          "check": {
+            "type": "contains-any",
+            "values": ["Usage", "missing", "lacks", "should include", "Contributing", "License", "incomplete"]
+          }
+        },
+        {
+          "id": "no-placeholder-content",
+          "description": "Generated documentation does not contain placeholder text like TODO or TBD",
+          "prompt": "Create a complete README.md for a Go web framework called 'swiftserve' that provides routing, middleware, and template rendering. Do not leave any placeholders.",
+          "check": {
+            "type": "does-not-contain",
+            "values": ["TODO", "TBD", "FIXME", "[insert", "lorem ipsum", "placeholder"]
+          }
+        },
+        {
+          "id": "output-is-non-empty",
+          "description": "Agent always produces non-empty documentation output",
+          "prompt": "Generate a brief API reference for a single endpoint: GET /health that returns {\"status\": \"ok\"}.",
+          "check": {
+            "type": "non-empty"
+          }
+        }
+      ]
+    },
+    "contextual-accuracy": {
+      "description": "Documentation accurately reflects the project context, technology stack, and specifics provided by the user",
+      "requires": ["conversation"],
+      "weight": 0.15,
+      "minimumScore": 0.5,
+      "tests": [
+        {
+          "id": "respects-technology-stack",
+          "description": "Documentation references the correct technologies and tools specified by the user",
+          "prompt": "Create a README for a TypeScript React application called 'dashboard-pro' that uses Vite for building, Zustand for state management, and Tailwind CSS for styling. It deploys to Vercel.",
+          "check": {
+            "type": "contains-all",
+            "values": ["TypeScript", "React", "Vite", "Zustand", "Tailwind", "Vercel"]
+          }
+        },
+        {
+          "id": "does-not-hallucinate-features",
+          "description": "Documentation does not invent features or dependencies not mentioned by the user",
+          "prompt": "Write a minimal README for a Python script called 'hello.py' that prints 'Hello World'. It has no dependencies, no installation steps, and no configuration. Just describe what it does and how to run it.",
+          "check": {
+            "type": "does-not-contain",
+            "values": ["pip install", "requirements.txt", "docker", "database", "API key", "configuration file"]
+          }
+        },
+        {
+          "id": "adapts-to-project-type",
+          "description": "Documentation structure adapts to the type of project (library vs application vs CLI tool)",
+          "prompt": "Create a README for an npm library called 'string-utils' that exports functions: capitalize, slugify, truncate. It's meant to be used as a dependency in other projects.",
+          "check": {
+            "type": "contains-all",
+            "values": ["npm", "import", "string-utils"]
+          }
+        }
+      ]
+    }
+  },
+  "scoring": {
+    "method": "weighted-average"
+  }
+}
