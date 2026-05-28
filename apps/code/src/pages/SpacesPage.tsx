@@ -1,28 +1,36 @@
 import { useState } from 'react';
 import { useSessions } from '../hooks/useSessions';
 import { useWorkspaces } from '../hooks/useWorkspaces';
-import { colors, spacing, fontFamily } from '../theme/tokens';
 import type { SessionDto } from '../services/sessionService';
 import type { WorkspaceDto } from '../services/workspaceService';
 
 type SpacesTab = 'sessions' | 'workspaces';
 
-const statusColor = (status: string): string => {
+const statusClass = (status: string): string => {
   switch (status.toLowerCase()) {
     case 'active':
     case 'running':
-      return colors.success;
+      return 'cok';
     case 'failed':
     case 'error':
-      return colors.error;
+      return 'cerr';
     case 'created':
     case 'pending':
     case 'paused':
-      return colors.accent;
+      return 'ca';
     default:
-      return colors.muted;
+      return 'c3';
   }
 };
+
+function StatusPip({ status }: { status: string }) {
+  return (
+    <span
+      className={statusClass(status)}
+      style={{ width: 8, height: 8, display: 'inline-block', background: 'currentColor', flexShrink: 0 }}
+    />
+  );
+}
 
 function SessionRow({
   session,
@@ -46,59 +54,22 @@ function SessionRow({
   };
 
   return (
-    <div style={{
-      display: 'flex',
-      alignItems: 'center',
-      gap: spacing.md,
-      padding: `${spacing.sm} ${spacing.md}`,
-      borderBottom: `1px solid ${colors.border}`,
-      fontFamily,
-    }}>
-      <span style={{
-        width: '8px',
-        height: '8px',
-        borderRadius: '50%',
-        backgroundColor: statusColor(session.status),
-        flexShrink: 0,
-      }} />
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ color: colors.fg, fontSize: '13px', fontWeight: 600 }}>
-          {session.name}
-        </div>
-        <div style={{ color: colors.muted, fontSize: '11px', marginTop: '2px' }}>
+    <div className="row gap-12" style={{ padding: '6px 14px', borderBottom: '1px dotted var(--line-soft)' }}>
+      <StatusPip status={session.status} />
+      <div className="flex-1">
+        <div className="c0 bd" style={{ fontSize: 13 }}>{session.name}</div>
+        <div className="c2" style={{ fontSize: 11, marginTop: 2 }}>
           {session.type} | {session.status} | {formatDuration(session.durationMs)}
         </div>
       </div>
-      <div style={{ display: 'flex', gap: spacing.xs }}>
+      <div className="row gap-6">
         {canStart && (
-          <button
-            onClick={onStart}
-            style={{
-              background: 'none',
-              border: `1px solid ${colors.success}`,
-              color: colors.success,
-              cursor: 'pointer',
-              padding: `2px ${spacing.sm}`,
-              fontSize: '11px',
-              fontFamily,
-            }}
-          >
+          <button onClick={onStart} className="b ok" style={{ cursor: 'pointer' }}>
             Start
           </button>
         )}
         {canStop && (
-          <button
-            onClick={onStop}
-            style={{
-              background: 'none',
-              border: `1px solid ${colors.error}`,
-              color: colors.error,
-              cursor: 'pointer',
-              padding: `2px ${spacing.sm}`,
-              fontSize: '11px',
-              fontFamily,
-            }}
-          >
+          <button onClick={onStop} className="b err" style={{ cursor: 'pointer' }}>
             Stop
           </button>
         )}
@@ -109,26 +80,11 @@ function SessionRow({
 
 function WorkspaceRow({ workspace }: { workspace: WorkspaceDto }) {
   return (
-    <div style={{
-      display: 'flex',
-      alignItems: 'center',
-      gap: spacing.md,
-      padding: `${spacing.sm} ${spacing.md}`,
-      borderBottom: `1px solid ${colors.border}`,
-      fontFamily,
-    }}>
-      <span style={{
-        width: '8px',
-        height: '8px',
-        borderRadius: '50%',
-        backgroundColor: statusColor(workspace.status),
-        flexShrink: 0,
-      }} />
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ color: colors.fg, fontSize: '13px', fontWeight: 600 }}>
-          {workspace.name}
-        </div>
-        <div style={{ color: colors.muted, fontSize: '11px', marginTop: '2px' }}>
+    <div className="row gap-12" style={{ padding: '6px 14px', borderBottom: '1px dotted var(--line-soft)' }}>
+      <StatusPip status={workspace.status} />
+      <div className="flex-1">
+        <div className="c0 bd" style={{ fontSize: 13 }}>{workspace.name}</div>
+        <div className="c2" style={{ fontSize: 11, marginTop: 2 }}>
           {workspace.type} | {workspace.status} | {workspace.sessionIds.length} sessions
         </div>
       </div>
@@ -145,89 +101,68 @@ export function SpacesPage() {
   const error = activeTab === 'sessions' ? sessionsError : workspacesError;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', fontFamily }}>
+    <div className="col" style={{ height: '100%' }}>
       {/* Sub-tabs */}
-      <div style={{
-        display: 'flex',
-        gap: spacing.sm,
-        padding: `${spacing.sm} ${spacing.md}`,
-        borderBottom: `1px solid ${colors.border}`,
-      }}>
-        <button
+      <div className="tabs">
+        <span
+          className={`tab${activeTab === 'sessions' ? ' active' : ''}`}
           onClick={() => setActiveTab('sessions')}
-          style={{
-            background: 'none',
-            border: 'none',
-            color: activeTab === 'sessions' ? colors.accent : colors.muted,
-            cursor: 'pointer',
-            fontSize: '13px',
-            fontWeight: activeTab === 'sessions' ? 700 : 400,
-            fontFamily,
-            padding: `${spacing.xs} ${spacing.sm}`,
-            borderBottom: activeTab === 'sessions' ? `2px solid ${colors.accent}` : '2px solid transparent',
-          }}
         >
           Sessions
-        </button>
-        <button
+        </span>
+        <span
+          className={`tab${activeTab === 'workspaces' ? ' active' : ''}`}
           onClick={() => setActiveTab('workspaces')}
-          style={{
-            background: 'none',
-            border: 'none',
-            color: activeTab === 'workspaces' ? colors.accent : colors.muted,
-            cursor: 'pointer',
-            fontSize: '13px',
-            fontWeight: activeTab === 'workspaces' ? 700 : 400,
-            fontFamily,
-            padding: `${spacing.xs} ${spacing.sm}`,
-            borderBottom: activeTab === 'workspaces' ? `2px solid ${colors.accent}` : '2px solid transparent',
-          }}
         >
           Workspaces
-        </button>
+        </span>
       </div>
 
       {/* Content */}
-      <div style={{ flex: 1, overflowY: 'auto' }}>
+      <div style={{ flex: 1, overflowY: 'auto', padding: 14 }}>
         {isLoading && (
-          <div style={{ padding: spacing.md, color: colors.muted, fontSize: '13px' }}>
-            Loading {activeTab}...
-          </div>
+          <div className="c2" style={{ fontSize: 13 }}>Loading {activeTab}...</div>
         )}
 
         {error && (
-          <div style={{ padding: spacing.md, color: colors.error, fontSize: '13px' }}>
-            Error: {error}
-          </div>
+          <div className="cerr" style={{ fontSize: 13 }}>Error: {error}</div>
         )}
 
         {!isLoading && !error && activeTab === 'sessions' && (
-          sessions.length === 0 ? (
-            <div style={{ padding: spacing.md, color: colors.muted, fontSize: '13px' }}>
-              No sessions found.
+          <div className="box">
+            <div className="box-title">Sessions</div>
+            <div className="box-meta">{sessions.length}</div>
+            <div className="box-body" style={{ paddingLeft: 0, paddingRight: 0 }}>
+              {sessions.length === 0 ? (
+                <div className="c2" style={{ fontSize: 13, padding: '4px 14px' }}>No sessions found.</div>
+              ) : (
+                sessions.map((session) => (
+                  <SessionRow
+                    key={session.id}
+                    session={session}
+                    onStart={() => startSession(session.id)}
+                    onStop={() => stopSession(session.id)}
+                  />
+                ))
+              )}
             </div>
-          ) : (
-            sessions.map((session) => (
-              <SessionRow
-                key={session.id}
-                session={session}
-                onStart={() => startSession(session.id)}
-                onStop={() => stopSession(session.id)}
-              />
-            ))
-          )
+          </div>
         )}
 
         {!isLoading && !error && activeTab === 'workspaces' && (
-          workspaces.length === 0 ? (
-            <div style={{ padding: spacing.md, color: colors.muted, fontSize: '13px' }}>
-              No workspaces found.
+          <div className="box">
+            <div className="box-title">Workspaces</div>
+            <div className="box-meta">{workspaces.length}</div>
+            <div className="box-body" style={{ paddingLeft: 0, paddingRight: 0 }}>
+              {workspaces.length === 0 ? (
+                <div className="c2" style={{ fontSize: 13, padding: '4px 14px' }}>No workspaces found.</div>
+              ) : (
+                workspaces.map((workspace) => (
+                  <WorkspaceRow key={workspace.id} workspace={workspace} />
+                ))
+              )}
             </div>
-          ) : (
-            workspaces.map((workspace) => (
-              <WorkspaceRow key={workspace.id} workspace={workspace} />
-            ))
-          )
+          </div>
         )}
       </div>
     </div>
