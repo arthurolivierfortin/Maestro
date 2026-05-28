@@ -12,7 +12,7 @@
 - [x] [SPEC-4] [code-app] `Header.tsx`: render `.term-title` (`.wm` `▌MAESTRO`, `.sep`, version label, `.mid` session/context, `.right` online `.pip` + tier + model) and a `.tabs` row of `.tab` items with `.n` key numbers and `.active` on the current page. Remove inline color/layout styles. — `apps/code/src/components/Header.tsx`
 - [x] [SPEC-5] [code-app] `StatusBar.tsx`: render `.status` line with a `.mode` badge (`NORMAL`), `.k` keybind hints separated by `.sep`, and the backend connection state shown via a status pip + label using theme color vars (ok/err/muted). Remove inline color/layout styles. — `apps/code/src/components/StatusBar.tsx`
 - [x] [SPEC-6] [code-app] `ChatMessage.tsx`: render `.line` with role class `user`/`agent`, a `.ts` slot, `.pre` prefix (`❯` for user), `.body` for content, and `.caret` when `isStreaming`. Remove inline color styles + the legacy `.streaming-cursor` usage. — `apps/code/src/components/ChatMessage.tsx`
-- [ ] [SPEC-7] [code-app] `ConsolePage.tsx`: wrap the message list in `.conv`; render `ChatInput` inside the `.cmdline` vocabulary region; remove ad-hoc flex/padding/color inline styles (keep dynamic-only inline styles if any). Empty/error states use theme color classes. — `apps/code/src/pages/ConsolePage.tsx`
+- [x] [SPEC-7] [code-app] `ConsolePage.tsx`: wrap the message list in `.conv`; render `ChatInput` inside the `.cmdline` vocabulary region; remove ad-hoc flex/padding/color inline styles (keep dynamic-only inline styles if any). Empty/error states use theme color classes. — `apps/code/src/pages/ConsolePage.tsx`
 - [ ] [SPEC-8] [code-app] `ChatInput.tsx`: restyle with `.cmdline`/`.prompt` vocabulary (prompt glyph + theme-colored textarea using CSS vars, focus border `--ac`), preserving all existing handlers (send, slash autocomplete, Enter/Shift+Enter, disabled-while-loading). Remove the hardcoded hex inline colors. — `apps/code/src/components/ChatInput.tsx`
 
 ## Tests
@@ -23,7 +23,7 @@
 - [x] [TEST-4] Header renders `.term-title` with `.wm` brand and `.tabs` with the active tab carrying the `.active` class on the current page. — `apps/code/src/components/__tests__/Header.test.tsx`
 - [x] [TEST-5] StatusBar renders `.status` with a `.mode` element and reflects connected/disconnected state. — `apps/code/src/components/__tests__/StatusBar.test.tsx`
 - [x] [TEST-6] ChatMessage renders `.line.user` for a user message (with `.pre`) and `.line.agent` for assistant, and a `.caret` when `isStreaming`. — `apps/code/src/components/__tests__/ChatMessage.test.tsx`
-- [ ] [TEST-7] ConsolePage renders a `.conv` container wrapping the messages. — `apps/code/src/pages/__tests__/ConsolePage.test.tsx`
+- [x] [TEST-7] ConsolePage renders a `.conv` container wrapping the messages. — `apps/code/src/pages/__tests__/ConsolePage.test.tsx`
 - [ ] [TEST-8] ChatInput renders the `.cmdline` vocabulary and still calls `onSend`/`onSlashCommand` on Enter (behavior preserved). — `apps/code/src/components/__tests__/ChatInput.test.tsx`
 
 ## Database / Migrations
