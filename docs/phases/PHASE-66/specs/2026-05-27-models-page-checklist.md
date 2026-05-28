@@ -27,5 +27,5 @@
 - [ ] [BLOCK-0] None
 
 ## Verification gates (6 layers TESTING-PROTOCOL)
-- [ ] [GATE-1] Layer 1 Type Check : `cd apps/code && npx tsc --noEmit`
-- [ ] [GATE-2] Layer 2 Unit Tests : `cd apps/code && npm test`
+- [x] [GATE-1] Layer 1 Type Check : `cd apps/code && npx tsc --noEmit`
+- [x] [GATE-2] Layer 2 Unit Tests : `cd apps/code && npm test`
