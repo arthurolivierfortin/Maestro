@@ -5,30 +5,14 @@ import { NewSessionForm } from '../components/NewSessionForm';
 import { SessionDetail } from '../components/SessionDetail';
 import type { SessionDto } from '../services/sessionService';
 import type { WorkspaceDto } from '../services/workspaceService';
+import { canStart as statusCanStart, canStop as statusCanStop, statusColorClass } from '../services/sessionStatus';
 
 type SpacesTab = 'sessions' | 'workspaces';
-
-const statusClass = (status: string): string => {
-  switch (status.toLowerCase()) {
-    case 'active':
-    case 'running':
-      return 'cok';
-    case 'failed':
-    case 'error':
-      return 'cerr';
-    case 'created':
-    case 'pending':
-    case 'paused':
-      return 'ca';
-    default:
-      return 'c3';
-  }
-};
 
 function StatusPip({ status }: { status: string }) {
   return (
     <span
-      className={statusClass(status)}
+      className={statusColorClass(status)}
       style={{ width: 8, height: 8, display: 'inline-block', background: 'currentColor', flexShrink: 0 }}
     />
   );
@@ -45,9 +29,8 @@ function SessionRow({
   onStop: () => void;
   onSelect: () => void;
 }) {
-  const isActive = session.status.toLowerCase() === 'active';
-  const canStart = ['created', 'stopped'].includes(session.status.toLowerCase());
-  const canStop = isActive;
+  const showStart = statusCanStart(session.status);
+  const showStop = statusCanStop(session.status);
 
   const formatDuration = (ms?: number): string => {
     if (!ms) return '-';
@@ -76,12 +59,12 @@ function SessionRow({
         </div>
       </div>
       <div className="row gap-6">
-        {canStart && (
+        {showStart && (
           <button onClick={stop(onStart)} className="b ok" style={{ cursor: 'pointer' }}>
             Start
           </button>
         )}
-        {canStop && (
+        {showStop && (
           <button onClick={stop(onStop)} className="b err" style={{ cursor: 'pointer' }}>
             Stop
           </button>

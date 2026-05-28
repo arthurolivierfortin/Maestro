@@ -1,21 +1,11 @@
 import type { SessionDto } from '../services/sessionService';
-
-const statusClass = (status: string): string => {
-  switch (status.toLowerCase()) {
-    case 'active':
-    case 'running':
-      return 'ok';
-    case 'failed':
-    case 'error':
-      return 'err';
-    case 'created':
-    case 'pending':
-    case 'paused':
-      return 'ac';
-    default:
-      return '';
-  }
-};
+import {
+  canStart as statusCanStart,
+  canStop as statusCanStop,
+  canPause as statusCanPause,
+  canResume as statusCanResume,
+  statusColorClass,
+} from '../services/sessionStatus';
 
 function Field({ label, value }: { label: string; value: string | number }) {
   return (
@@ -45,17 +35,16 @@ export function SessionDetail({
   onDelete: (id: string) => void;
   onClose: () => void;
 }) {
-  const status = session.status.toLowerCase();
-  const canStart = ['created', 'stopped'].includes(status);
-  const canPause = status === 'active';
-  const canResume = status === 'paused';
-  const canStop = ['active', 'paused'].includes(status);
+  const showStart = statusCanStart(session.status);
+  const showPause = statusCanPause(session.status);
+  const showResume = statusCanResume(session.status);
+  const showStop = statusCanStop(session.status);
 
   return (
     <div className="box" style={{ marginTop: 16 }}>
       <div className="box-title">{session.name}</div>
       <div className="box-meta">
-        <span className={`b ${statusClass(session.status)}`}>{session.status}</span>
+        <span className={`b ${statusColorClass(session.status)}`}>{session.status}</span>
       </div>
       <div className="box-body">
         <Field label="Type" value={session.type} />
@@ -65,16 +54,16 @@ export function SessionDetail({
         <Field label="Created" value={session.createdAt} />
 
         <div className="row gap-8" style={{ marginTop: 12, flexWrap: 'wrap' }}>
-          {canStart && (
+          {showStart && (
             <button onClick={() => onStart(session.id)} className="b ok" style={{ cursor: 'pointer' }}>Start</button>
           )}
-          {canPause && (
+          {showPause && (
             <button onClick={() => onPause(session.id)} className="b ac" style={{ cursor: 'pointer' }}>Pause</button>
           )}
-          {canResume && (
+          {showResume && (
             <button onClick={() => onResume(session.id)} className="b ok" style={{ cursor: 'pointer' }}>Resume</button>
           )}
-          {canStop && (
+          {showStop && (
             <button onClick={() => onStop(session.id)} className="b err" style={{ cursor: 'pointer' }}>Stop</button>
           )}
           <button onClick={() => onDelete(session.id)} className="b err" style={{ cursor: 'pointer' }}>Delete</button>

@@ -56,6 +56,21 @@ describe('SessionDetail', () => {
     expect(screen.queryByText('Pause')).toBeNull();
   });
 
+  it('shows both Start and Stop for an idle session (real backend status)', () => {
+    renderDetail({ ...base, status: 'idle' });
+    expect(screen.queryByText('Start')).not.toBeNull();
+    expect(screen.queryByText('Stop')).not.toBeNull();
+    expect(screen.queryByText('Pause')).toBeNull();
+    expect(screen.queryByText('Resume')).toBeNull();
+  });
+
+  it('shows Stop (not Start) for a running session', () => {
+    renderDetail({ ...base, status: 'running' });
+    expect(screen.queryByText('Stop')).not.toBeNull();
+    expect(screen.queryByText('Pause')).not.toBeNull();
+    expect(screen.queryByText('Start')).toBeNull();
+  });
+
   it('calls onDelete with the session id and onClose', () => {
     const handlers = renderDetail(base);
     fireEvent.click(screen.getByText('Delete'));
