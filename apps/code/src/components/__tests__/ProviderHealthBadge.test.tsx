@@ -8,7 +8,7 @@ describe('ProviderHealthBadge', () => {
 
     expect(screen.getByText('healthy')).toBeDefined();
     const dot = screen.getByTestId('health-dot');
-    expect(dot.style.backgroundColor).toBe('rgb(76, 175, 80)');
+    expect(dot.style.backgroundColor).toBe('rgb(184, 229, 122)');
   });
 
   it('renders yellow dot for "degraded" status', () => {
@@ -16,7 +16,7 @@ describe('ProviderHealthBadge', () => {
 
     expect(screen.getByText('degraded')).toBeDefined();
     const dot = screen.getByTestId('health-dot');
-    expect(dot.style.backgroundColor).toBe('rgb(255, 179, 0)');
+    expect(dot.style.backgroundColor).toBe('rgb(255, 208, 137)');
   });
 
   it('renders red dot for "unhealthy" status', () => {
@@ -24,7 +24,7 @@ describe('ProviderHealthBadge', () => {
 
     expect(screen.getByText('unhealthy')).toBeDefined();
     const dot = screen.getByTestId('health-dot');
-    expect(dot.style.backgroundColor).toBe('rgb(255, 82, 82)');
+    expect(dot.style.backgroundColor).toBe('rgb(255, 107, 74)');
   });
 
   it('renders red dot for "unknown" status', () => {
@@ -32,6 +32,6 @@ describe('ProviderHealthBadge', () => {
 
     expect(screen.getByText('unknown')).toBeDefined();
     const dot = screen.getByTestId('health-dot');
-    expect(dot.style.backgroundColor).toBe('rgb(255, 82, 82)');
+    expect(dot.style.backgroundColor).toBe('rgb(255, 107, 74)');
   });
 });
