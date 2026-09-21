@@ -1,22 +1,20 @@
+<!-- core-project
+nom: Meastro
+categorie: perso
+github: arthurolivierfortin/Meastro
+publication_branch: main
+work_branch: dev
+stack: dotnet+react+docker
+gates:
+  - id: GATE-1  name: build  cmd: dotnet build apps/backend/Maestro.sln
+  - id: GATE-2  name: test  cmd: dotnet test apps/backend/Maestro.sln
+ux_verifier: enabled
+derogations: []
+-->
+
 # Claude Code Guidelines for Maestro
 
 This document establishes the philosophy, architecture principles, and development practices for the Maestro project.
-
-## Communication Style
-
-**Be critical and honest.** When something in the codebase is poorly designed, badly documented, inconsistent, or missing — say so directly. Don't sugarcoat problems or avoid pointing out gaps. If a guide exists but isn't referenced, say it. If the architecture says one thing but the code does another, flag it. The user values honest assessment over diplomatic silence.
-
-When asked for an opinion, give a real one with reasoning. Don't hedge with "it depends" unless it genuinely does. If there are tradeoffs, name them concretely.
-
-## Agent Execution Protocol (MANDATORY)
-
-**When executing a phase**, read and follow `docs/system/AGENT-PROTOCOL.md`. This protocol defines:
-- How to start (load context, read checkpoint)
-- How to checkpoint progress
-- Anti-hallucination rules (verify before claiming done)
-- Memory management and handoff between sessions
-
-**When creating a new phase plan**, use the template in `docs/system/PHASE-TEMPLATE.md`.
 
 ## No Legacy Support (MANDATORY)
 
@@ -46,31 +44,12 @@ When asked for an opinion, give a real one with reasoning. Don't hedge with "it 
 
 **NEVER create a session to "test" Maestro infrastructure.** To verify backend fixes, use `curl` or API calls directly.
 
-## Maestro Development Workflow — `/cycle` (MANDATORY for autonomous dev)
+## Soft split SDK / Code app (décision 2026-05-22)
 
-> **Full reference**: `docs/system/CYCLE.md` (anti-patterns + verdict JSON schemas)
-
-When developing Maestro itself (not USING Maestro on a target project), use the `/cycle` workflow:
-
-- **`/cycle-start`** — Brainstorm a new feature with the user in main thread, dispatch `spec-writer` to produce spec + machine-readable checklist (`[SPEC-N]`/`[TEST-N]`/`[GATE-N]`), create GitHub issue.
-- **`/cycle`** — Pick the next issue, dispatch `researcher` → `builder` → `judge` (2-stage) → `tui-verifier` (if UI touched), merge if approved. Cap retry 2x.
-
-**5 agents** in `.claude/agents/`: `spec-writer`, `researcher`, `builder`, `judge`, `tui-verifier`.
-
-**Adaptations Maestro-specific** vs Marcel/TODO source pattern:
-- 6 layers TESTING-PROTOCOL.md enforced in judge Stage 2 (pas juste vitest)
-- `tui-verifier` utilise `tui-dogfood` MCP (pas Playwright)
-- Stage 1 du judge inclut Cardinal Rule litmus test + No Legacy Support check
-- Tags `[sdk]` vs `[code-app]` sur chaque SPEC (préparation soft split V2 Phase 71-72)
-- Provider verification (1 API call <5s vers LLM-Provider :5010) avant tout workflow agent
-
-**Soft split SDK / Code app** (décision 2026-05-22):
 - `[sdk]` = `apps/backend/`, `llm-provider/`, `content/system/blocks/` génériques, contracts canoniques
 - `[code-app]` = `packages/maestro-code/`, app-specific blocks, `packages/maestro-cli/` user ops
 - Direction de dépendance: code-app → SDK, JAMAIS l'inverse
 - Hard split en packages npm/NuGet planifié Phase 71-72 (V2)
-
-**Anciens skills à déprécier après validation `/cycle`** : `dev-cycle`, `think`, `build`, `review`. Garder `/improve`, `/dev-loop`, `/quality-gate`, `/health`, `/startup` (purposes différents — autonomous improvement TUI, pas dev cycle).
 
 ## Session & Workspace Rules (MANDATORY)
 
@@ -210,7 +189,7 @@ The TUI dogfood MCP server (`tui-dogfood`) enables autonomous observation and im
 
 **Slash commands**:
 - `/improve` — One cycle: observe all pages, analyze issues, fix the top one, validate visually. References `AGENT-PROTOCOL.md` and `TESTING-PROTOCOL.md`.
-- `/dev-loop` — Wrapper for `/loop 10m /improve`. Runs continuous improvement cycles with one-sentence summaries.
+- `/improve-loop` — Wrapper for `/loop 10m /improve`. Runs continuous improvement cycles with one-sentence summaries.
 - `/quality-gate` — Quick 5-check gate (TUI starts, navigation works, input works, scroll works, help overlay). PASS/FAIL verdict.
 
 **MCP tools** (from `tui-dogfood` server in `.mcp.json`):
@@ -290,10 +269,3 @@ The principle applies to the **execution engine only**, not to all code:
 ### Self-Hosting Timeline
 
 Maestro building itself = Phase 49-50. NOT a V1 concern. Build maestro-code in normal code (React/Ink/TypeScript). The agent block running INSIDE maestro-code is a block. The TUI is not.
-
-## Commit Guidelines
-
-1. Run all tests before committing
-2. Note any intentional test changes in commit message
-3. Do not commit if new tests are failing (unless pre-existing failures)
-4. **NEVER add `Co-Authored-By` lines or any AI attribution in commit messages** — commits are authored by the user, not the AI
