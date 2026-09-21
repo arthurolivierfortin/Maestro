@@ -26,7 +26,7 @@ Initialize the Maestro autonomous development system.
 
 4. Schedule **Dev cycle** (every 15 min):
    ```
-   /loop 15m /cycle
+   /loop 15m /dev-loop
    ```
 
 5. Run initial /health to show current state.

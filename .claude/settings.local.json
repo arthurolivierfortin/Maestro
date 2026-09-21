@@ -16,8 +16,8 @@
       "mcp__tui-dogfood__tui_wait"
     ],
     "additionalDirectories": [
-      "C:\\Meastro\\llm-provider",
-      "C:\\Cantante"
+      "C:/Projects/Perso/Meastro/llm-provider",
+      "C:/Projects/Perso/Cantante"
     ]
   },
   "enableAllProjectMcpServers": true,

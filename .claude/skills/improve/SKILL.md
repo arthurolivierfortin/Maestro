@@ -18,14 +18,14 @@ If busy → say "Improvement cycle already running. Skipping." and STOP.
 Run /health to identify the top issue.
 
 ### Step 2: Fix
-Spawn @dev-agent to fix the top issue:
+Dispatch l'agent builder (socle dev-kit) to fix the top issue:
 - If build fails → fix compilation errors
 - If tests fail → fix failing tests
 - If service down → check logs, fix config
 - If deploy failed → check deploy.log, fix the issue
 
 ### Step 3: Verify
-Run @code-quality to confirm the fix:
+Run l'agent judge (socle dev-kit) to confirm the fix:
 - Build passes
 - Tests pass
 - No regressions
