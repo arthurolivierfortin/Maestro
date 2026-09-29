@@ -3,6 +3,9 @@
 **Derniere mise a jour** : 2026-05-22 (pivot post-Hermes analysis + Chemin C frontend)
 **Version actuelle** : v0.1.0-alpha (tag sur main)
 
+
+> **Reprise (2026-09-29) : lire d'abord `docs/REPRISE-2026-09-29-moteur.md`.** Maestro est repositionné sur le moteur seul (contrat → construire, tester, optimiser) ; l'interface et le produit sont gelés ; jalons E0 à E5. Ce ROADMAP reste la référence historique des phases 4 à 82.
+
 ---
 
 ## Vision strategique (2026-05-22)
