@@ -197,6 +197,91 @@ Notes on Determinism.
   field disguised as D1 (see the retry cause in §1.1).
 - D3 does not mean "no model". It means the model is used only where judgement is the job.
 
+#### Technique: protocolized judgment
+
+Some outputs require a judgement that no script can give: the quality of a change, the soundness of
+an architecture, how well a result fits the need, the craft of an interface. D3 is out of reach for
+those, because the judgement is the job. **Protocolized judgment** is the technique that reduces the
+model's variance on such outputs without removing the judgement: the model follows the same precise
+recipe every time, so that two runs on the same input differ only where the judgement itself is
+uncertain.
+
+The recipe has eight parts. All eight are required to claim the technique.
+
+| # | Part | What it fixes | Proof |
+|---|---|---|---|
+| 1 | **Fixed inputs, collected in a fixed order** | The judge reads the same artefacts, in the same order, and is told what it must not read. | Input list and reading order in the judge's definition; the "do not read" list. |
+| 2 | **Defined axes with closed questions** | Each axis is broken into yes/no questions that the judge ticks one by one, instead of one global impression. | The grid file with its axes and questions. |
+| 3 | **An anchored scale** | Each level of each axis has a written description and one example, so that "3" means the same thing on every run. | The grid file: one description and one example per level. |
+| 4 | **Observations, then reasoning, then score, in that order** | The judge records what it saw before it argues, and argues before it scores. The score cannot come first and be justified afterwards. | Output schema with the three fields in that order; the judge's instructions. |
+| 5 | **Mandatory, cited evidence** | Every score cites `file:line`, a command and its output, or a measured count. Tools provide the evidence; they do not provide the score. | Schema pattern on the evidence field; a recorded rejection of a score without evidence. |
+| 6 | **Typed output** | The verdict is validated against a schema; scores are bounded integers, axes are an enumeration (D1 and D2 for the verdict's shape). | Schema file and validator. |
+| 7 | **Double pass on a sample, with measured agreement** | On a fixed share of items, the judgement runs twice (two runs of the same judge, or two judges) and the agreement is measured per axis. Under a declared threshold, the grid is revised, not the score. | The agreement measure, its threshold, and the log of grid revisions it triggered. |
+| 8 | **A versioned grid, linked to the environment fingerprint** | Every score records the grid version, and the grid version is part of the fingerprint, so that scores from different grids are never compared as if they were one series. | Grid version in each record; grid version in the fingerprint keys. |
+
+**Where it sits in the levels.** Protocolized judgment lets a judgement output reach **D2**: the acting
+fields (axis, score, evidence) are closed, bounded and checked, and the free reasoning is confined to
+a field that nothing acts on. It does **not** reach D3, and a card must not claim D3 for it: the score
+is still produced by a model. Two consequences follow. First, every part of the judgement that a tool
+can compute is moved out of it (part 5 is the boundary: tools give evidence and, where they can, the
+score itself, as in D3). Second, consistency is not validity. A judge can agree with itself perfectly
+and still not predict what matters; part 7 measures the first, and only an outcome measure (§2.5)
+measures the second.
+
+**Example: the dev-kit quality evaluator.** The `evaluator` agent scores each closed task on five
+axes, 1 to 4, each with its evidence (`C:/Projects/dev-kit/adapters/claude/agents/evaluator.md`,
+description). Against the eight parts, at grid q3.1:
+
+| # | Part | In the evaluator | Status |
+|---|---|---|---|
+| 1 | Fixed inputs, fixed order | Closed input list, files read at the PR head one git command at a time, and an explicit "do not read" list that hides the builder's model: "a score rests on the diff and the artefacts, never on the author" (`evaluator.md`, sections "Entrée" and "Ce que tu ne lis pas", lines 25 to 52). | Met |
+| 2 | Axes and closed questions | Five axes in a fixed order (`telemetry/grille-qualite.md`, "Dimensions", lines 15 to 23); for each axis the criteria of levels 1, 2 and 3 are checked in that order and the score is the first criterion met, 4 if none (`evaluator.md`, "Méthode", step 2). | Met |
+| 3 | Anchored scale | Each level has a written criterion, mostly a count (for example `conformite`, `grille-qualite.md`, lines 73 to 76). No worked example per level. | Partly met |
+| 4 | Observations, reasoning, score | The output carries a score and its evidence (`evaluator.md`, "Sortie"), but no separate observation and reasoning fields in that order. | Not met |
+| 5 | Evidence | Every score cites `file:line`, a command prefixed by `$`, or "non évaluable : …"; a score without evidence is forbidden (`schemas/evaluation-verdict.schema.json`, `preuve` pattern; `evaluator.md`, "Interdits"). Three axes are computed by `quality_rules.py` and copied unchanged (`evaluator.md`, lines 100 to 127): for those, the tool gives the score, which is better than the technique requires. | Met |
+| 6 | Typed output | `schemas/evaluation-verdict.schema.json`: axis enumeration, status enumeration, grid version pattern `^q[0-9]+(\.[0-9]+)?$`, pinned model pattern. | Met |
+| 7 | Double pass and agreement | No double pass or agreement measure found. | Not met |
+| 8 | Versioned grid in the fingerprint | `grille_qualite` is a fingerprint key (`scripts/tool_versions.py`, `ENVIRONMENT_KEYS`); the measurement window declares `q3.1` (`telemetry/fenetres.json`); q3.1 was introduced as a numbered rectification so that scores before and after stay separable (`ADR-DEVKIT-0031`). | Met |
+
+So the evaluator follows the recipe on six parts out of eight, and the two missing parts are the
+ones that would make its variance visible. The bilan also shows the limit named above: no q3 score
+separated the PRs that later had a defect from the others (`revue-rapport.md`, §1.1, ADR-0008 row).
+The proposed q4 goes further in the direction of this technique: tools produce the numbers, and the
+model only answers seven closed yes/no questions with `file:line` evidence, weighted 5 % of the
+composite (`C:/Projects/cockpit/docs/bilan/2026-10-05/grille-rapport.md`, Recommendation). Adding
+parts 4 and 7 to q4 is the next step.
+
+**Public sources.** The technique combines practices that are documented in public work. All were read
+on 2026-10-06.
+
+- G-Eval uses "large language models with chain-of-thoughts (CoT) and a form-filling paradigm, to
+  assess the quality of NLG outputs", and reports "a Spearman correlation of 0.514 with human on
+  summarization task" (Liu et al., *G-Eval: NLG Evaluation using GPT-4 with Better Human Alignment*,
+  arXiv:2303.16634, https://arxiv.org/abs/2303.16634). It supports parts 2 and 4: fixed evaluation
+  steps, filled in as a form.
+- Prometheus evaluates "based on customized score rubric provided by the user", works best "when the
+  appropriate reference materials (reference answer, score rubric) are accompanied", and reports a
+  Pearson correlation of 0.897 with human evaluators on 45 customized rubrics (Kim et al.,
+  *Prometheus: Inducing Fine-grained Evaluation Capability in Language Models*, arXiv:2310.08491,
+  https://arxiv.org/abs/2310.08491). It supports part 3: a scale whose levels are described.
+- CheckEval "improves rating reliability via decomposed binary questions", reports that it improves
+  "the average agreement across evaluator models by 0.45 and reduces the score variance", and notes
+  that its scores are "more interpretable because it decomposes evaluation criteria into traceable
+  binary decisions" (Lee et al., *CheckEval: A reliable LLM-as-a-Judge framework for evaluating text
+  generation using checklists*, arXiv:2403.18771, https://arxiv.org/abs/2403.18771). It supports parts
+  2 and 7.
+- Anthropic, *Demystifying evals for AI agents* (2026-01-09): model-based graders are
+  "Non-deterministic" and "More expensive than code"; "LLM-based rubrics should be frequently
+  calibrated against expert human judgment"; and "it can also help to create clear, structured rubrics
+  to grade each dimension of a task, and then grade each dimension with an isolated LLM-as-judge
+  rather than using one to grade all dimensions"
+  (https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents). It supports parts 2, 7 and
+  the rule that tools come first.
+- Anthropic, *Define success criteria and build evaluations*: its model-graded examples note that it
+  is "Generally best practice to use a different model to evaluate than the model used to generate
+  the evaluated output" (https://platform.claude.com/docs/en/test-and-evaluate/develop-tests). It
+  supports part 1: the judge is not the producer.
+
 ### 2.3 Isolation
 
 Isolation answers one question: if the agent does the worst thing its tools allow, what is hit?
@@ -417,6 +502,8 @@ cumulative rule (§2.1) means a missing low level makes the high-level work invi
    number, a pattern or a checked reference.
 2. When a field cannot be closed, say so in the schema description and make sure no code parses it.
 3. Make the absence of a value explicit (`null`), and decide what absence means at read time.
+4. When the output is a judgement that no script can give, apply protocolized judgment (§2.2):
+   it is the route to D2 for judgement outputs.
 
 **What we met.**
 - *A missing cause read as a defect.* The retry event had only a counter; a retry caused by a
@@ -1145,6 +1232,8 @@ Credentials: <environment variable name only, never the value>
 | Id | Check | Type (deterministic, model-judged) | Applies to | Required rate over N |
 |---|---|---|---|---|
 Deterministic checks run before any model-judged check.
+Model-judged checks follow protocolized judgment (§2.2): grid path <...>, grid version <...>,
+double-pass share <...>, agreement threshold <...>.
 
 ## Budget
 Max cost per run: <amount>   Max latency p90: <seconds>   Max cost of the proof (§5.2): <amount>
@@ -1339,6 +1428,14 @@ All read on 2026-10-06. Only statements that were verified on the page are cited
    https://www.anthropic.com/legal/commercial-terms
 7. Hugging Face, *SmolLM2-1.7B-Instruct* model card, licence Apache 2.0.
    https://huggingface.co/HuggingFaceTB/SmolLM2-1.7B-Instruct
+8. Y. Liu et al., *G-Eval: NLG Evaluation using GPT-4 with Better Human Alignment*, arXiv:2303.16634.
+   https://arxiv.org/abs/2303.16634
+9. S. Kim et al., *Prometheus: Inducing Fine-grained Evaluation Capability in Language Models*,
+   arXiv:2310.08491. https://arxiv.org/abs/2310.08491
+10. Y. Lee et al., *CheckEval: A reliable LLM-as-a-Judge framework for evaluating text generation
+    using checklists*, arXiv:2403.18771. https://arxiv.org/abs/2403.18771
+11. Anthropic, *Demystifying evals for AI agents* (2026-01-09).
+    https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents
 
 ### 9.2 Internal sources
 
