@@ -5,6 +5,10 @@
 ### For AI Agents
 Start here: [`CLAUDE.md`](../CLAUDE.md) → [`system/`](system/README.md) → topic-specific docs
 
+Before building, running or optimising any agent workflow, read the
+[Agent Workflow Protocol](protocol/agent-workflow-protocol.md): classification, the four-dimension
+level model, and the "prove feasibility, then optimise" rule.
+
 ### For Developers
 Start here: [`system/architecture/`](system/architecture/README.md) → then the area you're working on
 
@@ -40,6 +44,8 @@ docs/
 │
 ├── concepts/                ML/AI theory and foundational knowledge
 │
+├── protocol/                Agent Workflow Protocol (classification, levels, optimisation)
+│
 ├── operations/              Deployment, Docker, security
 │
 └── archive/                 Completed/outdated documents
@@ -61,4 +67,5 @@ docs/
 | Frontend / Canvas | `tools/frontend/` |
 | Phase 28 (current) | `phases/PHASE-28/ROADMAP-V3.md` |
 | Core Philosophy | `system/philosophy/MAESTRO-PHILOSOPHY.md` |
+| Agent workflow levels, classification, optimisation | `protocol/agent-workflow-protocol.md` |
 | Design Decisions | `system/design-decisions/` |
